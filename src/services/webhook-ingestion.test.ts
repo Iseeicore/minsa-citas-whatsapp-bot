@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConversationQueue } from "../ports/conversation-queue.js";
+import { QueueUnavailableError } from "../domain/errors.js";
 import { createWebhookIngestionService } from "./webhook-ingestion.js";
 
 function fakeQueue(add: ReturnType<typeof vi.fn>): ConversationQueue {
@@ -18,10 +19,25 @@ describe("createWebhookIngestionService", () => {
     expect(add).toHaveBeenCalledWith("inbound-event", event);
   });
 
-  it("propagates the queue's rejection to the caller (translated to 503 by the controller)", async () => {
-    const add = vi.fn().mockRejectedValue(new Error("queue unreachable"));
+  it("wraps a DAO rejection in a QueueUnavailableError, preserving the original cause (D9 — the centralized error handler maps this to 503)", async () => {
+    const originalError = new Error("queue unreachable");
+    const add = vi.fn().mockRejectedValue(originalError);
     const service = createWebhookIngestionService({ queue: fakeQueue(add) });
 
-    await expect(service.ingest({ entry: [] })).rejects.toThrow("queue unreachable");
+    const rejection = await service.ingest({ entry: [] }).catch((err: unknown) => err);
+
+    expect(rejection).toBeInstanceOf(QueueUnavailableError);
+    expect((rejection as QueueUnavailableError).cause).toBe(originalError);
+  });
+
+  it("wraps a different DAO rejection too — proves the wrapping is generic, not hardcoded to one message", async () => {
+    const originalError = new Error("ETIMEDOUT");
+    const add = vi.fn().mockRejectedValue(originalError);
+    const service = createWebhookIngestionService({ queue: fakeQueue(add) });
+
+    const rejection = await service.ingest({ entry: [{ id: "x" }] }).catch((err: unknown) => err);
+
+    expect(rejection).toBeInstanceOf(QueueUnavailableError);
+    expect((rejection as QueueUnavailableError).cause).toBe(originalError);
   });
 });

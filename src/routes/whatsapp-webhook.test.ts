@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "../app.js";
 import { config } from "../config.js";
 import { createLogger } from "../logger.js";
+import { QueueUnavailableError } from "../domain/errors.js";
 import type { WebhookIngestionService } from "../services/webhook-ingestion.js";
 import { verifySignature } from "./whatsapp-webhook.js";
 
@@ -57,9 +58,14 @@ describe("whatsapp-webhook", () => {
   });
 
   describe("POST /webhook/whatsapp guarded enqueue", () => {
-    it("responds 503 and logs with event context (via the shared pino stream) when ingestion rejects", async () => {
+    // D9: the route no longer catches this rejection inline — it propagates
+    // to Fastify's centralized error handler, which owns both the log line
+    // and the status code. The log line is therefore error-handler.ts's own
+    // ("Unhandled route error"), not the route's former bespoke
+    // { event: "inbound-event" } line.
+    it("responds 503 and the rejection reaches the centralized error handler (via the shared pino stream), not a route-level catch", async () => {
       const { logger, lines } = collectingLogger();
-      const ingest = vi.fn().mockRejectedValue(new Error("queue unreachable"));
+      const ingest = vi.fn().mockRejectedValue(new QueueUnavailableError("dao rejected"));
       const app = await buildApp({ logger, ingestion: fakeIngestion(ingest) });
 
       const rawBody = JSON.stringify({ entry: [] });
@@ -73,11 +79,12 @@ describe("whatsapp-webhook", () => {
       });
 
       expect(response.statusCode).toBe(503);
+      expect(response.json()).toEqual({ error: "service_unavailable", requestId: expect.any(String) });
 
-      const errorLine = lines().find((entry) => entry.event === "inbound-event");
+      const errorLine = lines().find((entry) => entry.msg === "Unhandled route error");
       expect(errorLine).toBeDefined();
       expect(errorLine.level).toBe(50); // pino "error"
-      expect(errorLine.err.message).toBe("queue unreachable");
+      expect(errorLine.err.name).toBe("QueueUnavailableError");
       expect(errorLine.reqId).toEqual(expect.any(String));
     });
 

@@ -1,8 +1,9 @@
 import Fastify, { type FastifyBaseLogger } from "fastify";
 import { describe, expect, it, vi } from "vitest";
-import { errorHandler } from "./error-handler.js";
+import { errorHandler, statusFor } from "./error-handler.js";
 import { buildApp as buildRealApp } from "./app.js";
 import { logger } from "./logger.js";
+import { MalformedPayloadError, QueueUnavailableError } from "./domain/errors.js";
 import type { WebhookIngestionService } from "./services/webhook-ingestion.js";
 
 function fakeLogger(): FastifyBaseLogger {
@@ -71,7 +72,7 @@ describe("errorHandler", () => {
   // exercise errorHandler in isolation and stay correct as-is; this proves
   // the handler is really wired into the shared composition root, not just
   // a hand-built mini app with the same setErrorHandler call.
-  it("is really wired in buildApp: a malformed-JSON body reaches the shared error handler", async () => {
+  it("is really wired in buildApp: a malformed-JSON body reaches the shared error handler as 400, not 500 (D10 row 7 fix)", async () => {
     const ingestion: WebhookIngestionService = { ingest: vi.fn() };
     const app = await buildRealApp({ logger, ingestion });
 
@@ -82,7 +83,40 @@ describe("errorHandler", () => {
       payload: "{not-json",
     });
 
+    expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body).toEqual({ error: "internal_error", requestId: expect.any(String) });
+    expect(body).toEqual({ error: "malformed_payload", requestId: expect.any(String) });
+  });
+});
+
+// D9: statusFor() is the one greppable place that decides an HTTP status
+// from an error. instanceof, never a `code` string lookup — ioredis errors
+// already carry `code: "ECONNREFUSED"`, so a string-table match would
+// eventually collide with a dependency's own error codes.
+describe("statusFor", () => {
+  it("maps QueueUnavailableError to 503", () => {
+    expect(statusFor(new QueueUnavailableError("dao rejected"))).toBe(503);
+  });
+
+  it("maps MalformedPayloadError to 400", () => {
+    expect(statusFor(new MalformedPayloadError("bad json"))).toBe(400);
+  });
+
+  it("passes through a Fastify-shaped 4xx error's own statusCode", () => {
+    const err = Object.assign(new Error("bad request body"), { statusCode: 422 });
+    expect(statusFor(err)).toBe(422);
+  });
+
+  it("maps a bare Error with no statusCode to 500", () => {
+    expect(statusFor(new Error("boom"))).toBe(500);
+  });
+
+  it("maps an ioredis-shaped error with code ECONNREFUSED to 500, not 503 — guards the instanceof-not-string-code decision", () => {
+    const ioredisErr = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:6399"), {
+      code: "ECONNREFUSED",
+      errno: -4078,
+      syscall: "connect",
+    });
+    expect(statusFor(ioredisErr)).toBe(500);
   });
 });

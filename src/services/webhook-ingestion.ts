@@ -1,7 +1,12 @@
 import type { ConversationQueue } from "../ports/conversation-queue.js";
+import { QueueUnavailableError } from "../domain/errors.js";
 
 export interface WebhookIngestionService {
-  /** Rejects when the event could not be accepted; the controller maps that to 503. */
+  /**
+   * Throws a QueueUnavailableError (D9) when the event could not be
+   * accepted — the controller does NOT catch this; it propagates to
+   * Fastify's centralized error handler, which maps it to 503.
+   */
   ingest(event: unknown): Promise<void>;
 }
 
@@ -17,7 +22,15 @@ export function createWebhookIngestionService(deps: WebhookIngestionServiceDeps)
 
   return {
     async ingest(event: unknown): Promise<void> {
-      await queue.add("inbound-event", event);
+      try {
+        await queue.add("inbound-event", event);
+      } catch (cause) {
+        // D9: the service wraps, not the adapter — the port contract already
+        // promises "rejects when the event could not be accepted", so this
+        // translation is total and lossless. Adapters stay free of
+        // app-level error types, preserving the hexagonal boundary.
+        throw new QueueUnavailableError("conversation-event DAO rejected the event", { cause });
+      }
     },
   };
 }

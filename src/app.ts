@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import type pino from "pino";
 import { config } from "./config.js";
 import { errorHandler } from "./error-handler.js";
+import { MalformedPayloadError } from "./domain/errors.js";
 import { logger as defaultLogger } from "./logger.js";
 import { createWhatsappWebhookRoutes } from "./routes/whatsapp-webhook.js";
 import { selectConversationQueue } from "./composition/select-conversation-queue.js";
@@ -33,13 +34,17 @@ export async function buildApp(deps: AppDeps) {
   app.setErrorHandler(errorHandler);
 
   // Se necesita el body crudo para validar la firma HMAC (X-Hub-Signature-256).
+  // D10 row 7 fix: JSON.parse's bare SyntaxError carries no statusCode and
+  // used to fall through error-handler.ts's old range check to 500. Wrapping
+  // it in MalformedPayloadError makes statusFor() map it to 400, matching
+  // what Fastify's own JSON parser would have raised.
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (req, body, done) => {
     req.rawBody = body as Buffer;
     try {
       const text = (body as Buffer).toString("utf8");
       done(null, text.length ? JSON.parse(text) : {});
-    } catch (err) {
-      done(err as Error, undefined);
+    } catch (cause) {
+      done(new MalformedPayloadError("El cuerpo de la petición no es JSON válido", { cause }) as Error, undefined);
     }
   });
 
