@@ -7,11 +7,13 @@ describe("config", () => {
   const originalSecret = process.env.META_APP_SECRET;
   const originalConnectionTimeout = process.env.CONNECTION_TIMEOUT_MS;
   const originalKeepAliveTimeout = process.env.KEEP_ALIVE_TIMEOUT_MS;
+  const originalQueueDriver = process.env.QUEUE_DRIVER;
 
   afterEach(() => {
     process.env.META_APP_SECRET = originalSecret;
     process.env.CONNECTION_TIMEOUT_MS = originalConnectionTimeout;
     process.env.KEEP_ALIVE_TIMEOUT_MS = originalKeepAliveTimeout;
+    process.env.QUEUE_DRIVER = originalQueueDriver;
     vi.doUnmock("./logger.js");
     vi.doUnmock("dotenv/config");
     vi.resetModules();
@@ -62,5 +64,24 @@ describe("config", () => {
 
     expect(config.connectionTimeout).toBe(5000);
     expect(config.keepAliveTimeout).toBe(9000);
+  });
+
+  it("leaves queueDriver undefined when QUEUE_DRIVER is unset — a dumb passthrough, no default here", async () => {
+    delete process.env.QUEUE_DRIVER;
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.queueDriver).toBeUndefined();
+  });
+
+  it("passes QUEUE_DRIVER and NODE_ENV through unchanged when set", async () => {
+    process.env.QUEUE_DRIVER = "memory";
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.queueDriver).toBe("memory");
+    expect(config.nodeEnv).toBe(process.env.NODE_ENV);
   });
 });

@@ -26,15 +26,31 @@ async function buildTestApp(
   return app;
 }
 
+// Transitional (Phase 1 of hexagonal-architecture-refactor): whatsapp-webhook.ts
+// now imports its mutable `conversationQueue` binding from server.ts (see
+// server.ts's module-scope comment). server.ts self-invokes main() — including
+// a real app.listen() — as an unguarded side effect of module load, so every
+// test that imports whatsapp-webhook.ts must mock "../server.js" to avoid
+// starting a live server. This whole workaround is replaced in Phase 2/3 when
+// the route becomes createWhatsappWebhookRoutes({ ingestion }) and this file
+// migrates to the shared buildApp(deps) with injected fakes.
+function mockServerQueue(add: ReturnType<typeof vi.fn>) {
+  vi.doMock("../server.js", () => ({
+    conversationQueue: { mode: "redis", add, close: vi.fn().mockResolvedValue(undefined) },
+  }));
+}
+
 describe("whatsapp-webhook", () => {
   afterEach(() => {
-    vi.doUnmock("../queue/conversation-queue.js");
+    vi.doUnmock("../server.js");
     vi.doUnmock("../logger.js");
     vi.resetModules();
   });
 
   describe("verifySignature", () => {
     it("accepts a correctly computed HMAC signature", async () => {
+      mockServerQueue(vi.fn().mockResolvedValue(undefined));
+      vi.resetModules();
       const { verifySignature } = await import("./whatsapp-webhook.js");
       const rawBody = Buffer.from(JSON.stringify({ hello: "world" }));
       const signature = sign(rawBody.toString("utf8"), config.metaAppSecret);
@@ -43,6 +59,8 @@ describe("whatsapp-webhook", () => {
     });
 
     it("rejects a tampered signature of the same length", async () => {
+      mockServerQueue(vi.fn().mockResolvedValue(undefined));
+      vi.resetModules();
       const { verifySignature } = await import("./whatsapp-webhook.js");
       const rawBody = Buffer.from(JSON.stringify({ hello: "world" }));
       const validSignature = sign(rawBody.toString("utf8"), config.metaAppSecret);
@@ -54,6 +72,8 @@ describe("whatsapp-webhook", () => {
     });
 
     it("rejects a signature header of a different length without throwing (RangeError regression guard)", async () => {
+      mockServerQueue(vi.fn().mockResolvedValue(undefined));
+      vi.resetModules();
       const { verifySignature } = await import("./whatsapp-webhook.js");
       const rawBody = Buffer.from(JSON.stringify({ hello: "world" }));
 
@@ -68,12 +88,7 @@ describe("whatsapp-webhook", () => {
       vi.doMock("../logger.js", () => ({
         logger: { error, warn: vi.fn(), info: vi.fn() },
       }));
-      vi.doMock("../queue/conversation-queue.js", () => ({
-        conversationQueue: {
-          mode: "redis",
-          add: vi.fn().mockRejectedValue(new Error("queue unreachable")),
-        },
-      }));
+      mockServerQueue(vi.fn().mockRejectedValue(new Error("queue unreachable")));
 
       vi.resetModules();
       const { whatsappWebhookRoutes } = await import("./whatsapp-webhook.js");
@@ -100,12 +115,7 @@ describe("whatsapp-webhook", () => {
     });
 
     it("responds 200 with no body when conversationQueue.add resolves — unchanged behavior", async () => {
-      vi.doMock("../queue/conversation-queue.js", () => ({
-        conversationQueue: {
-          mode: "redis",
-          add: vi.fn().mockResolvedValue(undefined),
-        },
-      }));
+      mockServerQueue(vi.fn().mockResolvedValue(undefined));
 
       vi.resetModules();
       const { whatsappWebhookRoutes } = await import("./whatsapp-webhook.js");
