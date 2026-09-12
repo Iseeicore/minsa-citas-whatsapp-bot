@@ -1,7 +1,11 @@
 import { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
 import { config } from "../config.js";
-import { conversationQueue } from "../queue/conversation-queue.js";
+// Transitional import (Phase 1 of hexagonal-architecture-refactor): points at
+// server.ts's module-scoped binding instead of the deleted queue/ module.
+// Replaced in Phase 2 when this route becomes createWhatsappWebhookRoutes({
+// ingestion }) and stops importing a mutable binding entirely.
+import { conversationQueue } from "../server.js";
 import { logger } from "../logger.js";
 
 export async function whatsappWebhookRoutes(app: FastifyInstance) {

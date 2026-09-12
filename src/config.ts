@@ -22,6 +22,10 @@ export const config = {
   minsaApiHost: process.env.MINSA_API_HOST ?? "https://dminsadigital.minsa.gob.pe/back",
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
+  // Dumb passthrough, no defaulting — validation belongs to the composition
+  // root (src/composition/select-conversation-queue.ts), not this module.
+  queueDriver: process.env.QUEUE_DRIVER,
+  nodeEnv: process.env.NODE_ENV,
   // Fastify defaults connectionTimeout to 0 (unbounded); 30s bounds a hung
   // socket while staying far above any legitimate Meta webhook delivery.
   connectionTimeout: Number(process.env.CONNECTION_TIMEOUT_MS ?? 30000),
