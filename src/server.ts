@@ -2,11 +2,19 @@ import Fastify from "fastify";
 import { config } from "./config.js";
 import { whatsappWebhookRoutes } from "./routes/whatsapp-webhook.js";
 import { initConversationQueue } from "./queue/conversation-queue.js";
+import { logger } from "./logger.js";
+import { errorHandler } from "./error-handler.js";
 
 async function main() {
   await initConversationQueue();
 
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    loggerInstance: logger,
+    connectionTimeout: config.connectionTimeout,
+    keepAliveTimeout: config.keepAliveTimeout,
+  });
+
+  app.setErrorHandler(errorHandler);
 
   // Se necesita el body crudo para validar la firma HMAC (X-Hub-Signature-256).
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (req, body, done) => {
@@ -27,6 +35,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  logger.error({ err }, "Fatal error during server startup");
   process.exit(1);
 });

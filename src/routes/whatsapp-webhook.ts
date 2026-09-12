@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
 import { config } from "../config.js";
 import { conversationQueue } from "../queue/conversation-queue.js";
+import { logger } from "../logger.js";
 
 export async function whatsappWebhookRoutes(app: FastifyInstance) {
   // Handshake de verificación: Meta lo llama al configurar/guardar el webhook.
@@ -32,13 +33,21 @@ export async function whatsappWebhookRoutes(app: FastifyInstance) {
       return reply.status(401).send();
     }
 
-    await conversationQueue.add("inbound-event", request.body);
+    try {
+      await conversationQueue.add("inbound-event", request.body);
+    } catch (err) {
+      logger.error(
+        { err, event: "inbound-event" },
+        "No se pudo encolar el evento entrante — Meta reintentará por el 503"
+      );
+      return reply.status(503).send();
+    }
 
     return reply.status(200).send();
   });
 }
 
-function verifySignature(rawBody: Buffer, signatureHeader: string): boolean {
+export function verifySignature(rawBody: Buffer, signatureHeader: string): boolean {
   const expected =
     "sha256=" + crypto.createHmac("sha256", config.metaAppSecret).update(rawBody).digest("hex");
 
