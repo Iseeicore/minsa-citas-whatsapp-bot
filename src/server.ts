@@ -1,16 +1,16 @@
 import { buildApp } from "./app.js";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
-import { selectConversationQueue } from "./composition/select-conversation-queue.js";
+import { selectConversationEventDao } from "./composition/select-conversation-event-dao.js";
 import { createWebhookIngestionService } from "./services/webhook-ingestion.js";
 
 async function main() {
-  // Selecting the queue is synchronous and never throws for the redis driver
+  // Selecting the DAO is synchronous and never throws for the redis driver
   // (D3) — no await here, and nothing gates app.listen() below on Redis
   // readiness. Constructed directly (not via app.ts's buildDefaultDeps) so
-  // this scope keeps a handle on `queue` for the graceful-shutdown drain.
-  const queue = selectConversationQueue({ config, logger });
-  const ingestion = createWebhookIngestionService({ queue });
+  // this scope keeps a handle on `dao` for the graceful-shutdown drain.
+  const dao = selectConversationEventDao({ config, logger });
+  const ingestion = createWebhookIngestionService({ dao });
 
   const app = await buildApp({ logger, ingestion });
 
@@ -21,7 +21,7 @@ async function main() {
     logger.info({ signal }, "Cerrando el servidor de forma ordenada");
     try {
       await app.close();
-      await queue.close();
+      await dao.close();
       process.exit(0);
     } catch (err) {
       logger.error({ err }, "Error durante el cierre ordenado del servidor");

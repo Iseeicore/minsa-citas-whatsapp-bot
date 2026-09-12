@@ -3,13 +3,13 @@ import { afterAll, describe, expect, it } from "vitest";
 import { buildApp } from "./app.js";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
-import { createRedisConversationQueue } from "./adapters/redis-conversation-queue.js";
+import { createRedisConversationEventDao } from "./adapters/redis-conversation-event-dao.js";
 import { createWebhookIngestionService } from "./services/webhook-ingestion.js";
 
 // Executable proof of D3: a Redis outage must not take the HTTP layer down.
 // Builds the real app with an ingestion service backed by the real Redis
 // adapter pointed at the dead port from vitest.setup.ts, using the real
-// shared logger throughout — no fakes on the queue or logging side, only the
+// shared logger throughout — no fakes on the DAO or logging side, only the
 // composition of already-proven pieces (Fastify requires a full logger
 // interface — debug/fatal/trace/child — that a partial fake wouldn't satisfy).
 function sign(rawBody: string, secret: string): string {
@@ -17,11 +17,11 @@ function sign(rawBody: string, secret: string): string {
 }
 
 describe("degraded queue — Redis outage does not take the HTTP layer down", () => {
-  const queue = createRedisConversationQueue({ config: { redisUrl: config.redisUrl }, logger });
-  const ingestion = createWebhookIngestionService({ queue });
+  const dao = createRedisConversationEventDao({ config: { redisUrl: config.redisUrl }, logger });
+  const ingestion = createWebhookIngestionService({ dao });
 
   afterAll(async () => {
-    await queue.close();
+    await dao.close();
   });
 
   it("GET /health still returns 200", async () => {

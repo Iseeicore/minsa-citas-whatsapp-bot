@@ -1,23 +1,28 @@
 import { Queue } from "bullmq";
 import { Redis as IORedis } from "ioredis";
 import type pino from "pino";
-import type { ConversationQueue } from "../ports/conversation-queue.js";
+import type { ConversationEventDao } from "../ports/conversation-event-dao.js";
+import type { InboundConversationEvent } from "../domain/inbound-conversation-event.js";
 
-export interface RedisConversationQueueDeps {
+export interface RedisConversationEventDaoDeps {
   config: { redisUrl: string };
   logger: pino.Logger;
 }
 
+// The BullMQ job name is an adapter-owned constant (D8) — the port no
+// longer carries a transport parameter.
+const JOB_NAME = "inbound-event";
+
 // Synchronous constructor: never connects-and-waits, never throws (D3). Redis
-// unreachability — at boot or later — surfaces per-operation through add()
+// unreachability — at boot or later — surfaces per-operation through save()
 // rejecting; there is no boot-time probe and `mode` never downgrades.
 //
 // enableOfflineQueue:false makes a command issued while disconnected reject
 // immediately instead of queuing and hanging the request until
-// connectionTimeout. The retryStrategy is permanent (never null, unlike the
-// old conversation-queue.ts's `() => null`) so the connection self-heals in
-// the background without a restart once Redis comes back.
-export function createRedisConversationQueue(deps: RedisConversationQueueDeps): ConversationQueue {
+// connectionTimeout. The retryStrategy is permanent (never null) so the
+// connection self-heals in the background without a restart once Redis
+// comes back.
+export function createRedisConversationEventDao(deps: RedisConversationEventDaoDeps): ConversationEventDao {
   const { config, logger } = deps;
 
   const connection = new IORedis(config.redisUrl, {
@@ -36,33 +41,33 @@ export function createRedisConversationQueue(deps: RedisConversationQueueDeps): 
     hasLoggedError = true;
     logger.error(
       { err, redisUrl: config.redisUrl },
-      "[conversation-queue:redis] Error de conexión a Redis"
+      "[conversation-event-dao:redis] Error de conexión a Redis"
     );
   });
   connection.on("ready", () => {
     hasLoggedError = false;
-    logger.info({ redisUrl: config.redisUrl }, "[conversation-queue:redis] Conectado a Redis");
+    logger.info({ redisUrl: config.redisUrl }, "[conversation-event-dao:redis] Conectado a Redis");
   });
 
-  const queue = new Queue("conversation-events", { connection });
+  const queue = new Queue(JOB_NAME, { connection });
 
   return {
     mode: "redis",
-    async add(name, data) {
+    async save(event: InboundConversationEvent) {
       // BullMQ's Queue.add() awaits its own internal "wait until ready" gate
       // (on the 'ready'/'end' ioredis events) before issuing the command —
       // enableOfflineQueue:false does NOT short-circuit this, it only governs
       // raw ioredis command queuing. With a permanent retryStrategy the
-      // connection never reaches 'end', so without this guard add() would
+      // connection never reaches 'end', so without this guard save() would
       // hang forever instead of rejecting while Redis is down. Checking
-      // status explicitly is what actually delivers "rejects at once".
+      // status explicitly is what actually delivers "rejects at once" (D3).
       if (connection.status !== "ready") {
         throw new Error(
-          `[conversation-queue:redis] Redis no está listo (status=${connection.status}); evento no encolado`
+          `[conversation-event-dao:redis] Redis no está listo (status=${connection.status}); evento no guardado`
         );
       }
 
-      await queue.add(name, data, {
+      await queue.add(JOB_NAME, event, {
         removeOnComplete: true,
         attempts: 3,
         backoff: { type: "exponential", delay: 2000 },

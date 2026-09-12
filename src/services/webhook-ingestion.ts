@@ -1,5 +1,6 @@
-import type { ConversationQueue } from "../ports/conversation-queue.js";
+import type { ConversationEventDao } from "../ports/conversation-event-dao.js";
 import { QueueUnavailableError } from "../domain/errors.js";
+import { toInboundConversationEvent } from "../domain/inbound-conversation-event.js";
 
 export interface WebhookIngestionService {
   /**
@@ -7,23 +8,26 @@ export interface WebhookIngestionService {
    * accepted — the controller does NOT catch this; it propagates to
    * Fastify's centralized error handler, which maps it to 503.
    */
-  ingest(event: unknown): Promise<void>;
+  ingest(rawPayload: unknown): Promise<void>;
 }
 
 export interface WebhookIngestionServiceDeps {
-  queue: ConversationQueue;
+  dao: ConversationEventDao;
 }
 
-// Owns enqueue and failure semantics for inbound webhook events. The seam,
-// not the logic, is the deliverable: this is where change 3's MINSA/domain
-// work lands without touching the controller.
+// Owns enqueue and failure semantics for inbound webhook events. The
+// service — not the route — builds the domain Entity (D6): the route is a
+// thin controller limited to HTTP shape, and parsing domain meaning out of a
+// payload is domain work.
 export function createWebhookIngestionService(deps: WebhookIngestionServiceDeps): WebhookIngestionService {
-  const { queue } = deps;
+  const { dao } = deps;
 
   return {
-    async ingest(event: unknown): Promise<void> {
+    async ingest(rawPayload: unknown): Promise<void> {
+      const event = toInboundConversationEvent(rawPayload);
+
       try {
-        await queue.add("inbound-event", event);
+        await dao.save(event);
       } catch (cause) {
         // D9: the service wraps, not the adapter — the port contract already
         // promises "rejects when the event could not be accepted", so this
