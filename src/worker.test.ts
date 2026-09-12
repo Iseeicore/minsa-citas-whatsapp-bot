@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Job, Worker } from "bullmq";
 import type { Redis as IORedis } from "ioredis";
+import type { InboundConversationEvent } from "./domain/inbound-conversation-event.js";
 
 // Every test resets modules and re-imports "./logger.js" BEFORE "./worker.js"
 // in the same cycle: worker.js's own import of the shared logger must resolve
@@ -13,34 +14,58 @@ describe("worker", () => {
   });
 
   describe("processConversationEvent", () => {
-    it("logs jobId, name, and attemptsMade, and resolves without throwing", async () => {
+    // D7: job.data is the InboundConversationEvent Entity (D6) — the
+    // processor now logs job identity plus the sanitized log-view DTO
+    // (toLogView), never the raw entity fields (from/text/contactName/raw).
+    function fakeEventData(overrides: Partial<InboundConversationEvent> = {}): InboundConversationEvent {
+      return {
+        eventId: "wamid.abc",
+        receivedAt: "2026-01-01T00:00:00.000Z",
+        source: "whatsapp",
+        messageType: "text",
+        from: "51999999999",
+        text: "mensaje sensible del ciudadano",
+        contactName: "Juan",
+        raw: {},
+        ...overrides,
+      };
+    }
+
+    it("logs jobId plus the sanitized log-view DTO, and resolves without throwing", async () => {
       vi.resetModules();
       const { logger } = await import("./logger.js");
+      const { config } = await import("./config.js");
+      const { toLogView } = await import("./domain/inbound-conversation-event-log-view.js");
       const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => logger);
       const { processConversationEvent } = await import("./worker.js");
 
-      const job = { id: "job-1", name: "inbound-event", attemptsMade: 0 } as unknown as Job;
+      const eventData = fakeEventData();
+      const job = { id: "job-1", name: "inbound-event", attemptsMade: 0, data: eventData } as unknown as Job;
 
       await expect(processConversationEvent(job)).resolves.toBeUndefined();
+
+      const expectedLogView = toLogView(eventData, { logHashSecret: config.logHashSecret });
       expect(infoSpy).toHaveBeenCalledWith(
-        { jobId: "job-1", name: "inbound-event", attemptsMade: 0 },
+        { jobId: "job-1", ...expectedLogView },
         "conversation-events job received"
       );
     });
 
-    it("logs a different job's identity — proves the fields come from the job, not a hardcoded value", async () => {
+    it("never logs the raw MSISDN or message body — proves the raw job.data fields do not leak through", async () => {
       vi.resetModules();
       const { logger } = await import("./logger.js");
       const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => logger);
       const { processConversationEvent } = await import("./worker.js");
 
-      const job = { id: "job-2", name: "status-update", attemptsMade: 2 } as unknown as Job;
+      const eventData = fakeEventData({ eventId: "wamid.def", from: "51988888888", text: "otro mensaje sensible" });
+      const job = { id: "job-2", name: "inbound-event", attemptsMade: 2, data: eventData } as unknown as Job;
 
       await processConversationEvent(job);
-      expect(infoSpy).toHaveBeenCalledWith(
-        { jobId: "job-2", name: "status-update", attemptsMade: 2 },
-        "conversation-events job received"
-      );
+
+      const [context] = infoSpy.mock.calls[0] as [Record<string, unknown>];
+      expect(JSON.stringify(context)).not.toContain("51988888888");
+      expect(JSON.stringify(context)).not.toContain("otro mensaje sensible");
+      expect(context.jobId).toBe("job-2");
     });
   });
 

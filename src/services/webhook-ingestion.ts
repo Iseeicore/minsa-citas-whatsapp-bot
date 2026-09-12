@@ -1,6 +1,8 @@
+import type pino from "pino";
 import type { ConversationEventDao } from "../ports/conversation-event-dao.js";
 import { QueueUnavailableError } from "../domain/errors.js";
 import { toInboundConversationEvent } from "../domain/inbound-conversation-event.js";
+import { toLogView } from "../domain/inbound-conversation-event-log-view.js";
 
 export interface WebhookIngestionService {
   /**
@@ -13,14 +15,18 @@ export interface WebhookIngestionService {
 
 export interface WebhookIngestionServiceDeps {
   dao: ConversationEventDao;
+  logger: pino.Logger;
+  /** Keyed-HMAC secret for the logging DTO's fromFingerprint (D7). */
+  logHashSecret: string;
 }
 
 // Owns enqueue and failure semantics for inbound webhook events. The
 // service — not the route — builds the domain Entity (D6): the route is a
 // thin controller limited to HTTP shape, and parsing domain meaning out of a
-// payload is domain work.
+// payload is domain work. On a successful save, logs the sanitized log-view
+// DTO (D7) — never the raw Entity, which carries the MSISDN and message body.
 export function createWebhookIngestionService(deps: WebhookIngestionServiceDeps): WebhookIngestionService {
-  const { dao } = deps;
+  const { dao, logger, logHashSecret } = deps;
 
   return {
     async ingest(rawPayload: unknown): Promise<void> {
@@ -35,6 +41,8 @@ export function createWebhookIngestionService(deps: WebhookIngestionServiceDeps)
         // app-level error types, preserving the hexagonal boundary.
         throw new QueueUnavailableError("conversation-event DAO rejected the event", { cause });
       }
+
+      logger.info(toLogView(event, { logHashSecret }), "Evento entrante guardado");
     },
   };
 }

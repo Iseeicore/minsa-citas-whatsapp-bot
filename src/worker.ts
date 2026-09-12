@@ -4,6 +4,7 @@ import { Redis as IORedis } from "ioredis";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import type { InboundConversationEvent } from "./domain/inbound-conversation-event.js";
+import { toLogView } from "./domain/inbound-conversation-event-log-view.js";
 
 // D5: the worker is a separate process from the HTTP server and requires
 // Redis unconditionally — no memory fallback. A memory queue has no
@@ -23,15 +24,14 @@ export function assertRedisDriver(): void {
 // throwing placeholder would exercise the 3-attempt exponential backoff
 // forever.
 //
-// D6: job.data is now the typed InboundConversationEvent Entity, not an
-// untyped payload — the mapper runs once, in the ingestion service, so the
-// worker reads an already-well-formed event instead of re-parsing. The log
-// line here still logs job identity only (name/attemptsMade); PR7 (D7)
-// switches it to the sanitized logging DTO instead of touching job.data
-// directly.
+// D6: job.data is the typed InboundConversationEvent Entity, not an untyped
+// payload — the mapper runs once, in the ingestion service, so the worker
+// reads an already-well-formed event instead of re-parsing. D7: logs the
+// sanitized log-view DTO, never job.data directly — job.data carries the
+// MSISDN and message body.
 export async function processConversationEvent(job: Job<InboundConversationEvent>): Promise<void> {
   logger.info(
-    { jobId: job.id, name: job.name, attemptsMade: job.attemptsMade },
+    { jobId: job.id, ...toLogView(job.data, { logHashSecret: config.logHashSecret }) },
     "conversation-events job received"
   );
 }
