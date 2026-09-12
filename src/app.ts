@@ -5,7 +5,7 @@ import { errorHandler } from "./error-handler.js";
 import { MalformedPayloadError } from "./domain/errors.js";
 import { logger as defaultLogger } from "./logger.js";
 import { createWhatsappWebhookRoutes } from "./routes/whatsapp-webhook.js";
-import { selectConversationQueue } from "./composition/select-conversation-queue.js";
+import { selectConversationEventDao } from "./composition/select-conversation-event-dao.js";
 import { createWebhookIngestionService, type WebhookIngestionService } from "./services/webhook-ingestion.js";
 
 export interface AppDeps {
@@ -59,12 +59,12 @@ export async function buildApp(deps: AppDeps) {
 // (app.logger-wiring.test.ts) so the "injected fake logger" test path cannot
 // silently diverge from what actually ships. server.ts's main() constructs
 // an equivalent instance itself rather than calling this directly, because
-// main() also needs to retain a handle on the queue instance for graceful
-// SIGTERM shutdown (queue.close()) — this function exists specifically so
+// main() also needs to retain a handle on the DAO instance for graceful
+// SIGTERM shutdown (dao.close()) — this function exists specifically so
 // tests can prove the production logger identity without duplicating the
 // server's lifecycle-management concerns.
 export function buildDefaultDeps(): AppDeps {
-  const queue = selectConversationQueue({ config, logger: defaultLogger });
-  const ingestion = createWebhookIngestionService({ queue });
+  const dao = selectConversationEventDao({ config, logger: defaultLogger });
+  const ingestion = createWebhookIngestionService({ dao });
   return { logger: defaultLogger, ingestion };
 }
