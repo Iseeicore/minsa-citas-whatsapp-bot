@@ -1,9 +1,10 @@
-import Fastify, { type FastifyInstance } from "fastify";
 import crypto from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import { buildApp } from "../app.js";
 import { config } from "../config.js";
+import { createLogger } from "../logger.js";
 import type { WebhookIngestionService } from "../services/webhook-ingestion.js";
-import { createWhatsappWebhookRoutes, verifySignature } from "./whatsapp-webhook.js";
+import { verifySignature } from "./whatsapp-webhook.js";
 
 function sign(rawBody: string, secret: string): string {
   return "sha256=" + crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
@@ -13,27 +14,19 @@ function fakeIngestion(ingest: ReturnType<typeof vi.fn>): WebhookIngestionServic
   return { ingest };
 }
 
-// Interim local harness (Phase 2 of hexagonal-architecture-refactor):
-// createWhatsappWebhookRoutes now takes its ingestion dependency directly, so
-// no module mocking is needed at all — a real behavioral improvement over
-// Phase 1's transitional vi.doMock("../server.js") workaround. Phase 3
-// replaces this local harness with the shared buildApp(deps) and asserts the
-// 503 log via the collected pino stream instead of the ingest() call count.
-async function buildTestApp(ingestion: WebhookIngestionService): Promise<FastifyInstance> {
-  const app = Fastify();
-  // Mirrors app.ts's raw-body content type parser — verifySignature and the
-  // route handler both depend on request.rawBody being the exact bytes.
-  app.addContentTypeParser("application/json", { parseAs: "buffer" }, (req, body, done) => {
-    req.rawBody = body as Buffer;
-    try {
-      const text = (body as Buffer).toString("utf8");
-      done(null, text.length ? JSON.parse(text) : {});
-    } catch (err) {
-      done(err as Error, undefined);
-    }
+// Reuses the { writable: true, write(msg) } collector pattern from
+// logger.test.ts / app.logger-wiring.test.ts — `writable: true` is required
+// or pino silently falls back to stdout, which would make log assertions
+// pass for the wrong reason.
+function collectingLogger() {
+  const lines: string[] = [];
+  const logger = createLogger({
+    writable: true,
+    write(msg: string) {
+      lines.push(msg);
+    },
   });
-  await app.register(createWhatsappWebhookRoutes({ ingestion }));
-  return app;
+  return { logger, lines: () => lines.map((line) => JSON.parse(line)) };
 }
 
 describe("whatsapp-webhook", () => {
@@ -64,9 +57,10 @@ describe("whatsapp-webhook", () => {
   });
 
   describe("POST /webhook/whatsapp guarded enqueue", () => {
-    it("responds 503 when the ingestion service rejects", async () => {
+    it("responds 503 and logs with event context (via the shared pino stream) when ingestion rejects", async () => {
+      const { logger, lines } = collectingLogger();
       const ingest = vi.fn().mockRejectedValue(new Error("queue unreachable"));
-      const app = await buildTestApp(fakeIngestion(ingest));
+      const app = await buildApp({ logger, ingestion: fakeIngestion(ingest) });
 
       const rawBody = JSON.stringify({ entry: [] });
       const signature = sign(rawBody, config.metaAppSecret);
@@ -79,12 +73,18 @@ describe("whatsapp-webhook", () => {
       });
 
       expect(response.statusCode).toBe(503);
-      expect(ingest).toHaveBeenCalledTimes(1);
+
+      const errorLine = lines().find((entry) => entry.event === "inbound-event");
+      expect(errorLine).toBeDefined();
+      expect(errorLine.level).toBe(50); // pino "error"
+      expect(errorLine.err.message).toBe("queue unreachable");
+      expect(errorLine.reqId).toEqual(expect.any(String));
     });
 
-    it("responds 200 with no body when the ingestion service resolves — unchanged behavior", async () => {
+    it("responds 200 with no body when ingestion resolves — unchanged behavior", async () => {
+      const { logger } = collectingLogger();
       const ingest = vi.fn().mockResolvedValue(undefined);
-      const app = await buildTestApp(fakeIngestion(ingest));
+      const app = await buildApp({ logger, ingestion: fakeIngestion(ingest) });
 
       const rawBody = JSON.stringify({ entry: [] });
       const signature = sign(rawBody, config.metaAppSecret);
@@ -98,6 +98,7 @@ describe("whatsapp-webhook", () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe("");
+      expect(ingest).toHaveBeenCalledWith({ entry: [] });
     });
   });
 });
