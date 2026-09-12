@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type pino from "pino";
 import type { ConversationEventDao } from "../ports/conversation-event-dao.js";
 import type { InboundConversationEvent } from "../domain/inbound-conversation-event.js";
-import { createRedisConversationEventDao } from "./redis-conversation-event-dao.js";
+import { createRedisConversationEventDao, redactRedisUrl } from "./redis-conversation-event-dao.js";
 
 // vitest.setup.ts points REDIS_URL at 127.0.0.1:6399 — deliberately nothing
 // listens there. This exercises the unreachable-Redis path deterministically
@@ -55,4 +55,37 @@ describe("createRedisConversationEventDao", () => {
     const [context] = vi.mocked(logger.error).mock.calls[0] as [Record<string, unknown>];
     expect(context.err).toBeInstanceOf(Error);
   }, 10000);
+
+  // Regression: a real deployment logged "Conectado a Redis" with the full
+  // connection string — including the Upstash password — in plaintext. The
+  // error-connection path shares the exact same logging call shape as the
+  // ready-connection path, so proving redaction here covers both.
+  it("never logs the raw credential-bearing URL, even on a connection error", async () => {
+    const logger = fakeLogger();
+    const urlWithSecret = "redis://user:supersecretpassword@127.0.0.1:6399";
+    dao = createRedisConversationEventDao({ config: { redisUrl: urlWithSecret }, logger });
+
+    await expect(dao.save(fakeEvent())).rejects.toThrow();
+    await vi.waitFor(() => expect(logger.error).toHaveBeenCalled(), { timeout: 5000 });
+
+    const [context] = vi.mocked(logger.error).mock.calls[0] as [Record<string, unknown>];
+    expect(JSON.stringify(context)).not.toContain("supersecretpassword");
+  }, 10000);
+});
+
+describe("redactRedisUrl", () => {
+  it("strips embedded credentials, keeping only the protocol and host", () => {
+    expect(redactRedisUrl("rediss://default:AatDAAIgcDE2NDJlMWE3@enjoyed-quail-43843.upstash.io:6379")).toBe(
+      "rediss://enjoyed-quail-43843.upstash.io:6379"
+    );
+  });
+
+  it("leaves a URL with no credentials unchanged in shape", () => {
+    expect(redactRedisUrl("redis://127.0.0.1:6399")).toBe("redis://127.0.0.1:6399");
+  });
+
+  it("falls back to a safe placeholder instead of throwing on an unparsable value", () => {
+    expect(() => redactRedisUrl("not a url")).not.toThrow();
+    expect(redactRedisUrl("not a url")).not.toContain("not a url");
+  });
 });

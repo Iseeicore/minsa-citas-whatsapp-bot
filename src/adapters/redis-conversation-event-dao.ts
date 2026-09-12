@@ -13,6 +13,20 @@ export interface RedisConversationEventDaoDeps {
 // longer carries a transport parameter.
 const JOB_NAME = "inbound-event";
 
+// A connection string commonly carries an embedded password (Upstash's
+// rediss:// URLs are exactly this shape) — logging config.redisUrl directly
+// leaks that credential in plaintext into every log sink. Keep only what's
+// useful for debugging (protocol + host); never throw on a malformed value,
+// since a logging helper must not be able to crash the caller it's serving.
+export function redactRedisUrl(redisUrl: string): string {
+  try {
+    const url = new URL(redisUrl);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return "[redis url unparsable]";
+  }
+}
+
 // Synchronous constructor: never connects-and-waits, never throws (D3). Redis
 // unreachability — at boot or later — surfaces per-operation through save()
 // rejecting; there is no boot-time probe and `mode` never downgrades.
@@ -40,13 +54,13 @@ export function createRedisConversationEventDao(deps: RedisConversationEventDaoD
     if (hasLoggedError) return;
     hasLoggedError = true;
     logger.error(
-      { err, redisUrl: config.redisUrl },
+      { err, redisUrl: redactRedisUrl(config.redisUrl) },
       "[conversation-event-dao:redis] Error de conexión a Redis"
     );
   });
   connection.on("ready", () => {
     hasLoggedError = false;
-    logger.info({ redisUrl: config.redisUrl }, "[conversation-event-dao:redis] Conectado a Redis");
+    logger.info({ redisUrl: redactRedisUrl(config.redisUrl) }, "[conversation-event-dao:redis] Conectado a Redis");
   });
 
   const queue = new Queue(JOB_NAME, { connection });
