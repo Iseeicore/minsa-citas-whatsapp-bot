@@ -41,17 +41,12 @@ export function createWhatsappWebhookRoutes(deps: WhatsappWebhookRoutesDeps) {
         return reply.status(401).send();
       }
 
-      try {
-        await ingestion.ingest(request.body);
-      } catch (err) {
-        // Moved from the module-level logger to request.log (D-data-flow): this
-        // line now carries reqId and correlates with the error handler's output.
-        request.log.error(
-          { err, event: "inbound-event" },
-          "No se pudo encolar el evento entrante — Meta reintentará por el 503"
-        );
-        return reply.status(503).send();
-      }
+      // D9: no try/catch here — a DAO/queue failure (or any other rejection
+      // from ingest()) propagates to Fastify's centralized error handler
+      // (src/error-handler.ts), which owns both the log line and the status
+      // code. POST enqueue success stays 200 per the explicit user decision
+      // recorded in the spec (revision 4) — not 201/202.
+      await ingestion.ingest(request.body);
 
       return reply.status(200).send();
     });
