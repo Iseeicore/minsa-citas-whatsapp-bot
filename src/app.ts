@@ -65,6 +65,10 @@ export async function buildApp(deps: AppDeps) {
 // server's lifecycle-management concerns.
 export function buildDefaultDeps(): AppDeps {
   const dao = selectConversationEventDao({ config, logger: defaultLogger });
-  const ingestion = createWebhookIngestionService({ dao });
+  const ingestion = createWebhookIngestionService({
+    dao,
+    logger: defaultLogger,
+    logHashSecret: config.logHashSecret,
+  });
   return { logger: defaultLogger, ingestion };
 }

@@ -13,15 +13,21 @@ function readEnv(name: string, fallback?: string): string {
   return value;
 }
 
+const metaAppSecret = readEnv("META_APP_SECRET");
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
-  metaAppSecret: readEnv("META_APP_SECRET"),
+  metaAppSecret,
   metaWebhookVerifyToken: readEnv("META_WEBHOOK_VERIFY_TOKEN"),
   metaAccessToken: readEnv("META_ACCESS_TOKEN"),
   metaPhoneNumberId: readEnv("META_PHONE_NUMBER_ID"),
   minsaApiHost: process.env.MINSA_API_HOST ?? "https://dminsadigital.minsa.gob.pe/back",
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
+  // D7: dedicated secret for the log-view HMAC fingerprint. Falls back to
+  // metaAppSecret when unset — accepted consequence: rotating the app
+  // secret re-keys the fingerprints, breaking correlation across rotation.
+  logHashSecret: process.env.LOG_HASH_SECRET ?? metaAppSecret,
   // Dumb passthrough, no defaulting — validation belongs to the composition
   // root (src/composition/select-conversation-event-dao.ts), not this module.
   queueDriver: process.env.QUEUE_DRIVER,

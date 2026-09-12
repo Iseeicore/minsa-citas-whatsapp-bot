@@ -18,7 +18,7 @@ function sign(rawBody: string, secret: string): string {
 
 describe("degraded queue — Redis outage does not take the HTTP layer down", () => {
   const dao = createRedisConversationEventDao({ config: { redisUrl: config.redisUrl }, logger });
-  const ingestion = createWebhookIngestionService({ dao });
+  const ingestion = createWebhookIngestionService({ dao, logger, logHashSecret: config.logHashSecret });
 
   afterAll(async () => {
     await dao.close();

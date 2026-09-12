@@ -84,4 +84,25 @@ describe("config", () => {
     expect(config.queueDriver).toBe("memory");
     expect(config.nodeEnv).toBe(process.env.NODE_ENV);
   });
+
+  it("logHashSecret falls back to metaAppSecret when LOG_HASH_SECRET is unset (D7)", async () => {
+    delete process.env.LOG_HASH_SECRET;
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.logHashSecret).toBe(config.metaAppSecret);
+  });
+
+  it("logHashSecret uses LOG_HASH_SECRET when set, independent of metaAppSecret", async () => {
+    process.env.LOG_HASH_SECRET = "a-dedicated-log-hash-secret";
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.logHashSecret).toBe("a-dedicated-log-hash-secret");
+    expect(config.logHashSecret).not.toBe(config.metaAppSecret);
+
+    delete process.env.LOG_HASH_SECRET;
+  });
 });

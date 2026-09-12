@@ -10,7 +10,7 @@ async function main() {
   // readiness. Constructed directly (not via app.ts's buildDefaultDeps) so
   // this scope keeps a handle on `dao` for the graceful-shutdown drain.
   const dao = selectConversationEventDao({ config, logger });
-  const ingestion = createWebhookIngestionService({ dao });
+  const ingestion = createWebhookIngestionService({ dao, logger, logHashSecret: config.logHashSecret });
 
   const app = await buildApp({ logger, ingestion });
 
