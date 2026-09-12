@@ -1,6 +1,9 @@
 import Fastify, { type FastifyBaseLogger } from "fastify";
 import { describe, expect, it, vi } from "vitest";
 import { errorHandler } from "./error-handler.js";
+import { buildApp as buildRealApp } from "./app.js";
+import { logger } from "./logger.js";
+import type { WebhookIngestionService } from "./services/webhook-ingestion.js";
 
 function fakeLogger(): FastifyBaseLogger {
   const logger: FastifyBaseLogger = {
@@ -60,6 +63,25 @@ describe("errorHandler", () => {
     const response = await app.inject({ method: "GET", url: "/boom-4xx" });
 
     expect(response.statusCode).toBe(422);
+    const body = response.json();
+    expect(body).toEqual({ error: "internal_error", requestId: expect.any(String) });
+  });
+
+  // Closes the "no real buildApp to import" gap (D1): the two tests above
+  // exercise errorHandler in isolation and stay correct as-is; this proves
+  // the handler is really wired into the shared composition root, not just
+  // a hand-built mini app with the same setErrorHandler call.
+  it("is really wired in buildApp: a malformed-JSON body reaches the shared error handler", async () => {
+    const ingestion: WebhookIngestionService = { ingest: vi.fn() };
+    const app = await buildRealApp({ logger, ingestion });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/webhook/whatsapp",
+      headers: { "content-type": "application/json", "x-hub-signature-256": "sha256=irrelevant" },
+      payload: "{not-json",
+    });
+
     const body = response.json();
     expect(body).toEqual({ error: "internal_error", requestId: expect.any(String) });
   });
