@@ -1,47 +1,35 @@
-import Fastify from "fastify";
+import { buildApp } from "./app.js";
 import { config } from "./config.js";
-import { whatsappWebhookRoutes } from "./routes/whatsapp-webhook.js";
-import { selectConversationQueue } from "./composition/select-conversation-queue.js";
-import type { ConversationQueue } from "./ports/conversation-queue.js";
 import { logger } from "./logger.js";
-import { errorHandler } from "./error-handler.js";
-
-// Transitional module-scoped binding (Phase 1 of the hexagonal-architecture
-// refactor). whatsapp-webhook.ts imports this mutable binding directly,
-// mirroring the pre-refactor conversation-queue.ts pattern, until Phase 2
-// turns the controller into a factory that receives its ingestion service as
-// a constructor argument (createWhatsappWebhookRoutes({ ingestion })). This
-// is deliberate and temporary — do not treat it as a design regression.
-//
-// Assigning it here at module scope (not inside main(), not awaited) is safe
-// because selectConversationQueue()/createRedisConversationQueue() are fully
-// synchronous and never throw for the redis driver (D3): Redis being
-// unreachable does not block this assignment or delay app.listen() below.
-export let conversationQueue: ConversationQueue = selectConversationQueue({ config, logger });
+import { selectConversationQueue } from "./composition/select-conversation-queue.js";
+import { createWebhookIngestionService } from "./services/webhook-ingestion.js";
 
 async function main() {
-  const app = Fastify({
-    loggerInstance: logger,
-    connectionTimeout: config.connectionTimeout,
-    keepAliveTimeout: config.keepAliveTimeout,
-  });
+  // Selecting the queue is synchronous and never throws for the redis driver
+  // (D3) — no await here, and nothing gates app.listen() below on Redis
+  // readiness. Constructed directly (not via app.ts's buildDefaultDeps) so
+  // this scope keeps a handle on `queue` for the graceful-shutdown drain.
+  const queue = selectConversationQueue({ config, logger });
+  const ingestion = createWebhookIngestionService({ queue });
 
-  app.setErrorHandler(errorHandler);
+  const app = await buildApp({ logger, ingestion });
 
-  // Se necesita el body crudo para validar la firma HMAC (X-Hub-Signature-256).
-  app.addContentTypeParser("application/json", { parseAs: "buffer" }, (req, body, done) => {
-    req.rawBody = body as Buffer;
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info({ signal }, "Cerrando el servidor de forma ordenada");
     try {
-      const text = (body as Buffer).toString("utf8");
-      done(null, text.length ? JSON.parse(text) : {});
+      await app.close();
+      await queue.close();
+      process.exit(0);
     } catch (err) {
-      done(err as Error, undefined);
+      logger.error({ err }, "Error durante el cierre ordenado del servidor");
+      process.exit(1);
     }
-  });
-
-  app.get("/health", async () => ({ status: "ok" }));
-
-  await app.register(whatsappWebhookRoutes);
+  };
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
 }
