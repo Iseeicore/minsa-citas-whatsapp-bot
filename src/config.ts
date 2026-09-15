@@ -21,6 +21,11 @@ export const config = {
   metaWebhookVerifyToken: readEnv("META_WEBHOOK_VERIFY_TOKEN"),
   metaAccessToken: readEnv("META_ACCESS_TOKEN"),
   metaPhoneNumberId: readEnv("META_PHONE_NUMBER_ID"),
+  // D16: readEnv(), no sensible default — an unset version is a loud,
+  // harmless failure (a Meta 4xx at send time, classified transient by
+  // meta-whatsapp-sender.ts, dead-lettered after 3 attempts), not a reason to
+  // block the HTTP server from booting.
+  metaGraphApiVersion: readEnv("META_GRAPH_API_VERSION"),
   minsaApiHost: process.env.MINSA_API_HOST ?? "https://dminsadigital.minsa.gob.pe/back",
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",

@@ -8,12 +8,14 @@ describe("config", () => {
   const originalConnectionTimeout = process.env.CONNECTION_TIMEOUT_MS;
   const originalKeepAliveTimeout = process.env.KEEP_ALIVE_TIMEOUT_MS;
   const originalQueueDriver = process.env.QUEUE_DRIVER;
+  const originalMetaGraphApiVersion = process.env.META_GRAPH_API_VERSION;
 
   afterEach(() => {
     process.env.META_APP_SECRET = originalSecret;
     process.env.CONNECTION_TIMEOUT_MS = originalConnectionTimeout;
     process.env.KEEP_ALIVE_TIMEOUT_MS = originalKeepAliveTimeout;
     process.env.QUEUE_DRIVER = originalQueueDriver;
+    process.env.META_GRAPH_API_VERSION = originalMetaGraphApiVersion;
     vi.doUnmock("./logger.js");
     vi.doUnmock("dotenv/config");
     vi.resetModules();
@@ -169,5 +171,38 @@ describe("config", () => {
     expect(config.sessionKeySecret).not.toBe(config.logHashSecret);
 
     delete process.env.SESSION_KEY_SECRET;
+  });
+
+  // D16: readEnv(), no fallback — same discipline as metaAppSecret's own test
+  // above. A missing Graph API version must warn and fail soft to
+  // "CHANGE_ME" (loud 4xx at send time, classified transient by the Meta
+  // adapter) rather than block the HTTP server from booting.
+  it("metaGraphApiVersion falls back to a placeholder and warns when META_GRAPH_API_VERSION is unset (D16)", async () => {
+    delete process.env.META_GRAPH_API_VERSION;
+
+    // Same isolation concern as the META_APP_SECRET test: config.ts's
+    // top-level `import "dotenv/config"` would otherwise reload the
+    // developer's real local .env file and repopulate this var from it.
+    vi.doMock("dotenv/config", () => ({}));
+
+    const warn = vi.fn();
+    vi.doMock("./logger.js", () => ({
+      logger: { warn, info: vi.fn(), error: vi.fn() },
+    }));
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.metaGraphApiVersion).toBe("CHANGE_ME");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("metaGraphApiVersion passes through META_GRAPH_API_VERSION unchanged when set", async () => {
+    process.env.META_GRAPH_API_VERSION = "v21.0";
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.metaGraphApiVersion).toBe("v21.0");
   });
 });
