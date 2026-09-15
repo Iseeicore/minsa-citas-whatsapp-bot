@@ -8,13 +8,11 @@ import type {
 } from "../ports/whatsapp-outbound-sender.js";
 import type { ReniecLookupClient, ReniecLookupResult } from "../ports/reniec-lookup-client.js";
 import type { QuejaPayload, QuejaSubmissionResult, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
+import type { DownloadedMedia, WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
 import { createMemorySessionStore } from "../adapters/memory-session-store.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
-import {
-  FsmContractViolationError,
-  QuejasSubmissionClientNotConfiguredError,
-  TransientFailureError,
-} from "../domain/errors.js";
+import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
+import { FsmContractViolationError, MediaTooLargeError, TransientFailureError } from "../domain/errors.js";
 import { assertReentryEmittedNoQueryEffect, createConversationFlowService, soleQueryEffect } from "./conversation-flow.js";
 
 const SESSION_KEY_SECRET = "test-session-key-secret";
@@ -104,11 +102,38 @@ function fakeQuejasSubmissionClient(opts: { result?: QuejaSubmissionResult; fail
   return { client, payloads };
 }
 
+// Phase 7 (PR7): a hand-written fake — the real Meta media downloader
+// (meta-media-downloader.ts) is unit-tested against fakes on its own; this
+// service test only needs to prove conversation-flow.ts calls the port
+// correctly and threads MediaTooLargeError per D21.
+function fakeWhatsappMediaDownloader(opts: { media?: DownloadedMedia; failWith?: Error } = {}): {
+  downloader: WhatsappMediaDownloader;
+  calls: string[];
+} {
+  const calls: string[] = [];
+  const media: DownloadedMedia = opts.media ?? {
+    bytes: new Uint8Array([1, 2, 3]),
+    mimeType: "image/jpeg",
+    sizeBytes: 3,
+  };
+
+  const downloader: WhatsappMediaDownloader = {
+    async download(mediaId: string) {
+      calls.push(mediaId);
+      if (opts.failWith !== undefined) throw opts.failWith;
+      return media;
+    },
+  };
+
+  return { downloader, calls };
+}
+
 function makeService(
   sender: WhatsappOutboundSender,
   sessionStore = createMemorySessionStore({ logger: fakeLogger() }),
   reniecLookupClient: ReniecLookupClient = fakeReniecLookupClient().client,
-  quejasSubmissionClient?: QuejasSubmissionClient
+  quejasSubmissionClient: QuejasSubmissionClient = fakeQuejasSubmissionClient().client,
+  whatsappMediaDownloader: WhatsappMediaDownloader = fakeWhatsappMediaDownloader().downloader
 ) {
   return {
     sessionStore,
@@ -117,6 +142,7 @@ function makeService(
       sender,
       reniecLookupClient,
       quejasSubmissionClient,
+      whatsappMediaDownloader,
       config: { sessionKeySecret: SESSION_KEY_SECRET, sessionTtlSeconds: SESSION_TTL_SECONDS },
     }),
   };
@@ -328,13 +354,21 @@ describe("createConversationFlowService — PR5: quejas_submit bounded re-entry 
     apellidoMaterno: "Lopez",
   };
 
-  it("executes quejas_submit exactly once and persists reclamo_confirmed on an accepted con-DNI submission", async () => {
+  it("executes quejas_submit exactly once, downloads + encodes the photo (D21 pipeline), and persists reclamo_confirmed on an accepted con-DNI submission", async () => {
     const { client: reniecLookupClient } = fakeReniecLookupClient({ result: MATCH_RESULT });
     const { client: quejasSubmissionClient, payloads } = fakeQuejasSubmissionClient({
       result: { status: "accepted", reference: "REF-42" },
     });
+    const media: DownloadedMedia = { bytes: new Uint8Array([10, 20, 30, 40]), mimeType: "image/png", sizeBytes: 4 };
+    const { downloader: whatsappMediaDownloader, calls: downloadCalls } = fakeWhatsappMediaDownloader({ media });
     const { sender } = fakeSender();
-    const { sessionStore, service } = makeService(sender, undefined, reniecLookupClient, quejasSubmissionClient);
+    const { sessionStore, service } = makeService(
+      sender,
+      undefined,
+      reniecLookupClient,
+      quejasSubmissionClient,
+      whatsappMediaDownloader
+    );
     const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
 
     await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
@@ -344,17 +378,86 @@ describe("createConversationFlowService — PR5: quejas_submit bounded re-entry 
     await service.process(makeEvent({ text: "Fuga de agua" })); // -> reclamo_awaiting_foto
     await service.process(makeEvent({ mediaId: "media-1" })); // -> quejas_submit + re-entry -> reclamo_confirmed
 
+    expect(downloadCalls).toEqual(["media-1"]);
     expect(payloads).toHaveLength(1);
     expect(payloads[0]).toEqual({
       dni: DNI,
       nombre_completo: NOMBRE,
       celular: FROM_MSISDN,
       queja: "Fuga de agua",
-      imagen: null,
+      imagen: encodeImagenField(media),
     });
 
     const stored = await sessionStore.load(key);
     expect(stored?.state).toBe("reclamo_confirmed");
+  });
+
+  it("skips the media-download pipeline entirely and submits imagen: null when no photo was captured (OMITIR)", async () => {
+    const { client: quejasSubmissionClient, payloads } = fakeQuejasSubmissionClient();
+    const { downloader: whatsappMediaDownloader, calls: downloadCalls } = fakeWhatsappMediaDownloader();
+    const { sender } = fakeSender();
+    const { service } = makeService(sender, undefined, undefined, quejasSubmissionClient, whatsappMediaDownloader);
+
+    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await service.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
+    await service.process(makeEvent({ text: "Fuga de agua" }));
+    await service.process(makeEvent({ text: "OMITIR" }));
+
+    expect(downloadCalls).toEqual([]);
+    expect(payloads[0]?.imagen).toBeNull();
+  });
+
+  // D21: MediaTooLargeError is caught INSIDE the quejas_submit executor and
+  // converted to a citizen-facing rejected result — the FSM, not the
+  // adapter, owns the wording. quejasSubmissionClient.submit() must never be
+  // called in this path (the oversized file never reaches the quejas API).
+  it("D21: converts a MediaTooLargeError from the media downloader into a quejas_submit_result rejected(media_too_large) — never calls submit()", async () => {
+    const { downloader: whatsappMediaDownloader } = fakeWhatsappMediaDownloader({
+      failWith: new MediaTooLargeError("file too big"),
+    });
+    const { client: quejasSubmissionClient, payloads } = fakeQuejasSubmissionClient();
+    const { sender } = fakeSender();
+    const { sessionStore, service } = makeService(
+      sender,
+      undefined,
+      undefined,
+      quejasSubmissionClient,
+      whatsappMediaDownloader
+    );
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+
+    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await service.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
+    await service.process(makeEvent({ text: "Fuga de agua" }));
+    await service.process(makeEvent({ mediaId: "media-huge" }));
+
+    expect(payloads).toHaveLength(0);
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("reclamo_failed");
+  });
+
+  it("propagates TransientFailureError from the media downloader (network/timeout) and leaves the prior session persisted-unchanged", async () => {
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    const { sender } = fakeSender();
+
+    const { service: setupService } = makeService(sender, sessionStore);
+    await setupService.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await setupService.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
+    await setupService.process(makeEvent({ text: "Fuga de agua" }));
+    const priorSession = await sessionStore.load(key);
+
+    const { downloader: failingDownloader } = fakeWhatsappMediaDownloader({
+      failWith: new TransientFailureError("meta graph api unreachable"),
+    });
+    const { service: failingService } = makeService(sender, sessionStore, undefined, undefined, failingDownloader);
+
+    await expect(failingService.process(makeEvent({ mediaId: "media-1" }))).rejects.toBeInstanceOf(
+      TransientFailureError
+    );
+
+    const afterFailure = await sessionStore.load(key);
+    expect(afterFailure).toEqual(priorSession);
   });
 
   it("sin-DNI: submits with dni: null / nombre_completo: null and persists reclamo_confirmed", async () => {
@@ -437,18 +540,12 @@ describe("createConversationFlowService — PR5: quejas_submit bounded re-entry 
     expect(payloads[0].celular).toBe(FROM_MSISDN);
   });
 
-  it("throws QuejasSubmissionClientNotConfiguredError when a quejas_submit effect is emitted but no client is injected (Phase 7 not yet wired)", async () => {
-    const { sender } = fakeSender();
-    const { service } = makeService(sender, undefined, undefined, undefined);
-
-    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
-    await service.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
-    await service.process(makeEvent({ text: "Fuga de agua" }));
-
-    await expect(service.process(makeEvent({ text: "OMITIR" }))).rejects.toBeInstanceOf(
-      QuejasSubmissionClientNotConfiguredError
-    );
-  });
+  // Phase 7: `quejasSubmissionClient` is now a REQUIRED dependency — worker.ts
+  // always constructs and injects the real HttpQuejasSubmissionClient, so the
+  // PR5-era "not configured" placeholder path (QuejasSubmissionClientNotConfiguredError)
+  // is no longer reachable through this service. The error class and its
+  // classifyWorkerOutcome() mapping remain defined (see errors.ts /
+  // worker-outcome.ts) as a defensive, never-triggered safety net.
 });
 
 describe("soleQueryEffect / assertReentryEmittedNoQueryEffect (D20 contract-violation unit tests)", () => {

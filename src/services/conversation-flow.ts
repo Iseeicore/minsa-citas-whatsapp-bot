@@ -2,11 +2,13 @@ import type { SessionStore } from "../ports/session-store.js";
 import type { WhatsappOutboundSender } from "../ports/whatsapp-outbound-sender.js";
 import type { ReniecLookupClient } from "../ports/reniec-lookup-client.js";
 import type { QuejaPayload, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
+import type { WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
 import type { FsmEffect, FsmQueryEffect, FsmSendEffect, FsmSystemEvent } from "../domain/conversation-fsm.js";
 import { handle } from "../domain/conversation-fsm.js";
 import type { ConversationSession } from "../domain/conversation-session.js";
 import { createSession } from "../domain/conversation-session.js";
-import { FsmContractViolationError, QuejasSubmissionClientNotConfiguredError } from "../domain/errors.js";
+import { FsmContractViolationError, MediaTooLargeError } from "../domain/errors.js";
+import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
 import type { InboundConversationEvent } from "../domain/inbound-conversation-event.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
 
@@ -27,14 +29,20 @@ export interface ConversationFlowServiceDeps {
   /** D20: the sole executor of the `reniec_lookup` query effect — handle() never performs I/O itself. */
   reniecLookupClient: ReniecLookupClient;
   /**
-   * D20: the sole executor of the `quejas_submit` query effect. OPTIONAL —
-   * the real adapter (`http-quejas-submission-client.ts`) stays Phase 7,
-   * D21-gated. Until Phase 7 injects it, `runQueryEffect` throws
-   * `QuejasSubmissionClientNotConfiguredError` for a `quejas_submit` effect
-   * rather than leaving worker.ts unable to compile without a not-yet-built
-   * adapter.
+   * D20: the sole executor of the `quejas_submit` query effect. REQUIRED as
+   * of Phase 7 — worker.ts always constructs and injects the real
+   * `HttpQuejasSubmissionClient` (D21 gate cleared for code + fake-only
+   * testing per explicit instruction; real-endpoint validation is still
+   * pending, see http-quejas-submission-client.ts's loud comment).
    */
-  quejasSubmissionClient?: QuejasSubmissionClient;
+  quejasSubmissionClient: QuejasSubmissionClient;
+  /**
+   * D21/Phase 7: downloads the citizen's photo (by mediaId) before it is
+   * base64-encoded (`encodeImagenField`) into the `quejas_submit` payload's
+   * `imagen` field. REQUIRED alongside quejasSubmissionClient — both are
+   * always present together in production.
+   */
+  whatsappMediaDownloader: WhatsappMediaDownloader;
   config: {
     /** D19: keys the D17 MSISDN digest used as the session lookup key. */
     sessionKeySecret: string;
@@ -116,7 +124,11 @@ export function assertReentryEmittedNoQueryEffect(effects: readonly FsmEffect[])
 // `from` is copied from the triggering InboundConversationEvent (D17
 // discipline carried forward) — never from `session.slots`.
 async function runQueryEffect(
-  clients: { reniecLookupClient: ReniecLookupClient; quejasSubmissionClient?: QuejasSubmissionClient },
+  clients: {
+    reniecLookupClient: ReniecLookupClient;
+    quejasSubmissionClient: QuejasSubmissionClient;
+    whatsappMediaDownloader: WhatsappMediaDownloader;
+  },
   effect: FsmQueryEffect,
   triggeringEvent: InboundConversationEvent
 ): Promise<FsmSystemEvent> {
@@ -126,23 +138,43 @@ async function runQueryEffect(
       return { source: "system", from: triggeringEvent.from, kind: "reniec_lookup_result", result };
     }
     case "quejas_submit": {
-      if (clients.quejasSubmissionClient === undefined) {
-        // Phase 7, D21-gated (see errors.ts) — a deterministic wiring gap,
-        // never a citizen-triggerable condition.
-        throw new QuejasSubmissionClientNotConfiguredError(
-          "[conversation-flow] quejas_submit query effect emitted but no QuejasSubmissionClient is configured (Phase 7, D21-gated)."
-        );
-      }
       const { submission } = effect;
+
+      // D21: the media-download + base64-encode pipeline only runs when a
+      // photo was actually captured (mediaId !== null) — the OMITIR path
+      // never touches WhatsappMediaDownloader and submits imagen: null.
+      let imagen: string | null = null;
+      if (submission.mediaId !== null) {
+        try {
+          const media = await clients.whatsappMediaDownloader.download(submission.mediaId);
+          imagen = encodeImagenField(media);
+        } catch (err) {
+          // D21: MediaTooLargeError is caught HERE, inside the quejas_submit
+          // executor, and converted into the same "rejected" business result
+          // shape a real quejas 4xx would produce (D24) — the FSM, not the
+          // adapter, owns the citizen-facing wording. quejasSubmissionClient
+          // is deliberately never called in this branch: an oversized file
+          // never reaches the quejas API. Any other error (TransientFailureError,
+          // network/timeout on either Graph API hop) propagates unchanged —
+          // BullMQ retries the whole turn, same as reniec_lookup's failure path.
+          if (err instanceof MediaTooLargeError) {
+            return {
+              source: "system",
+              from: triggeringEvent.from,
+              kind: "quejas_submit_result",
+              result: { status: "rejected", reason: "media_too_large" },
+            };
+          }
+          throw err;
+        }
+      }
+
       const payload: QuejaPayload = {
         dni: submission.dni,
         nombre_completo: submission.nombreCompleto,
         celular: submission.celular,
         queja: submission.queja,
-        // D21-gated (Phase 6): encodeImagenField()/the Meta media downloader
-        // do not exist yet, so imagen is always null until then, regardless
-        // of whether a mediaId was captured.
-        imagen: null,
+        imagen,
       };
       const result = await clients.quejasSubmissionClient.submit(payload);
       return { source: "system", from: triggeringEvent.from, kind: "quejas_submit_result", result };
@@ -178,7 +210,7 @@ async function runQueryEffect(
 // (soleQueryEffect / assertReentryEmittedNoQueryEffect above) — thrown, never
 // silently absorbed, making a THIRD handle() call structurally impossible.
 export function createConversationFlowService(deps: ConversationFlowServiceDeps): ConversationFlowService {
-  const { sessionStore, sender, reniecLookupClient, quejasSubmissionClient, config } = deps;
+  const { sessionStore, sender, reniecLookupClient, quejasSubmissionClient, whatsappMediaDownloader, config } = deps;
 
   return {
     async process(event: InboundConversationEvent): Promise<void> {
@@ -198,7 +230,11 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
       let finalResult = first;
 
       if (query !== undefined) {
-        const systemEvent = await runQueryEffect({ reniecLookupClient, quejasSubmissionClient }, query, event);
+        const systemEvent = await runQueryEffect(
+          { reniecLookupClient, quejasSubmissionClient, whatsappMediaDownloader },
+          query,
+          event
+        );
         const second = handle(first.session, systemEvent);
         messagesSent += await runSendEffects(sender, second.effects);
         assertReentryEmittedNoQueryEffect(second.effects);

@@ -34,6 +34,13 @@ export const config = {
   // needs it to compile and work, same as Stage A's PR2 did for its own
   // deferred config fields.
   reniecLookupBaseUrl: process.env.RENIEC_LOOKUP_BASE_URL ?? "https://back.personeros360.pe",
+  // D25: same discipline as reniecLookupBaseUrl above — bare process.env
+  // with a prod default, not readEnv(). The quejas submission endpoint needs
+  // no secret and no auth, so readEnv()'s "CHANGE_ME" warning would be
+  // noise. This is Phase 7's own remaining config task (7.4) — unlike
+  // reniecLookupBaseUrl, it was not resequenced into an earlier PR.
+  quejasApiBaseUrl:
+    process.env.QUEJAS_API_BASE_URL ?? "https://back-end-ministerioescucha-production.up.railway.app",
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
   // D7: dedicated secret for the log-view HMAC fingerprint. Falls back to

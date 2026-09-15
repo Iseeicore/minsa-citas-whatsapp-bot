@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { classifyWorkerOutcome } from "./worker-outcome.js";
-import { BusinessRejectionError, QuejasSubmissionClientNotConfiguredError, TransientFailureError } from "./errors.js";
+import {
+  BusinessRejectionError,
+  MediaTooLargeError,
+  QuejasSubmissionClientNotConfiguredError,
+  TransientFailureError,
+} from "./errors.js";
 
 // D14: unknown/unclassified errors default to transient — the producer
 // already caps attempts:3 with exponential backoff, so an unknown failure
@@ -17,6 +22,10 @@ describe("classifyWorkerOutcome", () => {
 
   it("classifies a QuejasSubmissionClientNotConfiguredError as business (PR5 — deterministic wiring gap, never retriable)", () => {
     expect(classifyWorkerOutcome(new QuejasSubmissionClientNotConfiguredError("not wired yet"))).toBe("business");
+  });
+
+  it("classifies a MediaTooLargeError as business (Phase 7 — retrying will not shrink the file)", () => {
+    expect(classifyWorkerOutcome(new MediaTooLargeError("file too big"))).toBe("business");
   });
 
   it("classifies a plain, unclassified Error as transient (safe default)", () => {

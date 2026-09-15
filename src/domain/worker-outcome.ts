@@ -1,4 +1,9 @@
-import { BusinessRejectionError, FsmContractViolationError, QuejasSubmissionClientNotConfiguredError } from "./errors.js";
+import {
+  BusinessRejectionError,
+  FsmContractViolationError,
+  MediaTooLargeError,
+  QuejasSubmissionClientNotConfiguredError,
+} from "./errors.js";
 
 /**
  * "transient" -> BullMQ should retry (with its existing exponential backoff).
@@ -20,10 +25,22 @@ export type WorkerOutcome = "transient" | "business";
 // three times would only delay a dead-letter that retrying cannot avoid.
 //
 // PR5: `QuejasSubmissionClientNotConfiguredError` is the same class of
-// deterministic, never-retriable failure — see errors.ts.
+// deterministic, never-retriable failure — see errors.ts. Phase 7 wires the
+// real QuejasSubmissionClient unconditionally in worker.ts, so this path is
+// no longer reachable through conversation-flow.ts; the mapping stays as a
+// defensive safety net.
+//
+// Phase 7 (PR7): `MediaTooLargeError` is ALSO "business" — retrying will
+// never make an oversized file smaller. In the normal path,
+// conversation-flow.ts's `runQueryEffect` already catches this error inside
+// the `quejas_submit` executor and converts it into a citizen-facing
+// rejected result (D21) before it would ever reach this classifier; this
+// mapping exists as a defensive safety net for any future call site that
+// lets it propagate unhandled.
 export function classifyWorkerOutcome(err: unknown): WorkerOutcome {
   if (err instanceof BusinessRejectionError) return "business";
   if (err instanceof FsmContractViolationError) return "business";
   if (err instanceof QuejasSubmissionClientNotConfiguredError) return "business";
+  if (err instanceof MediaTooLargeError) return "business";
   return "transient";
 }

@@ -11,6 +11,8 @@ import { createConversationFlowService } from "./services/conversation-flow.js";
 import { selectSessionStore } from "./composition/select-session-store.js";
 import { createMetaWhatsappSender } from "./adapters/meta-whatsapp-sender.js";
 import { createHttpReniecLookupClient } from "./adapters/http-reniec-lookup-client.js";
+import { createHttpQuejasSubmissionClient } from "./adapters/http-quejas-submission-client.js";
+import { createMetaMediaDownloader } from "./adapters/meta-media-downloader.js";
 
 // D5: the worker is a separate process from the HTTP server and requires
 // Redis unconditionally — no memory fallback. A memory queue has no
@@ -113,10 +115,23 @@ function startWorker(): void {
   // D20/PR4 resequencing note: wiring this here (rather than Phase 7's
   // originally-listed task 7.5 slot) because createConversationFlowService
   // now requires reniecLookupClient to compile and work — same precedent as
-  // Phase 3's reniecLookupBaseUrl resequencing. Phase 7 still owns
-  // WhatsappMediaDownloader + the (D21-gated) QuejasSubmissionClient wiring.
+  // Phase 3's reniecLookupBaseUrl resequencing.
   const reniecLookupClient = createHttpReniecLookupClient({ config, logger });
-  const conversationFlow = createConversationFlowService({ sessionStore, sender, reniecLookupClient, config });
+  // Phase 7 (PR7): the real QuejasSubmissionClient and WhatsappMediaDownloader,
+  // completing the con-DNI/sin-DNI Reclamo flow end to end. D21 gate: code
+  // built and unit-tested against fakes only, per explicit instruction — see
+  // http-quejas-submission-client.ts's loud comment. Real-endpoint base64
+  // acceptance validation is still pending before production traffic.
+  const quejasSubmissionClient = createHttpQuejasSubmissionClient({ config, logger });
+  const whatsappMediaDownloader = createMetaMediaDownloader({ config, logger });
+  const conversationFlow = createConversationFlowService({
+    sessionStore,
+    sender,
+    reniecLookupClient,
+    quejasSubmissionClient,
+    whatsappMediaDownloader,
+    config,
+  });
   const processConversationEvent = createProcessConversationEvent({ conversationFlow });
 
   const worker = new Worker("conversation-events", processConversationEvent, { connection });
