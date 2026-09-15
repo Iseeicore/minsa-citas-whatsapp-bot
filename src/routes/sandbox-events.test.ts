@@ -274,3 +274,89 @@ describe("sandbox capture drain (SBX-2/D36) — each request sees exactly its ow
     expect(second.json().session.counters.messagesReceived).toBe(2);
   });
 });
+
+describe("sandbox E2E journey — reclamo happy path with DNI (spec full scenario, SBX-1)", () => {
+  it("7-step OMITIR journey: menu -> con-DNI -> nombre -> descripcion -> OMITIR final-pass -> confirmed", async () => {
+    const app = await buildWithEnv({ SANDBOX_ENABLED: "true", NODE_ENV: "development" });
+
+    // Step 1: "hola" at a fresh main_menu -> interactive-list with both menu rows.
+    const step1 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "hola" });
+    expect(step1.statusCode).toBe(200);
+    expect(step1.json().sent[0].kind).toBe("interactive_list");
+    expect(step1.json().sent[0].list.sections[0].rows).toEqual([
+      { id: "agendar_cita", title: "Agendar cita" },
+      { id: "registrar_reclamo", title: "Registrar un reclamo" },
+    ]);
+    expect(step1.json().session.state).toBe("main_menu");
+
+    // Step 2: menu tap -> identity-choice buttons.
+    const step2 = await postJson(app, { from: SANDBOX_FROM, type: "list", listId: "registrar_reclamo" });
+    expect(step2.statusCode).toBe(200);
+    expect(step2.json().sent[0].kind).toBe("buttons");
+    expect(step2.json().sent[0].buttons.buttons[0]).toEqual({ id: "reclamo_con_dni", title: "Sí, tengo DNI" });
+    expect(step2.json().session.state).toBe("reclamo_identity_choice");
+
+    // Step 3: "Sí, tengo DNI" -> asks for the 8-digit DNI.
+    const step3 = await postJson(app, { from: SANDBOX_FROM, type: "button", listId: "reclamo_con_dni" });
+    expect(step3.statusCode).toBe(200);
+    expect(step3.json().sent).toEqual([{ kind: "text", to: SANDBOX_FROM, body: "Ingresa tu DNI (8 dígitos)." }]);
+    expect(step3.json().session.state).toBe("reclamo_awaiting_dni");
+
+    // Step 4: DNI 12345678 -> ONE send, state reclamo_awaiting_nombre.
+    //
+    // DESIGN-DEVIATION (binding carry-forward): the design's "exactly 5 sends
+    // on the DNI turn" signature does NOT match the current FSM — the DNI turn
+    // only stores the slot and asks the name; the D20 RENIEC re-entry (the
+    // second "verificando" + "describe" pass) happens on the NAME turn instead
+    // (reclamoAwaitingDniHandler / reclamoAwaitingNombreHandler). Verified
+    // against the real createConversationFlowService: what the FSM actually
+    // emits is asserted, per the design's own risk note.
+    const step4 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "12345678" });
+    expect(step4.statusCode).toBe(200);
+    expect(step4.json().sent).toEqual([
+      { kind: "text", to: SANDBOX_FROM, body: "Ingresa tus nombres y apellidos, tal como figuran en tu DNI." },
+    ]);
+    expect(step4.json().session.state).toBe("reclamo_awaiting_nombre");
+
+    // Step 5: full name -> RENIEC verification with D20 re-entry IN THIS TURN:
+    // pass 1 emits "verificando" + the reniec_lookup query; pass 2 (fake found
+    // + name match) emits the descripcion prompt. Terminal state is
+    // reclamo_awaiting_descripcion — the design's "step 5 -> reclamo_awaiting_foto"
+    // predates the current FSM's shared descripcion capture state.
+    const step5 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "Juan Carlos Quispe" });
+    expect(step5.statusCode).toBe(200);
+    expect(step5.json().sent).toEqual([
+      { kind: "text", to: SANDBOX_FROM, body: "Estamos verificando tus datos…" },
+      { kind: "text", to: SANDBOX_FROM, body: "Describe tu reclamo." },
+    ]);
+    expect(step5.json().session.state).toBe("reclamo_awaiting_descripcion");
+
+    // Step 6: complaint description -> asks for the photo (or OMITIR).
+    const step6 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "Se cayó la pared de mi casa" });
+    expect(step6.statusCode).toBe(200);
+    expect(step6.json().sent).toEqual([{ kind: "text", to: SANDBOX_FROM, body: "Envía una foto o escribe OMITIR." }]);
+    expect(step6.json().session.state).toBe("reclamo_awaiting_foto");
+
+    // Step 7 (final pass): OMITIR completes the journey IN ONE TURN — the
+    // D20 second pass persists reclamo_confirmed, never reclamo_submit_pending
+    // (IMG-1). No further POST at reclamo_confirmed: that would hit the
+    // closedFlowHandler and reset to main_menu.
+    const step7 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "OMITIR" });
+    expect(step7.statusCode).toBe(200);
+    expect(step7.json().sent).toEqual([
+      { kind: "text", to: SANDBOX_FROM, body: "Registrando tu reclamo…" },
+      {
+        kind: "text",
+        to: SANDBOX_FROM,
+        body: "Tu reclamo fue registrado correctamente. Gracias por tu reporte. N° de referencia: DEV-REF-001.",
+      },
+    ]);
+    expect(step7.json().session.state).toBe("reclamo_confirmed");
+    // Terminal slots: the four Reclamo keys (dni/nombre/queja/mediaId) are
+    // cleared at the terminal transition (D22), but the main-menu selection
+    // slot `menuChoice` is NOT reclamo-owned and survives — the design's
+    // "slots empty" wording is stale here; the honest FSM leaves exactly
+    // { menuChoice }.
+    expect(step7.json().session.slots).toEqual({ menuChoice: "registrar_reclamo" });
+  });
+});
