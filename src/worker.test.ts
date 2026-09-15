@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Job, Worker } from "bullmq";
 import type { Redis as IORedis } from "ioredis";
 import type { InboundConversationEvent } from "./domain/inbound-conversation-event.js";
+import type { ConversationFlowService } from "./services/conversation-flow.js";
 
 // Every test resets modules and re-imports "./logger.js" BEFORE "./worker.js"
 // in the same cycle: worker.js's own import of the shared logger must resolve
@@ -13,9 +14,9 @@ describe("worker", () => {
     delete process.env.QUEUE_DRIVER;
   });
 
-  describe("processConversationEvent", () => {
+  describe("createProcessConversationEvent", () => {
     // D7: job.data is the InboundConversationEvent Entity (D6) — the
-    // processor now logs job identity plus the sanitized log-view DTO
+    // processor logs job identity plus the sanitized log-view DTO
     // (toLogView), never the raw entity fields (from/text/contactName/raw).
     function fakeEventData(overrides: Partial<InboundConversationEvent> = {}): InboundConversationEvent {
       return {
@@ -31,19 +32,28 @@ describe("worker", () => {
       };
     }
 
-    it("logs jobId plus the sanitized log-view DTO, and resolves without throwing", async () => {
+    function fakeConversationFlow(processImpl: ConversationFlowService["process"]): ConversationFlowService {
+      return { process: processImpl };
+    }
+
+    it("logs jobId plus the sanitized log-view DTO, calls conversationFlow.process(job.data), and resolves", async () => {
       vi.resetModules();
       const { logger } = await import("./logger.js");
       const { config } = await import("./config.js");
       const { toLogView } = await import("./domain/inbound-conversation-event-log-view.js");
       const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => logger);
-      const { processConversationEvent } = await import("./worker.js");
+      const { createProcessConversationEvent } = await import("./worker.js");
 
       const eventData = fakeEventData();
       const job = { id: "job-1", name: "inbound-event", attemptsMade: 0, data: eventData } as unknown as Job;
+      const processSpy = vi.fn().mockResolvedValue(undefined);
+      const processConversationEvent = createProcessConversationEvent({
+        conversationFlow: fakeConversationFlow(processSpy),
+      });
 
       await expect(processConversationEvent(job)).resolves.toBeUndefined();
 
+      expect(processSpy).toHaveBeenCalledWith(eventData);
       const expectedLogView = toLogView(eventData, { logHashSecret: config.logHashSecret });
       expect(infoSpy).toHaveBeenCalledWith(
         { jobId: "job-1", ...expectedLogView },
@@ -55,10 +65,13 @@ describe("worker", () => {
       vi.resetModules();
       const { logger } = await import("./logger.js");
       const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => logger);
-      const { processConversationEvent } = await import("./worker.js");
+      const { createProcessConversationEvent } = await import("./worker.js");
 
       const eventData = fakeEventData({ eventId: "wamid.def", from: "51988888888", text: "otro mensaje sensible" });
       const job = { id: "job-2", name: "inbound-event", attemptsMade: 2, data: eventData } as unknown as Job;
+      const processConversationEvent = createProcessConversationEvent({
+        conversationFlow: fakeConversationFlow(vi.fn().mockResolvedValue(undefined)),
+      });
 
       await processConversationEvent(job);
 
@@ -66,6 +79,50 @@ describe("worker", () => {
       expect(JSON.stringify(context)).not.toContain("51988888888");
       expect(JSON.stringify(context)).not.toContain("otro mensaje sensible");
       expect(context.jobId).toBe("job-2");
+    });
+
+    // D14: classifyWorkerOutcome() wraps conversationFlow.process() — a
+    // transient infra failure (Redis unreachable, Graph API timeout/5xx)
+    // must rethrow so BullMQ's existing 3-attempt exponential backoff still
+    // retries the job unchanged.
+    it("rethrows when conversationFlow.process() throws a TransientFailureError — BullMQ would retry", async () => {
+      vi.resetModules();
+      const { logger } = await import("./logger.js");
+      vi.spyOn(logger, "info").mockImplementation(() => logger);
+      const { TransientFailureError } = await import("./domain/errors.js");
+      const { createProcessConversationEvent } = await import("./worker.js");
+
+      const eventData = fakeEventData();
+      const job = { id: "job-3", name: "inbound-event", attemptsMade: 0, data: eventData } as unknown as Job;
+      const processConversationEvent = createProcessConversationEvent({
+        conversationFlow: fakeConversationFlow(
+          vi.fn().mockRejectedValue(new TransientFailureError("meta graph api unreachable"))
+        ),
+      });
+
+      await expect(processConversationEvent(job)).rejects.toBeInstanceOf(TransientFailureError);
+    });
+
+    // D14: a business rejection is a terminal, non-retriable stop — the job
+    // must resolve normally (no infinite retry loop).
+    it("resolves without throwing when conversationFlow.process() throws a BusinessRejectionError — no retry", async () => {
+      vi.resetModules();
+      const { logger } = await import("./logger.js");
+      vi.spyOn(logger, "info").mockImplementation(() => logger);
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
+      const { BusinessRejectionError } = await import("./domain/errors.js");
+      const { createProcessConversationEvent } = await import("./worker.js");
+
+      const eventData = fakeEventData();
+      const job = { id: "job-4", name: "inbound-event", attemptsMade: 0, data: eventData } as unknown as Job;
+      const processConversationEvent = createProcessConversationEvent({
+        conversationFlow: fakeConversationFlow(
+          vi.fn().mockRejectedValue(new BusinessRejectionError("citizen rejected the flow"))
+        ),
+      });
+
+      await expect(processConversationEvent(job)).resolves.toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
     });
   });
 
