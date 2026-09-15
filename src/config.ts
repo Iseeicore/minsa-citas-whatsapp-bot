@@ -52,6 +52,10 @@ export const config = {
   // citaConversationIdPlaceholder above. Not a secret, so an unset env
   // silently takes the proven 300s default rather than warning.
   citaRegistrationWaitSeconds: Number(process.env.CITA_REGISTRATION_WAIT_SECONDS ?? 300),
+  // D41: bare process.env, not readEnv() — a safe local default (unlike the
+  // secrets above) is fine for dev. May carry an embedded credential
+  // (Upstash's rediss:// URLs), same shape redactRedisUrl() already guards
+  // against at every logging call site — secrecy is enforced there, not here.
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
   // D7: dedicated secret for the log-view HMAC fingerprint. Falls back to
   // metaAppSecret when unset — accepted consequence: rotating the app

@@ -18,6 +18,7 @@ import { createHttpQuejasSubmissionClient } from "./adapters/http-quejas-submiss
 import { createMetaMediaDownloader } from "./adapters/meta-media-downloader.js";
 import { createRedisScheduledCheckScheduler } from "./adapters/redis-scheduled-check-scheduler.js";
 import { createHttpMinsaIdentityClient } from "./adapters/http-minsa-identity-client.js";
+import { redactRedisUrl } from "./adapters/redis-conversation-event-dao.js";
 import { CONVERSATION_QUEUE_NAME } from "./domain/conversation-queue.js";
 
 // D5: the worker is a separate process from the HTTP server and requires
@@ -222,7 +223,7 @@ function startWorker(): void {
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));
 
-  logger.info({ redisUrl: config.redisUrl }, "[worker] conversation-events worker iniciado");
+  logger.info({ redisUrl: redactRedisUrl(config.redisUrl) }, "[worker] conversation-events worker iniciado");
 }
 
 // Only self-invokes when this file is the actual process entry point (`node
