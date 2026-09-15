@@ -2,6 +2,7 @@ import {
   BusinessRejectionError,
   FsmContractViolationError,
   MediaTooLargeError,
+  MinsaIdentityClientNotConfiguredError,
   QuejasSubmissionClientNotConfiguredError,
   ScheduledCheckSchedulerNotConfiguredError,
 } from "./errors.js";
@@ -38,11 +39,18 @@ export type WorkerOutcome = "transient" | "business";
 // rejected result (D21) before it would ever reach this classifier; this
 // mapping exists as a defensive safety net for any future call site that
 // lets it propagate unhandled.
+//
+// Phase 6 (PR6): `MinsaIdentityClientNotConfiguredError` is the same class of
+// deterministic, never-retriable wiring gap as
+// `QuejasSubmissionClientNotConfiguredError`/`ScheduledCheckSchedulerNotConfiguredError`
+// above — see errors.ts. Phase 8 wires the real `HttpMinsaIdentityClient`
+// unconditionally in worker.ts, so this path stays a defensive safety net.
 export function classifyWorkerOutcome(err: unknown): WorkerOutcome {
   if (err instanceof BusinessRejectionError) return "business";
   if (err instanceof FsmContractViolationError) return "business";
   if (err instanceof QuejasSubmissionClientNotConfiguredError) return "business";
   if (err instanceof MediaTooLargeError) return "business";
   if (err instanceof ScheduledCheckSchedulerNotConfiguredError) return "business";
+  if (err instanceof MinsaIdentityClientNotConfiguredError) return "business";
   return "transient";
 }

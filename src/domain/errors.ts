@@ -59,6 +59,18 @@ export class QuejasSubmissionClientNotConfiguredError extends AppError {}
 /** `ConversationFlowServiceDeps.scheduledCheckScheduler` is not yet configured (Phase 5). Never retriable. */
 export class ScheduledCheckSchedulerNotConfiguredError extends AppError {}
 
+// Phase 6 (Stage C1, PR6): a `validate_user` query effect reached
+// conversation-flow.ts's `runQueryEffect` but
+// `ConversationFlowServiceDeps.minsaIdentityClient` is not yet configured.
+// `minsaIdentityClient` is OPTIONAL until Phase 8 wires the real
+// `HttpMinsaIdentityClient` into worker.ts's composition root (task 8.1) —
+// same precedent as `QuejasSubmissionClientNotConfiguredError` and
+// `ScheduledCheckSchedulerNotConfiguredError` above: a deployment/
+// configuration gap, not a citizen-triggerable condition or an infra
+// hiccup, so retrying will never succeed.
+/** `ConversationFlowServiceDeps.minsaIdentityClient` is not yet configured (Phase 8). Never retriable. */
+export class MinsaIdentityClientNotConfiguredError extends AppError {}
+
 // D21 (Stage B, PR6): thrown by `meta-media-downloader.ts` when hop 1's
 // declared `file_size` exceeds `MAX_MEDIA_BYTES` (2 MiB) — enforced BEFORE
 // hop 2 ever fetches a byte, per the design's resource-exhaustion threat

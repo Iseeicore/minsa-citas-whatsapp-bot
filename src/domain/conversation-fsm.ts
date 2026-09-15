@@ -22,9 +22,15 @@
 // only the raw submission intent (`celular`/`dni`/`nombreCompleto`/`queja`/
 // `mediaId`); the wire payload's `imagen` field (D21, base64/data-URI) and
 // the real `QuejasSubmissionClient` HTTP call stay Phase 6/7, D21-gated.
+//
+// PR6 (Phase 6): `FsmQueryEffect`/`FsmSystemEvent` widen further with
+// `validate_user`/`validate_user_result` (deferred from PR4 by design — same
+// precedent as `quejas_submit`'s own PR4->PR5 deferral, see 4.6's note in
+// tasks.md). `verify_code`/`verify_code_result` stay Phase 7's own widening.
 import type { ListRow, ListSection, ReplyButton } from "../ports/whatsapp-outbound-sender.js";
 import type { ReniecLookupResult } from "../ports/reniec-lookup-client.js";
 import type { QuejaSubmissionResult } from "../ports/quejas-submission-client.js";
+import type { ValidateUserResult } from "../ports/minsa-identity-client.js";
 import type { ConversationSession, ConversationStateName, SlotValue } from "./conversation-session.js";
 import { withState } from "./conversation-session.js";
 import { isValidDniFormat } from "./dni.js";
@@ -60,9 +66,15 @@ export interface QuejaSubmission {
   readonly mediaId: string | null;
 }
 
+// D26/D17: `numeroDocumento` is the format-validated DNI text captured by
+// `citaAwaitingDniHandler` — never `conversation_id`, which stays
+// adapter-owned (design's D26: "never a port parameter and never an FSM
+// concern") and is added by `http-minsa-identity-client.ts` (Phase 3) from
+// its own injected config, not carried through this effect.
 export type FsmQueryEffect =
   | { kind: "reniec_lookup"; dni: string }
-  | { kind: "quejas_submit"; submission: QuejaSubmission };
+  | { kind: "quejas_submit"; submission: QuejaSubmission }
+  | { kind: "validate_user"; numeroDocumento: string };
 
 // D28 (Stage C1, PR4): FsmScheduleEffect is a THIRD effect category — plain
 // data describing a future timer fire, no I/O performed here. `handle()`
@@ -108,8 +120,8 @@ export interface FsmResult {
 export interface FsmSystemEvent {
   readonly source: "system";
   readonly from?: string;
-  readonly kind: "reniec_lookup_result" | "quejas_submit_result";
-  readonly result: ReniecLookupResult | QuejaSubmissionResult;
+  readonly kind: "reniec_lookup_result" | "quejas_submit_result" | "validate_user_result";
+  readonly result: ReniecLookupResult | QuejaSubmissionResult | ValidateUserResult;
 }
 
 // D29 (Stage C1, PR4): a THIRD event source — a scheduled-check timer fire,
@@ -154,10 +166,71 @@ const RECLAMO_IDENTITY_CHOICE_STATE: ConversationStateName = "reclamo_identity_c
 const MAIN_MENU_BODY = "¿En qué podemos ayudarte hoy?";
 const MAIN_MENU_BUTTON_LABEL = "Ver opciones";
 
-// Stage C stub, unchanged from PR1: the real Cita branch is out of scope for
-// Stage B — see design's FSM states table, `agendar_cita` row, "explicit
-// Stage C stub".
-const CITA_PLACEHOLDER_BODY = "Estamos preparando la reserva de tu cita. En un momento continuamos.";
+// PR6 (Phase 6): the Cita branch's real entry point, replacing PR1's
+// `CITA_PLACEHOLDER_BODY` stub — design's FSM states table, `awaiting_flow_start`
+// row: "replaces CITA_PLACEHOLDER_BODY".
+const CITA_AWAITING_DNI_STATE: ConversationStateName = "cita_awaiting_dni";
+const CITA_VALIDATE_PENDING_STATE: ConversationStateName = "cita_validate_pending";
+const CITA_REGISTRATION_WAIT_STATE: ConversationStateName = "cita_registration_wait";
+// Terminal (spec: outcome "rejected" — a second consecutive not_valid MINSA
+// check, no third wait).
+const CITA_REGISTRATION_REJECTED_STATE: ConversationStateName = "cita_registration_rejected";
+// Phase 7's own target — NOT registered in STATE_HANDLERS this PR (Phase 6's
+// scope boundary). A session parked here falls back to main_menu via D13's
+// registry-fallback guard until Phase 7 registers the real OTP handler, same
+// precedent as `reclamo_awaiting_descripcion`'s own PR4->PR5 placeholder
+// window (Stage B).
+const CITA_AWAITING_OTP_STATE: ConversationStateName = "cita_awaiting_otp";
+
+const CITA_ASK_DNI_BODY = "Ingresa tu DNI (8 dígitos).";
+const CITA_INVALID_DNI_BODY = "El DNI debe tener exactamente 8 dígitos numéricos. Inténtalo de nuevo.";
+const CITA_VALIDATING_BODY = "Estamos validando tus datos…";
+const CITA_OTP_SENT_BODY = "Te enviamos un código de verificación.";
+const CITA_NOT_REGISTERED_BODY =
+  "No encontramos tu registro en MINSA Digital. Regístrate y escribe CONFIRMAR para continuar, " +
+  "o espera mientras verificamos automáticamente en unos minutos.";
+const CITA_REGISTRATION_REJECTED_BODY =
+  "No pudimos verificar tu registro en MINSA Digital. Regístrate desde la aplicación e inténtalo " +
+  "nuevamente más tarde.";
+const CITA_PROCESSING_BODY = "Estamos procesando tu solicitud, danos un momento.";
+const CITA_VERIFYING_REGISTRATION_BODY = "Verificando tu registro…";
+const CITA_STILL_VERIFYING_REGISTRATION_BODY = "Seguimos verificando tu registro…";
+const CITA_INVALID_WAIT_REPLY_BODY =
+  "Escribe CONFIRMAR para verificar tu registro, o espera mientras lo revisamos automáticamente.";
+const CITA_CONFIRMAR_PATTERN = /^confirmar$/i;
+
+// D31/D32: mirrors config.ts's `citaRegistrationWaitSeconds` default. A pure
+// module constant, NOT read from config.ts — `handle()` stays zero-I/O (D13)
+// and takes no config parameter (spec's "Pure Transition Engine" requirement
+// locks the 2-arg signature). Matches the design's own FSM states table
+// literal (`schedule_check{delaySeconds: 300, ...}`) and config.ts's
+// `Number(process.env.CITA_REGISTRATION_WAIT_SECONDS ?? 300)` default.
+// ⚠️ Accepted, documented D13 consequence: an operator overriding
+// CITA_REGISTRATION_WAIT_SECONDS changes worker.ts's boot-time TTL-headroom
+// assertion (Phase 5) but NOT this literal — the two must be kept in sync
+// manually if the env default is ever changed (see this PR's deviations).
+const CITA_REGISTRATION_WAIT_SECONDS = 300;
+// Design's FSM states table: the 3rd consecutive not_valid check is
+// terminal — two waits (registro_wait:1, registro_wait:2), never a third.
+const CITA_MAX_REGISTRATION_CHECKS = 3;
+
+// PR6: Phase 6's own slot keys. Phase 7 (task 7.6) extends this list with
+// `citaOtpAttempts`/`citaBearer` once the OTP states land — same incremental
+// pattern RECLAMO_SLOT_KEYS_TO_CLEAR itself does not need (Reclamo's four
+// keys landed together), but D33 explicitly calls for a growing list here.
+const CITA_SLOT_KEYS_TO_CLEAR = ["citaDni", "citaTwofaId", "citaWaitToken", "citaRegistrationChecks"] as const;
+
+// D22/D33 discipline, mirroring `clearReclamoSlots` above: delete-based (not
+// a destructuring rest-omit) to avoid an unused-binding footgun as more Cita
+// slot keys are added in Phase 7. Cita's keys are namespaced apart from
+// Reclamo's own (`dni`/`nombre`/`queja`) per D33.
+function clearCitaSlots(slots: ConversationSession["slots"]): ConversationSession["slots"] {
+  const next: Record<string, SlotValue> = { ...slots };
+  for (const key of CITA_SLOT_KEYS_TO_CLEAR) {
+    delete next[key];
+  }
+  return next;
+}
 
 // Design's FSM states table, `reclamo_identity_choice` row: the citizen is
 // asked whether they want to identify with DNI. Registered below (PR4) —
@@ -294,10 +367,12 @@ function awaitingFlowStartHandler(session: ConversationSession, event: FsmEvent)
   }
 
   if (session.slots.menuChoice === "agendar_cita") {
-    // Stage C stub, unchanged from PR1 — out of scope for Stage B.
+    // PR6 (Phase 6): the real Cita entry point, replacing PR1's placeholder
+    // stub — design's FSM states table, `awaiting_flow_start` row.
+    const advanced = withState(session, CITA_AWAITING_DNI_STATE);
     return {
-      session,
-      effects: [{ kind: "send_text", to, body: CITA_PLACEHOLDER_BODY }],
+      session: advanced,
+      effects: [{ kind: "send_text", to, body: CITA_ASK_DNI_BODY }],
       outcome: "continue",
     };
   }
@@ -661,11 +736,175 @@ function reclamoSubmitPendingHandler(session: ConversationSession, event: FsmEve
   };
 }
 
+// PR6 (Phase 6): design's FSM states table, `cita_awaiting_dni` row.
+// Format-validated via the SAME pure `isValidDniFormat` Reclamo's DNI state
+// uses (D13's shared pure helper) BEFORE any `validate_user` query effect —
+// an invalid format never emits one, it just re-prompts.
+function citaAwaitingDniHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const text = isInboundEvent(event) ? event.text : undefined;
+
+  if (isValidDniFormat(text)) {
+    const dni = (text as string).trim();
+    const advanced = withState(
+      { ...session, slots: { ...session.slots, citaDni: dni } },
+      CITA_VALIDATE_PENDING_STATE
+    );
+    return {
+      session: advanced,
+      effects: [
+        { kind: "send_text", to, body: CITA_VALIDATING_BODY },
+        { kind: "validate_user", numeroDocumento: dni },
+      ],
+      outcome: "continue",
+    };
+  }
+
+  const rePrompted: ConversationSession = {
+    ...session,
+    counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+  };
+
+  return {
+    session: rePrompted,
+    effects: [{ kind: "send_text", to, body: CITA_INVALID_DNI_BODY }],
+    outcome: "continue",
+  };
+}
+
+// PR6: D20's re-entry point for the Cita branch (mirrors
+// `reclamoReniecPendingHandler`). Also the SAME handler both exits out of
+// `cita_registration_wait` transition into (design: "both exits converge on
+// the same target state, effect, and counter"). Spec: a `not_valid` result
+// "MUST NOT throw" — it is a normal transition to a wait or a rejection
+// state, never a crash.
+function citaValidatePendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+
+  if (isInboundEvent(event) || event.kind !== "validate_user_result") {
+    // Defensive: pending states are never persisted, and conversation-flow.ts
+    // only ever synthesizes the system-event kind matching the query effect
+    // THIS state itself emitted — same defensive discipline as
+    // reclamoReniecPendingHandler/reclamoSubmitPendingHandler. Never crash.
+    return {
+      session,
+      effects: [{ kind: "send_text", to, body: CITA_PROCESSING_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  const result = event.result;
+
+  if (result.status === "valid") {
+    const advanced = withState(
+      { ...session, slots: { ...session.slots, citaTwofaId: result.twofaId } },
+      CITA_AWAITING_OTP_STATE
+    );
+    return {
+      session: advanced,
+      effects: [{ kind: "send_text", to, body: CITA_OTP_SENT_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  // not_valid: design's FSM states table — `n = (citaRegistrationChecks ??
+  // 0) + 1`. n < 3 arms a wait (registro_wait:1, then registro_wait:2);
+  // n === 3 is terminal, no third wait.
+  const previousChecks =
+    typeof session.slots.citaRegistrationChecks === "number" ? session.slots.citaRegistrationChecks : 0;
+  const checkNumber = previousChecks + 1;
+
+  if (checkNumber >= CITA_MAX_REGISTRATION_CHECKS) {
+    const rejected = withState(
+      { ...session, slots: clearCitaSlots(session.slots) },
+      CITA_REGISTRATION_REJECTED_STATE
+    );
+    return {
+      session: rejected,
+      effects: [
+        { kind: "send_text", to, body: CITA_REGISTRATION_REJECTED_BODY },
+        { kind: "end_session", to },
+      ],
+      outcome: "rejected",
+    };
+  }
+
+  const waitToken = `registro_wait:${checkNumber}`;
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaRegistrationChecks: checkNumber, citaWaitToken: waitToken } },
+    CITA_REGISTRATION_WAIT_STATE
+  );
+
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_NOT_REGISTERED_BODY },
+      {
+        kind: "schedule_check",
+        // D17: `session.sessionKey` — already a D17 digest, safe plain data.
+        sessionKey: session.sessionKey,
+        // D17: `event.from` at effect-construction time — NEVER from `slots`.
+        to,
+        delaySeconds: CITA_REGISTRATION_WAIT_SECONDS,
+        checkKind: "cita_registration_wait_elapsed",
+        waitToken,
+        expectedState: CITA_REGISTRATION_WAIT_STATE,
+      },
+    ],
+    outcome: "continue",
+  };
+}
+
+// PR6: design's FSM states table, `cita_registration_wait` row. Both exits —
+// an early citizen "CONFIRMAR" reply and the scheduled timer fire — converge
+// on the IDENTICAL next state, effect, and counter (D31): whichever wins
+// clears `citaWaitToken`, so the LOSER becomes a provable no-op at
+// `processScheduled()`'s D31 state-and-token guard when it eventually fires.
+// Any OTHER inbound message leaves `citaWaitToken` intact so the still-armed
+// timer survives an unrelated message (design: "the armed timer survives an
+// unrelated message").
+function citaRegistrationWaitHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+
+  const isConfirmarReply =
+    isInboundEvent(event) && event.text !== undefined && CITA_CONFIRMAR_PATTERN.test(event.text.trim());
+  const isScheduledFire = isScheduleEvent(event) && event.kind === "cita_registration_wait_elapsed";
+
+  if (isConfirmarReply || isScheduledFire) {
+    const slots: Record<string, SlotValue> = { ...session.slots };
+    delete slots.citaWaitToken;
+    const dni = typeof session.slots.citaDni === "string" ? session.slots.citaDni : "";
+    const advanced = withState({ ...session, slots }, CITA_VALIDATE_PENDING_STATE);
+    const body = isConfirmarReply ? CITA_VERIFYING_REGISTRATION_BODY : CITA_STILL_VERIFYING_REGISTRATION_BODY;
+
+    return {
+      session: advanced,
+      effects: [
+        { kind: "send_text", to, body },
+        { kind: "validate_user", numeroDocumento: dni },
+      ],
+      outcome: "continue",
+    };
+  }
+
+  const rePrompted: ConversationSession = {
+    ...session,
+    counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+  };
+
+  return {
+    session: rePrompted,
+    effects: [{ kind: "send_text", to, body: CITA_INVALID_WAIT_REPLY_BODY }],
+    outcome: "continue",
+  };
+}
+
 // Design's FSM states table: every terminal Reclamo state
 // (`reclamo_confirmed`, `reclamo_rejected`, `reclamo_failed`) shares one
 // handler — "any inbound -> main_menu": a fresh start with the main menu
 // list. Slots are already cleared at the terminal TRANSITION itself
-// (D22/DNI-3), so this handler does no clearing of its own.
+// (D22/DNI-3), so this handler does no clearing of its own. PR6: also shared
+// by `cita_registration_rejected` (design's FSM states table, closing row).
 function closedFlowHandler(session: ConversationSession, event: FsmEvent): FsmResult {
   const to = event.from ?? "";
   const reset = withState(session, MAIN_MENU_STATE);
@@ -685,6 +924,10 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [RECLAMO_REJECTED_STATE]: closedFlowHandler,
   [RECLAMO_CONFIRMED_STATE]: closedFlowHandler,
   [RECLAMO_FAILED_STATE]: closedFlowHandler,
+  [CITA_AWAITING_DNI_STATE]: citaAwaitingDniHandler,
+  [CITA_VALIDATE_PENDING_STATE]: citaValidatePendingHandler,
+  [CITA_REGISTRATION_WAIT_STATE]: citaRegistrationWaitHandler,
+  [CITA_REGISTRATION_REJECTED_STATE]: closedFlowHandler,
 };
 
 // D13: looks up the current state's handler; falls back to main_menu for an

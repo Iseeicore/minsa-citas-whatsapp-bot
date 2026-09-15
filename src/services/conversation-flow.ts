@@ -4,6 +4,7 @@ import type { ReniecLookupClient } from "../ports/reniec-lookup-client.js";
 import type { QuejaPayload, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
 import type { WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
 import type { ScheduledCheckScheduler } from "../ports/scheduled-check-scheduler.js";
+import type { MinsaIdentityClient } from "../ports/minsa-identity-client.js";
 import type {
   FsmEffect,
   FsmQueryEffect,
@@ -19,6 +20,7 @@ import type { ScheduledCheckJobData } from "../domain/conversation-job.js";
 import {
   FsmContractViolationError,
   MediaTooLargeError,
+  MinsaIdentityClientNotConfiguredError,
   ScheduledCheckSchedulerNotConfiguredError,
 } from "../domain/errors.js";
 import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
@@ -89,6 +91,17 @@ export interface ConversationFlowServiceDeps {
    * quejasSubmissionClient's earlier optional/NotConfigured window (errors.ts).
    */
   scheduledCheckScheduler?: ScheduledCheckScheduler;
+  /**
+   * D26/Phase 6: the sole executor of the `validate_user` query effect —
+   * handle() never performs I/O itself. OPTIONAL until Phase 8 wires the
+   * real `HttpMinsaIdentityClient` into worker.ts's composition root (task
+   * 8.1); undefined is safe today because no other call site constructs one
+   * yet. If a `validate_user` effect DOES appear without a configured
+   * client, `runQueryEffect` throws `MinsaIdentityClientNotConfiguredError`
+   * rather than silently dropping the check — same precedent as
+   * `scheduledCheckScheduler`'s earlier optional/NotConfigured window.
+   */
+  minsaIdentityClient?: MinsaIdentityClient;
   config: {
     /** D19: keys the D17 MSISDN digest used as the session lookup key. */
     sessionKeySecret: string;
@@ -98,7 +111,7 @@ export interface ConversationFlowServiceDeps {
 
 /** True for a query effect (D20) — false for a plain WhatsApp-send effect. */
 function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
-  return effect.kind === "reniec_lookup" || effect.kind === "quejas_submit";
+  return effect.kind === "reniec_lookup" || effect.kind === "quejas_submit" || effect.kind === "validate_user";
 }
 
 // D28: a POSITIVE enumeration of the four known send-effect kinds — NEVER
@@ -253,6 +266,7 @@ async function runQueryEffect(
     reniecLookupClient: ReniecLookupClient;
     quejasSubmissionClient: QuejasSubmissionClient;
     whatsappMediaDownloader: WhatsappMediaDownloader;
+    minsaIdentityClient?: MinsaIdentityClient;
   },
   effect: FsmQueryEffect,
   to: string | undefined
@@ -261,6 +275,15 @@ async function runQueryEffect(
     case "reniec_lookup": {
       const result = await clients.reniecLookupClient.lookup(effect.dni);
       return { source: "system", from: to, kind: "reniec_lookup_result", result };
+    }
+    case "validate_user": {
+      if (clients.minsaIdentityClient === undefined) {
+        throw new MinsaIdentityClientNotConfiguredError(
+          "[conversation-flow] FSM turn emitted a validate_user effect but minsaIdentityClient is not configured."
+        );
+      }
+      const result = await clients.minsaIdentityClient.validateUser(effect.numeroDocumento);
+      return { source: "system", from: to, kind: "validate_user_result", result };
     }
     case "quejas_submit": {
       const { submission } = effect;
@@ -311,6 +334,7 @@ interface TurnClients {
   reniecLookupClient: ReniecLookupClient;
   quejasSubmissionClient: QuejasSubmissionClient;
   whatsappMediaDownloader: WhatsappMediaDownloader;
+  minsaIdentityClient?: MinsaIdentityClient;
 }
 
 interface TurnOutcome {
@@ -388,9 +412,15 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
     quejasSubmissionClient,
     whatsappMediaDownloader,
     scheduledCheckScheduler,
+    minsaIdentityClient,
     config,
   } = deps;
-  const clients: TurnClients = { reniecLookupClient, quejasSubmissionClient, whatsappMediaDownloader };
+  const clients: TurnClients = {
+    reniecLookupClient,
+    quejasSubmissionClient,
+    whatsappMediaDownloader,
+    minsaIdentityClient,
+  };
 
   return {
     async process(event: InboundConversationEvent): Promise<void> {

@@ -3,6 +3,7 @@ import { classifyWorkerOutcome } from "./worker-outcome.js";
 import {
   BusinessRejectionError,
   MediaTooLargeError,
+  MinsaIdentityClientNotConfiguredError,
   QuejasSubmissionClientNotConfiguredError,
   ScheduledCheckSchedulerNotConfiguredError,
   TransientFailureError,
@@ -31,6 +32,10 @@ describe("classifyWorkerOutcome", () => {
 
   it("classifies a ScheduledCheckSchedulerNotConfiguredError as business (PR4 — deterministic wiring gap, never retriable)", () => {
     expect(classifyWorkerOutcome(new ScheduledCheckSchedulerNotConfiguredError("not wired yet"))).toBe("business");
+  });
+
+  it("classifies a MinsaIdentityClientNotConfiguredError as business (PR6 — deterministic wiring gap, never retriable)", () => {
+    expect(classifyWorkerOutcome(new MinsaIdentityClientNotConfiguredError("not wired yet"))).toBe("business");
   });
 
   it("classifies a plain, unclassified Error as transient (safe default)", () => {

@@ -10,6 +10,7 @@ import type { ReniecLookupClient, ReniecLookupResult } from "../ports/reniec-loo
 import type { QuejaPayload, QuejaSubmissionResult, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
 import type { DownloadedMedia, WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
 import type { ScheduledCheckScheduler } from "../ports/scheduled-check-scheduler.js";
+import type { MinsaIdentityClient, ValidateUserResult } from "../ports/minsa-identity-client.js";
 import type { FsmEffect, FsmQueryEffect, FsmScheduleEffect } from "../domain/conversation-fsm.js";
 import type { ConversationSession } from "../domain/conversation-session.js";
 import type { ScheduledCheckJobData } from "../domain/conversation-job.js";
@@ -19,6 +20,7 @@ import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
 import {
   FsmContractViolationError,
   MediaTooLargeError,
+  MinsaIdentityClientNotConfiguredError,
   ScheduledCheckSchedulerNotConfiguredError,
   TransientFailureError,
 } from "../domain/errors.js";
@@ -165,6 +167,30 @@ function fakeScheduledCheckScheduler(opts: { failWith?: Error } = {}): {
   return { scheduler, calls };
 }
 
+// PR6 (Phase 6): hand-written fake — the real `HttpMinsaIdentityClient`
+// (Phase 3) is unit-tested against fakes on its own; this service test only
+// needs to prove conversation-flow.ts calls the port correctly.
+function fakeMinsaIdentityClient(opts: { result?: ValidateUserResult; failWith?: Error } = {}): {
+  client: MinsaIdentityClient;
+  calls: string[];
+} {
+  const calls: string[] = [];
+  const result: ValidateUserResult = opts.result ?? { status: "not_valid" };
+
+  const client: MinsaIdentityClient = {
+    async validateUser(numeroDocumento: string) {
+      calls.push(numeroDocumento);
+      if (opts.failWith !== undefined) throw opts.failWith;
+      return result;
+    },
+    async verifyCode() {
+      throw new Error("verifyCode is Phase 7 scope — not exercised by this fake");
+    },
+  };
+
+  return { client, calls };
+}
+
 function makeService(
   sender: WhatsappOutboundSender,
   sessionStore = createMemorySessionStore({ logger: fakeLogger() }),
@@ -174,7 +200,11 @@ function makeService(
   // D29: OPTIONAL — undefined by default, matching ConversationFlowServiceDeps.
   // No existing test below passes a scheduler, so every one of them proves
   // the widening left process()'s observable behavior unchanged.
-  scheduledCheckScheduler?: ScheduledCheckScheduler
+  scheduledCheckScheduler?: ScheduledCheckScheduler,
+  // PR6/D26: OPTIONAL — undefined by default, matching
+  // ConversationFlowServiceDeps. No pre-Phase-6 test below passes a client,
+  // proving the widening left process()'s observable behavior unchanged.
+  minsaIdentityClient?: MinsaIdentityClient
 ) {
   return {
     sessionStore,
@@ -185,6 +215,7 @@ function makeService(
       quejasSubmissionClient,
       whatsappMediaDownloader,
       scheduledCheckScheduler,
+      minsaIdentityClient,
       config: { sessionKeySecret: SESSION_KEY_SECRET, sessionTtlSeconds: SESSION_TTL_SECONDS },
     }),
   };
@@ -256,6 +287,10 @@ describe("createConversationFlowService", () => {
     expect(calls[0]?.to).toBe("51988887777");
   });
 
+  // PR6 (Phase 6): the D23 tail-call now lands on the REAL Cita entry point
+  // (`cita_awaiting_dni`), replacing PR1's placeholder — design's Migration/
+  // Rollout section calls this exact assertion change out as intended, not a
+  // regression.
   it("a matched menu selection advances state, persists it, and sends one immediate reply (D23 — no more silent menu taps)", async () => {
     const { sender, calls } = fakeSender();
     const { sessionStore, service } = makeService(sender);
@@ -265,7 +300,7 @@ describe("createConversationFlowService", () => {
 
     expect(calls).toEqual([{ method: "sendText", to: FROM_MSISDN }]);
     const stored = await sessionStore.load(key);
-    expect(stored?.state).toBe("awaiting_flow_start");
+    expect(stored?.state).toBe("cita_awaiting_dni");
     expect(stored?.slots.menuChoice).toBe("agendar_cita");
     expect(stored?.counters.messagesReceived).toBe(1);
     expect(stored?.counters.messagesSent).toBe(1);
@@ -931,5 +966,130 @@ describe("createConversationFlowService — processScheduled() (D29/D31 idempote
     );
 
     expect(calls).toEqual([{ method: "sendInteractiveList", to: FROM_MSISDN }]);
+  });
+});
+
+// PR6 (Phase 6): `validate_user` is the FIRST query effect a REAL
+// STATE_HANDLERS entry emits (cita_awaiting_dni/cita_registration_wait) —
+// proves runQueryEffect's new switch case end to end, mirroring
+// reniec_lookup's own D20 bounded re-entry coverage above.
+describe("createConversationFlowService — validate_user bounded re-entry (D20/D26, Phase 6)", () => {
+  it("valid: advances to cita_awaiting_otp and stores slots.citaTwofaId", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(fullSession({ sessionKey: key, state: "cita_awaiting_dni" }));
+    const { client: minsaIdentityClient, calls: minsaCalls } = fakeMinsaIdentityClient({
+      result: { status: "valid", twofaId: "twofa-1" },
+    });
+    const { service } = makeService(sender, sessionStore, undefined, undefined, undefined, undefined, minsaIdentityClient);
+
+    await service.process(makeEvent({ text: "12345678" }));
+
+    expect(minsaCalls).toEqual(["12345678"]);
+    expect(calls.map((c) => c.method)).toEqual(["sendText", "sendText"]);
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_awaiting_otp");
+    expect(stored?.slots.citaDni).toBe("12345678");
+    expect(stored?.slots.citaTwofaId).toBe("twofa-1");
+  });
+
+  it("not_valid: advances to cita_registration_wait, records the ordinal check, and schedules the wait (D31)", async () => {
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(fullSession({ sessionKey: key, state: "cita_awaiting_dni" }));
+    const { client: minsaIdentityClient } = fakeMinsaIdentityClient({ result: { status: "not_valid" } });
+    const { scheduler, calls: scheduleCalls } = fakeScheduledCheckScheduler();
+    const { service } = makeService(sender, sessionStore, undefined, undefined, undefined, scheduler, minsaIdentityClient);
+
+    await service.process(makeEvent({ text: "87654321" }));
+
+    expect(scheduleCalls).toHaveLength(1);
+    expect(scheduleCalls[0]?.delaySeconds).toBe(300);
+    expect(scheduleCalls[0]?.data).toMatchObject({
+      source: "schedule",
+      sessionKey: key,
+      to: FROM_MSISDN,
+      kind: "cita_registration_wait_elapsed",
+      waitToken: "registro_wait:1",
+      expectedState: "cita_registration_wait",
+    });
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_registration_wait");
+    expect(stored?.slots.citaRegistrationChecks).toBe(1);
+    expect(stored?.slots.citaWaitToken).toBe("registro_wait:1");
+  });
+
+  it("throws MinsaIdentityClientNotConfiguredError when a validate_user effect appears without a configured client (Phase 6, before Phase 8 wires worker.ts)", async () => {
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(fullSession({ sessionKey: key, state: "cita_awaiting_dni" }));
+    const { service } = makeService(sender, sessionStore);
+
+    await expect(service.process(makeEvent({ text: "12345678" }))).rejects.toBeInstanceOf(
+      MinsaIdentityClientNotConfiguredError
+    );
+  });
+});
+
+// PR6 (Phase 6): the "single most important correctness property" of this
+// PR (per the assigned scope) — the citizen's early CONFIRMAR reply advances
+// the session PAST cita_registration_wait, and the ORIGINAL scheduled job
+// (still sitting in BullMQ with its delay) later fires carrying the NOW-STALE
+// token/expectedState pair. processScheduled()'s existing D31 guard
+// (unchanged by this PR — Phase 4/5 already implemented it) must silently
+// no-op: proven here end to end against the REAL Cita STATE_HANDLERS chain
+// for the first time (Phase 4/5's own D31 tests used main_menu fixtures,
+// since no real Cita handler existed yet).
+describe("createConversationFlowService — D31 race: early CONFIRMAR reply then a stale scheduled fire (Phase 6)", () => {
+  it("citizen replies CONFIRMAR before the timer fires; the stale job later fires as a pure no-op", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    // Session already parked in cita_registration_wait, as if the FIRST
+    // not_valid check armed a wait with token "registro_wait:1" — mirrors
+    // exactly what a real BullMQ delayed job would carry.
+    await sessionStore.save(
+      fullSession({
+        sessionKey: key,
+        state: "cita_registration_wait",
+        slots: { citaDni: "12345678", citaRegistrationChecks: 1, citaWaitToken: "registro_wait:1" },
+      })
+    );
+    const { client: minsaIdentityClient, calls: minsaCalls } = fakeMinsaIdentityClient({
+      result: { status: "valid", twofaId: "twofa-99" },
+    });
+    const { service } = makeService(sender, sessionStore, undefined, undefined, undefined, undefined, minsaIdentityClient);
+
+    // Step 1: the citizen replies "CONFIRMAR" BEFORE the timer ever fires.
+    await service.process(makeEvent({ text: "CONFIRMAR" }));
+
+    expect(minsaCalls).toEqual(["12345678"]);
+    const afterConfirmar = await sessionStore.load(key);
+    expect(afterConfirmar?.state).toBe("cita_awaiting_otp");
+    expect(afterConfirmar?.slots.citaTwofaId).toBe("twofa-99");
+    expect(afterConfirmar?.slots.citaWaitToken).toBeUndefined();
+    const sendsAfterConfirmar = calls.length;
+
+    // Step 2: the ORIGINAL scheduled job (armed before the early reply, still
+    // carrying the now-stale "registro_wait:1"/"cita_registration_wait" pair)
+    // fires anyway — BullMQ has no way to cancel it. It MUST be a silent
+    // no-op: the session already moved on.
+    await service.processScheduled(
+      makeScheduledJob({
+        sessionKey: key,
+        to: FROM_MSISDN,
+        expectedState: "cita_registration_wait",
+        waitToken: "registro_wait:1",
+      })
+    );
+
+    // Zero further sends, zero further MINSA calls, session unchanged.
+    expect(calls).toHaveLength(sendsAfterConfirmar);
+    expect(minsaCalls).toEqual(["12345678"]);
+    const afterStaleFire = await sessionStore.load(key);
+    expect(afterStaleFire).toEqual(afterConfirmar);
   });
 });

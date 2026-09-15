@@ -63,19 +63,23 @@ describe("handle — main_menu", () => {
     expect(rowIds).toEqual(["agendar_cita", "registrar_reclamo"]);
   });
 
-  it("records the selection, advances to awaiting_flow_start, and replies immediately (D23) when the user selects agendar_cita", () => {
+  // PR6 (Phase 6): the D23 tail-call now lands on the REAL Cita entry point
+  // (`cita_awaiting_dni`), replacing PR1's placeholder — design's Migration/
+  // Rollout section calls this exact assertion change out as intended, not a
+  // regression.
+  it("records the selection, advances to cita_awaiting_dni, and replies immediately (D23) when the user selects agendar_cita", () => {
     const session = createSession("session-key-1", TTL_SECONDS);
     const event = makeEvent({ text: "agendar_cita" });
 
     const result = handle(session, event);
 
-    expect(result.session.state).toBe("awaiting_flow_start");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots.menuChoice).toBe("agendar_cita");
     expect(result.effects).toHaveLength(1);
     expect(result.effects[0]).toEqual({
       kind: "send_text",
       to: "digest-does-not-matter-here",
-      body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+      body: "Ingresa tu DNI (8 dígitos).",
     });
     expect(result.outcome).toBe("continue");
   });
@@ -130,13 +134,13 @@ describe("handle — main_menu, real WhatsApp interactive reply (task 6.8)", () 
 
     const result = handle(session, event);
 
-    expect(result.session.state).toBe("awaiting_flow_start");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots.menuChoice).toBe("agendar_cita");
     expect(result.effects).toHaveLength(1);
     expect(result.effects[0]).toEqual({
       kind: "send_text",
       to: "digest-does-not-matter-here",
-      body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+      body: "Ingresa tu DNI (8 dígitos).",
     });
   });
 
@@ -161,18 +165,21 @@ describe("handle — main_menu, real WhatsApp interactive reply (task 6.8)", () 
 });
 
 describe("handle — awaiting_flow_start (Phase 2 real Reclamo/Cita branch)", () => {
-  it("keeps the Cita placeholder (Stage C stub) unchanged, parked in awaiting_flow_start", () => {
+  // PR6 (Phase 6): replaces PR1's placeholder-stub test — design's
+  // Migration/Rollout section calls this exact assertion change out as
+  // intended, not a regression.
+  it("advances to cita_awaiting_dni and asks for the DNI, parked at awaiting_flow_start with agendar_cita recorded", () => {
     const session = createSession("session-key-1", TTL_SECONDS);
     const event = makeEvent({ text: "agendar_cita" });
 
     const result = handle(session, event);
 
-    expect(result.session.state).toBe("awaiting_flow_start");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.effects).toEqual([
       {
         kind: "send_text",
         to: "digest-does-not-matter-here",
-        body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+        body: "Ingresa tu DNI (8 dígitos).",
       },
     ]);
   });
@@ -682,6 +689,257 @@ describe("isScheduleEvent (D29)", () => {
 
   it("returns false for a synthesized system-result (D20) event", () => {
     expect(isScheduleEvent(makeSystemEvent({ status: "not_found" }))).toBe(false);
+  });
+});
+
+// PR6 (Phase 6): design's FSM states table, `cita_awaiting_dni` row.
+describe("handle — cita_awaiting_dni (Phase 6, DNI Format Validation)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_awaiting_dni"]).toBeDefined();
+  });
+
+  it("advances to cita_validate_pending, stores slots.citaDni, and emits BOTH a send_text and the validate_user query effect (D20)", () => {
+    const session = parkedSession("cita_awaiting_dni");
+    const event = makeEvent({ text: "12345678" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_validate_pending");
+    expect(result.session.slots.citaDni).toBe("12345678");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos validando tus datos…" },
+      { kind: "validate_user", numeroDocumento: "12345678" },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("re-prompts and increments invalidAttempts on an invalid DNI format, emitting NO validate_user effect", () => {
+    const session = parkedSession("cita_awaiting_dni");
+    const event = makeEvent({ text: "123" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.effects.some((effect) => effect.kind === "validate_user")).toBe(false);
+    expect(result.effects[0].kind).toBe("send_text");
+  });
+
+  it("re-prompts on a missing text reply (e.g. a media message), never crashing", () => {
+    const session = parkedSession("cita_awaiting_dni");
+    const event = makeEvent({ text: undefined, messageType: "image" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+  });
+});
+
+function makeValidateUserSystemEvent(
+  result: FsmSystemEvent["result"],
+  overrides: Partial<FsmSystemEvent> = {}
+): FsmSystemEvent {
+  return { source: "system", from: FROM, kind: "validate_user_result", result, ...overrides };
+}
+
+// PR6 (Phase 6): design's FSM states table, `cita_validate_pending` row —
+// D20's re-entry target (mirrors reclamoReniecPendingHandler).
+describe("handle — cita_validate_pending (D20 re-entry target, Phase 6)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_validate_pending"]).toBeDefined();
+  });
+
+  it("valid: advances to cita_awaiting_otp and stores slots.citaTwofaId", () => {
+    const session = parkedSession("cita_validate_pending", { citaDni: "12345678" });
+    const systemEvent = makeValidateUserSystemEvent({ status: "valid", twofaId: "twofa-abc" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_awaiting_otp");
+    expect(result.session.slots.citaTwofaId).toBe("twofa-abc");
+    expect(result.effects).toEqual([{ kind: "send_text", to: FROM, body: "Te enviamos un código de verificación." }]);
+    expect(result.outcome).toBe("continue");
+    // Phase 7's own target — not yet registered (Phase 6 scope boundary).
+    expect(STATE_HANDLERS["cita_awaiting_otp"]).toBeUndefined();
+  });
+
+  it("not_valid, first occurrence: advances to cita_registration_wait, records check #1, and emits a schedule_check effect (threat: unbounded scheduling)", () => {
+    const session = parkedSession("cita_validate_pending", { citaDni: "12345678" });
+    const systemEvent = makeValidateUserSystemEvent({ status: "not_valid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_registration_wait");
+    expect(result.session.slots.citaRegistrationChecks).toBe(1);
+    expect(result.session.slots.citaWaitToken).toBe("registro_wait:1");
+    expect(result.effects).toHaveLength(2);
+    expect(result.effects[0].kind).toBe("send_text");
+    expect(result.effects[1]).toEqual({
+      kind: "schedule_check",
+      sessionKey: session.sessionKey,
+      to: FROM,
+      delaySeconds: 300,
+      checkKind: "cita_registration_wait_elapsed",
+      waitToken: "registro_wait:1",
+      expectedState: "cita_registration_wait",
+    });
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("not_valid, second occurrence: records check #2 with a NEW wait token (registro_wait:2)", () => {
+    const session = parkedSession("cita_validate_pending", { citaDni: "12345678", citaRegistrationChecks: 1 });
+    const systemEvent = makeValidateUserSystemEvent({ status: "not_valid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_registration_wait");
+    expect(result.session.slots.citaRegistrationChecks).toBe(2);
+    expect(result.session.slots.citaWaitToken).toBe("registro_wait:2");
+    const scheduleEffect = result.effects.find((effect) => effect.kind === "schedule_check");
+    if (scheduleEffect?.kind !== "schedule_check") throw new Error("expected schedule_check effect");
+    expect(scheduleEffect.waitToken).toBe("registro_wait:2");
+  });
+
+  it("not_valid, third occurrence (threat: unbounded scheduling): terminal cita_registration_rejected, NO third schedule_check, all cita slots cleared", () => {
+    const session = parkedSession("cita_validate_pending", { citaDni: "12345678", citaRegistrationChecks: 2 });
+    const systemEvent = makeValidateUserSystemEvent({ status: "not_valid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_registration_rejected");
+    expect(result.outcome).toBe("rejected");
+    expect(result.effects.map((effect) => effect.kind)).toEqual(["send_text", "end_session"]);
+    expect(result.effects.some((effect) => effect.kind === "schedule_check")).toBe(false);
+    expect(result.session.slots.citaDni).toBeUndefined();
+    expect(result.session.slots.citaRegistrationChecks).toBeUndefined();
+    expect(result.session.slots.citaWaitToken).toBeUndefined();
+    const serialized = JSON.stringify(result.session);
+    expect(serialized).not.toContain("12345678");
+  });
+
+  it("D17: schedule_check.to equals event.from, even when slots carries a planted decoy `to` value (named provenance test, task 6.6)", () => {
+    const session = parkedSession("cita_validate_pending", {
+      citaDni: "12345678",
+      to: "DECOY-9999999",
+    });
+    const systemEvent = makeValidateUserSystemEvent({ status: "not_valid" }, { from: "51900000000" });
+
+    const result = handle(session, systemEvent);
+
+    const scheduleEffect = result.effects.find((effect) => effect.kind === "schedule_check");
+    if (scheduleEffect?.kind !== "schedule_check") throw new Error("expected schedule_check effect");
+    expect(scheduleEffect.to).toBe("51900000000");
+  });
+
+  it("stays unchanged and re-prompts with a processing message on a defensive stray inbound event (pending states are never persisted)", () => {
+    const session = parkedSession("cita_validate_pending", { citaDni: "12345678" });
+    const event = makeEvent({ text: "hola de nuevo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_validate_pending");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos procesando tu solicitud, danos un momento." },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("stays unchanged on a defensive foreign system-event kind, never crashing", () => {
+    const session = parkedSession("cita_validate_pending", { citaDni: "12345678" });
+    const systemEvent: FsmSystemEvent = { source: "system", from: FROM, kind: "reniec_lookup_result", result: { status: "not_found" } };
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_validate_pending");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos procesando tu solicitud, danos un momento." },
+    ]);
+  });
+});
+
+// PR6 (Phase 6): design's FSM states table, `cita_registration_wait` row.
+// Both exits converge on the IDENTICAL next state/effect/counter (D31).
+describe("handle — cita_registration_wait (D31 race handling, Phase 6)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_registration_wait"]).toBeDefined();
+  });
+
+  it("CONFIRMAR reply (case-insensitive): clears citaWaitToken and advances to cita_validate_pending, re-emitting validate_user", () => {
+    const session = parkedSession("cita_registration_wait", {
+      citaDni: "12345678",
+      citaRegistrationChecks: 1,
+      citaWaitToken: "registro_wait:1",
+    });
+    const event = makeEvent({ text: "confirmar" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_validate_pending");
+    expect(result.session.slots.citaWaitToken).toBeUndefined();
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Verificando tu registro…" },
+      { kind: "validate_user", numeroDocumento: "12345678" },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("schedule fire (cita_registration_wait_elapsed): the IDENTICAL transition/effect as the CONFIRMAR exit, different wording", () => {
+    const session = parkedSession("cita_registration_wait", {
+      citaDni: "12345678",
+      citaRegistrationChecks: 1,
+      citaWaitToken: "registro_wait:1",
+    });
+    const event: FsmScheduleEvent = {
+      source: "schedule",
+      from: FROM,
+      kind: "cita_registration_wait_elapsed",
+      waitToken: "registro_wait:1",
+    };
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_validate_pending");
+    expect(result.session.slots.citaWaitToken).toBeUndefined();
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Seguimos verificando tu registro…" },
+      { kind: "validate_user", numeroDocumento: "12345678" },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("any OTHER inbound reply: re-prompts, increments invalidAttempts, and leaves citaWaitToken INTACT so the armed timer survives", () => {
+    const session = parkedSession("cita_registration_wait", {
+      citaDni: "12345678",
+      citaRegistrationChecks: 1,
+      citaWaitToken: "registro_wait:1",
+    });
+    const event = makeEvent({ text: "no entiendo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_registration_wait");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.session.slots.citaWaitToken).toBe("registro_wait:1");
+    expect(result.effects.some((effect) => effect.kind === "validate_user")).toBe(false);
+  });
+});
+
+describe("handle — cita_registration_rejected reuses closedFlowHandler (design's FSM states table)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_registration_rejected"]).toBeDefined();
+  });
+
+  it("any inbound event resets to main_menu with the menu list, a fresh start", () => {
+    const session = parkedSession("cita_registration_rejected");
+    const event = makeEvent({ text: "hola de nuevo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("main_menu");
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0].kind).toBe("send_interactive_list");
+    expect(result.outcome).toBe("continue");
   });
 });
 
