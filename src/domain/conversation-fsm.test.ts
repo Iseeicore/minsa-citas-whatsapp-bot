@@ -760,8 +760,10 @@ describe("handle — cita_validate_pending (D20 re-entry target, Phase 6)", () =
     expect(result.session.slots.citaTwofaId).toBe("twofa-abc");
     expect(result.effects).toEqual([{ kind: "send_text", to: FROM, body: "Te enviamos un código de verificación." }]);
     expect(result.outcome).toBe("continue");
-    // Phase 7's own target — not yet registered (Phase 6 scope boundary).
-    expect(STATE_HANDLERS["cita_awaiting_otp"]).toBeUndefined();
+    // PR7 (Phase 7): now registered — see "handle — cita_awaiting_otp" below
+    // for its own full coverage. Phase 6 only asserted it was a placeholder
+    // target; this is the intended replacement, not a regression.
+    expect(STATE_HANDLERS["cita_awaiting_otp"]).toBeDefined();
   });
 
   it("not_valid, first occurrence: advances to cita_registration_wait, records check #1, and emits a schedule_check effect (threat: unbounded scheduling)", () => {
@@ -940,6 +942,276 @@ describe("handle — cita_registration_rejected reuses closedFlowHandler (design
     expect(result.effects).toHaveLength(1);
     expect(result.effects[0].kind).toBe("send_interactive_list");
     expect(result.outcome).toBe("continue");
+  });
+});
+
+function makeVerifyCodeSystemEvent(
+  result: FsmSystemEvent["result"],
+  overrides: Partial<FsmSystemEvent> = {}
+): FsmSystemEvent {
+  return { source: "system", from: FROM, kind: "verify_code_result", result, ...overrides };
+}
+
+// Phase 7 (PR7): design's FSM states table, `cita_awaiting_otp` row.
+describe("handle — cita_awaiting_otp (Phase 7, OTP Verification)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_awaiting_otp"]).toBeDefined();
+  });
+
+  it("advances to cita_verify_pending and emits BOTH a send_text and the verify_code query effect (D20), reading twofaId from slots", () => {
+    const session = parkedSession("cita_awaiting_otp", { citaDni: "12345678", citaTwofaId: "twofa-1" });
+    const event = makeEvent({ text: "123456" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_verify_pending");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Validando el código…" },
+      { kind: "verify_code", twofaId: "twofa-1", code: "123456" },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("task 7.2 — re-prompts and increments ONLY invalidAttempts on an invalid OTP format, NEVER citaOtpAttempts, and emits NO verify_code effect", () => {
+    const session = parkedSession("cita_awaiting_otp", { citaDni: "12345678", citaTwofaId: "twofa-1" });
+    const event = makeEvent({ text: "12" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_awaiting_otp");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.session.slots.citaOtpAttempts).toBeUndefined();
+    expect(result.effects.some((effect) => effect.kind === "verify_code")).toBe(false);
+    expect(result.effects[0].kind).toBe("send_text");
+  });
+
+  it("re-prompts on a missing text reply (e.g. a media message), never crashing", () => {
+    const session = parkedSession("cita_awaiting_otp", { citaDni: "12345678", citaTwofaId: "twofa-1" });
+    const event = makeEvent({ text: undefined, messageType: "image" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_awaiting_otp");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+  });
+});
+
+// Phase 7 (PR7): design's FSM states table, `cita_verify_pending` row — D20's
+// re-entry target (mirrors citaValidatePendingHandler).
+describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_verify_pending"]).toBeDefined();
+  });
+
+  it("task 7.3 — verified: stores slots.citaBearer, advances to cita_identity_confirmed, and clears citaDni/citaTwofaId/citaOtpAttempts/citaWaitToken/citaRegistrationChecks", () => {
+    const session = parkedSession("cita_verify_pending", {
+      citaDni: "12345678",
+      citaTwofaId: "twofa-1",
+      citaOtpAttempts: 1,
+      citaWaitToken: "registro_wait:1",
+      citaRegistrationChecks: 1,
+    });
+    const systemEvent = makeVerifyCodeSystemEvent({
+      status: "verified",
+      token: "bearer-token-value",
+      tokenType: "Bearer",
+      expiresIn: 3600,
+    });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_identity_confirmed");
+    expect(result.session.slots.citaBearer).toBe("bearer-token-value");
+    expect(result.session.slots.citaDni).toBeUndefined();
+    expect(result.session.slots.citaTwofaId).toBeUndefined();
+    expect(result.session.slots.citaOtpAttempts).toBeUndefined();
+    expect(result.session.slots.citaWaitToken).toBeUndefined();
+    expect(result.session.slots.citaRegistrationChecks).toBeUndefined();
+    expect(result.effects).toEqual([
+      {
+        kind: "send_text",
+        to: FROM,
+        body: "Identidad verificada. Estamos preparando la reserva de tu cita.",
+      },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("task 7.4 — invalid, first occurrence: increments citaOtpAttempts to 1, re-prompts at cita_awaiting_otp with 2 remaining attempts", () => {
+    const session = parkedSession("cita_verify_pending", { citaDni: "12345678", citaTwofaId: "twofa-1" });
+    const systemEvent = makeVerifyCodeSystemEvent({ status: "invalid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_awaiting_otp");
+    expect(result.session.slots.citaOtpAttempts).toBe(1);
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Código incorrecto. Te quedan 2 intentos." },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("invalid, second occurrence: increments citaOtpAttempts to 2, re-prompts with 1 remaining attempt", () => {
+    const session = parkedSession("cita_verify_pending", {
+      citaDni: "12345678",
+      citaTwofaId: "twofa-1",
+      citaOtpAttempts: 1,
+    });
+    const systemEvent = makeVerifyCodeSystemEvent({ status: "invalid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_awaiting_otp");
+    expect(result.session.slots.citaOtpAttempts).toBe(2);
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Código incorrecto. Te quedan 1 intentos." },
+    ]);
+  });
+
+  it("task 7.4 — invalid, third occurrence: terminal cita_otp_locked, no further prompt possible, all cita slots incl. citaBearer cleared", () => {
+    const session = parkedSession("cita_verify_pending", {
+      citaDni: "12345678",
+      citaTwofaId: "twofa-1",
+      citaOtpAttempts: 2,
+    });
+    const systemEvent = makeVerifyCodeSystemEvent({ status: "invalid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_otp_locked");
+    expect(result.outcome).toBe("rejected");
+    expect(result.effects.map((effect) => effect.kind)).toEqual(["send_text", "end_session"]);
+    expect(result.session.slots.citaDni).toBeUndefined();
+    expect(result.session.slots.citaTwofaId).toBeUndefined();
+    expect(result.session.slots.citaOtpAttempts).toBeUndefined();
+    expect(result.session.slots.citaBearer).toBeUndefined();
+  });
+
+  it("stays unchanged and re-prompts with a processing message on a defensive stray inbound event (pending states are never persisted)", () => {
+    const session = parkedSession("cita_verify_pending", { citaDni: "12345678", citaTwofaId: "twofa-1" });
+    const event = makeEvent({ text: "hola de nuevo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_verify_pending");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos procesando tu solicitud, danos un momento." },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("stays unchanged on a defensive foreign system-event kind, never crashing", () => {
+    const session = parkedSession("cita_verify_pending", { citaDni: "12345678", citaTwofaId: "twofa-1" });
+    const systemEvent: FsmSystemEvent = { source: "system", from: FROM, kind: "reniec_lookup_result", result: { status: "not_found" } };
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_verify_pending");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos procesando tu solicitud, danos un momento." },
+    ]);
+  });
+});
+
+// Phase 7 (PR7): design's FSM states table, `cita_identity_confirmed` row —
+// a HOLDING state for C2, not terminal (D33's stated exception: it keeps
+// citaBearer until session TTL rather than clearing it).
+describe("handle — cita_identity_confirmed (C2 hand-off holding state, Phase 7)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_identity_confirmed"]).toBeDefined();
+  });
+
+  it("any inbound event stays unchanged and re-sends the C2 placeholder, keeping citaBearer intact (D33 exception)", () => {
+    const session = parkedSession("cita_identity_confirmed", { citaBearer: "bearer-token-value" });
+    const event = makeEvent({ text: "hola" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("cita_identity_confirmed");
+    expect(result.session.slots.citaBearer).toBe("bearer-token-value");
+    expect(result.effects).toEqual([
+      {
+        kind: "send_text",
+        to: FROM,
+        body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+      },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+});
+
+describe("handle — cita_otp_locked reuses closedFlowHandler (design's FSM states table)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["cita_otp_locked"]).toBeDefined();
+  });
+
+  it("any inbound event resets to main_menu with the menu list, a fresh start", () => {
+    const session = parkedSession("cita_otp_locked");
+    const event = makeEvent({ text: "hola de nuevo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("main_menu");
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0].kind).toBe("send_interactive_list");
+    expect(result.outcome).toBe("continue");
+  });
+});
+
+// Task 7.5 (threat: credential in logs) — named privacy test, ONE per
+// terminal path this stage has introduced (registration-rejected from PR6,
+// OTP-lockout from this PR), plus the success hand-off's deliberately
+// DIFFERENT (non-terminal) clearing behavior documented explicitly rather
+// than left implicit.
+describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => {
+  it("cita_registration_rejected (PR6): JSON.stringify(session) contains neither the DNI, a bearer token, nor an OTP code", () => {
+    const session = parkedSession("cita_validate_pending", { citaDni: "12345678", citaRegistrationChecks: 2 });
+    const systemEvent = makeValidateUserSystemEvent({ status: "not_valid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_registration_rejected");
+    const serialized = JSON.stringify(result.session);
+    expect(serialized).not.toContain("12345678");
+    expect(serialized).not.toContain("bearer-token-value");
+    expect(serialized).not.toContain("998877");
+  });
+
+  it("cita_otp_locked: JSON.stringify(session) contains neither the DNI, the twofaId, nor a bearer token", () => {
+    const session = parkedSession("cita_verify_pending", {
+      citaDni: "12345678",
+      citaTwofaId: "twofa-secret",
+      citaOtpAttempts: 2,
+    });
+    const systemEvent = makeVerifyCodeSystemEvent({ status: "invalid" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_otp_locked");
+    const serialized = JSON.stringify(result.session);
+    expect(serialized).not.toContain("12345678");
+    expect(serialized).not.toContain("twofa-secret");
+    expect(serialized).not.toContain("bearer-token-value");
+  });
+
+  it("cita_identity_confirmed (holding state, NOT terminal — D33's stated exception): clears citaDni/citaTwofaId but DELIBERATELY retains citaBearer until session TTL", () => {
+    const session = parkedSession("cita_verify_pending", { citaDni: "12345678", citaTwofaId: "twofa-secret" });
+    const systemEvent = makeVerifyCodeSystemEvent({
+      status: "verified",
+      token: "bearer-token-value",
+      tokenType: "Bearer",
+      expiresIn: 3600,
+    });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("cita_identity_confirmed");
+    const serialized = JSON.stringify(result.session);
+    expect(serialized).not.toContain("12345678");
+    expect(serialized).not.toContain("twofa-secret");
+    // Documents the intentional D33 retention window — this is NOT an
+    // omission, the bearer must survive into C2.
+    expect(serialized).toContain("bearer-token-value");
   });
 });
 

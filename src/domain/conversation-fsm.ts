@@ -26,15 +26,21 @@
 // PR6 (Phase 6): `FsmQueryEffect`/`FsmSystemEvent` widen further with
 // `validate_user`/`validate_user_result` (deferred from PR4 by design — same
 // precedent as `quejas_submit`'s own PR4->PR5 deferral, see 4.6's note in
-// tasks.md). `verify_code`/`verify_code_result` stay Phase 7's own widening.
+// tasks.md).
+//
+// PR7 (Phase 7): `FsmQueryEffect`/`FsmSystemEvent` widen with
+// `verify_code`/`verify_code_result`, completing the deferral noted above.
+// The OTP states (`cita_awaiting_otp`, `cita_verify_pending`,
+// `cita_identity_confirmed`, `cita_otp_locked`) are registered here.
 import type { ListRow, ListSection, ReplyButton } from "../ports/whatsapp-outbound-sender.js";
 import type { ReniecLookupResult } from "../ports/reniec-lookup-client.js";
 import type { QuejaSubmissionResult } from "../ports/quejas-submission-client.js";
-import type { ValidateUserResult } from "../ports/minsa-identity-client.js";
+import type { ValidateUserResult, VerifyCodeResult } from "../ports/minsa-identity-client.js";
 import type { ConversationSession, ConversationStateName, SlotValue } from "./conversation-session.js";
 import { withState } from "./conversation-session.js";
 import { isValidDniFormat } from "./dni.js";
 import type { InboundConversationEvent } from "./inbound-conversation-event.js";
+import { isValidOtpFormat } from "./otp.js";
 import { namesMatch } from "./reniec-name-match.js";
 
 export type FsmSendEffect =
@@ -71,10 +77,16 @@ export interface QuejaSubmission {
 // adapter-owned (design's D26: "never a port parameter and never an FSM
 // concern") and is added by `http-minsa-identity-client.ts` (Phase 3) from
 // its own injected config, not carried through this effect.
+//
+// PR7 (Phase 7): `verify_code`'s `twofaId` is read from `slots.citaTwofaId`
+// (written by `citaValidatePendingHandler`'s `valid` branch); `code` is the
+// format-validated OTP text captured by `citaAwaitingOtpHandler` — same
+// discipline as `validate_user`'s `numeroDocumento` above.
 export type FsmQueryEffect =
   | { kind: "reniec_lookup"; dni: string }
   | { kind: "quejas_submit"; submission: QuejaSubmission }
-  | { kind: "validate_user"; numeroDocumento: string };
+  | { kind: "validate_user"; numeroDocumento: string }
+  | { kind: "verify_code"; twofaId: string; code: string };
 
 // D28 (Stage C1, PR4): FsmScheduleEffect is a THIRD effect category — plain
 // data describing a future timer fire, no I/O performed here. `handle()`
@@ -120,8 +132,12 @@ export interface FsmResult {
 export interface FsmSystemEvent {
   readonly source: "system";
   readonly from?: string;
-  readonly kind: "reniec_lookup_result" | "quejas_submit_result" | "validate_user_result";
-  readonly result: ReniecLookupResult | QuejaSubmissionResult | ValidateUserResult;
+  readonly kind:
+    | "reniec_lookup_result"
+    | "quejas_submit_result"
+    | "validate_user_result"
+    | "verify_code_result";
+  readonly result: ReniecLookupResult | QuejaSubmissionResult | ValidateUserResult | VerifyCodeResult;
 }
 
 // D29 (Stage C1, PR4): a THIRD event source — a scheduled-check timer fire,
@@ -175,12 +191,20 @@ const CITA_REGISTRATION_WAIT_STATE: ConversationStateName = "cita_registration_w
 // Terminal (spec: outcome "rejected" — a second consecutive not_valid MINSA
 // check, no third wait).
 const CITA_REGISTRATION_REJECTED_STATE: ConversationStateName = "cita_registration_rejected";
-// Phase 7's own target — NOT registered in STATE_HANDLERS this PR (Phase 6's
-// scope boundary). A session parked here falls back to main_menu via D13's
-// registry-fallback guard until Phase 7 registers the real OTP handler, same
+// PR7 (Phase 7): now registered in STATE_HANDLERS below (citaAwaitingOtpHandler)
+// — was PR6's own placeholder target, unregistered until this PR, same
 // precedent as `reclamo_awaiting_descripcion`'s own PR4->PR5 placeholder
 // window (Stage B).
 const CITA_AWAITING_OTP_STATE: ConversationStateName = "cita_awaiting_otp";
+// PR7: D20's re-entry point for the OTP query effect (mirrors
+// CITA_VALIDATE_PENDING_STATE).
+const CITA_VERIFY_PENDING_STATE: ConversationStateName = "cita_verify_pending";
+// PR7: a HOLDING state for C2 (design D33's stated exception — NOT terminal,
+// so citaBearer is deliberately retained here rather than cleared).
+const CITA_IDENTITY_CONFIRMED_STATE: ConversationStateName = "cita_identity_confirmed";
+// PR7: terminal (spec: outcome "rejected" — the 3rd consecutive invalid OTP,
+// no further prompt possible).
+const CITA_OTP_LOCKED_STATE: ConversationStateName = "cita_otp_locked";
 
 const CITA_ASK_DNI_BODY = "Ingresa tu DNI (8 dígitos).";
 const CITA_INVALID_DNI_BODY = "El DNI debe tener exactamente 8 dígitos numéricos. Inténtalo de nuevo.";
@@ -198,6 +222,22 @@ const CITA_STILL_VERIFYING_REGISTRATION_BODY = "Seguimos verificando tu registro
 const CITA_INVALID_WAIT_REPLY_BODY =
   "Escribe CONFIRMAR para verificar tu registro, o espera mientras lo revisamos automáticamente.";
 const CITA_CONFIRMAR_PATTERN = /^confirmar$/i;
+// PR7: design's FSM states table, `cita_awaiting_otp` row.
+const CITA_VALIDATING_CODE_BODY = "Validando el código…";
+const CITA_INVALID_OTP_FORMAT_BODY =
+  "El código debe tener entre 4 y 8 dígitos numéricos. Inténtalo de nuevo.";
+// PR7: `cita_verify_pending`'s `verified` branch — the C2 entry point message
+// (design's own literal text).
+const CITA_IDENTITY_CONFIRMED_BODY = "Identidad verificada. Estamos preparando la reserva de tu cita.";
+// PR7: `cita_identity_confirmed`'s re-prompt on any further inbound message —
+// the SAME text PR1's original `CITA_PLACEHOLDER_BODY` stub used (design:
+// "re-sends the C2 placeholder, the shape agendar_cita uses today").
+const CITA_C2_PLACEHOLDER_BODY = "Estamos preparando la reserva de tu cita. En un momento continuamos.";
+// PR7: `cita_verify_pending`'s terminal lockout branch (3rd consecutive
+// invalid OTP).
+const CITA_OTP_LOCKED_BODY =
+  "Superaste el número máximo de intentos. Por tu seguridad, bloqueamos la verificación. " +
+  "Vuelve a intentar agendar tu cita más tarde.";
 
 // D31/D32: mirrors config.ts's `citaRegistrationWaitSeconds` default. A pure
 // module constant, NOT read from config.ts — `handle()` stays zero-I/O (D13)
@@ -213,12 +253,23 @@ const CITA_REGISTRATION_WAIT_SECONDS = 300;
 // Design's FSM states table: the 3rd consecutive not_valid check is
 // terminal — two waits (registro_wait:1, registro_wait:2), never a third.
 const CITA_MAX_REGISTRATION_CHECKS = 3;
+// PR7: design's FSM states table, `cita_verify_pending` row — the 3rd
+// consecutive invalid OTP is terminal lockout, mirroring
+// CITA_MAX_REGISTRATION_CHECKS's own "3 strikes" shape.
+const CITA_MAX_OTP_ATTEMPTS = 3;
 
-// PR6: Phase 6's own slot keys. Phase 7 (task 7.6) extends this list with
-// `citaOtpAttempts`/`citaBearer` once the OTP states land — same incremental
-// pattern RECLAMO_SLOT_KEYS_TO_CLEAR itself does not need (Reclamo's four
-// keys landed together), but D33 explicitly calls for a growing list here.
-const CITA_SLOT_KEYS_TO_CLEAR = ["citaDni", "citaTwofaId", "citaWaitToken", "citaRegistrationChecks"] as const;
+// PR7 (task 7.6): extends Phase 6's list with `citaOtpAttempts`/`citaBearer`
+// now that the OTP states land — same incremental pattern D33 calls for.
+// NOTE: `citaValidatePendingHandler`'s `valid` branch (Phase 6) never wrote
+// `citaBearer`, so this extension is additive-only, no prior behavior change.
+const CITA_SLOT_KEYS_TO_CLEAR = [
+  "citaDni",
+  "citaTwofaId",
+  "citaWaitToken",
+  "citaRegistrationChecks",
+  "citaOtpAttempts",
+  "citaBearer",
+] as const;
 
 // D22/D33 discipline, mirroring `clearReclamoSlots` above: delete-based (not
 // a destructuring rest-omit) to avoid an unused-binding footgun as more Cita
@@ -899,12 +950,132 @@ function citaRegistrationWaitHandler(session: ConversationSession, event: FsmEve
   };
 }
 
+// PR7 (Phase 7): design's FSM states table, `cita_awaiting_otp` row.
+// Format-validated via `isValidOtpFormat` (D13's pure helper, mirrors
+// `citaAwaitingDniHandler`'s own discipline) BEFORE any `verify_code` query
+// effect — an invalid format never emits one, it just re-prompts. Task 7.2:
+// a format miss increments ONLY `invalidAttempts`, never `citaOtpAttempts` —
+// that counter is reserved for a REAL MINSA-rejected code (design: "format
+// fails -> invalidAttempts++ only — does NOT burn an OTP attempt").
+function citaAwaitingOtpHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const text = isInboundEvent(event) ? event.text : undefined;
+
+  if (isValidOtpFormat(text)) {
+    const code = (text as string).trim();
+    const twofaId = typeof session.slots.citaTwofaId === "string" ? session.slots.citaTwofaId : "";
+    const advanced = withState(session, CITA_VERIFY_PENDING_STATE);
+    return {
+      session: advanced,
+      effects: [
+        { kind: "send_text", to, body: CITA_VALIDATING_CODE_BODY },
+        { kind: "verify_code", twofaId, code },
+      ],
+      outcome: "continue",
+    };
+  }
+
+  const rePrompted: ConversationSession = {
+    ...session,
+    counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+  };
+
+  return {
+    session: rePrompted,
+    effects: [{ kind: "send_text", to, body: CITA_INVALID_OTP_FORMAT_BODY }],
+    outcome: "continue",
+  };
+}
+
+// PR7: D20's re-entry point for the OTP query effect (mirrors
+// `citaValidatePendingHandler`). Spec: an `invalid` result "MUST NOT throw"
+// — it is a normal transition to a re-prompt or a lockout state, never a
+// crash.
+function citaVerifyPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+
+  if (isInboundEvent(event) || event.kind !== "verify_code_result") {
+    // Defensive: pending states are never persisted, and conversation-flow.ts
+    // only ever synthesizes the system-event kind matching the query effect
+    // THIS state itself emitted — same defensive discipline as
+    // citaValidatePendingHandler. Never crash regardless.
+    return {
+      session,
+      effects: [{ kind: "send_text", to, body: CITA_PROCESSING_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  const result = event.result;
+
+  if (result.status === "verified") {
+    // D33: clear every Cita slot key FIRST, then re-add citaBearer — the
+    // holding state (cita_identity_confirmed) deliberately keeps it until
+    // session TTL, the one stated exception to "every terminal handler
+    // clears the bearer".
+    const advanced = withState(
+      { ...session, slots: { ...clearCitaSlots(session.slots), citaBearer: result.token } },
+      CITA_IDENTITY_CONFIRMED_STATE
+    );
+    return {
+      session: advanced,
+      effects: [{ kind: "send_text", to, body: CITA_IDENTITY_CONFIRMED_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  // invalid: design's FSM states table — `n = (citaOtpAttempts ?? 0) + 1`.
+  // n < 3 re-prompts at cita_awaiting_otp; n === 3 is terminal lockout, no
+  // further OTP prompt possible (spec: "3-Attempt Lockout").
+  const previousAttempts =
+    typeof session.slots.citaOtpAttempts === "number" ? session.slots.citaOtpAttempts : 0;
+  const attemptNumber = previousAttempts + 1;
+
+  if (attemptNumber >= CITA_MAX_OTP_ATTEMPTS) {
+    const locked = withState({ ...session, slots: clearCitaSlots(session.slots) }, CITA_OTP_LOCKED_STATE);
+    return {
+      session: locked,
+      effects: [
+        { kind: "send_text", to, body: CITA_OTP_LOCKED_BODY },
+        { kind: "end_session", to },
+      ],
+      outcome: "rejected",
+    };
+  }
+
+  const remainingAttempts = CITA_MAX_OTP_ATTEMPTS - attemptNumber;
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaOtpAttempts: attemptNumber } },
+    CITA_AWAITING_OTP_STATE
+  );
+
+  return {
+    session: advanced,
+    effects: [{ kind: "send_text", to, body: `Código incorrecto. Te quedan ${remainingAttempts} intentos.` }],
+    outcome: "continue",
+  };
+}
+
+// PR7: design's FSM states table, `cita_identity_confirmed` row — a HOLDING
+// state for C2 (out of this stage's scope entirely), NOT terminal. Any
+// inbound message just re-sends the same C2 hand-off placeholder, keeping
+// `citaBearer` intact for C2 to consume (D33's stated exception).
+function citaIdentityConfirmedHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  return {
+    session,
+    effects: [{ kind: "send_text", to, body: CITA_C2_PLACEHOLDER_BODY }],
+    outcome: "continue",
+  };
+}
+
 // Design's FSM states table: every terminal Reclamo state
 // (`reclamo_confirmed`, `reclamo_rejected`, `reclamo_failed`) shares one
 // handler — "any inbound -> main_menu": a fresh start with the main menu
 // list. Slots are already cleared at the terminal TRANSITION itself
 // (D22/DNI-3), so this handler does no clearing of its own. PR6: also shared
 // by `cita_registration_rejected` (design's FSM states table, closing row).
+// PR7: also shared by `cita_otp_locked`.
 function closedFlowHandler(session: ConversationSession, event: FsmEvent): FsmResult {
   const to = event.from ?? "";
   const reset = withState(session, MAIN_MENU_STATE);
@@ -928,6 +1099,10 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [CITA_VALIDATE_PENDING_STATE]: citaValidatePendingHandler,
   [CITA_REGISTRATION_WAIT_STATE]: citaRegistrationWaitHandler,
   [CITA_REGISTRATION_REJECTED_STATE]: closedFlowHandler,
+  [CITA_AWAITING_OTP_STATE]: citaAwaitingOtpHandler,
+  [CITA_VERIFY_PENDING_STATE]: citaVerifyPendingHandler,
+  [CITA_IDENTITY_CONFIRMED_STATE]: citaIdentityConfirmedHandler,
+  [CITA_OTP_LOCKED_STATE]: closedFlowHandler,
 };
 
 // D13: looks up the current state's handler; falls back to main_menu for an

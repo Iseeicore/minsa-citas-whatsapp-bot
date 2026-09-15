@@ -10,7 +10,7 @@ import type { ReniecLookupClient, ReniecLookupResult } from "../ports/reniec-loo
 import type { QuejaPayload, QuejaSubmissionResult, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
 import type { DownloadedMedia, WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
 import type { ScheduledCheckScheduler } from "../ports/scheduled-check-scheduler.js";
-import type { MinsaIdentityClient, ValidateUserResult } from "../ports/minsa-identity-client.js";
+import type { MinsaIdentityClient, ValidateUserResult, VerifyCodeResult } from "../ports/minsa-identity-client.js";
 import type { FsmEffect, FsmQueryEffect, FsmScheduleEffect } from "../domain/conversation-fsm.js";
 import type { ConversationSession } from "../domain/conversation-session.js";
 import type { ScheduledCheckJobData } from "../domain/conversation-job.js";
@@ -167,15 +167,25 @@ function fakeScheduledCheckScheduler(opts: { failWith?: Error } = {}): {
   return { scheduler, calls };
 }
 
-// PR6 (Phase 6): hand-written fake — the real `HttpMinsaIdentityClient`
+// PR6/PR7 (Phase 6/7): hand-written fake — the real `HttpMinsaIdentityClient`
 // (Phase 3) is unit-tested against fakes on its own; this service test only
 // needs to prove conversation-flow.ts calls the port correctly.
-function fakeMinsaIdentityClient(opts: { result?: ValidateUserResult; failWith?: Error } = {}): {
+function fakeMinsaIdentityClient(
+  opts: {
+    result?: ValidateUserResult;
+    failWith?: Error;
+    verifyCodeResult?: VerifyCodeResult;
+    verifyCodeFailWith?: Error;
+  } = {}
+): {
   client: MinsaIdentityClient;
   calls: string[];
+  verifyCalls: { twofaId: string; code: string }[];
 } {
   const calls: string[] = [];
+  const verifyCalls: { twofaId: string; code: string }[] = [];
   const result: ValidateUserResult = opts.result ?? { status: "not_valid" };
+  const verifyCodeResult: VerifyCodeResult = opts.verifyCodeResult ?? { status: "invalid" };
 
   const client: MinsaIdentityClient = {
     async validateUser(numeroDocumento: string) {
@@ -183,12 +193,14 @@ function fakeMinsaIdentityClient(opts: { result?: ValidateUserResult; failWith?:
       if (opts.failWith !== undefined) throw opts.failWith;
       return result;
     },
-    async verifyCode() {
-      throw new Error("verifyCode is Phase 7 scope — not exercised by this fake");
+    async verifyCode(input: { twofaId: string; code: string }) {
+      verifyCalls.push(input);
+      if (opts.verifyCodeFailWith !== undefined) throw opts.verifyCodeFailWith;
+      return verifyCodeResult;
     },
   };
 
-  return { client, calls };
+  return { client, calls, verifyCalls };
 }
 
 function makeService(
@@ -1091,5 +1103,96 @@ describe("createConversationFlowService — D31 race: early CONFIRMAR reply then
     expect(minsaCalls).toEqual(["12345678"]);
     const afterStaleFire = await sessionStore.load(key);
     expect(afterStaleFire).toEqual(afterConfirmar);
+  });
+});
+
+// PR7 (Phase 7): `verify_code` is the SECOND MinsaIdentityClient query
+// effect a real STATE_HANDLERS entry emits (cita_awaiting_otp) — proves
+// runQueryEffect's `verify_code` switch case end to end, mirroring
+// `validate_user`'s own D20 bounded re-entry coverage above.
+describe("createConversationFlowService — verify_code bounded re-entry (D20/D33, Phase 7)", () => {
+  it("verified: advances to cita_identity_confirmed and stores slots.citaBearer", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(
+      fullSession({
+        sessionKey: key,
+        state: "cita_awaiting_otp",
+        slots: { citaDni: "12345678", citaTwofaId: "twofa-1" },
+      })
+    );
+    const { client: minsaIdentityClient, verifyCalls } = fakeMinsaIdentityClient({
+      verifyCodeResult: { status: "verified", token: "bearer-token-value", tokenType: "Bearer", expiresIn: 3600 },
+    });
+    const { service } = makeService(sender, sessionStore, undefined, undefined, undefined, undefined, minsaIdentityClient);
+
+    await service.process(makeEvent({ text: "123456" }));
+
+    expect(verifyCalls).toEqual([{ twofaId: "twofa-1", code: "123456" }]);
+    expect(calls.map((c) => c.method)).toEqual(["sendText", "sendText"]);
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_identity_confirmed");
+    expect(stored?.slots.citaBearer).toBe("bearer-token-value");
+    expect(stored?.slots.citaDni).toBeUndefined();
+    expect(stored?.slots.citaTwofaId).toBeUndefined();
+  });
+
+  it("invalid, first occurrence: re-prompts at cita_awaiting_otp and records citaOtpAttempts = 1", async () => {
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(
+      fullSession({
+        sessionKey: key,
+        state: "cita_awaiting_otp",
+        slots: { citaDni: "12345678", citaTwofaId: "twofa-1" },
+      })
+    );
+    const { client: minsaIdentityClient } = fakeMinsaIdentityClient({ verifyCodeResult: { status: "invalid" } });
+    const { service } = makeService(sender, sessionStore, undefined, undefined, undefined, undefined, minsaIdentityClient);
+
+    await service.process(makeEvent({ text: "000000" }));
+
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_awaiting_otp");
+    expect(stored?.slots.citaOtpAttempts).toBe(1);
+  });
+
+  it("invalid, third occurrence (threat: unbounded lockout attempts): terminal cita_otp_locked, all cita slots cleared", async () => {
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(
+      fullSession({
+        sessionKey: key,
+        state: "cita_awaiting_otp",
+        slots: { citaDni: "12345678", citaTwofaId: "twofa-1", citaOtpAttempts: 2 },
+      })
+    );
+    const { client: minsaIdentityClient } = fakeMinsaIdentityClient({ verifyCodeResult: { status: "invalid" } });
+    const { service } = makeService(sender, sessionStore, undefined, undefined, undefined, undefined, minsaIdentityClient);
+
+    await service.process(makeEvent({ text: "000000" }));
+
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_otp_locked");
+    expect(stored?.slots.citaDni).toBeUndefined();
+    expect(stored?.slots.citaTwofaId).toBeUndefined();
+    expect(stored?.slots.citaOtpAttempts).toBeUndefined();
+  });
+
+  it("throws MinsaIdentityClientNotConfiguredError when a verify_code effect appears without a configured client (Phase 7, before Phase 8 wires worker.ts)", async () => {
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(
+      fullSession({ sessionKey: key, state: "cita_awaiting_otp", slots: { citaTwofaId: "twofa-1" } })
+    );
+    const { service } = makeService(sender, sessionStore);
+
+    await expect(service.process(makeEvent({ text: "123456" }))).rejects.toBeInstanceOf(
+      MinsaIdentityClientNotConfiguredError
+    );
   });
 });

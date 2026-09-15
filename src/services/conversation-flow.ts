@@ -111,7 +111,12 @@ export interface ConversationFlowServiceDeps {
 
 /** True for a query effect (D20) — false for a plain WhatsApp-send effect. */
 function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
-  return effect.kind === "reniec_lookup" || effect.kind === "quejas_submit" || effect.kind === "validate_user";
+  return (
+    effect.kind === "reniec_lookup" ||
+    effect.kind === "quejas_submit" ||
+    effect.kind === "validate_user" ||
+    effect.kind === "verify_code"
+  );
 }
 
 // D28: a POSITIVE enumeration of the four known send-effect kinds — NEVER
@@ -284,6 +289,15 @@ async function runQueryEffect(
       }
       const result = await clients.minsaIdentityClient.validateUser(effect.numeroDocumento);
       return { source: "system", from: to, kind: "validate_user_result", result };
+    }
+    case "verify_code": {
+      if (clients.minsaIdentityClient === undefined) {
+        throw new MinsaIdentityClientNotConfiguredError(
+          "[conversation-flow] FSM turn emitted a verify_code effect but minsaIdentityClient is not configured."
+        );
+      }
+      const result = await clients.minsaIdentityClient.verifyCode({ twofaId: effect.twofaId, code: effect.code });
+      return { source: "system", from: to, kind: "verify_code_result", result };
     }
     case "quejas_submit": {
       const { submission } = effect;
