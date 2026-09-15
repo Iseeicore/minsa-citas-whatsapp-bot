@@ -29,3 +29,11 @@ export class TransientFailureError extends AppError {}
 
 /** A terminal, non-retriable business stop (e.g. the citizen's flow ends by rule, not by failure). BullMQ should NOT retry the job. */
 export class BusinessRejectionError extends AppError {}
+
+// D20 (Stage B): a deterministic FSM/service bug — a turn emitted more than
+// one query effect, or a bounded re-entry (conversation-flow.ts) itself
+// emitted another query effect. This will NEVER succeed on retry, so it is
+// classified "business" in worker-outcome.ts: three retries would only delay
+// the dead-letter for a bug that retrying cannot fix.
+/** The FSM violated D20's single-query-effect / no-chained-re-entry contract. Never retriable. */
+export class FsmContractViolationError extends AppError {}

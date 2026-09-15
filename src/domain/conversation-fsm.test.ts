@@ -1,20 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { STATE_HANDLERS, handle } from "./conversation-fsm.js";
+import type { FsmSystemEvent } from "./conversation-fsm.js";
 import { createSession } from "./conversation-session.js";
+import type { ConversationSession } from "./conversation-session.js";
 import type { InboundConversationEvent } from "./inbound-conversation-event.js";
+import type { ReniecLookupResult } from "../ports/reniec-lookup-client.js";
 
 const TTL_SECONDS = 3600;
+const FROM = "digest-does-not-matter-here";
 
 function makeEvent(overrides: Partial<InboundConversationEvent> = {}): InboundConversationEvent {
   return {
     eventId: "wamid.fixed-1",
     receivedAt: "2026-01-01T00:00:00.000Z",
     source: "whatsapp",
-    from: "digest-does-not-matter-here",
+    from: FROM,
     messageType: "text",
     raw: {},
     ...overrides,
   };
+}
+
+function makeSystemEvent(result: ReniecLookupResult, overrides: Partial<FsmSystemEvent> = {}): FsmSystemEvent {
+  return {
+    source: "system",
+    from: FROM,
+    kind: "reniec_lookup_result",
+    result,
+    ...overrides,
+  };
+}
+
+/** A session parked in `state`, with the given slots already recorded — mirrors what an earlier turn would have produced. */
+function parkedSession(state: string, slots: ConversationSession["slots"] = {}): ConversationSession {
+  return { ...createSession("session-key-1", TTL_SECONDS), state, slots };
 }
 
 describe("handle — determinism", () => {
@@ -182,5 +201,229 @@ describe("handle — STATE_HANDLERS registry fallback (D13)", () => {
 
     expect(result.effects).toHaveLength(1);
     expect(result.effects[0].kind).toBe("send_interactive_list");
+  });
+});
+
+describe("handle — reclamo_identity_choice (Phase 4, D20/D23 con-DNI branch)", () => {
+  it("registers a real handler now (no longer falls back to main_menu)", () => {
+    expect(STATE_HANDLERS["reclamo_identity_choice"]).toBeDefined();
+  });
+
+  it("advances to reclamo_awaiting_dni and asks for the DNI on reclamo_con_dni", () => {
+    const session = parkedSession("reclamo_identity_choice");
+    const event = makeEvent({ interactiveReplyId: "reclamo_con_dni" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_dni");
+    expect(result.effects).toEqual([{ kind: "send_text", to: FROM, body: "Ingresa tu DNI (8 dígitos)." }]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("replies with an explicit sin-DNI placeholder (Phase 5 scope) and leaves state unchanged on reclamo_sin_dni", () => {
+    const session = parkedSession("reclamo_identity_choice");
+    const event = makeEvent({ interactiveReplyId: "reclamo_sin_dni" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_identity_choice");
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0].kind).toBe("send_text");
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("re-prompts with the identity-choice buttons and increments invalidAttempts on an unmatched reply", () => {
+    const session = parkedSession("reclamo_identity_choice");
+    const event = makeEvent({ text: "no sé" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_identity_choice");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.effects).toEqual([
+      {
+        kind: "send_buttons",
+        to: FROM,
+        body: "¿Deseas identificarte con tu DNI?",
+        buttons: [
+          { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
+          { id: "reclamo_sin_dni", title: "No tengo DNI" },
+        ],
+      },
+    ]);
+  });
+});
+
+describe("handle — reclamo_awaiting_dni (identity-verification / DNI Format Validation)", () => {
+  it("advances to reclamo_awaiting_nombre and stores slots.dni on a valid 8-digit DNI", () => {
+    const session = parkedSession("reclamo_awaiting_dni");
+    const event = makeEvent({ text: "12345678" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_nombre");
+    expect(result.session.slots.dni).toBe("12345678");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Ingresa tus nombres y apellidos, tal como figuran en tu DNI." },
+    ]);
+  });
+
+  it("re-prompts and increments invalidAttempts on an invalid DNI format, emitting NO reniec_lookup effect", () => {
+    const session = parkedSession("reclamo_awaiting_dni");
+    const event = makeEvent({ text: "123" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_dni");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.effects.some((effect) => effect.kind === "reniec_lookup")).toBe(false);
+    expect(result.effects[0].kind).toBe("send_text");
+  });
+
+  it("re-prompts on a missing text reply (e.g. a media message), never crashing", () => {
+    const session = parkedSession("reclamo_awaiting_dni");
+    const event = makeEvent({ text: undefined, messageType: "image" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_dni");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+  });
+});
+
+describe("handle — reclamo_awaiting_nombre", () => {
+  it("advances to reclamo_reniec_pending, stores slots.nombre, and emits BOTH a send_text and the reniec_lookup query effect (D20)", () => {
+    const session = parkedSession("reclamo_awaiting_nombre", { dni: "12345678" });
+    const event = makeEvent({ text: "Juan Perez" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_reniec_pending");
+    expect(result.session.slots.nombre).toBe("Juan Perez");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos verificando tus datos…" },
+      { kind: "reniec_lookup", dni: "12345678" },
+    ]);
+  });
+
+  it("does NOT perform any I/O as a side effect of handle() itself — the reniec_lookup effect is inert data", () => {
+    const session = parkedSession("reclamo_awaiting_nombre", { dni: "12345678" });
+    const event = makeEvent({ text: "Juan Perez" });
+
+    // handle() is synchronous — if it performed I/O, this call would need to
+    // be awaited. The type system already enforces this; asserting the
+    // return value is a plain object (not a Promise) makes the guarantee
+    // explicit and executable.
+    const result = handle(session, event);
+    expect(result).not.toBeInstanceOf(Promise);
+  });
+
+  it("re-prompts on an empty/missing text reply, never emitting a reniec_lookup effect", () => {
+    const session = parkedSession("reclamo_awaiting_nombre", { dni: "12345678" });
+    const event = makeEvent({ text: "   " });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_nombre");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.effects.some((effect) => effect.kind === "reniec_lookup")).toBe(false);
+  });
+});
+
+describe("handle — reclamo_reniec_pending (D20 re-entry target)", () => {
+  it("advances to reclamo_awaiting_descripcion with a placeholder reply on a RENIEC match", () => {
+    const session = parkedSession("reclamo_reniec_pending", { dni: "12345678", nombre: "Juan Perez" });
+    const systemEvent = makeSystemEvent({
+      status: "found",
+      nombres: "Juan Carlos",
+      apellidoPaterno: "Perez",
+      apellidoMaterno: "Lopez",
+    });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.outcome).toBe("continue");
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0].kind).toBe("send_text");
+    // No further query effect — this is the SECOND handle() call in the D20
+    // turn; a third would be a contract violation (tested in conversation-flow.test.ts).
+    expect(result.effects.some((effect) => effect.kind === "reniec_lookup")).toBe(false);
+  });
+
+  it("transitions to reclamo_rejected with outcome 'rejected' and a rejection message on a RENIEC name mismatch — never throws", () => {
+    const session = parkedSession("reclamo_reniec_pending", { dni: "12345678", nombre: "Alguien Distinto" });
+    const systemEvent = makeSystemEvent({
+      status: "found",
+      nombres: "Juan Carlos",
+      apellidoPaterno: "Perez",
+      apellidoMaterno: "Lopez",
+    });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("reclamo_rejected");
+    expect(result.outcome).toBe("rejected");
+    expect(result.effects.map((effect) => effect.kind)).toEqual(["send_text", "end_session"]);
+  });
+
+  it("transitions to reclamo_rejected with outcome 'rejected' on RENIEC not_found — never throws", () => {
+    const session = parkedSession("reclamo_reniec_pending", { dni: "12345678", nombre: "Juan Perez" });
+    const systemEvent = makeSystemEvent({ status: "not_found" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("reclamo_rejected");
+    expect(result.outcome).toBe("rejected");
+  });
+
+  it("D22/DNI-3: clears the dni and nombre slots on the rejected terminal transition", () => {
+    const session = parkedSession("reclamo_reniec_pending", { dni: "12345678", nombre: "Juan Perez" });
+    const systemEvent = makeSystemEvent({ status: "not_found" });
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.slots.dni).toBeUndefined();
+    expect(result.session.slots.nombre).toBeUndefined();
+    const serialized = JSON.stringify(result.session);
+    expect(serialized).not.toContain("12345678");
+    expect(serialized).not.toContain("Juan Perez");
+  });
+
+  it("stays unchanged and re-prompts with a processing message on a defensive stray inbound event (pending states are never persisted)", () => {
+    const session = parkedSession("reclamo_reniec_pending", { dni: "12345678", nombre: "Juan Perez" });
+    const event = makeEvent({ text: "hola de nuevo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_reniec_pending");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos procesando tu solicitud, danos un momento." },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+});
+
+describe("handle — reclamo_awaiting_descripcion (Phase 5 placeholder)", () => {
+  it("replies with the placeholder and does not advance further (Phase 5 owns the real handler)", () => {
+    const session = parkedSession("reclamo_awaiting_descripcion");
+    const event = makeEvent({ text: "cualquier cosa" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0].kind).toBe("send_text");
+  });
+});
+
+describe("handle — FsmEvent widening (D20) does not change existing handler logic", () => {
+  it("main_menu still matches on a plain InboundConversationEvent, unaffected by the widened event type", () => {
+    const session = createSession("session-key-1", TTL_SECONDS);
+    const event = makeEvent({ interactiveReplyId: "registrar_reclamo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_identity_choice");
   });
 });

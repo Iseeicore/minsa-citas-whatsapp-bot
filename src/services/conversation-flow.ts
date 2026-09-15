@@ -1,18 +1,21 @@
 import type { SessionStore } from "../ports/session-store.js";
 import type { WhatsappOutboundSender } from "../ports/whatsapp-outbound-sender.js";
-import type { FsmEffect } from "../domain/conversation-fsm.js";
+import type { ReniecLookupClient } from "../ports/reniec-lookup-client.js";
+import type { FsmEffect, FsmQueryEffect, FsmSendEffect, FsmSystemEvent } from "../domain/conversation-fsm.js";
 import { handle } from "../domain/conversation-fsm.js";
 import type { ConversationSession } from "../domain/conversation-session.js";
 import { createSession } from "../domain/conversation-session.js";
+import { FsmContractViolationError } from "../domain/errors.js";
 import type { InboundConversationEvent } from "../domain/inbound-conversation-event.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
 
 export interface ConversationFlowService {
   /**
-   * Loads/creates the session, runs the pure FSM, executes its effects, and
-   * persists the result. Rejects when any I/O step fails (SessionStore or
-   * WhatsappOutboundSender) — the caller (worker.ts) classifies that
-   * rejection via classifyWorkerOutcome().
+   * Loads/creates the session, runs the pure FSM, executes its effects
+   * (including at most one bounded query-effect re-entry, D20), and
+   * persists the result. Rejects when any I/O step fails (SessionStore,
+   * WhatsappOutboundSender, or a query port) — the caller (worker.ts)
+   * classifies that rejection via classifyWorkerOutcome().
    */
   process(event: InboundConversationEvent): Promise<void>;
 }
@@ -20,6 +23,8 @@ export interface ConversationFlowService {
 export interface ConversationFlowServiceDeps {
   sessionStore: SessionStore;
   sender: WhatsappOutboundSender;
+  /** D20: the sole executor of the `reniec_lookup` query effect — handle() never performs I/O itself. */
+  reniecLookupClient: ReniecLookupClient;
   config: {
     /** D19: keys the D17 MSISDN digest used as the session lookup key. */
     sessionKeySecret: string;
@@ -27,7 +32,16 @@ export interface ConversationFlowServiceDeps {
   };
 }
 
-function executeEffect(sender: WhatsappOutboundSender, effect: FsmEffect): Promise<void> {
+/** True for a query effect (D20) — false for a plain WhatsApp-send effect. */
+function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
+  return effect.kind === "reniec_lookup";
+}
+
+function isSendEffect(effect: FsmEffect): effect is FsmSendEffect {
+  return !isQueryEffect(effect);
+}
+
+function executeEffect(sender: WhatsappOutboundSender, effect: FsmSendEffect): Promise<void> {
   switch (effect.kind) {
     case "send_text":
       return sender.sendText(effect.to, effect.body);
@@ -48,28 +62,91 @@ function executeEffect(sender: WhatsappOutboundSender, effect: FsmEffect): Promi
   }
 }
 
+/** Executes every send effect, in order. Returns how many were sent (feeds the messagesSent counter). */
+async function runSendEffects(sender: WhatsappOutboundSender, effects: readonly FsmEffect[]): Promise<number> {
+  const sendEffects = effects.filter(isSendEffect);
+  for (const effect of sendEffects) {
+    await executeEffect(sender, effect);
+  }
+  return sendEffects.length;
+}
+
+// D20: a turn may emit at most ONE query effect. More than one is a
+// deterministic FSM bug, not a citizen-triggerable condition — surfaced as
+// FsmContractViolationError so BullMQ dead-letters it instead of retrying (or
+// this function silently choosing one and dropping the rest).
+// Exported (alongside assertReentryEmittedNoQueryEffect below) so the D20
+// contract-violation paths are directly unit-testable as pure functions —
+// today's real FSM never emits >1 query effect in Phase 4's scope, so these
+// two paths would otherwise be untestable without contriving FSM behavior.
+export function soleQueryEffect(effects: readonly FsmEffect[]): FsmQueryEffect | undefined {
+  const queryEffects = effects.filter(isQueryEffect);
+  if (queryEffects.length > 1) {
+    throw new FsmContractViolationError(
+      `[conversation-flow] FSM turn emitted ${queryEffects.length} query effects in one pass; D20 allows at most 1.`
+    );
+  }
+  return queryEffects[0];
+}
+
+// D20: the bounded re-entry is exactly ONE pass. A query effect coming out
+// of the re-entered handle() call means the FSM tried to chain re-entries,
+// which this contract structurally forbids — never silently ignored.
+export function assertReentryEmittedNoQueryEffect(effects: readonly FsmEffect[]): void {
+  const found = effects.find(isQueryEffect);
+  if (found !== undefined) {
+    throw new FsmContractViolationError(
+      `[conversation-flow] Reclamo re-entry (D20) emitted another query effect ("${found.kind}") — bounded re-entry never chains.`
+    );
+  }
+}
+
+// D20: the ONLY I/O re-entry point. Executes a query effect against its
+// matching port and synthesizes the FsmSystemEvent handle() re-enters with.
+// `from` is copied from the triggering InboundConversationEvent (D17
+// discipline carried forward) — never from `session.slots`.
+async function runQueryEffect(
+  reniecLookupClient: ReniecLookupClient,
+  effect: FsmQueryEffect,
+  triggeringEvent: InboundConversationEvent
+): Promise<FsmSystemEvent> {
+  switch (effect.kind) {
+    case "reniec_lookup": {
+      const result = await reniecLookupClient.lookup(effect.dni);
+      return { source: "system", from: triggeringEvent.from, kind: "reniec_lookup_result", result };
+    }
+  }
+}
+
 // D11/D13 (design revision 2): the sole I/O executor for the conversation
 // domain, mirroring webhook-ingestion.ts's role in its own domain — the FSM
-// (conversation-fsm.ts) stays pure and zero-I/O; every load, send, and
-// persist happens here.
+// (conversation-fsm.ts) stays pure and zero-I/O; every load, send, query,
+// and persist happens here.
 //
 // Counters live HERE, not in the FSM, per the design's Data Flow section:
-// messagesReceived on load, messagesSent after each successful send effect.
-// invalidAttempts is the FSM's own responsibility (already applied inside
-// handle()) and is carried through unchanged.
+// messagesReceived on load, messagesSent after each successful send effect
+// (across BOTH passes when a re-entry happens — D20). invalidAttempts is the
+// FSM's own responsibility (already applied inside handle()) and is carried
+// through unchanged.
 //
-// Ordering matters: session persistence happens AFTER effects execute, so a
-// send failure is retried against the unchanged prior state (the caught
-// error propagates before sessionStore.save() is ever reached).
+// Ordering matters: session persistence happens AFTER effects execute (and
+// after any query-effect re-entry completes), so a send/query failure is
+// retried against the unchanged prior state (the caught error propagates
+// before sessionStore.save() is ever reached) — *_pending states are never
+// persisted, exactly per D20's "Persistence and retry semantics".
 //
-// `outcome: "rejected"` (Stage A's main_menu never produces it — see
-// conversation-fsm.ts) needs no special branch here: this function always
-// persists the FSM's returned session and resolves, whether the FSM turn
-// was "continue" or a future state's "rejected". The two only differ in
-// what a FUTURE state handler puts in the session, not in this loop's
-// control flow.
+// `outcome: "rejected"` needs no special branch here: this function always
+// persists the FSM's returned session and resolves, whatever "outcome" the
+// (possibly re-entered) turn produced.
+//
+// D20 bounded re-entry: straight-line code, no loop, no counter. `handle()`
+// runs once; if (and only if) it asked for a query effect, that effect is
+// executed and `handle()` runs exactly one more time with the synthesized
+// result. A second query effect at either point is a contract violation
+// (soleQueryEffect / assertReentryEmittedNoQueryEffect above) — thrown, never
+// silently absorbed, making a THIRD handle() call structurally impossible.
 export function createConversationFlowService(deps: ConversationFlowServiceDeps): ConversationFlowService {
-  const { sessionStore, sender, config } = deps;
+  const { sessionStore, sender, reniecLookupClient, config } = deps;
 
   return {
     async process(event: InboundConversationEvent): Promise<void> {
@@ -82,17 +159,25 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
         counters: { ...loaded.counters, messagesReceived: loaded.counters.messagesReceived + 1 },
       };
 
-      const result = handle(received, event);
+      const first = handle(received, event);
+      let messagesSent = await runSendEffects(sender, first.effects);
 
-      for (const effect of result.effects) {
-        await executeEffect(sender, effect);
+      const query = soleQueryEffect(first.effects);
+      let finalResult = first;
+
+      if (query !== undefined) {
+        const systemEvent = await runQueryEffect(reniecLookupClient, query, event);
+        const second = handle(first.session, systemEvent);
+        messagesSent += await runSendEffects(sender, second.effects);
+        assertReentryEmittedNoQueryEffect(second.effects);
+        finalResult = second;
       }
 
       const persisted: ConversationSession = {
-        ...result.session,
+        ...finalResult.session,
         counters: {
-          ...result.session.counters,
-          messagesSent: result.session.counters.messagesSent + result.effects.length,
+          ...finalResult.session.counters,
+          messagesSent: finalResult.session.counters.messagesSent + messagesSent,
         },
       };
 

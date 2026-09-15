@@ -1,4 +1,4 @@
-import { BusinessRejectionError } from "./errors.js";
+import { BusinessRejectionError, FsmContractViolationError } from "./errors.js";
 
 /**
  * "transient" -> BullMQ should retry (with its existing exponential backoff).
@@ -13,7 +13,13 @@ export type WorkerOutcome = "transient" | "business";
 // `attempts: 3` with exponential backoff: an unclassified failure
 // dead-letters instead of looping forever, rather than being silently
 // misfiled as a business stop that never retries.
+//
+// D20 (Stage B): `FsmContractViolationError` is ALSO "business" — it is a
+// deterministic programmer error (the FSM violated the single-query-effect /
+// no-chained-re-entry contract), not a transient infra hiccup. Retrying it
+// three times would only delay a dead-letter that retrying cannot avoid.
 export function classifyWorkerOutcome(err: unknown): WorkerOutcome {
   if (err instanceof BusinessRejectionError) return "business";
+  if (err instanceof FsmContractViolationError) return "business";
   return "transient";
 }

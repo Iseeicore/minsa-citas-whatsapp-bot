@@ -10,6 +10,7 @@ import type { ConversationFlowService } from "./services/conversation-flow.js";
 import { createConversationFlowService } from "./services/conversation-flow.js";
 import { selectSessionStore } from "./composition/select-session-store.js";
 import { createMetaWhatsappSender } from "./adapters/meta-whatsapp-sender.js";
+import { createHttpReniecLookupClient } from "./adapters/http-reniec-lookup-client.js";
 
 // D5: the worker is a separate process from the HTTP server and requires
 // Redis unconditionally — no memory fallback. A memory queue has no
@@ -109,7 +110,13 @@ function startWorker(): void {
   // into the service and job handler — never a module mock.
   const sessionStore = selectSessionStore({ config, logger });
   const sender = createMetaWhatsappSender({ config, logger });
-  const conversationFlow = createConversationFlowService({ sessionStore, sender, config });
+  // D20/PR4 resequencing note: wiring this here (rather than Phase 7's
+  // originally-listed task 7.5 slot) because createConversationFlowService
+  // now requires reniecLookupClient to compile and work — same precedent as
+  // Phase 3's reniecLookupBaseUrl resequencing. Phase 7 still owns
+  // WhatsappMediaDownloader + the (D21-gated) QuejasSubmissionClient wiring.
+  const reniecLookupClient = createHttpReniecLookupClient({ config, logger });
+  const conversationFlow = createConversationFlowService({ sessionStore, sender, reniecLookupClient, config });
   const processConversationEvent = createProcessConversationEvent({ conversationFlow });
 
   const worker = new Worker("conversation-events", processConversationEvent, { connection });
