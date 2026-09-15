@@ -48,6 +48,10 @@ export const config = {
   // #254) — an unset env behaves identically to the working original.
   citaConversationIdPlaceholder:
     process.env.MINSA_CONVERSATION_ID_PLACEHOLDER ?? "550e8400-e29b-41d4-a716-446655440000",
+  // D32: bare process.env, not readEnv() — same discipline as
+  // citaConversationIdPlaceholder above. Not a secret, so an unset env
+  // silently takes the proven 300s default rather than warning.
+  citaRegistrationWaitSeconds: Number(process.env.CITA_REGISTRATION_WAIT_SECONDS ?? 300),
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
   // D7: dedicated secret for the log-view HMAC fingerprint. Falls back to
   // metaAppSecret when unset — accepted consequence: rotating the app

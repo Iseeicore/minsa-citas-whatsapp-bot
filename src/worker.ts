@@ -3,16 +3,20 @@ import { Worker, type Job } from "bullmq";
 import { Redis as IORedis } from "ioredis";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
-import type { InboundConversationEvent } from "./domain/inbound-conversation-event.js";
+import type { ConversationJobData } from "./domain/conversation-job.js";
+import { isScheduledCheckJob } from "./domain/conversation-job.js";
 import { toLogView } from "./domain/inbound-conversation-event-log-view.js";
+import { toScheduledCheckJobLogView } from "./domain/scheduled-check-job-log-view.js";
 import { classifyWorkerOutcome } from "./domain/worker-outcome.js";
 import type { ConversationFlowService } from "./services/conversation-flow.js";
 import { createConversationFlowService } from "./services/conversation-flow.js";
+import type { ScheduledCheckScheduler } from "./ports/scheduled-check-scheduler.js";
 import { selectSessionStore } from "./composition/select-session-store.js";
 import { createMetaWhatsappSender } from "./adapters/meta-whatsapp-sender.js";
 import { createHttpReniecLookupClient } from "./adapters/http-reniec-lookup-client.js";
 import { createHttpQuejasSubmissionClient } from "./adapters/http-quejas-submission-client.js";
 import { createMetaMediaDownloader } from "./adapters/meta-media-downloader.js";
+import { createRedisScheduledCheckScheduler } from "./adapters/redis-scheduled-check-scheduler.js";
 import { CONVERSATION_QUEUE_NAME } from "./domain/conversation-queue.js";
 
 // D5: the worker is a separate process from the HTTP server and requires
@@ -32,19 +36,21 @@ export interface ProcessConversationEventDeps {
   conversationFlow: ConversationFlowService;
 }
 
-// D6: job.data is the typed InboundConversationEvent Entity, not an untyped
-// payload — the mapper runs once, in the ingestion service, so the worker
-// reads an already-well-formed event instead of re-parsing. D7: logs the
-// sanitized log-view DTO, never job.data directly — job.data carries the
-// MSISDN and message body.
+// D6: job.data is now a ConversationJobData union (D30, Stage C1, PR5) — the
+// existing InboundConversationEvent arm, unchanged, plus a new discriminated
+// scheduled-check arm delivered on the SAME queue. D7/D17 carried forward to
+// the scheduled arm: logs the sanitized log-view DTO for whichever arm the
+// job is, never job.data directly — job.data carries the MSISDN and message
+// body on the inbound arm.
 //
 // D14: wraps conversation-flow's single I/O pipeline (load -> handle ->
-// send -> persist) with classifyWorkerOutcome(). A transient infra failure
-// (Redis unreachable, Graph API timeout/5xx, or anything unclassified)
-// rethrows, so BullMQ's existing 3-attempt exponential backoff keeps
-// retrying unchanged. A business rejection resolves normally — the job
-// completes, avoiding an infinite retry loop for a terminal, non-retriable
-// stop.
+// send/schedule -> persist) with classifyWorkerOutcome() for BOTH entry
+// points. A transient infra failure (Redis unreachable, Graph API
+// timeout/5xx, or anything unclassified) rethrows, so BullMQ's existing
+// 3-attempt exponential backoff keeps retrying unchanged, for a scheduled
+// fire exactly like a citizen turn. A business rejection resolves normally
+// — the job completes, avoiding an infinite retry loop for a terminal,
+// non-retriable stop.
 //
 // A factory, not a bare function (same shape as createShutdownHandler
 // below): processConversationEvent needs the composition-root-built
@@ -52,10 +58,32 @@ export interface ProcessConversationEventDeps {
 // constructor injection over module mocks.
 export function createProcessConversationEvent(
   deps: ProcessConversationEventDeps
-): (job: Job<InboundConversationEvent>) => Promise<void> {
+): (job: Job<ConversationJobData>) => Promise<void> {
   const { conversationFlow } = deps;
 
-  return async function processConversationEvent(job: Job<InboundConversationEvent>): Promise<void> {
+  return async function processConversationEvent(job: Job<ConversationJobData>): Promise<void> {
+    // D30/D31: a scheduled-check job is never an InboundConversationEvent —
+    // routing it to conversationFlow.processScheduled() (never process())
+    // keeps a timer fire from being mistaken for a citizen turn.
+    if (isScheduledCheckJob(job.data)) {
+      logger.info(
+        { jobId: job.id, ...toScheduledCheckJobLogView(job.data) },
+        "conversation-events scheduled-check job received"
+      );
+
+      try {
+        await conversationFlow.processScheduled(job.data);
+      } catch (err) {
+        if (classifyWorkerOutcome(err) === "transient") throw err;
+
+        logger.warn(
+          { jobId: job.id, err },
+          "conversation-events scheduled-check job resolved as a business rejection — no retry"
+        );
+      }
+      return;
+    }
+
     logger.info(
       { jobId: job.id, ...toLogView(job.data, { logHashSecret: config.logHashSecret }) },
       "conversation-events job received"
@@ -77,11 +105,18 @@ export function createProcessConversationEvent(
 export interface ShutdownDeps {
   worker: Pick<Worker, "close">;
   connection: Pick<IORedis, "quit">;
+  /**
+   * D29/D30 (Phase 5): the scheduler owns its own Redis connection (mirrors
+   * ConversationEventDao's own-connection discipline) — must be released on
+   * shutdown too, same as `connection` above.
+   */
+  scheduler: Pick<ScheduledCheckScheduler, "close">;
 }
 
 // Idempotent, guarded against double-fire (SIGTERM and SIGINT could both
 // arrive, or the same signal twice): stops fetching new jobs, awaits
-// in-flight jobs via worker.close(), then releases the Redis connection.
+// in-flight jobs via worker.close(), releases the scheduler's own
+// connection, then releases the worker's own Redis connection.
 export function createShutdownHandler(deps: ShutdownDeps): (signal: string) => Promise<void> {
   let shuttingDown = false;
 
@@ -92,6 +127,7 @@ export function createShutdownHandler(deps: ShutdownDeps): (signal: string) => P
     logger.info({ signal }, "Cerrando el worker de forma ordenada");
     try {
       await deps.worker.close();
+      await deps.scheduler.close();
       await deps.connection.quit();
       process.exit(0);
     } catch (err) {
@@ -101,8 +137,28 @@ export function createShutdownHandler(deps: ShutdownDeps): (signal: string) => P
   };
 }
 
+// D32/Phase 5 (boot layer): the second wait's timer (design: "check #2 arms
+// wait 2") fires at ~2 × citaRegistrationWaitSeconds after a session was
+// first written — if sessionTtlSeconds is not comfortably above that, Redis
+// could reap the session before the second timer ever fires, turning a
+// legitimate wait into a silent D31 no-op (absent session) instead of the
+// intended re-check. A boot-time assertion (same shape as assertRedisDriver
+// above) catches a misconfigured deploy loudly instead of letting it
+// degrade silently in production.
+export function assertSchedulingTtlHeadroom(): void {
+  const minimumTtlSeconds = 2 * config.citaRegistrationWaitSeconds;
+  if (config.sessionTtlSeconds <= minimumTtlSeconds) {
+    throw new Error(
+      `[worker] SESSION_TTL_SECONDS (${config.sessionTtlSeconds}) debe ser mayor que ` +
+        `2 × CITA_REGISTRATION_WAIT_SECONDS (${minimumTtlSeconds}) para que una sesión no expire ` +
+        "antes de que el segundo aviso de registro pueda dispararse."
+    );
+  }
+}
+
 function startWorker(): void {
   assertRedisDriver();
+  assertSchedulingTtlHeadroom();
 
   // BullMQ requires maxRetriesPerRequest: null for a Worker (unlike the
   // producer's 1) — it manages blocking-call retries itself.
@@ -125,12 +181,20 @@ function startWorker(): void {
   // acceptance validation is still pending before production traffic.
   const quejasSubmissionClient = createHttpQuejasSubmissionClient({ config, logger });
   const whatsappMediaDownloader = createMetaMediaDownloader({ config, logger });
+  // Phase 5 (PR5): the real BullMQ-backed ScheduledCheckScheduler, own Redis
+  // connection (mirrors every other adapter's own-connection discipline).
+  // Constructed unconditionally so createConversationFlowService's
+  // schedule_check executor never hits ScheduledCheckSchedulerNotConfiguredError
+  // in production — same resequencing precedent as reniecLookupClient/
+  // quejasSubmissionClient above.
+  const scheduledCheckScheduler = createRedisScheduledCheckScheduler({ config, logger });
   const conversationFlow = createConversationFlowService({
     sessionStore,
     sender,
     reniecLookupClient,
     quejasSubmissionClient,
     whatsappMediaDownloader,
+    scheduledCheckScheduler,
     config,
   });
   const processConversationEvent = createProcessConversationEvent({ conversationFlow });
@@ -144,7 +208,7 @@ function startWorker(): void {
     logger.error({ err }, "conversation-events worker error");
   });
 
-  const shutdown = createShutdownHandler({ worker, connection });
+  const shutdown = createShutdownHandler({ worker, connection, scheduler: scheduledCheckScheduler });
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));
 

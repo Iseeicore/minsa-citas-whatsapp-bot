@@ -205,4 +205,25 @@ describe("config", () => {
 
     expect(config.metaGraphApiVersion).toBe("v21.0");
   });
+
+  // D32 (Stage C1, PR5)
+  it("defaults citaRegistrationWaitSeconds to 300 when CITA_REGISTRATION_WAIT_SECONDS is unset", async () => {
+    delete process.env.CITA_REGISTRATION_WAIT_SECONDS;
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.citaRegistrationWaitSeconds).toBe(300);
+  });
+
+  it("overrides citaRegistrationWaitSeconds from CITA_REGISTRATION_WAIT_SECONDS", async () => {
+    process.env.CITA_REGISTRATION_WAIT_SECONDS = "120";
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.citaRegistrationWaitSeconds).toBe(120);
+
+    delete process.env.CITA_REGISTRATION_WAIT_SECONDS;
+  });
 });
