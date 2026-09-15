@@ -17,6 +17,7 @@ import { createHttpReniecLookupClient } from "./adapters/http-reniec-lookup-clie
 import { createHttpQuejasSubmissionClient } from "./adapters/http-quejas-submission-client.js";
 import { createMetaMediaDownloader } from "./adapters/meta-media-downloader.js";
 import { createRedisScheduledCheckScheduler } from "./adapters/redis-scheduled-check-scheduler.js";
+import { createHttpMinsaIdentityClient } from "./adapters/http-minsa-identity-client.js";
 import { CONVERSATION_QUEUE_NAME } from "./domain/conversation-queue.js";
 
 // D5: the worker is a separate process from the HTTP server and requires
@@ -188,6 +189,14 @@ function startWorker(): void {
   // in production — same resequencing precedent as reniecLookupClient/
   // quejasSubmissionClient above.
   const scheduledCheckScheduler = createRedisScheduledCheckScheduler({ config, logger });
+  // Phase 8 (PR8, final): the real HTTP-backed MinsaIdentityClient
+  // (http-minsa-identity-client.ts, built and unit-tested against fakes
+  // since Phase 3). Constructed unconditionally, same resequencing
+  // precedent as reniecLookupClient/quejasSubmissionClient/
+  // scheduledCheckScheduler above — minsaIdentityClient is now a REQUIRED
+  // dependency of createConversationFlowService (conversation-flow.ts), so
+  // this call site is the only place it can come from in production.
+  const minsaIdentityClient = createHttpMinsaIdentityClient({ config, logger });
   const conversationFlow = createConversationFlowService({
     sessionStore,
     sender,
@@ -195,6 +204,7 @@ function startWorker(): void {
     quejasSubmissionClient,
     whatsappMediaDownloader,
     scheduledCheckScheduler,
+    minsaIdentityClient,
     config,
   });
   const processConversationEvent = createProcessConversationEvent({ conversationFlow });

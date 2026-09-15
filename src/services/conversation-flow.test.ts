@@ -20,7 +20,6 @@ import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
 import {
   FsmContractViolationError,
   MediaTooLargeError,
-  MinsaIdentityClientNotConfiguredError,
   ScheduledCheckSchedulerNotConfiguredError,
   TransientFailureError,
 } from "../domain/errors.js";
@@ -213,10 +212,11 @@ function makeService(
   // No existing test below passes a scheduler, so every one of them proves
   // the widening left process()'s observable behavior unchanged.
   scheduledCheckScheduler?: ScheduledCheckScheduler,
-  // PR6/D26: OPTIONAL — undefined by default, matching
-  // ConversationFlowServiceDeps. No pre-Phase-6 test below passes a client,
-  // proving the widening left process()'s observable behavior unchanged.
-  minsaIdentityClient?: MinsaIdentityClient
+  // Phase 8: REQUIRED — matching ConversationFlowServiceDeps, mirroring
+  // quejasSubmissionClient/whatsappMediaDownloader's own default-fake
+  // pattern above. A pre-Phase-8 test that never touches a Cita
+  // validate_user/verify_code effect proves this default is inert.
+  minsaIdentityClient: MinsaIdentityClient = fakeMinsaIdentityClient().client
 ) {
   return {
     sessionStore,
@@ -1033,17 +1033,14 @@ describe("createConversationFlowService — validate_user bounded re-entry (D20/
     expect(stored?.slots.citaWaitToken).toBe("registro_wait:1");
   });
 
-  it("throws MinsaIdentityClientNotConfiguredError when a validate_user effect appears without a configured client (Phase 6, before Phase 8 wires worker.ts)", async () => {
-    const { sender } = fakeSender();
-    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
-    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
-    await sessionStore.save(fullSession({ sessionKey: key, state: "cita_awaiting_dni" }));
-    const { service } = makeService(sender, sessionStore);
-
-    await expect(service.process(makeEvent({ text: "12345678" }))).rejects.toBeInstanceOf(
-      MinsaIdentityClientNotConfiguredError
-    );
-  });
+  // Phase 8: `minsaIdentityClient` is now a REQUIRED dependency — worker.ts
+  // always constructs and injects the real HttpMinsaIdentityClient, so the
+  // PR6/PR7-era "not configured" placeholder path
+  // (MinsaIdentityClientNotConfiguredError) is no longer reachable through
+  // this service. The error class and its classifyWorkerOutcome() mapping
+  // remain defined (see errors.ts / worker-outcome.ts) as a defensive,
+  // never-triggered safety net — same treatment as
+  // QuejasSubmissionClientNotConfiguredError above.
 });
 
 // PR6 (Phase 6): the "single most important correctness property" of this
@@ -1182,17 +1179,213 @@ describe("createConversationFlowService — verify_code bounded re-entry (D20/D3
     expect(stored?.slots.citaOtpAttempts).toBeUndefined();
   });
 
-  it("throws MinsaIdentityClientNotConfiguredError when a verify_code effect appears without a configured client (Phase 7, before Phase 8 wires worker.ts)", async () => {
+  // Phase 8: same removal as validate_user's own NotConfigured test above —
+  // minsaIdentityClient is now REQUIRED, so this path is unreachable through
+  // this service. See the comment at the end of the validate_user describe
+  // block above for the full rationale.
+});
+
+// PR8 (Phase 8, final of Stage C1): full end-to-end integration coverage,
+// driven the same way this codebase's "Integration (service)" layer always
+// has been (design's Testing Strategy table) — real FSM, hand-written fakes
+// for every driven port, zero module mocks, through the actual
+// createConversationFlowService() composition (the same function worker.ts's
+// startWorker() calls). worker.ts's own startWorker() is a self-invoking,
+// unexported composition root with no test seam (mirrors every prior stage's
+// own convention — see reniecLookupClient/quejasSubmissionClient's identical
+// "unit-tested against fakes, real-endpoint validation pending" treatment);
+// this is "as close as this codebase's existing integration-test conventions
+// allow" to driving worker.ts's real composition, per this PR's scope note.
+describe("createConversationFlowService — Phase 8 end-to-end integration (full Cita identity pipeline)", () => {
+  it("main_menu -> agendar_cita -> DNI -> validate_user(valid) -> OTP -> verify_code(verified) -> cita_identity_confirmed with a bearer token in slots", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    const { client: minsaIdentityClient, calls: validateCalls, verifyCalls } = fakeMinsaIdentityClient({
+      result: { status: "valid", twofaId: "twofa-e2e-1" },
+      verifyCodeResult: { status: "verified", token: "bearer-e2e-token", tokenType: "Bearer", expiresIn: 3600 },
+    });
+    const { service } = makeService(
+      sender,
+      sessionStore,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      minsaIdentityClient
+    );
+
+    // Turn 1: citizen picks "Agendar cita" from the main menu.
+    await service.process(makeEvent({ interactiveReplyId: "agendar_cita" }));
+    expect((await sessionStore.load(key))?.state).toBe("cita_awaiting_dni");
+
+    // Turn 2: citizen types their DNI -> validate_user(valid) -> cita_awaiting_otp.
+    await service.process(makeEvent({ text: "12345678" }));
+    const afterDni = await sessionStore.load(key);
+    expect(afterDni?.state).toBe("cita_awaiting_otp");
+    expect(afterDni?.slots.citaTwofaId).toBe("twofa-e2e-1");
+
+    // Turn 3: citizen types the OTP -> verify_code(verified) -> cita_identity_confirmed.
+    await service.process(makeEvent({ text: "654321" }));
+    const final = await sessionStore.load(key);
+    expect(final?.state).toBe("cita_identity_confirmed");
+    expect(final?.slots.citaBearer).toBe("bearer-e2e-token");
+    expect(final?.slots.citaDni).toBeUndefined();
+    expect(final?.slots.citaTwofaId).toBeUndefined();
+
+    expect(validateCalls).toEqual(["12345678"]);
+    expect(verifyCalls).toEqual([{ twofaId: "twofa-e2e-1", code: "654321" }]);
+    // 1 send at agendar_cita + 2 sends per DNI turn (validating + otp prompt)
+    // + 2 sends per OTP turn (validating + confirmed) = 5 total.
+    expect(calls).toHaveLength(5);
+  });
+
+  it("registration-wait retry ladder: not-registered -> schedule -> re-check -> still not-registered -> schedule again -> re-check -> still not-registered -> terminal rejected", async () => {
     const { sender } = fakeSender();
     const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
     const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
-    await sessionStore.save(
-      fullSession({ sessionKey: key, state: "cita_awaiting_otp", slots: { citaTwofaId: "twofa-1" } })
+    // Every validateUser call in this ladder returns not_valid — a single
+    // fixed fake suffices because the FSM's own citaRegistrationChecks
+    // counter, not the client, drives the ladder's termination.
+    const { client: minsaIdentityClient, calls: validateCalls } = fakeMinsaIdentityClient({
+      result: { status: "not_valid" },
+    });
+    const { scheduler, calls: scheduleCalls } = fakeScheduledCheckScheduler();
+    const { service } = makeService(
+      sender,
+      sessionStore,
+      undefined,
+      undefined,
+      undefined,
+      scheduler,
+      minsaIdentityClient
     );
-    const { service } = makeService(sender, sessionStore);
 
-    await expect(service.process(makeEvent({ text: "123456" }))).rejects.toBeInstanceOf(
-      MinsaIdentityClientNotConfiguredError
+    // Turn 1: agendar_cita -> cita_awaiting_dni.
+    await service.process(makeEvent({ interactiveReplyId: "agendar_cita" }));
+
+    // Turn 2: DNI -> validate_user #1 (not_valid) -> cita_registration_wait, check #1, wait scheduled.
+    await service.process(makeEvent({ text: "99999999" }));
+    let stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_registration_wait");
+    expect(stored?.slots.citaRegistrationChecks).toBe(1);
+    expect(stored?.slots.citaWaitToken).toBe("registro_wait:1");
+    expect(scheduleCalls).toHaveLength(1);
+
+    // Re-check #1 fires: validate_user #2 (still not_valid) -> cita_registration_wait, check #2, wait scheduled again.
+    await service.processScheduled(
+      makeScheduledJob({
+        sessionKey: key,
+        to: FROM_MSISDN,
+        expectedState: "cita_registration_wait",
+        waitToken: "registro_wait:1",
+      })
     );
+    stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_registration_wait");
+    expect(stored?.slots.citaRegistrationChecks).toBe(2);
+    expect(stored?.slots.citaWaitToken).toBe("registro_wait:2");
+    expect(scheduleCalls).toHaveLength(2);
+
+    // Re-check #2 fires: validate_user #3 (still not_valid) -> terminal cita_registration_rejected, no 3rd wait.
+    await service.processScheduled(
+      makeScheduledJob({
+        sessionKey: key,
+        to: FROM_MSISDN,
+        expectedState: "cita_registration_wait",
+        waitToken: "registro_wait:2",
+      })
+    );
+    stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_registration_rejected");
+    expect(stored?.slots.citaDni).toBeUndefined();
+    expect(stored?.slots.citaWaitToken).toBeUndefined();
+    expect(stored?.slots.citaRegistrationChecks).toBeUndefined();
+
+    expect(validateCalls).toEqual(["99999999", "99999999", "99999999"]);
+    // Exactly 2 scheduled waits, never a 3rd — the structural bound this
+    // ladder is proving end to end.
+    expect(scheduleCalls).toHaveLength(2);
+  });
+
+  it("OTP lockout path end-to-end: 3 wrong codes in a row -> terminal cita_otp_locked", async () => {
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    const { client: minsaIdentityClient, verifyCalls } = fakeMinsaIdentityClient({
+      result: { status: "valid", twofaId: "twofa-lockout-1" },
+      verifyCodeResult: { status: "invalid" },
+    });
+    const { service } = makeService(
+      sender,
+      sessionStore,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      minsaIdentityClient
+    );
+
+    // Reach cita_awaiting_otp via the real DNI validation path (not a pre-seeded fixture).
+    await service.process(makeEvent({ interactiveReplyId: "agendar_cita" }));
+    await service.process(makeEvent({ text: "12345678" }));
+    expect((await sessionStore.load(key))?.state).toBe("cita_awaiting_otp");
+
+    // Wrong code #1: re-prompt, citaOtpAttempts = 1.
+    await service.process(makeEvent({ text: "111111" }));
+    let stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_awaiting_otp");
+    expect(stored?.slots.citaOtpAttempts).toBe(1);
+
+    // Wrong code #2: re-prompt, citaOtpAttempts = 2.
+    await service.process(makeEvent({ text: "222222" }));
+    stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_awaiting_otp");
+    expect(stored?.slots.citaOtpAttempts).toBe(2);
+
+    // Wrong code #3: terminal lockout, all cita slots cleared incl. citaBearer.
+    await service.process(makeEvent({ text: "333333" }));
+    stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("cita_otp_locked");
+    expect(stored?.slots.citaDni).toBeUndefined();
+    expect(stored?.slots.citaTwofaId).toBeUndefined();
+    expect(stored?.slots.citaOtpAttempts).toBeUndefined();
+    expect(stored?.slots.citaBearer).toBeUndefined();
+
+    expect(verifyCalls).toEqual([
+      { twofaId: "twofa-lockout-1", code: "111111" },
+      { twofaId: "twofa-lockout-1", code: "222222" },
+      { twofaId: "twofa-lockout-1", code: "333333" },
+    ]);
+  });
+
+  // Task 8.3: a scheduler rejection during the DNI turn's schedule_check
+  // effect must abort BEFORE persist — mirrors the existing "leaves the
+  // prior stored session intact when a send effect fails" test above,
+  // applied to the schedule executor instead of the send executor.
+  it("a scheduler.schedule() rejection leaves the prior session persisted-unchanged (task 8.3)", async () => {
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(fullSession({ sessionKey: key, state: "cita_awaiting_dni" }));
+    const priorSession = await sessionStore.load(key);
+    const { client: minsaIdentityClient } = fakeMinsaIdentityClient({ result: { status: "not_valid" } });
+    const { scheduler } = fakeScheduledCheckScheduler({
+      failWith: new TransientFailureError("redis unreachable while scheduling"),
+    });
+    const { service } = makeService(
+      sender,
+      sessionStore,
+      undefined,
+      undefined,
+      undefined,
+      scheduler,
+      minsaIdentityClient
+    );
+
+    await expect(service.process(makeEvent({ text: "12345678" }))).rejects.toBeInstanceOf(TransientFailureError);
+
+    const afterFailure = await sessionStore.load(key);
+    expect(afterFailure).toEqual(priorSession);
   });
 });

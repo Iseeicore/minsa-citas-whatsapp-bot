@@ -20,7 +20,6 @@ import type { ScheduledCheckJobData } from "../domain/conversation-job.js";
 import {
   FsmContractViolationError,
   MediaTooLargeError,
-  MinsaIdentityClientNotConfiguredError,
   ScheduledCheckSchedulerNotConfiguredError,
 } from "../domain/errors.js";
 import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
@@ -92,16 +91,19 @@ export interface ConversationFlowServiceDeps {
    */
   scheduledCheckScheduler?: ScheduledCheckScheduler;
   /**
-   * D26/Phase 6: the sole executor of the `validate_user` query effect —
-   * handle() never performs I/O itself. OPTIONAL until Phase 8 wires the
-   * real `HttpMinsaIdentityClient` into worker.ts's composition root (task
-   * 8.1); undefined is safe today because no other call site constructs one
-   * yet. If a `validate_user` effect DOES appear without a configured
-   * client, `runQueryEffect` throws `MinsaIdentityClientNotConfiguredError`
-   * rather than silently dropping the check — same precedent as
-   * `scheduledCheckScheduler`'s earlier optional/NotConfigured window.
+   * D26/D33: the sole executor of the `validate_user` and `verify_code`
+   * query effects — handle() never performs I/O itself. REQUIRED as of
+   * Phase 8 — worker.ts always constructs and injects the real
+   * `HttpMinsaIdentityClient` (D21 gate cleared for code + fake-only
+   * testing per the same precedent as `quejasSubmissionClient` above; the
+   * real-endpoint HMAC wire details remain flagged non-blocking, see
+   * design's Open Questions). The PR6/PR7-era `MinsaIdentityClientNotConfiguredError`
+   * guard is gone from `runQueryEffect` below — the error class and its
+   * `classifyWorkerOutcome()` mapping remain defined (errors.ts /
+   * worker-outcome.ts) as a defensive, never-triggered safety net, same
+   * treatment as `QuejasSubmissionClientNotConfiguredError`.
    */
-  minsaIdentityClient?: MinsaIdentityClient;
+  minsaIdentityClient: MinsaIdentityClient;
   config: {
     /** D19: keys the D17 MSISDN digest used as the session lookup key. */
     sessionKeySecret: string;
@@ -271,7 +273,7 @@ async function runQueryEffect(
     reniecLookupClient: ReniecLookupClient;
     quejasSubmissionClient: QuejasSubmissionClient;
     whatsappMediaDownloader: WhatsappMediaDownloader;
-    minsaIdentityClient?: MinsaIdentityClient;
+    minsaIdentityClient: MinsaIdentityClient;
   },
   effect: FsmQueryEffect,
   to: string | undefined
@@ -282,20 +284,15 @@ async function runQueryEffect(
       return { source: "system", from: to, kind: "reniec_lookup_result", result };
     }
     case "validate_user": {
-      if (clients.minsaIdentityClient === undefined) {
-        throw new MinsaIdentityClientNotConfiguredError(
-          "[conversation-flow] FSM turn emitted a validate_user effect but minsaIdentityClient is not configured."
-        );
-      }
+      // Phase 8: minsaIdentityClient is now a REQUIRED dependency — worker.ts
+      // always constructs and injects the real HttpMinsaIdentityClient, so
+      // the PR6/PR7-era "not configured" placeholder path
+      // (MinsaIdentityClientNotConfiguredError) is no longer reachable
+      // through this service. Same precedent as quejasSubmissionClient above.
       const result = await clients.minsaIdentityClient.validateUser(effect.numeroDocumento);
       return { source: "system", from: to, kind: "validate_user_result", result };
     }
     case "verify_code": {
-      if (clients.minsaIdentityClient === undefined) {
-        throw new MinsaIdentityClientNotConfiguredError(
-          "[conversation-flow] FSM turn emitted a verify_code effect but minsaIdentityClient is not configured."
-        );
-      }
       const result = await clients.minsaIdentityClient.verifyCode({ twofaId: effect.twofaId, code: effect.code });
       return { source: "system", from: to, kind: "verify_code_result", result };
     }
@@ -348,7 +345,7 @@ interface TurnClients {
   reniecLookupClient: ReniecLookupClient;
   quejasSubmissionClient: QuejasSubmissionClient;
   whatsappMediaDownloader: WhatsappMediaDownloader;
-  minsaIdentityClient?: MinsaIdentityClient;
+  minsaIdentityClient: MinsaIdentityClient;
 }
 
 interface TurnOutcome {
