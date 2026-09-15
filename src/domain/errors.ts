@@ -16,3 +16,16 @@ export class QueueUnavailableError extends AppError {}
 
 /** The request body is not parseable JSON. */
 export class MalformedPayloadError extends AppError {}
+
+// D14: worker-only outcome classification (error-handler.ts is HTTP-only and
+// meaningless in src/worker.ts). Unknown errors default to transient at the
+// classification site (classifyWorkerOutcome, PR6) — the producer already
+// caps attempts:3 with exponential backoff, so an unknown failure dead-letters
+// instead of looping forever, rather than being misfiled as a business stop
+// that never retries.
+
+/** A retriable infrastructure failure (Redis down, Meta Graph API timeout/5xx, etc). BullMQ should retry the job. */
+export class TransientFailureError extends AppError {}
+
+/** A terminal, non-retriable business stop (e.g. the citizen's flow ends by rule, not by failure). BullMQ should NOT retry the job. */
+export class BusinessRejectionError extends AppError {}
