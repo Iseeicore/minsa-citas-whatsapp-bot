@@ -27,6 +27,13 @@ export const config = {
   // block the HTTP server from booting.
   metaGraphApiVersion: readEnv("META_GRAPH_API_VERSION"),
   minsaApiHost: process.env.MINSA_API_HOST ?? "https://dminsadigital.minsa.gob.pe/back",
+  // D25: bare process.env with a prod default, same discipline as
+  // minsaApiHost above — RENIEC lookup needs no secret and no auth, so
+  // readEnv()'s "CHANGE_ME" warning would be noise. Resequenced here from
+  // its original Phase 7 task slot because PR3 (the RENIEC HTTP client)
+  // needs it to compile and work, same as Stage A's PR2 did for its own
+  // deferred config fields.
+  reniecLookupBaseUrl: process.env.RENIEC_LOOKUP_BASE_URL ?? "https://back.personeros360.pe",
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
   // D7: dedicated secret for the log-view HMAC fingerprint. Falls back to
