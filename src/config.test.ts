@@ -85,6 +85,26 @@ describe("config", () => {
     expect(config.nodeEnv).toBe(process.env.NODE_ENV);
   });
 
+  it("leaves sessionStoreDriver undefined when SESSION_STORE_DRIVER is unset — a dumb passthrough, no default here", async () => {
+    delete process.env.SESSION_STORE_DRIVER;
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.sessionStoreDriver).toBeUndefined();
+  });
+
+  it("passes SESSION_STORE_DRIVER through unchanged when set", async () => {
+    process.env.SESSION_STORE_DRIVER = "memory";
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.sessionStoreDriver).toBe("memory");
+
+    delete process.env.SESSION_STORE_DRIVER;
+  });
+
   it("logHashSecret falls back to metaAppSecret when LOG_HASH_SECRET is unset (D7)", async () => {
     delete process.env.LOG_HASH_SECRET;
 

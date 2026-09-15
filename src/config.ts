@@ -41,6 +41,10 @@ export const config = {
   // Dumb passthrough, no defaulting — validation belongs to the composition
   // root (src/composition/select-conversation-event-dao.ts), not this module.
   queueDriver: process.env.QUEUE_DRIVER,
+  // Same discipline as queueDriver above: dumb passthrough, no defaulting —
+  // validation belongs to the composition root
+  // (src/composition/select-session-store.ts), not this module.
+  sessionStoreDriver: process.env.SESSION_STORE_DRIVER,
   nodeEnv: process.env.NODE_ENV,
   // Fastify defaults connectionTimeout to 0 (unbounded); 30s bounds a hung
   // socket while staying far above any legitimate Meta webhook delivery.
