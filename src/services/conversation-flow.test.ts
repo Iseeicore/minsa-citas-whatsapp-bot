@@ -9,11 +9,17 @@ import type {
 import type { ReniecLookupClient, ReniecLookupResult } from "../ports/reniec-lookup-client.js";
 import type { QuejaPayload, QuejaSubmissionResult, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
 import type { DownloadedMedia, WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
+import type { FsmEffect } from "../domain/conversation-fsm.js";
 import { createMemorySessionStore } from "../adapters/memory-session-store.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
 import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
 import { FsmContractViolationError, MediaTooLargeError, TransientFailureError } from "../domain/errors.js";
-import { assertReentryEmittedNoQueryEffect, createConversationFlowService, soleQueryEffect } from "./conversation-flow.js";
+import {
+  assertReentryEmittedNoQueryEffect,
+  createConversationFlowService,
+  isSendEffect,
+  soleQueryEffect,
+} from "./conversation-flow.js";
 
 const SESSION_KEY_SECRET = "test-session-key-secret";
 const SESSION_TTL_SECONDS = 3600;
@@ -578,5 +584,43 @@ describe("soleQueryEffect / assertReentryEmittedNoQueryEffect (D20 contract-viol
     expect(() =>
       assertReentryEmittedNoQueryEffect([{ kind: "reniec_lookup" as const, dni: "12345678" }])
     ).toThrow(FsmContractViolationError);
+  });
+});
+
+// D28: isSendEffect must be a POSITIVE enumeration of the four known
+// send-effect kinds, never `!isQueryEffect`. The negation is a latent bug:
+// today only two effect families exist (send, query), so the negation
+// happens to agree with the positive form — but it would silently
+// misclassify any future third effect category (e.g. Stage C1's upcoming
+// FsmScheduleEffect, D28) as sendable. This test proves the positive form
+// directly, independent of how many other effect kinds exist.
+describe("isSendEffect (D28: positive enumeration, not !isQueryEffect)", () => {
+  it("returns true for each of the four known send-effect kinds", () => {
+    const sendEffects: FsmEffect[] = [
+      { kind: "send_text", to: FROM_MSISDN, body: "hola" },
+      {
+        kind: "send_interactive_list",
+        to: FROM_MSISDN,
+        body: "hola",
+        buttonLabel: "Ver opciones",
+        sections: [],
+      },
+      { kind: "send_buttons", to: FROM_MSISDN, body: "hola", buttons: [] },
+      { kind: "end_session", to: FROM_MSISDN },
+    ];
+
+    for (const effect of sendEffects) {
+      expect(isSendEffect(effect)).toBe(true);
+    }
+  });
+
+  it("returns false for a query effect", () => {
+    expect(isSendEffect({ kind: "reniec_lookup", dni: "12345678" })).toBe(false);
+  });
+
+  it("returns false for a non-send, non-query-shaped effect (a future third category, e.g. schedule_check) — proves the enumeration is positive, not a negation of isQueryEffect", () => {
+    const futureThirdCategoryShapedEffect = { kind: "schedule_check" } as unknown as FsmEffect;
+
+    expect(isSendEffect(futureThirdCategoryShapedEffect)).toBe(false);
   });
 });

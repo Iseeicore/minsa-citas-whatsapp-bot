@@ -55,8 +55,24 @@ function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
   return effect.kind === "reniec_lookup" || effect.kind === "quejas_submit";
 }
 
-function isSendEffect(effect: FsmEffect): effect is FsmSendEffect {
-  return !isQueryEffect(effect);
+// D28: a POSITIVE enumeration of the four known send-effect kinds — NEVER
+// `!isQueryEffect(effect)`. That negation was a latent bug: with only two
+// effect families (send, query) it happened to agree with the positive
+// form, but it would silently misclassify any future third effect category
+// (e.g. Stage C1's `FsmScheduleEffect`, D28) as sendable and hand it to
+// executeEffect(), which has no case for it. Enumerating the kinds directly
+// makes a future new category fail loudly (returns false here, and
+// executeEffect's exhaustive switch fails to compile) instead of being
+// silently routed as a send. Exported (same precedent as soleQueryEffect
+// and assertReentryEmittedNoQueryEffect above) so this is directly
+// unit-testable without contriving FSM behavior.
+export function isSendEffect(effect: FsmEffect): effect is FsmSendEffect {
+  return (
+    effect.kind === "send_text" ||
+    effect.kind === "send_interactive_list" ||
+    effect.kind === "send_buttons" ||
+    effect.kind === "end_session"
+  );
 }
 
 function executeEffect(sender: WhatsappOutboundSender, effect: FsmSendEffect): Promise<void> {

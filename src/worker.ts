@@ -13,6 +13,7 @@ import { createMetaWhatsappSender } from "./adapters/meta-whatsapp-sender.js";
 import { createHttpReniecLookupClient } from "./adapters/http-reniec-lookup-client.js";
 import { createHttpQuejasSubmissionClient } from "./adapters/http-quejas-submission-client.js";
 import { createMetaMediaDownloader } from "./adapters/meta-media-downloader.js";
+import { CONVERSATION_QUEUE_NAME } from "./domain/conversation-queue.js";
 
 // D5: the worker is a separate process from the HTTP server and requires
 // Redis unconditionally — no memory fallback. A memory queue has no
@@ -134,7 +135,7 @@ function startWorker(): void {
   });
   const processConversationEvent = createProcessConversationEvent({ conversationFlow });
 
-  const worker = new Worker("conversation-events", processConversationEvent, { connection });
+  const worker = new Worker(CONVERSATION_QUEUE_NAME, processConversationEvent, { connection });
 
   worker.on("failed", (job, err) => {
     logger.error({ jobId: job?.id, err }, "conversation-events job failed");
