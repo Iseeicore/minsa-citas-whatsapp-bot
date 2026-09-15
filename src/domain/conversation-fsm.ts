@@ -64,8 +64,29 @@ export type FsmQueryEffect =
   | { kind: "reniec_lookup"; dni: string }
   | { kind: "quejas_submit"; submission: QuejaSubmission };
 
-// Same exported name as Stage A, now a union of the two effect families.
-export type FsmEffect = FsmSendEffect | FsmQueryEffect;
+// D28 (Stage C1, PR4): FsmScheduleEffect is a THIRD effect category — plain
+// data describing a future timer fire, no I/O performed here. `handle()`
+// never arms the timer itself; conversation-flow.ts's schedule executor
+// (`runScheduleEffects`, symmetric with `runQueryEffect`) does. Deliberately
+// NOT a query effect: it synthesizes no re-entry result event, so folding it
+// into FsmQueryEffect would force loosening D20's single-query-effect /
+// bounded-re-entry guard for no reason — a schedule effect is legitimate
+// even in the re-entry pass (design: "pass 2 legitimately arms wait #2").
+export interface FsmScheduleEffect {
+  readonly kind: "schedule_check";
+  /** Already a D17 digest (session.sessionKey) — safe to carry as plain data. */
+  readonly sessionKey: string;
+  /** D17: event.from at EFFECT-CONSTRUCTION time — NEVER read from `slots`. */
+  readonly to: string;
+  readonly delaySeconds: number;
+  readonly checkKind: "cita_registration_wait_elapsed";
+  /** D31: deterministic ordinal token, e.g. "registro_wait:1" — NEVER crypto.randomUUID() (keeps handle() pure/deterministic). */
+  readonly waitToken: string;
+  readonly expectedState: ConversationStateName;
+}
+
+// Same exported name as Stage A, now a union of THREE effect families.
+export type FsmEffect = FsmSendEffect | FsmQueryEffect | FsmScheduleEffect;
 
 export interface FsmResult {
   /** Next state, already advanced — the caller persists this via SessionStore. */
@@ -91,14 +112,37 @@ export interface FsmSystemEvent {
   readonly result: ReniecLookupResult | QuejaSubmissionResult;
 }
 
-// D20: additive widening. Every existing `InboundConversationEvent` call
-// site remains assignable to `FsmEvent` — no Stage A test changes from this
-// widening alone (see conversation-fsm.test.ts, unchanged assertions).
-export type FsmEvent = InboundConversationEvent | FsmSystemEvent;
+// D29 (Stage C1, PR4): a THIRD event source — a scheduled-check timer fire,
+// never a citizen message. Synthesizing it as an InboundConversationEvent
+// would inflate `counters.messagesReceived` (conversation-flow.ts's
+// process()-only increment) and produce a bogus `toLogView` line, which is
+// scoped to the "whatsapp" arm only — so it gets its own disjoint source
+// instead, exactly like FsmSystemEvent's "system" source above.
+export interface FsmScheduleEvent {
+  readonly source: "schedule";
+  /** Declared so `event.from ?? ""` keeps compiling across the widened FsmEvent union. */
+  readonly from?: string;
+  readonly kind: "cita_registration_wait_elapsed";
+  readonly waitToken: string;
+}
 
-/** True for a real Meta-originated event; false for a synthesized system-result event (D20). */
+// D20/D29: additive widening. Every existing `InboundConversationEvent` call
+// site remains assignable to `FsmEvent` — no Stage A/B test changes from
+// this widening alone (see conversation-fsm.test.ts, unchanged assertions).
+// No existing handler needs a logic change: FsmSystemEvent.kind and
+// FsmScheduleEvent.kind are both literal types, so `event.kind !== "..."`
+// narrowing in existing handlers still discriminates correctly and still
+// compiles against the wider union.
+export type FsmEvent = InboundConversationEvent | FsmSystemEvent | FsmScheduleEvent;
+
+/** True for a real Meta-originated event; false for a synthesized system-result event (D20) or a schedule-fired event (D29). */
 export function isInboundEvent(event: FsmEvent): event is InboundConversationEvent {
   return event.source === "whatsapp";
+}
+
+/** True for a timer-fired event (D29) — false for a real citizen message or a synthesized query-effect result (D20). */
+export function isScheduleEvent(event: FsmEvent): event is FsmScheduleEvent {
+  return event.source === "schedule";
 }
 
 type StateHandler = (session: ConversationSession, event: FsmEvent) => FsmResult;

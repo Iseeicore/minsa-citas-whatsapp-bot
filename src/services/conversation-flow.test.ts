@@ -9,15 +9,26 @@ import type {
 import type { ReniecLookupClient, ReniecLookupResult } from "../ports/reniec-lookup-client.js";
 import type { QuejaPayload, QuejaSubmissionResult, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
 import type { DownloadedMedia, WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
-import type { FsmEffect } from "../domain/conversation-fsm.js";
+import type { ScheduledCheckScheduler } from "../ports/scheduled-check-scheduler.js";
+import type { FsmEffect, FsmQueryEffect, FsmScheduleEffect } from "../domain/conversation-fsm.js";
+import type { ConversationSession } from "../domain/conversation-session.js";
+import type { ScheduledCheckJobData } from "../domain/conversation-job.js";
 import { createMemorySessionStore } from "../adapters/memory-session-store.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
 import { encodeImagenField } from "../domain/quejas-imagen-encoding.js";
-import { FsmContractViolationError, MediaTooLargeError, TransientFailureError } from "../domain/errors.js";
 import {
+  FsmContractViolationError,
+  MediaTooLargeError,
+  ScheduledCheckSchedulerNotConfiguredError,
+  TransientFailureError,
+} from "../domain/errors.js";
+import {
+  assertAtMostOneScheduleEffect,
   assertReentryEmittedNoQueryEffect,
   createConversationFlowService,
+  isScheduleEffect,
   isSendEffect,
+  runScheduleEffects,
   soleQueryEffect,
 } from "./conversation-flow.js";
 
@@ -134,12 +145,36 @@ function fakeWhatsappMediaDownloader(opts: { media?: DownloadedMedia; failWith?:
   return { downloader, calls };
 }
 
+// D29: hand-written fake — `redis-scheduled-check-scheduler.ts` (the real
+// BullMQ-backed adapter) stays Phase 5. Mirrors fakeQuejasSubmissionClient's
+// precedent (PR5's own "no real adapter needed yet" comment).
+function fakeScheduledCheckScheduler(opts: { failWith?: Error } = {}): {
+  scheduler: ScheduledCheckScheduler;
+  calls: { data: ScheduledCheckJobData; delaySeconds: number }[];
+} {
+  const calls: { data: ScheduledCheckJobData; delaySeconds: number }[] = [];
+
+  const scheduler: ScheduledCheckScheduler = {
+    async schedule(data: ScheduledCheckJobData, delaySeconds: number) {
+      calls.push({ data, delaySeconds });
+      if (opts.failWith !== undefined) throw opts.failWith;
+    },
+    async close() {},
+  };
+
+  return { scheduler, calls };
+}
+
 function makeService(
   sender: WhatsappOutboundSender,
   sessionStore = createMemorySessionStore({ logger: fakeLogger() }),
   reniecLookupClient: ReniecLookupClient = fakeReniecLookupClient().client,
   quejasSubmissionClient: QuejasSubmissionClient = fakeQuejasSubmissionClient().client,
-  whatsappMediaDownloader: WhatsappMediaDownloader = fakeWhatsappMediaDownloader().downloader
+  whatsappMediaDownloader: WhatsappMediaDownloader = fakeWhatsappMediaDownloader().downloader,
+  // D29: OPTIONAL — undefined by default, matching ConversationFlowServiceDeps.
+  // No existing test below passes a scheduler, so every one of them proves
+  // the widening left process()'s observable behavior unchanged.
+  scheduledCheckScheduler?: ScheduledCheckScheduler
 ) {
   return {
     sessionStore,
@@ -149,8 +184,39 @@ function makeService(
       reniecLookupClient,
       quejasSubmissionClient,
       whatsappMediaDownloader,
+      scheduledCheckScheduler,
       config: { sessionKeySecret: SESSION_KEY_SECRET, sessionTtlSeconds: SESSION_TTL_SECONDS },
     }),
+  };
+}
+
+/** A fully-formed session, park-able at any state directly via sessionStore.save() — bypasses handle() entirely, mirroring the D17 decoy-slot test's own direct-save technique above. */
+function fullSession(overrides: Partial<ConversationSession> = {}): ConversationSession {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: 1,
+    sessionKey: msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET),
+    state: "main_menu",
+    slots: {},
+    history: ["main_menu"],
+    counters: { messagesSent: 0, messagesReceived: 0, invalidAttempts: 0 },
+    ttlSeconds: SESSION_TTL_SECONDS,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
+function makeScheduledJob(overrides: Partial<ScheduledCheckJobData> = {}): ScheduledCheckJobData {
+  return {
+    source: "schedule",
+    sessionKey: msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET),
+    to: FROM_MSISDN,
+    kind: "cita_registration_wait_elapsed",
+    waitToken: "registro_wait:1",
+    expectedState: "cita_registration_wait",
+    scheduledAt: "2026-01-01T00:05:00.000Z",
+    ...overrides,
   };
 }
 
@@ -622,5 +688,248 @@ describe("isSendEffect (D28: positive enumeration, not !isQueryEffect)", () => {
     const futureThirdCategoryShapedEffect = { kind: "schedule_check" } as unknown as FsmEffect;
 
     expect(isSendEffect(futureThirdCategoryShapedEffect)).toBe(false);
+  });
+});
+
+// D28 (Stage C1, PR4): FsmScheduleEffect is a THIRD effect category, never a
+// query effect — see conversation-fsm.ts's own D28 comment. This fixture
+// helper is shared across the schedule-effect describe blocks below.
+function makeScheduleEffect(overrides: Partial<FsmScheduleEffect> = {}): FsmScheduleEffect {
+  return {
+    kind: "schedule_check",
+    sessionKey: "digest-does-not-matter-here",
+    to: FROM_MSISDN,
+    delaySeconds: 300,
+    checkKind: "cita_registration_wait_elapsed",
+    waitToken: "registro_wait:1",
+    expectedState: "cita_registration_wait",
+    ...overrides,
+  };
+}
+
+describe("isScheduleEffect (D28)", () => {
+  it("returns true for a schedule_check effect", () => {
+    expect(isScheduleEffect(makeScheduleEffect())).toBe(true);
+  });
+
+  it("returns false for a send effect", () => {
+    expect(isScheduleEffect({ kind: "send_text", to: FROM_MSISDN, body: "hola" })).toBe(false);
+  });
+
+  it("returns false for a query effect", () => {
+    expect(isScheduleEffect({ kind: "reniec_lookup", dni: "12345678" })).toBe(false);
+  });
+});
+
+// Spec's "Schedule effect does not count toward the query-effect bound"
+// scenario, verified directly against soleQueryEffect (D20's own guard,
+// UNCHANGED source) — proves the widening stayed additive without touching
+// isQueryEffect's implementation at all.
+describe("soleQueryEffect ignores schedule_check (D28 — schedule is not a query effect)", () => {
+  it("recognizes exactly one query effect in a pass that also carries a schedule_check effect", () => {
+    const queryEffect: FsmQueryEffect = { kind: "reniec_lookup", dni: "12345678" };
+    const scheduleEffect = makeScheduleEffect();
+
+    expect(soleQueryEffect([scheduleEffect, queryEffect])).toEqual(queryEffect);
+  });
+
+  it("returns undefined for a pass that carries only a schedule_check effect (no query effect at all)", () => {
+    expect(soleQueryEffect([makeScheduleEffect()])).toBeUndefined();
+  });
+});
+
+// D28, symmetric with soleQueryEffect: at most ONE schedule effect per pass.
+// Exported for the same reason soleQueryEffect/assertReentryEmittedNoQueryEffect
+// are (see conversation-flow.ts) — today's real FSM (Phase 4) never emits a
+// schedule_check effect from any registered STATE_HANDLERS entry (Cita's
+// DNI states are Phase 6), so this contract-violation path would otherwise
+// be untestable without contriving FSM behavior that does not exist yet.
+describe("assertAtMostOneScheduleEffect (D28, threat: unbounded scheduling)", () => {
+  it("returns undefined for a turn with no schedule effect", () => {
+    expect(assertAtMostOneScheduleEffect([{ kind: "send_text", to: FROM_MSISDN, body: "hola" }])).toBeUndefined();
+  });
+
+  it("returns the single schedule effect when exactly one is present", () => {
+    const effect = makeScheduleEffect();
+    expect(
+      assertAtMostOneScheduleEffect([{ kind: "send_text", to: FROM_MSISDN, body: "hola" }, effect])
+    ).toEqual(effect);
+  });
+
+  it("throws FsmContractViolationError when two schedule effects are present in a single pass", () => {
+    const effects = [
+      makeScheduleEffect({ waitToken: "registro_wait:1" }),
+      makeScheduleEffect({ waitToken: "registro_wait:2" }),
+    ];
+    expect(() => assertAtMostOneScheduleEffect(effects)).toThrow(FsmContractViolationError);
+  });
+});
+
+describe("runScheduleEffects (D29/D30 — the sole executor of a schedule_check effect)", () => {
+  it("resolves without touching the scheduler when no schedule effect is present", async () => {
+    const { scheduler, calls } = fakeScheduledCheckScheduler();
+
+    await expect(
+      runScheduleEffects(scheduler, [{ kind: "send_text", to: FROM_MSISDN, body: "hola" }])
+    ).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(0);
+  });
+
+  it("schedules exactly one job, translating the effect's own delaySeconds and fields into ScheduledCheckJobData", async () => {
+    const { scheduler, calls } = fakeScheduledCheckScheduler();
+    const effect = makeScheduleEffect({ sessionKey: "digest-1", delaySeconds: 300 });
+
+    await runScheduleEffects(scheduler, [effect]);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.delaySeconds).toBe(300);
+    expect(calls[0]?.data).toMatchObject({
+      source: "schedule",
+      sessionKey: "digest-1",
+      to: FROM_MSISDN,
+      kind: "cita_registration_wait_elapsed",
+      waitToken: "registro_wait:1",
+      expectedState: "cita_registration_wait",
+    });
+  });
+
+  it("throws ScheduledCheckSchedulerNotConfiguredError when a schedule effect is present but no scheduler is configured", async () => {
+    await expect(runScheduleEffects(undefined, [makeScheduleEffect()])).rejects.toBeInstanceOf(
+      ScheduledCheckSchedulerNotConfiguredError
+    );
+  });
+
+  it("throws FsmContractViolationError before ever touching the scheduler when two schedule effects are present (threat: unbounded scheduling)", async () => {
+    const { scheduler, calls } = fakeScheduledCheckScheduler();
+    const effects = [
+      makeScheduleEffect({ waitToken: "registro_wait:1" }),
+      makeScheduleEffect({ waitToken: "registro_wait:2" }),
+    ];
+
+    await expect(runScheduleEffects(scheduler, effects)).rejects.toBeInstanceOf(FsmContractViolationError);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+// D29/D31: processScheduled() is the second bounded-re-entry entry point —
+// a timer fire, never a citizen message. Every session here is parked
+// DIRECTLY via sessionStore.save() (bypassing handle() entirely), mirroring
+// the D17 decoy-slot test's own direct-save technique above — this lets
+// these tests exercise the idempotency guard without depending on any real
+// Cita STATE_HANDLERS entry (Phase 6).
+describe("createConversationFlowService — processScheduled() (D29/D31 idempotent fire)", () => {
+  it("is a pure no-op — 0 sends, 0 schedules, 0 saves — when no session exists for the job's sessionKey (threat: untrusted job payload)", async () => {
+    const { sender, calls } = fakeSender();
+    const { scheduler, calls: scheduleCalls } = fakeScheduledCheckScheduler();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const saveSpy = vi.spyOn(sessionStore, "save");
+    const { service } = makeService(sender, sessionStore, undefined, undefined, undefined, scheduler);
+
+    await service.processScheduled(makeScheduledJob());
+
+    expect(calls).toHaveLength(0);
+    expect(scheduleCalls).toHaveLength(0);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the session's current state does not match job.expectedState (threat: untrusted job payload)", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(fullSession({ sessionKey: key, state: "main_menu", slots: { citaWaitToken: "registro_wait:1" } }));
+    const saveSpy = vi.spyOn(sessionStore, "save");
+    const { service } = makeService(sender, sessionStore);
+
+    await service.processScheduled(
+      makeScheduledJob({ sessionKey: key, expectedState: "cita_registration_wait", waitToken: "registro_wait:1" })
+    );
+
+    expect(calls).toHaveLength(0);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the session's slots.citaWaitToken does not match job.waitToken — a stale/superseded/duplicate fire (D31)", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(
+      fullSession({ sessionKey: key, state: "main_menu", slots: { citaWaitToken: "registro_wait:2" } })
+    );
+    const saveSpy = vi.spyOn(sessionStore, "save");
+    const { service } = makeService(sender, sessionStore);
+
+    await service.processScheduled(
+      makeScheduledJob({ sessionKey: key, expectedState: "main_menu", waitToken: "registro_wait:1" })
+    );
+
+    expect(calls).toHaveLength(0);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the session has no citaWaitToken slot at all (already cleared by an earlier turn)", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(fullSession({ sessionKey: key, state: "main_menu", slots: {} }));
+    const saveSpy = vi.spyOn(sessionStore, "save");
+    const { service } = makeService(sender, sessionStore);
+
+    await service.processScheduled(
+      makeScheduledJob({ sessionKey: key, expectedState: "main_menu", waitToken: "registro_wait:1" })
+    );
+
+    expect(calls).toHaveLength(0);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it("proceeds to handle() and persists when state AND token match, WITHOUT incrementing counters.messagesReceived (D29 — a timer fire is not a citizen turn)", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(
+      fullSession({
+        sessionKey: key,
+        state: "main_menu",
+        slots: { citaWaitToken: "registro_wait:1" },
+        counters: { messagesSent: 2, messagesReceived: 3, invalidAttempts: 0 },
+      })
+    );
+    const { service } = makeService(sender, sessionStore);
+
+    await service.processScheduled(
+      makeScheduledJob({ sessionKey: key, expectedState: "main_menu", waitToken: "registro_wait:1" })
+    );
+
+    // main_menu's handler treats an unrecognized schedule-sourced event
+    // exactly like any other unmatched event (D29 widening, conversation-fsm.test.ts)
+    // — re-prompts with the menu list, never crashes, emits no query effect.
+    expect(calls).toEqual([{ method: "sendInteractiveList", to: FROM_MSISDN }]);
+    const stored = await sessionStore.load(key);
+    expect(stored?.counters.messagesReceived).toBe(3); // unchanged from before the fire
+    expect(stored?.counters.messagesSent).toBe(3); // 2 prior + 1 this turn
+    expect(stored?.counters.invalidAttempts).toBe(1);
+  });
+
+  it("sources every effect's `to` from job.to, never from a decoy value planted in slots (D17 discipline carried forward to the scheduled path)", async () => {
+    const { sender, calls } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+    await sessionStore.save(
+      fullSession({
+        sessionKey: key,
+        state: "main_menu",
+        // Decoy: a corrupted/manually-constructed session must never leak
+        // into an outbound `to` — the executor sources it from job.to only.
+        slots: { citaWaitToken: "registro_wait:1", to: "DECOY-0000000" },
+      })
+    );
+    const { service } = makeService(sender, sessionStore);
+
+    await service.processScheduled(
+      makeScheduledJob({ sessionKey: key, to: FROM_MSISDN, expectedState: "main_menu", waitToken: "registro_wait:1" })
+    );
+
+    expect(calls).toEqual([{ method: "sendInteractiveList", to: FROM_MSISDN }]);
   });
 });

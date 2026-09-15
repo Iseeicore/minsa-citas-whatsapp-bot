@@ -3,6 +3,7 @@ import {
   FsmContractViolationError,
   MediaTooLargeError,
   QuejasSubmissionClientNotConfiguredError,
+  ScheduledCheckSchedulerNotConfiguredError,
 } from "./errors.js";
 
 /**
@@ -42,5 +43,6 @@ export function classifyWorkerOutcome(err: unknown): WorkerOutcome {
   if (err instanceof FsmContractViolationError) return "business";
   if (err instanceof QuejasSubmissionClientNotConfiguredError) return "business";
   if (err instanceof MediaTooLargeError) return "business";
+  if (err instanceof ScheduledCheckSchedulerNotConfiguredError) return "business";
   return "transient";
 }

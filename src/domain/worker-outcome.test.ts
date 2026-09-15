@@ -4,6 +4,7 @@ import {
   BusinessRejectionError,
   MediaTooLargeError,
   QuejasSubmissionClientNotConfiguredError,
+  ScheduledCheckSchedulerNotConfiguredError,
   TransientFailureError,
 } from "./errors.js";
 
@@ -26,6 +27,10 @@ describe("classifyWorkerOutcome", () => {
 
   it("classifies a MediaTooLargeError as business (Phase 7 — retrying will not shrink the file)", () => {
     expect(classifyWorkerOutcome(new MediaTooLargeError("file too big"))).toBe("business");
+  });
+
+  it("classifies a ScheduledCheckSchedulerNotConfiguredError as business (PR4 — deterministic wiring gap, never retriable)", () => {
+    expect(classifyWorkerOutcome(new ScheduledCheckSchedulerNotConfiguredError("not wired yet"))).toBe("business");
   });
 
   it("classifies a plain, unclassified Error as transient (safe default)", () => {

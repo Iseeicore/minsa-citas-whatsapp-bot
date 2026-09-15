@@ -48,6 +48,17 @@ export class FsmContractViolationError extends AppError {}
 /** `ConversationFlowServiceDeps.quejasSubmissionClient` is not yet configured (Phase 7, D21-gated). Never retriable. */
 export class QuejasSubmissionClientNotConfiguredError extends AppError {}
 
+// D29/D30 (Stage C1, PR4): a `schedule_check` effect reached
+// conversation-flow.ts's `runScheduleEffects` but
+// `ConversationFlowServiceDeps.scheduledCheckScheduler` is not yet
+// configured. `scheduledCheckScheduler` is OPTIONAL until Phase 5 wires the
+// real BullMQ-backed adapter into worker.ts (redis-scheduled-check-scheduler.ts
+// does not exist yet) — same precedent as `QuejasSubmissionClientNotConfiguredError`
+// above: a deployment/configuration gap, not a citizen-triggerable condition
+// or an infra hiccup, so retrying will never succeed.
+/** `ConversationFlowServiceDeps.scheduledCheckScheduler` is not yet configured (Phase 5). Never retriable. */
+export class ScheduledCheckSchedulerNotConfiguredError extends AppError {}
+
 // D21 (Stage B, PR6): thrown by `meta-media-downloader.ts` when hop 1's
 // declared `file_size` exceeds `MAX_MEDIA_BYTES` (2 MiB) — enforced BEFORE
 // hop 2 ever fetches a byte, per the design's resource-exhaustion threat

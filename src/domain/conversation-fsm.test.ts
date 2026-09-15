@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { STATE_HANDLERS, handle } from "./conversation-fsm.js";
-import type { FsmSystemEvent } from "./conversation-fsm.js";
+import { STATE_HANDLERS, handle, isScheduleEvent } from "./conversation-fsm.js";
+import type { FsmScheduleEvent, FsmSystemEvent } from "./conversation-fsm.js";
 import { createSession } from "./conversation-session.js";
 import type { ConversationSession } from "./conversation-session.js";
 import type { InboundConversationEvent } from "./inbound-conversation-event.js";
@@ -650,5 +650,71 @@ describe("handle — FsmEvent widening (D20) does not change existing handler lo
     const result = handle(session, event);
 
     expect(result.session.state).toBe("reclamo_identity_choice");
+  });
+});
+
+// D29 (Stage C1, PR4): FsmEvent's THIRD source — a timer fire, not a citizen
+// message. Widened additively, exactly like D20's own FsmSystemEvent
+// widening above: no existing handler needed a logic change, only a compile
+// against the wider union. Cita's real cita_registration_wait handler (the
+// one that actually branches on isScheduleEvent) is Phase 6 — until then, a
+// schedule-sourced event reaching handle() falls through the same
+// unregistered/unmatched defensive paths every other unrecognized event
+// already falls through, per D13's registry-fallback guard.
+describe("isScheduleEvent (D29)", () => {
+  function scheduleEvent(overrides: Partial<FsmScheduleEvent> = {}): FsmScheduleEvent {
+    return {
+      source: "schedule",
+      from: FROM,
+      kind: "cita_registration_wait_elapsed",
+      waitToken: "registro_wait:1",
+      ...overrides,
+    };
+  }
+
+  it("returns true for a schedule-sourced event", () => {
+    expect(isScheduleEvent(scheduleEvent())).toBe(true);
+  });
+
+  it("returns false for a real inbound (whatsapp-sourced) event", () => {
+    expect(isScheduleEvent(makeEvent({ text: "hola" }))).toBe(false);
+  });
+
+  it("returns false for a synthesized system-result (D20) event", () => {
+    expect(isScheduleEvent(makeSystemEvent({ status: "not_found" }))).toBe(false);
+  });
+});
+
+describe("handle — schedule-sourced event widening (D29) does not change existing handler logic", () => {
+  it("main_menu treats an unrecognized schedule-sourced event exactly like any other unmatched event — re-prompts, never crashes", () => {
+    const session = createSession("session-key-1", TTL_SECONDS);
+    const event: FsmScheduleEvent = {
+      source: "schedule",
+      from: FROM,
+      kind: "cita_registration_wait_elapsed",
+      waitToken: "registro_wait:1",
+    };
+
+    const result = handle(session, event);
+
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0].kind).toBe("send_interactive_list");
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("is deterministic for identical (session, scheduleEvent) inputs, same as every other event source", () => {
+    const session = createSession("session-key-1", TTL_SECONDS);
+    const event: FsmScheduleEvent = {
+      source: "schedule",
+      from: FROM,
+      kind: "cita_registration_wait_elapsed",
+      waitToken: "registro_wait:1",
+    };
+
+    const first = handle(session, event);
+    const second = handle(session, event);
+
+    expect(first).toEqual(second);
   });
 });
