@@ -9,9 +9,14 @@ export interface RedisConversationEventDaoDeps {
   logger: pino.Logger;
 }
 
-// The BullMQ job name is an adapter-owned constant (D8) — the port no
-// longer carries a transport parameter.
-const JOB_NAME = "inbound-event";
+// The BullMQ queue/job name is an adapter-owned constant (D8) — the port no
+// longer carries a transport parameter. Must match worker.ts's `new
+// Worker("conversation-events", ...)` exactly: BullMQ namespaces queue keys
+// in Redis by this name, so a producer/consumer mismatch here means the
+// worker silently never receives any job this DAO enqueues (found while
+// exploring Stage C, since Stage A's original commit never exercised the
+// real end-to-end queue name against a live worker).
+const JOB_NAME = "conversation-events";
 
 // A connection string commonly carries an embedded password (Upstash's
 // rediss:// URLs are exactly this shape) — logging config.redisUrl directly
