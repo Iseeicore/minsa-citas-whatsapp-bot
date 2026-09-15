@@ -9,6 +9,7 @@ import { selectConversationEventDao } from "./composition/select-conversation-ev
 import { createWebhookIngestionService, type WebhookIngestionService } from "./services/webhook-ingestion.js";
 import { createSandboxDeps, type SandboxOptions } from "./composition/create-sandbox-deps.js";
 import { createSandboxRoutes } from "./routes/sandbox-events.js";
+import cors from "@fastify/cors";
 
 export interface AppDeps {
   /** Becomes Fastify's `loggerInstance` — the shared pino root, never `logger: true`. */
@@ -67,6 +68,11 @@ export async function buildApp(deps: AppDeps) {
   // guard on the memory driver: a dev-only subsystem must never exist in the
   // production composition.
   if (config.sandboxEnabled === true && config.nodeEnv !== "production") {
+    // MVP (no-SDD fast path): CORS scoped to this dev-only gate — the real
+    // webhook route (server-to-server, Meta calling us) never needs it and
+    // never gets it, since this whole block is skipped in production.
+    await app.register(cors, { origin: config.sandboxAllowedOrigin });
+
     const sandbox = createSandboxDeps({
       config,
       logger,

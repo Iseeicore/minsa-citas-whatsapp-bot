@@ -84,6 +84,11 @@ export const config = {
   // defaulting). The sandbox route is registered ONLY when this is exactly
   // "true" AND nodeEnv !== "production" (gate lives in src/app.ts, D33).
   sandboxEnabled: process.env.SANDBOX_ENABLED === "true",
+  // MVP (no-SDD fast path): the frontend (minsa-traspaso-frontend, Vite dev
+  // server) calls /sandbox/events directly from the browser — needs CORS.
+  // Bare env, prod default irrelevant (this only ever registers inside the
+  // sandboxEnabled && !production gate in app.ts).
+  sandboxAllowedOrigin: process.env.SANDBOX_ALLOWED_ORIGIN ?? "http://localhost:5173",
   // Fastify defaults connectionTimeout to 0 (unbounded); 30s bounds a hung
   // socket while staying far above any legitimate Meta webhook delivery.
   connectionTimeout: Number(process.env.CONNECTION_TIMEOUT_MS ?? 30000),
