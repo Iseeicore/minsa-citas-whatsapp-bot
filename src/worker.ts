@@ -18,6 +18,7 @@ import { createHttpQuejasSubmissionClient } from "./adapters/http-quejas-submiss
 import { createMetaMediaDownloader } from "./adapters/meta-media-downloader.js";
 import { createRedisScheduledCheckScheduler } from "./adapters/redis-scheduled-check-scheduler.js";
 import { createHttpMinsaIdentityClient } from "./adapters/http-minsa-identity-client.js";
+import { createHttpMinsaCatalogClient } from "./adapters/http-minsa-catalog-client.js";
 import { redactRedisUrl } from "./adapters/redis-conversation-event-dao.js";
 import { CONVERSATION_QUEUE_NAME } from "./domain/conversation-queue.js";
 
@@ -198,6 +199,10 @@ function startWorker(): void {
   // dependency of createConversationFlowService (conversation-flow.ts), so
   // this call site is the only place it can come from in production.
   const minsaIdentityClient = createHttpMinsaIdentityClient({ config, logger });
+  // Cita catalog/booking MVP (no-SDD fast path): same resequencing precedent
+  // as every other client above — minsaCatalogClient is a REQUIRED dependency
+  // of createConversationFlowService.
+  const minsaCatalogClient = createHttpMinsaCatalogClient({ config, logger });
   const conversationFlow = createConversationFlowService({
     sessionStore,
     sender,
@@ -206,6 +211,7 @@ function startWorker(): void {
     whatsappMediaDownloader,
     scheduledCheckScheduler,
     minsaIdentityClient,
+    minsaCatalogClient,
     config,
   });
   const processConversationEvent = createProcessConversationEvent({ conversationFlow });

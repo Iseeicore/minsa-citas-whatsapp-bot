@@ -13,6 +13,12 @@ import type { ButtonMessage, InteractiveList, WhatsappOutboundSender } from "../
 import type { ReniecLookupClient, ReniecLookupResult, ReniecPerson } from "../ports/reniec-lookup-client.js";
 import type { QuejaPayload, QuejasSubmissionClient, QuejaSubmissionResult } from "../ports/quejas-submission-client.js";
 import type { DownloadedMedia, WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
+import type {
+  MinsaIdentityClient,
+  ValidateUserResult,
+  VerifyCodeResult,
+} from "../ports/minsa-identity-client.js";
+import type { MinsaCatalogClient } from "../ports/minsa-catalog-client.js";
 
 /** One outbound message recorded by the sandbox capturing sender (D36). */
 export type SandboxCapturedSend =
@@ -144,6 +150,79 @@ export function createSandboxMediaDownloader(bytes?: Uint8Array): WhatsappMediaD
   return {
     async download(_mediaId: string): Promise<DownloadedMedia> {
       return { bytes: syntheticBytes, mimeType: "image/png", sizeBytes: syntheticBytes.length };
+    },
+  };
+}
+
+// --- Cita MVP fakes (no-SDD fast path) --------------------------------
+
+/** Fixed DNI -> twofaId table; OTP code "1234" always verifies for any twofaId. Mirrors the RENIEC fake's table pattern. */
+const SANDBOX_DEFAULT_IDENTITY_TABLE: Readonly<Record<string, { twofaId: string }>> = {
+  "12345678": { twofaId: "sandbox-twofa-1" },
+};
+const SANDBOX_OTP_CODE = "1234";
+const SANDBOX_BEARER_TOKEN = "sandbox-bearer-token";
+
+export function createSandboxMinsaIdentityClient(
+  table?: Readonly<Record<string, { twofaId: string }>>
+): MinsaIdentityClient {
+  const lookupTable = table ?? SANDBOX_DEFAULT_IDENTITY_TABLE;
+
+  return {
+    async validateUser(numeroDocumento: string): Promise<ValidateUserResult> {
+      const entry = lookupTable[numeroDocumento];
+      return entry === undefined ? { status: "not_valid" } : { status: "valid", twofaId: entry.twofaId };
+    },
+    async verifyCode(input: { twofaId: string; code: string }): Promise<VerifyCodeResult> {
+      return input.code === SANDBOX_OTP_CODE
+        ? { status: "verified", token: SANDBOX_BEARER_TOKEN, tokenType: "Bearer", expiresIn: 3600 }
+        : { status: "invalid" };
+    },
+  };
+}
+
+/** One fixed happy path through the whole catalog chain — any other input is "empty". Booking outcome is configurable, same pattern as the quejas fake. */
+export interface SandboxCatalogOptions {
+  readonly booking?: "booked" | "duplicate" | "rejected";
+}
+
+export function createSandboxMinsaCatalogClient(opts?: SandboxCatalogOptions): MinsaCatalogClient {
+  const bookingMode = opts?.booking ?? "booked";
+
+  return {
+    async searchUbigeo(input) {
+      if (input.distrito.toLowerCase() !== "lurigancho") return { status: "ubigeo_empty" };
+      return {
+        status: "ubigeo_found",
+        options: [{ ubigeoInei: "150118", distrito: "Lurigancho", provincia: "Lima", departamento: "Lima" }],
+      };
+    },
+    async listEspecialidades(ubigeo) {
+      if (ubigeo !== "150118") return { status: "especialidades_empty" };
+      return {
+        status: "especialidades_found",
+        options: [{ codigoEspecialidad: "01", nombreEspecialidad: "Medicina General", cantidadCupos: 5 }],
+      };
+    },
+    async listEstablecimientos(input) {
+      if (input.especialidadId !== "01") return { status: "establecimientos_empty" };
+      return {
+        status: "establecimientos_found",
+        options: [{ renipressCode: "0000123", establishmentName: "C.S. SANDBOX", quotasOnline: 3 }],
+      };
+    },
+    async listFechas(input) {
+      if (input.codEess !== "0000123") return { status: "fechas_empty" };
+      return { status: "fechas_found", options: [{ fechaCupo: "20260920", cantidadCupos: 2 }] };
+    },
+    async listHoras(input) {
+      if (input.fecha !== "20260920") return { status: "horas_empty" };
+      return { status: "horas_found", options: [{ horaInicio: "08:45", horaFin: "09:00", cantidadCupos: 1 }] };
+    },
+    async bookAppointment() {
+      if (bookingMode === "duplicate") return { status: "duplicate" };
+      if (bookingMode === "rejected") return { status: "booking_rejected", motivo: "sandbox_rejected" };
+      return { status: "booked", url: "https://dev.example/cita/DEV-CITA-001", mensajeApi: "Cita creada correctamente" };
     },
   };
 }

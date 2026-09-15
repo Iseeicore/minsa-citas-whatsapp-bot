@@ -16,9 +16,12 @@ import type { SandboxCaptures } from "../fakes/sandbox-fakes.js";
 import {
   createSandboxCapturingSender,
   createSandboxMediaDownloader,
+  createSandboxMinsaCatalogClient,
+  createSandboxMinsaIdentityClient,
   createSandboxQuejasSubmissionClient,
   createSandboxReniecLookupClient,
 } from "../fakes/sandbox-fakes.js";
+import type { SandboxCatalogOptions } from "../fakes/sandbox-fakes.js";
 
 /** D37 add-on knobs for a sandbox buildApp composition (dev-only). */
 export interface SandboxOptions {
@@ -29,6 +32,7 @@ export interface SandboxOptions {
   };
   readonly reniecTable?: Readonly<Record<string, ReniecPerson>>;
   readonly mediaBytes?: Uint8Array;
+  readonly catalog?: SandboxCatalogOptions;
 }
 
 export interface SandboxComposition {
@@ -59,6 +63,8 @@ export function createSandboxDeps(deps: CreateSandboxDepsInput): SandboxComposit
     options?.quejas ?? { mode: "accepted", reference: "DEV-REF-001" }
   );
   const whatsappMediaDownloader = createSandboxMediaDownloader(options?.mediaBytes);
+  const minsaIdentityClient = createSandboxMinsaIdentityClient();
+  const minsaCatalogClient = createSandboxMinsaCatalogClient(options?.catalog);
 
   const flow = createConversationFlowService({
     sessionStore,
@@ -66,6 +72,8 @@ export function createSandboxDeps(deps: CreateSandboxDepsInput): SandboxComposit
     reniecLookupClient,
     quejasSubmissionClient: quejas.client,
     whatsappMediaDownloader,
+    minsaIdentityClient,
+    minsaCatalogClient,
     // SBX-7: undefined is valid per the deps contract (conversation-flow.ts
     // L91) — a future schedule_check effect would throw
     // ScheduledCheckSchedulerNotConfiguredError rather than silently drop

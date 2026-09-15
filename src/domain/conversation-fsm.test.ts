@@ -1022,7 +1022,10 @@ describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => 
 
     expect(result.session.state).toBe("cita_identity_confirmed");
     expect(result.session.slots.citaBearer).toBe("bearer-token-value");
-    expect(result.session.slots.citaDni).toBeUndefined();
+    // MVP addition (no-SDD fast path): citaDni is ALSO retained now,
+    // alongside citaBearer — the booking call needs it again downstream in
+    // the catalog chain (same documented D33-style exception).
+    expect(result.session.slots.citaDni).toBe("12345678");
     expect(result.session.slots.citaTwofaId).toBeUndefined();
     expect(result.session.slots.citaOtpAttempts).toBeUndefined();
     expect(result.session.slots.citaWaitToken).toBeUndefined();
@@ -1121,19 +1124,19 @@ describe("handle — cita_identity_confirmed (C2 hand-off holding state, Phase 7
     expect(STATE_HANDLERS["cita_identity_confirmed"]).toBeDefined();
   });
 
-  it("any inbound event stays unchanged and re-sends the C2 placeholder, keeping citaBearer intact (D33 exception)", () => {
+  it("MVP (no-SDD fast path): a real inbound message starts the catalog chain (cita_awaiting_ubigeo), keeping citaBearer intact", () => {
     const session = parkedSession("cita_identity_confirmed", { citaBearer: "bearer-token-value" });
     const event = makeEvent({ text: "hola" });
 
     const result = handle(session, event);
 
-    expect(result.session.state).toBe("cita_identity_confirmed");
+    expect(result.session.state).toBe("cita_awaiting_ubigeo");
     expect(result.session.slots.citaBearer).toBe("bearer-token-value");
     expect(result.effects).toEqual([
       {
         kind: "send_text",
         to: FROM,
-        body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+        body: "Escribe tu ubicación así: Departamento/Provincia/Distrito (ej: Lima/Lima/Lurigancho).",
       },
     ]);
     expect(result.outcome).toBe("continue");
@@ -1207,11 +1210,12 @@ describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => 
 
     expect(result.session.state).toBe("cita_identity_confirmed");
     const serialized = JSON.stringify(result.session);
-    expect(serialized).not.toContain("12345678");
     expect(serialized).not.toContain("twofa-secret");
-    // Documents the intentional D33 retention window — this is NOT an
-    // omission, the bearer must survive into C2.
+    // Documents the intentional retention window — this is NOT an omission,
+    // both the bearer AND the DNI must survive into the catalog/booking
+    // chain (MVP addition, no-SDD fast path, extends D33's stated exception).
     expect(serialized).toContain("bearer-token-value");
+    expect(serialized).toContain("12345678");
   });
 });
 

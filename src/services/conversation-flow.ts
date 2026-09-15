@@ -5,6 +5,7 @@ import type { QuejaPayload, QuejasSubmissionClient } from "../ports/quejas-submi
 import type { WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader.js";
 import type { ScheduledCheckScheduler } from "../ports/scheduled-check-scheduler.js";
 import type { MinsaIdentityClient } from "../ports/minsa-identity-client.js";
+import type { MinsaCatalogClient } from "../ports/minsa-catalog-client.js";
 import type {
   FsmEffect,
   FsmQueryEffect,
@@ -104,6 +105,13 @@ export interface ConversationFlowServiceDeps {
    * treatment as `QuejasSubmissionClientNotConfiguredError`.
    */
   minsaIdentityClient: MinsaIdentityClient;
+  /**
+   * Cita catalog/booking MVP (no-SDD fast path, explicit user decision): the
+   * sole executor of search_ubigeo/list_especialidades/list_establecimientos/
+   * list_fechas/list_horas/book_appointment. REQUIRED, same precedent as
+   * minsaIdentityClient/quejasSubmissionClient above.
+   */
+  minsaCatalogClient: MinsaCatalogClient;
   config: {
     /** D19: keys the D17 MSISDN digest used as the session lookup key. */
     sessionKeySecret: string;
@@ -117,7 +125,13 @@ function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
     effect.kind === "reniec_lookup" ||
     effect.kind === "quejas_submit" ||
     effect.kind === "validate_user" ||
-    effect.kind === "verify_code"
+    effect.kind === "verify_code" ||
+    effect.kind === "search_ubigeo" ||
+    effect.kind === "list_especialidades" ||
+    effect.kind === "list_establecimientos" ||
+    effect.kind === "list_fechas" ||
+    effect.kind === "list_horas" ||
+    effect.kind === "book_appointment"
   );
 }
 
@@ -274,11 +288,57 @@ async function runQueryEffect(
     quejasSubmissionClient: QuejasSubmissionClient;
     whatsappMediaDownloader: WhatsappMediaDownloader;
     minsaIdentityClient: MinsaIdentityClient;
+    minsaCatalogClient: MinsaCatalogClient;
   },
   effect: FsmQueryEffect,
   to: string | undefined
 ): Promise<FsmSystemEvent> {
   switch (effect.kind) {
+    case "search_ubigeo": {
+      const result = await clients.minsaCatalogClient.searchUbigeo(
+        { departamento: effect.departamento, provincia: effect.provincia, distrito: effect.distrito },
+        effect.token
+      );
+      return { source: "system", from: to, kind: "search_ubigeo_result", result };
+    }
+    case "list_especialidades": {
+      const result = await clients.minsaCatalogClient.listEspecialidades(effect.ubigeo, effect.token);
+      return { source: "system", from: to, kind: "list_especialidades_result", result };
+    }
+    case "list_establecimientos": {
+      const result = await clients.minsaCatalogClient.listEstablecimientos(
+        { ubigeo: effect.ubigeo, especialidadId: effect.especialidadId },
+        effect.token
+      );
+      return { source: "system", from: to, kind: "list_establecimientos_result", result };
+    }
+    case "list_fechas": {
+      const result = await clients.minsaCatalogClient.listFechas(
+        { codEess: effect.codEess, especialidadId: effect.especialidadId },
+        effect.token
+      );
+      return { source: "system", from: to, kind: "list_fechas_result", result };
+    }
+    case "list_horas": {
+      const result = await clients.minsaCatalogClient.listHoras(
+        { codEess: effect.codEess, especialidadId: effect.especialidadId, fecha: effect.fecha },
+        effect.token
+      );
+      return { source: "system", from: to, kind: "list_horas_result", result };
+    }
+    case "book_appointment": {
+      const result = await clients.minsaCatalogClient.bookAppointment(
+        {
+          codigoRenipress: effect.codigoRenipress,
+          codigoUps: effect.codigoUps,
+          fechaCita: effect.fechaCita,
+          horaCita: effect.horaCita,
+          numeroDocumentoPaciente: effect.numeroDocumentoPaciente,
+        },
+        effect.token
+      );
+      return { source: "system", from: to, kind: "book_appointment_result", result };
+    }
     case "reniec_lookup": {
       const result = await clients.reniecLookupClient.lookup(effect.dni);
       return { source: "system", from: to, kind: "reniec_lookup_result", result };
@@ -346,6 +406,7 @@ interface TurnClients {
   quejasSubmissionClient: QuejasSubmissionClient;
   whatsappMediaDownloader: WhatsappMediaDownloader;
   minsaIdentityClient: MinsaIdentityClient;
+  minsaCatalogClient: MinsaCatalogClient;
 }
 
 interface TurnOutcome {
@@ -424,6 +485,7 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
     whatsappMediaDownloader,
     scheduledCheckScheduler,
     minsaIdentityClient,
+    minsaCatalogClient,
     config,
   } = deps;
   const clients: TurnClients = {
@@ -431,6 +493,7 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
     quejasSubmissionClient,
     whatsappMediaDownloader,
     minsaIdentityClient,
+    minsaCatalogClient,
   };
 
   return {

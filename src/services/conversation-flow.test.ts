@@ -1131,7 +1131,9 @@ describe("createConversationFlowService — verify_code bounded re-entry (D20/D3
     const stored = await sessionStore.load(key);
     expect(stored?.state).toBe("cita_identity_confirmed");
     expect(stored?.slots.citaBearer).toBe("bearer-token-value");
-    expect(stored?.slots.citaDni).toBeUndefined();
+    // MVP addition (no-SDD fast path): citaDni is ALSO retained now,
+    // alongside citaBearer — the booking call needs it again downstream.
+    expect(stored?.slots.citaDni).toBe("12345678");
     expect(stored?.slots.citaTwofaId).toBeUndefined();
   });
 
@@ -1230,7 +1232,9 @@ describe("createConversationFlowService — Phase 8 end-to-end integration (full
     const final = await sessionStore.load(key);
     expect(final?.state).toBe("cita_identity_confirmed");
     expect(final?.slots.citaBearer).toBe("bearer-e2e-token");
-    expect(final?.slots.citaDni).toBeUndefined();
+    // MVP addition (no-SDD fast path): citaDni is ALSO retained now,
+    // alongside citaBearer — the booking call needs it again downstream.
+    expect(final?.slots.citaDni).toBe("12345678");
     expect(final?.slots.citaTwofaId).toBeUndefined();
 
     expect(validateCalls).toEqual(["12345678"]);

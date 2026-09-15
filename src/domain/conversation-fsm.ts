@@ -36,6 +36,14 @@ import type { ListRow, ListSection, ReplyButton } from "../ports/whatsapp-outbou
 import type { ReniecLookupResult } from "../ports/reniec-lookup-client.js";
 import type { QuejaSubmissionResult } from "../ports/quejas-submission-client.js";
 import type { ValidateUserResult, VerifyCodeResult } from "../ports/minsa-identity-client.js";
+import type {
+  BookAppointmentResult,
+  ListEspecialidadesResult,
+  ListEstablecimientosResult,
+  ListFechasResult,
+  ListHorasResult,
+  SearchUbigeoResult,
+} from "../ports/minsa-catalog-client.js";
 import type { ConversationSession, ConversationStateName, SlotValue } from "./conversation-session.js";
 import { withState } from "./conversation-session.js";
 import { isValidDniFormat } from "./dni.js";
@@ -86,7 +94,25 @@ export type FsmQueryEffect =
   | { kind: "reniec_lookup"; dni: string }
   | { kind: "quejas_submit"; submission: QuejaSubmission }
   | { kind: "validate_user"; numeroDocumento: string }
-  | { kind: "verify_code"; twofaId: string; code: string };
+  | { kind: "verify_code"; twofaId: string; code: string }
+  // Cita catalog/booking MVP (no-SDD fast path, explicit user decision):
+  // `token` is `slots.citaBearer`, read by the handler that constructs each
+  // effect — same D17 "never from slots inside handle()" discipline covers
+  // `to`, not `token` (a Bearer credential, not the citizen's own identity).
+  | { kind: "search_ubigeo"; departamento: string; provincia: string; distrito: string; token: string }
+  | { kind: "list_especialidades"; ubigeo: string; token: string }
+  | { kind: "list_establecimientos"; ubigeo: string; especialidadId: string; token: string }
+  | { kind: "list_fechas"; codEess: string; especialidadId: string; token: string }
+  | { kind: "list_horas"; codEess: string; especialidadId: string; fecha: string; token: string }
+  | {
+      kind: "book_appointment";
+      codigoRenipress: string;
+      codigoUps: string;
+      fechaCita: string;
+      horaCita: string;
+      numeroDocumentoPaciente: string;
+      token: string;
+    };
 
 // D28 (Stage C1, PR4): FsmScheduleEffect is a THIRD effect category — plain
 // data describing a future timer fire, no I/O performed here. `handle()`
@@ -136,8 +162,24 @@ export interface FsmSystemEvent {
     | "reniec_lookup_result"
     | "quejas_submit_result"
     | "validate_user_result"
-    | "verify_code_result";
-  readonly result: ReniecLookupResult | QuejaSubmissionResult | ValidateUserResult | VerifyCodeResult;
+    | "verify_code_result"
+    | "search_ubigeo_result"
+    | "list_especialidades_result"
+    | "list_establecimientos_result"
+    | "list_fechas_result"
+    | "list_horas_result"
+    | "book_appointment_result";
+  readonly result:
+    | ReniecLookupResult
+    | QuejaSubmissionResult
+    | ValidateUserResult
+    | VerifyCodeResult
+    | SearchUbigeoResult
+    | ListEspecialidadesResult
+    | ListEstablecimientosResult
+    | ListFechasResult
+    | ListHorasResult
+    | BookAppointmentResult;
 }
 
 // D29 (Stage C1, PR4): a THIRD event source — a scheduled-check timer fire,
@@ -269,7 +311,58 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
   "citaRegistrationChecks",
   "citaOtpAttempts",
   "citaBearer",
+  "citaUbigeo",
+  "citaEspecialidadId",
+  "citaCodEess",
+  "citaFecha",
+  "citaHoraInicio",
 ] as const;
+
+// --- Cita catalog/booking MVP (no-SDD fast path, explicit user decision) ---
+const CITA_AWAITING_UBIGEO_STATE: ConversationStateName = "cita_awaiting_ubigeo";
+const CITA_UBIGEO_PENDING_STATE: ConversationStateName = "cita_ubigeo_pending";
+const CITA_AWAITING_UBIGEO_SELECT_STATE: ConversationStateName = "cita_awaiting_ubigeo_select";
+const CITA_ESPECIALIDAD_PENDING_STATE: ConversationStateName = "cita_especialidad_pending";
+const CITA_AWAITING_ESPECIALIDAD_SELECT_STATE: ConversationStateName = "cita_awaiting_especialidad_select";
+const CITA_ESTABLECIMIENTO_PENDING_STATE: ConversationStateName = "cita_establecimiento_pending";
+const CITA_AWAITING_ESTABLECIMIENTO_SELECT_STATE: ConversationStateName = "cita_awaiting_establecimiento_select";
+const CITA_FECHA_PENDING_STATE: ConversationStateName = "cita_fecha_pending";
+const CITA_AWAITING_FECHA_SELECT_STATE: ConversationStateName = "cita_awaiting_fecha_select";
+const CITA_HORA_PENDING_STATE: ConversationStateName = "cita_hora_pending";
+const CITA_AWAITING_HORA_SELECT_STATE: ConversationStateName = "cita_awaiting_hora_select";
+const CITA_BOOKING_PENDING_STATE: ConversationStateName = "cita_booking_pending";
+const CITA_BOOKED_STATE: ConversationStateName = "cita_booked";
+const CITA_BOOKING_DUPLICATE_STATE: ConversationStateName = "cita_booking_duplicate";
+const CITA_BOOKING_REJECTED_STATE: ConversationStateName = "cita_booking_rejected";
+
+const CITA_ASK_UBIGEO_BODY = "Escribe tu ubicación así: Departamento/Provincia/Distrito (ej: Lima/Lima/Lurigancho).";
+const CITA_INVALID_UBIGEO_FORMAT_BODY =
+  "Formato incorrecto. Escribe: Departamento/Provincia/Distrito (separado por \"/\").";
+const CITA_SEARCHING_BODY = "Buscando…";
+const CITA_UBIGEO_EMPTY_BODY = "No encontramos esa ubicación. Intenta de nuevo con Departamento/Provincia/Distrito.";
+const CITA_ESPECIALIDADES_EMPTY_BODY = "No hay especialidades con cupos disponibles para esa ubicación por ahora.";
+const CITA_ESTABLECIMIENTOS_EMPTY_BODY = "No hay establecimientos disponibles para esa especialidad por ahora.";
+const CITA_FECHAS_EMPTY_BODY = "No hay fechas disponibles para ese establecimiento por ahora.";
+const CITA_HORAS_EMPTY_BODY = "No hay horarios disponibles para esa fecha por ahora.";
+const CITA_BOOKING_BODY = "Agendando tu cita…";
+const CITA_BOOKING_DUPLICATE_BODY = "Ya tienes una cita activa en el mismo turno o servicio.";
+const CITA_INVALID_SELECTION_BODY = "Esa opción no es válida. Por favor selecciona una de la lista.";
+
+/** MVP helper: builds one interactive-list send effect from a flat option list, truncated to WhatsApp's 24/72 limits. */
+function buildListEffect(
+  to: string,
+  body: string,
+  buttonLabel: string,
+  options: readonly { id: string; title: string }[]
+): FsmEffect {
+  return {
+    kind: "send_interactive_list",
+    to,
+    body,
+    buttonLabel,
+    sections: [{ rows: options.map((o) => ({ id: o.id, title: o.title.slice(0, 24) })) }],
+  };
+}
 
 // D22/D33 discipline, mirroring `clearReclamoSlots` above: delete-based (not
 // a destructuring rest-omit) to avoid an unused-binding footgun as more Cita
@@ -1012,9 +1105,18 @@ function citaVerifyPendingHandler(session: ConversationSession, event: FsmEvent)
     // D33: clear every Cita slot key FIRST, then re-add citaBearer — the
     // holding state (cita_identity_confirmed) deliberately keeps it until
     // session TTL, the one stated exception to "every terminal handler
-    // clears the bearer".
+    // clears the bearer". MVP addition (no-SDD fast path): citaDni is ALSO
+    // retained here — the booking call (numero_documento_paciente) needs it
+    // again downstream in the catalog chain, same documented exception.
     const advanced = withState(
-      { ...session, slots: { ...clearCitaSlots(session.slots), citaBearer: result.token } },
+      {
+        ...session,
+        slots: {
+          ...clearCitaSlots(session.slots),
+          citaBearer: result.token,
+          citaDni: typeof session.slots.citaDni === "string" ? session.slots.citaDni : "",
+        },
+      },
       CITA_IDENTITY_CONFIRMED_STATE
     );
     return {
@@ -1056,16 +1158,382 @@ function citaVerifyPendingHandler(session: ConversationSession, event: FsmEvent)
   };
 }
 
-// PR7: design's FSM states table, `cita_identity_confirmed` row — a HOLDING
-// state for C2 (out of this stage's scope entirely), NOT terminal. Any
-// inbound message just re-sends the same C2 hand-off placeholder, keeping
-// `citaBearer` intact for C2 to consume (D33's stated exception).
+// MVP (no-SDD fast path): `cita_identity_confirmed` now actually starts the
+// catalog chain on the first inbound message, instead of re-sending the C2
+// placeholder forever. `citaBearer`/`citaDni` are already in `slots` from
+// `citaVerifyPendingHandler`'s `verified` branch.
 function citaIdentityConfirmedHandler(session: ConversationSession, event: FsmEvent): FsmResult {
   const to = event.from ?? "";
+  if (!isInboundEvent(event)) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_C2_PLACEHOLDER_BODY }], outcome: "continue" };
+  }
+  const advanced = withState(session, CITA_AWAITING_UBIGEO_STATE);
   return {
-    session,
-    effects: [{ kind: "send_text", to, body: CITA_C2_PLACEHOLDER_BODY }],
+    session: advanced,
+    effects: [{ kind: "send_text", to, body: CITA_ASK_UBIGEO_BODY }],
     outcome: "continue",
+  };
+}
+
+function citaBearerOf(session: ConversationSession): string {
+  return typeof session.slots.citaBearer === "string" ? session.slots.citaBearer : "";
+}
+function citaDniOf(session: ConversationSession): string {
+  return typeof session.slots.citaDni === "string" ? session.slots.citaDni : "";
+}
+function stringSlot(session: ConversationSession, key: string): string {
+  const v = session.slots[key];
+  return typeof v === "string" ? v : "";
+}
+
+// MVP: free-text "Depto/Prov/Distrito" -> search_ubigeo query effect.
+function citaAwaitingUbigeoHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const text = isInboundEvent(event) ? event.text : undefined;
+  const parts = (text ?? "").split("/").map((p) => p.trim()).filter((p) => p.length > 0);
+
+  if (parts.length !== 3) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_UBIGEO_FORMAT_BODY }], outcome: "continue" };
+  }
+
+  const [departamento, provincia, distrito] = parts;
+  const advanced = withState(session, CITA_UBIGEO_PENDING_STATE);
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
+      { kind: "search_ubigeo", departamento, provincia, distrito, token: citaBearerOf(session) },
+    ],
+    outcome: "continue",
+  };
+}
+
+function citaUbigeoPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  if (isInboundEvent(event) || event.kind !== "search_ubigeo_result") {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
+  }
+  const result = event.result;
+  if (result.status === "ubigeo_found") {
+    const advanced = withState(session, CITA_AWAITING_UBIGEO_SELECT_STATE);
+    return {
+      session: advanced,
+      effects: [
+        buildListEffect(
+          to,
+          "Selecciona tu ubicación:",
+          "Ver opciones",
+          result.options.map((o) => ({ id: o.ubigeoInei, title: `${o.distrito}, ${o.provincia}` }))
+        ),
+      ],
+      outcome: "continue",
+    };
+  }
+  const back = withState(session, CITA_AWAITING_UBIGEO_STATE);
+  return { session: back, effects: [{ kind: "send_text", to, body: CITA_UBIGEO_EMPTY_BODY }], outcome: "continue" };
+}
+
+function citaAwaitingUbigeoSelectHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const selection = isInboundEvent(event) ? (event.interactiveReplyId ?? event.text) : undefined;
+  if (selection === undefined) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_SELECTION_BODY }], outcome: "continue" };
+  }
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaUbigeo: selection } },
+    CITA_ESPECIALIDAD_PENDING_STATE
+  );
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
+      { kind: "list_especialidades", ubigeo: selection, token: citaBearerOf(session) },
+    ],
+    outcome: "continue",
+  };
+}
+
+function citaEspecialidadPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  if (isInboundEvent(event) || event.kind !== "list_especialidades_result") {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
+  }
+  const result = event.result;
+  if (result.status === "especialidades_found") {
+    const advanced = withState(session, CITA_AWAITING_ESPECIALIDAD_SELECT_STATE);
+    return {
+      session: advanced,
+      effects: [
+        buildListEffect(
+          to,
+          "Selecciona una especialidad:",
+          "Ver opciones",
+          result.options.map((o) => ({ id: o.codigoEspecialidad, title: o.nombreEspecialidad }))
+        ),
+      ],
+      outcome: "continue",
+    };
+  }
+  const closed = withState({ ...session, slots: clearCitaSlots(session.slots) }, CITA_BOOKING_REJECTED_STATE);
+  return {
+    session: closed,
+    effects: [
+      { kind: "send_text", to, body: CITA_ESPECIALIDADES_EMPTY_BODY },
+      { kind: "end_session", to },
+    ],
+    outcome: "rejected",
+  };
+}
+
+function citaAwaitingEspecialidadSelectHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const selection = isInboundEvent(event) ? (event.interactiveReplyId ?? event.text) : undefined;
+  if (selection === undefined) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_SELECTION_BODY }], outcome: "continue" };
+  }
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaEspecialidadId: selection } },
+    CITA_ESTABLECIMIENTO_PENDING_STATE
+  );
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
+      {
+        kind: "list_establecimientos",
+        ubigeo: stringSlot(session, "citaUbigeo"),
+        especialidadId: selection,
+        token: citaBearerOf(session),
+      },
+    ],
+    outcome: "continue",
+  };
+}
+
+function citaEstablecimientoPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  if (isInboundEvent(event) || event.kind !== "list_establecimientos_result") {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
+  }
+  const result = event.result;
+  if (result.status === "establecimientos_found") {
+    const advanced = withState(session, CITA_AWAITING_ESTABLECIMIENTO_SELECT_STATE);
+    return {
+      session: advanced,
+      effects: [
+        buildListEffect(
+          to,
+          "Selecciona un establecimiento:",
+          "Ver opciones",
+          result.options.map((o) => ({ id: o.renipressCode, title: o.establishmentName }))
+        ),
+      ],
+      outcome: "continue",
+    };
+  }
+  const closed = withState({ ...session, slots: clearCitaSlots(session.slots) }, CITA_BOOKING_REJECTED_STATE);
+  return {
+    session: closed,
+    effects: [
+      { kind: "send_text", to, body: CITA_ESTABLECIMIENTOS_EMPTY_BODY },
+      { kind: "end_session", to },
+    ],
+    outcome: "rejected",
+  };
+}
+
+function citaAwaitingEstablecimientoSelectHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const selection = isInboundEvent(event) ? (event.interactiveReplyId ?? event.text) : undefined;
+  if (selection === undefined) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_SELECTION_BODY }], outcome: "continue" };
+  }
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaCodEess: selection } },
+    CITA_FECHA_PENDING_STATE
+  );
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
+      {
+        kind: "list_fechas",
+        codEess: selection,
+        especialidadId: stringSlot(session, "citaEspecialidadId"),
+        token: citaBearerOf(session),
+      },
+    ],
+    outcome: "continue",
+  };
+}
+
+function citaFechaPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  if (isInboundEvent(event) || event.kind !== "list_fechas_result") {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
+  }
+  const result = event.result;
+  if (result.status === "fechas_found") {
+    const advanced = withState(session, CITA_AWAITING_FECHA_SELECT_STATE);
+    return {
+      session: advanced,
+      effects: [
+        buildListEffect(
+          to,
+          "Selecciona una fecha:",
+          "Ver fechas",
+          result.options.map((o) => ({ id: o.fechaCupo, title: o.fechaCupo }))
+        ),
+      ],
+      outcome: "continue",
+    };
+  }
+  const closed = withState({ ...session, slots: clearCitaSlots(session.slots) }, CITA_BOOKING_REJECTED_STATE);
+  return {
+    session: closed,
+    effects: [
+      { kind: "send_text", to, body: CITA_FECHAS_EMPTY_BODY },
+      { kind: "end_session", to },
+    ],
+    outcome: "rejected",
+  };
+}
+
+function citaAwaitingFechaSelectHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const selection = isInboundEvent(event) ? (event.interactiveReplyId ?? event.text) : undefined;
+  if (selection === undefined) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_SELECTION_BODY }], outcome: "continue" };
+  }
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaFecha: selection } },
+    CITA_HORA_PENDING_STATE
+  );
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
+      {
+        kind: "list_horas",
+        codEess: stringSlot(session, "citaCodEess"),
+        especialidadId: stringSlot(session, "citaEspecialidadId"),
+        fecha: selection,
+        token: citaBearerOf(session),
+      },
+    ],
+    outcome: "continue",
+  };
+}
+
+function citaHoraPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  if (isInboundEvent(event) || event.kind !== "list_horas_result") {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
+  }
+  const result = event.result;
+  if (result.status === "horas_found") {
+    const advanced = withState(session, CITA_AWAITING_HORA_SELECT_STATE);
+    return {
+      session: advanced,
+      effects: [
+        buildListEffect(
+          to,
+          "Selecciona un horario:",
+          "Ver horarios",
+          result.options.map((o) => ({ id: `${o.horaInicio}|${o.horaFin}`, title: `${o.horaInicio} - ${o.horaFin}` }))
+        ),
+      ],
+      outcome: "continue",
+    };
+  }
+  const closed = withState({ ...session, slots: clearCitaSlots(session.slots) }, CITA_BOOKING_REJECTED_STATE);
+  return {
+    session: closed,
+    effects: [
+      { kind: "send_text", to, body: CITA_HORAS_EMPTY_BODY },
+      { kind: "end_session", to },
+    ],
+    outcome: "rejected",
+  };
+}
+
+function citaAwaitingHoraSelectHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const selection = isInboundEvent(event) ? (event.interactiveReplyId ?? event.text) : undefined;
+  if (selection === undefined) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_SELECTION_BODY }], outcome: "continue" };
+  }
+  const horaInicio = selection.split("|")[0] ?? selection;
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaHoraInicio: horaInicio } },
+    CITA_BOOKING_PENDING_STATE
+  );
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_BOOKING_BODY },
+      {
+        kind: "book_appointment",
+        codigoRenipress: stringSlot(session, "citaCodEess"),
+        codigoUps: stringSlot(session, "citaEspecialidadId"),
+        fechaCita: stringSlot(session, "citaFecha"),
+        horaCita: horaInicio,
+        numeroDocumentoPaciente: citaDniOf(session),
+        token: citaBearerOf(session),
+      },
+    ],
+    outcome: "continue",
+  };
+}
+
+function citaBookingPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  if (isInboundEvent(event) || event.kind !== "book_appointment_result") {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_BOOKING_BODY }], outcome: "continue" };
+  }
+  const result = event.result;
+  const cleared = { ...session, slots: clearCitaSlots(session.slots) };
+
+  if (result.status !== "booked" && result.status !== "duplicate" && result.status !== "booking_rejected") {
+    // Defensive: unreachable given BookAppointmentResult's exhaustive status
+    // union, but a foreign/malformed result must never crash the worker.
+    return { session, effects: [{ kind: "send_text", to, body: CITA_BOOKING_BODY }], outcome: "continue" };
+  }
+
+  if (result.status === "booked") {
+    const advanced = withState(cleared, CITA_BOOKED_STATE);
+    return {
+      session: advanced,
+      effects: [
+        {
+          kind: "send_text",
+          to,
+          body: `Tu cita fue agendada correctamente. ${result.mensajeApi}\n${result.url}`.trim(),
+        },
+        { kind: "end_session", to },
+      ],
+      outcome: "rejected",
+    };
+  }
+  if (result.status === "duplicate") {
+    const advanced = withState(cleared, CITA_BOOKING_DUPLICATE_STATE);
+    return {
+      session: advanced,
+      effects: [
+        { kind: "send_text", to, body: CITA_BOOKING_DUPLICATE_BODY },
+        { kind: "end_session", to },
+      ],
+      outcome: "rejected",
+    };
+  }
+  const advanced = withState(cleared, CITA_BOOKING_REJECTED_STATE);
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: `No pudimos agendar tu cita: ${result.motivo}` },
+      { kind: "end_session", to },
+    ],
+    outcome: "rejected",
   };
 }
 
@@ -1103,6 +1571,22 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [CITA_VERIFY_PENDING_STATE]: citaVerifyPendingHandler,
   [CITA_IDENTITY_CONFIRMED_STATE]: citaIdentityConfirmedHandler,
   [CITA_OTP_LOCKED_STATE]: closedFlowHandler,
+  // Cita catalog/booking MVP (no-SDD fast path):
+  [CITA_AWAITING_UBIGEO_STATE]: citaAwaitingUbigeoHandler,
+  [CITA_UBIGEO_PENDING_STATE]: citaUbigeoPendingHandler,
+  [CITA_AWAITING_UBIGEO_SELECT_STATE]: citaAwaitingUbigeoSelectHandler,
+  [CITA_ESPECIALIDAD_PENDING_STATE]: citaEspecialidadPendingHandler,
+  [CITA_AWAITING_ESPECIALIDAD_SELECT_STATE]: citaAwaitingEspecialidadSelectHandler,
+  [CITA_ESTABLECIMIENTO_PENDING_STATE]: citaEstablecimientoPendingHandler,
+  [CITA_AWAITING_ESTABLECIMIENTO_SELECT_STATE]: citaAwaitingEstablecimientoSelectHandler,
+  [CITA_FECHA_PENDING_STATE]: citaFechaPendingHandler,
+  [CITA_AWAITING_FECHA_SELECT_STATE]: citaAwaitingFechaSelectHandler,
+  [CITA_HORA_PENDING_STATE]: citaHoraPendingHandler,
+  [CITA_AWAITING_HORA_SELECT_STATE]: citaAwaitingHoraSelectHandler,
+  [CITA_BOOKING_PENDING_STATE]: citaBookingPendingHandler,
+  [CITA_BOOKED_STATE]: closedFlowHandler,
+  [CITA_BOOKING_DUPLICATE_STATE]: closedFlowHandler,
+  [CITA_BOOKING_REJECTED_STATE]: closedFlowHandler,
 };
 
 // D13: looks up the current state's handler; falls back to main_menu for an
