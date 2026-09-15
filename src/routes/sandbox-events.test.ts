@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import crypto from "node:crypto";
 import { logger } from "../logger.js";
+import { config } from "../config.js";
+import { createSandboxDeps } from "../composition/create-sandbox-deps.js";
+import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
+import { createSession, withState } from "../domain/conversation-session.js";
 import type { WebhookIngestionService } from "../services/webhook-ingestion.js";
 
 type TestApp = Awaited<ReturnType<typeof import("../app.js")["buildApp"]>>;
@@ -358,5 +363,93 @@ describe("sandbox E2E journey — reclamo happy path with DNI (spec full scenari
     // "slots empty" wording is stale here; the honest FSM leaves exactly
     // { menuChoice }.
     expect(step7.json().session.slots).toEqual({ menuChoice: "registrar_reclamo" });
+  });
+});
+
+describe("sandbox E2E journey — image-message variant (SBX-1 Image scenario, IMG-1/IMG-2)", () => {
+  it("image at reclamo_awaiting_foto -> registration-processing + reference, terminal reclamo_confirmed, data-URI submitted", async () => {
+    const app = await buildWithEnv({ SANDBOX_ENABLED: "true", NODE_ENV: "development" });
+
+    // Same shared walk as the happy path, up to the foto state: steps 1-5
+    // (menu -> con-DNI -> DNI -> nombre -> descripcion) land the session at
+    // reclamo_awaiting_descripcion; step 6 asks for the photo.
+    for (const payload of [
+      { from: SANDBOX_FROM, type: "text", text: "hola" },
+      { from: SANDBOX_FROM, type: "list", listId: "registrar_reclamo" },
+      { from: SANDBOX_FROM, type: "button", listId: "reclamo_con_dni" },
+      { from: SANDBOX_FROM, type: "text", text: "12345678" },
+      { from: SANDBOX_FROM, type: "text", text: "Juan Carlos Quispe" },
+    ]) {
+      const step = await postJson(app, payload);
+      expect(step.statusCode).toBe(200);
+    }
+
+    const step6 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "Se cayó la pared de mi casa" });
+    expect(step6.statusCode).toBe(200);
+    expect(step6.json().sent.map((send: { body?: string }) => send.body)).toContain("Envía una foto o escribe OMITIR.");
+    expect(step6.json().session.state).toBe("reclamo_awaiting_foto");
+
+    // Step 7: the image message. The fake media downloader runs on THIS turn
+    // (mediaId branch) and the accepted fake resolves the quejas_submit
+    // effect within the same bounded turn: pass 1 sends "Registrando…", pass
+    // 2 (D20 re-entry result) sends the reference. The terminal persisted
+    // state is reclamo_confirmed — reclamo_submit_pending is mid-turn only
+    // and is NEVER persisted (IMG-1).
+    const image = await postJson(app, {
+      from: SANDBOX_FROM,
+      type: "image",
+      mediaId: "img_001",
+      mediaMimeType: "image/jpeg",
+    });
+    expect(image.statusCode).toBe(200);
+    const body = image.json();
+    expect(body.sent).toHaveLength(2);
+    expect(body.sent[0]).toEqual({ kind: "text", to: SANDBOX_FROM, body: "Registrando tu reclamo…" });
+    expect(body.sent[1].kind).toBe("text");
+    expect(body.sent[1].body).toContain("N° de referencia: DEV-REF-001");
+    expect(body.session.state).toBe("reclamo_confirmed");
+    expect(body.session.slots).toEqual({ menuChoice: "registrar_reclamo" });
+
+    // Payload proof (IMG-2): assert what the FSM actually submitted via the
+    // REAL composition root — createSandboxDeps is the exact function
+    // buildApp's D33 gate calls, so the seam observes the genuine
+    // flow+fakes wiring. The route path cannot expose the composition
+    // (SandboxRoutesDeps is { flow, sessionStore, captures } only), so the
+    // submitted payload is observed from an equivalent composition seeded at
+    // the same reclamo_awaiting_foto state the route journey just reached.
+    const sandbox = createSandboxDeps({ config, logger });
+    const sessionKey = msisdnDigest(SANDBOX_FROM, config.sessionKeySecret);
+    const seeded = withState(
+      {
+        ...createSession(sessionKey, config.sessionTtlSeconds),
+        slots: {
+          menuChoice: "registrar_reclamo",
+          dni: "12345678",
+          nombre: "Juan Carlos Quispe",
+          queja: "Se cayó la pared de mi casa",
+        },
+      },
+      "reclamo_awaiting_foto"
+    );
+    await sandbox.sessionStore.save(seeded);
+    await sandbox.flow.process({
+      eventId: crypto.randomUUID(),
+      receivedAt: new Date().toISOString(),
+      source: "whatsapp",
+      from: SANDBOX_FROM,
+      messageType: "image",
+      mediaId: "img_001",
+      mediaMimeType: "image/jpeg",
+      raw: {},
+    });
+
+    const submitted = sandbox.quejasLog();
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0].dni).toBe("12345678");
+    expect(submitted[0].celular).toBe(SANDBOX_FROM);
+    // IMG-2: the data URI prefix comes from the FAKE downloader's mimeType
+    // ("image/png"), NOT the request-declared mediaMimeType ("image/jpeg") —
+    // a non-null data URI proves download + encodeImagenField ran.
+    expect(submitted[0].imagen?.startsWith("data:image/png;base64,")).toBe(true);
   });
 });
