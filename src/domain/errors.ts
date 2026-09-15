@@ -47,3 +47,14 @@ export class FsmContractViolationError extends AppError {}
 // FsmContractViolationError.
 /** `ConversationFlowServiceDeps.quejasSubmissionClient` is not yet configured (Phase 7, D21-gated). Never retriable. */
 export class QuejasSubmissionClientNotConfiguredError extends AppError {}
+
+// D21 (Stage B, PR6): thrown by `meta-media-downloader.ts` when hop 1's
+// declared `file_size` exceeds `MAX_MEDIA_BYTES` (2 MiB) — enforced BEFORE
+// hop 2 ever fetches a byte, per the design's resource-exhaustion threat
+// entry. Deliberately its own class rather than `TransientFailureError`:
+// design states the `quejas_submit` executor (Phase 7, not this PR) is meant
+// to catch it and convert it to a citizen-facing "rejected" business
+// outcome, not retry it as a transient infra hiccup — retrying will not make
+// the image smaller.
+/** The downloaded media exceeds the accepted size ceiling. Never retriable as-is. */
+export class MediaTooLargeError extends AppError {}
