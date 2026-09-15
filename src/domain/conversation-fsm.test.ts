@@ -44,7 +44,7 @@ describe("handle — main_menu", () => {
     expect(rowIds).toEqual(["agendar_cita", "registrar_reclamo"]);
   });
 
-  it("records the selection and advances to awaiting_flow_start when the user selects agendar_cita, without referencing Reclamo/Cita logic", () => {
+  it("records the selection, advances to awaiting_flow_start, and replies immediately (D23) when the user selects agendar_cita", () => {
     const session = createSession("session-key-1", TTL_SECONDS);
     const event = makeEvent({ text: "agendar_cita" });
 
@@ -52,11 +52,16 @@ describe("handle — main_menu", () => {
 
     expect(result.session.state).toBe("awaiting_flow_start");
     expect(result.session.slots.menuChoice).toBe("agendar_cita");
-    expect(result.effects).toEqual([]);
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0]).toEqual({
+      kind: "send_text",
+      to: "digest-does-not-matter-here",
+      body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+    });
     expect(result.outcome).toBe("continue");
   });
 
-  it("records the selection and advances to awaiting_flow_start when the user selects registrar_reclamo", () => {
+  it("records the selection, advances to awaiting_flow_start, and replies immediately (D23) when the user selects registrar_reclamo", () => {
     const session = createSession("session-key-1", TTL_SECONDS);
     const event = makeEvent({ text: "registrar_reclamo" });
 
@@ -64,6 +69,12 @@ describe("handle — main_menu", () => {
 
     expect(result.session.state).toBe("awaiting_flow_start");
     expect(result.session.slots.menuChoice).toBe("registrar_reclamo");
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0]).toEqual({
+      kind: "send_text",
+      to: "digest-does-not-matter-here",
+      body: "Estamos preparando el registro de tu reclamo. En un momento continuamos.",
+    });
   });
 
   it("re-prompts and increments invalidAttempts on an unrecognized event, leaving state unchanged", () => {
@@ -89,7 +100,7 @@ describe("handle — main_menu", () => {
 });
 
 describe("handle — main_menu, real WhatsApp interactive reply (task 6.8)", () => {
-  it("records the selection from a real interactive list_reply id, even when text is absent", () => {
+  it("records the selection from a real interactive list_reply id, even when text is absent, and replies immediately (D23)", () => {
     const session = createSession("session-key-1", TTL_SECONDS);
     const event = makeEvent({ interactiveReplyId: "agendar_cita" });
 
@@ -97,7 +108,12 @@ describe("handle — main_menu, real WhatsApp interactive reply (task 6.8)", () 
 
     expect(result.session.state).toBe("awaiting_flow_start");
     expect(result.session.slots.menuChoice).toBe("agendar_cita");
-    expect(result.effects).toEqual([]);
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0]).toEqual({
+      kind: "send_text",
+      to: "digest-does-not-matter-here",
+      body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+    });
   });
 
   it("prefers interactiveReplyId over text when both are present", () => {

@@ -42,6 +42,13 @@ const AWAITING_FLOW_START_STATE: ConversationStateName = "awaiting_flow_start";
 const MAIN_MENU_BODY = "¿En qué podemos ayudarte hoy?";
 const MAIN_MENU_BUTTON_LABEL = "Ver opciones";
 
+// D23: PR1-scoped stub copy. Stage B's real Reclamo/Cita branch logic (the
+// full transition table rooted at awaiting_flow_start) lands in a later PR;
+// this text only proves the citizen gets an immediate reply instead of the
+// silence the shipped code produced.
+const RECLAMO_PLACEHOLDER_BODY = "Estamos preparando el registro de tu reclamo. En un momento continuamos.";
+const CITA_PLACEHOLDER_BODY = "Estamos preparando la reserva de tu cita. En un momento continuamos.";
+
 // Spec: "main_menu MUST, on a recognized inbound event, emit an effect to
 // send an interactive list with agendar_cita and registrar_reclamo." These
 // two ids are the only recognized selections for this stage.
@@ -68,6 +75,22 @@ function mainMenuListEffect(to: string): FsmEffect {
 // checked FIRST — that is the shape a real Meta payload sends for a menu
 // tap. `event.text` remains the fallback so a plain-text reply that happens
 // to match an option id (or a test fixture) still works.
+// D23 / D13: minimal awaiting_flow_start stub. Stage A left this state
+// unregistered, so an unknown/unregistered state silently fell back to
+// main_menu — a session parked here never hit undefined behavior, but the
+// citizen also never got a reply for their menu tap. This handler branches
+// on the RECORDED session.slots.menuChoice (never on `event`, which may be
+// an unrelated later message once the session is already parked in this
+// state) and always replies. The real Reclamo/Cita branch logic replaces
+// this body in a later PR; today both branches are safe, always-firing
+// placeholders, per design D23's PR1 scope.
+function awaitingFlowStartHandler(session: ConversationSession, event: InboundConversationEvent): FsmResult {
+  const to = event.from ?? "";
+  const body = session.slots.menuChoice === "registrar_reclamo" ? RECLAMO_PLACEHOLDER_BODY : CITA_PLACEHOLDER_BODY;
+
+  return { session, effects: [{ kind: "send_text", to, body }], outcome: "continue" };
+}
+
 function mainMenuHandler(session: ConversationSession, event: InboundConversationEvent): FsmResult {
   const to = event.from ?? "";
   const selection = event.interactiveReplyId ?? event.text;
@@ -78,7 +101,10 @@ function mainMenuHandler(session: ConversationSession, event: InboundConversatio
       { ...session, slots: { ...session.slots, menuChoice: matchedOption.id } },
       AWAITING_FLOW_START_STATE
     );
-    return { session: advanced, effects: [], outcome: "continue" };
+    // D23: tail-call in the SAME turn so a menu tap gets an immediate reply
+    // instead of the empty-effects turn Stage A shipped. No recursion risk:
+    // awaitingFlowStartHandler never calls back into mainMenuHandler.
+    return awaitingFlowStartHandler(advanced, event);
   }
 
   // Unrecognized event: re-prompt, never crash, and do NOT advance state.
@@ -99,6 +125,7 @@ function mainMenuHandler(session: ConversationSession, event: InboundConversatio
 
 export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [MAIN_MENU_STATE]: mainMenuHandler,
+  [AWAITING_FLOW_START_STATE]: awaitingFlowStartHandler,
 };
 
 // D13: looks up the current state's handler; falls back to main_menu for an

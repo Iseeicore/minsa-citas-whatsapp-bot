@@ -107,19 +107,19 @@ describe("createConversationFlowService", () => {
     expect(calls[0]?.to).toBe("51988887777");
   });
 
-  it("a matched menu selection advances state, persists it, and sends zero effects (no messagesSent increment)", async () => {
+  it("a matched menu selection advances state, persists it, and sends one immediate reply (D23 — no more silent menu taps)", async () => {
     const { sender, calls } = fakeSender();
     const { sessionStore, service } = makeService(sender);
     const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
 
     await service.process(makeEvent({ interactiveReplyId: "agendar_cita" }));
 
-    expect(calls).toEqual([]);
+    expect(calls).toEqual([{ method: "sendText", to: FROM_MSISDN }]);
     const stored = await sessionStore.load(key);
     expect(stored?.state).toBe("awaiting_flow_start");
     expect(stored?.slots.menuChoice).toBe("agendar_cita");
     expect(stored?.counters.messagesReceived).toBe(1);
-    expect(stored?.counters.messagesSent).toBe(0);
+    expect(stored?.counters.messagesSent).toBe(1);
   });
 
   it("loads an EXISTING session (by digest) instead of creating a new one, and its counters accumulate", async () => {
