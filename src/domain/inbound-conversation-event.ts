@@ -19,6 +19,13 @@ export interface InboundConversationEvent {
   readonly messageType: string;
   /** Message body — SENSITIVE. Never log this field directly. */
   readonly text?: string;
+  /**
+   * The selected row/button id from a WhatsApp interactive list or
+   * quick-reply button message (`interactive.list_reply.id` /
+   * `interactive.button_reply.id`). These ids are our own menu option
+   * identifiers (e.g. "agendar_cita"), not citizen content.
+   */
+  readonly interactiveReplyId?: string;
   /** Meta's own timestamp (ISO-8601), for latency measurement. */
   readonly sentAt?: string;
   /** Full original payload, preserved verbatim for change 3 and replay. */
@@ -69,6 +76,9 @@ export function toInboundConversationEvent(raw: unknown): InboundConversationEve
   const profile = firstContactProfile(value);
   const metadata = asRecord(value?.metadata);
   const text = asRecord(message?.text);
+  const interactive = asRecord(message?.interactive);
+  const listReply = asRecord(interactive?.list_reply);
+  const buttonReply = asRecord(interactive?.button_reply);
 
   return {
     eventId: asString(message?.id) ?? crypto.randomUUID(),
@@ -79,6 +89,7 @@ export function toInboundConversationEvent(raw: unknown): InboundConversationEve
     contactName: asString(profile?.name),
     messageType: asString(message?.type) ?? "unknown",
     text: asString(text?.body),
+    interactiveReplyId: asString(listReply?.id) ?? asString(buttonReply?.id),
     sentAt: toIsoTimestamp(message?.timestamp),
     raw,
   };

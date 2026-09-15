@@ -29,6 +29,68 @@ const TEXT_MESSAGE_PAYLOAD = {
   ],
 };
 
+const LIST_REPLY_PAYLOAD = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      id: "entry-3",
+      changes: [
+        {
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: { phone_number_id: "1234567890" },
+            contacts: [{ profile: { name: "Juan Perez" }, wa_id: "51999999999" }],
+            messages: [
+              {
+                from: "51999999999",
+                id: "wamid.list-reply-1",
+                timestamp: "1700000200",
+                type: "interactive",
+                interactive: {
+                  type: "list_reply",
+                  list_reply: { id: "agendar_cita", title: "Agendar cita" },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+const BUTTON_REPLY_PAYLOAD = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      id: "entry-4",
+      changes: [
+        {
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: { phone_number_id: "1234567890" },
+            contacts: [{ profile: { name: "Juan Perez" }, wa_id: "51999999999" }],
+            messages: [
+              {
+                from: "51999999999",
+                id: "wamid.button-reply-1",
+                timestamp: "1700000300",
+                type: "interactive",
+                interactive: {
+                  type: "button_reply",
+                  button_reply: { id: "registrar_reclamo", title: "Registrar un reclamo" },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
 const STATUS_CALLBACK_PAYLOAD = {
   object: "whatsapp_business_account",
   entry: [
@@ -66,6 +128,35 @@ describe("toInboundConversationEvent", () => {
     expect(event.sentAt).toBe(new Date(1700000000 * 1000).toISOString());
     expect(event.receivedAt).toEqual(expect.any(String));
     expect(event.raw).toBe(TEXT_MESSAGE_PAYLOAD);
+    // Regression guard (task 6.8): a plain text message never populates the
+    // interactive-reply field.
+    expect(event.interactiveReplyId).toBeUndefined();
+  });
+
+  // Task 6.8: real WhatsApp interactive-list replies arrive as
+  // message.interactive.list_reply.id, not message.text.body — without this,
+  // the FSM (conversation-fsm.ts) can never see a matched menu selection from
+  // real WhatsApp traffic.
+  it("maps a list_reply interactive message, populating interactiveReplyId from list_reply.id", () => {
+    const event = toInboundConversationEvent(LIST_REPLY_PAYLOAD);
+
+    expect(event.messageType).toBe("interactive");
+    expect(event.from).toBe("51999999999");
+    expect(event.interactiveReplyId).toBe("agendar_cita");
+    expect(event.text).toBeUndefined();
+    expect(event.raw).toBe(LIST_REPLY_PAYLOAD);
+  });
+
+  // Task 6.8: WhatsApp quick-reply buttons arrive as
+  // message.interactive.button_reply.id — a distinct shape from list replies.
+  it("maps a button_reply interactive message, populating interactiveReplyId from button_reply.id", () => {
+    const event = toInboundConversationEvent(BUTTON_REPLY_PAYLOAD);
+
+    expect(event.messageType).toBe("interactive");
+    expect(event.from).toBe("51999999999");
+    expect(event.interactiveReplyId).toBe("registrar_reclamo");
+    expect(event.text).toBeUndefined();
+    expect(event.raw).toBe(BUTTON_REPLY_PAYLOAD);
   });
 
   it("maps a status-callback payload (no top-level message) to messageType 'unknown', preserving raw", () => {

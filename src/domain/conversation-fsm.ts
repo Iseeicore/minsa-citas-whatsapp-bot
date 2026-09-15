@@ -63,12 +63,14 @@ function mainMenuListEffect(to: string): FsmEffect {
 // Design: "a list reply whose id matches persists slots.menuChoice and
 // advances to awaiting_flow_start (a terminal placeholder — it does not
 // enter Reclamo/Cita); an unmatched reply increments counters.invalidAttempts
-// and re-prompts." `event.text` is the only body-carrying field the current
-// inbound mapper produces; matching real WhatsApp interactive list-reply ids
-// into a dedicated field is a mapper concern outside this PR's scope.
+// and re-prompts." Task 6.8: `event.interactiveReplyId` (a real WhatsApp
+// interactive list/button reply id, per inbound-conversation-event.ts) is
+// checked FIRST — that is the shape a real Meta payload sends for a menu
+// tap. `event.text` remains the fallback so a plain-text reply that happens
+// to match an option id (or a test fixture) still works.
 function mainMenuHandler(session: ConversationSession, event: InboundConversationEvent): FsmResult {
   const to = event.from ?? "";
-  const selection = event.text;
+  const selection = event.interactiveReplyId ?? event.text;
   const matchedOption = MAIN_MENU_OPTIONS.find((option) => option.id === selection);
 
   if (matchedOption !== undefined) {

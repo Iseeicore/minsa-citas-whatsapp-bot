@@ -88,6 +88,38 @@ describe("handle — main_menu", () => {
   });
 });
 
+describe("handle — main_menu, real WhatsApp interactive reply (task 6.8)", () => {
+  it("records the selection from a real interactive list_reply id, even when text is absent", () => {
+    const session = createSession("session-key-1", TTL_SECONDS);
+    const event = makeEvent({ interactiveReplyId: "agendar_cita" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("awaiting_flow_start");
+    expect(result.session.slots.menuChoice).toBe("agendar_cita");
+    expect(result.effects).toEqual([]);
+  });
+
+  it("prefers interactiveReplyId over text when both are present", () => {
+    const session = createSession("session-key-1", TTL_SECONDS);
+    const event = makeEvent({ interactiveReplyId: "registrar_reclamo", text: "algo que no coincide" });
+
+    const result = handle(session, event);
+
+    expect(result.session.slots.menuChoice).toBe("registrar_reclamo");
+  });
+
+  it("re-prompts on an unmatched interactiveReplyId, same as an unmatched text", () => {
+    const session = createSession("session-key-1", TTL_SECONDS);
+    const event = makeEvent({ interactiveReplyId: "some_other_row_id" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe(session.state);
+    expect(result.session.counters.invalidAttempts).toBe(1);
+  });
+});
+
 describe("handle — STATE_HANDLERS registry fallback (D13)", () => {
   it("falls back to the main_menu handler for an unregistered state", () => {
     const session = { ...createSession("session-key-1", TTL_SECONDS), state: "some_unregistered_state" };
