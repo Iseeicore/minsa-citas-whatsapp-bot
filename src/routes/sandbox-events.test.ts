@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import crypto from "node:crypto";
 import { logger } from "../logger.js";
 import { config } from "../config.js";
-import { createSandboxDeps } from "../composition/create-sandbox-deps.js";
+import { createSandboxDeps, type SandboxOptions } from "../composition/create-sandbox-deps.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
 import { createSession, withState } from "../domain/conversation-session.js";
 import type { WebhookIngestionService } from "../services/webhook-ingestion.js";
@@ -45,15 +45,21 @@ function pinEnv(env: Record<string, string | undefined>): void {
   };
 }
 
-async function buildWithEnv(env: Record<string, string | undefined>): Promise<TestApp> {
+async function buildWithEnv(
+  env: Record<string, string | undefined>,
+  options?: SandboxOptions
+): Promise<TestApp> {
   vi.resetModules();
   pinEnv(env);
   const { buildApp } = await import("../app.js");
-  return buildApp({ logger, ingestion: fakeIngestion(vi.fn()) });
+  return buildApp({ logger, ingestion: fakeIngestion(vi.fn()), ...(options && { sandboxOptions: options }) });
 }
 
 afterEach(() => {
   restoreEnv?.();
+  // The isolation journey stubs WHOLE env vars with garbage (META_ACCESS_TOKEN,
+  // RENIEC_LOOKUP_BASE_URL, QUEJAS_API_BASE_URL); restore them after each test.
+  vi.unstubAllEnvs();
 });
 
 async function postJson(app: TestApp, payload: unknown) {
@@ -451,5 +457,106 @@ describe("sandbox E2E journey — image-message variant (SBX-1 Image scenario, I
     // ("image/png"), NOT the request-declared mediaMimeType ("image/jpeg") —
     // a non-null data URI proves download + encodeImagenField ran.
     expect(submitted[0].imagen?.startsWith("data:image/png;base64,")).toBe(true);
+  });
+});
+
+describe("sandbox E2E journeys — failure and isolation (SBX-1 not-found, D62 rejected, fake isolation)", () => {
+  it("RENIEC not-found -> rejection message, terminal reclamo_rejected", async () => {
+    const app = await buildWithEnv({ SANDBOX_ENABLED: "true", NODE_ENV: "development" });
+
+    await postJson(app, { from: SANDBOX_FROM, type: "text", text: "hola" });
+    await postJson(app, { from: SANDBOX_FROM, type: "list", listId: "registrar_reclamo" });
+    await postJson(app, { from: SANDBOX_FROM, type: "button", listId: "reclamo_con_dni" });
+    // DNI not present in the fake RENIEC table (only "12345678" is).
+    const dni = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "11111111" });
+    expect(dni.statusCode).toBe(200);
+    expect(dni.json().session.state).toBe("reclamo_awaiting_nombre");
+
+    const denied = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "Test User" });
+    expect(denied.statusCode).toBe(200);
+    const body = denied.json();
+    expect(body.sent).toEqual([
+      { kind: "text", to: SANDBOX_FROM, body: "Estamos verificando tus datos…" },
+      {
+        kind: "text",
+        to: SANDBOX_FROM,
+        body: "No pudimos validar tus datos con RENIEC. Verifica tu DNI y tus nombres e inténtalo nuevamente más tarde.",
+      },
+    ]);
+    expect(body.session.state).toBe("reclamo_rejected");
+    expect(body.session.slots).toEqual({ menuChoice: "registrar_reclamo" });
+  });
+
+  it("rejected quejas mode (media_too_large) -> reason-specific message, terminal reclamo_failed", async () => {
+    const app = await buildWithEnv(
+      { SANDBOX_ENABLED: "true", NODE_ENV: "development" },
+      { quejas: { mode: "rejected", reason: "media_too_large" } }
+    );
+
+    for (const payload of [
+      { from: SANDBOX_FROM, type: "text", text: "hola" },
+      { from: SANDBOX_FROM, type: "list", listId: "registrar_reclamo" },
+      { from: SANDBOX_FROM, type: "button", listId: "reclamo_con_dni" },
+      { from: SANDBOX_FROM, type: "text", text: "12345678" },
+      { from: SANDBOX_FROM, type: "text", text: "Juan Carlos Quispe" },
+      { from: SANDBOX_FROM, type: "text", text: "Se cayó la pared de mi casa" },
+    ]) {
+      const step = await postJson(app, payload);
+      expect(step.statusCode).toBe(200);
+    }
+
+    // The rejected fake resolves the quejas_submit effect in the second pass:
+    // pass 1 "Registrando…", pass 2 the failure message. Terminal persisted
+    // state is reclamo_failed — reclamo_submit_pending is never persisted.
+    const failed = await postJson(app, {
+      from: SANDBOX_FROM,
+      type: "image",
+      mediaId: "img_002",
+      mediaMimeType: "image/jpeg",
+    });
+    expect(failed.statusCode).toBe(200);
+    const body = failed.json();
+    expect(body.sent).toEqual([
+      { kind: "text", to: SANDBOX_FROM, body: "Registrando tu reclamo…" },
+      {
+        kind: "text",
+        to: SANDBOX_FROM,
+        body: "La foto enviada supera el tamaño permitido. Por favor, inténtalo nuevamente con una foto más liviana.",
+      },
+    ]);
+    expect(body.session.state).toBe("reclamo_failed");
+    expect(body.session.slots).toEqual({ menuChoice: "registrar_reclamo" });
+  });
+
+  it("fake isolation: garbage wiring env (token + adapter base URLs) still completes the full happy journey", async () => {
+    // The sandbox composition must resolve EVERY effect through fakes: with
+    // unresolvable-looking wiring env stubbed in, any real meta/reniec/quejas
+    // adapter would fail the journey, while the fakes sail through. config.ts
+    // re-reads these at module import, so stub BEFORE buildWithEnv.
+    vi.stubEnv("META_ACCESS_TOKEN", "garbage-token");
+    vi.stubEnv("RENIEC_LOOKUP_BASE_URL", "https://reniec.invalid");
+    vi.stubEnv("QUEJAS_API_BASE_URL", "https://quejas.invalid");
+
+    const app = await buildWithEnv({ SANDBOX_ENABLED: "true", NODE_ENV: "development" });
+
+    const step1 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "hola" });
+    expect(step1.statusCode).toBe(200);
+    expect(step1.json().session.state).toBe("main_menu");
+    const step2 = await postJson(app, { from: SANDBOX_FROM, type: "list", listId: "registrar_reclamo" });
+    expect(step2.statusCode).toBe(200);
+    const step3 = await postJson(app, { from: SANDBOX_FROM, type: "button", listId: "reclamo_con_dni" });
+    expect(step3.statusCode).toBe(200);
+    const step4 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "12345678" });
+    expect(step4.statusCode).toBe(200);
+    const step5 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "Juan Carlos Quispe" });
+    expect(step5.statusCode).toBe(200);
+    const step6 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "Se cayó la pared de mi casa" });
+    expect(step6.statusCode).toBe(200);
+    const step7 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "OMITIR" });
+    expect(step7.statusCode).toBe(200);
+
+    const body = step7.json();
+    expect(body.sent[1].body).toContain("N° de referencia: DEV-REF-001");
+    expect(body.session.state).toBe("reclamo_confirmed");
   });
 });
