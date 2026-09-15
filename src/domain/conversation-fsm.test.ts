@@ -61,20 +61,25 @@ describe("handle — main_menu", () => {
     expect(result.outcome).toBe("continue");
   });
 
-  it("records the selection, advances to awaiting_flow_start, and replies immediately (D23) when the user selects registrar_reclamo", () => {
+  it("records the selection and advances into the Reclamo branch's identity-choice state when the user selects registrar_reclamo", () => {
     const session = createSession("session-key-1", TTL_SECONDS);
     const event = makeEvent({ text: "registrar_reclamo" });
 
     const result = handle(session, event);
 
-    expect(result.session.state).toBe("awaiting_flow_start");
+    expect(result.session.state).toBe("reclamo_identity_choice");
     expect(result.session.slots.menuChoice).toBe("registrar_reclamo");
     expect(result.effects).toHaveLength(1);
     expect(result.effects[0]).toEqual({
-      kind: "send_text",
+      kind: "send_buttons",
       to: "digest-does-not-matter-here",
-      body: "Estamos preparando el registro de tu reclamo. En un momento continuamos.",
+      body: "¿Deseas identificarte con tu DNI?",
+      buttons: [
+        { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
+        { id: "reclamo_sin_dni", title: "No tengo DNI" },
+      ],
     });
+    expect(result.outcome).toBe("continue");
   });
 
   it("re-prompts and increments invalidAttempts on an unrecognized event, leaving state unchanged", () => {
@@ -133,6 +138,36 @@ describe("handle — main_menu, real WhatsApp interactive reply (task 6.8)", () 
 
     expect(result.session.state).toBe(session.state);
     expect(result.session.counters.invalidAttempts).toBe(1);
+  });
+});
+
+describe("handle — awaiting_flow_start (Phase 2 real Reclamo/Cita branch)", () => {
+  it("keeps the Cita placeholder (Stage C stub) unchanged, parked in awaiting_flow_start", () => {
+    const session = createSession("session-key-1", TTL_SECONDS);
+    const event = makeEvent({ text: "agendar_cita" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("awaiting_flow_start");
+    expect(result.effects).toEqual([
+      {
+        kind: "send_text",
+        to: "digest-does-not-matter-here",
+        body: "Estamos preparando la reserva de tu cita. En un momento continuamos.",
+      },
+    ]);
+  });
+
+  it("re-prompts with the main menu, never crashes, on an unset/unrecognized menuChoice (defensive — mainMenuHandler never sets anything else)", () => {
+    const parked = { ...createSession("session-key-1", TTL_SECONDS), state: "awaiting_flow_start" };
+    const event = makeEvent({ text: "cualquier cosa" });
+
+    const result = handle(parked, event);
+
+    expect(result.session.state).toBe("awaiting_flow_start");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.effects).toHaveLength(1);
+    expect(result.effects[0].kind).toBe("send_interactive_list");
   });
 });
 

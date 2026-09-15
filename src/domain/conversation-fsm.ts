@@ -38,16 +38,26 @@ type StateHandler = (session: ConversationSession, event: InboundConversationEve
 
 const MAIN_MENU_STATE: ConversationStateName = "main_menu";
 const AWAITING_FLOW_START_STATE: ConversationStateName = "awaiting_flow_start";
+const RECLAMO_IDENTITY_CHOICE_STATE: ConversationStateName = "reclamo_identity_choice";
 
 const MAIN_MENU_BODY = "¿En qué podemos ayudarte hoy?";
 const MAIN_MENU_BUTTON_LABEL = "Ver opciones";
 
-// D23: PR1-scoped stub copy. Stage B's real Reclamo/Cita branch logic (the
-// full transition table rooted at awaiting_flow_start) lands in a later PR;
-// this text only proves the citizen gets an immediate reply instead of the
-// silence the shipped code produced.
-const RECLAMO_PLACEHOLDER_BODY = "Estamos preparando el registro de tu reclamo. En un momento continuamos.";
+// Stage C stub, unchanged from PR1: the real Cita branch is out of scope for
+// Stage B — see design's FSM states table, `agendar_cita` row, "explicit
+// Stage C stub".
 const CITA_PLACEHOLDER_BODY = "Estamos preparando la reserva de tu cita. En un momento continuamos.";
+
+// Design's FSM states table, `reclamo_identity_choice` row: the citizen is
+// asked whether they want to identify with DNI. `reclamo_identity_choice`
+// itself is not yet registered in STATE_HANDLERS (Phase 4/5 own that reply
+// handling) — an inbound reply to it safely falls back to main_menu via
+// D13's registry-fallback guard, never undefined behavior.
+const RECLAMO_IDENTITY_CHOICE_BODY = "¿Deseas identificarte con tu DNI?";
+const RECLAMO_IDENTITY_CHOICE_BUTTONS: readonly ReplyButton[] = [
+  { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
+  { id: "reclamo_sin_dni", title: "No tengo DNI" },
+];
 
 // Spec: "main_menu MUST, on a recognized inbound event, emit an effect to
 // send an interactive list with agendar_cita and registrar_reclamo." These
@@ -75,20 +85,57 @@ function mainMenuListEffect(to: string): FsmEffect {
 // checked FIRST — that is the shape a real Meta payload sends for a menu
 // tap. `event.text` remains the fallback so a plain-text reply that happens
 // to match an option id (or a test fixture) still works.
-// D23 / D13: minimal awaiting_flow_start stub. Stage A left this state
-// unregistered, so an unknown/unregistered state silently fell back to
-// main_menu — a session parked here never hit undefined behavior, but the
-// citizen also never got a reply for their menu tap. This handler branches
-// on the RECORDED session.slots.menuChoice (never on `event`, which may be
-// an unrelated later message once the session is already parked in this
-// state) and always replies. The real Reclamo/Cita branch logic replaces
-// this body in a later PR; today both branches are safe, always-firing
-// placeholders, per design D23's PR1 scope.
+// D23 / D13: awaiting_flow_start's real branch point (Phase 2). Stage A left
+// this state unregistered, so an unknown/unregistered state silently fell
+// back to main_menu — a session parked here never hit undefined behavior,
+// but the citizen also never got a reply for their menu tap (PR1 fixed
+// that with a placeholder; this PR replaces the Reclamo half with the real
+// transition). Branches on the RECORDED session.slots.menuChoice (never on
+// `event`, which may be an unrelated later message once the session is
+// already parked in this state).
 function awaitingFlowStartHandler(session: ConversationSession, event: InboundConversationEvent): FsmResult {
   const to = event.from ?? "";
-  const body = session.slots.menuChoice === "registrar_reclamo" ? RECLAMO_PLACEHOLDER_BODY : CITA_PLACEHOLDER_BODY;
 
-  return { session, effects: [{ kind: "send_text", to, body }], outcome: "continue" };
+  if (session.slots.menuChoice === "registrar_reclamo") {
+    const advanced = withState(session, RECLAMO_IDENTITY_CHOICE_STATE);
+    return {
+      session: advanced,
+      effects: [
+        {
+          kind: "send_buttons",
+          to,
+          body: RECLAMO_IDENTITY_CHOICE_BODY,
+          buttons: RECLAMO_IDENTITY_CHOICE_BUTTONS,
+        },
+      ],
+      outcome: "continue",
+    };
+  }
+
+  if (session.slots.menuChoice === "agendar_cita") {
+    // Stage C stub, unchanged from PR1 — out of scope for Stage B.
+    return {
+      session,
+      effects: [{ kind: "send_text", to, body: CITA_PLACEHOLDER_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  // Defensive fallback: mainMenuHandler only ever records one of the two
+  // known option ids before tail-calling here, so this branch should be
+  // unreachable in practice — but a corrupted/manually-constructed session
+  // must still never crash. Re-prompt with the main menu instead of
+  // silently guessing a branch, same discipline as mainMenuHandler's own
+  // unmatched path.
+  const rePrompted: ConversationSession = {
+    ...session,
+    counters: {
+      ...session.counters,
+      invalidAttempts: session.counters.invalidAttempts + 1,
+    },
+  };
+
+  return { session: rePrompted, effects: [mainMenuListEffect(to)], outcome: "continue" };
 }
 
 function mainMenuHandler(session: ConversationSession, event: InboundConversationEvent): FsmResult {
