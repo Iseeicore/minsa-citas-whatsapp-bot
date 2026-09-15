@@ -28,6 +28,16 @@ export const config = {
   // metaAppSecret when unset — accepted consequence: rotating the app
   // secret re-keys the fingerprints, breaking correlation across rotation.
   logHashSecret: process.env.LOG_HASH_SECRET ?? metaAppSecret,
+  // D16: bare env read (like connectionTimeout/keepAliveTimeout above), not
+  // readEnv() — a missing TTL should silently take the default, not warn.
+  sessionTtlSeconds: Number(process.env.SESSION_TTL_SECONDS ?? 3600),
+  // D19: dedicated secret, deliberately NOT readEnv() and NOT sharing
+  // logHashSecret's fallback chain. readEnv()'s "CHANGE_ME" placeholder would
+  // make the session-key HMAC effectively unkeyed (the MSISDN space is
+  // brute-forceable); metaAppSecret guarantees a real secret even when
+  // unset. Reusing logHashSecret directly would mean a routine META_APP_SECRET
+  // rotation instantly orphans every live session with no deliberate intent.
+  sessionKeySecret: process.env.SESSION_KEY_SECRET ?? metaAppSecret,
   // Dumb passthrough, no defaulting — validation belongs to the composition
   // root (src/composition/select-conversation-event-dao.ts), not this module.
   queueDriver: process.env.QUEUE_DRIVER,

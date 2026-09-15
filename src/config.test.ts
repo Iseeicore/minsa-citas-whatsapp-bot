@@ -105,4 +105,49 @@ describe("config", () => {
 
     delete process.env.LOG_HASH_SECRET;
   });
+
+  it("defaults sessionTtlSeconds to 3600 when SESSION_TTL_SECONDS is unset", async () => {
+    delete process.env.SESSION_TTL_SECONDS;
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.sessionTtlSeconds).toBe(3600);
+  });
+
+  it("overrides sessionTtlSeconds from SESSION_TTL_SECONDS", async () => {
+    process.env.SESSION_TTL_SECONDS = "1800";
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.sessionTtlSeconds).toBe(1800);
+
+    delete process.env.SESSION_TTL_SECONDS;
+  });
+
+  // D19: sessionKeySecret is a DEDICATED secret, deliberately NOT sharing
+  // logHashSecret's fallback chain — a routine META_APP_SECRET rotation must
+  // not silently orphan every live session.
+  it("sessionKeySecret falls back to metaAppSecret when SESSION_KEY_SECRET is unset (D19)", async () => {
+    delete process.env.SESSION_KEY_SECRET;
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.sessionKeySecret).toBe(config.metaAppSecret);
+  });
+
+  it("sessionKeySecret uses SESSION_KEY_SECRET when set, independent of metaAppSecret and logHashSecret (D19)", async () => {
+    process.env.SESSION_KEY_SECRET = "a-dedicated-session-key-secret";
+
+    vi.resetModules();
+    const { config } = await import("./config.js");
+
+    expect(config.sessionKeySecret).toBe("a-dedicated-session-key-secret");
+    expect(config.sessionKeySecret).not.toBe(config.metaAppSecret);
+    expect(config.sessionKeySecret).not.toBe(config.logHashSecret);
+
+    delete process.env.SESSION_KEY_SECRET;
+  });
 });
