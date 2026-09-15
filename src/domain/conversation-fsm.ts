@@ -15,8 +15,16 @@
 // `event` widens additively to `FsmEvent = InboundConversationEvent |
 // FsmSystemEvent`, so every existing STATE_HANDLERS entry keeps its logic
 // unchanged and only compiles against the wider type.
+//
+// PR5 (Phase 5): `FsmQueryEffect`/`FsmSystemEvent` widen further with
+// `quejas_submit`/`quejas_submit_result` (deferred from PR4 by design — see
+// PR4's apply-progress deviation #2). `QuejaSubmission` (this file) carries
+// only the raw submission intent (`celular`/`dni`/`nombreCompleto`/`queja`/
+// `mediaId`); the wire payload's `imagen` field (D21, base64/data-URI) and
+// the real `QuejasSubmissionClient` HTTP call stay Phase 6/7, D21-gated.
 import type { ListRow, ListSection, ReplyButton } from "../ports/whatsapp-outbound-sender.js";
 import type { ReniecLookupResult } from "../ports/reniec-lookup-client.js";
+import type { QuejaSubmissionResult } from "../ports/quejas-submission-client.js";
 import type { ConversationSession, ConversationStateName, SlotValue } from "./conversation-session.js";
 import { withState } from "./conversation-session.js";
 import { isValidDniFormat } from "./dni.js";
@@ -37,11 +45,24 @@ export type FsmSendEffect =
   | { kind: "send_buttons"; to: string; body: string; buttons: readonly ReplyButton[] }
   | { kind: "end_session"; to: string };
 
-// D20: plain data — this file never performs the lookup itself. Phase 5
-// widens this union with `quejas_submit`; this PR (Phase 4) only needs
-// `reniec_lookup`, so nothing forward-references a port that does not exist
-// yet (`quejas-submission-client.ts`).
-export type FsmQueryEffect = { kind: "reniec_lookup"; dni: string };
+// D20: plain data — this file never performs the lookup/submission itself.
+/** D20/D17 carried forward: `celular` is built from `event.from` AT
+ *  EFFECT-CONSTRUCTION TIME inside the handler that has `event` in scope. It
+ *  is NEVER read from `slots`, which does not and must not contain it —
+ *  same discipline as `FsmSendEffect.to`. */
+export interface QuejaSubmission {
+  readonly celular: string;
+  /** `null` on the sin-DNI path. */
+  readonly dni: string | null;
+  readonly nombreCompleto: string | null;
+  readonly queja: string;
+  /** Meta media handle, resolved by the executor (Phase 6). `null` when the citizen skipped the photo. */
+  readonly mediaId: string | null;
+}
+
+export type FsmQueryEffect =
+  | { kind: "reniec_lookup"; dni: string }
+  | { kind: "quejas_submit"; submission: QuejaSubmission };
 
 // Same exported name as Stage A, now a union of the two effect families.
 export type FsmEffect = FsmSendEffect | FsmQueryEffect;
@@ -58,13 +79,16 @@ export interface FsmResult {
 // query effect — never by the Meta webhook mapper (inbound-conversation-event.ts).
 // `from` mirrors the triggering InboundConversationEvent.from so `event.from`
 // keeps compiling identically across the widened FsmEvent union below (both
-// variants declare `from?: string`). Phase 5 widens `kind`/`result` with the
-// quejas-submit result once that port exists.
+// variants declare `from?: string`). `result`'s member shapes (`ReniecLookupResult`'s
+// "found"/"not_found" vs. `QuejaSubmissionResult`'s "accepted"/"rejected") carry
+// disjoint `status` literals, so `result.status === "..."` narrows correctly
+// per handler even though this stays one flat interface, not a discriminated
+// union keyed on `kind` — same shape the design's D20 contract specifies.
 export interface FsmSystemEvent {
   readonly source: "system";
   readonly from?: string;
-  readonly kind: "reniec_lookup_result";
-  readonly result: ReniecLookupResult;
+  readonly kind: "reniec_lookup_result" | "quejas_submit_result";
+  readonly result: ReniecLookupResult | QuejaSubmissionResult;
 }
 
 // D20: additive widening. Every existing `InboundConversationEvent` call
@@ -96,8 +120,8 @@ const CITA_PLACEHOLDER_BODY = "Estamos preparando la reserva de tu cita. En un m
 // PR1/PR2/PR3 left it unregistered, so a reply used to fall back to
 // main_menu via D13's registry-fallback guard; this PR replaces that
 // fallback with the real con-DNI branch (design's "con DNI" through the
-// RENIEC check). The "sin DNI" branch is a placeholder here — Phase 5 owns
-// its real descripción/foto/submit sequence.
+// RENIEC check). PR5 replaces the "sin DNI" placeholder with the real
+// shortcut straight into the shared descripción/foto/submit sequence.
 const RECLAMO_IDENTITY_CHOICE_BODY = "¿Deseas identificarte con tu DNI?";
 const RECLAMO_IDENTITY_CHOICE_BUTTONS: readonly ReplyButton[] = [
   { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
@@ -109,37 +133,56 @@ const RECLAMO_SIN_DNI_ID = "reclamo_sin_dni";
 const RECLAMO_AWAITING_DNI_STATE: ConversationStateName = "reclamo_awaiting_dni";
 const RECLAMO_AWAITING_NOMBRE_STATE: ConversationStateName = "reclamo_awaiting_nombre";
 const RECLAMO_RENIEC_PENDING_STATE: ConversationStateName = "reclamo_reniec_pending";
-// Phase 5 owns the real descripción-capture handler for this state. Reached
-// here only via a confirmed RENIEC match; registered with an explicit
-// placeholder (same pattern as the Cita stub above) so a citizen who
-// reaches it gets a reply, never an implicit D13 registry fallback.
+// PR5: shared by both the con-DNI (post-RENIEC-match) and sin-DNI paths, per
+// spec's "Descripción, Foto, and Submission (shared by both paths)".
 const RECLAMO_AWAITING_DESCRIPCION_STATE: ConversationStateName = "reclamo_awaiting_descripcion";
-// Terminal (spec: outcome "rejected"). No handler registered for it in this
-// PR — Phase 5's shared `closedFlowHandler` owns "any inbound -> main_menu"
-// for every terminal Reclamo state; until then an inbound reply here safely
-// falls back to main_menu via D13's existing registry-fallback guard.
+const RECLAMO_AWAITING_FOTO_STATE: ConversationStateName = "reclamo_awaiting_foto";
+// PR5: D20's second re-entry target — conversation-flow.ts executes the
+// `quejas_submit` query effect and re-enters handle() with the synthesized
+// result, exactly like `reclamo_reniec_pending` above.
+const RECLAMO_SUBMIT_PENDING_STATE: ConversationStateName = "reclamo_submit_pending";
+// Terminal (spec: outcome "rejected"). Registered this PR (see
+// closedFlowHandler) — previously (PR4) unregistered and relying on D13's
+// registry-fallback guard.
 const RECLAMO_REJECTED_STATE: ConversationStateName = "reclamo_rejected";
+// Terminal (spec: outcome "continue" — a successful submission).
+const RECLAMO_CONFIRMED_STATE: ConversationStateName = "reclamo_confirmed";
+// Terminal (spec: outcome "rejected" — a quejas-submission rejection, D24).
+const RECLAMO_FAILED_STATE: ConversationStateName = "reclamo_failed";
 
 const RECLAMO_ASK_DNI_BODY = "Ingresa tu DNI (8 dígitos).";
 const RECLAMO_INVALID_DNI_BODY = "El DNI debe tener exactamente 8 dígitos numéricos. Inténtalo de nuevo.";
 const RECLAMO_ASK_NOMBRE_BODY = "Ingresa tus nombres y apellidos, tal como figuran en tu DNI.";
 const RECLAMO_VERIFYING_BODY = "Estamos verificando tus datos…";
 const RECLAMO_PROCESSING_BODY = "Estamos procesando tu solicitud, danos un momento.";
-// Phase 5 scope, out of bounds for this PR — explicit placeholder, same
-// pattern as the Cita stub: state does not advance, so a repeat tap gets
-// the same reply from the same handler rather than an implicit fallback.
-const RECLAMO_SIN_DNI_PLACEHOLDER_BODY =
-  "Estamos preparando el registro de tu reclamo sin DNI. En un momento continuamos.";
-// Reached only after a confirmed RENIEC match; Phase 5 implements the real
-// descripción-capture reply that replaces this placeholder.
-const RECLAMO_DESCRIPCION_PLACEHOLDER_BODY =
-  "Validamos tu identidad correctamente. Estamos preparando el siguiente paso de tu reclamo. En un momento continuamos.";
+// Design's FSM states table: reached both from the sin-DNI shortcut
+// (`reclamo_identity_choice`) and from a confirmed RENIEC match
+// (`reclamo_reniec_pending`) — the exact same prompt either way, since both
+// paths converge on this one shared state.
+const RECLAMO_ASK_DESCRIPCION_BODY = "Describe tu reclamo.";
+const RECLAMO_DESCRIPCION_MAX_LENGTH = 1000;
+const RECLAMO_INVALID_DESCRIPCION_BODY =
+  "La descripción debe tener entre 1 y 1000 caracteres. Inténtalo de nuevo.";
+const RECLAMO_ASK_FOTO_BODY = "Envía una foto o escribe OMITIR.";
+const RECLAMO_INVALID_FOTO_BODY = "No pudimos reconocer tu respuesta. Envía una foto o escribe OMITIR.";
+const RECLAMO_REGISTRANDO_BODY = "Registrando tu reclamo…";
+const RECLAMO_CONFIRMED_BODY = "Tu reclamo fue registrado correctamente. Gracias por tu reporte.";
+const RECLAMO_FAILED_BODY =
+  "No pudimos registrar tu reclamo en este momento. Por favor, inténtalo nuevamente más tarde.";
+const RECLAMO_FAILED_MEDIA_TOO_LARGE_BODY =
+  "La foto enviada supera el tamaño permitido. Por favor, inténtalo nuevamente con una foto más liviana.";
+const RECLAMO_OMITIR_PATTERN = /^omitir$/i;
 // Spec: "a WhatsApp rejection message — MUST NOT throw." Reached on RENIEC
 // not_found or a confirmed no-name-match.
 const RECLAMO_REJECTION_BODY =
   "No pudimos validar tus datos con RENIEC. Verifica tu DNI y tus nombres e inténtalo nuevamente más tarde.";
 
-const RECLAMO_SLOT_KEYS_TO_CLEAR = ["dni", "nombre"] as const;
+// D22 (DNI-3): every terminal Reclamo handler clears all four Reclamo slot
+// keys, whether or not each was ever actually set — a delete on an absent
+// key is a safe no-op, so extending this list ahead of a key being written
+// (mediaId is never stored in slots — it is sourced from `event.mediaId` at
+// effect-construction time, same discipline as `celular`) costs nothing.
+const RECLAMO_SLOT_KEYS_TO_CLEAR = ["dni", "nombre", "queja", "mediaId"] as const;
 
 // D22 (DNI-3): every terminal Reclamo handler clears the Reclamo slots so
 // the at-rest window is minutes, not the session TTL. Delete-based (not a
@@ -265,10 +308,12 @@ function mainMenuHandler(session: ConversationSession, event: FsmEvent): FsmResu
 }
 
 // Design's FSM states table, `reclamo_identity_choice` row. `reclamo_con_dni`
-// advances into the real DNI-capture sequence (this PR); `reclamo_sin_dni`
-// is Phase 5 scope, kept as an explicit placeholder (see
-// RECLAMO_SIN_DNI_PLACEHOLDER_BODY above). Any other reply re-prompts, per
-// spec's "Invalid Input Re-Prompt Discipline".
+// advances into the real DNI-capture sequence (PR4); `reclamo_sin_dni`
+// (PR5) skips identification entirely per spec's "Reclamo sin DNI — Direct
+// Capture" requirement, sharing the same descripción/foto/submit sequence
+// as the con-DNI path from that point on (no dni/nombre slots are ever
+// written on this branch). Any other reply re-prompts, per spec's "Invalid
+// Input Re-Prompt Discipline".
 function reclamoIdentityChoiceHandler(session: ConversationSession, event: FsmEvent): FsmResult {
   const to = event.from ?? "";
   const selection = isInboundEvent(event) ? (event.interactiveReplyId ?? event.text) : undefined;
@@ -283,12 +328,12 @@ function reclamoIdentityChoiceHandler(session: ConversationSession, event: FsmEv
   }
 
   if (selection === RECLAMO_SIN_DNI_ID) {
-    // Phase 5 scope — explicit placeholder, same pattern as the Cita stub:
-    // state stays unchanged so a repeat tap answers from this same branch
-    // rather than an implicit D13 registry fallback.
+    // Spec's sin-DNI shortcut: straight into the shared descripción-capture
+    // state, no dni/nombre/RENIEC step ever entered.
+    const advanced = withState(session, RECLAMO_AWAITING_DESCRIPCION_STATE);
     return {
-      session,
-      effects: [{ kind: "send_text", to, body: RECLAMO_SIN_DNI_PLACEHOLDER_BODY }],
+      session: advanced,
+      effects: [{ kind: "send_text", to, body: RECLAMO_ASK_DESCRIPCION_BODY }],
       outcome: "continue",
     };
   }
@@ -411,13 +456,10 @@ function reclamoReniecPendingHandler(session: ConversationSession, event: FsmEve
   const matched = result.status === "found" && namesMatch(nombre, result);
 
   if (matched) {
-    // Phase 5 owns the real descripción/foto/submit sequence — this PR only
-    // proves the RENIEC match branch reaches a safe, explicit placeholder,
-    // same pattern as the Cita stub, never an implicit D13 fallback.
     const advanced = withState(session, RECLAMO_AWAITING_DESCRIPCION_STATE);
     return {
       session: advanced,
-      effects: [{ kind: "send_text", to, body: RECLAMO_DESCRIPCION_PLACEHOLDER_BODY }],
+      effects: [{ kind: "send_text", to, body: RECLAMO_ASK_DESCRIPCION_BODY }],
       outcome: "continue",
     };
   }
@@ -437,17 +479,153 @@ function reclamoReniecPendingHandler(session: ConversationSession, event: FsmEve
   };
 }
 
-// Phase 5 stub: reached only after a confirmed RENIEC match. State does not
-// advance further here — Phase 5 replaces this handler's logic entirely
-// once descripción capture is implemented (same evolution `awaiting_flow_start`
-// went through between PR1 and PR2).
-function reclamoAwaitingDescripcionPlaceholderHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+// Design's FSM states table, `reclamo_awaiting_descripcion` row — shared by
+// both the sin-DNI shortcut and the post-RENIEC-match con-DNI path (spec:
+// "Descripción, Foto, and Submission (shared by both paths)"). Replaces
+// PR4's explicit placeholder.
+function reclamoAwaitingDescripcionHandler(session: ConversationSession, event: FsmEvent): FsmResult {
   const to = event.from ?? "";
+  const text = isInboundEvent(event) ? event.text?.trim() : undefined;
+
+  if (text !== undefined && text.length >= 1 && text.length <= RECLAMO_DESCRIPCION_MAX_LENGTH) {
+    const advanced = withState(
+      { ...session, slots: { ...session.slots, queja: text } },
+      RECLAMO_AWAITING_FOTO_STATE
+    );
+    return {
+      session: advanced,
+      effects: [{ kind: "send_text", to, body: RECLAMO_ASK_FOTO_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  const rePrompted: ConversationSession = {
+    ...session,
+    counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+  };
+
   return {
-    session,
-    effects: [{ kind: "send_text", to, body: RECLAMO_DESCRIPCION_PLACEHOLDER_BODY }],
+    session: rePrompted,
+    effects: [{ kind: "send_text", to, body: RECLAMO_INVALID_DESCRIPCION_BODY }],
     outcome: "continue",
   };
+}
+
+/** D17/D22: `celular` is `event.from` at effect-construction time — NEVER read from `slots`. */
+function buildQuejaSubmission(session: ConversationSession, celular: string, mediaId: string | null): QuejaSubmission {
+  const dni = typeof session.slots.dni === "string" ? session.slots.dni : null;
+  const nombreCompleto = typeof session.slots.nombre === "string" ? session.slots.nombre : null;
+  const queja = typeof session.slots.queja === "string" ? session.slots.queja : "";
+  return { celular, dni, nombreCompleto, queja, mediaId };
+}
+
+// Design's FSM states table, `reclamo_awaiting_foto` row: a captured
+// `mediaId` OR a literal "OMITIR" reply both advance to
+// `reclamo_submit_pending`, emitting BOTH the "registrando" send_text AND
+// the `quejas_submit` query effect (D20) in the same turn — plain inert
+// data, `handle()` performs no I/O. Spec scenario "Foto without image":
+// anything else re-prompts, no `quejas_submit` effect emitted.
+function reclamoAwaitingFotoHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const mediaId = isInboundEvent(event) ? event.mediaId : undefined;
+  const text = isInboundEvent(event) ? event.text?.trim() : undefined;
+  const hasMedia = typeof mediaId === "string" && mediaId.length > 0;
+  const skippedPhoto = text !== undefined && RECLAMO_OMITIR_PATTERN.test(text);
+
+  if (hasMedia || skippedPhoto) {
+    const submission = buildQuejaSubmission(session, to, hasMedia ? (mediaId as string) : null);
+    const advanced = withState(session, RECLAMO_SUBMIT_PENDING_STATE);
+    return {
+      session: advanced,
+      effects: [
+        { kind: "send_text", to, body: RECLAMO_REGISTRANDO_BODY },
+        { kind: "quejas_submit", submission },
+      ],
+      outcome: "continue",
+    };
+  }
+
+  const rePrompted: ConversationSession = {
+    ...session,
+    counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+  };
+
+  return {
+    session: rePrompted,
+    effects: [{ kind: "send_text", to, body: RECLAMO_INVALID_FOTO_BODY }],
+    outcome: "continue",
+  };
+}
+
+// D20's second re-entry target (mirrors `reclamoReniecPendingHandler`
+// above). Spec: submission success -> confirmation state with a
+// confirmation message; D24: a quejas rejection is a normal transition to a
+// closure state with a WhatsApp reply, never a thrown error. D22/DNI-3:
+// both terminal branches clear the Reclamo slots.
+function reclamoSubmitPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+
+  if (isInboundEvent(event) || event.kind !== "quejas_submit_result") {
+    // Defensive: pending states are never persisted, and conversation-flow.ts
+    // only ever synthesizes the system-event kind matching the query effect
+    // THIS state itself emitted — same defensive discipline as
+    // reclamoReniecPendingHandler. Never crash regardless.
+    return {
+      session,
+      effects: [{ kind: "send_text", to, body: RECLAMO_PROCESSING_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  const result = event.result;
+
+  if (result.status === "accepted") {
+    const confirmed = withState({ ...session, slots: clearReclamoSlots(session.slots) }, RECLAMO_CONFIRMED_STATE);
+    const body =
+      result.reference !== undefined
+        ? `${RECLAMO_CONFIRMED_BODY} N° de referencia: ${result.reference}.`
+        : RECLAMO_CONFIRMED_BODY;
+    return {
+      session: confirmed,
+      effects: [
+        { kind: "send_text", to, body },
+        { kind: "end_session", to },
+      ],
+      outcome: "continue",
+    };
+  }
+
+  if (result.status === "rejected") {
+    const failed = withState({ ...session, slots: clearReclamoSlots(session.slots) }, RECLAMO_FAILED_STATE);
+    const body = result.reason === "media_too_large" ? RECLAMO_FAILED_MEDIA_TOO_LARGE_BODY : RECLAMO_FAILED_BODY;
+    return {
+      session: failed,
+      effects: [
+        { kind: "send_text", to, body },
+        { kind: "end_session", to },
+      ],
+      outcome: "rejected",
+    };
+  }
+
+  // Defensive: unreachable given QuejaSubmissionResult's exhaustive status
+  // union, but a foreign/malformed result must never crash the worker.
+  return {
+    session,
+    effects: [{ kind: "send_text", to, body: RECLAMO_PROCESSING_BODY }],
+    outcome: "continue",
+  };
+}
+
+// Design's FSM states table: every terminal Reclamo state
+// (`reclamo_confirmed`, `reclamo_rejected`, `reclamo_failed`) shares one
+// handler — "any inbound -> main_menu": a fresh start with the main menu
+// list. Slots are already cleared at the terminal TRANSITION itself
+// (D22/DNI-3), so this handler does no clearing of its own.
+function closedFlowHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const reset = withState(session, MAIN_MENU_STATE);
+  return { session: reset, effects: [mainMenuListEffect(to)], outcome: "continue" };
 }
 
 export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
@@ -457,7 +635,12 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [RECLAMO_AWAITING_DNI_STATE]: reclamoAwaitingDniHandler,
   [RECLAMO_AWAITING_NOMBRE_STATE]: reclamoAwaitingNombreHandler,
   [RECLAMO_RENIEC_PENDING_STATE]: reclamoReniecPendingHandler,
-  [RECLAMO_AWAITING_DESCRIPCION_STATE]: reclamoAwaitingDescripcionPlaceholderHandler,
+  [RECLAMO_AWAITING_DESCRIPCION_STATE]: reclamoAwaitingDescripcionHandler,
+  [RECLAMO_AWAITING_FOTO_STATE]: reclamoAwaitingFotoHandler,
+  [RECLAMO_SUBMIT_PENDING_STATE]: reclamoSubmitPendingHandler,
+  [RECLAMO_REJECTED_STATE]: closedFlowHandler,
+  [RECLAMO_CONFIRMED_STATE]: closedFlowHandler,
+  [RECLAMO_FAILED_STATE]: closedFlowHandler,
 };
 
 // D13: looks up the current state's handler; falls back to main_menu for an

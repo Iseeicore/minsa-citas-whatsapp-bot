@@ -1,11 +1,12 @@
 import type { SessionStore } from "../ports/session-store.js";
 import type { WhatsappOutboundSender } from "../ports/whatsapp-outbound-sender.js";
 import type { ReniecLookupClient } from "../ports/reniec-lookup-client.js";
+import type { QuejaPayload, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
 import type { FsmEffect, FsmQueryEffect, FsmSendEffect, FsmSystemEvent } from "../domain/conversation-fsm.js";
 import { handle } from "../domain/conversation-fsm.js";
 import type { ConversationSession } from "../domain/conversation-session.js";
 import { createSession } from "../domain/conversation-session.js";
-import { FsmContractViolationError } from "../domain/errors.js";
+import { FsmContractViolationError, QuejasSubmissionClientNotConfiguredError } from "../domain/errors.js";
 import type { InboundConversationEvent } from "../domain/inbound-conversation-event.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
 
@@ -25,6 +26,15 @@ export interface ConversationFlowServiceDeps {
   sender: WhatsappOutboundSender;
   /** D20: the sole executor of the `reniec_lookup` query effect — handle() never performs I/O itself. */
   reniecLookupClient: ReniecLookupClient;
+  /**
+   * D20: the sole executor of the `quejas_submit` query effect. OPTIONAL —
+   * the real adapter (`http-quejas-submission-client.ts`) stays Phase 7,
+   * D21-gated. Until Phase 7 injects it, `runQueryEffect` throws
+   * `QuejasSubmissionClientNotConfiguredError` for a `quejas_submit` effect
+   * rather than leaving worker.ts unable to compile without a not-yet-built
+   * adapter.
+   */
+  quejasSubmissionClient?: QuejasSubmissionClient;
   config: {
     /** D19: keys the D17 MSISDN digest used as the session lookup key. */
     sessionKeySecret: string;
@@ -34,7 +44,7 @@ export interface ConversationFlowServiceDeps {
 
 /** True for a query effect (D20) — false for a plain WhatsApp-send effect. */
 function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
-  return effect.kind === "reniec_lookup";
+  return effect.kind === "reniec_lookup" || effect.kind === "quejas_submit";
 }
 
 function isSendEffect(effect: FsmEffect): effect is FsmSendEffect {
@@ -106,14 +116,36 @@ export function assertReentryEmittedNoQueryEffect(effects: readonly FsmEffect[])
 // `from` is copied from the triggering InboundConversationEvent (D17
 // discipline carried forward) — never from `session.slots`.
 async function runQueryEffect(
-  reniecLookupClient: ReniecLookupClient,
+  clients: { reniecLookupClient: ReniecLookupClient; quejasSubmissionClient?: QuejasSubmissionClient },
   effect: FsmQueryEffect,
   triggeringEvent: InboundConversationEvent
 ): Promise<FsmSystemEvent> {
   switch (effect.kind) {
     case "reniec_lookup": {
-      const result = await reniecLookupClient.lookup(effect.dni);
+      const result = await clients.reniecLookupClient.lookup(effect.dni);
       return { source: "system", from: triggeringEvent.from, kind: "reniec_lookup_result", result };
+    }
+    case "quejas_submit": {
+      if (clients.quejasSubmissionClient === undefined) {
+        // Phase 7, D21-gated (see errors.ts) — a deterministic wiring gap,
+        // never a citizen-triggerable condition.
+        throw new QuejasSubmissionClientNotConfiguredError(
+          "[conversation-flow] quejas_submit query effect emitted but no QuejasSubmissionClient is configured (Phase 7, D21-gated)."
+        );
+      }
+      const { submission } = effect;
+      const payload: QuejaPayload = {
+        dni: submission.dni,
+        nombre_completo: submission.nombreCompleto,
+        celular: submission.celular,
+        queja: submission.queja,
+        // D21-gated (Phase 6): encodeImagenField()/the Meta media downloader
+        // do not exist yet, so imagen is always null until then, regardless
+        // of whether a mediaId was captured.
+        imagen: null,
+      };
+      const result = await clients.quejasSubmissionClient.submit(payload);
+      return { source: "system", from: triggeringEvent.from, kind: "quejas_submit_result", result };
     }
   }
 }
@@ -146,7 +178,7 @@ async function runQueryEffect(
 // (soleQueryEffect / assertReentryEmittedNoQueryEffect above) — thrown, never
 // silently absorbed, making a THIRD handle() call structurally impossible.
 export function createConversationFlowService(deps: ConversationFlowServiceDeps): ConversationFlowService {
-  const { sessionStore, sender, reniecLookupClient, config } = deps;
+  const { sessionStore, sender, reniecLookupClient, quejasSubmissionClient, config } = deps;
 
   return {
     async process(event: InboundConversationEvent): Promise<void> {
@@ -166,7 +198,7 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
       let finalResult = first;
 
       if (query !== undefined) {
-        const systemEvent = await runQueryEffect(reniecLookupClient, query, event);
+        const systemEvent = await runQueryEffect({ reniecLookupClient, quejasSubmissionClient }, query, event);
         const second = handle(first.session, systemEvent);
         messagesSent += await runSendEffects(sender, second.effects);
         assertReentryEmittedNoQueryEffect(second.effects);

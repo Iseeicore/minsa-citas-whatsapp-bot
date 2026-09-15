@@ -37,3 +37,13 @@ export class BusinessRejectionError extends AppError {}
 // the dead-letter for a bug that retrying cannot fix.
 /** The FSM violated D20's single-query-effect / no-chained-re-entry contract. Never retriable. */
 export class FsmContractViolationError extends AppError {}
+
+// PR5: `quejas_submit` is Phase 6/7, D21-gated — its real HTTP client
+// (`http-quejas-submission-client.ts`) does not exist yet. A `quejas_submit`
+// query effect reaching conversation-flow.ts before Phase 7 wires the real
+// client is a deployment/configuration gap, not a citizen-triggerable
+// condition or an infra hiccup — retrying will never succeed, so it
+// classifies "business" in worker-outcome.ts, same rationale as
+// FsmContractViolationError.
+/** `ConversationFlowServiceDeps.quejasSubmissionClient` is not yet configured (Phase 7, D21-gated). Never retriable. */
+export class QuejasSubmissionClientNotConfiguredError extends AppError {}

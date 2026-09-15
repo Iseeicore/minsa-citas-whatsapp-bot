@@ -81,6 +81,33 @@ describe("worker", () => {
       expect(context.jobId).toBe("job-2");
     });
 
+    // D22/DNI-1 (PR5): mirrors the test above, but with Reclamo-shaped
+    // content (a DNI and a queja description embedded in the inbound text —
+    // this is exactly what a citizen would type at reclamo_awaiting_dni /
+    // reclamo_awaiting_descripcion). Proves the same log-leak guard holds
+    // for Reclamo traffic specifically, not only for the generic fixture.
+    it("D22/DNI-1: never logs a Reclamo DNI or queja description carried in the inbound text", async () => {
+      vi.resetModules();
+      const { logger } = await import("./logger.js");
+      const infoSpy = vi.spyOn(logger, "info").mockImplementation(() => logger);
+      const { createProcessConversationEvent } = await import("./worker.js");
+
+      const DNI_TEXT = "12345678";
+      const QUEJA_TEXT = `Mi DNI es ${DNI_TEXT}. Hay un poste de luz caído en mi calle, es peligroso.`;
+      const eventData = fakeEventData({ eventId: "wamid.reclamo-1", text: QUEJA_TEXT });
+      const job = { id: "job-reclamo-1", name: "inbound-event", attemptsMade: 0, data: eventData } as unknown as Job;
+      const processConversationEvent = createProcessConversationEvent({
+        conversationFlow: fakeConversationFlow(vi.fn().mockResolvedValue(undefined)),
+      });
+
+      await processConversationEvent(job);
+
+      const [context] = infoSpy.mock.calls[0] as [Record<string, unknown>];
+      const serialized = JSON.stringify(context);
+      expect(serialized).not.toContain(DNI_TEXT);
+      expect(serialized).not.toContain(QUEJA_TEXT);
+    });
+
     // D14: classifyWorkerOutcome() wraps conversationFlow.process() — a
     // transient infra failure (Redis unreachable, Graph API timeout/5xx)
     // must rethrow so BullMQ's existing 3-attempt exponential backoff still

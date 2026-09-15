@@ -1,4 +1,4 @@
-import { BusinessRejectionError, FsmContractViolationError } from "./errors.js";
+import { BusinessRejectionError, FsmContractViolationError, QuejasSubmissionClientNotConfiguredError } from "./errors.js";
 
 /**
  * "transient" -> BullMQ should retry (with its existing exponential backoff).
@@ -18,8 +18,12 @@ export type WorkerOutcome = "transient" | "business";
 // deterministic programmer error (the FSM violated the single-query-effect /
 // no-chained-re-entry contract), not a transient infra hiccup. Retrying it
 // three times would only delay a dead-letter that retrying cannot avoid.
+//
+// PR5: `QuejasSubmissionClientNotConfiguredError` is the same class of
+// deterministic, never-retriable failure — see errors.ts.
 export function classifyWorkerOutcome(err: unknown): WorkerOutcome {
   if (err instanceof BusinessRejectionError) return "business";
   if (err instanceof FsmContractViolationError) return "business";
+  if (err instanceof QuejasSubmissionClientNotConfiguredError) return "business";
   return "transient";
 }

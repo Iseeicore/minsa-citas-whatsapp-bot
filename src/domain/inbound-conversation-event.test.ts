@@ -91,6 +91,37 @@ const BUTTON_REPLY_PAYLOAD = {
   ],
 };
 
+// Task 6.2 (pulled forward into PR5 — see inbound-conversation-event.ts):
+// a real WhatsApp image message carries message.image.{id,mime_type}, a
+// distinct shape from text/interactive messages.
+const IMAGE_MESSAGE_PAYLOAD = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      id: "entry-5",
+      changes: [
+        {
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: { phone_number_id: "1234567890" },
+            contacts: [{ profile: { name: "Juan Perez" }, wa_id: "51999999999" }],
+            messages: [
+              {
+                from: "51999999999",
+                id: "wamid.image-1",
+                timestamp: "1700000400",
+                type: "image",
+                image: { id: "media-handle-123", mime_type: "image/jpeg", sha256: "abc" },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
 const STATUS_CALLBACK_PAYLOAD = {
   object: "whatsapp_business_account",
   entry: [
@@ -157,6 +188,42 @@ describe("toInboundConversationEvent", () => {
     expect(event.interactiveReplyId).toBe("registrar_reclamo");
     expect(event.text).toBeUndefined();
     expect(event.raw).toBe(BUTTON_REPLY_PAYLOAD);
+  });
+
+  it("maps an image message, populating mediaId and mediaMimeType from message.image", () => {
+    const event = toInboundConversationEvent(IMAGE_MESSAGE_PAYLOAD);
+
+    expect(event.messageType).toBe("image");
+    expect(event.mediaId).toBe("media-handle-123");
+    expect(event.mediaMimeType).toBe("image/jpeg");
+  });
+
+  it("leaves mediaId and mediaMimeType undefined on a text message — never fabricates media fields", () => {
+    const event = toInboundConversationEvent(TEXT_MESSAGE_PAYLOAD);
+
+    expect(event.mediaId).toBeUndefined();
+    expect(event.mediaMimeType).toBeUndefined();
+  });
+
+  it("never throws and yields undefined media fields on a malformed image object", () => {
+    const raw = {
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          changes: [
+            {
+              field: "messages",
+              value: { messages: [{ from: "519999", id: "wamid.bad-image", type: "image", image: "not-an-object" }] },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(() => toInboundConversationEvent(raw)).not.toThrow();
+    const event = toInboundConversationEvent(raw);
+    expect(event.mediaId).toBeUndefined();
+    expect(event.mediaMimeType).toBeUndefined();
   });
 
   it("maps a status-callback payload (no top-level message) to messageType 'unknown', preserving raw", () => {

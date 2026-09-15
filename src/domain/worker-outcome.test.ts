@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyWorkerOutcome } from "./worker-outcome.js";
-import { BusinessRejectionError, TransientFailureError } from "./errors.js";
+import { BusinessRejectionError, QuejasSubmissionClientNotConfiguredError, TransientFailureError } from "./errors.js";
 
 // D14: unknown/unclassified errors default to transient — the producer
 // already caps attempts:3 with exponential backoff, so an unknown failure
@@ -13,6 +13,10 @@ describe("classifyWorkerOutcome", () => {
 
   it("classifies a BusinessRejectionError as business", () => {
     expect(classifyWorkerOutcome(new BusinessRejectionError("citizen rejected the flow"))).toBe("business");
+  });
+
+  it("classifies a QuejasSubmissionClientNotConfiguredError as business (PR5 — deterministic wiring gap, never retriable)", () => {
+    expect(classifyWorkerOutcome(new QuejasSubmissionClientNotConfiguredError("not wired yet"))).toBe("business");
   });
 
   it("classifies a plain, unclassified Error as transient (safe default)", () => {

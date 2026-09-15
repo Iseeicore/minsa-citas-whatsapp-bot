@@ -220,15 +220,16 @@ describe("handle — reclamo_identity_choice (Phase 4, D20/D23 con-DNI branch)",
     expect(result.outcome).toBe("continue");
   });
 
-  it("replies with an explicit sin-DNI placeholder (Phase 5 scope) and leaves state unchanged on reclamo_sin_dni", () => {
+  it("advances directly to reclamo_awaiting_descripcion on reclamo_sin_dni — skips DNI/nombre/RENIEC entirely (Phase 5)", () => {
     const session = parkedSession("reclamo_identity_choice");
     const event = makeEvent({ interactiveReplyId: "reclamo_sin_dni" });
 
     const result = handle(session, event);
 
-    expect(result.session.state).toBe("reclamo_identity_choice");
-    expect(result.effects).toHaveLength(1);
-    expect(result.effects[0].kind).toBe("send_text");
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.session.slots.dni).toBeUndefined();
+    expect(result.session.slots.nombre).toBeUndefined();
+    expect(result.effects).toEqual([{ kind: "send_text", to: FROM, body: "Describe tu reclamo." }]);
     expect(result.outcome).toBe("continue");
   });
 
@@ -331,7 +332,7 @@ describe("handle — reclamo_awaiting_nombre", () => {
 });
 
 describe("handle — reclamo_reniec_pending (D20 re-entry target)", () => {
-  it("advances to reclamo_awaiting_descripcion with a placeholder reply on a RENIEC match", () => {
+  it("advances to reclamo_awaiting_descripcion and asks for the descripción on a RENIEC match (Phase 5)", () => {
     const session = parkedSession("reclamo_reniec_pending", { dni: "12345678", nombre: "Juan Perez" });
     const systemEvent = makeSystemEvent({
       status: "found",
@@ -344,8 +345,7 @@ describe("handle — reclamo_reniec_pending (D20 re-entry target)", () => {
 
     expect(result.session.state).toBe("reclamo_awaiting_descripcion");
     expect(result.outcome).toBe("continue");
-    expect(result.effects).toHaveLength(1);
-    expect(result.effects[0].kind).toBe("send_text");
+    expect(result.effects).toEqual([{ kind: "send_text", to: FROM, body: "Describe tu reclamo." }]);
     // No further query effect — this is the SECOND handle() call in the D20
     // turn; a third would be a contract violation (tested in conversation-flow.test.ts).
     expect(result.effects.some((effect) => effect.kind === "reniec_lookup")).toBe(false);
@@ -404,16 +404,241 @@ describe("handle — reclamo_reniec_pending (D20 re-entry target)", () => {
   });
 });
 
-describe("handle — reclamo_awaiting_descripcion (Phase 5 placeholder)", () => {
-  it("replies with the placeholder and does not advance further (Phase 5 owns the real handler)", () => {
+describe("handle — reclamo_awaiting_descripcion (Phase 5)", () => {
+  it("advances to reclamo_awaiting_foto and stores slots.queja on a valid trimmed description", () => {
     const session = parkedSession("reclamo_awaiting_descripcion");
-    const event = makeEvent({ text: "cualquier cosa" });
+    const event = makeEvent({ text: "  Se cayó un poste de luz  " });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_foto");
+    expect(result.session.slots.queja).toBe("Se cayó un poste de luz");
+    expect(result.effects).toEqual([{ kind: "send_text", to: FROM, body: "Envía una foto o escribe OMITIR." }]);
+    expect(result.outcome).toBe("continue");
+  });
+
+  it("re-prompts and increments invalidAttempts on an empty/whitespace-only description", () => {
+    const session = parkedSession("reclamo_awaiting_descripcion");
+    const event = makeEvent({ text: "   " });
 
     const result = handle(session, event);
 
     expect(result.session.state).toBe("reclamo_awaiting_descripcion");
-    expect(result.effects).toHaveLength(1);
-    expect(result.effects[0].kind).toBe("send_text");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.session.slots.queja).toBeUndefined();
+  });
+
+  it("re-prompts on a description longer than 1000 characters", () => {
+    const session = parkedSession("reclamo_awaiting_descripcion");
+    const event = makeEvent({ text: "x".repeat(1001) });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+  });
+
+  it("re-prompts on a missing text reply (e.g. a media message), never crashing", () => {
+    const session = parkedSession("reclamo_awaiting_descripcion");
+    const event = makeEvent({ text: undefined, messageType: "image" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+  });
+});
+
+describe("handle — reclamo_awaiting_foto (Phase 5, spec 'Foto without image')", () => {
+  it("advances to reclamo_submit_pending and emits BOTH a send_text and the quejas_submit query effect when a mediaId is present", () => {
+    const session = parkedSession("reclamo_awaiting_foto", { dni: "12345678", nombre: "Juan Perez", queja: "Reclamo real" });
+    const event = makeEvent({ mediaId: "media-handle-1", mediaMimeType: "image/jpeg" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_submit_pending");
+    expect(result.effects).toHaveLength(2);
+    expect(result.effects[0]).toEqual({ kind: "send_text", to: FROM, body: "Registrando tu reclamo…" });
+    const queryEffect = result.effects[1];
+    if (queryEffect.kind !== "quejas_submit") throw new Error("expected quejas_submit effect");
+    expect(queryEffect.submission).toEqual({
+      celular: FROM,
+      dni: "12345678",
+      nombreCompleto: "Juan Perez",
+      queja: "Reclamo real",
+      mediaId: "media-handle-1",
+    });
+  });
+
+  it("advances to reclamo_submit_pending with mediaId: null on a case-insensitive OMITIR reply", () => {
+    const session = parkedSession("reclamo_awaiting_foto", { queja: "Reclamo real" });
+    const event = makeEvent({ text: "  omitir  " });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_submit_pending");
+    const queryEffect = result.effects.find((effect) => effect.kind === "quejas_submit");
+    if (queryEffect?.kind !== "quejas_submit") throw new Error("expected quejas_submit effect");
+    expect(queryEffect.submission.mediaId).toBeNull();
+  });
+
+  it("sin-DNI path: submission carries dni: null and nombreCompleto: null (never fabricated)", () => {
+    const session = parkedSession("reclamo_awaiting_foto", { queja: "Reclamo sin DNI" });
+    const event = makeEvent({ text: "OMITIR" });
+
+    const result = handle(session, event);
+
+    const queryEffect = result.effects.find((effect) => effect.kind === "quejas_submit");
+    if (queryEffect?.kind !== "quejas_submit") throw new Error("expected quejas_submit effect");
+    expect(queryEffect.submission.dni).toBeNull();
+    expect(queryEffect.submission.nombreCompleto).toBeNull();
+  });
+
+  it("D17/D22: submission.celular equals event.from even when slots carries a different planted decoy celular value", () => {
+    const session = parkedSession("reclamo_awaiting_foto", { queja: "Reclamo real", celular: "DECOY-9999999" });
+    const event = makeEvent({ mediaId: "media-handle-2", from: "51900000000" });
+
+    const result = handle(session, event);
+
+    const queryEffect = result.effects.find((effect) => effect.kind === "quejas_submit");
+    if (queryEffect?.kind !== "quejas_submit") throw new Error("expected quejas_submit effect");
+    expect(queryEffect.submission.celular).toBe("51900000000");
+  });
+
+  it("spec scenario 'Foto without image': re-prompts and emits NO quejas_submit effect when the reply carries no media id", () => {
+    const session = parkedSession("reclamo_awaiting_foto", { queja: "Reclamo real" });
+    const event = makeEvent({ text: "no tengo foto" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_awaiting_foto");
+    expect(result.session.counters.invalidAttempts).toBe(1);
+    expect(result.effects.some((effect) => effect.kind === "quejas_submit")).toBe(false);
+  });
+});
+
+describe("handle — reclamo_submit_pending (D20 second re-entry target)", () => {
+  it("advances to reclamo_confirmed (terminal) with a confirmation message and end_session on an accepted submission", () => {
+    const session = parkedSession("reclamo_submit_pending", { dni: "12345678", nombre: "Juan Perez", queja: "algo" });
+    const systemEvent: FsmSystemEvent = {
+      source: "system",
+      from: FROM,
+      kind: "quejas_submit_result",
+      result: { status: "accepted", reference: "REF-1" },
+    };
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("reclamo_confirmed");
+    expect(result.outcome).toBe("continue");
+    expect(result.effects.map((effect) => effect.kind)).toEqual(["send_text", "end_session"]);
+    expect((result.effects[0] as { body: string }).body).toContain("REF-1");
+  });
+
+  it("advances to reclamo_failed (terminal, outcome 'rejected') with a reason-specific message on a rejected submission — never throws", () => {
+    const session = parkedSession("reclamo_submit_pending", { dni: "12345678", nombre: "Juan Perez", queja: "algo" });
+    const systemEvent: FsmSystemEvent = {
+      source: "system",
+      from: FROM,
+      kind: "quejas_submit_result",
+      result: { status: "rejected", reason: "media_too_large" },
+    };
+
+    const result = handle(session, systemEvent);
+
+    expect(result.session.state).toBe("reclamo_failed");
+    expect(result.outcome).toBe("rejected");
+    expect(result.effects.map((effect) => effect.kind)).toEqual(["send_text", "end_session"]);
+  });
+
+  it("D22/DNI-3: clears dni/nombre/queja slots on BOTH the confirmed and the failed terminal transition", () => {
+    const acceptedSession = parkedSession("reclamo_submit_pending", {
+      dni: "12345678",
+      nombre: "Juan Perez",
+      queja: "detalle sensible del reclamo",
+    });
+    const acceptedResult = handle(acceptedSession, {
+      source: "system",
+      from: FROM,
+      kind: "quejas_submit_result",
+      result: { status: "accepted" },
+    });
+    expect(acceptedResult.session.slots.dni).toBeUndefined();
+    expect(acceptedResult.session.slots.nombre).toBeUndefined();
+    expect(acceptedResult.session.slots.queja).toBeUndefined();
+    const acceptedSerialized = JSON.stringify(acceptedResult.session);
+    expect(acceptedSerialized).not.toContain("12345678");
+    expect(acceptedSerialized).not.toContain("Juan Perez");
+    expect(acceptedSerialized).not.toContain("detalle sensible del reclamo");
+
+    const rejectedSession = parkedSession("reclamo_submit_pending", {
+      dni: "87654321",
+      nombre: "Maria Lopez",
+      queja: "otro detalle sensible",
+    });
+    const rejectedResult = handle(rejectedSession, {
+      source: "system",
+      from: FROM,
+      kind: "quejas_submit_result",
+      result: { status: "rejected", reason: "validation_failed" },
+    });
+    expect(rejectedResult.session.slots.dni).toBeUndefined();
+    expect(rejectedResult.session.slots.nombre).toBeUndefined();
+    expect(rejectedResult.session.slots.queja).toBeUndefined();
+    const rejectedSerialized = JSON.stringify(rejectedResult.session);
+    expect(rejectedSerialized).not.toContain("87654321");
+    expect(rejectedSerialized).not.toContain("Maria Lopez");
+    expect(rejectedSerialized).not.toContain("otro detalle sensible");
+  });
+
+  it("stays unchanged and re-prompts with a processing message on a defensive stray inbound event (pending states are never persisted)", () => {
+    const session = parkedSession("reclamo_submit_pending", { queja: "algo" });
+    const event = makeEvent({ text: "hola de nuevo" });
+
+    const result = handle(session, event);
+
+    expect(result.session.state).toBe("reclamo_submit_pending");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Estamos procesando tu solicitud, danos un momento." },
+    ]);
+    expect(result.outcome).toBe("continue");
+  });
+});
+
+describe("handle — terminal Reclamo states share closedFlowHandler (design's FSM states table)", () => {
+  it.each(["reclamo_confirmed", "reclamo_rejected", "reclamo_failed"] as const)(
+    "%s: any inbound event resets to main_menu with the menu list, a fresh start",
+    (terminalState) => {
+      const session = parkedSession(terminalState);
+      const event = makeEvent({ text: "hola de nuevo" });
+
+      const result = handle(session, event);
+
+      expect(result.session.state).toBe("main_menu");
+      expect(result.effects).toHaveLength(1);
+      expect(result.effects[0].kind).toBe("send_interactive_list");
+      expect(result.outcome).toBe("continue");
+    }
+  );
+});
+
+describe("handle — sin-DNI shortcut, end to end (spec's 'Reclamo sin DNI — Direct Capture')", () => {
+  it("reclamo_identity_choice -> reclamo_awaiting_descripcion -> reclamo_awaiting_foto -> reclamo_submit_pending, never entering a DNI/nombre/RENIEC state", () => {
+    const identityChoice = handle(parkedSession("reclamo_identity_choice"), makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
+    expect(identityChoice.session.state).toBe("reclamo_awaiting_descripcion");
+
+    const descripcion = handle(identityChoice.session, makeEvent({ text: "Fuga de agua en mi calle" }));
+    expect(descripcion.session.state).toBe("reclamo_awaiting_foto");
+    expect(descripcion.session.slots.dni).toBeUndefined();
+    expect(descripcion.session.slots.nombre).toBeUndefined();
+
+    const foto = handle(descripcion.session, makeEvent({ text: "OMITIR" }));
+    expect(foto.session.state).toBe("reclamo_submit_pending");
+    const queryEffect = foto.effects.find((effect) => effect.kind === "quejas_submit");
+    if (queryEffect?.kind !== "quejas_submit") throw new Error("expected quejas_submit effect");
+    expect(queryEffect.submission.dni).toBeNull();
+    expect(queryEffect.submission.nombreCompleto).toBeNull();
+    expect(queryEffect.submission.queja).toBe("Fuga de agua en mi calle");
   });
 });
 

@@ -7,9 +7,14 @@ import type {
   WhatsappOutboundSender,
 } from "../ports/whatsapp-outbound-sender.js";
 import type { ReniecLookupClient, ReniecLookupResult } from "../ports/reniec-lookup-client.js";
+import type { QuejaPayload, QuejaSubmissionResult, QuejasSubmissionClient } from "../ports/quejas-submission-client.js";
 import { createMemorySessionStore } from "../adapters/memory-session-store.js";
 import { msisdnDigest } from "../domain/msisdn-fingerprint.js";
-import { FsmContractViolationError, TransientFailureError } from "../domain/errors.js";
+import {
+  FsmContractViolationError,
+  QuejasSubmissionClientNotConfiguredError,
+  TransientFailureError,
+} from "../domain/errors.js";
 import { assertReentryEmittedNoQueryEffect, createConversationFlowService, soleQueryEffect } from "./conversation-flow.js";
 
 const SESSION_KEY_SECRET = "test-session-key-secret";
@@ -79,10 +84,31 @@ function fakeReniecLookupClient(opts: { result?: ReniecLookupResult; failWith?: 
   return { client, calls };
 }
 
+// PR5: hand-written fake — task 5.4, "no real adapter needed" (the real
+// http-quejas-submission-client.ts stays Phase 7, D21-gated).
+function fakeQuejasSubmissionClient(opts: { result?: QuejaSubmissionResult; failWith?: Error } = {}): {
+  client: QuejasSubmissionClient;
+  payloads: QuejaPayload[];
+} {
+  const payloads: QuejaPayload[] = [];
+  const result: QuejaSubmissionResult = opts.result ?? { status: "accepted" };
+
+  const client: QuejasSubmissionClient = {
+    async submit(payload: QuejaPayload) {
+      payloads.push(payload);
+      if (opts.failWith !== undefined) throw opts.failWith;
+      return result;
+    },
+  };
+
+  return { client, payloads };
+}
+
 function makeService(
   sender: WhatsappOutboundSender,
   sessionStore = createMemorySessionStore({ logger: fakeLogger() }),
-  reniecLookupClient: ReniecLookupClient = fakeReniecLookupClient().client
+  reniecLookupClient: ReniecLookupClient = fakeReniecLookupClient().client,
+  quejasSubmissionClient?: QuejasSubmissionClient
 ) {
   return {
     sessionStore,
@@ -90,6 +116,7 @@ function makeService(
       sessionStore,
       sender,
       reniecLookupClient,
+      quejasSubmissionClient,
       config: { sessionKeySecret: SESSION_KEY_SECRET, sessionTtlSeconds: SESSION_TTL_SECONDS },
     }),
   };
@@ -288,6 +315,139 @@ describe("createConversationFlowService — D20 bounded re-entry (con-DNI RENIEC
     // the original citizen, not something re-derived from slots.
     expect(calls.every((call) => call.to === FROM_MSISDN)).toBe(true);
     expect(reniecCalls).toEqual([DNI]);
+  });
+});
+
+describe("createConversationFlowService — PR5: quejas_submit bounded re-entry (con-DNI and sin-DNI)", () => {
+  const DNI = "12345678";
+  const NOMBRE = "Juan Perez";
+  const MATCH_RESULT: ReniecLookupResult = {
+    status: "found",
+    nombres: "Juan Carlos",
+    apellidoPaterno: "Perez",
+    apellidoMaterno: "Lopez",
+  };
+
+  it("executes quejas_submit exactly once and persists reclamo_confirmed on an accepted con-DNI submission", async () => {
+    const { client: reniecLookupClient } = fakeReniecLookupClient({ result: MATCH_RESULT });
+    const { client: quejasSubmissionClient, payloads } = fakeQuejasSubmissionClient({
+      result: { status: "accepted", reference: "REF-42" },
+    });
+    const { sender } = fakeSender();
+    const { sessionStore, service } = makeService(sender, undefined, reniecLookupClient, quejasSubmissionClient);
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+
+    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await service.process(makeEvent({ interactiveReplyId: "reclamo_con_dni" }));
+    await service.process(makeEvent({ text: DNI }));
+    await service.process(makeEvent({ text: NOMBRE })); // -> reclamo_awaiting_descripcion (RENIEC match)
+    await service.process(makeEvent({ text: "Fuga de agua" })); // -> reclamo_awaiting_foto
+    await service.process(makeEvent({ mediaId: "media-1" })); // -> quejas_submit + re-entry -> reclamo_confirmed
+
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]).toEqual({
+      dni: DNI,
+      nombre_completo: NOMBRE,
+      celular: FROM_MSISDN,
+      queja: "Fuga de agua",
+      imagen: null,
+    });
+
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("reclamo_confirmed");
+  });
+
+  it("sin-DNI: submits with dni: null / nombre_completo: null and persists reclamo_confirmed", async () => {
+    const { client: quejasSubmissionClient, payloads } = fakeQuejasSubmissionClient();
+    const { sender } = fakeSender();
+    const { sessionStore, service } = makeService(sender, undefined, undefined, quejasSubmissionClient);
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+
+    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await service.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" })); // -> reclamo_awaiting_descripcion
+    await service.process(makeEvent({ text: "Fuga de agua" })); // -> reclamo_awaiting_foto
+    await service.process(makeEvent({ text: "OMITIR" })); // -> quejas_submit + re-entry -> reclamo_confirmed
+
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0].dni).toBeNull();
+    expect(payloads[0].nombre_completo).toBeNull();
+    expect(payloads[0].queja).toBe("Fuga de agua");
+
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("reclamo_confirmed");
+  });
+
+  it("persists reclamo_failed on a rejected quejas submission — never throws (D24)", async () => {
+    const { client: quejasSubmissionClient } = fakeQuejasSubmissionClient({
+      result: { status: "rejected", reason: "media_too_large" },
+    });
+    const { sender } = fakeSender();
+    const { sessionStore, service } = makeService(sender, undefined, undefined, quejasSubmissionClient);
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+
+    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await service.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
+    await service.process(makeEvent({ text: "Fuga de agua" }));
+    await service.process(makeEvent({ text: "OMITIR" }));
+
+    const stored = await sessionStore.load(key);
+    expect(stored?.state).toBe("reclamo_failed");
+  });
+
+  it("D22: terminal session excludes the queja text after a confirmed submission", async () => {
+    const { client: quejasSubmissionClient } = fakeQuejasSubmissionClient();
+    const { sender } = fakeSender();
+    const { sessionStore, service } = makeService(sender, undefined, undefined, quejasSubmissionClient);
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+
+    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await service.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
+    await service.process(makeEvent({ text: "detalle sensible del reclamo" }));
+    await service.process(makeEvent({ text: "OMITIR" }));
+
+    const stored = await sessionStore.load(key);
+    expect(JSON.stringify(stored)).not.toContain("detalle sensible del reclamo");
+  });
+
+  it("D17/D22: the submitted celular is event.from, ignoring a decoy value planted directly in a loaded session's slots", async () => {
+    const { client: quejasSubmissionClient, payloads } = fakeQuejasSubmissionClient();
+    const { sender } = fakeSender();
+    const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
+    const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
+
+    // Plant a decoy celular directly into a parked session, simulating a
+    // corrupted/manually-constructed session — the executor must still
+    // source celular from the in-flight event, never from slots.
+    await sessionStore.save({
+      schemaVersion: 1,
+      sessionKey: key,
+      state: "reclamo_awaiting_foto",
+      slots: { queja: "algo", celular: "DECOY-0000000" },
+      history: ["reclamo_awaiting_foto"],
+      counters: { messagesSent: 0, messagesReceived: 0, invalidAttempts: 0 },
+      ttlSeconds: SESSION_TTL_SECONDS,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const { service } = makeService(sender, sessionStore, undefined, quejasSubmissionClient);
+    await service.process(makeEvent({ text: "OMITIR" }));
+
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0].celular).toBe(FROM_MSISDN);
+  });
+
+  it("throws QuejasSubmissionClientNotConfiguredError when a quejas_submit effect is emitted but no client is injected (Phase 7 not yet wired)", async () => {
+    const { sender } = fakeSender();
+    const { service } = makeService(sender, undefined, undefined, undefined);
+
+    await service.process(makeEvent({ interactiveReplyId: "registrar_reclamo" }));
+    await service.process(makeEvent({ interactiveReplyId: "reclamo_sin_dni" }));
+    await service.process(makeEvent({ text: "Fuga de agua" }));
+
+    await expect(service.process(makeEvent({ text: "OMITIR" }))).rejects.toBeInstanceOf(
+      QuejasSubmissionClientNotConfiguredError
+    );
   });
 });
 
