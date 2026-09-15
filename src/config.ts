@@ -79,6 +79,11 @@ export const config = {
   // (src/composition/select-session-store.ts), not this module.
   sessionStoreDriver: process.env.SESSION_STORE_DRIVER,
   nodeEnv: process.env.NODE_ENV,
+  // SBX-6 / D33: bare env read, fail-closed default false — same discipline
+  // as queueDriver / sessionStoreDriver above (dumb passthrough, no
+  // defaulting). The sandbox route is registered ONLY when this is exactly
+  // "true" AND nodeEnv !== "production" (gate lives in src/app.ts, D33).
+  sandboxEnabled: process.env.SANDBOX_ENABLED === "true",
   // Fastify defaults connectionTimeout to 0 (unbounded); 30s bounds a hung
   // socket while staying far above any legitimate Meta webhook delivery.
   connectionTimeout: Number(process.env.CONNECTION_TIMEOUT_MS ?? 30000),
