@@ -42,6 +42,12 @@ export const config = {
   quejasApiBaseUrl:
     process.env.QUEJAS_API_BASE_URL ?? "https://back-end-ministerioescucha-production.up.railway.app",
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
+  // D32: bare process.env, not readEnv() — same discipline as minsaApiHost
+  // above. Not a secret, so readEnv()'s "CHANGE_ME" warning would be noise.
+  // The literal default is the confirmed original Twilio value (mem obs
+  // #254) — an unset env behaves identically to the working original.
+  citaConversationIdPlaceholder:
+    process.env.MINSA_CONVERSATION_ID_PLACEHOLDER ?? "550e8400-e29b-41d4-a716-446655440000",
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
   // D7: dedicated secret for the log-view HMAC fingerprint. Falls back to
   // metaAppSecret when unset — accepted consequence: rotating the app
