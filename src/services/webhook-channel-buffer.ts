@@ -1,17 +1,31 @@
-// Webhook channel viewer (no-SDD fast path, explicit user decision): a
-// deliberately simple, non-durable buffer so a human can see real inbound
-// WhatsApp messages and reply manually from a frontend viewer — PARALLEL to
-// the existing bot pipeline (/webhook/whatsapp -> ingestion.ingest() ->
-// BullMQ -> worker.ts), which is untouched by this module.
+// Webhook channel viewer (no-SDD fast path, explicit user decision): so a
+// human can see real inbound WhatsApp messages and reply manually from a
+// frontend viewer — PARALLEL to the existing bot pipeline
+// (/webhook/whatsapp -> ingestion.ingest() -> BullMQ -> worker.ts), which is
+// untouched by this module.
 //
-// Trade-off accepted explicitly: this is a plain module-scope array, same
-// "state lives in the process" discipline as vercel-handler.ts's
-// cachedAppPromise — NOT durable storage. It is lost on every process
-// restart, and on Vercel specifically it is PER SERVERLESS INSTANCE: if more
-// than one instance is warm (common, not just under load), a POST from the
-// webhook can land on a different instance than the GET a polling client
-// hits, and the message will simply never appear there even though it truly
-// arrived. Acceptable for this simple viewer, not a bug to fix here.
+// Originally a plain module-scope array — confirmed BROKEN on Vercel by a
+// direct curl test: a message logged as received on one serverless instance
+// was invisible to a GET on another, because Vercel can keep multiple
+// instances warm concurrently and each held its own copy of that array. Now
+// backed by a Redis list (RPUSH/LTRIM/LRANGE) so every instance shares the
+// same store. Still deliberately simple relative to a real message queue —
+// no delivery guarantees beyond Redis's own, no backpressure handling — that
+// bar (durable and shared, not transactional) is sufficient for a
+// human-operated viewer.
+//
+// Bare module functions, not a create...(deps) factory like
+// redis-conversation-event-dao.ts/redis-session-store.ts: those are wired
+// through AppDeps/buildApp/buildDefaultDeps and server.ts's graceful
+// shutdown; this module was never part of that composition (webhook-channel.ts
+// and whatsapp-webhook.ts already import it as bare functions), and adding
+// that wiring would be real effort for no functional benefit, against this
+// feature's established simplicity. Reads `config` via a direct top-level
+// import, same precedent whatsapp-webhook.ts already sets for metaAppSecret.
+import { Redis as IORedis } from "ioredis";
+import { config } from "../config.js";
+import { redactRedisUrl } from "../adapters/redis-conversation-event-dao.js";
+import { logger } from "../logger.js";
 
 export interface WebhookChannelMessage {
   readonly id: string;
@@ -23,23 +37,51 @@ export interface WebhookChannelMessage {
 }
 
 const MAX_BUFFER_SIZE = 200;
+const REDIS_KEY = "webhook-channel:messages";
 
-const buffer: WebhookChannelMessage[] = [];
+// Own ioredis connection, separate from ConversationEventDao's/session
+// store's — same discipline as those adapters (D11: independent lifecycles).
+const connection = new IORedis(config.redisUrl, {
+  maxRetriesPerRequest: 1,
+  enableOfflineQueue: false,
+  retryStrategy(times) {
+    return Math.min(times * 500, 5000);
+  },
+});
 
-export function pushMessage(entry: WebhookChannelMessage): void {
-  buffer.push(entry);
-  if (buffer.length > MAX_BUFFER_SIZE) {
-    buffer.splice(0, buffer.length - MAX_BUFFER_SIZE);
+let hasLoggedError = false;
+connection.on("error", (err: Error) => {
+  if (hasLoggedError) return;
+  hasLoggedError = true;
+  logger.error({ err, redisUrl: redactRedisUrl(config.redisUrl) }, "[webhook-channel-buffer:redis] Error de conexión a Redis");
+});
+connection.on("ready", () => {
+  hasLoggedError = false;
+  logger.info({ redisUrl: redactRedisUrl(config.redisUrl) }, "[webhook-channel-buffer:redis] Conectado a Redis");
+});
+
+function assertReady(): void {
+  if (connection.status !== "ready") {
+    throw new Error(`[webhook-channel-buffer:redis] Redis no está listo (status=${connection.status}); operación rechazada`);
   }
 }
 
-export function getMessages(): readonly WebhookChannelMessage[] {
-  return buffer;
+export async function pushMessage(entry: WebhookChannelMessage): Promise<void> {
+  assertReady();
+  await connection.rpush(REDIS_KEY, JSON.stringify(entry));
+  await connection.ltrim(REDIS_KEY, -MAX_BUFFER_SIZE, -1);
+}
+
+export async function getMessages(): Promise<readonly WebhookChannelMessage[]> {
+  assertReady();
+  const raw = await connection.lrange(REDIS_KEY, 0, -1);
+  return raw.map((item) => JSON.parse(item) as WebhookChannelMessage);
 }
 
 // Test-only: mirrors vercel-handler.ts's resetVercelHandlerCache — module
 // state must be resettable between tests, or one test's messages leak into
 // the next.
-export function resetWebhookChannelBuffer(): void {
-  buffer.length = 0;
+export async function resetWebhookChannelBuffer(): Promise<void> {
+  assertReady();
+  await connection.del(REDIS_KEY);
 }

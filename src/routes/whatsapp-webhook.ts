@@ -44,23 +44,31 @@ export function createWhatsappWebhookRoutes(deps: WhatsappWebhookRoutesDeps) {
       }
 
       // Webhook channel viewer (no-SDD fast path, explicit user decision):
-      // pushed to the in-memory buffer BEFORE ingestion.ingest() below, and
-      // NOT inside a try/catch tied to it — a real citizen message must
-      // reach the human viewer even when the bot's own queue (Redis/BullMQ)
-      // is unreachable. The two are otherwise fully independent: this never
-      // blocks or fails the webhook response by itself; a message with no
-      // `from` (delivery status, system event, etc.) is silently skipped,
-      // not an error. Reuses the existing, already-tested mapper rather than
+      // pushed to the (Redis-backed) buffer BEFORE ingestion.ingest() below,
+      // and in its OWN try/catch, NOT tied to ingest()'s — a real citizen
+      // message must reach the human viewer even when the bot's own queue
+      // (a separate Redis usage) is unreachable, and conversely a hiccup on
+      // THIS write must never fail the webhook response or block
+      // ingestion.ingest() from still running. A message with no `from`
+      // (delivery status, system event, etc.) is silently skipped, not an
+      // error. Reuses the existing, already-tested mapper rather than
       // re-parsing the raw payload.
       const inboundEvent = toInboundConversationEvent(request.body);
       if (inboundEvent.from !== undefined) {
-        pushMessage({
-          id: inboundEvent.eventId,
-          direction: "in",
-          from: inboundEvent.from,
-          text: inboundEvent.text ?? `[${inboundEvent.messageType}]`,
-          timestamp: inboundEvent.receivedAt,
-        });
+        try {
+          await pushMessage({
+            id: inboundEvent.eventId,
+            direction: "in",
+            from: inboundEvent.from,
+            text: inboundEvent.text ?? `[${inboundEvent.messageType}]`,
+            timestamp: inboundEvent.receivedAt,
+          });
+        } catch (err) {
+          request.log.warn(
+            { err },
+            "[webhook-channel-buffer] No se pudo registrar el mensaje entrante para el visor (Redis no disponible); continúa el procesamiento normal"
+          );
+        }
       }
 
       // D9: no try/catch here — a DAO/queue failure (or any other rejection

@@ -36,7 +36,7 @@ export function createWebhookChannelRoutes(deps: WebhookChannelRoutesDeps) {
         return reply.status(401).send({ error: "unauthorized" });
       }
 
-      return reply.status(200).send({ messages: getMessages() });
+      return reply.status(200).send({ messages: await getMessages() });
     });
 
     app.post("/api/webhook-channel/messages", async (request, reply) => {
@@ -66,7 +66,15 @@ export function createWebhookChannelRoutes(deps: WebhookChannelRoutesDeps) {
         text,
         timestamp: new Date().toISOString(),
       };
-      pushMessage(message);
+      // Unlike sendText() above, this failing must never fail the response —
+      // by this point the message was already really sent to the citizen; a
+      // Redis hiccup recording it for the viewer is not a reason to report a
+      // 500 for a send that actually succeeded.
+      try {
+        await pushMessage(message);
+      } catch (err) {
+        request.log.warn({ err }, "[webhook-channel-buffer] No se pudo registrar el mensaje saliente en el visor (Redis no disponible); el mensaje ya se envió igual");
+      }
 
       return reply.status(200).send({ message });
     });
