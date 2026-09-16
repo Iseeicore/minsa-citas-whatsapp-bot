@@ -26,6 +26,7 @@ import { Redis as IORedis } from "ioredis";
 import { config } from "../config.js";
 import { redactRedisUrl } from "../adapters/redis-conversation-event-dao.js";
 import { logger } from "../logger.js";
+import { QueueUnavailableError } from "../domain/errors.js";
 
 export interface WebhookChannelMessage {
   readonly id: string;
@@ -60,9 +61,15 @@ connection.on("ready", () => {
   logger.info({ redisUrl: redactRedisUrl(config.redisUrl) }, "[webhook-channel-buffer:redis] Conectado a Redis");
 });
 
+// A bare Error here would fall through error-handler.ts's instanceof mapping
+// to a generic 500 "internal_error" — QueueUnavailableError is what the
+// handler already knows to map to 503 "service_unavailable", the same
+// diagnostic shape the bot's own queue-down case gets.
 function assertReady(): void {
   if (connection.status !== "ready") {
-    throw new Error(`[webhook-channel-buffer:redis] Redis no está listo (status=${connection.status}); operación rechazada`);
+    throw new QueueUnavailableError(
+      `[webhook-channel-buffer:redis] Redis no está listo (status=${connection.status}); operación rechazada`
+    );
   }
 }
 
