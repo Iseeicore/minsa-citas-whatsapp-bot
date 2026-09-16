@@ -67,7 +67,7 @@ describe("createHttpMinsaIdentityClient", () => {
     it("returns status:valid with twofaId on a 2xx response carrying valido:true", async () => {
       const fetchImpl = vi
         .fn()
-        .mockResolvedValue(jsonResponse({ valido: true, twofa_id: "twofa-xyz", mensaje: "ok" }));
+        .mockResolvedValue(jsonResponse({ valido: true, twofa_id: "twofa-xyz", message: "ok" }));
       const client = createHttpMinsaIdentityClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
       const result = await client.validateUser("12345678");
@@ -75,8 +75,24 @@ describe("createHttpMinsaIdentityClient", () => {
       expect(result).toEqual({ status: "valid", twofaId: "twofa-xyz", mensaje: "ok" });
     });
 
+    it.each([
+      { success: true, twofa_id: "twofa-xyz" },
+      { is_valid: true, twofa_id: "twofa-xyz" },
+      { data: { valido: true }, twofa_id: "twofa-xyz" },
+    ])(
+      "returns status:valid on the live endpoint's other observed success shapes (%j) — not just valido:true",
+      async (body) => {
+        const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(body));
+        const client = createHttpMinsaIdentityClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+        const result = await client.validateUser("12345678");
+
+        expect(result).toEqual({ status: "valid", twofaId: "twofa-xyz" });
+      }
+    );
+
     it("returns status:not_valid on a 2xx response carrying valido:false", async () => {
-      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ valido: false, mensaje: "no registrado" }));
+      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ valido: false, message: "no registrado" }));
       const client = createHttpMinsaIdentityClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
       const result = await client.validateUser("12345678");
@@ -168,9 +184,9 @@ describe("createHttpMinsaIdentityClient", () => {
       assertSignatureMatchesSentBody(init);
     });
 
-    it("returns status:verified with token/tokenType/expiresIn on a 2xx response carrying valido:true", async () => {
+    it("returns status:verified with token/tokenType/expiresIn on a 2xx response carrying success:true", async () => {
       const fetchImpl = vi.fn().mockResolvedValue(
-        jsonResponse({ valido: true, token: "tok-xyz", token_type: "Bearer", expires_in: 1800 })
+        jsonResponse({ success: true, token: "tok-xyz", token_type: "Bearer", expires_in: 1800 })
       );
       const client = createHttpMinsaIdentityClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
@@ -179,8 +195,17 @@ describe("createHttpMinsaIdentityClient", () => {
       expect(result).toEqual({ status: "verified", token: "tok-xyz", tokenType: "Bearer", expiresIn: 1800 });
     });
 
-    it("returns status:invalid on a 2xx response carrying valido:false", async () => {
-      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ valido: false }));
+    it("defaults tokenType to Bearer and expiresIn to 0 when the 2xx body omits them (ground truth default, not thrown)", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ success: true, token: "tok-xyz" }));
+      const client = createHttpMinsaIdentityClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+      const result = await client.verifyCode({ twofaId: "twofa-abc", code: "123456" });
+
+      expect(result).toEqual({ status: "verified", token: "tok-xyz", tokenType: "Bearer", expiresIn: 0 });
+    });
+
+    it("returns status:invalid on a 2xx response carrying success:false", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ success: false }));
       const client = createHttpMinsaIdentityClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
       const result = await client.verifyCode({ twofaId: "twofa-abc", code: "000000" });
@@ -188,8 +213,8 @@ describe("createHttpMinsaIdentityClient", () => {
       expect(result).toEqual({ status: "invalid" });
     });
 
-    it("returns status:invalid on a 2xx body missing token fields even when valido:true (conservative total mapping)", async () => {
-      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ valido: true }));
+    it("returns status:invalid on a 2xx body missing token even when success:true (conservative total mapping)", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
       const client = createHttpMinsaIdentityClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
       const result = await client.verifyCode({ twofaId: "twofa-abc", code: "123456" });

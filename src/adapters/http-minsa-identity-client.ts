@@ -29,14 +29,27 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const VALIDATE_USER_BUSINESS_STATUSES: readonly number[] = [400, 404, 422];
 const VERIFY_CODE_BUSINESS_STATUSES: readonly number[] = [400, 401, 422];
 
+// Confirmed against the real Twilio Function source (validar-dni.js): the
+// live endpoint's success field is inconsistent across responses, so the
+// ground truth ORs four possible shapes rather than trusting one. Mirrored
+// here exactly — checking only `valido` was the actual cause of a real,
+// registered DNI being misclassified `not_valid` despite MINSA sending the
+// OTP (the live response used one of the other three shapes).
 interface ValidateUserApiResponseBody {
   readonly valido?: boolean;
+  readonly success?: boolean;
+  readonly is_valid?: boolean;
+  readonly data?: { readonly valido?: boolean };
   readonly twofa_id?: string;
-  readonly mensaje?: string;
+  readonly message?: string;
 }
 
+// Confirmed against the real Twilio Function source (verificar-codigo.js):
+// success is `body.success === true && !!body.token` — NOT `body.valido`,
+// which this endpoint's response never carries. token_type/expires_in
+// default to "Bearer"/0 when absent, same as the ground truth.
 interface VerifyCodeApiResponseBody {
-  readonly valido?: boolean;
+  readonly success?: boolean;
   readonly token?: string;
   readonly token_type?: string;
   readonly expires_in?: number;
@@ -121,13 +134,16 @@ export function createHttpMinsaIdentityClient(deps: HttpMinsaIdentityClientDeps)
         return { status: "not_valid" };
       }
 
-      if (body.valido === true && typeof body.twofa_id === "string") {
-        return body.mensaje !== undefined
-          ? { status: "valid", twofaId: body.twofa_id, mensaje: body.mensaje }
+      const esValido =
+        body.valido === true || body.success === true || body.data?.valido === true || body.is_valid === true;
+
+      if (esValido && typeof body.twofa_id === "string") {
+        return body.message !== undefined
+          ? { status: "valid", twofaId: body.twofa_id, mensaje: body.message }
           : { status: "valid", twofaId: body.twofa_id };
       }
 
-      return body.mensaje !== undefined ? { status: "not_valid", mensaje: body.mensaje } : { status: "not_valid" };
+      return body.message !== undefined ? { status: "not_valid", mensaje: body.message } : { status: "not_valid" };
     },
 
     async verifyCode(input: { twofaId: string; code: string }): Promise<VerifyCodeResult> {
@@ -172,13 +188,10 @@ export function createHttpMinsaIdentityClient(deps: HttpMinsaIdentityClientDeps)
         return { status: "invalid" };
       }
 
-      if (
-        body.valido === true &&
-        typeof body.token === "string" &&
-        typeof body.token_type === "string" &&
-        typeof body.expires_in === "number"
-      ) {
-        return { status: "verified", token: body.token, tokenType: body.token_type, expiresIn: body.expires_in };
+      if (body.success === true && typeof body.token === "string") {
+        const tokenType = typeof body.token_type === "string" ? body.token_type : "Bearer";
+        const expiresIn = typeof body.expires_in === "number" ? body.expires_in : 0;
+        return { status: "verified", token: body.token, tokenType, expiresIn };
       }
 
       return { status: "invalid" };
