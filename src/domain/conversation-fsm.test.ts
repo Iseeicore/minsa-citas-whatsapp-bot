@@ -1007,7 +1007,7 @@ describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => 
     expect(STATE_HANDLERS["cita_verify_pending"]).toBeDefined();
   });
 
-  it("task 7.3 — verified: stores slots.citaBearer, advances to cita_awaiting_ubigeo, and clears citaTwofaId/citaOtpAttempts/citaWaitToken/citaRegistrationChecks", () => {
+  it("task 7.3 — verified: stores slots.citaBearer, advances to cita_awaiting_departamento, and clears citaTwofaId/citaOtpAttempts/citaWaitToken/citaRegistrationChecks", () => {
     const session = parkedSession("cita_verify_pending", {
       citaDni: "12345678",
       citaTwofaId: "twofa-1",
@@ -1024,7 +1024,7 @@ describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => 
 
     const result = handle(session, systemEvent);
 
-    expect(result.session.state).toBe("cita_awaiting_ubigeo");
+    expect(result.session.state).toBe("cita_awaiting_departamento");
     expect(result.session.slots.citaBearer).toBe("bearer-token-value");
     // MVP addition (no-SDD fast path): citaDni is ALSO retained now,
     // alongside citaBearer — the booking call needs it again downstream in
@@ -1046,7 +1046,7 @@ describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => 
       {
         kind: "send_text",
         to: FROM,
-        body: "Escribe tu ubicación así: Departamento/Provincia/Distrito (ej: Lima/Lima/Lurigancho).",
+        body: "¿En qué departamento vives? (ej: Lima)",
       },
     ]);
     expect(result.outcome).toBe("continue");
@@ -1136,19 +1136,19 @@ describe("handle — cita_identity_confirmed (C2 hand-off holding state, Phase 7
     expect(STATE_HANDLERS["cita_identity_confirmed"]).toBeDefined();
   });
 
-  it("MVP (no-SDD fast path): a real inbound message starts the catalog chain (cita_awaiting_ubigeo), keeping citaBearer intact", () => {
+  it("MVP (no-SDD fast path): a real inbound message starts the catalog chain (cita_awaiting_departamento), keeping citaBearer intact", () => {
     const session = parkedSession("cita_identity_confirmed", { citaBearer: "bearer-token-value" });
     const event = makeEvent({ text: "hola" });
 
     const result = handle(session, event);
 
-    expect(result.session.state).toBe("cita_awaiting_ubigeo");
+    expect(result.session.state).toBe("cita_awaiting_departamento");
     expect(result.session.slots.citaBearer).toBe("bearer-token-value");
     expect(result.effects).toEqual([
       {
         kind: "send_text",
         to: FROM,
-        body: "Escribe tu ubicación así: Departamento/Provincia/Distrito (ej: Lima/Lima/Lurigancho).",
+        body: "¿En qué departamento vives? (ej: Lima)",
       },
     ]);
     expect(result.outcome).toBe("continue");
@@ -1209,7 +1209,7 @@ describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => 
     expect(serialized).not.toContain("bearer-token-value");
   });
 
-  it("cita_awaiting_ubigeo (MVP: identity confirms straight into the catalog chain, D33's stated exception extended): clears citaTwofaId but DELIBERATELY retains citaBearer/citaDni until session TTL", () => {
+  it("cita_awaiting_departamento (MVP: identity confirms straight into the catalog chain, D33's stated exception extended): clears citaTwofaId but DELIBERATELY retains citaBearer/citaDni until session TTL", () => {
     const session = parkedSession("cita_verify_pending", { citaDni: "12345678", citaTwofaId: "twofa-secret" });
     const systemEvent = makeVerifyCodeSystemEvent({
       status: "verified",
@@ -1220,7 +1220,7 @@ describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => 
 
     const result = handle(session, systemEvent);
 
-    expect(result.session.state).toBe("cita_awaiting_ubigeo");
+    expect(result.session.state).toBe("cita_awaiting_departamento");
     const serialized = JSON.stringify(result.session);
     expect(serialized).not.toContain("twofa-secret");
     // Documents the intentional retention window — this is NOT an omission,
@@ -1228,6 +1228,71 @@ describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => 
     // chain (MVP addition, no-SDD fast path, extends D33's stated exception).
     expect(serialized).toContain("bearer-token-value");
     expect(serialized).toContain("12345678");
+  });
+});
+
+describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast path)", () => {
+  it("departamento -> provincia -> distrito walks all three states, storing each slot, and fires search_ubigeo with all three fields only at the last step", () => {
+    const step1 = handle(
+      parkedSession("cita_awaiting_departamento", { citaBearer: "bearer-token-value" }),
+      { eventId: "e1", receivedAt: "2026-01-01T00:00:00.000Z", source: "whatsapp", from: FROM, messageType: "text", text: "Lima" }
+    );
+    expect(step1.session.state).toBe("cita_awaiting_provincia");
+    expect(step1.session.slots.citaDepartamento).toBe("Lima");
+    expect(step1.effects).toEqual([{ kind: "send_text", to: FROM, body: "¿En qué provincia? (ej: Lima)" }]);
+
+    const step2 = handle(step1.session, {
+      eventId: "e2",
+      receivedAt: "2026-01-01T00:00:01.000Z",
+      source: "whatsapp",
+      from: FROM,
+      messageType: "text",
+      text: "Lima",
+    });
+    expect(step2.session.state).toBe("cita_awaiting_distrito");
+    expect(step2.session.slots.citaProvincia).toBe("Lima");
+    expect(step2.effects).toEqual([{ kind: "send_text", to: FROM, body: "¿En qué distrito? (ej: Lurigancho)" }]);
+
+    const step3 = handle(step2.session, {
+      eventId: "e3",
+      receivedAt: "2026-01-01T00:00:02.000Z",
+      source: "whatsapp",
+      from: FROM,
+      messageType: "text",
+      text: "Lurigancho",
+    });
+    expect(step3.session.state).toBe("cita_ubigeo_pending");
+    expect(step3.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Buscando…" },
+      {
+        kind: "search_ubigeo",
+        departamento: "Lima",
+        provincia: "Lima",
+        distrito: "Lurigancho",
+        token: "bearer-token-value",
+      },
+    ]);
+  });
+
+  it("an empty distrito answer re-prompts without advancing state or firing search_ubigeo", () => {
+    const session = parkedSession("cita_awaiting_distrito", {
+      citaDepartamento: "Lima",
+      citaProvincia: "Lima",
+    });
+
+    const result = handle(session, {
+      eventId: "e1",
+      receivedAt: "2026-01-01T00:00:00.000Z",
+      source: "whatsapp",
+      from: FROM,
+      messageType: "text",
+      text: "   ",
+    });
+
+    expect(result.session.state).toBe("cita_awaiting_distrito");
+    expect(result.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "No entendí tu respuesta. Escribe el nombre, por favor." },
+    ]);
   });
 });
 

@@ -311,6 +311,8 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
   "citaRegistrationChecks",
   "citaOtpAttempts",
   "citaBearer",
+  "citaDepartamento",
+  "citaProvincia",
   "citaUbigeo",
   "citaEspecialidadId",
   "citaCodEess",
@@ -319,7 +321,15 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
 ] as const;
 
 // --- Cita catalog/booking MVP (no-SDD fast path, explicit user decision) ---
-const CITA_AWAITING_UBIGEO_STATE: ConversationStateName = "cita_awaiting_ubigeo";
+// Ubigeo collection split into 3 sequential guided questions (departamento
+// -> provincia -> distrito) instead of one free-text "Depto/Prov/Distrito"
+// prompt — explicit UX change from the original Twilio flow's single-text
+// format, requested to cut format-parse errors. The real MINSA /ubigeo call
+// is unaffected: it already takes all three fields in one POST regardless
+// of how many turns it took to collect them.
+const CITA_AWAITING_DEPARTAMENTO_STATE: ConversationStateName = "cita_awaiting_departamento";
+const CITA_AWAITING_PROVINCIA_STATE: ConversationStateName = "cita_awaiting_provincia";
+const CITA_AWAITING_DISTRITO_STATE: ConversationStateName = "cita_awaiting_distrito";
 const CITA_UBIGEO_PENDING_STATE: ConversationStateName = "cita_ubigeo_pending";
 const CITA_AWAITING_UBIGEO_SELECT_STATE: ConversationStateName = "cita_awaiting_ubigeo_select";
 const CITA_ESPECIALIDAD_PENDING_STATE: ConversationStateName = "cita_especialidad_pending";
@@ -335,11 +345,12 @@ const CITA_BOOKED_STATE: ConversationStateName = "cita_booked";
 const CITA_BOOKING_DUPLICATE_STATE: ConversationStateName = "cita_booking_duplicate";
 const CITA_BOOKING_REJECTED_STATE: ConversationStateName = "cita_booking_rejected";
 
-const CITA_ASK_UBIGEO_BODY = "Escribe tu ubicación así: Departamento/Provincia/Distrito (ej: Lima/Lima/Lurigancho).";
-const CITA_INVALID_UBIGEO_FORMAT_BODY =
-  "Formato incorrecto. Escribe: Departamento/Provincia/Distrito (separado por \"/\").";
+const CITA_ASK_DEPARTAMENTO_BODY = "¿En qué departamento vives? (ej: Lima)";
+const CITA_ASK_PROVINCIA_BODY = "¿En qué provincia? (ej: Lima)";
+const CITA_ASK_DISTRITO_BODY = "¿En qué distrito? (ej: Lurigancho)";
+const CITA_INVALID_UBICACION_STEP_BODY = "No entendí tu respuesta. Escribe el nombre, por favor.";
 const CITA_SEARCHING_BODY = "Buscando…";
-const CITA_UBIGEO_EMPTY_BODY = "No encontramos esa ubicación. Intenta de nuevo con Departamento/Provincia/Distrito.";
+const CITA_UBIGEO_EMPTY_BODY = "No encontramos esa ubicación. Empecemos de nuevo.";
 const CITA_ESPECIALIDADES_EMPTY_BODY = "No hay especialidades con cupos disponibles para esa ubicación por ahora.";
 const CITA_ESTABLECIMIENTOS_EMPTY_BODY = "No hay establecimientos disponibles para esa especialidad por ahora.";
 const CITA_FECHAS_EMPTY_BODY = "No hay fechas disponibles para ese establecimiento por ahora.";
@@ -1115,12 +1126,12 @@ function citaVerifyPendingHandler(session: ConversationSession, event: FsmEvent)
     // retained here — the booking call (numero_documento_paciente) needs it
     // again downstream in the catalog chain, same documented exception.
     // MVP fix: the catalog chain (C2) already exists, so there is no reason
-    // to make the citizen send a throwaway message before seeing the ubigeo
-    // prompt — go straight to CITA_AWAITING_UBIGEO_STATE in the same turn
-    // and send both messages together. `cita_identity_confirmed` stays
-    // registered in STATE_HANDLERS (citaIdentityConfirmedHandler) only as a
-    // defensive fallback for any session already parked there before this
-    // fix shipped.
+    // to make the citizen send a throwaway message before seeing the first
+    // ubicación prompt — go straight to CITA_AWAITING_DEPARTAMENTO_STATE in
+    // the same turn and send both messages together. `cita_identity_confirmed`
+    // stays registered in STATE_HANDLERS (citaIdentityConfirmedHandler) only
+    // as a defensive fallback for any session already parked there before
+    // this fix shipped.
     const advanced = withState(
       {
         ...session,
@@ -1130,13 +1141,13 @@ function citaVerifyPendingHandler(session: ConversationSession, event: FsmEvent)
           citaDni: typeof session.slots.citaDni === "string" ? session.slots.citaDni : "",
         },
       },
-      CITA_AWAITING_UBIGEO_STATE
+      CITA_AWAITING_DEPARTAMENTO_STATE
     );
     return {
       session: advanced,
       effects: [
         { kind: "send_text", to, body: CITA_IDENTITY_CONFIRMED_BODY },
-        { kind: "send_text", to, body: CITA_ASK_UBIGEO_BODY },
+        { kind: "send_text", to, body: CITA_ASK_DEPARTAMENTO_BODY },
       ],
       outcome: "continue",
     };
@@ -1183,10 +1194,10 @@ function citaIdentityConfirmedHandler(session: ConversationSession, event: FsmEv
   if (!isInboundEvent(event)) {
     return { session, effects: [{ kind: "send_text", to, body: CITA_C2_PLACEHOLDER_BODY }], outcome: "continue" };
   }
-  const advanced = withState(session, CITA_AWAITING_UBIGEO_STATE);
+  const advanced = withState(session, CITA_AWAITING_DEPARTAMENTO_STATE);
   return {
     session: advanced,
-    effects: [{ kind: "send_text", to, body: CITA_ASK_UBIGEO_BODY }],
+    effects: [{ kind: "send_text", to, body: CITA_ASK_DEPARTAMENTO_BODY }],
     outcome: "continue",
   };
 }
@@ -1202,23 +1213,88 @@ function stringSlot(session: ConversationSession, key: string): string {
   return typeof v === "string" ? v : "";
 }
 
-// MVP: free-text "Depto/Prov/Distrito" -> search_ubigeo query effect.
-function citaAwaitingUbigeoHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+// MVP: ubigeo collection split into 3 guided steps (departamento -> provincia
+// -> distrito) instead of one free-text "Depto/Prov/Distrito" line — each
+// step just stores its own slot and asks the next question; only the last
+// step actually fires the search_ubigeo query effect with all three.
+function citaAwaitingDepartamentoHandler(session: ConversationSession, event: FsmEvent): FsmResult {
   const to = event.from ?? "";
-  const text = isInboundEvent(event) ? event.text : undefined;
-  const parts = (text ?? "").split("/").map((p) => p.trim()).filter((p) => p.length > 0);
+  const text = isInboundEvent(event) ? event.text?.trim() : undefined;
 
-  if (parts.length !== 3) {
-    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_UBIGEO_FORMAT_BODY }], outcome: "continue" };
+  if (text === undefined || text.length === 0) {
+    const rePrompted: ConversationSession = {
+      ...session,
+      counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+    };
+    return {
+      session: rePrompted,
+      effects: [{ kind: "send_text", to, body: CITA_INVALID_UBICACION_STEP_BODY }],
+      outcome: "continue",
+    };
   }
 
-  const [departamento, provincia, distrito] = parts;
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaDepartamento: text } },
+    CITA_AWAITING_PROVINCIA_STATE
+  );
+  return {
+    session: advanced,
+    effects: [{ kind: "send_text", to, body: CITA_ASK_PROVINCIA_BODY }],
+    outcome: "continue",
+  };
+}
+
+function citaAwaitingProvinciaHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const text = isInboundEvent(event) ? event.text?.trim() : undefined;
+
+  if (text === undefined || text.length === 0) {
+    const rePrompted: ConversationSession = {
+      ...session,
+      counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+    };
+    return {
+      session: rePrompted,
+      effects: [{ kind: "send_text", to, body: CITA_INVALID_UBICACION_STEP_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaProvincia: text } },
+    CITA_AWAITING_DISTRITO_STATE
+  );
+  return {
+    session: advanced,
+    effects: [{ kind: "send_text", to, body: CITA_ASK_DISTRITO_BODY }],
+    outcome: "continue",
+  };
+}
+
+function citaAwaitingDistritoHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const text = isInboundEvent(event) ? event.text?.trim() : undefined;
+
+  if (text === undefined || text.length === 0) {
+    const rePrompted: ConversationSession = {
+      ...session,
+      counters: { ...session.counters, invalidAttempts: session.counters.invalidAttempts + 1 },
+    };
+    return {
+      session: rePrompted,
+      effects: [{ kind: "send_text", to, body: CITA_INVALID_UBICACION_STEP_BODY }],
+      outcome: "continue",
+    };
+  }
+
+  const departamento = stringSlot(session, "citaDepartamento");
+  const provincia = stringSlot(session, "citaProvincia");
   const advanced = withState(session, CITA_UBIGEO_PENDING_STATE);
   return {
     session: advanced,
     effects: [
       { kind: "send_text", to, body: CITA_SEARCHING_BODY },
-      { kind: "search_ubigeo", departamento, provincia, distrito, token: citaBearerOf(session) },
+      { kind: "search_ubigeo", departamento, provincia, distrito: text, token: citaBearerOf(session) },
     ],
     outcome: "continue",
   };
@@ -1245,8 +1321,15 @@ function citaUbigeoPendingHandler(session: ConversationSession, event: FsmEvent)
       outcome: "continue",
     };
   }
-  const back = withState(session, CITA_AWAITING_UBIGEO_STATE);
-  return { session: back, effects: [{ kind: "send_text", to, body: CITA_UBIGEO_EMPTY_BODY }], outcome: "continue" };
+  const back = withState(session, CITA_AWAITING_DEPARTAMENTO_STATE);
+  return {
+    session: back,
+    effects: [
+      { kind: "send_text", to, body: CITA_UBIGEO_EMPTY_BODY },
+      { kind: "send_text", to, body: CITA_ASK_DEPARTAMENTO_BODY },
+    ],
+    outcome: "continue",
+  };
 }
 
 function citaAwaitingUbigeoSelectHandler(session: ConversationSession, event: FsmEvent): FsmResult {
@@ -1588,7 +1671,9 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [CITA_IDENTITY_CONFIRMED_STATE]: citaIdentityConfirmedHandler,
   [CITA_OTP_LOCKED_STATE]: closedFlowHandler,
   // Cita catalog/booking MVP (no-SDD fast path):
-  [CITA_AWAITING_UBIGEO_STATE]: citaAwaitingUbigeoHandler,
+  [CITA_AWAITING_DEPARTAMENTO_STATE]: citaAwaitingDepartamentoHandler,
+  [CITA_AWAITING_PROVINCIA_STATE]: citaAwaitingProvinciaHandler,
+  [CITA_AWAITING_DISTRITO_STATE]: citaAwaitingDistritoHandler,
   [CITA_UBIGEO_PENDING_STATE]: citaUbigeoPendingHandler,
   [CITA_AWAITING_UBIGEO_SELECT_STATE]: citaAwaitingUbigeoSelectHandler,
   [CITA_ESPECIALIDAD_PENDING_STATE]: citaEspecialidadPendingHandler,
