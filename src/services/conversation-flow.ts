@@ -310,13 +310,15 @@ async function runQueryEffect(
       // as a second FSM-visible query effect (that was tried and violates
       // D20's bounded re-entry: see the removed validate_ubigeo_ai kind).
       // Fail-open: "valid" and "unavailable" both fall through to the real
-      // MINSA call below; only "flagged" short-circuits it.
+      // MINSA call below; only "field_issues" short-circuits it (the FSM
+      // then runs its per-field confirm/correct sequence, or restarts
+      // collection outright when all 3 fields are flagged).
       const aiCheck = await clients.aiFallbackClient.validateUbigeo({
         departamento: effect.departamento,
         provincia: effect.provincia,
         distrito: effect.distrito,
       });
-      if (aiCheck.status === "ubigeo_ai_flagged") {
+      if (aiCheck.status === "ubigeo_ai_field_issues") {
         return { source: "system", from: to, kind: "search_ubigeo_result", result: aiCheck };
       }
 

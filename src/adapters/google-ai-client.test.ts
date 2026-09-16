@@ -104,8 +104,14 @@ describe("createGoogleAiClient", () => {
       expect((body.generationConfig as Record<string, unknown>).responseMimeType).toBe("application/json");
     });
 
-    it('returns ubigeo_ai_valid on estado:"valido"', async () => {
-      const fetchImpl = vi.fn().mockResolvedValue(geminiResponse({ estado: "valido", detalle: "ok" }));
+    const ALL_VALID_CAMPOS = {
+      departamento: { valido: true },
+      provincia: { valido: true },
+      distrito: { valido: true },
+    };
+
+    it("returns ubigeo_ai_valid when all 3 campos are valido:true", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(geminiResponse({ campos: ALL_VALID_CAMPOS, detalle: "ok" }));
       const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
       const result = await client.validateUbigeo(INPUT);
@@ -113,32 +119,132 @@ describe("createGoogleAiClient", () => {
       expect(result).toEqual({ status: "ubigeo_ai_valid" });
     });
 
-    it.each(["invalido", "inconsistente"] as const)(
-      'returns ubigeo_ai_flagged with estado/detalle/sugerencia on estado:"%s"',
-      async (estado) => {
-        const fetchImpl = vi.fn().mockResolvedValue(
-          geminiResponse({ estado, detalle: "Trujillo no pertenece a Lima.", sugerencia: "¿La Libertad?" })
-        );
-        const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
-
-        const result = await client.validateUbigeo(INPUT);
-
-        expect(result).toEqual({
-          status: "ubigeo_ai_flagged",
-          estado,
-          detalle: "Trujillo no pertenece a Lima.",
-          sugerencia: "¿La Libertad?",
-        });
-      }
-    );
-
-    it("omits sugerencia from the result when the model omits it", async () => {
-      const fetchImpl = vi.fn().mockResolvedValue(geminiResponse({ estado: "invalido", detalle: "No existe." }));
+    it("returns ubigeo_ai_field_issues with one issue when only distrito is valido:false", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        geminiResponse({
+          campos: {
+            departamento: { valido: true },
+            provincia: { valido: true },
+            distrito: { valido: false, sugerencia: "Santiago de Surco" },
+          },
+          detalle: "El distrito no coincide con ninguno oficial de esa provincia.",
+        })
+      );
       const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
       const result = await client.validateUbigeo(INPUT);
 
-      expect(result).toEqual({ status: "ubigeo_ai_flagged", estado: "invalido", detalle: "No existe." });
+      expect(result).toEqual({
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "distrito", valorIngresado: INPUT.distrito, sugerencia: "Santiago de Surco" }],
+        detalle: "El distrito no coincide con ninguno oficial de esa provincia.",
+      });
+    });
+
+    it("returns ubigeo_ai_field_issues with two issues (provincia + distrito) in field order, departamento omitted", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        geminiResponse({
+          campos: {
+            departamento: { valido: true },
+            provincia: { valido: false, sugerencia: "La Libertad" },
+            distrito: { valido: false, sugerencia: "Trujillo" },
+          },
+          detalle: "Provincia y distrito no coinciden con el departamento.",
+        })
+      );
+      const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+      const result = await client.validateUbigeo(INPUT);
+
+      expect(result).toEqual({
+        status: "ubigeo_ai_field_issues",
+        issues: [
+          { field: "provincia", valorIngresado: INPUT.provincia, sugerencia: "La Libertad" },
+          { field: "distrito", valorIngresado: INPUT.distrito, sugerencia: "Trujillo" },
+        ],
+        detalle: "Provincia y distrito no coinciden con el departamento.",
+      });
+    });
+
+    it("valorIngresado always comes from the original input, never from the AI's own echo", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        geminiResponse({
+          campos: {
+            departamento: { valido: true },
+            provincia: { valido: true },
+            distrito: { valido: false, sugerencia: "Miraflores" },
+          },
+          detalle: "No existe.",
+        })
+      );
+      const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+      const result = await client.validateUbigeo(INPUT);
+
+      expect(result.status).toBe("ubigeo_ai_field_issues");
+      if (result.status === "ubigeo_ai_field_issues") {
+        expect(result.issues[0].valorIngresado).toBe(INPUT.distrito);
+      }
+    });
+
+    it("omits sugerencia from an issue when the model omits it", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        geminiResponse({
+          campos: { departamento: { valido: true }, provincia: { valido: true }, distrito: { valido: false } },
+          detalle: "No existe.",
+        })
+      );
+      const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+      const result = await client.validateUbigeo(INPUT);
+
+      expect(result).toEqual({
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "distrito", valorIngresado: INPUT.distrito }],
+        detalle: "No existe.",
+      });
+    });
+
+    it("treats the literal string \"null\" from the model as no suggestion, never surfaced to the citizen", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        geminiResponse({
+          campos: {
+            departamento: { valido: true },
+            provincia: { valido: false, sugerencia: "null" },
+            distrito: { valido: true },
+          },
+          detalle: "No existe.",
+        })
+      );
+      const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+      const result = await client.validateUbigeo(INPUT);
+
+      expect(result).toEqual({
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "provincia", valorIngresado: INPUT.provincia }],
+        detalle: "No existe.",
+      });
+    });
+
+    it("returns ubigeo_ai_unavailable when a campo is missing from the response", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        geminiResponse({ campos: { departamento: { valido: true }, provincia: { valido: true } }, detalle: "ok" })
+      );
+      const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+      const result = await client.validateUbigeo(INPUT);
+
+      expect(result).toEqual({ status: "ubigeo_ai_unavailable" });
+    });
+
+    it("returns ubigeo_ai_unavailable when campos is missing entirely", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(geminiResponse({ detalle: "ok" }));
+      const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
+
+      const result = await client.validateUbigeo(INPUT);
+
+      expect(result).toEqual({ status: "ubigeo_ai_unavailable" });
     });
 
     it("returns ubigeo_ai_unavailable on a non-2xx response, never throws", async () => {
@@ -170,8 +276,13 @@ describe("createGoogleAiClient", () => {
       expect(result).toEqual({ status: "ubigeo_ai_unavailable" });
     });
 
-    it("returns ubigeo_ai_unavailable when estado is outside the 3 known values, never throws", async () => {
-      const fetchImpl = vi.fn().mockResolvedValue(geminiResponse({ estado: "quien-sabe", detalle: "?" }));
+    it("returns ubigeo_ai_unavailable when a campo's valido is not a boolean, never throws", async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(
+        geminiResponse({
+          campos: { departamento: { valido: "si" }, provincia: { valido: true }, distrito: { valido: true } },
+          detalle: "?",
+        })
+      );
       const client = createGoogleAiClient({ config: BASE_CONFIG, logger: fakeLogger(), fetchImpl });
 
       const result = await client.validateUbigeo(INPUT);

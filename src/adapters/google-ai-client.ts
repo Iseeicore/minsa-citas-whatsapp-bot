@@ -4,6 +4,8 @@ import type {
   AiFallbackClient,
   UbigeoAiCheckInput,
   UbigeoAiValidationResult,
+  UbigeoFieldIssue,
+  UbigeoFieldName,
 } from "../ports/ai-fallback-client.js";
 
 export interface GoogleAiClientDeps {
@@ -25,16 +27,13 @@ Eres un asistente técnico especializado exclusivamente en la validación de la 
 ---
 
 ## 2. REGLAS DE VALIDACIÓN GEOGRÁFICA
-Tu tarea es evaluar la coherencia de la terna territorial ingresada por el usuario:
+Tu tarea es evaluar la coherencia de la terna territorial ingresada por el usuario, CAMPO POR CAMPO, en cascada de arriba hacia abajo:
 
-- **Departamentos:** Valida únicamente los 24 departamentos oficiales y la Provincia Constitucional del Callao.
-- **Provincias y Distritos:**
-  - Comprueba la validez individual de cada entidad.
-  - Comprueba la relación jerárquica: el distrito debe pertenecer obligatoriamente a la provincia indicada, y la provincia al departamento señalado.
-- **Detección de Errores:**
-  - Si un dato no existe o está mal escrito, señálalo con precisión.
-  - Si los datos existen pero no coinciden en jerarquía (por ejemplo: Departamento "Lima", Provincia "Trujillo"), indica explícitamente la inconsistencia de relación territorial.
-  - Ofrece sugerencias oficiales de corrección únicamente si la intención del usuario es evidente.
+- **Departamento:** evalúalo primero, de forma INDEPENDIENTE. Válido únicamente si es uno de los 24 departamentos oficiales o la Provincia Constitucional del Callao.
+- **Provincia:** si el departamento resultó válido, úsalo como ancla — la provincia es válida solo si existe Y pertenece a ese departamento. Si el departamento resultó inválido, evalúa la provincia de forma independiente contra la geografía real de Perú (no la invalides únicamente porque el departamento falló).
+- **Distrito:** si la provincia resultó válida, úsala como ancla — el distrito es válido solo si existe Y pertenece a esa provincia. Si la provincia resultó inválida, evalúa el distrito de forma independiente contra la geografía real de Perú (no lo invalides únicamente porque la provincia falló).
+- **Regla de oro:** un nivel superior inválido NUNCA invalida automáticamente un nivel inferior — cada campo se evalúa siempre contra la geografía oficial real, usando el ancla superior solo cuando esta es válida.
+- **Sugerencias:** ofrece una sugerencia por campo SOLO si la intención del usuario es evidente (error tipográfico o de jerarquía), y SIEMPRE confinada a la categoría de ese campo — una sugerencia de departamento sale únicamente del universo de departamentos, una de provincia únicamente del universo de provincias, una de distrito únicamente del universo de distritos. Nunca sugieras un valor de una categoría distinta a la del campo que falló.
 
 ---
 
@@ -54,12 +53,15 @@ Tu tarea es evaluar la coherencia de la terna territorial ingresada por el usuar
 ---
 
 ## 5. FORMATO DE RESPUESTA
-Responde siempre de manera concisa, formal y estructurada, ÚNICAMENTE como un objeto JSON con esta forma exacta (nunca texto libre, nunca markdown, nunca explicación fuera del JSON):
+Responde siempre de manera concisa, formal y estructurada, ÚNICAMENTE como un objeto JSON con esta forma exacta (nunca texto libre, nunca markdown, nunca explicación fuera del JSON). Evalúa y reporta los 3 campos SIEMPRE, incluso cuando son válidos:
 
 {
-  "estado": "valido" | "invalido" | "inconsistente",
-  "detalle": "Explicación breve de lo encontrado.",
-  "sugerencia": "Solo si aplica para corregir un error tipográfico o jerárquico — omite el campo si no aplica."
+  "campos": {
+    "departamento": { "valido": true, "sugerencia": null },
+    "provincia": { "valido": true, "sugerencia": null },
+    "distrito": { "valido": false, "sugerencia": "Nombre exacto del distrito sugerido, o null si no hay una sugerencia clara" }
+  },
+  "detalle": "Explicación breve (uno o dos renglones) de los problemas encontrados, o de por qué todo es válido."
 }`;
 
 const REQUEST_TIMEOUT_MS_GENERATE = 15_000;
@@ -70,11 +72,41 @@ interface GeminiGenerateContentBody {
   }>;
 }
 
-interface UbigeoAiJsonShape {
-  readonly estado?: string;
-  readonly detalle?: string;
-  readonly sugerencia?: string;
+interface UbigeoAiFieldJsonShape {
+  readonly valido?: boolean;
+  readonly sugerencia?: string | null;
 }
+
+interface UbigeoAiJsonShape {
+  readonly campos?: {
+    readonly departamento?: UbigeoAiFieldJsonShape;
+    readonly provincia?: UbigeoAiFieldJsonShape;
+    readonly distrito?: UbigeoAiFieldJsonShape;
+  };
+  readonly detalle?: string;
+}
+
+const UBIGEO_FIELD_ORDER: readonly UbigeoFieldName[] = ["departamento", "provincia", "distrito"];
+
+// The Gemini structured-output schema types `sugerencia` as a plain STRING
+// (not nullable) with only `valido` required — when the model has no real
+// suggestion, it has been observed writing the literal text "null" instead
+// of omitting the key entirely. Treated the same as "no suggestion" here,
+// never surfaced to the citizen as a fake candidate value.
+function usableSuggestion(raw: string | null | undefined): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 && trimmed.toLowerCase() !== "null" ? trimmed : undefined;
+}
+
+const UBIGEO_FIELD_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    valido: { type: "BOOLEAN" },
+    sugerencia: { type: "STRING" },
+  },
+  required: ["valido"],
+};
 
 // Same convention as http-reniec-lookup-client.ts / http-minsa-identity-client.ts.
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -168,11 +200,18 @@ export function createGoogleAiClient(deps: GoogleAiClientDeps): AiFallbackClient
           responseSchema: {
             type: "OBJECT",
             properties: {
-              estado: { type: "STRING", enum: ["valido", "invalido", "inconsistente"] },
+              campos: {
+                type: "OBJECT",
+                properties: {
+                  departamento: UBIGEO_FIELD_SCHEMA,
+                  provincia: UBIGEO_FIELD_SCHEMA,
+                  distrito: UBIGEO_FIELD_SCHEMA,
+                },
+                required: ["departamento", "provincia", "distrito"],
+              },
               detalle: { type: "STRING" },
-              sugerencia: { type: "STRING" },
             },
-            required: ["estado", "detalle"],
+            required: ["campos", "detalle"],
           },
         },
       });
@@ -210,19 +249,35 @@ export function createGoogleAiClient(deps: GoogleAiClientDeps): AiFallbackClient
         if (typeof text !== "string") return { status: "ubigeo_ai_unavailable" };
 
         const parsed = JSON.parse(text) as UbigeoAiJsonShape;
-        if (parsed.estado === "valido") return { status: "ubigeo_ai_valid" };
-        if (
-          (parsed.estado === "invalido" || parsed.estado === "inconsistente") &&
-          typeof parsed.detalle === "string"
-        ) {
-          return {
-            status: "ubigeo_ai_flagged",
-            estado: parsed.estado,
-            detalle: parsed.detalle,
-            ...(typeof parsed.sugerencia === "string" ? { sugerencia: parsed.sugerencia } : {}),
-          };
+        const campos = parsed.campos;
+        if (campos === undefined || typeof parsed.detalle !== "string") {
+          return { status: "ubigeo_ai_unavailable" };
         }
-        return { status: "ubigeo_ai_unavailable" };
+
+        // Total mapping, field by field: any missing/malformed `campos.<field>`
+        // is `ubigeo_ai_unavailable`, never thrown — same fail-open discipline
+        // as every other unexpected-shape branch in this method.
+        const issues: UbigeoFieldIssue[] = [];
+        for (const field of UBIGEO_FIELD_ORDER) {
+          const campo = campos[field];
+          if (campo === undefined || typeof campo.valido !== "boolean") {
+            return { status: "ubigeo_ai_unavailable" };
+          }
+          if (!campo.valido) {
+            // `valorIngresado` is sourced from the ORIGINAL input, never from
+            // the AI's own echo — the re-prompt must always quote exactly
+            // what the citizen typed.
+            const sugerencia = usableSuggestion(campo.sugerencia);
+            issues.push({
+              field,
+              valorIngresado: input[field],
+              ...(sugerencia !== undefined ? { sugerencia } : {}),
+            });
+          }
+        }
+
+        if (issues.length === 0) return { status: "ubigeo_ai_valid" };
+        return { status: "ubigeo_ai_field_issues", issues, detalle: parsed.detalle };
       } catch (err) {
         logger.warn({ err }, "[google-ai:http] Respuesta de Google AI no parseable — fail-open (ubigeo_ai_unavailable)");
         return { status: "ubigeo_ai_unavailable" };

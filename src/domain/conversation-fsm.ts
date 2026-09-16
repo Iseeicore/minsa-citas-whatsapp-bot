@@ -44,7 +44,7 @@ import type {
   ListHorasResult,
   SearchUbigeoResult,
 } from "../ports/minsa-catalog-client.js";
-import type { UbigeoAiValidationResult } from "../ports/ai-fallback-client.js";
+import type { UbigeoAiValidationResult, UbigeoFieldIssue, UbigeoFieldName } from "../ports/ai-fallback-client.js";
 import type { ConversationSession, ConversationStateName, SlotValue } from "./conversation-session.js";
 import { withState } from "./conversation-session.js";
 import { isValidDniFormat } from "./dni.js";
@@ -315,11 +315,23 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
   "citaBearer",
   "citaDepartamento",
   "citaProvincia",
+  "citaDistrito",
   "citaUbigeo",
   "citaEspecialidadId",
   "citaCodEess",
   "citaFecha",
   "citaHoraInicio",
+  // AI ubigeo per-field correction (no-SDD fast path): parked while a
+  // 1-2-field correction sequence is in progress, see
+  // citaCorrectingUbigeoHandler.
+  "citaCorrectingField",
+  "citaCorrectingQueue",
+  "citaCorrectingSugDepartamento",
+  "citaCorrectingSugProvincia",
+  "citaCorrectingSugDistrito",
+  "citaRetriedDepartamento",
+  "citaRetriedProvincia",
+  "citaRetriedDistrito",
 ] as const;
 
 // --- Cita catalog/booking MVP (no-SDD fast path, explicit user decision) ---
@@ -333,6 +345,11 @@ const CITA_AWAITING_DEPARTAMENTO_STATE: ConversationStateName = "cita_awaiting_d
 const CITA_AWAITING_PROVINCIA_STATE: ConversationStateName = "cita_awaiting_provincia";
 const CITA_AWAITING_DISTRITO_STATE: ConversationStateName = "cita_awaiting_distrito";
 const CITA_UBIGEO_PENDING_STATE: ConversationStateName = "cita_ubigeo_pending";
+// Per-field AI correction sequence (1-2 flagged fields) and its terminal
+// cut-off when a field fails its one allotted retry — see
+// citaCorrectingUbigeoHandler.
+const CITA_CORRECTING_UBIGEO_STATE: ConversationStateName = "cita_correcting_ubigeo";
+const CITA_UBIGEO_REJECTED_STATE: ConversationStateName = "cita_ubigeo_rejected";
 const CITA_AWAITING_UBIGEO_SELECT_STATE: ConversationStateName = "cita_awaiting_ubigeo_select";
 const CITA_ESPECIALIDAD_PENDING_STATE: ConversationStateName = "cita_especialidad_pending";
 const CITA_AWAITING_ESPECIALIDAD_SELECT_STATE: ConversationStateName = "cita_awaiting_especialidad_select";
@@ -353,6 +370,62 @@ const CITA_ASK_DISTRITO_BODY = "¿En qué distrito? (ej: Lurigancho)";
 const CITA_INVALID_UBICACION_STEP_BODY = "No entendí tu respuesta. Escribe el nombre, por favor.";
 const CITA_SEARCHING_BODY = "Buscando…";
 const CITA_UBIGEO_EMPTY_BODY = "No encontramos esa ubicación. Empecemos de nuevo.";
+const CITA_UBIGEO_RETRY_EXHAUSTED_BODY =
+  "No pudimos validar tu ubicación en este momento. Por favor intenta nuevamente más tarde.";
+const CITA_UBIGEO_CONFIRM_SI_ID = "cita_ubigeo_confirmar_si";
+const CITA_UBIGEO_CONFIRM_NO_ID = "cita_ubigeo_confirmar_no";
+const CITA_UBIGEO_CONFIRM_BUTTONS: readonly ReplyButton[] = [
+  { id: CITA_UBIGEO_CONFIRM_SI_ID, title: "Sí" },
+  { id: CITA_UBIGEO_CONFIRM_NO_ID, title: "No" },
+];
+
+const UBIGEO_FIELD_SLOT_KEY: Record<UbigeoFieldName, string> = {
+  departamento: "citaDepartamento",
+  provincia: "citaProvincia",
+  distrito: "citaDistrito",
+};
+const UBIGEO_FIELD_RETRIED_SLOT_KEY: Record<UbigeoFieldName, string> = {
+  departamento: "citaRetriedDepartamento",
+  provincia: "citaRetriedProvincia",
+  distrito: "citaRetriedDistrito",
+};
+const UBIGEO_FIELD_SUGGESTION_SLOT_KEY: Record<UbigeoFieldName, string> = {
+  departamento: "citaCorrectingSugDepartamento",
+  provincia: "citaCorrectingSugProvincia",
+  distrito: "citaCorrectingSugDistrito",
+};
+// Grammatical gender agreement for the retype prompts below — "provincia" is
+// feminine ("la provincia"), "departamento"/"distrito" are masculine ("el ...").
+const UBIGEO_FIELD_ARTICLE: Record<UbigeoFieldName, string> = {
+  departamento: "el",
+  provincia: "la",
+  distrito: "el",
+};
+
+/** Builds the confirm-suggestion (Sí/No) or direct-retype prompt for one flagged ubigeo field. */
+function buildUbigeoFieldCorrectionEffect(
+  to: string,
+  field: UbigeoFieldName,
+  valorIngresado: string,
+  sugerencia: string
+): FsmEffect {
+  if (sugerencia.length > 0) {
+    return {
+      kind: "send_buttons",
+      to,
+      body: `No reconozco tu ${field} '${valorIngresado}'. ¿Quisiste decir '${sugerencia}'?`,
+      buttons: CITA_UBIGEO_CONFIRM_BUTTONS,
+    };
+  }
+  // No usable AI suggestion for this field (not just "invalid", genuinely
+  // unrecognized) — ask the citizen to retype it, with correct article
+  // agreement, instead of offering a bogus "correct" framing.
+  return {
+    kind: "send_text",
+    to,
+    body: `No reconozco tu mensaje. ¿Podrías escribir otra vez ${UBIGEO_FIELD_ARTICLE[field]} ${field}?`,
+  };
+}
 const CITA_ESPECIALIDADES_EMPTY_BODY = "No hay especialidades con cupos disponibles para esa ubicación por ahora.";
 const CITA_ESTABLECIMIENTOS_EMPTY_BODY = "No hay establecimientos disponibles para esa especialidad por ahora.";
 const CITA_FECHAS_EMPTY_BODY = "No hay fechas disponibles para ese establecimiento por ahora.";
@@ -1299,7 +1372,14 @@ function citaAwaitingDistritoHandler(session: ConversationSession, event: FsmEve
 
   const departamento = stringSlot(session, "citaDepartamento");
   const provincia = stringSlot(session, "citaProvincia");
-  const advanced = withState(session, CITA_UBIGEO_PENDING_STATE);
+  // citaDistrito is persisted (unlike Stage A's original single-shot flow)
+  // so it survives into a possible per-field AI correction sequence, which
+  // may take several more turns before search_ubigeo re-fires — see
+  // citaCorrectingUbigeoHandler.
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaDistrito: text } },
+    CITA_UBIGEO_PENDING_STATE
+  );
   return {
     session: advanced,
     effects: [
@@ -1327,15 +1407,61 @@ function citaUbigeoPendingHandler(session: ConversationSession, event: FsmEvent)
     return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
   }
   const result = event.result;
-  if (result.status === "ubigeo_ai_flagged") {
-    const back = withState(session, CITA_AWAITING_DEPARTAMENTO_STATE);
-    const sugerenciaLine = result.sugerencia !== undefined ? ` ${result.sugerencia}` : "";
+  if (result.status === "ubigeo_ai_field_issues") {
+    // 3 flagged fields: preguntar los 3 de nuevo es literalmente el flujo de
+    // recolección original — mismo comportamiento de siempre, sin cambios.
+    if (result.issues.length >= 3) {
+      const back = withState(session, CITA_AWAITING_DEPARTAMENTO_STATE);
+      return {
+        session: back,
+        effects: [
+          { kind: "send_text", to, body: result.detalle },
+          { kind: "send_text", to, body: CITA_ASK_DEPARTAMENTO_BODY },
+        ],
+        outcome: "continue",
+      };
+    }
+
+    // 1-2 flagged fields: each gets exactly ONE retry (confirm suggestion or
+    // retype). If ANY of the now-flagged fields already spent its retry
+    // (this is a re-validation after a correction round, run again from the
+    // re-fired search_ubigeo at the bottom of citaCorrectingUbigeoHandler),
+    // cut the conversation instead of offering another round.
+    const alreadyRetried = result.issues.some(
+      (issue) => session.slots[UBIGEO_FIELD_RETRIED_SLOT_KEY[issue.field]] === true
+    );
+    if (alreadyRetried) {
+      const rejected = withState({ ...session, slots: clearCitaSlots(session.slots) }, CITA_UBIGEO_REJECTED_STATE);
+      return {
+        session: rejected,
+        effects: [
+          { kind: "send_text", to, body: CITA_UBIGEO_RETRY_EXHAUSTED_BODY },
+          { kind: "end_session", to },
+        ],
+        outcome: "rejected",
+      };
+    }
+
+    const [first, ...rest] = result.issues;
+    const suggestionSlots: Record<string, SlotValue> = {};
+    for (const issue of result.issues) {
+      suggestionSlots[UBIGEO_FIELD_SUGGESTION_SLOT_KEY[issue.field]] = issue.sugerencia ?? "";
+    }
+    const advanced = withState(
+      {
+        ...session,
+        slots: {
+          ...session.slots,
+          ...suggestionSlots,
+          citaCorrectingField: first.field,
+          citaCorrectingQueue: rest.map((issue) => issue.field).join(","),
+        },
+      },
+      CITA_CORRECTING_UBIGEO_STATE
+    );
     return {
-      session: back,
-      effects: [
-        { kind: "send_text", to, body: `${result.detalle}${sugerenciaLine}` },
-        { kind: "send_text", to, body: CITA_ASK_DEPARTAMENTO_BODY },
-      ],
+      session: advanced,
+      effects: [buildUbigeoFieldCorrectionEffect(to, first.field, first.valorIngresado, first.sugerencia ?? "")],
       outcome: "continue",
     };
   }
@@ -1364,6 +1490,115 @@ function citaUbigeoPendingHandler(session: ConversationSession, event: FsmEvent)
     effects: [
       { kind: "send_text", to, body: CITA_UBIGEO_EMPTY_BODY },
       { kind: "send_text", to, body: CITA_ASK_DEPARTAMENTO_BODY },
+    ],
+    outcome: "continue",
+  };
+}
+
+// Per-field AI correction sequence (citaUbigeoPendingHandler's 1-2-issue
+// branch parks here). One field at a time: `citaCorrectingField` names the
+// field currently being resolved, `citaCorrectingQueue` holds the remaining
+// field names (comma-separated — SlotValue is string|number|boolean|null
+// only, no arrays, so a small comma-joined string is this codebase's
+// existing convention for an ordered list in a slot). A NON-EMPTY
+// `citaCorrectingSug<Field>` slot means we're awaiting a Sí/No tap on the
+// AI's suggestion; once the citizen taps "No" (or the AI had no suggestion
+// to begin with) that slot is blanked to "", switching this SAME state into
+// free-text retype mode for that field.
+function citaCorrectingUbigeoHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  const field = stringSlot(session, "citaCorrectingField") as UbigeoFieldName;
+  const suggestion = stringSlot(session, UBIGEO_FIELD_SUGGESTION_SLOT_KEY[field]);
+  const currentValue = stringSlot(session, UBIGEO_FIELD_SLOT_KEY[field]);
+  const selection = isInboundEvent(event) ? event.interactiveReplyId ?? event.text?.trim() : undefined;
+
+  // Awaiting a Sí/No tap on the AI's suggestion.
+  if (suggestion.length > 0) {
+    if (selection === CITA_UBIGEO_CONFIRM_SI_ID) {
+      return resolveUbigeoFieldCorrection(session, to, field, suggestion);
+    }
+    if (selection === CITA_UBIGEO_CONFIRM_NO_ID) {
+      const advanced = withState(
+        { ...session, slots: { ...session.slots, [UBIGEO_FIELD_SUGGESTION_SLOT_KEY[field]]: "" } },
+        CITA_CORRECTING_UBIGEO_STATE
+      );
+      return {
+        session: advanced,
+        effects: [
+          { kind: "send_text", to, body: `Escribe otra vez ${UBIGEO_FIELD_ARTICLE[field]} ${field}.` },
+        ],
+        outcome: "continue",
+      };
+    }
+    // Unrecognized reply while awaiting the buttons: re-prompt, do not
+    // consume the field's retry.
+    return {
+      session,
+      effects: [buildUbigeoFieldCorrectionEffect(to, field, currentValue, suggestion)],
+      outcome: "continue",
+    };
+  }
+
+  // Awaiting free-text retype (no suggestion offered, or "No" was tapped).
+  if (selection === undefined || selection.length === 0) {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_INVALID_UBICACION_STEP_BODY }], outcome: "continue" };
+  }
+  return resolveUbigeoFieldCorrection(session, to, field, selection);
+}
+
+// Applies the resolved value for the field currently being corrected
+// (accepted suggestion or retyped text), spends that field's one retry, and
+// either moves to the next queued field or re-fires search_ubigeo to
+// re-validate the FULL corrected trio with the AI before ever reaching
+// MINSA — never trusts a single-field correction in isolation.
+function resolveUbigeoFieldCorrection(
+  session: ConversationSession,
+  to: string,
+  field: UbigeoFieldName,
+  correctedValue: string
+): FsmResult {
+  const queue = stringSlot(session, "citaCorrectingQueue");
+  const remaining = queue.length > 0 ? queue.split(",") : [];
+  const updatedSlots: Record<string, SlotValue> = {
+    ...session.slots,
+    [UBIGEO_FIELD_SLOT_KEY[field]]: correctedValue,
+    [UBIGEO_FIELD_RETRIED_SLOT_KEY[field]]: true,
+    [UBIGEO_FIELD_SUGGESTION_SLOT_KEY[field]]: "",
+  };
+
+  if (remaining.length > 0) {
+    const [nextField, ...restQueue] = remaining as UbigeoFieldName[];
+    const nextSuggestion = stringSlot(session, UBIGEO_FIELD_SUGGESTION_SLOT_KEY[nextField]);
+    const nextCurrentValue = stringSlot(session, UBIGEO_FIELD_SLOT_KEY[nextField]);
+    const advanced = withState(
+      {
+        ...session,
+        slots: { ...updatedSlots, citaCorrectingField: nextField, citaCorrectingQueue: restQueue.join(",") },
+      },
+      CITA_CORRECTING_UBIGEO_STATE
+    );
+    return {
+      session: advanced,
+      effects: [buildUbigeoFieldCorrectionEffect(to, nextField, nextCurrentValue, nextSuggestion)],
+      outcome: "continue",
+    };
+  }
+
+  const advanced = withState(
+    { ...session, slots: { ...updatedSlots, citaCorrectingField: "", citaCorrectingQueue: "" } },
+    CITA_UBIGEO_PENDING_STATE
+  );
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
+      {
+        kind: "search_ubigeo",
+        departamento: stringSlot(advanced, "citaDepartamento"),
+        provincia: stringSlot(advanced, "citaProvincia"),
+        distrito: stringSlot(advanced, "citaDistrito"),
+        token: citaBearerOf(advanced),
+      },
     ],
     outcome: "continue",
   };
@@ -1728,6 +1963,8 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [CITA_AWAITING_PROVINCIA_STATE]: citaAwaitingProvinciaHandler,
   [CITA_AWAITING_DISTRITO_STATE]: citaAwaitingDistritoHandler,
   [CITA_UBIGEO_PENDING_STATE]: citaUbigeoPendingHandler,
+  [CITA_CORRECTING_UBIGEO_STATE]: citaCorrectingUbigeoHandler,
+  [CITA_UBIGEO_REJECTED_STATE]: closedFlowHandler,
   [CITA_AWAITING_UBIGEO_SELECT_STATE]: citaAwaitingUbigeoSelectHandler,
   [CITA_ESPECIALIDAD_PENDING_STATE]: citaEspecialidadPendingHandler,
   [CITA_AWAITING_ESPECIALIDAD_SELECT_STATE]: citaAwaitingEspecialidadSelectHandler,

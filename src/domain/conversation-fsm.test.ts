@@ -1274,7 +1274,7 @@ describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast pa
     ]);
   });
 
-  it("D20: an AI-flagged search_ubigeo_result (the AI pre-check runs inside the executor, never as a second FSM query effect) re-prompts with the AI's detalle+sugerencia and restarts collection from departamento", () => {
+  it("D20: 3 flagged fields (the AI pre-check runs inside the executor, never as a second FSM query effect) re-prompts with the AI's detalle and restarts collection from departamento", () => {
     const session = parkedSession("cita_ubigeo_pending", { citaBearer: "bearer-token-value" });
 
     const result = handle(session, {
@@ -1282,20 +1282,19 @@ describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast pa
       from: FROM,
       kind: "search_ubigeo_result",
       result: {
-        status: "ubigeo_ai_flagged",
-        estado: "inconsistente",
-        detalle: "Trujillo no pertenece al departamento de Lima.",
-        sugerencia: "¿Quisiste decir La Libertad?",
+        status: "ubigeo_ai_field_issues",
+        issues: [
+          { field: "departamento", valorIngresado: "Lim" },
+          { field: "provincia", valorIngresado: "Truj" },
+          { field: "distrito", valorIngresado: "X" },
+        ],
+        detalle: "Ninguno de los 3 campos coincide con la geografía oficial.",
       },
     });
 
     expect(result.session.state).toBe("cita_awaiting_departamento");
     expect(result.effects).toEqual([
-      {
-        kind: "send_text",
-        to: FROM,
-        body: "Trujillo no pertenece al departamento de Lima. ¿Quisiste decir La Libertad?",
-      },
+      { kind: "send_text", to: FROM, body: "Ninguno de los 3 campos coincide con la geografía oficial." },
       { kind: "send_text", to: FROM, body: "¿En qué departamento vives? (ej: Lima)" },
     ]);
   });
@@ -1318,6 +1317,216 @@ describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast pa
     expect(result.session.state).toBe("cita_awaiting_distrito");
     expect(result.effects).toEqual([
       { kind: "send_text", to: FROM, body: "No entendí tu respuesta. Escribe el nombre, por favor." },
+    ]);
+  });
+});
+
+describe("handle — Cita ubigeo per-field AI correction (1-2 flagged fields, no-SDD fast path)", () => {
+  function ubigeoPendingSession(overrides: ConversationSession["slots"] = {}) {
+    return parkedSession("cita_ubigeo_pending", {
+      citaBearer: "bearer-token-value",
+      citaDepartamento: "Lima",
+      citaProvincia: "Lima",
+      citaDistrito: "Surco",
+      ...overrides,
+    });
+  }
+
+  it("1 flagged field with a suggestion offers Sí/No buttons; 'Sí' accepts it, spends the field's retry, and re-fires search_ubigeo with the corrected trio", () => {
+    const flagged = handle(ubigeoPendingSession(), {
+      source: "system",
+      from: FROM,
+      kind: "search_ubigeo_result",
+      result: {
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "distrito", valorIngresado: "Surco", sugerencia: "Santiago de Surco" }],
+        detalle: "El distrito no coincide exactamente con ninguno oficial de esa provincia.",
+      },
+    });
+
+    expect(flagged.session.state).toBe("cita_correcting_ubigeo");
+    expect(flagged.effects).toEqual([
+      {
+        kind: "send_buttons",
+        to: FROM,
+        body: "No reconozco tu distrito 'Surco'. ¿Quisiste decir 'Santiago de Surco'?",
+        buttons: [
+          { id: "cita_ubigeo_confirmar_si", title: "Sí" },
+          { id: "cita_ubigeo_confirmar_no", title: "No" },
+        ],
+      },
+    ]);
+
+    const confirmed = handle(flagged.session, makeEvent({ interactiveReplyId: "cita_ubigeo_confirmar_si" }));
+
+    expect(confirmed.session.state).toBe("cita_ubigeo_pending");
+    expect(confirmed.session.slots.citaDistrito).toBe("Santiago de Surco");
+    expect(confirmed.session.slots.citaRetriedDistrito).toBe(true);
+    expect(confirmed.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Buscando…" },
+      {
+        kind: "search_ubigeo",
+        departamento: "Lima",
+        provincia: "Lima",
+        distrito: "Santiago de Surco",
+        token: "bearer-token-value",
+      },
+    ]);
+  });
+
+  it("'No' on the suggestion switches to free-text retype for the same field, without consuming the retry until the typed value is accepted", () => {
+    const flagged = handle(ubigeoPendingSession(), {
+      source: "system",
+      from: FROM,
+      kind: "search_ubigeo_result",
+      result: {
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "distrito", valorIngresado: "Surco", sugerencia: "Santiago de Surco" }],
+        detalle: "No coincide.",
+      },
+    });
+
+    const declined = handle(flagged.session, makeEvent({ interactiveReplyId: "cita_ubigeo_confirmar_no" }));
+    expect(declined.session.state).toBe("cita_correcting_ubigeo");
+    expect(declined.session.slots.citaRetriedDistrito).toBeUndefined();
+    expect(declined.effects).toEqual([{ kind: "send_text", to: FROM, body: "Escribe otra vez el distrito." }]);
+
+    const retyped = handle(declined.session, makeEvent({ text: "Santiago de Surco" }));
+    expect(retyped.session.state).toBe("cita_ubigeo_pending");
+    expect(retyped.session.slots.citaDistrito).toBe("Santiago de Surco");
+    expect(retyped.session.slots.citaRetriedDistrito).toBe(true);
+    expect(retyped.effects[1]).toEqual({
+      kind: "search_ubigeo",
+      departamento: "Lima",
+      provincia: "Lima",
+      distrito: "Santiago de Surco",
+      token: "bearer-token-value",
+    });
+  });
+
+  it("1 flagged field with no suggestion skips the buttons and asks directly for a retype", () => {
+    const flagged = handle(ubigeoPendingSession(), {
+      source: "system",
+      from: FROM,
+      kind: "search_ubigeo_result",
+      result: {
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "distrito", valorIngresado: "Surco" }],
+        detalle: "No existe.",
+      },
+    });
+
+    expect(flagged.session.state).toBe("cita_correcting_ubigeo");
+    expect(flagged.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "No reconozco tu mensaje. ¿Podrías escribir otra vez el distrito?" },
+    ]);
+  });
+
+  it("uses feminine article agreement ('la provincia') when provincia has no suggestion", () => {
+    const flagged = handle(ubigeoPendingSession(), {
+      source: "system",
+      from: FROM,
+      kind: "search_ubigeo_result",
+      result: {
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "provincia", valorIngresado: "Mar dorado" }],
+        detalle: "No existe.",
+      },
+    });
+
+    expect(flagged.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "No reconozco tu mensaje. ¿Podrías escribir otra vez la provincia?" },
+    ]);
+  });
+
+  it("2 flagged fields (provincia + distrito) are resolved sequentially, then search_ubigeo re-fires once both are corrected", () => {
+    const flagged = handle(ubigeoPendingSession({ citaProvincia: "Trujillo" }), {
+      source: "system",
+      from: FROM,
+      kind: "search_ubigeo_result",
+      result: {
+        status: "ubigeo_ai_field_issues",
+        issues: [
+          { field: "provincia", valorIngresado: "Trujillo", sugerencia: "Lima" },
+          { field: "distrito", valorIngresado: "Surco", sugerencia: "Santiago de Surco" },
+        ],
+        detalle: "Provincia y distrito no pertenecen al departamento indicado.",
+      },
+    });
+
+    expect(flagged.session.state).toBe("cita_correcting_ubigeo");
+    expect(flagged.session.slots.citaCorrectingField).toBe("provincia");
+    expect(flagged.session.slots.citaCorrectingQueue).toBe("distrito");
+    expect(flagged.effects).toEqual([
+      {
+        kind: "send_buttons",
+        to: FROM,
+        body: "No reconozco tu provincia 'Trujillo'. ¿Quisiste decir 'Lima'?",
+        buttons: [
+          { id: "cita_ubigeo_confirmar_si", title: "Sí" },
+          { id: "cita_ubigeo_confirmar_no", title: "No" },
+        ],
+      },
+    ]);
+
+    const provinciaResolved = handle(flagged.session, makeEvent({ interactiveReplyId: "cita_ubigeo_confirmar_si" }));
+    expect(provinciaResolved.session.state).toBe("cita_correcting_ubigeo");
+    expect(provinciaResolved.session.slots.citaProvincia).toBe("Lima");
+    expect(provinciaResolved.session.slots.citaCorrectingField).toBe("distrito");
+    expect(provinciaResolved.session.slots.citaCorrectingQueue).toBe("");
+    expect(provinciaResolved.effects).toEqual([
+      {
+        kind: "send_buttons",
+        to: FROM,
+        body: "No reconozco tu distrito 'Surco'. ¿Quisiste decir 'Santiago de Surco'?",
+        buttons: [
+          { id: "cita_ubigeo_confirmar_si", title: "Sí" },
+          { id: "cita_ubigeo_confirmar_no", title: "No" },
+        ],
+      },
+    ]);
+
+    const distritoResolved = handle(
+      provinciaResolved.session,
+      makeEvent({ interactiveReplyId: "cita_ubigeo_confirmar_si" })
+    );
+    expect(distritoResolved.session.state).toBe("cita_ubigeo_pending");
+    expect(distritoResolved.session.slots.citaDistrito).toBe("Santiago de Surco");
+    expect(distritoResolved.effects).toEqual([
+      { kind: "send_text", to: FROM, body: "Buscando…" },
+      {
+        kind: "search_ubigeo",
+        departamento: "Lima",
+        provincia: "Lima",
+        distrito: "Santiago de Surco",
+        token: "bearer-token-value",
+      },
+    ]);
+  });
+
+  it("a field that fails re-validation after already spending its retry cuts the conversation instead of offering another round", () => {
+    const alreadyRetried = ubigeoPendingSession({ citaRetriedDistrito: true });
+
+    const result = handle(alreadyRetried, {
+      source: "system",
+      from: FROM,
+      kind: "search_ubigeo_result",
+      result: {
+        status: "ubigeo_ai_field_issues",
+        issues: [{ field: "distrito", valorIngresado: "Surco", sugerencia: "Santiago de Surco" }],
+        detalle: "Sigue sin coincidir.",
+      },
+    });
+
+    expect(result.outcome).toBe("rejected");
+    expect(result.session.state).toBe("cita_ubigeo_rejected");
+    expect(result.effects).toEqual([
+      {
+        kind: "send_text",
+        to: FROM,
+        body: "No pudimos validar tu ubicación en este momento. Por favor intenta nuevamente más tarde.",
+      },
+      { kind: "end_session", to: FROM },
     ]);
   });
 });
