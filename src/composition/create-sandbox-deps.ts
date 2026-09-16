@@ -23,6 +23,8 @@ import {
   createSandboxScheduledCheckScheduler,
 } from "../fakes/sandbox-fakes.js";
 import type { SandboxCatalogOptions } from "../fakes/sandbox-fakes.js";
+import { createHttpMinsaIdentityClient } from "../adapters/http-minsa-identity-client.js";
+import { createHttpMinsaCatalogClient } from "../adapters/http-minsa-catalog-client.js";
 
 /** D37 add-on knobs for a sandbox buildApp composition (dev-only). */
 export interface SandboxOptions {
@@ -49,7 +51,14 @@ export interface SandboxComposition {
 }
 
 export interface CreateSandboxDepsInput {
-  config: { sessionKeySecret: string; sessionTtlSeconds: number };
+  config: {
+    sessionKeySecret: string;
+    sessionTtlSeconds: number;
+    minsaApiHost: string;
+    minsaIntegrationSecret: string;
+    citaConversationIdPlaceholder: string;
+    sandboxUseRealMinsa: boolean;
+  };
   logger: pino.Logger;
   options?: SandboxOptions;
 }
@@ -64,8 +73,17 @@ export function createSandboxDeps(deps: CreateSandboxDepsInput): SandboxComposit
     options?.quejas ?? { mode: "accepted", reference: "DEV-REF-001" }
   );
   const whatsappMediaDownloader = createSandboxMediaDownloader(options?.mediaBytes);
-  const minsaIdentityClient = createSandboxMinsaIdentityClient();
-  const minsaCatalogClient = createSandboxMinsaCatalogClient(options?.catalog);
+  // MVP (no-SDD fast path): SANDBOX_USE_REAL_MINSA=true swaps ONLY the
+  // identity/catalog clients for the real HTTP adapters (real network calls
+  // to MINSA Digital, real MINSA_INTEGRATION_SECRET) — sender/RENIEC/quejas/
+  // media stay faked, since this is for testing the DNI/OTP/booking chain
+  // against production MINSA data without needing Meta credentials.
+  const minsaIdentityClient = config.sandboxUseRealMinsa
+    ? createHttpMinsaIdentityClient({ config, logger })
+    : createSandboxMinsaIdentityClient();
+  const minsaCatalogClient = config.sandboxUseRealMinsa
+    ? createHttpMinsaCatalogClient({ config, logger })
+    : createSandboxMinsaCatalogClient(options?.catalog);
 
   const flow = createConversationFlowService({
     sessionStore,

@@ -89,6 +89,14 @@ export const config = {
   // Bare env, prod default irrelevant (this only ever registers inside the
   // sandboxEnabled && !production gate in app.ts).
   sandboxAllowedOrigin: process.env.SANDBOX_ALLOWED_ORIGIN ?? "http://localhost:5173",
+  // MVP (no-SDD fast path): swaps the sandbox's fake MinsaIdentityClient/
+  // MinsaCatalogClient for the REAL HTTP adapters (real MINSA_INTEGRATION_SECRET,
+  // real network calls) while everything else in the sandbox (sender,
+  // RENIEC, quejas, media) stays faked — lets the DNI/OTP/booking flow be
+  // tested against production MINSA data without needing Meta credentials.
+  // Bare env, default false — the sandbox is fake-only unless explicitly
+  // opted into real MINSA calls.
+  sandboxUseRealMinsa: process.env.SANDBOX_USE_REAL_MINSA === "true",
   // Fastify defaults connectionTimeout to 0 (unbounded); 30s bounds a hung
   // socket while staying far above any legitimate Meta webhook delivery.
   connectionTimeout: Number(process.env.CONNECTION_TIMEOUT_MS ?? 30000),
