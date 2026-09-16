@@ -135,7 +135,6 @@ function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
     effect.kind === "quejas_submit" ||
     effect.kind === "validate_user" ||
     effect.kind === "verify_code" ||
-    effect.kind === "validate_ubigeo_ai" ||
     effect.kind === "search_ubigeo" ||
     effect.kind === "list_especialidades" ||
     effect.kind === "list_establecimientos" ||
@@ -305,15 +304,22 @@ async function runQueryEffect(
   to: string | undefined
 ): Promise<FsmSystemEvent> {
   switch (effect.kind) {
-    case "validate_ubigeo_ai": {
-      const result = await clients.aiFallbackClient.validateUbigeo({
+    case "search_ubigeo": {
+      // D20: still exactly ONE query effect emitted by handle() for this
+      // turn — the AI pre-check is sequenced HERE, inside the executor, not
+      // as a second FSM-visible query effect (that was tried and violates
+      // D20's bounded re-entry: see the removed validate_ubigeo_ai kind).
+      // Fail-open: "valid" and "unavailable" both fall through to the real
+      // MINSA call below; only "flagged" short-circuits it.
+      const aiCheck = await clients.aiFallbackClient.validateUbigeo({
         departamento: effect.departamento,
         provincia: effect.provincia,
         distrito: effect.distrito,
       });
-      return { source: "system", from: to, kind: "validate_ubigeo_ai_result", result };
-    }
-    case "search_ubigeo": {
+      if (aiCheck.status === "ubigeo_ai_flagged") {
+        return { source: "system", from: to, kind: "search_ubigeo_result", result: aiCheck };
+      }
+
       const result = await clients.minsaCatalogClient.searchUbigeo(
         { departamento: effect.departamento, provincia: effect.provincia, distrito: effect.distrito },
         effect.token

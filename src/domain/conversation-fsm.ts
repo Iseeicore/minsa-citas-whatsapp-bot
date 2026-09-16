@@ -100,12 +100,6 @@ export type FsmQueryEffect =
   // `token` is `slots.citaBearer`, read by the handler that constructs each
   // effect — same D17 "never from slots inside handle()" discipline covers
   // `to`, not `token` (a Bearer credential, not the citizen's own identity).
-  // AI ubigeo pre-check (no-SDD exploration, explicit user decision): fires
-  // BEFORE search_ubigeo, so an obvious typo/hierarchy mismatch (e.g.
-  // Provincia "Trujillo" under Departamento "Lima") is caught with a
-  // specific message instead of wasting a real MINSA call for a generic
-  // "not found." No `token` — this never talks to MINSA.
-  | { kind: "validate_ubigeo_ai"; departamento: string; provincia: string; distrito: string }
   | { kind: "search_ubigeo"; departamento: string; provincia: string; distrito: string; token: string }
   | { kind: "list_especialidades"; ubigeo: string; token: string }
   | { kind: "list_establecimientos"; ubigeo: string; especialidadId: string; token: string }
@@ -170,7 +164,6 @@ export interface FsmSystemEvent {
     | "quejas_submit_result"
     | "validate_user_result"
     | "verify_code_result"
-    | "validate_ubigeo_ai_result"
     | "search_ubigeo_result"
     | "list_especialidades_result"
     | "list_establecimientos_result"
@@ -322,7 +315,6 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
   "citaBearer",
   "citaDepartamento",
   "citaProvincia",
-  "citaDistrito",
   "citaUbigeo",
   "citaEspecialidadId",
   "citaCodEess",
@@ -340,9 +332,6 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
 const CITA_AWAITING_DEPARTAMENTO_STATE: ConversationStateName = "cita_awaiting_departamento";
 const CITA_AWAITING_PROVINCIA_STATE: ConversationStateName = "cita_awaiting_provincia";
 const CITA_AWAITING_DISTRITO_STATE: ConversationStateName = "cita_awaiting_distrito";
-// AI ubigeo pre-check (no-SDD exploration): sits between distrito collection
-// and the real MINSA lookup.
-const CITA_UBIGEO_AI_PENDING_STATE: ConversationStateName = "cita_ubigeo_ai_pending";
 const CITA_UBIGEO_PENDING_STATE: ConversationStateName = "cita_ubigeo_pending";
 const CITA_AWAITING_UBIGEO_SELECT_STATE: ConversationStateName = "cita_awaiting_ubigeo_select";
 const CITA_ESPECIALIDAD_PENDING_STATE: ConversationStateName = "cita_especialidad_pending";
@@ -1310,32 +1299,33 @@ function citaAwaitingDistritoHandler(session: ConversationSession, event: FsmEve
 
   const departamento = stringSlot(session, "citaDepartamento");
   const provincia = stringSlot(session, "citaProvincia");
-  const advanced = withState(
-    { ...session, slots: { ...session.slots, citaDistrito: text } },
-    CITA_UBIGEO_AI_PENDING_STATE
-  );
+  const advanced = withState(session, CITA_UBIGEO_PENDING_STATE);
   return {
     session: advanced,
     effects: [
       { kind: "send_text", to, body: CITA_SEARCHING_BODY },
-      { kind: "validate_ubigeo_ai", departamento, provincia, distrito: text },
+      { kind: "search_ubigeo", departamento, provincia, distrito: text, token: citaBearerOf(session) },
     ],
     outcome: "continue",
   };
 }
 
-// AI ubigeo pre-check (no-SDD exploration, explicit user decision): D20
-// re-entry target for `validate_ubigeo_ai`. "valid" AND "unavailable" both
-// proceed to the real search_ubigeo call (fail-open — an AI outage must
-// never block a real citizen); only "flagged" re-prompts with the AI's own
-// detalle/sugerencia, restarting collection from departamento (the
-// inconsistency could be in any of the three fields).
-function citaUbigeoAiPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+// D20: exactly ONE query effect per FSM turn — the AI ubigeo pre-check does
+// NOT get its own effect/pending-state (an earlier version of this feature
+// did, and violated D20: the AI result handler then emitted a SECOND query
+// effect, search_ubigeo, in the same re-entry pass — an
+// FsmContractViolationError, "bounded re-entry never chains"). Instead, the
+// AI check is folded into search_ubigeo's own I/O EXECUTOR
+// (conversation-flow.ts's runQueryEffect), which may sequence as many real
+// network calls as it needs before returning ONE synthesized result — the
+// FSM here still only ever sees a single "search_ubigeo_result" event, now
+// carrying either UbigeoAiValidationResult's flagged shape (ai caught an
+// obvious problem — never even reached MINSA) or the normal SearchUbigeoResult.
+function citaUbigeoPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
   const to = event.from ?? "";
-  if (isInboundEvent(event) || event.kind !== "validate_ubigeo_ai_result") {
+  if (isInboundEvent(event) || event.kind !== "search_ubigeo_result") {
     return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
   }
-
   const result = event.result;
   if (result.status === "ubigeo_ai_flagged") {
     const back = withState(session, CITA_AWAITING_DEPARTAMENTO_STATE);
@@ -1349,28 +1339,6 @@ function citaUbigeoAiPendingHandler(session: ConversationSession, event: FsmEven
       outcome: "continue",
     };
   }
-
-  // "ubigeo_ai_valid" or "ubigeo_ai_unavailable" — proceed unchanged.
-  const departamento = stringSlot(session, "citaDepartamento");
-  const provincia = stringSlot(session, "citaProvincia");
-  const distrito = stringSlot(session, "citaDistrito");
-  const advanced = withState(session, CITA_UBIGEO_PENDING_STATE);
-  return {
-    session: advanced,
-    effects: [
-      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
-      { kind: "search_ubigeo", departamento, provincia, distrito, token: citaBearerOf(session) },
-    ],
-    outcome: "continue",
-  };
-}
-
-function citaUbigeoPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
-  const to = event.from ?? "";
-  if (isInboundEvent(event) || event.kind !== "search_ubigeo_result") {
-    return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
-  }
-  const result = event.result;
   if (result.status === "ubigeo_found") {
     const advanced = withState(session, CITA_AWAITING_UBIGEO_SELECT_STATE);
     return {
@@ -1759,7 +1727,6 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [CITA_AWAITING_DEPARTAMENTO_STATE]: citaAwaitingDepartamentoHandler,
   [CITA_AWAITING_PROVINCIA_STATE]: citaAwaitingProvinciaHandler,
   [CITA_AWAITING_DISTRITO_STATE]: citaAwaitingDistritoHandler,
-  [CITA_UBIGEO_AI_PENDING_STATE]: citaUbigeoAiPendingHandler,
   [CITA_UBIGEO_PENDING_STATE]: citaUbigeoPendingHandler,
   [CITA_AWAITING_UBIGEO_SELECT_STATE]: citaAwaitingUbigeoSelectHandler,
   [CITA_ESPECIALIDAD_PENDING_STATE]: citaEspecialidadPendingHandler,

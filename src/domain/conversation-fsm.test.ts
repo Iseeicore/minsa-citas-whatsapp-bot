@@ -1232,7 +1232,7 @@ describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => 
 });
 
 describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast path)", () => {
-  it("departamento -> provincia -> distrito walks all three states, storing each slot, and fires validate_ubigeo_ai (then search_ubigeo once the AI check passes) only at the last step", () => {
+  it("departamento -> provincia -> distrito walks all three states, storing each slot, and fires search_ubigeo (a SINGLE query effect, D20) only at the last step", () => {
     const step1 = handle(
       parkedSession("cita_awaiting_departamento", { citaBearer: "bearer-token-value" }),
       { eventId: "e1", receivedAt: "2026-01-01T00:00:00.000Z", source: "whatsapp", from: FROM, messageType: "text", text: "Lima" }
@@ -1261,21 +1261,8 @@ describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast pa
       messageType: "text",
       text: "Lurigancho",
     });
-    expect(step3.session.state).toBe("cita_ubigeo_ai_pending");
+    expect(step3.session.state).toBe("cita_ubigeo_pending");
     expect(step3.effects).toEqual([
-      { kind: "send_text", to: FROM, body: "Buscando…" },
-      { kind: "validate_ubigeo_ai", departamento: "Lima", provincia: "Lima", distrito: "Lurigancho" },
-    ]);
-    expect(step3.session.slots.citaDistrito).toBe("Lurigancho");
-
-    const step4 = handle(step3.session, {
-      source: "system",
-      from: FROM,
-      kind: "validate_ubigeo_ai_result",
-      result: { status: "ubigeo_ai_valid" },
-    });
-    expect(step4.session.state).toBe("cita_ubigeo_pending");
-    expect(step4.effects).toEqual([
       { kind: "send_text", to: FROM, body: "Buscando…" },
       {
         kind: "search_ubigeo",
@@ -1287,18 +1274,13 @@ describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast pa
     ]);
   });
 
-  it("an AI-flagged result re-prompts with the AI's detalle+sugerencia and restarts collection from departamento, never calling search_ubigeo", () => {
-    const session = parkedSession("cita_ubigeo_ai_pending", {
-      citaBearer: "bearer-token-value",
-      citaDepartamento: "Lima",
-      citaProvincia: "Trujillo",
-      citaDistrito: "Trujillo",
-    });
+  it("D20: an AI-flagged search_ubigeo_result (the AI pre-check runs inside the executor, never as a second FSM query effect) re-prompts with the AI's detalle+sugerencia and restarts collection from departamento", () => {
+    const session = parkedSession("cita_ubigeo_pending", { citaBearer: "bearer-token-value" });
 
     const result = handle(session, {
       source: "system",
       from: FROM,
-      kind: "validate_ubigeo_ai_result",
+      kind: "search_ubigeo_result",
       result: {
         status: "ubigeo_ai_flagged",
         estado: "inconsistente",
@@ -1315,34 +1297,6 @@ describe("handle — Cita ubigeo collection, 3 guided steps (MVP, no-SDD fast pa
         body: "Trujillo no pertenece al departamento de Lima. ¿Quisiste decir La Libertad?",
       },
       { kind: "send_text", to: FROM, body: "¿En qué departamento vives? (ej: Lima)" },
-    ]);
-  });
-
-  it("an ubigeo_ai_unavailable result proceeds to search_ubigeo exactly like a valid one (fail-open — an AI outage never blocks the real flow)", () => {
-    const session = parkedSession("cita_ubigeo_ai_pending", {
-      citaBearer: "bearer-token-value",
-      citaDepartamento: "Lima",
-      citaProvincia: "Lima",
-      citaDistrito: "Lurigancho",
-    });
-
-    const result = handle(session, {
-      source: "system",
-      from: FROM,
-      kind: "validate_ubigeo_ai_result",
-      result: { status: "ubigeo_ai_unavailable" },
-    });
-
-    expect(result.session.state).toBe("cita_ubigeo_pending");
-    expect(result.effects).toEqual([
-      { kind: "send_text", to: FROM, body: "Buscando…" },
-      {
-        kind: "search_ubigeo",
-        departamento: "Lima",
-        provincia: "Lima",
-        distrito: "Lurigancho",
-        token: "bearer-token-value",
-      },
     ]);
   });
 

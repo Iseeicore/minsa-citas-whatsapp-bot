@@ -46,11 +46,12 @@ export const config = {
   // readEnv()'s "CHANGE_ME" fallback + warning apply — same discipline as
   // minsaIntegrationSecret above.
   googleClientApiKey: readEnv("GOOGLE_CLIENT_API"),
-  // Bare env, not a secret — the model id is public information. Default is
-  // a widely-available fast/cheap Gemini model; override if the account's
-  // key doesn't have access to it (GET /v1beta/models — the connectivity
-  // check's own endpoint — lists what's actually available).
-  googleAiModel: process.env.GOOGLE_AI_MODEL ?? "gemini-2.0-flash",
+  // Bare env, not a secret — the model id is public information. Default
+  // confirmed live against the real API: gemini-2.0-flash was retired
+  // (Google's own 404 names gemini-3.6-flash as the replacement); override
+  // if the account's key doesn't have access to it (GET /v1beta/models —
+  // the connectivity check's own endpoint — lists what's actually available).
+  googleAiModel: process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash",
   // MVP (no-SDD fast path): swaps the sandbox's no-op AiFallbackClient
   // (ubigeo AI pre-check always reports "valid", i.e. a pass-through) for
   // the real Google AI adapter. Bare env, default false — same discipline
