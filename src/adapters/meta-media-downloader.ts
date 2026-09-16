@@ -13,14 +13,25 @@ export interface MetaMediaDownloaderDeps {
 }
 
 // Same convention as meta-whatsapp-sender.ts / http-reniec-lookup-client.ts
-// (design note: Stage A owns it, Stage B reuses it verbatim).
+// (design note: Stage A owns it, Stage B reuses it verbatim) — hop 1's
+// metadata response is tiny regardless of the image size, so it keeps the
+// original bound.
 const REQUEST_TIMEOUT_MS = 10_000;
 
-// D21: 2 MiB hard ceiling on the downloaded image, enforced from hop 1's
-// declared `file_size` BEFORE hop 2 ever fetches a byte — inline base64
-// inflates the wire payload ~33%, so this doubles as the design's
-// resource-exhaustion threat-matrix guard.
-export const MAX_MEDIA_BYTES = 2_097_152;
+// Hop 2 downloads the actual bytes, now up to MAX_MEDIA_BYTES (40 MiB) — the
+// original 10s bound was sized for a 2 MiB ceiling and would false-positive
+// on a legitimately large photo over a slow mobile connection. 60s gives
+// real headroom without leaving a hung download open indefinitely.
+const BYTES_REQUEST_TIMEOUT_MS = 60_000;
+
+// D21 (raised, no-SDD fast path): 40 MiB ceiling on the downloaded image,
+// enforced from hop 1's declared `file_size` BEFORE hop 2 ever fetches a
+// byte — inline base64 inflates the wire payload ~33%, so this doubles as
+// the design's resource-exhaustion threat-matrix guard. Chosen with margin
+// below the 50 MiB the transport tolerates, per explicit user instruction:
+// the Reclamo flow needs headroom for real evidence photos, not the
+// original 2 MiB placeholder.
+export const MAX_MEDIA_BYTES = 41_943_040;
 
 // D21 SSRF guard: hop 2's URL is response-body-controlled (hop 1 hands it
 // back from the Graph API), so it is untrusted input the moment this server
@@ -79,13 +90,13 @@ export function createMetaMediaDownloader(deps: MetaMediaDownloaderDeps): Whatsa
   // Shared error wrapper (same convention as the other adapters): a network
   // failure and a non-2xx response both surface uniformly as
   // TransientFailureError, on either hop.
-  async function authorizedGet(url: string, hopLabel: string): Promise<Response> {
+  async function authorizedGet(url: string, hopLabel: string, timeoutMs: number): Promise<Response> {
     let response: Response;
     try {
       response = await fetchImpl(url, {
         method: "GET",
         headers: { Authorization: `Bearer ${config.metaAccessToken}` },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
       throw new TransientFailureError(`[media-downloader:meta] Fallo de red en ${hopLabel}`, { cause: err });
@@ -107,7 +118,7 @@ export function createMetaMediaDownloader(deps: MetaMediaDownloaderDeps): Whatsa
     async download(mediaId: string): Promise<DownloadedMedia> {
       // Hop 1: media id -> metadata (short-lived download URL, mime type, size).
       const metadataUrl = `https://graph.facebook.com/${config.metaGraphApiVersion}/${encodeURIComponent(mediaId)}`;
-      const metadataResponse = await authorizedGet(metadataUrl, "hop 1 (metadata)");
+      const metadataResponse = await authorizedGet(metadataUrl, "hop 1 (metadata)", REQUEST_TIMEOUT_MS);
 
       let body: MediaMetadataResponseBody;
       try {
@@ -137,7 +148,7 @@ export function createMetaMediaDownloader(deps: MetaMediaDownloaderDeps): Whatsa
 
       // Hop 2: the short-lived URL -> raw bytes. Fetched verbatim (not
       // re-serialized through URL.toString()) to avoid any reformatting.
-      const byteResponse = await authorizedGet(body.url, "hop 2 (bytes)");
+      const byteResponse = await authorizedGet(body.url, "hop 2 (bytes)", BYTES_REQUEST_TIMEOUT_MS);
       const bytes = new Uint8Array(await byteResponse.arrayBuffer());
 
       return {
