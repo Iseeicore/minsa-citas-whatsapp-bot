@@ -359,7 +359,7 @@ describe("sandbox E2E journey — reclamo happy path with DNI (spec full scenari
       {
         kind: "text",
         to: SANDBOX_FROM,
-        body: "Tu reclamo fue registrado correctamente. Gracias por tu reporte. N° de referencia: DEV-REF-001.",
+        body: "Tu reclamo fue registrado exitosamente.\n\nNuestro equipo lo revisará a la brevedad. Gracias por ayudarnos a mejorar el servicio de salud.",
       },
     ]);
     expect(step7.json().session.state).toBe("reclamo_confirmed");
@@ -412,7 +412,7 @@ describe("sandbox E2E journey — image-message variant (SBX-1 Image scenario, I
     expect(body.sent).toHaveLength(2);
     expect(body.sent[0]).toEqual({ kind: "text", to: SANDBOX_FROM, body: "Registrando tu reclamo…" });
     expect(body.sent[1].kind).toBe("text");
-    expect(body.sent[1].body).toContain("N° de referencia: DEV-REF-001");
+    expect(body.sent[1].body).toContain("Tu reclamo fue registrado exitosamente.");
     expect(body.session.state).toBe("reclamo_confirmed");
     expect(body.session.slots).toEqual({ menuChoice: "registrar_reclamo" });
 
@@ -556,7 +556,7 @@ describe("sandbox E2E journeys — failure and isolation (SBX-1 not-found, D62 r
     expect(step7.statusCode).toBe(200);
 
     const body = step7.json();
-    expect(body.sent[1].body).toContain("N° de referencia: DEV-REF-001");
+    expect(body.sent[1].body).toContain("Tu reclamo fue registrado exitosamente.");
     expect(body.session.state).toBe("reclamo_confirmed");
   });
 });

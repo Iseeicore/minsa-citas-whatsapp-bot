@@ -436,7 +436,8 @@ const RECLAMO_INVALID_DESCRIPCION_BODY =
 const RECLAMO_ASK_FOTO_BODY = "Envía una foto o escribe OMITIR.";
 const RECLAMO_INVALID_FOTO_BODY = "No pudimos reconocer tu respuesta. Envía una foto o escribe OMITIR.";
 const RECLAMO_REGISTRANDO_BODY = "Registrando tu reclamo…";
-const RECLAMO_CONFIRMED_BODY = "Tu reclamo fue registrado correctamente. Gracias por tu reporte.";
+const RECLAMO_CONFIRMED_BODY =
+  "Tu reclamo fue registrado exitosamente.\n\nNuestro equipo lo revisará a la brevedad. Gracias por ayudarnos a mejorar el servicio de salud.";
 const RECLAMO_FAILED_BODY =
   "No pudimos registrar tu reclamo en este momento. Por favor, inténtalo nuevamente más tarde.";
 const RECLAMO_FAILED_MEDIA_TOO_LARGE_BODY =
@@ -853,14 +854,10 @@ function reclamoSubmitPendingHandler(session: ConversationSession, event: FsmEve
 
   if (result.status === "accepted") {
     const confirmed = withState({ ...session, slots: clearReclamoSlots(session.slots) }, RECLAMO_CONFIRMED_STATE);
-    const body =
-      result.reference !== undefined
-        ? `${RECLAMO_CONFIRMED_BODY} N° de referencia: ${result.reference}.`
-        : RECLAMO_CONFIRMED_BODY;
     return {
       session: confirmed,
       effects: [
-        { kind: "send_text", to, body },
+        { kind: "send_text", to, body: RECLAMO_CONFIRMED_BODY },
         { kind: "end_session", to },
       ],
       outcome: "continue",

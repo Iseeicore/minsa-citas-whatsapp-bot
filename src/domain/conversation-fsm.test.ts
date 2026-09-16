@@ -539,7 +539,11 @@ describe("handle — reclamo_submit_pending (D20 second re-entry target)", () =>
     expect(result.session.state).toBe("reclamo_confirmed");
     expect(result.outcome).toBe("continue");
     expect(result.effects.map((effect) => effect.kind)).toEqual(["send_text", "end_session"]);
-    expect((result.effects[0] as { body: string }).body).toContain("REF-1");
+    // The reference number is no longer surfaced to the citizen — the
+    // confirmation message is fixed regardless of `result.reference`.
+    expect((result.effects[0] as { body: string }).body).toBe(
+      "Tu reclamo fue registrado exitosamente.\n\nNuestro equipo lo revisará a la brevedad. Gracias por ayudarnos a mejorar el servicio de salud."
+    );
   });
 
   it("advances to reclamo_failed (terminal, outcome 'rejected') with a reason-specific message on a rejected submission — never throws", () => {
