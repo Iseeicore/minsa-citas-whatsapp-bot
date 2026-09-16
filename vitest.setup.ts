@@ -11,6 +11,11 @@ process.env.WEBHOOK_CHANNEL_SECRET = "test-webhook-channel-secret";
 process.env.GOOGLE_CLIENT_API = "test-google-client-api-key";
 process.env.MINSA_API_HOST = "https://minsa.example.test/back";
 process.env.REDIS_URL = "redis://127.0.0.1:6399";
+// Postgres conversation persistence — dead host by default, same discipline
+// as REDIS_URL above; tests that need a real Postgres set their own
+// LIVE_POSTGRES_URL-style constant, mirroring the Redis test convention.
+process.env.POSTGRES_PRISMA_URL = "postgresql://test:test@127.0.0.1:5499/test";
+process.env.POSTGRES_URL_NON_POOLING = "postgresql://test:test@127.0.0.1:5499/test";
 process.env.PORT = "3000";
 // Bug fix: sandbox tests import the real config.js singleton, which reads
 // process.env at module-load time — without pinning these here, the

@@ -10,8 +10,11 @@ import { createWebhookIngestionService, type WebhookIngestionService } from "./s
 import { createSandboxDeps, type SandboxOptions } from "./composition/create-sandbox-deps.js";
 import { createSandboxRoutes } from "./routes/sandbox-events.js";
 import { createWebhookChannelRoutes } from "./routes/webhook-channel.js";
+import { createConversationRoutes } from "./routes/conversations.js";
 import { createMetaWhatsappSender } from "./adapters/meta-whatsapp-sender.js";
+import { createPrismaConversationRepository } from "./adapters/prisma-conversation-repository.js";
 import type { WhatsappOutboundSender } from "./ports/whatsapp-outbound-sender.js";
+import type { ConversationRepository } from "./ports/conversation-repository.js";
 import cors from "@fastify/cors";
 
 export interface AppDeps {
@@ -32,6 +35,12 @@ export interface AppDeps {
    * sandboxOptions above.
    */
   sender?: WhatsappOutboundSender;
+  /**
+   * Postgres conversation persistence (additive): optional, same fallback
+   * discipline as `sender` above — buildApp() constructs the real Prisma
+   * repository (synchronous construction, no I/O) when omitted.
+   */
+  conversationRepository?: ConversationRepository;
 }
 
 // Composition root for everything Fastify-owned. No module-scope side
@@ -45,6 +54,9 @@ export interface AppDeps {
 export async function buildApp(deps: AppDeps) {
   const { logger, ingestion } = deps;
   const sender = deps.sender ?? createMetaWhatsappSender({ config, logger });
+  const conversationRepository =
+    deps.conversationRepository ??
+    createPrismaConversationRepository({ config: { postgresUrl: config.postgresPrismaUrl }, logger });
 
   const app = Fastify({
     loggerInstance: logger,
@@ -85,13 +97,18 @@ export async function buildApp(deps: AppDeps) {
   const allowedOrigins = config.sandboxAllowedOrigin.split(",").map((origin) => origin.trim());
   await app.register(cors, { origin: allowedOrigins });
 
-  await app.register(createWhatsappWebhookRoutes({ ingestion }));
+  await app.register(createWhatsappWebhookRoutes({ ingestion, conversationRepository }));
 
   // Webhook channel viewer (no-SDD fast path, explicit user decision):
   // ALWAYS registered, unlike the D33 sandbox gate below — this is meant to
   // work against real Meta traffic in the real deploy, protected only by the
   // shared secret checked inside the route (config.webhookChannelSecret).
   await app.register(createWebhookChannelRoutes({ sender, secret: config.webhookChannelSecret }));
+
+  // Postgres conversation inbox (additive): ALWAYS registered, same
+  // reasoning as the webhook channel viewer above — reuses the same shared
+  // secret rather than inventing a second one.
+  await app.register(createConversationRoutes({ conversationRepository, sender, secret: config.webhookChannelSecret }));
 
   // D33/SBX-6: fail-closed sandbox gate — the dev harness is composed and
   // registered ONLY when the flag is exactly "true" AND we are not in

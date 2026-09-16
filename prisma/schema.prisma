@@ -1,0 +1,78 @@
+// Conversations/messages persistence (Postgres via Prisma) — ADDITIVE to the
+// existing Redis-backed pipeline (BullMQ queue, session store, and the
+// webhook-channel viewer's own capped buffer), never a replacement for any
+// of it. Neon-provisioned Vercel Postgres: `url` is the pooled connection
+// (runtime queries, goes through pgbouncer), `directUrl` is the unpooled one
+// (required for `prisma migrate`, which does not work reliably through a
+// transaction pooler).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  waId          String   @unique
+  displayName   String?
+  // For the conversation list (any direction) — distinct from lastInboundAt
+  // below, which is the one that actually matters for the 24h window rule.
+  lastMessageAt DateTime @default(now())
+  // WhatsApp's 24h customer-service window is counted from the last message
+  // the CUSTOMER sent, not from our own last reply — sending an outbound
+  // message never resets this field.
+  lastInboundAt DateTime @default(now())
+  messages      Message[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  conversationId String
+  conversation   Conversation      @relation(fields: [conversationId], references: [id])
+  direction      MessageDirection
+  type           MessageType
+  text           String?
+  // Meta's webhook payload carries a media_id, never a direct URL — resolving
+  // it to a real (temporary, expiring) URL against the Graph API is
+  // deliberately out of scope for this first version.
+  mediaId        String?
+  mediaMimeType  String?
+  latitude       Float?
+  longitude      Float?
+  // Meta's own wamid — unique so a redelivered webhook (Meta's own retry
+  // policy) never creates a duplicate row; also the correlation key for
+  // `statuses` events updating an outbound message's status.
+  waMessageId    String?           @unique
+  status         MessageStatus     @default(SENT)
+  // Meta's own message timestamp, not our insert time.
+  timestamp      DateTime
+  createdAt      DateTime          @default(now())
+
+  @@index([conversationId, timestamp])
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  DOCUMENT
+  LOCATION
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
