@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
 import { config } from "../config.js";
 import type { WebhookIngestionService } from "../services/webhook-ingestion.js";
+import { toInboundConversationEvent } from "../domain/inbound-conversation-event.js";
+import { pushMessage } from "../services/webhook-channel-buffer.js";
 
 export interface WhatsappWebhookRoutesDeps {
   ingestion: WebhookIngestionService;
@@ -41,11 +43,33 @@ export function createWhatsappWebhookRoutes(deps: WhatsappWebhookRoutesDeps) {
         return reply.status(401).send();
       }
 
+      // Webhook channel viewer (no-SDD fast path, explicit user decision):
+      // pushed to the in-memory buffer BEFORE ingestion.ingest() below, and
+      // NOT inside a try/catch tied to it — a real citizen message must
+      // reach the human viewer even when the bot's own queue (Redis/BullMQ)
+      // is unreachable. The two are otherwise fully independent: this never
+      // blocks or fails the webhook response by itself; a message with no
+      // `from` (delivery status, system event, etc.) is silently skipped,
+      // not an error. Reuses the existing, already-tested mapper rather than
+      // re-parsing the raw payload.
+      const inboundEvent = toInboundConversationEvent(request.body);
+      if (inboundEvent.from !== undefined) {
+        pushMessage({
+          id: inboundEvent.eventId,
+          direction: "in",
+          from: inboundEvent.from,
+          text: inboundEvent.text ?? `[${inboundEvent.messageType}]`,
+          timestamp: inboundEvent.receivedAt,
+        });
+      }
+
       // D9: no try/catch here — a DAO/queue failure (or any other rejection
       // from ingest()) propagates to Fastify's centralized error handler
       // (src/error-handler.ts), which owns both the log line and the status
       // code. POST enqueue success stays 200 per the explicit user decision
-      // recorded in the spec (revision 4) — not 201/202.
+      // recorded in the spec (revision 4) — not 201/202. Unchanged: Meta
+      // still sees a non-200 and retries delivery when the queue is down,
+      // exactly as before this file's webhook-channel addition.
       await ingestion.ingest(request.body);
 
       return reply.status(200).send();

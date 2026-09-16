@@ -26,6 +26,12 @@ export const config = {
   // meta-whatsapp-sender.ts, dead-lettered after 3 attempts), not a reason to
   // block the HTTP server from booting.
   metaGraphApiVersion: readEnv("META_GRAPH_API_VERSION"),
+  // Webhook channel viewer (no-SDD fast path, explicit user decision): the
+  // ONLY protection on the new /api/webhook-channel/* routes — a single
+  // shared secret, not sessions/users. readEnv()'s "CHANGE_ME" fallback
+  // makes the routes fail-closed (401) until this is actually configured,
+  // same discipline as every other secret above.
+  webhookChannelSecret: readEnv("WEBHOOK_CHANNEL_SECRET"),
   minsaApiHost: process.env.MINSA_API_HOST ?? "https://dminsadigital.minsa.gob.pe/back",
   // D25: bare process.env with a prod default, same discipline as
   // minsaApiHost above — RENIEC lookup needs no secret and no auth, so
