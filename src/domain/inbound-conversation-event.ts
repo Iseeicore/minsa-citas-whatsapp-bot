@@ -39,8 +39,30 @@ export interface InboundConversationEvent {
   readonly mediaId?: string;
   /** Declared MIME type of the image (`message.image.mime_type`). */
   readonly mediaMimeType?: string;
+  /**
+   * Postgres conversation persistence (additive): populated for `location`
+   * messages (`message.location.latitude`/`.longitude`). Undefined for every
+   * other message type.
+   */
+  readonly latitude?: number;
+  readonly longitude?: number;
   /** Full original payload, preserved verbatim for change 3 and replay. */
   readonly raw: unknown;
+}
+
+/**
+ * Postgres conversation persistence (additive): one delivery-status update
+ * for an outbound message we sent, correlated by `waMessageId` (Meta's own
+ * `wamid`). Distinct from `InboundConversationEvent` — Meta sends these in
+ * `value.statuses[]`, never mixed into `value.messages[]`.
+ */
+export interface InboundStatusEvent {
+  readonly waMessageId: string;
+  /** Meta's own status string (`sent`/`delivered`/`read`/`failed`) — kept as
+   *  the raw string rather than a closed union, since Meta may add new
+   *  values; the caller maps known ones and ignores the rest. */
+  readonly status: string;
+  readonly timestamp?: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -49,6 +71,10 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
 }
 
 function firstChangeValue(raw: unknown): Record<string, unknown> | undefined {
@@ -70,8 +96,23 @@ function firstContactProfile(value: Record<string, unknown> | undefined): Record
   return asRecord(firstContact?.profile);
 }
 
-function firstImage(message: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
-  return asRecord(message?.image);
+// Meta nests every media message's payload under a key matching its own
+// `type` (`message.image`, `message.audio`, `message.document`) — this
+// returns the exact same value the original image-only lookup did, for
+// `type: "image"`, now generalized to also cover audio/document.
+const MEDIA_MESSAGE_TYPES = new Set(["image", "audio", "document"]);
+
+function mediaContainer(message: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  const type = asString(message?.type);
+  if (type === undefined || !MEDIA_MESSAGE_TYPES.has(type)) return undefined;
+  return asRecord(message?.[type]);
+}
+
+// Postgres conversation persistence (additive): `message.location` carries
+// `{latitude, longitude, name?, address?}` as JSON numbers (not strings,
+// unlike most of this payload) — only present for `type: "location"`.
+function firstLocation(message: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  return asRecord(message?.location);
 }
 
 function toIsoTimestamp(unixSeconds: unknown): string | undefined {
@@ -94,7 +135,8 @@ export function toInboundConversationEvent(raw: unknown): InboundConversationEve
   const interactive = asRecord(message?.interactive);
   const listReply = asRecord(interactive?.list_reply);
   const buttonReply = asRecord(interactive?.button_reply);
-  const image = firstImage(message);
+  const media = mediaContainer(message);
+  const location = firstLocation(message);
 
   return {
     eventId: asString(message?.id) ?? crypto.randomUUID(),
@@ -107,8 +149,32 @@ export function toInboundConversationEvent(raw: unknown): InboundConversationEve
     text: asString(text?.body),
     interactiveReplyId: asString(listReply?.id) ?? asString(buttonReply?.id),
     sentAt: toIsoTimestamp(message?.timestamp),
-    mediaId: asString(image?.id),
-    mediaMimeType: asString(image?.mime_type),
+    mediaId: asString(media?.id),
+    mediaMimeType: asString(media?.mime_type),
+    latitude: asNumber(location?.latitude),
+    longitude: asNumber(location?.longitude),
     raw,
   };
+}
+
+// Postgres conversation persistence (additive): Meta sends delivery-status
+// updates for OUR outbound messages in a completely separate `value.statuses[]`
+// array, never mixed into `value.messages[]` — a single webhook POST carries
+// one or the other in practice, but the shape technically allows both, so
+// this is checked independently, not as an else-branch of the mapper above.
+// Total and never throws, same discipline as toInboundConversationEvent.
+export function toInboundStatusEvents(raw: unknown): readonly InboundStatusEvent[] {
+  const value = firstChangeValue(raw);
+  const statuses = value?.statuses;
+  if (!Array.isArray(statuses)) return [];
+
+  const events: InboundStatusEvent[] = [];
+  for (const entry of statuses) {
+    const record = asRecord(entry);
+    const waMessageId = asString(record?.id);
+    const status = asString(record?.status);
+    if (waMessageId === undefined || status === undefined) continue;
+    events.push({ waMessageId, status, timestamp: toIsoTimestamp(record?.timestamp) });
+  }
+  return events;
 }

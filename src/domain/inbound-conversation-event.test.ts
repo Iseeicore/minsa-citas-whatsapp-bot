@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toInboundConversationEvent } from "./inbound-conversation-event.js";
+import { toInboundConversationEvent, toInboundStatusEvents } from "./inbound-conversation-event.js";
 
 const TEXT_MESSAGE_PAYLOAD = {
   object: "whatsapp_business_account",
@@ -113,6 +113,93 @@ const IMAGE_MESSAGE_PAYLOAD = {
                 timestamp: "1700000400",
                 type: "image",
                 image: { id: "media-handle-123", mime_type: "image/jpeg", sha256: "abc" },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+// Postgres conversation persistence (additive): audio/document reuse the
+// same message.{type}.{id,mime_type} shape image already used — proves
+// mediaContainer() generalizes without special-casing per type.
+const AUDIO_MESSAGE_PAYLOAD = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      id: "entry-6",
+      changes: [
+        {
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: { phone_number_id: "1234567890" },
+            contacts: [{ profile: { name: "Juan Perez" }, wa_id: "51999999999" }],
+            messages: [
+              {
+                from: "51999999999",
+                id: "wamid.audio-1",
+                timestamp: "1700000500",
+                type: "audio",
+                audio: { id: "media-handle-audio", mime_type: "audio/ogg" },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+const DOCUMENT_MESSAGE_PAYLOAD = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      id: "entry-7",
+      changes: [
+        {
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: { phone_number_id: "1234567890" },
+            contacts: [{ profile: { name: "Juan Perez" }, wa_id: "51999999999" }],
+            messages: [
+              {
+                from: "51999999999",
+                id: "wamid.document-1",
+                timestamp: "1700000600",
+                type: "document",
+                document: { id: "media-handle-document", mime_type: "application/pdf" },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  ],
+};
+
+const LOCATION_MESSAGE_PAYLOAD = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      id: "entry-8",
+      changes: [
+        {
+          field: "messages",
+          value: {
+            messaging_product: "whatsapp",
+            metadata: { phone_number_id: "1234567890" },
+            contacts: [{ profile: { name: "Juan Perez" }, wa_id: "51999999999" }],
+            messages: [
+              {
+                from: "51999999999",
+                id: "wamid.location-1",
+                timestamp: "1700000700",
+                type: "location",
+                location: { latitude: -12.0464, longitude: -77.0428 },
               },
             ],
           },
@@ -270,5 +357,72 @@ describe("toInboundConversationEvent", () => {
     const eventB = toInboundConversationEvent({});
 
     expect(eventA.eventId).not.toBe(eventB.eventId);
+  });
+
+  it("maps an audio message, populating mediaId and mediaMimeType from message.audio", () => {
+    const event = toInboundConversationEvent(AUDIO_MESSAGE_PAYLOAD);
+
+    expect(event.messageType).toBe("audio");
+    expect(event.mediaId).toBe("media-handle-audio");
+    expect(event.mediaMimeType).toBe("audio/ogg");
+    expect(event.latitude).toBeUndefined();
+  });
+
+  it("maps a document message, populating mediaId and mediaMimeType from message.document", () => {
+    const event = toInboundConversationEvent(DOCUMENT_MESSAGE_PAYLOAD);
+
+    expect(event.messageType).toBe("document");
+    expect(event.mediaId).toBe("media-handle-document");
+    expect(event.mediaMimeType).toBe("application/pdf");
+  });
+
+  it("maps a location message, populating latitude/longitude and leaving mediaId undefined", () => {
+    const event = toInboundConversationEvent(LOCATION_MESSAGE_PAYLOAD);
+
+    expect(event.messageType).toBe("location");
+    expect(event.latitude).toBe(-12.0464);
+    expect(event.longitude).toBe(-77.0428);
+    expect(event.mediaId).toBeUndefined();
+  });
+});
+
+describe("toInboundStatusEvents", () => {
+  it("maps a statuses[] payload to a status event with waMessageId/status/timestamp", () => {
+    const events = toInboundStatusEvents(STATUS_CALLBACK_PAYLOAD);
+
+    expect(events).toEqual([
+      { waMessageId: "wamid.status1", status: "delivered", timestamp: new Date(1700000100 * 1000).toISOString() },
+    ]);
+  });
+
+  it("returns an empty array for a payload with no statuses[] (e.g. a real message event)", () => {
+    expect(toInboundStatusEvents(TEXT_MESSAGE_PAYLOAD)).toEqual([]);
+  });
+
+  it("never throws and returns an empty array for malformed/empty input", () => {
+    expect(() => toInboundStatusEvents(null)).not.toThrow();
+    expect(toInboundStatusEvents(null)).toEqual([]);
+    expect(toInboundStatusEvents({})).toEqual([]);
+  });
+
+  it("skips a malformed status entry (missing id/status) without throwing or dropping valid siblings", () => {
+    const raw = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                statuses: [{ status: "sent" }, { id: "wamid.ok", status: "read", timestamp: "1700000800" }],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const events = toInboundStatusEvents(raw);
+    expect(events).toEqual([
+      { waMessageId: "wamid.ok", status: "read", timestamp: new Date(1700000800 * 1000).toISOString() },
+    ]);
   });
 });

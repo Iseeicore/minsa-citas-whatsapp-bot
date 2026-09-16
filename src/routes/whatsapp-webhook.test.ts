@@ -5,6 +5,7 @@ import { config } from "../config.js";
 import { createLogger } from "../logger.js";
 import { QueueUnavailableError } from "../domain/errors.js";
 import type { WebhookIngestionService } from "../services/webhook-ingestion.js";
+import type { ConversationRepository } from "../ports/conversation-repository.js";
 import { verifySignature } from "./whatsapp-webhook.js";
 
 function sign(rawBody: string, secret: string): string {
@@ -13,6 +14,19 @@ function sign(rawBody: string, secret: string): string {
 
 function fakeIngestion(ingest: ReturnType<typeof vi.fn>): WebhookIngestionService {
   return { ingest };
+}
+
+function fakeConversationRepository(overrides?: Partial<ConversationRepository>): ConversationRepository {
+  return {
+    recordInboundMessage: vi.fn().mockResolvedValue(undefined),
+    recordOutboundMessage: vi.fn().mockResolvedValue({ conversationId: "c1", messageId: "m1" }),
+    updateMessageStatusByWaMessageId: vi.fn().mockResolvedValue(undefined),
+    isWithin24HourWindow: vi.fn().mockResolvedValue(true),
+    listConversations: vi.fn().mockResolvedValue([]),
+    listMessages: vi.fn().mockResolvedValue([]),
+    close: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
 }
 
 // Reuses the { writable: true, write(msg) } collector pattern from
@@ -106,6 +120,157 @@ describe("whatsapp-webhook", () => {
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe("");
       expect(ingest).toHaveBeenCalledWith({ entry: [] });
+    });
+  });
+
+  describe("POST /webhook/whatsapp — Postgres conversation persistence (additive)", () => {
+    const TEXT_PAYLOAD = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "1234567890" },
+                contacts: [{ profile: { name: "Juan Perez" } }],
+                messages: [
+                  { from: "51999999999", id: "wamid.pg-1", timestamp: "1700000000", type: "text", text: { body: "hola" } },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    it("records the inbound message via conversationRepository, in addition to the existing pipeline", async () => {
+      const { logger } = collectingLogger();
+      const ingest = vi.fn().mockResolvedValue(undefined);
+      const conversationRepository = fakeConversationRepository();
+      const app = await buildApp({ logger, ingestion: fakeIngestion(ingest), conversationRepository });
+
+      const rawBody = JSON.stringify(TEXT_PAYLOAD);
+      const signature = sign(rawBody, config.metaAppSecret);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/webhook/whatsapp",
+        headers: { "content-type": "application/json", "x-hub-signature-256": signature },
+        payload: rawBody,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(conversationRepository.recordInboundMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ waId: "51999999999", waMessageId: "wamid.pg-1", type: "TEXT", text: "hola" })
+      );
+      expect(ingest).toHaveBeenCalled(); // unchanged: the bot pipeline still runs
+    });
+
+    it("a Postgres failure is swallowed — the webhook still responds 200 and ingestion.ingest() still runs", async () => {
+      const { logger } = collectingLogger();
+      const ingest = vi.fn().mockResolvedValue(undefined);
+      const conversationRepository = fakeConversationRepository({
+        recordInboundMessage: vi.fn().mockRejectedValue(new Error("Postgres no disponible")),
+      });
+      const app = await buildApp({ logger, ingestion: fakeIngestion(ingest), conversationRepository });
+
+      const rawBody = JSON.stringify(TEXT_PAYLOAD);
+      const signature = sign(rawBody, config.metaAppSecret);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/webhook/whatsapp",
+        headers: { "content-type": "application/json", "x-hub-signature-256": signature },
+        payload: rawBody,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(ingest).toHaveBeenCalled();
+    });
+
+    it("skips Postgres persistence for an unsupported message type (e.g. interactive), never throwing", async () => {
+      const { logger } = collectingLogger();
+      const ingest = vi.fn().mockResolvedValue(undefined);
+      const conversationRepository = fakeConversationRepository();
+      const app = await buildApp({ logger, ingestion: fakeIngestion(ingest), conversationRepository });
+
+      const rawBody = JSON.stringify({
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  messages: [
+                    {
+                      from: "51999999999",
+                      id: "wamid.interactive-1",
+                      type: "interactive",
+                      interactive: { type: "list_reply", list_reply: { id: "agendar_cita" } },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      });
+      const signature = sign(rawBody, config.metaAppSecret);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/webhook/whatsapp",
+        headers: { "content-type": "application/json", "x-hub-signature-256": signature },
+        payload: rawBody,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(conversationRepository.recordInboundMessage).not.toHaveBeenCalled();
+    });
+
+    it("maps a statuses[] payload to updateMessageStatusByWaMessageId, without calling recordInboundMessage", async () => {
+      const { logger } = collectingLogger();
+      const ingest = vi.fn().mockResolvedValue(undefined);
+      const conversationRepository = fakeConversationRepository();
+      const app = await buildApp({ logger, ingestion: fakeIngestion(ingest), conversationRepository });
+
+      const rawBody = JSON.stringify({
+        entry: [
+          { changes: [{ value: { statuses: [{ id: "wamid.status-1", status: "delivered", timestamp: "1700000100" }] } }] },
+        ],
+      });
+      const signature = sign(rawBody, config.metaAppSecret);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/webhook/whatsapp",
+        headers: { "content-type": "application/json", "x-hub-signature-256": signature },
+        payload: rawBody,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(conversationRepository.updateMessageStatusByWaMessageId).toHaveBeenCalledWith("wamid.status-1", "DELIVERED");
+      expect(conversationRepository.recordInboundMessage).not.toHaveBeenCalled();
+    });
+
+    it("without a conversationRepository dep (existing call sites), the whole code path is skipped — unchanged behavior", async () => {
+      const { logger } = collectingLogger();
+      const ingest = vi.fn().mockResolvedValue(undefined);
+      // No conversationRepository passed — buildApp() falls back to a real
+      // PrismaConversationRepository, whose constructor never does I/O, so
+      // this must not throw or hang even without a reachable Postgres.
+      const app = await buildApp({ logger, ingestion: fakeIngestion(ingest) });
+
+      const rawBody = JSON.stringify(TEXT_PAYLOAD);
+      const signature = sign(rawBody, config.metaAppSecret);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/webhook/whatsapp",
+        headers: { "content-type": "application/json", "x-hub-signature-256": signature },
+        payload: rawBody,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(ingest).toHaveBeenCalled();
     });
   });
 });

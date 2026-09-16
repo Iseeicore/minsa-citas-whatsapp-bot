@@ -78,6 +78,14 @@ export const config = {
   // (Upstash's rediss:// URLs), same shape redactRedisUrl() already guards
   // against at every logging call site — secrecy is enforced there, not here.
   redisUrl: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
+  // Postgres conversation persistence (additive, Neon via Vercel Storage):
+  // readEnv() — same discipline as the secrets above, since these embed a
+  // password. postgresPrismaUrl is the pooled connection (pgbouncer, used
+  // for every runtime query); postgresUrlNonPooling is the direct one
+  // (required for `prisma migrate`, which does not work reliably through a
+  // transaction pooler).
+  postgresPrismaUrl: readEnv("POSTGRES_PRISMA_URL"),
+  postgresUrlNonPooling: readEnv("POSTGRES_URL_NON_POOLING"),
   // D7: dedicated secret for the log-view HMAC fingerprint. Falls back to
   // metaAppSecret when unset — accepted consequence: rotating the app
   // secret re-keys the fingerprints, breaking correlation across rotation.
