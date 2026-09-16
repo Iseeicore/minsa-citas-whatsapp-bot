@@ -24,14 +24,13 @@ const REQUEST_TIMEOUT_MS = 10_000;
 // real headroom without leaving a hung download open indefinitely.
 const BYTES_REQUEST_TIMEOUT_MS = 60_000;
 
-// D21 (raised, no-SDD fast path): 40 MiB ceiling on the downloaded image,
+// D21 (raised, no-SDD fast path): 50 MiB ceiling on the downloaded image,
 // enforced from hop 1's declared `file_size` BEFORE hop 2 ever fetches a
 // byte — inline base64 inflates the wire payload ~33%, so this doubles as
-// the design's resource-exhaustion threat-matrix guard. Chosen with margin
-// below the 50 MiB the transport tolerates, per explicit user instruction:
-// the Reclamo flow needs headroom for real evidence photos, not the
-// original 2 MiB placeholder.
-export const MAX_MEDIA_BYTES = 41_943_040;
+// the design's resource-exhaustion threat-matrix guard. Per explicit user
+// instruction: the Reclamo flow needs headroom for real evidence photos,
+// not the original 2 MiB placeholder.
+export const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
 
 // D21 SSRF guard: hop 2's URL is response-body-controlled (hop 1 hands it
 // back from the Graph API), so it is untrusted input the moment this server

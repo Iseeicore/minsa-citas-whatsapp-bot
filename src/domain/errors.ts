@@ -72,7 +72,7 @@ export class ScheduledCheckSchedulerNotConfiguredError extends AppError {}
 export class MinsaIdentityClientNotConfiguredError extends AppError {}
 
 // D21 (Stage B, PR6): thrown by `meta-media-downloader.ts` when hop 1's
-// declared `file_size` exceeds `MAX_MEDIA_BYTES` (40 MiB) — enforced BEFORE
+// declared `file_size` exceeds `MAX_MEDIA_BYTES` (50 MiB) — enforced BEFORE
 // hop 2 ever fetches a byte, per the design's resource-exhaustion threat
 // entry. Deliberately its own class rather than `TransientFailureError`:
 // design states the `quejas_submit` executor (Phase 7, not this PR) is meant
