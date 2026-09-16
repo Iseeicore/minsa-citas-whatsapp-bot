@@ -19,8 +19,26 @@ export interface InboundConversationEvent {
   readonly messageType: string;
   /** Message body — SENSITIVE. Never log this field directly. */
   readonly text?: string;
+  /**
+   * The selected row/button id from a WhatsApp interactive list or
+   * quick-reply button message (`interactive.list_reply.id` /
+   * `interactive.button_reply.id`). These ids are our own menu option
+   * identifiers (e.g. "agendar_cita"), not citizen content.
+   */
+  readonly interactiveReplyId?: string;
   /** Meta's own timestamp (ISO-8601), for latency measurement. */
   readonly sentAt?: string;
+  /**
+   * Meta media handle for an image message (`message.image.id`) — SENSITIVE,
+   * dereferences to citizen-submitted content. Pulled forward from Phase 6
+   * (task 6.2) because Phase 5's `reclamo_awaiting_foto` state needs it to
+   * detect a photo reply; the real downloader/encoder stay Phase 6/D21-gated
+   * (D22/DNI-5: deliberately NOT added to InboundConversationEventLogView's
+   * whitelist).
+   */
+  readonly mediaId?: string;
+  /** Declared MIME type of the image (`message.image.mime_type`). */
+  readonly mediaMimeType?: string;
   /** Full original payload, preserved verbatim for change 3 and replay. */
   readonly raw: unknown;
 }
@@ -52,6 +70,10 @@ function firstContactProfile(value: Record<string, unknown> | undefined): Record
   return asRecord(firstContact?.profile);
 }
 
+function firstImage(message: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  return asRecord(message?.image);
+}
+
 function toIsoTimestamp(unixSeconds: unknown): string | undefined {
   const parsed = typeof unixSeconds === "string" ? Number(unixSeconds) : undefined;
   if (parsed === undefined || Number.isNaN(parsed)) return undefined;
@@ -69,6 +91,10 @@ export function toInboundConversationEvent(raw: unknown): InboundConversationEve
   const profile = firstContactProfile(value);
   const metadata = asRecord(value?.metadata);
   const text = asRecord(message?.text);
+  const interactive = asRecord(message?.interactive);
+  const listReply = asRecord(interactive?.list_reply);
+  const buttonReply = asRecord(interactive?.button_reply);
+  const image = firstImage(message);
 
   return {
     eventId: asString(message?.id) ?? crypto.randomUUID(),
@@ -79,7 +105,10 @@ export function toInboundConversationEvent(raw: unknown): InboundConversationEve
     contactName: asString(profile?.name),
     messageType: asString(message?.type) ?? "unknown",
     text: asString(text?.body),
+    interactiveReplyId: asString(listReply?.id) ?? asString(buttonReply?.id),
     sentAt: toIsoTimestamp(message?.timestamp),
+    mediaId: asString(image?.id),
+    mediaMimeType: asString(image?.mime_type),
     raw,
   };
 }

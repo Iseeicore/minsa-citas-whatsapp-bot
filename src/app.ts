@@ -7,11 +7,20 @@ import { logger as defaultLogger } from "./logger.js";
 import { createWhatsappWebhookRoutes } from "./routes/whatsapp-webhook.js";
 import { selectConversationEventDao } from "./composition/select-conversation-event-dao.js";
 import { createWebhookIngestionService, type WebhookIngestionService } from "./services/webhook-ingestion.js";
+import { createSandboxDeps, type SandboxOptions } from "./composition/create-sandbox-deps.js";
+import { createSandboxRoutes } from "./routes/sandbox-events.js";
+import cors from "@fastify/cors";
 
 export interface AppDeps {
   /** Becomes Fastify's `loggerInstance` — the shared pino root, never `logger: true`. */
   logger: pino.Logger;
   ingestion: WebhookIngestionService;
+  /**
+   * D37: dev-only sandbox knobs (additive optional). Only consumed when the
+   * D33 gate passes inside buildApp; the production composition never reads
+   * it, so buildDefaultDeps() and server.ts stay untouched.
+   */
+  sandboxOptions?: SandboxOptions;
 }
 
 // Composition root for everything Fastify-owned. No module-scope side
@@ -51,6 +60,26 @@ export async function buildApp(deps: AppDeps) {
   app.get("/health", async () => ({ status: "ok" }));
 
   await app.register(createWhatsappWebhookRoutes({ ingestion }));
+
+  // D33/SBX-6: fail-closed sandbox gate — the dev harness is composed and
+  // registered ONLY when the flag is exactly "true" AND we are not in
+  // production. Non-registration is the fail-closed default (Fastify 404 for
+  // the unregistered route), mirroring select-session-store.ts's production
+  // guard on the memory driver: a dev-only subsystem must never exist in the
+  // production composition.
+  if (config.sandboxEnabled === true && config.nodeEnv !== "production") {
+    // MVP (no-SDD fast path): CORS scoped to this dev-only gate — the real
+    // webhook route (server-to-server, Meta calling us) never needs it and
+    // never gets it, since this whole block is skipped in production.
+    await app.register(cors, { origin: config.sandboxAllowedOrigin });
+
+    const sandbox = createSandboxDeps({
+      config,
+      logger,
+      options: deps.sandboxOptions,
+    });
+    await app.register(createSandboxRoutes(sandbox));
+  }
 
   return app;
 }

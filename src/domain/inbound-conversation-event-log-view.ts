@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import { msisdnFingerprint } from "./msisdn-fingerprint.js";
 import type { InboundConversationEvent } from "./inbound-conversation-event.js";
 
 // D7: pseudonymous metadata goes to the log stream; identifying content
@@ -22,13 +22,6 @@ export interface ToLogViewDeps {
   logHashSecret: string;
 }
 
-// Keyed HMAC, not masking (last-four digits are still semi-identifying) and
-// not plain SHA-256 (the MSISDN space is small enough to brute-force
-// exhaustively, so an unkeyed digest is not a redaction).
-function fingerprint(from: string, secret: string): string {
-  return crypto.createHmac("sha256", secret).update(from).digest("hex").slice(0, 12);
-}
-
 export function toLogView(event: InboundConversationEvent, deps: ToLogViewDeps): InboundConversationEventLogView {
   return {
     eventId: event.eventId,
@@ -36,7 +29,7 @@ export function toLogView(event: InboundConversationEvent, deps: ToLogViewDeps):
     source: event.source,
     messageType: event.messageType,
     waPhoneNumberId: event.waPhoneNumberId,
-    fromFingerprint: event.from !== undefined ? fingerprint(event.from, deps.logHashSecret) : undefined,
+    fromFingerprint: event.from !== undefined ? msisdnFingerprint(event.from, deps.logHashSecret) : undefined,
     textLength: event.text !== undefined ? event.text.length : undefined,
     sentAt: event.sentAt,
   };
