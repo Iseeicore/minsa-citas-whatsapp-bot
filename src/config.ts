@@ -97,6 +97,13 @@ export const config = {
   // Bare env, default false — the sandbox is fake-only unless explicitly
   // opted into real MINSA calls.
   sandboxUseRealMinsa: process.env.SANDBOX_USE_REAL_MINSA === "true",
+  // MVP (no-SDD fast path): swaps the sandbox's fake ReniecLookupClient for
+  // the real HTTP adapter (real network call to personeros360.pe) — separate
+  // from sandboxUseRealMinsa because RENIEC is an unrelated third-party
+  // system. Safe to default on more freely than the MINSA toggle (it's a
+  // read-only lookup, no OTP/SMS side effect), but kept as its own explicit
+  // opt-in for the same discipline: the sandbox is fake-only by default.
+  sandboxUseRealReniec: process.env.SANDBOX_USE_REAL_RENIEC === "true",
   // Fastify defaults connectionTimeout to 0 (unbounded); 30s bounds a hung
   // socket while staying far above any legitimate Meta webhook delivery.
   connectionTimeout: Number(process.env.CONNECTION_TIMEOUT_MS ?? 30000),

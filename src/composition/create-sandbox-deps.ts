@@ -25,6 +25,7 @@ import {
 import type { SandboxCatalogOptions } from "../fakes/sandbox-fakes.js";
 import { createHttpMinsaIdentityClient } from "../adapters/http-minsa-identity-client.js";
 import { createHttpMinsaCatalogClient } from "../adapters/http-minsa-catalog-client.js";
+import { createHttpReniecLookupClient } from "../adapters/http-reniec-lookup-client.js";
 
 /** D37 add-on knobs for a sandbox buildApp composition (dev-only). */
 export interface SandboxOptions {
@@ -58,6 +59,8 @@ export interface CreateSandboxDepsInput {
     minsaIntegrationSecret: string;
     citaConversationIdPlaceholder: string;
     sandboxUseRealMinsa: boolean;
+    reniecLookupBaseUrl: string;
+    sandboxUseRealReniec: boolean;
   };
   logger: pino.Logger;
   options?: SandboxOptions;
@@ -68,7 +71,14 @@ export function createSandboxDeps(deps: CreateSandboxDepsInput): SandboxComposit
 
   const sessionStore = createMemorySessionStore({ logger });
   const { sender, captures } = createSandboxCapturingSender();
-  const reniecLookupClient = createSandboxReniecLookupClient(options?.reniecTable);
+  // MVP (no-SDD fast path): SANDBOX_USE_REAL_RENIEC=true swaps the fake
+  // RENIEC lookup for the real HTTP adapter — bug fix: this used to stay
+  // fake even when SANDBOX_USE_REAL_MINSA was on, so a real, correctly
+  // registered DNI/name always failed Reclamo-con-DNI against the fake
+  // table's one hardcoded entry, regardless of what RENIEC actually says.
+  const reniecLookupClient = config.sandboxUseRealReniec
+    ? createHttpReniecLookupClient({ config, logger })
+    : createSandboxReniecLookupClient(options?.reniecTable);
   const quejas = createSandboxQuejasSubmissionClient(
     options?.quejas ?? { mode: "accepted", reference: "DEV-REF-001" }
   );
