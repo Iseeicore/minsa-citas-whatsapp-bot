@@ -42,6 +42,12 @@ export const config = {
   quejasApiBaseUrl:
     process.env.QUEJAS_API_BASE_URL ?? "https://back-end-ministerioescucha-production.up.railway.app",
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
+  // AI fallback exploration (no-SDD, pre-architecture spike): a secret, so
+  // readEnv()'s "CHANGE_ME" fallback + warning apply — same discipline as
+  // minsaIntegrationSecret above. Not consumed by the production
+  // conversation flow yet; wired only into the standalone connectivity
+  // check (src/scripts/check-google-ai-connection.ts) for now.
+  googleClientApiKey: readEnv("GOOGLE_CLIENT_API"),
   // D32: bare process.env, not readEnv() — same discipline as minsaApiHost
   // above. Not a secret, so readEnv()'s "CHANGE_ME" warning would be noise.
   // The literal default is the confirmed original Twilio value (mem obs

@@ -12,6 +12,7 @@
     "start": "node dist/server.js",
     "worker": "node dist/worker.js",
     "worker:dev": "tsx watch src/worker.ts",
+    "check:google-ai": "tsx src/scripts/check-google-ai-connection.ts",
     "test": "vitest run"
   },
   "dependencies": {
