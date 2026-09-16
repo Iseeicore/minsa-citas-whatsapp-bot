@@ -9,6 +9,9 @@ import { selectConversationEventDao } from "./composition/select-conversation-ev
 import { createWebhookIngestionService, type WebhookIngestionService } from "./services/webhook-ingestion.js";
 import { createSandboxDeps, type SandboxOptions } from "./composition/create-sandbox-deps.js";
 import { createSandboxRoutes } from "./routes/sandbox-events.js";
+import { createWebhookChannelRoutes } from "./routes/webhook-channel.js";
+import { createMetaWhatsappSender } from "./adapters/meta-whatsapp-sender.js";
+import type { WhatsappOutboundSender } from "./ports/whatsapp-outbound-sender.js";
 import cors from "@fastify/cors";
 
 export interface AppDeps {
@@ -21,6 +24,14 @@ export interface AppDeps {
    * it, so buildDefaultDeps() and server.ts stay untouched.
    */
   sandboxOptions?: SandboxOptions;
+  /**
+   * Webhook channel viewer (no-SDD fast path, explicit user decision):
+   * optional so every existing test/call site building AppDeps by hand keeps
+   * compiling unchanged — buildApp() falls back to the real Meta sender
+   * (synchronous construction, no I/O) when omitted, same discipline as
+   * sandboxOptions above.
+   */
+  sender?: WhatsappOutboundSender;
 }
 
 // Composition root for everything Fastify-owned. No module-scope side
@@ -33,6 +44,7 @@ export interface AppDeps {
 // generic — letting TS infer the real return type avoids that mismatch.
 export async function buildApp(deps: AppDeps) {
   const { logger, ingestion } = deps;
+  const sender = deps.sender ?? createMetaWhatsappSender({ config, logger });
 
   const app = Fastify({
     loggerInstance: logger,
@@ -59,7 +71,27 @@ export async function buildApp(deps: AppDeps) {
 
   app.get("/health", async () => ({ status: "ok" }));
 
+  // Webhook channel viewer (no-SDD fast path, explicit user decision): a
+  // single, always-on CORS registration — @fastify/cors adds an app-wide
+  // OPTIONS '*' route that collides (FST_ERR_DUPLICATED_ROUTE) if registered
+  // twice, so this replaces what used to be a second, sandbox-gated-only
+  // registration below. Harmless for /webhook/whatsapp and /health (a
+  // server-to-server caller and a health check never send an Origin header
+  // browsers would enforce this against) — reuses config.sandboxAllowedOrigin
+  // (the existing "frontend origin" knob) rather than inventing a second one.
+  // Comma-separated (e.g. the deployed frontend + a local dev origin at the
+  // same time) — @fastify/cors treats a plain string as ONE exact origin, so
+  // this must be split into an array for more than one to ever match.
+  const allowedOrigins = config.sandboxAllowedOrigin.split(",").map((origin) => origin.trim());
+  await app.register(cors, { origin: allowedOrigins });
+
   await app.register(createWhatsappWebhookRoutes({ ingestion }));
+
+  // Webhook channel viewer (no-SDD fast path, explicit user decision):
+  // ALWAYS registered, unlike the D33 sandbox gate below — this is meant to
+  // work against real Meta traffic in the real deploy, protected only by the
+  // shared secret checked inside the route (config.webhookChannelSecret).
+  await app.register(createWebhookChannelRoutes({ sender, secret: config.webhookChannelSecret }));
 
   // D33/SBX-6: fail-closed sandbox gate — the dev harness is composed and
   // registered ONLY when the flag is exactly "true" AND we are not in
@@ -68,11 +100,6 @@ export async function buildApp(deps: AppDeps) {
   // guard on the memory driver: a dev-only subsystem must never exist in the
   // production composition.
   if (config.sandboxEnabled === true && config.nodeEnv !== "production") {
-    // MVP (no-SDD fast path): CORS scoped to this dev-only gate — the real
-    // webhook route (server-to-server, Meta calling us) never needs it and
-    // never gets it, since this whole block is skipped in production.
-    await app.register(cors, { origin: config.sandboxAllowedOrigin });
-
     const sandbox = createSandboxDeps({
       config,
       logger,
