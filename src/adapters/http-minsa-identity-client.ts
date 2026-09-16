@@ -44,15 +44,19 @@ interface VerifyCodeApiResponseBody {
 
 // D26: `timestamp`/`requestId` are generated HERE, at the adapter boundary —
 // signMinsaRequest itself stays a pure function of explicit inputs, with zero
-// clock/RNG of its own. Timestamp is `Date.now().toString()` (ms epoch) —
-// an assumption isolated to this one line and flagged in the design's open
-// questions, pending confirmation against the live endpoint.
+// clock/RNG of its own. Timestamp is SECONDS epoch (`Math.floor(Date.now() /
+// 1000).toString()`) — confirmed against the real Twilio Function source
+// (validar-dni/verificar-codigo), which is the ground truth this adapter
+// replicates. The design's open question flagged this as unconfirmed
+// ms-vs-s; ms was wrong (401 "Credenciales de integración inválidas" against
+// the live endpoint) — seconds is correct.
 function buildSignedHeaders(secret: string, bodyJson: string): Record<string, string> {
-  const timestamp = Date.now().toString();
+  const timestamp = Math.floor(Date.now() / 1000).toString();
   const requestId = crypto.randomUUID();
   const { signature } = signMinsaRequest({ secret, timestamp, requestId, bodyJson });
 
   return {
+    accept: "application/json",
     "Content-Type": "application/json",
     "X-WhatsApp-Timestamp": timestamp,
     "X-WhatsApp-Request-Id": requestId,
