@@ -325,7 +325,7 @@ describe("sandbox E2E journey — reclamo happy path with DNI (spec full scenari
     const step4 = await postJson(app, { from: SANDBOX_FROM, type: "text", text: "12345678" });
     expect(step4.statusCode).toBe(200);
     expect(step4.json().sent).toEqual([
-      { kind: "text", to: SANDBOX_FROM, body: "Ingresa tus nombres y apellidos, tal como figuran en tu DNI." },
+      { kind: "text", to: SANDBOX_FROM, body: "Ingresa uno de tus nombres, tal como aparece en tu DNI." },
     ]);
     expect(step4.json().session.state).toBe("reclamo_awaiting_nombre");
 

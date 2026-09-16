@@ -413,7 +413,16 @@ const RECLAMO_FAILED_STATE: ConversationStateName = "reclamo_failed";
 
 const RECLAMO_ASK_DNI_BODY = "Ingresa tu DNI (8 dígitos).";
 const RECLAMO_INVALID_DNI_BODY = "El DNI debe tener exactamente 8 dígitos numéricos. Inténtalo de nuevo.";
-const RECLAMO_ASK_NOMBRE_BODY = "Ingresa tus nombres y apellidos, tal como figuran en tu DNI.";
+// Confirmed against the real production bot's actual prompt (screenshot,
+// live chat): "ingresa uno de tus nombres tal como aparece en tu DNI" — NOT
+// "nombres y apellidos". This matters beyond wording: namesMatch()'s
+// word-set-containment algorithm requires EVERY typed word to appear in the
+// RENIEC record, so asking for the FULL name (both apellidos) makes a real,
+// correctly-registered citizen more likely to fail on a surname spelling/
+// composition they didn't know exactly — the original prompt deliberately
+// only asks for one name to keep that risk low (design's own "a single
+// correct first name matches" note).
+const RECLAMO_ASK_NOMBRE_BODY = "Ingresa uno de tus nombres, tal como aparece en tu DNI.";
 const RECLAMO_VERIFYING_BODY = "Estamos verificando tus datos…";
 const RECLAMO_PROCESSING_BODY = "Estamos procesando tu solicitud, danos un momento.";
 // Design's FSM states table: reached both from the sin-DNI shortcut

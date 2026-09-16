@@ -272,7 +272,7 @@ describe("handle — reclamo_awaiting_dni (identity-verification / DNI Format Va
     expect(result.session.state).toBe("reclamo_awaiting_nombre");
     expect(result.session.slots.dni).toBe("12345678");
     expect(result.effects).toEqual([
-      { kind: "send_text", to: FROM, body: "Ingresa tus nombres y apellidos, tal como figuran en tu DNI." },
+      { kind: "send_text", to: FROM, body: "Ingresa uno de tus nombres, tal como aparece en tu DNI." },
     ]);
   });
 
