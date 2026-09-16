@@ -41,6 +41,19 @@ function toHoraCitaWireFormat(horaInicio: string): string {
   return `${parseInt(hh, 10)}${(mm ?? "00").padStart(2, "0")}`;
 }
 
+// Confirmed against the real Twilio Function source (listar-horas.js /
+// agendar-cita.js): the fecha value carried through the flow isn't
+// guaranteed to already be YYYYMMDD — both functions defensively convert a
+// "DD/MM/YYYY" input before calling MINSA, which otherwise rejects it with
+// 400 "Formato de fecha inválido. Se esperaba YYYYMMDD." Replicated verbatim
+// here, used by both listHoras and bookAppointment (same bug, same fix,
+// same two call sites in the ground truth).
+function normalizeFechaCita(fecha: string): string {
+  if (!fecha.includes("/")) return fecha;
+  const [d, m, a] = fecha.split("/");
+  return `${a}${(m ?? "").padStart(2, "0")}${(d ?? "").padStart(2, "0")}`;
+}
+
 function todayToEndOfMonthRange(): { fechaInicio: string; fechaFin: string } {
   const now = new Date();
   const fmt = (d: Date) =>
@@ -195,7 +208,7 @@ export function createHttpMinsaCatalogClient(deps: HttpMinsaCatalogClientDeps): 
         logger,
         `${config.minsaApiHost}/whatsapp/api/v1/quotas/times`,
         token,
-        { cod_eess: input.codEess, especialidad_id: input.especialidadId, fecha: input.fecha }
+        { cod_eess: input.codEess, especialidad_id: input.especialidadId, fecha: normalizeFechaCita(input.fecha) }
       );
       const raw = body as { success?: boolean; data?: { horarios?: unknown[] } } | undefined;
       const list = raw?.data?.horarios;
@@ -222,7 +235,7 @@ export function createHttpMinsaCatalogClient(deps: HttpMinsaCatalogClientDeps): 
         {
           codigo_renipress: input.codigoRenipress,
           codigo_ups: input.codigoUps,
-          fecha_cita: input.fechaCita,
+          fecha_cita: normalizeFechaCita(input.fechaCita),
           hora_cita: toHoraCitaWireFormat(input.horaCita),
           numero_documento_paciente: input.numeroDocumentoPaciente,
         }

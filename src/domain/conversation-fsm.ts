@@ -1108,6 +1108,13 @@ function citaVerifyPendingHandler(session: ConversationSession, event: FsmEvent)
     // clears the bearer". MVP addition (no-SDD fast path): citaDni is ALSO
     // retained here — the booking call (numero_documento_paciente) needs it
     // again downstream in the catalog chain, same documented exception.
+    // MVP fix: the catalog chain (C2) already exists, so there is no reason
+    // to make the citizen send a throwaway message before seeing the ubigeo
+    // prompt — go straight to CITA_AWAITING_UBIGEO_STATE in the same turn
+    // and send both messages together. `cita_identity_confirmed` stays
+    // registered in STATE_HANDLERS (citaIdentityConfirmedHandler) only as a
+    // defensive fallback for any session already parked there before this
+    // fix shipped.
     const advanced = withState(
       {
         ...session,
@@ -1117,11 +1124,14 @@ function citaVerifyPendingHandler(session: ConversationSession, event: FsmEvent)
           citaDni: typeof session.slots.citaDni === "string" ? session.slots.citaDni : "",
         },
       },
-      CITA_IDENTITY_CONFIRMED_STATE
+      CITA_AWAITING_UBIGEO_STATE
     );
     return {
       session: advanced,
-      effects: [{ kind: "send_text", to, body: CITA_IDENTITY_CONFIRMED_BODY }],
+      effects: [
+        { kind: "send_text", to, body: CITA_IDENTITY_CONFIRMED_BODY },
+        { kind: "send_text", to, body: CITA_ASK_UBIGEO_BODY },
+      ],
       outcome: "continue",
     };
   }

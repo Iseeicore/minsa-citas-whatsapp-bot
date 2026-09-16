@@ -1108,7 +1108,7 @@ describe("createConversationFlowService — D31 race: early CONFIRMAR reply then
 // runQueryEffect's `verify_code` switch case end to end, mirroring
 // `validate_user`'s own D20 bounded re-entry coverage above.
 describe("createConversationFlowService — verify_code bounded re-entry (D20/D33, Phase 7)", () => {
-  it("verified: advances to cita_identity_confirmed and stores slots.citaBearer", async () => {
+  it("verified: advances to cita_awaiting_ubigeo and stores slots.citaBearer", async () => {
     const { sender, calls } = fakeSender();
     const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
     const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
@@ -1127,9 +1127,12 @@ describe("createConversationFlowService — verify_code bounded re-entry (D20/D3
     await service.process(makeEvent({ text: "123456" }));
 
     expect(verifyCalls).toEqual([{ twofaId: "twofa-1", code: "123456" }]);
-    expect(calls.map((c) => c.method)).toEqual(["sendText", "sendText"]);
+    // MVP fix: 3 sends now, not 2 — "Validando el código…" (pre-query) then
+    // "Identidad verificada…" + "Escribe tu ubicación…" together on the
+    // re-entry pass (same turn, no throwaway message needed in between).
+    expect(calls.map((c) => c.method)).toEqual(["sendText", "sendText", "sendText"]);
     const stored = await sessionStore.load(key);
-    expect(stored?.state).toBe("cita_identity_confirmed");
+    expect(stored?.state).toBe("cita_awaiting_ubigeo");
     expect(stored?.slots.citaBearer).toBe("bearer-token-value");
     // MVP addition (no-SDD fast path): citaDni is ALSO retained now,
     // alongside citaBearer — the booking call needs it again downstream.
@@ -1199,7 +1202,7 @@ describe("createConversationFlowService — verify_code bounded re-entry (D20/D3
 // this is "as close as this codebase's existing integration-test conventions
 // allow" to driving worker.ts's real composition, per this PR's scope note.
 describe("createConversationFlowService — Phase 8 end-to-end integration (full Cita identity pipeline)", () => {
-  it("main_menu -> agendar_cita -> DNI -> validate_user(valid) -> OTP -> verify_code(verified) -> cita_identity_confirmed with a bearer token in slots", async () => {
+  it("main_menu -> agendar_cita -> DNI -> validate_user(valid) -> OTP -> verify_code(verified) -> cita_awaiting_ubigeo with a bearer token in slots", async () => {
     const { sender, calls } = fakeSender();
     const sessionStore = createMemorySessionStore({ logger: fakeLogger() });
     const key = msisdnDigest(FROM_MSISDN, SESSION_KEY_SECRET);
@@ -1227,10 +1230,11 @@ describe("createConversationFlowService — Phase 8 end-to-end integration (full
     expect(afterDni?.state).toBe("cita_awaiting_otp");
     expect(afterDni?.slots.citaTwofaId).toBe("twofa-e2e-1");
 
-    // Turn 3: citizen types the OTP -> verify_code(verified) -> cita_identity_confirmed.
+    // Turn 3: citizen types the OTP -> verify_code(verified) -> straight into
+    // cita_awaiting_ubigeo (MVP fix: no throwaway message needed in between).
     await service.process(makeEvent({ text: "654321" }));
     const final = await sessionStore.load(key);
-    expect(final?.state).toBe("cita_identity_confirmed");
+    expect(final?.state).toBe("cita_awaiting_ubigeo");
     expect(final?.slots.citaBearer).toBe("bearer-e2e-token");
     // MVP addition (no-SDD fast path): citaDni is ALSO retained now,
     // alongside citaBearer — the booking call needs it again downstream.
@@ -1240,8 +1244,8 @@ describe("createConversationFlowService — Phase 8 end-to-end integration (full
     expect(validateCalls).toEqual(["12345678"]);
     expect(verifyCalls).toEqual([{ twofaId: "twofa-e2e-1", code: "654321" }]);
     // 1 send at agendar_cita + 2 sends per DNI turn (validating + otp prompt)
-    // + 2 sends per OTP turn (validating + confirmed) = 5 total.
-    expect(calls).toHaveLength(5);
+    // + 3 sends per OTP turn (validating + confirmed + ask-ubigeo) = 6 total.
+    expect(calls).toHaveLength(6);
   });
 
   it("registration-wait retry ladder: not-registered -> schedule -> re-check -> still not-registered -> schedule again -> re-check -> still not-registered -> terminal rejected", async () => {

@@ -1003,7 +1003,7 @@ describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => 
     expect(STATE_HANDLERS["cita_verify_pending"]).toBeDefined();
   });
 
-  it("task 7.3 — verified: stores slots.citaBearer, advances to cita_identity_confirmed, and clears citaDni/citaTwofaId/citaOtpAttempts/citaWaitToken/citaRegistrationChecks", () => {
+  it("task 7.3 — verified: stores slots.citaBearer, advances to cita_awaiting_ubigeo, and clears citaTwofaId/citaOtpAttempts/citaWaitToken/citaRegistrationChecks", () => {
     const session = parkedSession("cita_verify_pending", {
       citaDni: "12345678",
       citaTwofaId: "twofa-1",
@@ -1020,7 +1020,7 @@ describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => 
 
     const result = handle(session, systemEvent);
 
-    expect(result.session.state).toBe("cita_identity_confirmed");
+    expect(result.session.state).toBe("cita_awaiting_ubigeo");
     expect(result.session.slots.citaBearer).toBe("bearer-token-value");
     // MVP addition (no-SDD fast path): citaDni is ALSO retained now,
     // alongside citaBearer — the booking call needs it again downstream in
@@ -1030,11 +1030,19 @@ describe("handle — cita_verify_pending (D20 re-entry target, Phase 7)", () => 
     expect(result.session.slots.citaOtpAttempts).toBeUndefined();
     expect(result.session.slots.citaWaitToken).toBeUndefined();
     expect(result.session.slots.citaRegistrationChecks).toBeUndefined();
+    // MVP fix: the catalog chain already exists, so both messages fire in
+    // the SAME turn — no more waiting for a throwaway inbound message to
+    // reach the ubigeo prompt.
     expect(result.effects).toEqual([
       {
         kind: "send_text",
         to: FROM,
         body: "Identidad verificada. Estamos preparando la reserva de tu cita.",
+      },
+      {
+        kind: "send_text",
+        to: FROM,
+        body: "Escribe tu ubicación así: Departamento/Provincia/Distrito (ej: Lima/Lima/Lurigancho).",
       },
     ]);
     expect(result.outcome).toBe("continue");
@@ -1197,7 +1205,7 @@ describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => 
     expect(serialized).not.toContain("bearer-token-value");
   });
 
-  it("cita_identity_confirmed (holding state, NOT terminal — D33's stated exception): clears citaDni/citaTwofaId but DELIBERATELY retains citaBearer until session TTL", () => {
+  it("cita_awaiting_ubigeo (MVP: identity confirms straight into the catalog chain, D33's stated exception extended): clears citaTwofaId but DELIBERATELY retains citaBearer/citaDni until session TTL", () => {
     const session = parkedSession("cita_verify_pending", { citaDni: "12345678", citaTwofaId: "twofa-secret" });
     const systemEvent = makeVerifyCodeSystemEvent({
       status: "verified",
@@ -1208,7 +1216,7 @@ describe("handle — Cita terminal slot-clearing privacy (D33, Phase 7)", () => 
 
     const result = handle(session, systemEvent);
 
-    expect(result.session.state).toBe("cita_identity_confirmed");
+    expect(result.session.state).toBe("cita_awaiting_ubigeo");
     const serialized = JSON.stringify(result.session);
     expect(serialized).not.toContain("twofa-secret");
     // Documents the intentional retention window — this is NOT an omission,
