@@ -19,6 +19,7 @@ import type {
   VerifyCodeResult,
 } from "../ports/minsa-identity-client.js";
 import type { MinsaCatalogClient } from "../ports/minsa-catalog-client.js";
+import type { ScheduledCheckScheduler } from "../ports/scheduled-check-scheduler.js";
 
 /** One outbound message recorded by the sandbox capturing sender (D36). */
 export type SandboxCapturedSend =
@@ -184,6 +185,27 @@ export function createSandboxMinsaIdentityClient(
 /** One fixed happy path through the whole catalog chain — any other input is "empty". Booking outcome is configurable, same pattern as the quejas fake. */
 export interface SandboxCatalogOptions {
   readonly booking?: "booked" | "duplicate" | "rejected";
+}
+
+// Bug fix (found manually testing an unrecognized DNI through the sandbox
+// UI): entering any DNI other than the fake identity table's one entry
+// ("12345678") correctly reaches the not_valid -> registration-wait branch,
+// which emits a schedule_check effect. Sandbox composition never wired a
+// scheduler (undefined), so runScheduleEffects threw
+// ScheduledCheckSchedulerNotConfiguredError -> uncaught -> HTTP 500. This is
+// a genuine gap, not a "your DNI isn't real" business response — the fake
+// below is a no-op (never actually fires after the delay, there is no timer
+// infra in the sandbox), so the turn completes and the citizen sees the
+// real "not registered, wait or type CONFIRMAR" message instead of a crash.
+export function createSandboxScheduledCheckScheduler(): ScheduledCheckScheduler {
+  return {
+    async schedule() {
+      // No-op: the sandbox has no delayed-job infra. The early-CONFIRMAR-reply
+      // path still works (it doesn't depend on this firing); only the
+      // "timer eventually fires on its own" path is unavailable in sandbox.
+    },
+    async close() {},
+  };
 }
 
 export function createSandboxMinsaCatalogClient(opts?: SandboxCatalogOptions): MinsaCatalogClient {

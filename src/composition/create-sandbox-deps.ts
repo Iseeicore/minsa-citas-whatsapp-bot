@@ -20,6 +20,7 @@ import {
   createSandboxMinsaIdentityClient,
   createSandboxQuejasSubmissionClient,
   createSandboxReniecLookupClient,
+  createSandboxScheduledCheckScheduler,
 } from "../fakes/sandbox-fakes.js";
 import type { SandboxCatalogOptions } from "../fakes/sandbox-fakes.js";
 
@@ -74,11 +75,13 @@ export function createSandboxDeps(deps: CreateSandboxDepsInput): SandboxComposit
     whatsappMediaDownloader,
     minsaIdentityClient,
     minsaCatalogClient,
-    // SBX-7: undefined is valid per the deps contract (conversation-flow.ts
-    // L91) — a future schedule_check effect would throw
-    // ScheduledCheckSchedulerNotConfiguredError rather than silently drop
-    // the timer (documented dev signal, design §8).
-    scheduledCheckScheduler: undefined,
+    // Bug fix: was `undefined` (SBX-7's original design). Any DNI outside the
+    // fake identity table reaches the not_valid -> registration-wait branch,
+    // which emits a real schedule_check effect — undefined here made that a
+    // 500 instead of the real "not registered" message. A no-op fake keeps
+    // the turn from crashing; see createSandboxScheduledCheckScheduler's
+    // comment for what it does and does not cover.
+    scheduledCheckScheduler: createSandboxScheduledCheckScheduler(),
     config,
   });
 
