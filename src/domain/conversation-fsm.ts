@@ -364,14 +364,22 @@ function buildListEffect(
   to: string,
   body: string,
   buttonLabel: string,
-  options: readonly { id: string; title: string }[]
+  options: readonly { id: string; title: string; description?: string }[]
 ): FsmEffect {
   return {
     kind: "send_interactive_list",
     to,
     body,
     buttonLabel,
-    sections: [{ rows: options.map((o) => ({ id: o.id, title: o.title.slice(0, 24) })) }],
+    sections: [
+      {
+        rows: options.map((o) => ({
+          id: o.id,
+          title: o.title.slice(0, 24),
+          ...(o.description !== undefined ? { description: o.description.slice(0, 72) } : {}),
+        })),
+      },
+    ],
   };
 }
 
@@ -1315,7 +1323,11 @@ function citaUbigeoPendingHandler(session: ConversationSession, event: FsmEvent)
           to,
           "Selecciona tu ubicación:",
           "Ver opciones",
-          result.options.map((o) => ({ id: o.ubigeoInei, title: `${o.distrito}, ${o.provincia}` }))
+          result.options.map((o) => ({
+            id: o.ubigeoInei,
+            title: `${o.distrito}, ${o.provincia}`,
+            description: `${o.provincia}, ${o.departamento}`,
+          }))
         ),
       ],
       outcome: "continue",
@@ -1367,7 +1379,11 @@ function citaEspecialidadPendingHandler(session: ConversationSession, event: Fsm
           to,
           "Selecciona una especialidad:",
           "Ver opciones",
-          result.options.map((o) => ({ id: o.codigoEspecialidad, title: o.nombreEspecialidad }))
+          result.options.map((o) => ({
+            id: o.codigoEspecialidad,
+            title: o.nombreEspecialidad,
+            description: `${o.nombreEspecialidad} — ${o.cantidadCupos} cupo(s)`,
+          }))
         ),
       ],
       outcome: "continue",
@@ -1424,7 +1440,11 @@ function citaEstablecimientoPendingHandler(session: ConversationSession, event: 
           to,
           "Selecciona un establecimiento:",
           "Ver opciones",
-          result.options.map((o) => ({ id: o.renipressCode, title: o.establishmentName }))
+          result.options.map((o) => ({
+            id: o.renipressCode,
+            title: o.establishmentName,
+            description: `${o.establishmentName} · ${o.quotasOnline} cupo(s)`,
+          }))
         ),
       ],
       outcome: "continue",
@@ -1481,7 +1501,11 @@ function citaFechaPendingHandler(session: ConversationSession, event: FsmEvent):
           to,
           "Selecciona una fecha:",
           "Ver fechas",
-          result.options.map((o) => ({ id: o.fechaCupo, title: o.fechaCupo }))
+          result.options.map((o) => ({
+            id: o.fechaCupo,
+            title: o.fechaCupo,
+            description: `${o.cantidadCupos} cupo(s) disponible(s)`,
+          }))
         ),
       ],
       outcome: "continue",
@@ -1539,7 +1563,11 @@ function citaHoraPendingHandler(session: ConversationSession, event: FsmEvent): 
           to,
           "Selecciona un horario:",
           "Ver horarios",
-          result.options.map((o) => ({ id: `${o.horaInicio}|${o.horaFin}`, title: `${o.horaInicio} - ${o.horaFin}` }))
+          result.options.map((o) => ({
+            id: `${o.horaInicio}|${o.horaFin}`,
+            title: `${o.horaInicio} - ${o.horaFin}`,
+            description: `${o.cantidadCupos} cupo(s) disponible(s)`,
+          }))
         ),
       ],
       outcome: "continue",
