@@ -26,6 +26,8 @@ import type { SandboxCatalogOptions } from "../fakes/sandbox-fakes.js";
 import { createHttpMinsaIdentityClient } from "../adapters/http-minsa-identity-client.js";
 import { createHttpMinsaCatalogClient } from "../adapters/http-minsa-catalog-client.js";
 import { createHttpReniecLookupClient } from "../adapters/http-reniec-lookup-client.js";
+import { createGoogleAiClient } from "../adapters/google-ai-client.js";
+import { createNoopAiFallbackClient } from "../adapters/noop-ai-fallback-client.js";
 
 /** D37 add-on knobs for a sandbox buildApp composition (dev-only). */
 export interface SandboxOptions {
@@ -61,6 +63,9 @@ export interface CreateSandboxDepsInput {
     sandboxUseRealMinsa: boolean;
     reniecLookupBaseUrl: string;
     sandboxUseRealReniec: boolean;
+    googleClientApiKey: string;
+    googleAiModel: string;
+    sandboxUseRealAi: boolean;
   };
   logger: pino.Logger;
   options?: SandboxOptions;
@@ -94,6 +99,14 @@ export function createSandboxDeps(deps: CreateSandboxDepsInput): SandboxComposit
   const minsaCatalogClient = config.sandboxUseRealMinsa
     ? createHttpMinsaCatalogClient({ config, logger })
     : createSandboxMinsaCatalogClient(options?.catalog);
+  // AI ubigeo pre-check (no-SDD exploration, explicit user decision):
+  // SANDBOX_USE_REAL_AI=true swaps the no-op (always "valid") client for the
+  // real Google AI adapter — this is the ONLY composition where the real
+  // adapter is ever wired in; worker.ts (real production traffic) always
+  // gets the no-op.
+  const aiFallbackClient = config.sandboxUseRealAi
+    ? createGoogleAiClient({ config, logger })
+    : createNoopAiFallbackClient();
 
   const flow = createConversationFlowService({
     sessionStore,
@@ -103,6 +116,7 @@ export function createSandboxDeps(deps: CreateSandboxDepsInput): SandboxComposit
     whatsappMediaDownloader,
     minsaIdentityClient,
     minsaCatalogClient,
+    aiFallbackClient,
     // Bug fix: was `undefined` (SBX-7's original design). Any DNI outside the
     // fake identity table reaches the not_valid -> registration-wait branch,
     // which emits a real schedule_check effect — undefined here made that a

@@ -44,6 +44,7 @@ import type {
   ListHorasResult,
   SearchUbigeoResult,
 } from "../ports/minsa-catalog-client.js";
+import type { UbigeoAiValidationResult } from "../ports/ai-fallback-client.js";
 import type { ConversationSession, ConversationStateName, SlotValue } from "./conversation-session.js";
 import { withState } from "./conversation-session.js";
 import { isValidDniFormat } from "./dni.js";
@@ -99,6 +100,12 @@ export type FsmQueryEffect =
   // `token` is `slots.citaBearer`, read by the handler that constructs each
   // effect — same D17 "never from slots inside handle()" discipline covers
   // `to`, not `token` (a Bearer credential, not the citizen's own identity).
+  // AI ubigeo pre-check (no-SDD exploration, explicit user decision): fires
+  // BEFORE search_ubigeo, so an obvious typo/hierarchy mismatch (e.g.
+  // Provincia "Trujillo" under Departamento "Lima") is caught with a
+  // specific message instead of wasting a real MINSA call for a generic
+  // "not found." No `token` — this never talks to MINSA.
+  | { kind: "validate_ubigeo_ai"; departamento: string; provincia: string; distrito: string }
   | { kind: "search_ubigeo"; departamento: string; provincia: string; distrito: string; token: string }
   | { kind: "list_especialidades"; ubigeo: string; token: string }
   | { kind: "list_establecimientos"; ubigeo: string; especialidadId: string; token: string }
@@ -163,6 +170,7 @@ export interface FsmSystemEvent {
     | "quejas_submit_result"
     | "validate_user_result"
     | "verify_code_result"
+    | "validate_ubigeo_ai_result"
     | "search_ubigeo_result"
     | "list_especialidades_result"
     | "list_establecimientos_result"
@@ -174,6 +182,7 @@ export interface FsmSystemEvent {
     | QuejaSubmissionResult
     | ValidateUserResult
     | VerifyCodeResult
+    | UbigeoAiValidationResult
     | SearchUbigeoResult
     | ListEspecialidadesResult
     | ListEstablecimientosResult
@@ -313,6 +322,7 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
   "citaBearer",
   "citaDepartamento",
   "citaProvincia",
+  "citaDistrito",
   "citaUbigeo",
   "citaEspecialidadId",
   "citaCodEess",
@@ -330,6 +340,9 @@ const CITA_SLOT_KEYS_TO_CLEAR = [
 const CITA_AWAITING_DEPARTAMENTO_STATE: ConversationStateName = "cita_awaiting_departamento";
 const CITA_AWAITING_PROVINCIA_STATE: ConversationStateName = "cita_awaiting_provincia";
 const CITA_AWAITING_DISTRITO_STATE: ConversationStateName = "cita_awaiting_distrito";
+// AI ubigeo pre-check (no-SDD exploration): sits between distrito collection
+// and the real MINSA lookup.
+const CITA_UBIGEO_AI_PENDING_STATE: ConversationStateName = "cita_ubigeo_ai_pending";
 const CITA_UBIGEO_PENDING_STATE: ConversationStateName = "cita_ubigeo_pending";
 const CITA_AWAITING_UBIGEO_SELECT_STATE: ConversationStateName = "cita_awaiting_ubigeo_select";
 const CITA_ESPECIALIDAD_PENDING_STATE: ConversationStateName = "cita_especialidad_pending";
@@ -1297,12 +1310,56 @@ function citaAwaitingDistritoHandler(session: ConversationSession, event: FsmEve
 
   const departamento = stringSlot(session, "citaDepartamento");
   const provincia = stringSlot(session, "citaProvincia");
+  const advanced = withState(
+    { ...session, slots: { ...session.slots, citaDistrito: text } },
+    CITA_UBIGEO_AI_PENDING_STATE
+  );
+  return {
+    session: advanced,
+    effects: [
+      { kind: "send_text", to, body: CITA_SEARCHING_BODY },
+      { kind: "validate_ubigeo_ai", departamento, provincia, distrito: text },
+    ],
+    outcome: "continue",
+  };
+}
+
+// AI ubigeo pre-check (no-SDD exploration, explicit user decision): D20
+// re-entry target for `validate_ubigeo_ai`. "valid" AND "unavailable" both
+// proceed to the real search_ubigeo call (fail-open — an AI outage must
+// never block a real citizen); only "flagged" re-prompts with the AI's own
+// detalle/sugerencia, restarting collection from departamento (the
+// inconsistency could be in any of the three fields).
+function citaUbigeoAiPendingHandler(session: ConversationSession, event: FsmEvent): FsmResult {
+  const to = event.from ?? "";
+  if (isInboundEvent(event) || event.kind !== "validate_ubigeo_ai_result") {
+    return { session, effects: [{ kind: "send_text", to, body: CITA_SEARCHING_BODY }], outcome: "continue" };
+  }
+
+  const result = event.result;
+  if (result.status === "ubigeo_ai_flagged") {
+    const back = withState(session, CITA_AWAITING_DEPARTAMENTO_STATE);
+    const sugerenciaLine = result.sugerencia !== undefined ? ` ${result.sugerencia}` : "";
+    return {
+      session: back,
+      effects: [
+        { kind: "send_text", to, body: `${result.detalle}${sugerenciaLine}` },
+        { kind: "send_text", to, body: CITA_ASK_DEPARTAMENTO_BODY },
+      ],
+      outcome: "continue",
+    };
+  }
+
+  // "ubigeo_ai_valid" or "ubigeo_ai_unavailable" — proceed unchanged.
+  const departamento = stringSlot(session, "citaDepartamento");
+  const provincia = stringSlot(session, "citaProvincia");
+  const distrito = stringSlot(session, "citaDistrito");
   const advanced = withState(session, CITA_UBIGEO_PENDING_STATE);
   return {
     session: advanced,
     effects: [
       { kind: "send_text", to, body: CITA_SEARCHING_BODY },
-      { kind: "search_ubigeo", departamento, provincia, distrito: text, token: citaBearerOf(session) },
+      { kind: "search_ubigeo", departamento, provincia, distrito, token: citaBearerOf(session) },
     ],
     outcome: "continue",
   };
@@ -1702,6 +1759,7 @@ export const STATE_HANDLERS: Record<ConversationStateName, StateHandler> = {
   [CITA_AWAITING_DEPARTAMENTO_STATE]: citaAwaitingDepartamentoHandler,
   [CITA_AWAITING_PROVINCIA_STATE]: citaAwaitingProvinciaHandler,
   [CITA_AWAITING_DISTRITO_STATE]: citaAwaitingDistritoHandler,
+  [CITA_UBIGEO_AI_PENDING_STATE]: citaUbigeoAiPendingHandler,
   [CITA_UBIGEO_PENDING_STATE]: citaUbigeoPendingHandler,
   [CITA_AWAITING_UBIGEO_SELECT_STATE]: citaAwaitingUbigeoSelectHandler,
   [CITA_ESPECIALIDAD_PENDING_STATE]: citaEspecialidadPendingHandler,

@@ -6,6 +6,7 @@ import type { WhatsappMediaDownloader } from "../ports/whatsapp-media-downloader
 import type { ScheduledCheckScheduler } from "../ports/scheduled-check-scheduler.js";
 import type { MinsaIdentityClient } from "../ports/minsa-identity-client.js";
 import type { MinsaCatalogClient } from "../ports/minsa-catalog-client.js";
+import type { AiFallbackClient } from "../ports/ai-fallback-client.js";
 import type {
   FsmEffect,
   FsmQueryEffect,
@@ -112,6 +113,14 @@ export interface ConversationFlowServiceDeps {
    * minsaIdentityClient/quejasSubmissionClient above.
    */
   minsaCatalogClient: MinsaCatalogClient;
+  /**
+   * AI ubigeo pre-check (no-SDD exploration, explicit user decision): the
+   * sole executor of the `validate_ubigeo_ai` query effect. REQUIRED, same
+   * precedent as minsaCatalogClient above — worker.ts injects a no-op
+   * adapter (always "valid") by default; only the sandbox, gated by
+   * SANDBOX_USE_REAL_AI, injects the real Google AI adapter.
+   */
+  aiFallbackClient: AiFallbackClient;
   config: {
     /** D19: keys the D17 MSISDN digest used as the session lookup key. */
     sessionKeySecret: string;
@@ -126,6 +135,7 @@ function isQueryEffect(effect: FsmEffect): effect is FsmQueryEffect {
     effect.kind === "quejas_submit" ||
     effect.kind === "validate_user" ||
     effect.kind === "verify_code" ||
+    effect.kind === "validate_ubigeo_ai" ||
     effect.kind === "search_ubigeo" ||
     effect.kind === "list_especialidades" ||
     effect.kind === "list_establecimientos" ||
@@ -289,11 +299,20 @@ async function runQueryEffect(
     whatsappMediaDownloader: WhatsappMediaDownloader;
     minsaIdentityClient: MinsaIdentityClient;
     minsaCatalogClient: MinsaCatalogClient;
+    aiFallbackClient: AiFallbackClient;
   },
   effect: FsmQueryEffect,
   to: string | undefined
 ): Promise<FsmSystemEvent> {
   switch (effect.kind) {
+    case "validate_ubigeo_ai": {
+      const result = await clients.aiFallbackClient.validateUbigeo({
+        departamento: effect.departamento,
+        provincia: effect.provincia,
+        distrito: effect.distrito,
+      });
+      return { source: "system", from: to, kind: "validate_ubigeo_ai_result", result };
+    }
     case "search_ubigeo": {
       const result = await clients.minsaCatalogClient.searchUbigeo(
         { departamento: effect.departamento, provincia: effect.provincia, distrito: effect.distrito },
@@ -407,6 +426,7 @@ interface TurnClients {
   whatsappMediaDownloader: WhatsappMediaDownloader;
   minsaIdentityClient: MinsaIdentityClient;
   minsaCatalogClient: MinsaCatalogClient;
+  aiFallbackClient: AiFallbackClient;
 }
 
 interface TurnOutcome {
@@ -486,6 +506,7 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
     scheduledCheckScheduler,
     minsaIdentityClient,
     minsaCatalogClient,
+    aiFallbackClient,
     config,
   } = deps;
   const clients: TurnClients = {
@@ -494,6 +515,7 @@ export function createConversationFlowService(deps: ConversationFlowServiceDeps)
     whatsappMediaDownloader,
     minsaIdentityClient,
     minsaCatalogClient,
+    aiFallbackClient,
   };
 
   return {

@@ -19,6 +19,7 @@ import { createMetaMediaDownloader } from "./adapters/meta-media-downloader.js";
 import { createRedisScheduledCheckScheduler } from "./adapters/redis-scheduled-check-scheduler.js";
 import { createHttpMinsaIdentityClient } from "./adapters/http-minsa-identity-client.js";
 import { createHttpMinsaCatalogClient } from "./adapters/http-minsa-catalog-client.js";
+import { createNoopAiFallbackClient } from "./adapters/noop-ai-fallback-client.js";
 import { redactRedisUrl } from "./adapters/redis-conversation-event-dao.js";
 import { CONVERSATION_QUEUE_NAME } from "./domain/conversation-queue.js";
 
@@ -203,6 +204,11 @@ function startWorker(): void {
   // as every other client above — minsaCatalogClient is a REQUIRED dependency
   // of createConversationFlowService.
   const minsaCatalogClient = createHttpMinsaCatalogClient({ config, logger });
+  // AI ubigeo pre-check (no-SDD exploration, explicit user decision): the
+  // production default is the no-op adapter (always "valid", i.e. a pure
+  // pass-through) — the real Google AI adapter is only wired into the
+  // sandbox composition for now (SANDBOX_USE_REAL_AI), not real traffic.
+  const aiFallbackClient = createNoopAiFallbackClient();
   const conversationFlow = createConversationFlowService({
     sessionStore,
     sender,
@@ -212,6 +218,7 @@ function startWorker(): void {
     scheduledCheckScheduler,
     minsaIdentityClient,
     minsaCatalogClient,
+    aiFallbackClient,
     config,
   });
   const processConversationEvent = createProcessConversationEvent({ conversationFlow });

@@ -44,10 +44,18 @@ export const config = {
   minsaIntegrationSecret: readEnv("MINSA_INTEGRATION_SECRET"),
   // AI fallback exploration (no-SDD, pre-architecture spike): a secret, so
   // readEnv()'s "CHANGE_ME" fallback + warning apply — same discipline as
-  // minsaIntegrationSecret above. Not consumed by the production
-  // conversation flow yet; wired only into the standalone connectivity
-  // check (src/scripts/check-google-ai-connection.ts) for now.
+  // minsaIntegrationSecret above.
   googleClientApiKey: readEnv("GOOGLE_CLIENT_API"),
+  // Bare env, not a secret — the model id is public information. Default is
+  // a widely-available fast/cheap Gemini model; override if the account's
+  // key doesn't have access to it (GET /v1beta/models — the connectivity
+  // check's own endpoint — lists what's actually available).
+  googleAiModel: process.env.GOOGLE_AI_MODEL ?? "gemini-2.0-flash",
+  // MVP (no-SDD fast path): swaps the sandbox's no-op AiFallbackClient
+  // (ubigeo AI pre-check always reports "valid", i.e. a pass-through) for
+  // the real Google AI adapter. Bare env, default false — same discipline
+  // as the other SANDBOX_USE_REAL_* toggles: fake unless explicitly opted in.
+  sandboxUseRealAi: process.env.SANDBOX_USE_REAL_AI === "true",
   // D32: bare process.env, not readEnv() — same discipline as minsaApiHost
   // above. Not a secret, so readEnv()'s "CHANGE_ME" warning would be noise.
   // The literal default is the confirmed original Twilio value (mem obs

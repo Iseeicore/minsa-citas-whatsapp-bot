@@ -18,3 +18,4 @@ process.env.PORT = "3000";
 // making "fake" sandbox scenarios silently make real network calls.
 process.env.SANDBOX_USE_REAL_MINSA = "false";
 process.env.SANDBOX_USE_REAL_RENIEC = "false";
+process.env.SANDBOX_USE_REAL_AI = "false";
