@@ -72,6 +72,64 @@ export async function sendWhatsAppEffect(waId: string, effect: SendEffect): Prom
   });
 }
 
+// WhatsApp's cta_url is a distinct interactive subtype from "button" — a
+// single tappable link button that opens an external URL. It's not part of
+// the FSM's SendEffect union (no state produces one), it's only used for
+// the one-off welcome message, so it's kept as its own small helper rather
+// than folding it into buildGraphBody/sendWhatsAppEffect above.
+export async function sendCtaUrlMessage(
+  waId: string,
+  params: { bodyText: string; buttonText: string; url: string },
+): Promise<Response> {
+  return fetch(graphApiUrl(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      recipient: waId,
+      type: "interactive",
+      interactive: {
+        type: "cta_url",
+        body: { text: params.bodyText },
+        action: {
+          name: "cta_url",
+          parameters: { display_text: params.buttonText, url: params.url },
+        },
+      },
+    }),
+  });
+}
+
+async function recordOutboundMessage(
+  conversationId: string,
+  text: string,
+  waMessageId: string | undefined,
+): Promise<void> {
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        conversationId,
+        direction: MessageDirection.OUTBOUND,
+        type: MessageType.TEXT,
+        content: text,
+        waMessageId: waMessageId ?? null,
+        status: MessageStatus.SENT,
+        timestamp: now,
+      },
+    }),
+    prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: now },
+    }),
+  ]);
+}
+
 // Sends a real WhatsApp message for a bot-driven effect and records it as an
 // outbound Message, same as the human-operator send path — so the Chat real
 // UI shows everything the bot said. Never throws: a failed automated send
@@ -97,23 +155,31 @@ export async function sendAndRecordEffect(
 
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
-  const now = new Date();
+  await recordOutboundMessage(conversationId, effect.text, waMessageId);
+}
 
-  await prisma.$transaction([
-    prisma.message.create({
-      data: {
-        conversationId,
-        direction: MessageDirection.OUTBOUND,
-        type: MessageType.TEXT,
-        content: effect.text,
-        waMessageId: waMessageId ?? null,
-        status: MessageStatus.SENT,
-        timestamp: now,
-      },
-    }),
-    prisma.conversation.update({
-      where: { id: conversationId },
-      data: { lastMessageAt: now },
-    }),
-  ]);
+// Same send-then-record contract as sendAndRecordEffect, for the one-off
+// cta_url welcome message.
+export async function sendAndRecordCtaUrl(
+  conversationId: string,
+  waId: string,
+  params: { bodyText: string; buttonText: string; url: string },
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await sendCtaUrlMessage(waId, params);
+  } catch (err) {
+    console.error("sendAndRecordCtaUrl: network error sending to Graph API", err);
+    return;
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    console.error("sendAndRecordCtaUrl: Graph API returned an error", response.status, body);
+    return;
+  }
+
+  const graphBody = await response.json().catch(() => ({}));
+  const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
+  await recordOutboundMessage(conversationId, params.bodyText, waMessageId);
 }

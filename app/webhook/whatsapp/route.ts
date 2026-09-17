@@ -4,22 +4,26 @@ import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurn } from "@/lib/fsm/executor";
 import { saveSession } from "@/lib/fsm/session-store";
-import { sendAndRecordEffect } from "@/lib/whatsapp-send";
+import { sendAndRecordCtaUrl, sendAndRecordEffect } from "@/lib/whatsapp-send";
 import type { InboundEvent } from "@/lib/fsm/types";
 
 // Sent once, the first time a given waId ever writes to this number — this
 // IS the entire response to first contact, no FSM turn runs for it (see
 // processValue). Uses WhatsApp's own bold syntax (single asterisks), not
-// markdown. The link is plain text in the body (WhatsApp auto-linkifies
-// URLs) rather than a separate cta_url button, because a WhatsApp
-// interactive message can only carry ONE action type — either a link
-// button or reply buttons, never both — and this message also needs the
-// "Seguir aquí" reply button.
+// markdown. Two separate messages, because a WhatsApp interactive message
+// can only carry ONE action type — a link button (cta_url) and reply
+// buttons can't be mixed in the same message: first a cta_url message with
+// the "Continuar mi cita" link button, then a normal buttons message with
+// "Seguir aquí" to start the flow right here in WhatsApp.
 const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (MINSA)* 🇵🇪.
 
-Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *MINSA Digital*: https://minsa-citas-whatsapp-bot.vercel.app/?panel=sandbox
+Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *MINSA Digital*.
 
 Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.`;
+
+const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita"; // 17 chars — cta_url's display_text caps at 20
+const WELCOME_CTA_URL = "https://minsa-citas-whatsapp-bot.vercel.app/?panel=sandbox";
+const WELCOME_FOLLOWUP_TEXT = "¿Prefieres seguir por aquí mismo?";
 
 // Signature validation needs Node's `crypto` module, not available on Edge.
 export const runtime = "nodejs";
@@ -254,9 +258,15 @@ async function processValue(value: WhatsAppValue) {
         counters: {},
       });
 
+      await sendAndRecordCtaUrl(conversation.id, waId, {
+        bodyText: WELCOME_MESSAGE_TEXT,
+        buttonText: WELCOME_CTA_BUTTON_TEXT,
+        url: WELCOME_CTA_URL,
+      });
+
       await sendAndRecordEffect(conversation.id, waId, {
         kind: "send_buttons",
-        text: WELCOME_MESSAGE_TEXT,
+        text: WELCOME_FOLLOWUP_TEXT,
         buttons: [{ id: "seguir_aqui", title: "Seguir aquí" }],
       });
 
