@@ -1,5 +1,5 @@
 import { isValidDniFormat, isValidOtpFormat, normalizeText } from "./domain";
-import { buildResult, cloneSession, query, readReply, sendText, sendList } from "./handlers-shared";
+import { buildResult, cloneSession, query, readReply, sendText, sendList, sendCtaUrl } from "./handlers-shared";
 import { searchDistrito } from "./ubigeo-data";
 import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "./types";
 
@@ -283,6 +283,8 @@ type DistritoAiCandidateResult = {
 // provincia follow-up question for names that are still ambiguous within
 // a single departamento.
 const PILOT_DEPARTAMENTO = "LIMA";
+const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global"; // 17 chars — cta_url's display_text caps at 20
+const NATIONAL_REDIRECT_URL = "https://dminsadigital.minsa.gob.pe/login";
 
 function filterToPilotScope(
   candidates: DistritoAiCandidateResult[],
@@ -348,12 +350,19 @@ function resolveDistritoCandidates(
     return buildResult(next, [sendList("Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
   }
 
-  // Zero candidates, or the AI call failed/is unavailable — fail-open into
-  // the manual 3-question flow instead of blocking a real booking.
-  next.state = "cita_awaiting_departamento";
+  // Zero candidates within Lima — either the district is real but outside
+  // the pilot's scope, or it was an unrecognized name. Either way this
+  // channel doesn't serve it during the pilot: redirect to the national
+  // booking site and end the conversation, instead of falling to the
+  // manual departamento/provincia/distrito flow (that flow stays reachable
+  // from handleUbigeoPending's own fallback, for Lima ubigeos that don't
+  // match MINSA's catalog — a different, unrelated failure).
+  next.state = "cita_national_redirect";
   return buildResult(next, [
-    sendText(
-      "No pudimos identificar ese distrito automáticamente, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.",
+    sendCtaUrl(
+      "Por el momento el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.",
+      NATIONAL_REDIRECT_BUTTON_TEXT,
+      NATIONAL_REDIRECT_URL,
     ),
   ]);
 }

@@ -61,7 +61,24 @@ export type SendButtonsEffect = {
   buttons: ButtonOption[];
 };
 
-export type SendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect;
+// Same interactive subtype the real webhook already sends for the welcome
+// message (see lib/whatsapp-send.ts's sendCtaUrlMessage) — a single
+// tappable link button that opens an external URL. Exposed as a normal
+// SendEffect so an FSM handler can produce one (e.g. redirecting a citizen
+// outside the pilot's Lima scope to the national booking site) without
+// route.ts needing a special case.
+export type SendCtaUrlEffect = {
+  kind: "send_cta_url";
+  text: string;
+  buttonText: string;
+  url: string;
+};
+
+export type SendEffect =
+  | SendTextEffect
+  | SendInteractiveListEffect
+  | SendButtonsEffect
+  | SendCtaUrlEffect;
 
 export type QueryEffectKind =
   | "reniec_lookup"

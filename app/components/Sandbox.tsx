@@ -341,6 +341,17 @@ function ChatBubble({
           </div>
         )}
 
+        {effect.kind === "send_cta_url" && (
+          <a
+            href={effect.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block rounded-full border border-green-500 bg-white px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50"
+          >
+            {effect.buttonText}
+          </a>
+        )}
+
         {effect.kind === "send_buttons" && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {effect.buttons.map((button) => (

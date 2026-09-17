@@ -21,6 +21,7 @@ export const TERMINAL_STATES = new Set([
   "cita_booked",
   "cita_booking_duplicate",
   "cita_booking_rejected",
+  "cita_national_redirect",
 ]);
 
 // A list/button reply carries its selected id in `listId`; a citizen can
@@ -47,6 +48,10 @@ export function sendList(text: string, rows: ListRow[]): SendEffect {
 
 export function sendButtons(text: string, buttons: ButtonOption[]): SendEffect {
   return { kind: "send_buttons", text, buttons };
+}
+
+export function sendCtaUrl(text: string, buttonText: string, url: string): SendEffect {
+  return { kind: "send_cta_url", text, buttonText, url };
 }
 
 export function query(kind: QueryEffectKind, payload: Record<string, unknown>): QueryEffect {

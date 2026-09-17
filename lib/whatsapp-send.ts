@@ -58,6 +58,20 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
           },
         },
       };
+
+    case "send_cta_url":
+      return {
+        ...base,
+        type: "interactive",
+        interactive: {
+          type: "cta_url",
+          body: { text: effect.text },
+          action: {
+            name: "cta_url",
+            parameters: { display_text: effect.buttonText, url: effect.url },
+          },
+        },
+      };
   }
 }
 
