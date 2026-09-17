@@ -143,7 +143,7 @@ export default function Sandbox() {
 
     setError(null);
     const dataUri = await readFileAsDataUri(file);
-    sendTurn({ type: "image", mediaDataUri: dataUri }, `📷 ${file.name}`);
+    sendTurn({ type: "image", mediaDataUri: dataUri }, `📎 ${file.name}`);
   }
 
   return (
@@ -179,7 +179,19 @@ export default function Sandbox() {
                 !from || loading ? "pointer-events-none opacity-50" : "cursor-pointer"
               }`}
             >
-              📷
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+                aria-label="Adjuntar imagen"
+              >
+                <path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.2 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.48" />
+              </svg>
               <input
                 type="file"
                 accept="image/*"
