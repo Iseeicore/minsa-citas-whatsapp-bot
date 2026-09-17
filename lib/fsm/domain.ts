@@ -6,14 +6,21 @@ export function isValidOtpFormat(value: string): boolean {
   return /^\d{4,8}$/.test(value.trim());
 }
 
-function normalizeName(value: string): Set<string> {
-  const normalized = value
+// NFD-decompose + strip diacritics (the combining marks left behind by NFD)
+// + uppercase — shared normalization used anywhere free-typed Spanish text
+// needs to be compared against an official name (RENIEC full names here,
+// UBIGEO district names in lib/fsm/ubigeo-data.ts).
+export function normalizeText(value: string): string {
+  return value
     .normalize("NFD")
-    // Strip diacritics (combining marks) left behind by NFD decomposition.
     .replace(/[̀-ͯ]/g, "")
-    .toUpperCase();
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
 
-  return new Set(normalized.split(/\s+/).filter(Boolean));
+function normalizeName(value: string): Set<string> {
+  return new Set(normalizeText(value).split(/\s+/).filter(Boolean));
 }
 
 // Word-set containment: the smaller name's tokens must all appear in the

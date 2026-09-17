@@ -1,5 +1,6 @@
 import { isValidDniFormat, isValidOtpFormat } from "./domain";
 import { buildResult, cloneSession, query, readReply, sendText, sendList } from "./handlers-shared";
+import { searchDistrito } from "./ubigeo-data";
 import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "./types";
 
 const MAX_REGISTRATION_CHECKS = 3;
@@ -224,6 +225,22 @@ function handleAwaitingDistritoAi(session: Session, event: InboundEvent): Handle
     isAffirmativeReply(rawText) && initialMessageText ? initialMessageText : rawText;
   const contextText = distritoText === rawText ? initialMessageText : undefined;
 
+  // Fast, free, deterministic first attempt against the real INEI dataset
+  // (lib/fsm/ubigeo-data.ts) before ever spending an AI call. Tries the
+  // direct reply first, then the opening-message context if that alone
+  // didn't match anything (covers the same "sí, en ese" case the
+  // affirmative-reply swap above already covers for the AI path).
+  const localCandidates =
+    searchDistrito(distritoText).length > 0
+      ? searchDistrito(distritoText)
+      : contextText
+        ? searchDistrito(contextText)
+        : [];
+
+  if (localCandidates.length > 0) {
+    return resolveDistritoCandidates(session, localCandidates);
+  }
+
   const next = cloneSession(session);
   next.state = "cita_distrito_ai_pending";
   return buildResult(next, [
@@ -238,9 +255,12 @@ type DistritoAiCandidateResult = {
   distrito: string;
 };
 
-function handleDistritoAiPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { candidates?: DistritoAiCandidateResult[] };
-  const candidates = result.candidates ?? [];
+// Shared by the local-dataset fast path above and the AI-result path below —
+// "what do we do with N resolved candidates" is identical either way.
+function resolveDistritoCandidates(
+  session: Session,
+  candidates: DistritoAiCandidateResult[],
+): HandlerResult {
   const next = cloneSession(session);
 
   if (candidates.length === 1) {
@@ -280,6 +300,14 @@ function handleDistritoAiPending(session: Session, event: QueryResultEvent): Han
       "No pudimos identificar ese distrito automáticamente, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.",
     ),
   ]);
+}
+
+// Thin wrapper around the AI query result — the actual candidate-handling
+// logic lives in resolveDistritoCandidates, shared with the local-dataset
+// fast path in handleAwaitingDistritoAi above.
+function handleDistritoAiPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { candidates?: DistritoAiCandidateResult[] };
+  return resolveDistritoCandidates(session, result.candidates ?? []);
 }
 
 function handleAwaitingDistritoDisambiguation(session: Session, event: InboundEvent): HandlerResult {
