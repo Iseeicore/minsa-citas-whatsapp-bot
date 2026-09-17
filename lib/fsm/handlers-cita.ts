@@ -210,6 +210,21 @@ function isAffirmativeReply(text: string): boolean {
   return AFFIRMATIVE_REPLIES.has(text.trim().toLowerCase());
 }
 
+// WhatsApp's interactive list rows have hard limits — Meta rejects the
+// whole message (silently, from the citizen's side: sendAndRecordEffect
+// logs it server-side and never throws) if a title exceeds 24 characters,
+// a description exceeds 72, or there are more than 10 rows total. District
+// and establishment names routinely blow past 24 chars on their own (e.g.
+// "San Juan de Lurigancho"), so every row built from real-world names goes
+// through this truncation as cheap insurance.
+const WHATSAPP_ROW_TITLE_MAX = 24;
+const WHATSAPP_ROW_DESCRIPTION_MAX = 72;
+const WHATSAPP_LIST_MAX_ROWS = 10;
+
+function truncateForRow(text: string, maxLength: number): string {
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
+}
+
 function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
   const rawText = (event.text ?? "").trim();
   if (!rawText) {
@@ -279,15 +294,35 @@ function resolveDistritoCandidates(
     ]);
   }
 
+  if (candidates.length > WHATSAPP_LIST_MAX_ROWS) {
+    // Too many matches to fit WhatsApp's 10-row list cap (a broad name like
+    // "San Juan" can legitimately match a dozen+ official districts) —
+    // sending an oversized list would just get rejected in silence, so this
+    // falls back to the manual flow the same way zero candidates does.
+    next.state = "cita_awaiting_departamento";
+    return buildResult(next, [
+      sendText(
+        "Encontramos demasiadas coincidencias para mostrarlas en una lista, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.",
+      ),
+    ]);
+  }
+
   if (candidates.length > 1) {
     next.state = "cita_awaiting_distrito_disambiguation";
     // The chosen candidate's triple is encoded directly in the row id
     // (pipe-separated, same convention as handleAwaitingHoraSelect's
     // `${horaInicio}|${horaFin}`) rather than stashed in slots, since
-    // Session.slots only holds flat scalar values.
+    // Session.slots only holds flat scalar values. The distrito name alone
+    // is the title (WhatsApp caps titles at 24 chars); provincia/departamento
+    // — the part that actually disambiguates same-named districts — goes in
+    // the description instead of being crammed into the title.
     const rows: ListRow[] = candidates.map((candidate) => ({
       id: `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`,
-      title: `${candidate.distrito}, ${candidate.provincia} — ${candidate.departamento}`,
+      title: truncateForRow(candidate.distrito, WHATSAPP_ROW_TITLE_MAX),
+      description: truncateForRow(
+        `${candidate.provincia} — ${candidate.departamento}`,
+        WHATSAPP_ROW_DESCRIPTION_MAX,
+      ),
     }));
     return buildResult(next, [sendList("Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
   }
@@ -399,18 +434,28 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length > 1) {
+  if (
+    result.status === "found" &&
+    result.items &&
+    result.items.length > 1 &&
+    result.items.length <= WHATSAPP_LIST_MAX_ROWS
+  ) {
     next.state = "cita_awaiting_ubigeo_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.ubigeoInei,
-      title: `${item.distrito} - ${item.provincia} - ${item.departamento}`,
+      title: truncateForRow(item.distrito, WHATSAPP_ROW_TITLE_MAX),
+      description: truncateForRow(
+        `${item.provincia} — ${item.departamento}`,
+        WHATSAPP_ROW_DESCRIPTION_MAX,
+      ),
     }));
     return buildResult(next, [sendList("Selecciona tu ubigeo:", rows)]);
   }
 
-  // Empty (or errored) ubigeo search re-asks from departamento instead of
-  // failing the whole flow — this is the one catalog step that doesn't end
-  // the booking on an empty result.
+  // Empty (or errored) ubigeo search, or too many matches to fit WhatsApp's
+  // 10-row list cap, re-asks from departamento instead of failing the whole
+  // flow — this is the one catalog step that doesn't end the booking on an
+  // empty result.
   next.state = "cita_awaiting_departamento";
   return buildResult(next, [
     sendText("No encontramos ese ubigeo. Indícanos nuevamente el departamento."),
@@ -461,8 +506,11 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
     next.state = "cita_awaiting_especialidad_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.codigoEspecialidad,
-      title: item.nombreEspecialidad,
-      description: `${item.cantidadCupos} cupo(s) disponibles`,
+      title: truncateForRow(item.nombreEspecialidad, WHATSAPP_ROW_TITLE_MAX),
+      description: truncateForRow(
+        `${item.cantidadCupos} cupo(s) disponibles`,
+        WHATSAPP_ROW_DESCRIPTION_MAX,
+      ),
     }));
     return buildResult(next, [sendList("Selecciona la especialidad:", rows)]);
   }
@@ -520,8 +568,11 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
     next.state = "cita_awaiting_establecimiento_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.renipressCode,
-      title: item.establishmentName,
-      description: `${item.quotasOnline} cupo(s) en línea`,
+      title: truncateForRow(item.establishmentName, WHATSAPP_ROW_TITLE_MAX),
+      description: truncateForRow(
+        `${item.quotasOnline} cupo(s) en línea`,
+        WHATSAPP_ROW_DESCRIPTION_MAX,
+      ),
     }));
     return buildResult(next, [sendList("Selecciona el establecimiento:", rows)]);
   }
@@ -577,8 +628,11 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
     next.state = "cita_awaiting_fecha_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.fechaCupo,
-      title: item.fechaCupo,
-      description: `${item.cantidadCupos} cupo(s) disponibles`,
+      title: truncateForRow(item.fechaCupo, WHATSAPP_ROW_TITLE_MAX),
+      description: truncateForRow(
+        `${item.cantidadCupos} cupo(s) disponibles`,
+        WHATSAPP_ROW_DESCRIPTION_MAX,
+      ),
     }));
     return buildResult(next, [sendList("Selecciona la fecha:", rows)]);
   }
@@ -637,8 +691,11 @@ function handleHoraPending(session: Session, event: QueryResultEvent): HandlerRe
     next.state = "cita_awaiting_hora_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,
-      title: `${item.horaInicio} - ${item.horaFin}`,
-      description: `${item.cantidadCupos} cupo(s) disponibles`,
+      title: truncateForRow(`${item.horaInicio} - ${item.horaFin}`, WHATSAPP_ROW_TITLE_MAX),
+      description: truncateForRow(
+        `${item.cantidadCupos} cupo(s) disponibles`,
+        WHATSAPP_ROW_DESCRIPTION_MAX,
+      ),
     }));
     return buildResult(next, [sendList("Selecciona el horario:", rows)]);
   }

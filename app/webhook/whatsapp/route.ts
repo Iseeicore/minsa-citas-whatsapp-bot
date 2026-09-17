@@ -36,6 +36,11 @@ function sleep(ms: number): Promise<void> {
 // Signature validation needs Node's `crypto` module, not available on Edge.
 export const runtime = "nodejs";
 
+// A turn can now chain several real API calls (auto-selected catalog steps,
+// the Gemini district fallback, typing-indicator sleeps) — set explicitly
+// so this never depends on the platform's implicit default.
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("hub.mode");
