@@ -6,6 +6,7 @@ import { runTurn } from "@/lib/fsm/executor";
 import { saveSession } from "@/lib/fsm/session-store";
 import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator } from "@/lib/whatsapp-send";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
+import { WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, WELCOME_CTA_URL } from "@/lib/fsm/welcome";
 import type { InboundEvent } from "@/lib/fsm/types";
 
 // Sent once, the first time a given waId ever writes to this number — this
@@ -15,15 +16,10 @@ import type { InboundEvent } from "@/lib/fsm/types";
 // can only carry ONE action type — a link button (cta_url) and reply
 // buttons can't be mixed in the same message: first a cta_url message with
 // the "Continuar mi cita" link button, then a normal buttons message with
-// "Seguir aquí" to start the flow right here in WhatsApp.
-const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (MINSA)* 🇵🇪.
-
-Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *MINSA Digital*.
-
-Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.`;
-
-const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita"; // 17 chars — cta_url's display_text caps at 20
-const WELCOME_CTA_URL = "https://minsa-citas-whatsapp-bot.vercel.app/sandbox";
+// "Seguir aquí" to start the flow right here in WhatsApp. The text/button/
+// url themselves live in lib/fsm/welcome.ts, shared with handlers.ts's
+// terminal-state re-entry — this file only adds the first-contact-only
+// follow-up message below.
 const WELCOME_FOLLOWUP_TEXT = "¿Prefieres seguir por aquí mismo?";
 
 // Gives the real "escribiendo…" indicator a moment to actually show before

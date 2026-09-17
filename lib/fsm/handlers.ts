@@ -1,6 +1,7 @@
 import { handleCita } from "./handlers-cita";
 import { handleReclamo } from "./handlers-reclamo";
 import { buildResult, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
+import { buildWelcomeEffect } from "./welcome";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "./types";
 
 const MENU_ROWS = [
@@ -12,6 +13,18 @@ function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
   return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [
     sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS),
   ]);
+}
+
+// Re-sends the branded welcome ahead of the menu when a citizen returns
+// after their previous cita/reclamo reached a terminal state — from their
+// perspective this is a fresh interaction, not a mid-flow reset, so it gets
+// the same welcome first-contact gets. Skips the separate "¿Prefieres
+// seguir por aquí mismo?" follow-up the true first-contact flow sends
+// (app/webhook/whatsapp/route.ts) — redundant here since they're already
+// typing back into the bot.
+function enterMainMenuAfterTerminal(): HandlerResult {
+  const result = enterMainMenu();
+  return { ...result, effects: [buildWelcomeEffect(), ...result.effects] };
 }
 
 // Resolves awaiting_flow_start's branch directly into its target state's
@@ -69,7 +82,7 @@ function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
 
 export function handle(session: Session, event: HandleEvent): HandlerResult {
   if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
-    return enterMainMenu();
+    return enterMainMenuAfterTerminal();
   }
 
   if (session.state === "main_menu") {
