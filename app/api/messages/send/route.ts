@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
 
   const graphBody = await graphResponse.json();
 
+  // TEMPORARY: confirm what Meta's Graph API actually returns for this
+  // recipient identifier scheme. Remove once delivery is confirmed working.
+  console.log("GRAPH SEND RESPONSE", graphResponse.status, JSON.stringify(graphBody));
+
   if (!graphResponse.ok) {
     return NextResponse.json(graphBody, { status: graphResponse.status });
   }

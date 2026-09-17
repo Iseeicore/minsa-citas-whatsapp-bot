@@ -41,12 +41,14 @@ function isValidSignature(rawBody: string, signatureHeader: string | null): bool
 
 type WhatsAppContact = {
   user_id: string;
+  wa_id?: string; // present on non-migrated accounts; not sent for this WABA
   profile?: { name?: string };
 };
 
 type WhatsAppMessage = {
   id: string;
   from_user_id: string;
+  from?: string; // present on non-migrated accounts; not sent for this WABA
   timestamp: string;
   type: string;
   text?: { body?: string };
@@ -147,6 +149,7 @@ async function processValue(value: WhatsAppValue) {
   for (const message of value.messages ?? []) {
     const contact = contactsByWaId.get(message.from_user_id);
     const profileName = contact?.profile?.name;
+    const phoneNumber = message.from ?? contact?.wa_id;
     const timestamp = new Date(Number(message.timestamp) * 1000);
     const { content, mediaUrl } = extractContentAndMedia(message);
 
@@ -154,10 +157,12 @@ async function processValue(value: WhatsAppValue) {
       where: { waId: message.from_user_id },
       create: {
         waId: message.from_user_id,
+        phoneNumber: phoneNumber ?? null,
         profileName: profileName ?? null,
         lastMessageAt: timestamp,
       },
       update: {
+        ...(phoneNumber ? { phoneNumber } : {}),
         ...(profileName ? { profileName } : {}),
         lastMessageAt: timestamp,
       },

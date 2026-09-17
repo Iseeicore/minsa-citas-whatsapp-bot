@@ -38,6 +38,7 @@ enum MessageStatus {
 model Conversation {
   id            String             @id @default(cuid())
   waId          String             @unique
+  phoneNumber   String?
   profileName   String?
   status        ConversationStatus @default(OPEN)
   lastMessageAt DateTime           @default(now())
