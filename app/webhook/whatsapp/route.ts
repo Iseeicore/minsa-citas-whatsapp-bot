@@ -23,7 +23,7 @@ Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu 
 Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.`;
 
 const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita"; // 17 chars — cta_url's display_text caps at 20
-const WELCOME_CTA_URL = "https://minsa-citas-whatsapp-bot.vercel.app/?panel=sandbox";
+const WELCOME_CTA_URL = "https://minsa-citas-whatsapp-bot.vercel.app/sandbox";
 const WELCOME_FOLLOWUP_TEXT = "¿Prefieres seguir por aquí mismo?";
 
 // Gives the real "escribiendo…" indicator a moment to actually show before

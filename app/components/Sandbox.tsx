@@ -62,7 +62,13 @@ function getOrCreateFrom(): string | null {
   }
 }
 
-export default function Sandbox({ onBack }: { onBack?: () => void }) {
+export default function Sandbox({
+  onBack,
+  showDebugPanel = true,
+}: {
+  onBack?: () => void;
+  showDebugPanel?: boolean;
+}) {
   const [from] = useState<string | null>(() => getOrCreateFrom());
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [inputText, setInputText] = useState("");
@@ -176,7 +182,13 @@ export default function Sandbox({ onBack }: { onBack?: () => void }) {
 
   return (
     <div className="grid h-full grid-rows-[1fr_auto] bg-[var(--sb-panel-bg)]">
-      <div className="grid grid-cols-1 overflow-hidden lg:grid-cols-[1fr_260px]">
+      <div
+        className={
+          showDebugPanel
+            ? "grid grid-cols-1 overflow-hidden lg:grid-cols-[1fr_260px]"
+            : "grid grid-cols-1 overflow-hidden"
+        }
+      >
         <div className="flex flex-col overflow-hidden">
           <header className="rounded-t-xl bg-gradient-to-r from-[var(--sb-header-from)] to-[var(--sb-header-to)] px-4 pb-3 pt-2 text-white">
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/40" />
@@ -293,7 +305,7 @@ export default function Sandbox({ onBack }: { onBack?: () => void }) {
           </div>
         </div>
 
-        <DebugPanel from={from} session={session} />
+        {showDebugPanel && <DebugPanel from={from} session={session} />}
       </div>
     </div>
   );
