@@ -104,6 +104,35 @@ export async function sendCtaUrlMessage(
   });
 }
 
+// WhatsApp's typing indicator rides the same "mark as read" call as a read
+// receipt — it shows "escribiendo…" in the citizen's real app and
+// auto-dismisses the moment we send the next message (or after ~25s,
+// whichever comes first). Meta's docs don't say whether the same inbound
+// message_id can be reused across several calls in one turn, but marking an
+// already-read message as read again is normally harmless, so this is
+// called before every effect send in a multi-message turn — worst case it
+// silently no-ops and the message still goes out. Never throws, same
+// contract as the send helpers below.
+export async function sendTypingIndicator(inboundMessageId: string): Promise<void> {
+  try {
+    await fetch(graphApiUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        status: "read",
+        message_id: inboundMessageId,
+        typing_indicator: { type: "text" },
+      }),
+    });
+  } catch (err) {
+    console.error("sendTypingIndicator: network error", err);
+  }
+}
+
 async function recordOutboundMessage(
   conversationId: string,
   text: string,

@@ -385,7 +385,21 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
   const result = event.result as { status: string; items?: UbigeoResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "found" && result.items && result.items.length > 0) {
+  // A single match doesn't need a list tap — resolve it and keep moving.
+  // Only 2+ matches need the citizen to pick one.
+  if (result.status === "found" && result.items && result.items.length === 1) {
+    const [item] = result.items;
+    next.slots.citaUbigeo = item.ubigeoInei;
+    next.state = "cita_especialidad_pending";
+    return buildResult(next, [
+      sendText(
+        `Ubigeo encontrado: ${item.distrito} - ${item.provincia} - ${item.departamento}. Buscando especialidades disponibles…`,
+      ),
+      query("list_especialidades", { ubigeo: item.ubigeoInei }),
+    ]);
+  }
+
+  if (result.status === "found" && result.items && result.items.length > 1) {
     next.state = "cita_awaiting_ubigeo_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.ubigeoInei,
@@ -430,7 +444,20 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
   const result = event.result as { status: string; items?: EspecialidadResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "found" && result.items && result.items.length > 0) {
+  if (result.status === "found" && result.items && result.items.length === 1) {
+    const [item] = result.items;
+    next.slots.citaEspecialidadId = item.codigoEspecialidad;
+    next.state = "cita_establecimiento_pending";
+    return buildResult(next, [
+      sendText(`Especialidad encontrada: ${item.nombreEspecialidad}. Buscando establecimientos…`),
+      query("list_establecimientos", {
+        especialidadId: item.codigoEspecialidad,
+        ubigeo: String(next.slots.citaUbigeo ?? ""),
+      }),
+    ]);
+  }
+
+  if (result.status === "found" && result.items && result.items.length > 1) {
     next.state = "cita_awaiting_especialidad_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.codigoEspecialidad,
@@ -476,7 +503,20 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "found" && result.items && result.items.length > 0) {
+  if (result.status === "found" && result.items && result.items.length === 1) {
+    const [item] = result.items;
+    next.slots.citaCodEess = item.renipressCode;
+    next.state = "cita_fecha_pending";
+    return buildResult(next, [
+      sendText(`Establecimiento encontrado: ${item.establishmentName}. Buscando fechas disponibles…`),
+      query("list_fechas", {
+        codEess: item.renipressCode,
+        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+      }),
+    ]);
+  }
+
+  if (result.status === "found" && result.items && result.items.length > 1) {
     next.state = "cita_awaiting_establecimiento_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.renipressCode,
@@ -519,7 +559,21 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
   const result = event.result as { status: string; items?: FechaResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "found" && result.items && result.items.length > 0) {
+  if (result.status === "found" && result.items && result.items.length === 1) {
+    const [item] = result.items;
+    next.slots.citaFecha = item.fechaCupo;
+    next.state = "cita_hora_pending";
+    return buildResult(next, [
+      sendText(`Fecha encontrada: ${item.fechaCupo}. Buscando horarios disponibles…`),
+      query("list_horas", {
+        codEess: String(next.slots.citaCodEess ?? ""),
+        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        fecha: item.fechaCupo,
+      }),
+    ]);
+  }
+
+  if (result.status === "found" && result.items && result.items.length > 1) {
     next.state = "cita_awaiting_fecha_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.fechaCupo,
@@ -564,7 +618,22 @@ function handleHoraPending(session: Session, event: QueryResultEvent): HandlerRe
   const result = event.result as { status: string; items?: HoraResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "found" && result.items && result.items.length > 0) {
+  if (result.status === "found" && result.items && result.items.length === 1) {
+    const [item] = result.items;
+    next.state = "cita_booking_pending";
+    return buildResult(next, [
+      sendText(`Horario encontrado: ${item.horaInicio} - ${item.horaFin}. Agendando tu cita…`),
+      query("book_appointment", {
+        codigoRenipress: String(next.slots.citaCodEess ?? ""),
+        codigoUps: String(next.slots.citaEspecialidadId ?? ""),
+        fechaCita: String(next.slots.citaFecha ?? ""),
+        horaInicio: item.horaInicio,
+        numeroDocumentoPaciente: String(next.slots.citaDni ?? ""),
+      }),
+    ]);
+  }
+
+  if (result.status === "found" && result.items && result.items.length > 1) {
     next.state = "cita_awaiting_hora_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,

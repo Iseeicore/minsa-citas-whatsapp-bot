@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurn } from "@/lib/fsm/executor";
 import { saveSession } from "@/lib/fsm/session-store";
-import { sendAndRecordCtaUrl, sendAndRecordEffect } from "@/lib/whatsapp-send";
+import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator } from "@/lib/whatsapp-send";
 import type { InboundEvent } from "@/lib/fsm/types";
 
 // Sent once, the first time a given waId ever writes to this number — this
@@ -24,6 +24,14 @@ Encuentra citas para Medicina General, Odontología, Pediatría y más especiali
 const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita"; // 17 chars — cta_url's display_text caps at 20
 const WELCOME_CTA_URL = "https://minsa-citas-whatsapp-bot.vercel.app/?panel=sandbox";
 const WELCOME_FOLLOWUP_TEXT = "¿Prefieres seguir por aquí mismo?";
+
+// Gives the real "escribiendo…" indicator a moment to actually show before
+// each message lands, instead of the bot's replies arriving all at once.
+const TYPING_DELAY_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // Signature validation needs Node's `crypto` module, not available on Edge.
 export const runtime = "nodejs";
@@ -258,12 +266,16 @@ async function processValue(value: WhatsAppValue) {
         counters: {},
       });
 
+      await sendTypingIndicator(message.id);
+      await sleep(TYPING_DELAY_MS);
       await sendAndRecordCtaUrl(conversation.id, waId, {
         bodyText: WELCOME_MESSAGE_TEXT,
         buttonText: WELCOME_CTA_BUTTON_TEXT,
         url: WELCOME_CTA_URL,
       });
 
+      await sendTypingIndicator(message.id);
+      await sleep(TYPING_DELAY_MS);
       await sendAndRecordEffect(conversation.id, waId, {
         kind: "send_buttons",
         text: WELCOME_FOLLOWUP_TEXT,
@@ -278,6 +290,8 @@ async function processValue(value: WhatsAppValue) {
 
     const { sent } = await runTurn(waId, inboundEvent);
     for (const effect of sent) {
+      await sendTypingIndicator(message.id);
+      await sleep(TYPING_DELAY_MS);
       await sendAndRecordEffect(conversation.id, waId, effect);
     }
   }
