@@ -33,6 +33,10 @@ function readFileAsDataUri(file: File): Promise<string> {
   });
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function randomId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -63,6 +67,7 @@ export default function Sandbox({ onBack }: { onBack?: () => void }) {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [typing, setTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [dniValue, setDniValue] = useState("");
@@ -70,7 +75,7 @@ export default function Sandbox({ onBack }: { onBack?: () => void }) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries]);
+  }, [entries, typing]);
 
   async function sendTurn(
     payload: {
@@ -105,14 +110,25 @@ export default function Sandbox({ onBack }: { onBack?: () => void }) {
       }
 
       const data = (await res.json()) as { sent: SendEffect[]; session: SessionSnapshot };
-      setEntries((prev) => [
-        ...prev,
-        ...data.sent.map((effect) => ({ id: randomId(), from: "bot" as const, effect })),
-      ]);
+
+      // Reveal each bot message one at a time (with a "escribiendo…"
+      // pause before each) instead of dumping the whole turn at once —
+      // a turn can produce several messages (e.g. "Buscando tu
+      // distrito…" followed by the result), and this reads much more
+      // like a real conversation. `loading` (and the disabled input)
+      // stays on for this whole sequence, same as it did for the fetch.
+      for (const effect of data.sent) {
+        setTyping(true);
+        await sleep(500);
+        setTyping(false);
+        setEntries((prev) => [...prev, { id: randomId(), from: "bot" as const, effect }]);
+      }
+
       setSession(data.session);
     } catch {
       setError("No se pudo conectar con el sandbox.");
     } finally {
+      setTyping(false);
       setLoading(false);
     }
   }
@@ -219,6 +235,8 @@ export default function Sandbox({ onBack }: { onBack?: () => void }) {
             {entries.map((entry) => (
               <ChatBubble key={entry.id} entry={entry} onOptionClick={handleOptionClick} />
             ))}
+
+            {typing && <TypingIndicator />}
 
             {showDniCard && (
               <DniCard value={dniValue} onChange={setDniValue} onSubmit={handleDniSubmit} />
@@ -336,6 +354,25 @@ function ChatBubble({
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <div className="mb-3 flex items-start gap-2">
+      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+        MD
+      </span>
+      <div className="flex items-center gap-1 rounded-2xl rounded-tl-none border border-gray-100 bg-[var(--sb-bubble-bot)] px-3 py-2.5 shadow-sm">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"
+            style={{ animationDelay: `${i * 150}ms` }}
+          />
+        ))}
       </div>
     </div>
   );
