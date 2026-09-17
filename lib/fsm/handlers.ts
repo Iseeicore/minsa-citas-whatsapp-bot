@@ -8,8 +8,8 @@ const MENU_ROWS = [
   { id: "registrar_reclamo", title: "Registrar un reclamo" },
 ];
 
-function enterMainMenu(): HandlerResult {
-  return buildResult({ state: "main_menu", slots: {}, counters: {} }, [
+function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
+  return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [
     sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS),
   ]);
 }
@@ -43,14 +43,27 @@ function handleAwaitingFlowStart(session: Session): HandlerResult {
   return enterMainMenu();
 }
 
-function handleMainMenu(event: InboundEvent): HandlerResult {
+function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
   const replyId = readReply(event);
 
   if (replyId !== "agendar_cita" && replyId !== "registrar_reclamo") {
-    return enterMainMenu();
+    // Capture the citizen's very first free-text message (only once — not on
+    // every subsequent invalid menu tap) so later steps like the Cita
+    // district question can use it as context. A message like "quiero una
+    // cita en Miraflores" sent before ever touching the menu would otherwise
+    // be discarded here with no trace.
+    const preservedSlots =
+      !session.slots.initialMessageText && event.text
+        ? { initialMessageText: event.text }
+        : session.slots;
+    return enterMainMenu(preservedSlots);
   }
 
-  const next: Session = { state: "awaiting_flow_start", slots: { menuChoice: replyId }, counters: {} };
+  const next: Session = {
+    state: "awaiting_flow_start",
+    slots: { ...session.slots, menuChoice: replyId },
+    counters: {},
+  };
   return handleAwaitingFlowStart(next);
 }
 
@@ -60,7 +73,7 @@ export function handle(session: Session, event: HandleEvent): HandlerResult {
   }
 
   if (session.state === "main_menu") {
-    return handleMainMenu(event as InboundEvent);
+    return handleMainMenu(session, event as InboundEvent);
   }
 
   if (session.state === "awaiting_flow_start") {

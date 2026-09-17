@@ -96,7 +96,10 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
       return verifyCode(String(effect.payload.twofaId ?? ""), String(effect.payload.code ?? ""));
 
     case "resolve_distrito_ai":
-      return resolveDistritoAi(String(effect.payload.distritoText ?? ""));
+      return resolveDistritoAi(
+        String(effect.payload.distritoText ?? ""),
+        effect.payload.contextText as string | undefined,
+      );
 
     case "search_ubigeo":
       return searchUbigeo(

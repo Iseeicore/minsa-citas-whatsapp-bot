@@ -188,9 +188,14 @@ function handleAwaitingDistritoAi(session: Session, event: InboundEvent): Handle
 
   const next = cloneSession(session);
   next.state = "cita_distrito_ai_pending";
+  // Pass along the citizen's very first free-text message (captured by
+  // handleMainMenu, if any) as extra context — a vague reply like "sí, en
+  // ese" can still resolve correctly if the district was already mentioned
+  // in that opening message.
+  const contextText = session.slots.initialMessageText as string | undefined;
   return buildResult(next, [
     sendText("Buscando tu distrito…"),
-    query("resolve_distrito_ai", { distritoText }),
+    query("resolve_distrito_ai", { distritoText, contextText }),
   ]);
 }
 

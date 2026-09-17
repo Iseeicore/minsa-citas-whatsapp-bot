@@ -24,7 +24,13 @@ const DISTRITO_AI_SYSTEM_PROMPT = `# SYSTEM PROMPT: Asistente de Resolución de 
 Eres un asistente técnico especializado EXCLUSIVAMENTE en la división política y administrativa oficial de la República del Perú (Departamentos, Provincias y Distritos), según los estándares oficiales del Estado Peruano (INEI / PCM).
 
 ## 2. TAREA
-El usuario te da el nombre de UN distrito peruano, tal como lo escribió (puede traer errores de tipeo, mayúsculas/minúsculas mezcladas, o tildes faltantes). Tu tarea es devolver TODAS las combinaciones oficiales (departamento, provincia, distrito) donde ese nombre de distrito existe realmente en la geografía oficial del Perú:
+Vas a recibir dos textos: la "Respuesta directa" del ciudadano a la pregunta "¿en qué distrito buscas atención?", y opcionalmente su "Mensaje inicial" (lo primero que escribió, antes de esa pregunta, que puede o no mencionar un distrito).
+
+- Si la Respuesta directa nombra explícitamente un distrito, usala como fuente principal.
+- Si la Respuesta directa es vaga o no aporta un nombre de lugar (ej. "sí", "ese", "correcto", "el que dije"), buscá un nombre de distrito peruano mencionado en el Mensaje inicial y usá ese en su lugar.
+- Si ninguno de los dos textos menciona un distrito identificable, devolvé una lista vacía.
+
+Tu tarea es devolver TODAS las combinaciones oficiales (departamento, provincia, distrito) donde ese nombre de distrito existe realmente en la geografía oficial del Perú:
 - Si el nombre corresponde a un único distrito oficial, devuelve un solo candidato.
 - Si el mismo nombre de distrito existe oficialmente en más de un departamento o provincia (por ejemplo, "Miraflores" existe en Lima y en Arequipa), devuelve un candidato por cada combinación oficial real, sin omitir ninguna.
 - Si el nombre no corresponde a ningún distrito oficial del Perú, devuelve una lista vacía de candidatos — nunca inventes ni "adivines" un distrito que no existe.
@@ -104,14 +110,24 @@ function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
   );
 }
 
-export async function resolveDistritoAi(distritoText: string): Promise<ResolveDistritoAiResult> {
+export async function resolveDistritoAi(
+  distritoText: string,
+  contextText?: string,
+): Promise<ResolveDistritoAiResult> {
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
     const model = process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_CLIENT_API}`;
 
+    const userTurn = [
+      `Respuesta directa: ${distritoText}`,
+      contextText ? `Mensaje inicial: ${contextText}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     const body = JSON.stringify({
       system_instruction: { parts: [{ text: DISTRITO_AI_SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: `Distrito: ${distritoText}` }] }],
+      contents: [{ role: "user", parts: [{ text: userTurn }] }],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: DISTRITO_AI_RESPONSE_SCHEMA,
@@ -154,5 +170,21 @@ export async function resolveDistritoAi(distritoText: string): Promise<ResolveDi
   }
 
   const key = distritoText.trim().toLowerCase();
-  return { candidates: FAKE_DISTRITO_CANDIDATES[key] ?? [] };
+  const direct = FAKE_DISTRITO_CANDIDATES[key];
+  if (direct) return { candidates: direct };
+
+  // The direct reply didn't match anything (e.g. "sí, en ese") — scan the
+  // original opening message for a known district name before giving up,
+  // so the Sandbox can demo the same fallback-to-context behavior as the
+  // real prompt without spending real API quota.
+  if (contextText) {
+    const normalizedContext = contextText.toLowerCase();
+    for (const [knownDistrito, candidates] of Object.entries(FAKE_DISTRITO_CANDIDATES)) {
+      if (normalizedContext.includes(knownDistrito)) {
+        return { candidates };
+      }
+    }
+  }
+
+  return { candidates: [] };
 }
