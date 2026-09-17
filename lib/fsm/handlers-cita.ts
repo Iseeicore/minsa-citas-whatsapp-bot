@@ -17,6 +17,12 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleAwaitingOtp(session, event as InboundEvent);
     case "cita_verify_pending":
       return handleVerifyPending(session, event as QueryResultEvent);
+    case "cita_awaiting_distrito_ai":
+      return handleAwaitingDistritoAi(session, event as InboundEvent);
+    case "cita_distrito_ai_pending":
+      return handleDistritoAiPending(session, event as QueryResultEvent);
+    case "cita_awaiting_distrito_disambiguation":
+      return handleAwaitingDistritoDisambiguation(session, event as InboundEvent);
     case "cita_awaiting_departamento":
       return handleAwaitingDepartamento(session, event as InboundEvent);
     case "cita_awaiting_provincia":
@@ -145,9 +151,9 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
 
     next.slots.citaBearer = result.token;
     next.slots.citaDni = dni ?? null;
-    next.state = "cita_awaiting_departamento";
+    next.state = "cita_awaiting_distrito_ai";
     return buildResult(next, [
-      sendText("¡Verificado! Ahora indícanos el departamento donde buscas atención."),
+      sendText('¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").'),
     ]);
   }
 
@@ -168,6 +174,96 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
 }
 
 // ---- Ubigeo ------------------------------------------------------------
+
+// AI-assisted entry point: tries to resolve departamento/provincia/distrito
+// from a single district-name message before falling back to the manual
+// 3-question chain below (cita_awaiting_departamento onward), which stays
+// completely unchanged as the safety net.
+
+function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
+  const distritoText = (event.text ?? "").trim();
+  if (!distritoText) {
+    return buildResult(session, [sendText("Cuéntanos el nombre del distrito.")]);
+  }
+
+  const next = cloneSession(session);
+  next.state = "cita_distrito_ai_pending";
+  return buildResult(next, [
+    sendText("Buscando tu distrito…"),
+    query("resolve_distrito_ai", { distritoText }),
+  ]);
+}
+
+type DistritoAiCandidateResult = {
+  departamento: string;
+  provincia: string;
+  distrito: string;
+};
+
+function handleDistritoAiPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { candidates?: DistritoAiCandidateResult[] };
+  const candidates = result.candidates ?? [];
+  const next = cloneSession(session);
+
+  if (candidates.length === 1) {
+    const [candidate] = candidates;
+    next.slots.citaDepartamento = candidate.departamento;
+    next.slots.citaProvincia = candidate.provincia;
+    next.slots.citaDistrito = candidate.distrito;
+    next.state = "cita_ubigeo_pending";
+    return buildResult(next, [
+      sendText("Buscando tu ubigeo…"),
+      query("search_ubigeo", {
+        departamento: candidate.departamento,
+        provincia: candidate.provincia,
+        distrito: candidate.distrito,
+      }),
+    ]);
+  }
+
+  if (candidates.length > 1) {
+    next.state = "cita_awaiting_distrito_disambiguation";
+    // The chosen candidate's triple is encoded directly in the row id
+    // (pipe-separated, same convention as handleAwaitingHoraSelect's
+    // `${horaInicio}|${horaFin}`) rather than stashed in slots, since
+    // Session.slots only holds flat scalar values.
+    const rows: ListRow[] = candidates.map((candidate) => ({
+      id: `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`,
+      title: `${candidate.distrito}, ${candidate.provincia} — ${candidate.departamento}`,
+    }));
+    return buildResult(next, [sendList("Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
+  }
+
+  // Zero candidates, or the AI call failed/is unavailable — fail-open into
+  // the manual 3-question flow instead of blocking a real booking.
+  next.state = "cita_awaiting_departamento";
+  return buildResult(next, [
+    sendText(
+      "No pudimos identificar ese distrito automáticamente, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.",
+    ),
+  ]);
+}
+
+function handleAwaitingDistritoDisambiguation(session: Session, event: InboundEvent): HandlerResult {
+  const replyId = readReply(event);
+  const parts = replyId?.split("|");
+  if (!parts || parts.length !== 3) {
+    return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
+  }
+
+  const [departamento, provincia, distrito] = parts;
+  const next = cloneSession(session);
+  next.slots.citaDepartamento = departamento;
+  next.slots.citaProvincia = provincia;
+  next.slots.citaDistrito = distrito;
+  next.state = "cita_ubigeo_pending";
+  return buildResult(next, [
+    sendText("Buscando tu ubigeo…"),
+    query("search_ubigeo", { departamento, provincia, distrito }),
+  ]);
+}
+
+// ---- Ubigeo (manual fallback: departamento -> provincia -> distrito) ----
 
 function handleAwaitingDepartamento(session: Session, event: InboundEvent): HandlerResult {
   const departamento = (event.text ?? "").trim();

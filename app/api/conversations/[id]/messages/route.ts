@@ -26,5 +26,9 @@ export async function GET(
     lastInbound && Date.now() - lastInbound.timestamp.getTime() <= WINDOW_MS,
   );
 
-  return NextResponse.json({ messages, windowOpen });
+  const windowExpiresAt = lastInbound
+    ? new Date(lastInbound.timestamp.getTime() + WINDOW_MS).toISOString()
+    : null;
+
+  return NextResponse.json({ messages, windowOpen, windowExpiresAt });
 }

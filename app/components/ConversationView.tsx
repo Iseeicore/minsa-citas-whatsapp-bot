@@ -18,6 +18,7 @@ export default function ConversationView({
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [windowOpen, setWindowOpen] = useState(true);
+  const [windowExpiresAt, setWindowExpiresAt] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -30,10 +31,15 @@ export default function ConversationView({
       try {
         const res = await fetch(`/api/conversations/${conversationId}/messages`);
         if (!res.ok) return;
-        const data = (await res.json()) as { messages: Message[]; windowOpen: boolean };
+        const data = (await res.json()) as {
+          messages: Message[];
+          windowOpen: boolean;
+          windowExpiresAt: string | null;
+        };
         if (!cancelled) {
           setMessages(data.messages);
           setWindowOpen(data.windowOpen);
+          setWindowExpiresAt(data.windowExpiresAt);
         }
       } catch {
         // Ignore transient network errors; next poll will retry.
@@ -66,7 +72,7 @@ export default function ConversationView({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setSendError(data.message ?? "Failed to send message.");
+        setSendError(data.message ?? "No se pudo enviar el mensaje.");
         return;
       }
 
@@ -74,13 +80,18 @@ export default function ConversationView({
       setMessages((prev) => [...prev, created]);
       setText("");
     } catch {
-      setSendError("Failed to send message.");
+      setSendError("No se pudo enviar el mensaje.");
     } finally {
       setSending(false);
     }
   }
 
   const displayName = profileName ?? waId ?? "Contacto";
+
+  // Recomputed from the already-fetched windowExpiresAt on every render
+  // (i.e. every 4s poll cycle) — no separate timer needed.
+  const countdown =
+    windowOpen && windowExpiresAt ? formatWindowCountdown(windowExpiresAt) : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -140,8 +151,18 @@ export default function ConversationView({
         <div ref={bottomRef} />
       </div>
 
+      {countdown && (
+        <div
+          className={`px-4 pt-1.5 text-xs ${
+            countdown.warning ? "text-amber-600" : "text-gray-500"
+          }`}
+        >
+          {countdown.label}
+        </div>
+      )}
+
       {!windowOpen && (
-        <div className="border-t border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+        <div className="border-t border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
           La ventana de 24 horas está cerrada — envía un mensaje de plantilla aprobado en lugar de
           texto libre.
         </div>
@@ -181,6 +202,23 @@ export default function ConversationView({
       </div>
     </div>
   );
+}
+
+// Derives the remaining time until windowExpiresAt from Date.now() — called
+// on every render (i.e. every 4s poll cycle), no dedicated timer needed.
+function formatWindowCountdown(windowExpiresAt: string): { label: string; warning: boolean } | null {
+  const remainingMs = new Date(windowExpiresAt).getTime() - Date.now();
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return null;
+
+  const totalMinutes = Math.floor(remainingMs / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const warning = remainingMs < 60 * 60 * 1000;
+
+  return {
+    label: `Ventana de 24h: quedan ${hours}h ${minutes}m para responder libremente`,
+    warning,
+  };
 }
 
 function BackArrowIcon({ className }: { className?: string }) {
