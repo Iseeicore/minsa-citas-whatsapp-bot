@@ -173,16 +173,17 @@ export async function resolveDistritoAi(
   const direct = FAKE_DISTRITO_CANDIDATES[key];
   if (direct) return { candidates: direct };
 
-  // The direct reply didn't match anything (e.g. "sí, en ese") — scan the
-  // original opening message for a known district name before giving up,
-  // so the Sandbox can demo the same fallback-to-context behavior as the
-  // real prompt without spending real API quota.
-  if (contextText) {
-    const normalizedContext = contextText.toLowerCase();
-    for (const [knownDistrito, candidates] of Object.entries(FAKE_DISTRITO_CANDIDATES)) {
-      if (normalizedContext.includes(knownDistrito)) {
-        return { candidates };
-      }
+  // No exact match (distritoText might be a full sentence — e.g. the
+  // caller swapped in the citizen's opening message when the direct reply
+  // was a bare "sí"/"ese" — or contextText carries the opening message
+  // alongside a direct reply that also didn't match). Scan both texts for
+  // a known district name mentioned anywhere before giving up, so the
+  // Sandbox demos the same fallback-to-context behavior as the real prompt
+  // without spending real API quota.
+  const haystack = `${distritoText} ${contextText ?? ""}`.toLowerCase();
+  for (const [knownDistrito, candidates] of Object.entries(FAKE_DISTRITO_CANDIDATES)) {
+    if (haystack.includes(knownDistrito)) {
+      return { candidates };
     }
   }
 

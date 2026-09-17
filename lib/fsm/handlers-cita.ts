@@ -180,19 +180,52 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
 // 3-question chain below (cita_awaiting_departamento onward), which stays
 // completely unchanged as the safety net.
 
+// Short affirmative replies ("sí", "ese", "yes", "s", ...) carry no place
+// name of their own — relying on the AI alone to notice this and fall back
+// to the opening message is not reliable (it depends on the AI being
+// enabled at all, and on it reasoning about it correctly every time).
+// Detecting these deterministically means the fallback to the citizen's
+// opening message works the same way whether SANDBOX_USE_REAL_AI is on or
+// off, and never depends on model behavior for this specific case.
+const AFFIRMATIVE_REPLIES = new Set([
+  "si",
+  "sí",
+  "s",
+  "yes",
+  "y",
+  "ese",
+  "esa",
+  "eso",
+  "correcto",
+  "exacto",
+  "confirmo",
+  "afirmativo",
+  "claro",
+  "asi es",
+  "así es",
+]);
+
+function isAffirmativeReply(text: string): boolean {
+  return AFFIRMATIVE_REPLIES.has(text.trim().toLowerCase());
+}
+
 function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
-  const distritoText = (event.text ?? "").trim();
-  if (!distritoText) {
+  const rawText = (event.text ?? "").trim();
+  if (!rawText) {
     return buildResult(session, [sendText("Cuéntanos el nombre del distrito.")]);
   }
 
+  const initialMessageText = session.slots.initialMessageText as string | undefined;
+
+  // A bare affirmative reply on its own names no district — if the citizen
+  // already mentioned one in their opening message, treat THAT as the real
+  // answer instead of sending the meaningless "sí"/"ese" to be resolved.
+  const distritoText =
+    isAffirmativeReply(rawText) && initialMessageText ? initialMessageText : rawText;
+  const contextText = distritoText === rawText ? initialMessageText : undefined;
+
   const next = cloneSession(session);
   next.state = "cita_distrito_ai_pending";
-  // Pass along the citizen's very first free-text message (captured by
-  // handleMainMenu, if any) as extra context — a vague reply like "sí, en
-  // ese" can still resolve correctly if the district was already mentioned
-  // in that opening message.
-  const contextText = session.slots.initialMessageText as string | undefined;
   return buildResult(next, [
     sendText("Buscando tu distrito…"),
     query("resolve_distrito_ai", { distritoText, contextText }),
