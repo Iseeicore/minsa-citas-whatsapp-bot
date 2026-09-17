@@ -1,4 +1,4 @@
-import { isValidDniFormat, isValidOtpFormat } from "./domain";
+import { isValidDniFormat, isValidOtpFormat, normalizeText } from "./domain";
 import { buildResult, cloneSession, query, readReply, sendText, sendList } from "./handlers-shared";
 import { searchDistrito } from "./ubigeo-data";
 import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "./types";
@@ -272,10 +272,31 @@ type DistritoAiCandidateResult = {
 
 // Shared by the local-dataset fast path above and the AI-result path below —
 // "what do we do with N resolved candidates" is identical either way.
+// PILOT SCOPE: appointment booking only serves Lima for now. Filtering here
+// (the single point both the local-dataset path and the AI path funnel
+// into) drops national noise before deciding what to do with N candidates —
+// e.g. "Miraflores" narrows from 4 nationwide matches down to the 2 in
+// Lima department. This does NOT restrict the manual departamento/
+// provincia/distrito fallback below, which still accepts any department —
+// only the automatic name-based resolution is Lima-only during the pilot.
+// Next phase: once this expands nationally, remove this filter and add a
+// provincia follow-up question for names that are still ambiguous within
+// a single departamento.
+const PILOT_DEPARTAMENTO = "LIMA";
+
+function filterToPilotScope(
+  candidates: DistritoAiCandidateResult[],
+): DistritoAiCandidateResult[] {
+  return candidates.filter(
+    (candidate) => normalizeText(candidate.departamento) === PILOT_DEPARTAMENTO,
+  );
+}
+
 function resolveDistritoCandidates(
   session: Session,
-  candidates: DistritoAiCandidateResult[],
+  rawCandidates: DistritoAiCandidateResult[],
 ): HandlerResult {
+  const candidates = filterToPilotScope(rawCandidates);
   const next = cloneSession(session);
 
   if (candidates.length === 1) {
