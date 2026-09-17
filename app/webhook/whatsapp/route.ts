@@ -201,6 +201,10 @@ export async function POST(request: NextRequest) {
 
   const payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;
 
+  // TEMPORARY: dump the raw payload shape to diagnose why `from`/`wa_id`
+  // came back undefined. Remove once the real field names are confirmed.
+  console.log("RAW WEBHOOK PAYLOAD", JSON.stringify(payload));
+
   for (const entry of payload.entry ?? []) {
     try {
       for (const change of entry.changes ?? []) {
