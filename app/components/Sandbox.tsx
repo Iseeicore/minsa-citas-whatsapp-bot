@@ -15,6 +15,23 @@ type ChatEntry =
 
 const FROM_STORAGE_KEY = "sandbox-from";
 
+// Vercel Functions hard-cap the request body at 4.5MB regardless of what the
+// destination API supports (the real quejas backend allows up to 50MB — that
+// capacity is untouched, this limit is specific to the browser->our-function
+// hop). Staying well under that after base64's ~33% size inflation.
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const IMAGE_TOO_LARGE_MESSAGE =
+  "La imagen es muy pesada para subirla en el entorno de Vercel. Por el momento estamos trabajando en la mejora.";
+
+function readFileAsDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 function randomId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -54,7 +71,13 @@ export default function Sandbox() {
   }, [entries]);
 
   async function sendTurn(
-    payload: { type: "text" | "button" | "list" | "image"; text?: string; listId?: string; reset?: boolean },
+    payload: {
+      type: "text" | "button" | "list" | "image";
+      text?: string;
+      listId?: string;
+      mediaDataUri?: string;
+      reset?: boolean;
+    },
     userDisplayText?: string,
   ) {
     if (!from) return;
@@ -109,6 +132,20 @@ export default function Sandbox() {
     sendTurn({ type: "text", reset: true });
   }
 
+  async function handleImageSelect(fileList: FileList | null) {
+    const file = fileList?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError(IMAGE_TOO_LARGE_MESSAGE);
+      return;
+    }
+
+    setError(null);
+    const dataUri = await readFileAsDataUri(file);
+    sendTurn({ type: "image", mediaDataUri: dataUri }, `📷 ${file.name}`);
+  }
+
   return (
     <div className="grid h-full grid-rows-[1fr_auto]">
       <div className="grid grid-cols-[1fr_260px] overflow-hidden">
@@ -137,6 +174,23 @@ export default function Sandbox() {
           )}
 
           <div className="flex items-center gap-2 border-t border-gray-200 p-3">
+            <label
+              className={`rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 ${
+                !from || loading ? "pointer-events-none opacity-50" : "cursor-pointer"
+              }`}
+            >
+              📷
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={!from || loading}
+                onChange={(e) => {
+                  handleImageSelect(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </label>
             <input
               type="text"
               value={inputText}

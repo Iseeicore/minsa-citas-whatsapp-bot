@@ -125,14 +125,14 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
   const omitted = (event.text ?? "").trim().toUpperCase() === "OMITIR";
 
-  if (!event.mediaId && !omitted) {
+  if (!event.mediaDataUri && !omitted) {
     return buildResult(session, [
       sendText("Envía una foto como evidencia, o escribe OMITIR para continuar sin foto."),
     ]);
   }
 
   const next = cloneSession(session);
-  if (event.mediaId) next.slots.mediaId = event.mediaId;
+  if (event.mediaDataUri) next.slots.mediaDataUri = event.mediaDataUri;
   next.state = "reclamo_submit_pending";
 
   const submission = {
@@ -140,7 +140,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
     dni: (next.slots.dni as string | undefined) ?? null,
     nombreCompleto: (next.slots.nombreCompleto as string | undefined) ?? null,
     queja: next.slots.queja,
-    mediaId: (next.slots.mediaId as string | undefined) ?? undefined,
+    mediaDataUri: (next.slots.mediaDataUri as string | undefined) ?? undefined,
   };
 
   return buildResult(next, [

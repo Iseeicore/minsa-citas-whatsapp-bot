@@ -14,6 +14,10 @@ export type InboundEvent = {
   text?: string;
   listId?: string;
   mediaId?: string;
+  // Base64 data URI of a real uploaded image (Sandbox-only — there's no real
+  // WhatsApp media round-trip here). Kept separate from `mediaId` since that
+  // field is just an opaque reference, not actual image bytes.
+  mediaDataUri?: string;
 };
 
 // Synthesized by lib/fsm/executor.ts after resolving a QueryEffect, and fed

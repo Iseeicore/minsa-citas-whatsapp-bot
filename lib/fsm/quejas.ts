@@ -3,7 +3,7 @@ export type SubmitQuejaPayload = {
   dni: string | null;
   nombreCompleto: string | null;
   queja: string;
-  mediaId?: string;
+  mediaDataUri?: string;
 };
 
 export type SubmitQuejaResult =
@@ -28,7 +28,7 @@ export async function submitQueja(payload: SubmitQuejaPayload): Promise<SubmitQu
         nombre_completo: payload.nombreCompleto,
         celular: payload.celular,
         queja: payload.queja,
-        ...(payload.mediaId ? { imagen: payload.mediaId } : {}),
+        ...(payload.mediaDataUri ? { imagen: payload.mediaDataUri } : {}),
       }),
     });
 

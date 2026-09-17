@@ -9,6 +9,7 @@ const sandboxEventSchema = z.object({
   text: z.string().optional(),
   listId: z.string().optional(),
   mediaId: z.string().optional(),
+  mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
 });
 
@@ -30,13 +31,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { from, type, text, listId, mediaId, reset } = parsed.data;
+  const { from, type, text, listId, mediaId, mediaDataUri, reset } = parsed.data;
 
   if (reset) {
     await resetSession(from);
   }
 
-  const { sent, session } = await runTurn(from, { from, type, text, listId, mediaId });
+  const { sent, session } = await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
 
   return NextResponse.json({
     sent,
