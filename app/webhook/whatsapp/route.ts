@@ -5,6 +5,7 @@ import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurn } from "@/lib/fsm/executor";
 import { saveSession } from "@/lib/fsm/session-store";
 import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator } from "@/lib/whatsapp-send";
+import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
 import type { InboundEvent } from "@/lib/fsm/types";
 
 // Sent once, the first time a given waId ever writes to this number — this
@@ -181,10 +182,16 @@ function extractContentAndMedia(message: WhatsAppMessage): {
 
 // Maps a real inbound WhatsApp message to the same InboundEvent shape the
 // Sandbox already drives the FSM with. Returns null for message types the
-// FSM doesn't consume yet (image/audio/document/location) — those are
-// still stored above, just not fed into the bot (real media download for
-// the Reclamo photo step is a follow-up, not built yet; OMITIR still works).
-function toInboundEvent(waId: string, message: WhatsAppMessage): InboundEvent | null {
+// FSM doesn't consume yet (audio/document/location) — those are still
+// stored above, just not fed into the bot. Images only trigger a real
+// media download when the citizen is actually at the Reclamo photo step —
+// anywhere else, a photo would just be ignored by the FSM anyway, so this
+// avoids spending two Graph API calls for nothing.
+async function toInboundEvent(
+  waId: string,
+  message: WhatsAppMessage,
+  sessionState: string,
+): Promise<InboundEvent | null> {
   if (message.type === "text") {
     return { from: waId, type: "text", text: message.text?.body };
   }
@@ -196,6 +203,16 @@ function toInboundEvent(waId: string, message: WhatsAppMessage): InboundEvent | 
     if (message.interactive?.list_reply) {
       return { from: waId, type: "list", listId: message.interactive.list_reply.id };
     }
+  }
+
+  if (message.type === "image" && message.image?.id && sessionState === "reclamo_awaiting_foto") {
+    const mediaDataUri = await downloadWhatsAppMediaAsDataUri(message.image.id);
+    return {
+      from: waId,
+      type: "image",
+      text: message.image.caption,
+      mediaDataUri: mediaDataUri ?? undefined,
+    };
   }
 
   return null;
@@ -290,7 +307,7 @@ async function processValue(value: WhatsAppValue) {
       continue;
     }
 
-    const inboundEvent = toInboundEvent(waId, message);
+    const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
     if (!inboundEvent) continue;
 
     const { sent } = await runTurn(waId, inboundEvent);
