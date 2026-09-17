@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const verifyToken = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && verifyToken === process.env.WHATSAPP_VERIFY_TOKEN) {
+  if (mode === "subscribe" && verifyToken === process.env.META_WEBHOOK_VERIFY_TOKEN) {
     return new NextResponse(challenge ?? "", { status: 200 });
   }
 
@@ -25,7 +25,7 @@ function isValidSignature(rawBody: string, signatureHeader: string | null): bool
   const expected =
     "sha256=" +
     crypto
-      .createHmac("sha256", process.env.WHATSAPP_APP_SECRET ?? "")
+      .createHmac("sha256", process.env.META_APP_SECRET ?? "")
       .update(rawBody)
       .digest("hex");
 

@@ -40,8 +40,10 @@ A WhatsApp Business Cloud API "web inbox" MVP built with Next.js (App Router), d
 `DATABASE_URL` and the WhatsApp env vars are already configured in Vercel. The `build` script runs `prisma migrate deploy` before `next build`, so pending migrations apply automatically on every deploy:
 
 ```json
-"build": "prisma migrate deploy && next build"
+"build": "prisma migrate deploy && next build --webpack"
 ```
+
+(`--webpack` forces the classic compiler instead of Turbopack — Turbopack's production build had a `_global-error` prerender crash specific to this Next.js version.)
 
 This is an MVP-simple approach (migrations run inline with the build), not a full CI/CD migration pipeline with staged approval — acceptable for this project's scale, but worth revisiting if the team grows or migrations become risky to run unattended.
 
@@ -49,14 +51,15 @@ This is an MVP-simple approach (migrations run inline with the build), not a ful
 
 See `.env.example`:
 
-- `WHATSAPP_TOKEN` — WhatsApp Cloud API access token
-- `WHATSAPP_PHONE_NUMBER_ID` — the sending phone number ID
-- `WHATSAPP_VERIFY_TOKEN` — shared secret for the webhook verification handshake
-- `WHATSAPP_APP_SECRET` — used to validate the `X-Hub-Signature-256` header on incoming webhooks
+- `META_ACCESS_TOKEN` — WhatsApp Cloud API access token
+- `META_PHONE_NUMBER_ID` — the sending phone number ID
+- `META_WEBHOOK_VERIFY_TOKEN` — shared secret for the webhook verification handshake
+- `META_APP_SECRET` — used to validate the `X-Hub-Signature-256` header on incoming webhooks
+- `META_GRAPH_API_VERSION` — Graph API version to call (e.g. `v21.0`)
 - `DATABASE_URL` — Neon Postgres connection string
 
 ## Notes
 
-- The webhook route (`app/api/webhook/route.ts`) runs on the Node.js runtime (not Edge) because signature verification needs Node's `crypto` module.
+- The webhook route (`app/webhook/whatsapp/route.ts`) runs on the Node.js runtime (not Edge) because signature verification needs Node's `crypto` module. The path is fixed at `/webhook/whatsapp` to match the callback URL already registered in Meta for Developers.
 - The 24-hour customer service window (required before sending free-text messages) is computed from the conversation's **last inbound message**, not overall conversation activity.
 - No authentication/login and no automated tests are included — out of scope for this MVP.
