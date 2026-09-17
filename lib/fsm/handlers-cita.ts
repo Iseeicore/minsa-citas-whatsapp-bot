@@ -568,20 +568,10 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length === 1) {
-    const [item] = result.items;
-    next.slots.citaEspecialidadId = item.codigoEspecialidad;
-    next.state = "cita_establecimiento_pending";
-    return buildResult(next, [
-      sendText(`Especialidad encontrada: ${item.nombreEspecialidad}. Buscando establecimientos…`),
-      query("list_establecimientos", {
-        especialidadId: item.codigoEspecialidad,
-        ubigeo: String(next.slots.citaUbigeo ?? ""),
-      }),
-    ]);
-  }
-
-  if (result.status === "found" && result.items && result.items.length > 1) {
+  // Unlike the other catalog steps, especialidad is never auto-selected —
+  // the citizen must always tap it themselves from the list, even when
+  // there's only one option. Explicit product decision, not an oversight.
+  if (result.status === "found" && result.items && result.items.length > 0) {
     next.state = "cita_awaiting_especialidad_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.codigoEspecialidad,
