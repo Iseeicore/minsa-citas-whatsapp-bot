@@ -1,5 +1,14 @@
 import { isValidDniFormat, isValidOtpFormat, normalizeText } from "./domain";
-import { buildResult, cloneSession, query, readReply, sendText, sendList, sendCtaUrl } from "./handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  query,
+  readReply,
+  sendText,
+  sendList,
+  sendButtons,
+  sendCtaUrl,
+} from "./handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "./types";
 
@@ -48,6 +57,10 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleAwaitingFechaSelect(session, event as InboundEvent);
     case "cita_hora_pending":
       return handleHoraPending(session, event as QueryResultEvent);
+    case "cita_hora_shift_choice":
+      return handleHoraShiftChoice(session, event as InboundEvent);
+    case "cita_hora_shift_pending":
+      return handleHoraShiftPending(session, event as QueryResultEvent);
     case "cita_awaiting_hora_select":
       return handleAwaitingHoraSelect(session, event as InboundEvent);
     case "cita_booking_pending":
@@ -753,21 +766,33 @@ type HoraResultItem = {
   cantidadCupos: number;
 };
 
-function handleHoraPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; items?: HoraResultItem[] };
+const HORA_SHIFT_BUTTONS = [
+  { id: "manana", title: "Mañana" },
+  { id: "tarde", title: "Tarde" },
+];
+
+function isValidHoraShift(value: string | undefined): value is "manana" | "tarde" {
+  return value === "manana" || value === "tarde";
+}
+
+// "13:05" -> "tarde", "09:30" -> "manana". Health facilities on this API
+// routinely offer 5-minute slots across a full shift — a full day can
+// easily produce 40+ rows, way past WhatsApp's 10-row list cap.
+function shiftOfHora(horaInicio: string): "manana" | "tarde" {
+  const [hh] = horaInicio.split(":");
+  return parseInt(hh, 10) < 12 ? "manana" : "tarde";
+}
+
+// Shared by handleHoraPending (≤10 items, or the whole day if it fits) and
+// handleHoraShiftPending (≤10 items after filtering to one shift) — both
+// callers are responsible for capping to WHATSAPP_LIST_MAX_ROWS themselves
+// before calling this, since they handle an overflow differently (one asks
+// mañana/tarde, the other just takes the first 10 chronologically).
+function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
 
-  if (result.status === "error") {
-    next.state = "cita_booking_rejected";
-    return buildResult(next, [
-      sendText(
-        "Ocurrió un error al buscar horarios disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
-      ),
-    ]);
-  }
-
-  if (result.status === "found" && result.items && result.items.length === 1) {
-    const [item] = result.items;
+  if (items.length === 1) {
+    const [item] = items;
     next.state = "cita_booking_pending";
     return buildResult(next, [
       sendText(`Horario encontrado: ${item.horaInicio} - ${item.horaFin}. Agendando tu cita…`),
@@ -781,9 +806,9 @@ function handleHoraPending(session: Session, event: QueryResultEvent): HandlerRe
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length > 1) {
+  if (items.length > 1) {
     next.state = "cita_awaiting_hora_select";
-    const rows: ListRow[] = result.items.map((item) => ({
+    const rows: ListRow[] = items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,
       title: truncateForRow(`${item.horaInicio} - ${item.horaFin}`, WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(
@@ -796,6 +821,91 @@ function handleHoraPending(session: Session, event: QueryResultEvent): HandlerRe
 
   next.state = "cita_booking_rejected";
   return buildResult(next, [sendText("No hay horarios disponibles para esa fecha.")]);
+}
+
+function handleHoraPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { status: string; items?: HoraResultItem[] };
+  const next = cloneSession(session);
+
+  if (result.status === "error") {
+    next.state = "cita_booking_rejected";
+    return buildResult(next, [
+      sendText(
+        "Ocurrió un error al buscar horarios disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+      ),
+    ]);
+  }
+
+  const items = result.items ?? [];
+
+  // Too many slots to fit one WhatsApp list — narrow by shift instead of
+  // sending an oversized list that Meta would reject in silence (same
+  // failure mode already fixed for district disambiguation).
+  if (result.status === "found" && items.length > WHATSAPP_LIST_MAX_ROWS) {
+    next.state = "cita_hora_shift_choice";
+    return buildResult(next, [
+      sendButtons(
+        "Hay muchos horarios disponibles ese día. ¿Prefieres uno en la mañana o en la tarde?",
+        HORA_SHIFT_BUTTONS,
+      ),
+    ]);
+  }
+
+  return resolveHoraCandidates(session, items);
+}
+
+function handleHoraShiftChoice(session: Session, event: InboundEvent): HandlerResult {
+  const replyId = readReply(event);
+  if (!isValidHoraShift(replyId)) {
+    return buildResult(session, [
+      sendButtons("Elige una opción: ¿mañana o tarde?", HORA_SHIFT_BUTTONS),
+    ]);
+  }
+
+  const next = cloneSession(session);
+  next.slots.citaHoraShift = replyId;
+  next.state = "cita_hora_shift_pending";
+  return buildResult(next, [
+    sendText("Buscando horarios en esa franja…"),
+    query("list_horas", {
+      codEess: String(next.slots.citaCodEess ?? ""),
+      especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+      fecha: String(next.slots.citaFecha ?? ""),
+    }),
+  ]);
+}
+
+function handleHoraShiftPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { status: string; items?: HoraResultItem[] };
+  const next = cloneSession(session);
+
+  if (result.status === "error") {
+    next.state = "cita_booking_rejected";
+    return buildResult(next, [
+      sendText(
+        "Ocurrió un error al buscar horarios disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+      ),
+    ]);
+  }
+
+  const shift = isValidHoraShift(next.slots.citaHoraShift as string | undefined)
+    ? (next.slots.citaHoraShift as "manana" | "tarde")
+    : "manana";
+  const filtered = (result.items ?? []).filter((item) => shiftOfHora(item.horaInicio) === shift);
+
+  if (filtered.length === 0) {
+    next.state = "cita_hora_shift_choice";
+    return buildResult(next, [
+      sendButtons("No hay horarios disponibles en esa franja. Elige la otra opción.", HORA_SHIFT_BUTTONS),
+    ]);
+  }
+
+  // Even a single shift can still exceed 10 on a very fine-grained
+  // schedule — take the first 10 (the API already returns them
+  // chronologically) rather than adding a third narrowing question.
+  const capped =
+    filtered.length > WHATSAPP_LIST_MAX_ROWS ? filtered.slice(0, WHATSAPP_LIST_MAX_ROWS) : filtered;
+  return resolveHoraCandidates(session, capped);
 }
 
 function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
