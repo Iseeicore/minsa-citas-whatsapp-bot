@@ -3,6 +3,22 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* "Chat real" (WhatsApp-style) theme tokens */
+  --wa-header: #008069;
+  --wa-header-dark: #005c4b;
+  --wa-panel-bg: #efeae2;
+  --wa-bubble-in: #ffffff;
+  --wa-bubble-out: #d9fdd3;
+  --wa-accent: #00a884;
+  --wa-footer-bg: #f0f2f5;
+
+  /* Sandbox (assistant widget) theme tokens */
+  --sb-header-from: #14b8a6;
+  --sb-header-to: #2563eb;
+  --sb-panel-bg: #f4f5f7;
+  --sb-bubble-bot: #ffffff;
+  --sb-accent: #2563eb;
 }
 
 @theme inline {

@@ -5,7 +5,15 @@ import type { Message } from "./types";
 
 const POLL_INTERVAL_MS = 4000;
 
-export default function ConversationView({ conversationId }: { conversationId: string }) {
+export default function ConversationView({
+  conversationId,
+  profileName,
+  waId,
+}: {
+  conversationId: string;
+  profileName?: string | null;
+  waId?: string;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [windowOpen, setWindowOpen] = useState(true);
   const [text, setText] = useState("");
@@ -70,9 +78,26 @@ export default function ConversationView({ conversationId }: { conversationId: s
     }
   }
 
+  const displayName = profileName ?? waId ?? "Contacto";
+
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto p-4">
+      <header className="flex items-center gap-3 bg-[var(--wa-header)] px-4 py-2.5 text-white">
+        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
+          <PersonIcon className="h-6 w-6 text-white" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">{displayName}</div>
+          <div className="truncate text-xs text-white/80">Cuenta oficial</div>
+        </div>
+        <div className="flex items-center gap-4 text-white/90">
+          <VideoIcon className="h-5 w-5" />
+          <PhoneIcon className="h-5 w-5" />
+          <DotsMenuIcon className="h-5 w-5" />
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto bg-[var(--wa-panel-bg)] px-4 py-3">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -81,15 +106,21 @@ export default function ConversationView({ conversationId }: { conversationId: s
             }`}
           >
             <div
-              className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
+              className={`max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${
                 message.direction === "OUTBOUND"
-                  ? "bg-green-500 text-white"
-                  : "bg-gray-200 text-gray-900"
+                  ? "rounded-tr-none bg-[var(--wa-bubble-out)] text-gray-900"
+                  : "rounded-tl-none bg-[var(--wa-bubble-in)] text-gray-900"
               }`}
             >
-              <div>{message.content ?? `[${message.type}]`}</div>
-              <div className="mt-1 text-[10px] opacity-70">
-                {new Date(message.timestamp).toLocaleTimeString()}
+              <div className="whitespace-pre-wrap break-words">
+                {message.content ?? `[${message.type}]`}
+              </div>
+              <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-gray-500">
+                {new Date(message.timestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                {message.direction === "OUTBOUND" && <ReadTicksIcon status={message.status} />}
               </div>
             </div>
           </div>
@@ -98,8 +129,9 @@ export default function ConversationView({ conversationId }: { conversationId: s
       </div>
 
       {!windowOpen && (
-        <div className="border-t border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
-          The 24-hour window is closed — send an approved template message instead of free text.
+        <div className="border-t border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          La ventana de 24 horas está cerrada — envía un mensaje de plantilla aprobado en lugar de
+          texto libre.
         </div>
       )}
 
@@ -109,26 +141,166 @@ export default function ConversationView({ conversationId }: { conversationId: s
         </div>
       )}
 
-      <div className="flex items-center gap-2 border-t border-gray-200 p-3">
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSend();
-          }}
-          disabled={!windowOpen || sending}
-          placeholder={windowOpen ? "Type a message" : "24-hour window closed"}
-          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-        />
+      <div className="flex items-center gap-2 bg-[var(--wa-footer-bg)] px-3 py-2">
+        <EmojiIcon className="h-6 w-6 flex-shrink-0 text-gray-500" />
+        <div className="flex flex-1 items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm">
+          <input
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSend();
+            }}
+            disabled={!windowOpen || sending}
+            placeholder={windowOpen ? "Escribe un mensaje" : "Ventana de 24h cerrada"}
+            className="flex-1 border-none bg-transparent text-sm outline-none disabled:cursor-not-allowed"
+          />
+          <PaperclipIcon className="h-5 w-5 flex-shrink-0 text-gray-500" />
+          <CameraIcon className="h-5 w-5 flex-shrink-0 text-gray-500" />
+        </div>
         <button
           onClick={handleSend}
           disabled={!windowOpen || sending || !text.trim()}
-          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:bg-gray-300"
+          aria-label="Enviar mensaje"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--wa-accent)] text-white transition-opacity disabled:opacity-40"
         >
-          Send
+          <SendIcon className="h-5 w-5" />
         </button>
       </div>
     </div>
+  );
+}
+
+function PersonIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 001 1h14a1 1 0 001-1v-1c0-2.76-3.58-5-8-5z" />
+    </svg>
+  );
+}
+
+function VideoIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M15 10l5-3v10l-5-3" />
+      <rect x="3" y="6" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.68 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.32 1.85.55 2.81.68A2 2 0 0122 16.92z" />
+    </svg>
+  );
+}
+
+function DotsMenuIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <circle cx="12" cy="5" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="12" cy="19" r="1.5" />
+    </svg>
+  );
+}
+
+function EmojiIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 14.5s1.5 2 3.5 2 3.5-2 3.5-2" />
+      <path d="M9 9h.01M15 9h.01" />
+    </svg>
+  );
+}
+
+function PaperclipIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.2 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.48" />
+    </svg>
+  );
+}
+
+function CameraIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+}
+
+function SendIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M3 20l18-8L3 4v6l12 2-12 2z" />
+    </svg>
+  );
+}
+
+function ReadTicksIcon({ status }: { status: Message["status"] }) {
+  const colorClass = status === "READ" ? "text-sky-500" : "text-gray-400";
+  return (
+    <svg
+      viewBox="0 0 24 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`h-3 w-4 ${colorClass}`}
+      aria-hidden="true"
+    >
+      <path d="M1 8l4 4L14 3" />
+      <path d="M9 8l4 4L22 3" />
+    </svg>
   );
 }
