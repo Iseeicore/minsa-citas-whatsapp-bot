@@ -40,13 +40,13 @@ function isValidSignature(rawBody: string, signatureHeader: string | null): bool
 }
 
 type WhatsAppContact = {
-  wa_id: string;
+  user_id: string;
   profile?: { name?: string };
 };
 
 type WhatsAppMessage = {
   id: string;
-  from: string;
+  from_user_id: string;
   timestamp: string;
   type: string;
   text?: { body?: string };
@@ -141,19 +141,19 @@ function extractContentAndMedia(message: WhatsAppMessage): {
 async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
-    contactsByWaId.set(contact.wa_id, contact);
+    contactsByWaId.set(contact.user_id, contact);
   }
 
   for (const message of value.messages ?? []) {
-    const contact = contactsByWaId.get(message.from);
+    const contact = contactsByWaId.get(message.from_user_id);
     const profileName = contact?.profile?.name;
     const timestamp = new Date(Number(message.timestamp) * 1000);
     const { content, mediaUrl } = extractContentAndMedia(message);
 
     const conversation = await prisma.conversation.upsert({
-      where: { waId: message.from },
+      where: { waId: message.from_user_id },
       create: {
-        waId: message.from,
+        waId: message.from_user_id,
         profileName: profileName ?? null,
         lastMessageAt: timestamp,
       },
@@ -200,10 +200,6 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;
-
-  // TEMPORARY: dump the raw payload shape to diagnose why `from`/`wa_id`
-  // came back undefined. Remove once the real field names are confirmed.
-  console.log("RAW WEBHOOK PAYLOAD", JSON.stringify(payload));
 
   for (const entry of payload.entry ?? []) {
     try {
