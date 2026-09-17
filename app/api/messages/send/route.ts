@@ -67,7 +67,11 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         messaging_product: "whatsapp",
-        to: conversation.waId,
+        // This WABA uses Meta's Business-Scoped User ID (BSUID) scheme —
+        // recipients are addressed via `recipient`, not `to` (which is only
+        // for classic phone-number identifiers).
+        recipient_type: "individual",
+        recipient: conversation.waId,
         type: "text",
         text: { body: text },
       }),
