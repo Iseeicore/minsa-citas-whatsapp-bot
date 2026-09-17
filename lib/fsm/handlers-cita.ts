@@ -471,6 +471,13 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
   const result = event.result as { status: string; items?: UbigeoResultItem[] };
   const next = cloneSession(session);
 
+  if (result.status === "error") {
+    next.state = "cita_awaiting_departamento";
+    return buildResult(next, [
+      sendText("Ocurrió un error al buscar tu ubigeo. Indícanos nuevamente el departamento."),
+    ]);
+  }
+
   // A single match doesn't need a list tap — resolve it and keep moving.
   // Only 2+ matches need the citizen to pick one.
   if (result.status === "found" && result.items && result.items.length === 1) {
@@ -540,6 +547,15 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
   const result = event.result as { status: string; items?: EspecialidadResultItem[] };
   const next = cloneSession(session);
 
+  if (result.status === "error") {
+    next.state = "cita_booking_rejected";
+    return buildResult(next, [
+      sendText(
+        "Ocurrió un error al buscar especialidades disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+      ),
+    ]);
+  }
+
   if (result.status === "found" && result.items && result.items.length === 1) {
     const [item] = result.items;
     next.slots.citaEspecialidadId = item.codigoEspecialidad;
@@ -602,6 +618,15 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
 
+  if (result.status === "error") {
+    next.state = "cita_booking_rejected";
+    return buildResult(next, [
+      sendText(
+        "Ocurrió un error al buscar establecimientos disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+      ),
+    ]);
+  }
+
   if (result.status === "found" && result.items && result.items.length === 1) {
     const [item] = result.items;
     next.slots.citaCodEess = item.renipressCode;
@@ -660,6 +685,15 @@ type FechaResultItem = {
 function handleFechaPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: FechaResultItem[] };
   const next = cloneSession(session);
+
+  if (result.status === "error") {
+    next.state = "cita_booking_rejected";
+    return buildResult(next, [
+      sendText(
+        "Ocurrió un error al buscar fechas disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+      ),
+    ]);
+  }
 
   if (result.status === "found" && result.items && result.items.length === 1) {
     const [item] = result.items;
@@ -722,6 +756,15 @@ type HoraResultItem = {
 function handleHoraPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: HoraResultItem[] };
   const next = cloneSession(session);
+
+  if (result.status === "error") {
+    next.state = "cita_booking_rejected";
+    return buildResult(next, [
+      sendText(
+        "Ocurrió un error al buscar horarios disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+      ),
+    ]);
+  }
 
   if (result.status === "found" && result.items && result.items.length === 1) {
     const [item] = result.items;

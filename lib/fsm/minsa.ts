@@ -180,6 +180,17 @@ export function formatHoraCita(horaInicio: string): string {
   return `${parseInt(hh, 10)}${mm}`;
 }
 
+// MINSA's real quotas/dates endpoint returns fecha_cupo as "DD/MM/YYYY"
+// (shown to the citizen as-is, e.g. in a list row) but quotas/times and
+// appointments require "YYYYMMDD". Idempotent for values already in
+// YYYYMMDD (e.g. Sandbox's FAKE_FECHAS, which has no slashes) — those pass
+// through unchanged.
+export function formatFechaForApi(fechaCupo: string): string {
+  const [day, month, year] = fechaCupo.split("/");
+  if (!day || !month || !year) return fechaCupo;
+  return `${year}${month}${day}`;
+}
+
 // ---- Identity ------------------------------------------------------------
 
 export async function validateUser(dni: string): Promise<ValidateUserResult> {

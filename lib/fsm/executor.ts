@@ -3,6 +3,7 @@ import { handle } from "./handlers";
 import { isQueryEffect } from "./handlers-shared";
 import {
   bookAppointment,
+  formatFechaForApi,
   formatHoraCita,
   listEspecialidades,
   listEstablecimientos,
@@ -130,7 +131,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
       return listHoras(
         String(effect.payload.codEess ?? ""),
         String(effect.payload.especialidadId ?? ""),
-        String(effect.payload.fecha ?? ""),
+        formatFechaForApi(String(effect.payload.fecha ?? "")),
         bearer,
       );
 
@@ -139,7 +140,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
         {
           codigoRenipress: String(effect.payload.codigoRenipress ?? ""),
           codigoUps: String(effect.payload.codigoUps ?? ""),
-          fechaCita: String(effect.payload.fechaCita ?? ""),
+          fechaCita: formatFechaForApi(String(effect.payload.fechaCita ?? "")),
           horaCita: formatHoraCita(String(effect.payload.horaInicio ?? "")),
           numeroDocumentoPaciente: String(effect.payload.numeroDocumentoPaciente ?? ""),
         },
