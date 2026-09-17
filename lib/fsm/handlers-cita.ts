@@ -937,23 +937,25 @@ function handleBookingPending(session: Session, event: QueryResultEvent): Handle
 
   if (result.status === "booked") {
     next.state = "cita_booked";
-    // Two separate messages — the webhook's send loop already puts a
+    // Three separate messages — the webhook's send loop already puts a
     // typing indicator + short pause between every effect it sends
     // (app/webhook/whatsapp/route.ts), so this reads as the constancy
-    // arriving, a brief pause, then a closing message, with no extra
-    // delay logic needed here.
+    // arriving, a brief pause, the link button, another pause, then a
+    // closing message, with no extra delay logic needed here.
     const constanciaText = `*MINISTERIO DE SALUD DEL PERÚ*
 *Constancia de Registro de Cita*
 
 Estimado(a) usuario(a), su solicitud ha sido procesada con éxito:
 ${result.message ?? "Cita creada correctamente"}
 
-Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):
-🔗 Acceso: ${result.url ?? ""}
-
 Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico.`;
     return buildResult(next, [
       sendText(constanciaText),
+      sendCtaUrl(
+        "Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):",
+        "Ver mi cita", // 11 chars — cta_url's display_text caps at 20
+        result.url ?? "",
+      ),
       sendText(
         "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita o realizar una consulta, escríbenos nuevamente cuando lo necesites. ¡Que tengas un buen día! 👋",
       ),
