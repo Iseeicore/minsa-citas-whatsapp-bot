@@ -34,3 +34,16 @@ export function searchDistrito(text: string): DistritoAiCandidate[] {
   if (!key) return [];
   return BY_DISTRITO_NAME.get(key) ?? [];
 }
+
+// Prefix match (like SQL's `LIKE 'text%'`) — for a partial name such as "San
+// Juan" that isn't itself an official district name anywhere (it happens to
+// be an EXACT match in four other regions, none in Lima, which is what
+// searchDistrito alone would find), but IS the start of real district names
+// like "San Juan de Lurigancho". Caller decides what to do with an overly
+// broad prefix (handlers-cita.ts's WhatsApp row-count cap already handles
+// that) — this just returns every match, nationwide, same as searchDistrito.
+export function searchDistritoByPrefix(text: string): DistritoAiCandidate[] {
+  const key = normalizeText(text);
+  if (!key) return [];
+  return DISTRITOS.filter((row) => normalizeText(row.distrito).startsWith(key));
+}

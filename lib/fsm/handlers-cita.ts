@@ -1,6 +1,6 @@
 import { isValidDniFormat, isValidOtpFormat, normalizeText } from "./domain";
 import { buildResult, cloneSession, query, readReply, sendText, sendList, sendCtaUrl } from "./handlers-shared";
-import { searchDistrito } from "./ubigeo-data";
+import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "./types";
 
 const MAX_REGISTRATION_CHECKS = 3;
@@ -241,16 +241,8 @@ function handleAwaitingDistritoAi(session: Session, event: InboundEvent): Handle
   const contextText = distritoText === rawText ? initialMessageText : undefined;
 
   // Fast, free, deterministic first attempt against the real INEI dataset
-  // (lib/fsm/ubigeo-data.ts) before ever spending an AI call. Tries the
-  // direct reply first, then the opening-message context if that alone
-  // didn't match anything (covers the same "sí, en ese" case the
-  // affirmative-reply swap above already covers for the AI path).
-  const localCandidates =
-    searchDistrito(distritoText).length > 0
-      ? searchDistrito(distritoText)
-      : contextText
-        ? searchDistrito(contextText)
-        : [];
+  // (lib/fsm/ubigeo-data.ts) before ever spending an AI call.
+  const localCandidates = resolveLocalDistritoCandidates(distritoText, contextText);
 
   if (localCandidates.length > 0) {
     return resolveDistritoCandidates(session, localCandidates);
@@ -292,6 +284,35 @@ function filterToPilotScope(
   return candidates.filter(
     (candidate) => normalizeText(candidate.departamento) === PILOT_DEPARTAMENTO,
   );
+}
+
+// Tries increasingly loose local strategies — exact match, then prefix
+// match — against both the direct reply and the opening-message context,
+// evaluating each attempt ALREADY FILTERED TO LIMA before deciding whether
+// it "found" something. This matters because an exact match can succeed
+// nationally but fail the pilot's scope: "San Juan" is itself an official
+// district name in four other regions (none in Lima), so a raw exact match
+// finds those and would wrongly conclude "not in Lima" — without this,
+// searchDistritoByPrefix never gets a chance to find "San Juan de
+// Lurigancho"/"San Juan de Miraflores", which are real Lima districts that
+// merely aren't an exact match for "San Juan".
+function resolveLocalDistritoCandidates(
+  distritoText: string,
+  contextText: string | undefined,
+): DistritoAiCandidateResult[] {
+  const attempts = [
+    () => searchDistrito(distritoText),
+    () => (contextText ? searchDistrito(contextText) : []),
+    () => searchDistritoByPrefix(distritoText),
+    () => (contextText ? searchDistritoByPrefix(contextText) : []),
+  ];
+
+  for (const attempt of attempts) {
+    const filtered = filterToPilotScope(attempt());
+    if (filtered.length > 0) return filtered;
+  }
+
+  return [];
 }
 
 function resolveDistritoCandidates(
