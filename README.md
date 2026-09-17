@@ -62,4 +62,5 @@ See `.env.example`:
 
 - The webhook route (`app/webhook/whatsapp/route.ts`) runs on the Node.js runtime (not Edge) because signature verification needs Node's `crypto` module. The path is fixed at `/webhook/whatsapp` to match the callback URL already registered in Meta for Developers.
 - The 24-hour customer service window (required before sending free-text messages) is computed from the conversation's **last inbound message**, not overall conversation activity.
+- This WABA's contacts use Meta's **Business-Scoped User ID (BSUID)** scheme (rolled out April–July 2026), not classic phone-number identifiers. Webhook payloads carry `user_id`/`from_user_id` instead of `wa_id`/`from`, and outbound sends must use `recipient` (with `recipient_type: "individual"`) instead of `to` — using `to` is silently accepted by the Graph API but never actually delivers. `Conversation.phoneNumber` is populated only if Meta ever includes the legacy fields as a fallback.
 - No authentication/login and no automated tests are included — out of scope for this MVP.
