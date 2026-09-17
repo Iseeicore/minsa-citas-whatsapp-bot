@@ -69,7 +69,21 @@ export default function Sandbox({
   onBack?: () => void;
   showDebugPanel?: boolean;
 }) {
-  const [from] = useState<string | null>(() => getOrCreateFrom());
+  // Starts null on both the server and the client's first hydration pass —
+  // reading localStorage there would already diverge from the server (which
+  // always sees `from` as null), causing exactly the hydration mismatch
+  // this component used to trigger once actually server-rendered (e.g. on
+  // /sandbox, unlike before when it was only ever mounted post-hydration
+  // behind a client-only mode toggle). The real value is resolved in an
+  // effect instead, which only ever runs after hydration completes.
+  const [from, setFrom] = useState<string | null>(null);
+  useEffect(() => {
+    // One-shot bootstrap of a value only resolvable in the browser
+    // (localStorage) — not a live external subscription to sync against,
+    // so the usual "don't setState in an effect" guidance doesn't apply.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFrom(getOrCreateFrom());
+  }, []);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
