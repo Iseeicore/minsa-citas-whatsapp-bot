@@ -2,35 +2,37 @@
   "name": "minsa-citas-whatsapp-bot",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "worker": "node dist/worker.js",
-    "worker:dev": "tsx watch src/worker.ts",
-    "check:google-ai": "tsx src/scripts/check-google-ai-connection.ts",
-    "test": "vitest run",
-    "postinstall": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy"
+    "dev": "next dev",
+    "build": "prisma migrate deploy && next build",
+    "start": "next start",
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@fastify/cors": "^11.3.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^6.19.3",
     "@prisma/client": "^6.19.3",
-    "bullmq": "^5.34.0",
-    "dotenv": "^16.4.5",
-    "fastify": "^5.1.0",
-    "ioredis": "^5.4.1",
-    "pino": "^10.3.1"
+    "next": "16.3.5",
+    "prisma": "^6.19.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^22.9.0",
-    "prisma": "^6.19.3",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "vitest": "^5.0.0"
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.12.2": true,
+    "@prisma/client@6.19.3": true,
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true
   }
 }
