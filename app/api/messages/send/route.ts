@@ -81,13 +81,7 @@ export async function POST(request: NextRequest) {
   const graphBody = await graphResponse.json();
 
   if (!graphResponse.ok) {
-    return NextResponse.json(
-      // TEMPORARY: echoing Meta's raw response for diagnosis via browser
-      // DevTools, since server logs aren't surfacing it reliably. Remove
-      // once delivery is confirmed working.
-      { _debugGraphStatus: graphResponse.status, ...graphBody },
-      { status: graphResponse.status },
-    );
+    return NextResponse.json(graphBody, { status: graphResponse.status });
   }
 
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
@@ -111,7 +105,5 @@ export async function POST(request: NextRequest) {
     }),
   ]);
 
-  // TEMPORARY: _debugGraphResponse echoes Meta's raw success response for
-  // diagnosis via browser DevTools. Remove once delivery is confirmed working.
-  return NextResponse.json({ ...message, _debugGraphResponse: graphBody }, { status: 201 });
+  return NextResponse.json(message, { status: 201 });
 }
