@@ -64,3 +64,20 @@ See `.env.example`:
 - The 24-hour customer service window (required before sending free-text messages) is computed from the conversation's **last inbound message**, not overall conversation activity.
 - This WABA's contacts use Meta's **Business-Scoped User ID (BSUID)** scheme (rolled out April–July 2026), not classic phone-number identifiers. Webhook payloads carry `user_id`/`from_user_id` instead of `wa_id`/`from`, and outbound sends must use `recipient` (with `recipient_type: "individual"`) instead of `to` — using `to` is silently accepted by the Graph API but never actually delivers. `Conversation.phoneNumber` is populated only if Meta ever includes the legacy fields as a fallback.
 - No authentication/login and no automated tests are included — out of scope for this MVP.
+
+## Sandbox (Cita / Reclamo flow tester)
+
+Alongside the real chat inbox, `/` has a **Sandbox** tab: a simulated conversation tester for the two citizen-facing flows — scheduling a medical appointment ("Cita") and filing a complaint ("Reclamo") — driven by typing messages directly, no real WhatsApp needed. It runs its own small flat state machine (`lib/fsm/`) with a dedicated `SandboxSession` table (separate from `Conversation`/`Message`) and never touches the real chat.
+
+It's **gated off by default** (`SANDBOX_ENABLED=false`) because this app has no authentication of its own — anyone hitting the public URL would otherwise see it.
+
+Env vars (see `.env.example`):
+
+- `SANDBOX_ENABLED` — must be `"true"` for `/api/sandbox` to respond (404 otherwise).
+- `SANDBOX_USE_REAL_MINSA` — `"true"` calls the real MINSA APIs (identity + catalog/booking) and the real quejas API; `"false"` (default) uses hardcoded fake data (DNI `12345678`, OTP `1234`, distrito `lurigancho`).
+- `SANDBOX_USE_REAL_RENIEC` — same toggle for the RENIEC lookup used by the Reclamo flow.
+- `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_CONVERSATION_ID_PLACEHOLDER` — only needed when `SANDBOX_USE_REAL_MINSA=true`.
+- `RENIEC_LOOKUP_BASE_URL` — only needed when `SANDBOX_USE_REAL_RENIEC=true`.
+- `QUEJAS_API_BASE_URL` — the quejas API base URL (reused for both real and — with the flag off — skipped fake submission).
+
+With everything left at its default (`false`), the Sandbox runs entirely offline against fixed test data.

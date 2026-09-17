@@ -1,0 +1,87 @@
+export type SlotValue = string | number | boolean | null;
+
+export type Session = {
+  state: string;
+  slots: Record<string, SlotValue>;
+  counters: Record<string, number>;
+};
+
+export type InboundEventType = "text" | "button" | "list" | "image";
+
+export type InboundEvent = {
+  from: string;
+  type: InboundEventType;
+  text?: string;
+  listId?: string;
+  mediaId?: string;
+};
+
+// Synthesized by lib/fsm/executor.ts after resolving a QueryEffect, and fed
+// back into handle() as its second-pass event — this is the "evento
+// sintético X_result" the plan's state tables refer to (e.g.
+// `reniec_lookup_result`, `validate_user_result`).
+export type QueryResultEvent = {
+  from: string;
+  type: "query_result";
+  queryKind: QueryEffectKind;
+  result: unknown;
+};
+
+export type HandleEvent = InboundEvent | QueryResultEvent;
+
+export type SendTextEffect = {
+  kind: "send_text";
+  text: string;
+};
+
+export type ListRow = {
+  id: string;
+  title: string;
+  description?: string;
+};
+
+export type SendInteractiveListEffect = {
+  kind: "send_interactive_list";
+  text: string;
+  rows: ListRow[];
+};
+
+export type ButtonOption = {
+  id: string;
+  title: string;
+};
+
+export type SendButtonsEffect = {
+  kind: "send_buttons";
+  text: string;
+  buttons: ButtonOption[];
+};
+
+export type SendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect;
+
+export type QueryEffectKind =
+  | "reniec_lookup"
+  | "quejas_submit"
+  | "validate_user"
+  | "verify_code"
+  | "search_ubigeo"
+  | "list_especialidades"
+  | "list_establecimientos"
+  | "list_fechas"
+  | "list_horas"
+  | "book_appointment";
+
+export type QueryEffect = {
+  kind: QueryEffectKind;
+  // Plain payload passed to the matching function in minsa.ts/reniec.ts/quejas.ts.
+  // Left untyped-ish (Record<string, unknown>) since each query kind has its own shape.
+  payload: Record<string, unknown>;
+};
+
+export type HandlerOutcome = "continue" | "awaiting_query" | "closed";
+
+export type HandlerResult = {
+  session: Session;
+  effects: (SendEffect | QueryEffect)[];
+  outcome: HandlerOutcome;
+};

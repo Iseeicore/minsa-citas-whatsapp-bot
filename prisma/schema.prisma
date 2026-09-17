@@ -63,3 +63,12 @@ model Message {
 
   @@index([conversationId, timestamp])
 }
+
+model SandboxSession {
+  id        String   @id // synthetic "from" identifying each simulated conversation
+  state     String
+  slots     Json
+  counters  Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
