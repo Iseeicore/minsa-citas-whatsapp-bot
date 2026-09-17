@@ -58,7 +58,7 @@ function getOrCreateFrom(): string | null {
   }
 }
 
-export default function Sandbox() {
+export default function Sandbox({ onBack }: { onBack?: () => void }) {
   const [from] = useState<string | null>(() => getOrCreateFrom());
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [inputText, setInputText] = useState("");
@@ -160,11 +160,21 @@ export default function Sandbox() {
 
   return (
     <div className="grid h-full grid-rows-[1fr_auto] bg-[var(--sb-panel-bg)]">
-      <div className="grid grid-cols-[1fr_260px] overflow-hidden">
+      <div className="grid grid-cols-1 overflow-hidden lg:grid-cols-[1fr_260px]">
         <div className="flex flex-col overflow-hidden">
           <header className="rounded-t-xl bg-gradient-to-r from-[var(--sb-header-from)] to-[var(--sb-header-to)] px-4 pb-3 pt-2 text-white">
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/40" />
             <div className="flex items-center gap-3">
+              {onBack && (
+                <button
+                  type="button"
+                  aria-label="Volver"
+                  onClick={onBack}
+                  className="flex-shrink-0 text-white/80 hover:text-white"
+                >
+                  <BackArrowIcon className="h-5 w-5" />
+                </button>
+              )}
               <div className="relative flex-shrink-0">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-sm font-bold">
                   MD
@@ -377,27 +387,47 @@ function DniCard({
 
 function DebugPanel({ from, session }: { from: string | null; session: SessionSnapshot | null }) {
   return (
-    <div className="overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 text-xs">
+    <div className="hidden overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 text-xs lg:block">
       <h3 className="mb-2 font-semibold text-gray-700">Debug</h3>
       <div className="mb-2">
-        <span className="font-medium">from:</span> {from ?? "…"}
+        <span className="font-medium text-gray-800">from:</span>{" "}
+        <span className="text-gray-600">{from ?? "…"}</span>
       </div>
       <div className="mb-2">
-        <span className="font-medium">state:</span> {session?.state ?? "—"}
+        <span className="font-medium text-gray-800">state:</span>{" "}
+        <span className="text-gray-600">{session?.state ?? "—"}</span>
       </div>
       <div className="mb-2">
-        <div className="font-medium">slots</div>
-        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-[10px]">
+        <div className="font-medium text-gray-800">slots</div>
+        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-[10px] text-gray-600">
           {JSON.stringify(session?.slots ?? {}, null, 2)}
         </pre>
       </div>
       <div>
-        <div className="font-medium">counters</div>
-        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-[10px]">
+        <div className="font-medium text-gray-800">counters</div>
+        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-[10px] text-gray-600">
           {JSON.stringify(session?.counters ?? {}, null, 2)}
         </pre>
       </div>
     </div>
+  );
+}
+
+function BackArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </svg>
   );
 }
 

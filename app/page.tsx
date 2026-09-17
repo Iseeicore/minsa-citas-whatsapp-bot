@@ -11,38 +11,115 @@ type Mode = "real" | "sandbox";
 export default function Home() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [mode, setMode] = useState<Mode>("real");
+  const [mobileShowingDetail, setMobileShowingDetail] = useState(false);
 
   return (
-    <div className="grid h-screen grid-cols-[320px_1fr] bg-gray-100">
-      <aside className="flex h-full flex-col border-r border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-4 py-4">
-          <ModeToggle mode={mode} onChange={setMode} />
-        </div>
-        <ConversationList
-          selectedId={selectedConversation?.id ?? null}
-          onSelect={setSelectedConversation}
-        />
-      </aside>
+    <div className="h-screen bg-gray-100">
+      {/* Desktop (>= lg): two-column sidebar + main, unchanged. */}
+      <div className="hidden h-full grid-cols-[320px_1fr] lg:grid">
+        <aside className="flex h-full flex-col border-r border-gray-200 bg-white">
+          <div className="border-b border-gray-200 px-4 py-4">
+            <ModeToggle mode={mode} onChange={setMode} />
+          </div>
+          <ConversationList
+            selectedId={selectedConversation?.id ?? null}
+            onSelect={setSelectedConversation}
+          />
+        </aside>
 
-      <main className="h-full overflow-hidden">
-        {mode === "real" ? (
-          selectedConversation ? (
-            <ConversationView
-              key={selectedConversation.id}
-              conversationId={selectedConversation.id}
-              profileName={selectedConversation.profileName}
-              waId={selectedConversation.waId}
-            />
+        <main className="h-full overflow-hidden">
+          {mode === "real" ? (
+            selectedConversation ? (
+              <ConversationView
+                key={selectedConversation.id}
+                conversationId={selectedConversation.id}
+                profileName={selectedConversation.profileName}
+                waId={selectedConversation.waId}
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--wa-panel-bg)] text-sm text-gray-500">
+                <ChatPlaceholderIcon />
+                <p>Selecciona una conversación para ver los mensajes.</p>
+              </div>
+            )
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--wa-panel-bg)] text-sm text-gray-500">
-              <ChatPlaceholderIcon />
-              <p>Selecciona una conversación para ver los mensajes.</p>
+            <Sandbox />
+          )}
+        </main>
+      </div>
+
+      {/* Mobile (< lg): single-pane list, tapping an item goes full-screen with a back button. */}
+      <div className="flex h-full flex-col lg:hidden">
+        {!mobileShowingDetail ? (
+          <>
+            <div className="border-b border-gray-200 bg-white px-4 py-4">
+              <ModeToggle mode={mode} onChange={setMode} />
             </div>
-          )
+            <div className="flex-1 overflow-hidden bg-white">
+              {mode === "real" ? (
+                <ConversationList
+                  selectedId={selectedConversation?.id ?? null}
+                  onSelect={(conversation) => {
+                    setSelectedConversation(conversation);
+                    setMobileShowingDetail(true);
+                  }}
+                />
+              ) : (
+                <SandboxListRow onSelect={() => setMobileShowingDetail(true)} />
+              )}
+            </div>
+          </>
         ) : (
-          <Sandbox />
+          <div className="flex-1 overflow-hidden">
+            {mode === "real" ? (
+              selectedConversation ? (
+                <ConversationView
+                  key={selectedConversation.id}
+                  conversationId={selectedConversation.id}
+                  profileName={selectedConversation.profileName}
+                  waId={selectedConversation.waId}
+                  onBack={() => setMobileShowingDetail(false)}
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--wa-panel-bg)] text-sm text-gray-500">
+                  <ChatPlaceholderIcon />
+                  <p>Selecciona una conversación para ver los mensajes.</p>
+                </div>
+              )
+            ) : (
+              <Sandbox onBack={() => setMobileShowingDetail(false)} />
+            )}
+          </div>
         )}
-      </main>
+      </div>
+    </div>
+  );
+}
+
+function SandboxListRow({ onSelect }: { onSelect: () => void }) {
+  return (
+    <div className="flex h-full flex-col overflow-y-auto">
+      <ul>
+        <li>
+          <button
+            type="button"
+            onClick={onSelect}
+            className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+          >
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[var(--sb-header-from)] to-[var(--sb-header-to)] text-sm font-bold text-white">
+              MD
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-gray-900">
+                Asistente MINSA Digital
+              </span>
+              <span className="block truncate text-xs text-gray-500">
+                Toca para iniciar una conversación de prueba
+              </span>
+            </span>
+          </button>
+        </li>
+      </ul>
     </div>
   );
 }

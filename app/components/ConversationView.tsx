@@ -9,10 +9,12 @@ export default function ConversationView({
   conversationId,
   profileName,
   waId,
+  onBack,
 }: {
   conversationId: string;
   profileName?: string | null;
   waId?: string;
+  onBack?: () => void;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [windowOpen, setWindowOpen] = useState(true);
@@ -83,6 +85,16 @@ export default function ConversationView({
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 bg-[var(--wa-header)] px-4 py-2.5 text-white">
+        {onBack && (
+          <button
+            type="button"
+            aria-label="Volver"
+            onClick={onBack}
+            className="flex-shrink-0 text-white/90 hover:text-white"
+          >
+            <BackArrowIcon className="h-5 w-5" />
+          </button>
+        )}
         <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
           <PersonIcon className="h-6 w-6 text-white" />
         </span>
@@ -168,6 +180,24 @@ export default function ConversationView({
         </button>
       </div>
     </div>
+  );
+}
+
+function BackArrowIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </svg>
   );
 }
 
