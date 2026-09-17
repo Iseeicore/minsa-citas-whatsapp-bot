@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
+import { runTurn } from "@/lib/fsm/executor";
+import { saveSession } from "@/lib/fsm/session-store";
+import { sendAndRecordEffect } from "@/lib/whatsapp-send";
+import type { InboundEvent } from "@/lib/fsm/types";
+
+// Sent once, the first time a given waId ever writes to this number — this
+// IS the entire response to first contact, no FSM turn runs for it (see
+// processValue). Uses WhatsApp's own bold syntax (single asterisks), not
+// markdown. The link is plain text in the body (WhatsApp auto-linkifies
+// URLs) rather than a separate cta_url button, because a WhatsApp
+// interactive message can only carry ONE action type — either a link
+// button or reply buttons, never both — and this message also needs the
+// "Seguir aquí" reply button.
+const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (MINSA)* 🇵🇪.
+
+Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *MINSA Digital*: https://minsa-citas-whatsapp-bot.vercel.app/?panel=sandbox
+
+Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.`;
 
 // Signature validation needs Node's `crypto` module, not available on Edge.
 export const runtime = "nodejs";
@@ -56,6 +74,10 @@ type WhatsAppMessage = {
   audio?: { id?: string };
   document?: { id?: string; filename?: string };
   location?: { latitude?: number; longitude?: number };
+  interactive?: {
+    button_reply?: { id: string; title?: string };
+    list_reply?: { id: string; title?: string };
+  };
 };
 
 type WhatsAppStatus = {
@@ -140,6 +162,28 @@ function extractContentAndMedia(message: WhatsAppMessage): {
   }
 }
 
+// Maps a real inbound WhatsApp message to the same InboundEvent shape the
+// Sandbox already drives the FSM with. Returns null for message types the
+// FSM doesn't consume yet (image/audio/document/location) — those are
+// still stored above, just not fed into the bot (real media download for
+// the Reclamo photo step is a follow-up, not built yet; OMITIR still works).
+function toInboundEvent(waId: string, message: WhatsAppMessage): InboundEvent | null {
+  if (message.type === "text") {
+    return { from: waId, type: "text", text: message.text?.body };
+  }
+
+  if (message.type === "interactive") {
+    if (message.interactive?.button_reply) {
+      return { from: waId, type: "button", listId: message.interactive.button_reply.id };
+    }
+    if (message.interactive?.list_reply) {
+      return { from: waId, type: "list", listId: message.interactive.list_reply.id };
+    }
+  }
+
+  return null;
+}
+
 async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
@@ -168,6 +212,15 @@ async function processValue(value: WhatsAppValue) {
       },
     });
 
+    // Checked BEFORE the upsert below so we know whether this exact
+    // waMessageId was already processed — Meta retries webhook deliveries,
+    // and without this the bot's reply (welcome message or a real FSM
+    // turn) would fire a second time for the same inbound message.
+    const alreadyProcessed = await prisma.message.findUnique({
+      where: { waMessageId: message.id },
+      select: { id: true },
+    });
+
     // Meta retries webhook deliveries, so upsert by `waMessageId` keeps
     // duplicate deliveries from creating duplicate rows.
     await prisma.message.upsert({
@@ -183,6 +236,40 @@ async function processValue(value: WhatsAppValue) {
       },
       update: {},
     });
+
+    if (alreadyProcessed) continue;
+
+    const waId = message.from_user_id;
+    const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
+
+    if (!existingSession) {
+      // Brand-new conversation — the welcome message IS the whole response
+      // to first contact. No FSM turn runs for this message; whatever the
+      // citizen wrote is stashed as initialMessageText so the Cita
+      // district-resolution step can still use it later (same mechanism
+      // handleMainMenu already uses for a menu tap that doesn't match).
+      await saveSession(waId, {
+        state: "main_menu",
+        slots: message.text?.body ? { initialMessageText: message.text.body } : {},
+        counters: {},
+      });
+
+      await sendAndRecordEffect(conversation.id, waId, {
+        kind: "send_buttons",
+        text: WELCOME_MESSAGE_TEXT,
+        buttons: [{ id: "seguir_aqui", title: "Seguir aquí" }],
+      });
+
+      continue;
+    }
+
+    const inboundEvent = toInboundEvent(waId, message);
+    if (!inboundEvent) continue;
+
+    const { sent } = await runTurn(waId, inboundEvent);
+    for (const effect of sent) {
+      await sendAndRecordEffect(conversation.id, waId, effect);
+    }
   }
 
   for (const status of value.statuses ?? []) {

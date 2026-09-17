@@ -8,9 +8,20 @@ import type { Conversation } from "./components/types";
 
 type Mode = "real" | "sandbox";
 
+// Reading window.location during SSR would throw — same lazy-initializer
+// trick used elsewhere in this app (see Sandbox.tsx's getOrCreateFrom) to
+// stay static-render-safe instead of pulling in useSearchParams (which
+// would force this page out of static prerendering).
+function initialModeFromQuery(): Mode {
+  if (typeof window === "undefined") return "real";
+  return new URLSearchParams(window.location.search).get("panel") === "sandbox"
+    ? "sandbox"
+    : "real";
+}
+
 export default function Home() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [mode, setMode] = useState<Mode>("real");
+  const [mode, setMode] = useState<Mode>(initialModeFromQuery);
   const [mobileShowingDetail, setMobileShowingDetail] = useState(false);
 
   return (
