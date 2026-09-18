@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
@@ -335,19 +335,27 @@ export async function POST(request: NextRequest) {
 
   const payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;
 
-  for (const entry of payload.entry ?? []) {
-    try {
-      for (const change of entry.changes ?? []) {
-        if (change.value) {
-          await processValue(change.value);
+  // Meta expects an HTTP response within a few seconds or it considers the
+  // delivery failed and retries the identical payload later (with
+  // exponential backoff, for up to 7 days) — a full FSM turn (typing
+  // indicators, MINSA/RENIEC/Gemini calls) routinely takes longer than that.
+  // `after()` lets us acknowledge Meta immediately while the real
+  // processing keeps running in the background of this same invocation
+  // (bounded by maxDuration above), instead of a queue/worker we've
+  // deliberately avoided elsewhere in this project.
+  after(async () => {
+    for (const entry of payload.entry ?? []) {
+      try {
+        for (const change of entry.changes ?? []) {
+          if (change.value) {
+            await processValue(change.value);
+          }
         }
+      } catch (error) {
+        console.error("Failed to process webhook entry", error);
       }
-    } catch (error) {
-      // Meta expects 200 even on partial failures, or it may disable the
-      // webhook after repeated failures. Log and keep processing other entries.
-      console.error("Failed to process webhook entry", error);
     }
-  }
+  });
 
   return NextResponse.json({ received: true }, { status: 200 });
 }
