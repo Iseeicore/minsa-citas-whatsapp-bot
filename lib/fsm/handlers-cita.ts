@@ -15,6 +15,10 @@ import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEven
 
 const MAX_REGISTRATION_CHECKS = 3;
 const MAX_OTP_ATTEMPTS = 3;
+const MINSADIGITAL_REGISTRATION_URL = "https://dminsadigital.minsa.gob.pe/login";
+const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL"; // ≤20 chars, cta_url's display_text cap
+const REGISTRATION_RETRY_BUTTON_ID = "cita_registration_retry";
+const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -113,17 +117,26 @@ function handleValidatePending(session: Session, event: QueryResultEvent): Handl
 
   next.state = "cita_registration_wait";
   return buildResult(next, [
-    sendText(
-      "Todavía no encontramos tu registro. Este proceso puede tardar unos minutos — escribe CONFIRMAR para intentar de nuevo.",
+    sendCtaUrl(
+      "Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos.",
+      MINSADIGITAL_BUTTON_TEXT,
+      MINSADIGITAL_REGISTRATION_URL,
     ),
+    sendButtons("Cuando termines, toca el botón para que volvamos a intentarlo.", [
+      { id: REGISTRATION_RETRY_BUTTON_ID, title: REGISTRATION_RETRY_BUTTON_TEXT },
+    ]),
   ]);
 }
 
 function handleRegistrationWait(session: Session, event: InboundEvent): HandlerResult {
-  const isConfirm = (event.text ?? "").trim().toUpperCase() === "CONFIRMAR";
+  const isRetry = readReply(event) === REGISTRATION_RETRY_BUTTON_ID;
 
-  if (!isConfirm) {
-    return buildResult(session, [sendText("Escribe CONFIRMAR cuando quieras que volvamos a intentar.")]);
+  if (!isRetry) {
+    return buildResult(session, [
+      sendButtons("Toca el botón para que volvamos a intentarlo.", [
+        { id: REGISTRATION_RETRY_BUTTON_ID, title: REGISTRATION_RETRY_BUTTON_TEXT },
+      ]),
+    ]);
   }
 
   const next = cloneSession(session);
@@ -555,6 +568,25 @@ type EspecialidadResultItem = {
   cantidadCupos: number;
 };
 
+// Deterministic match against the REAL especialidad list — never a second
+// AI call. Only auto-selects when exactly one item matches the hint the
+// citizen already typed in their opening message (analyzed by
+// analyzeMainMenuIntent in lib/fsm/ai.ts); an ambiguous or absent match
+// falls through to the normal always-manual list below, same as if there
+// were no hint at all.
+function matchEspecialidadHint(
+  hint: string,
+  items: EspecialidadResultItem[],
+): EspecialidadResultItem | undefined {
+  const hintTokens = normalizeText(hint);
+  const matches = items.filter(
+    (item) =>
+      normalizeText(item.nombreEspecialidad).includes(hintTokens) ||
+      hintTokens.includes(normalizeText(item.nombreEspecialidad)),
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 function handleEspecialidadPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EspecialidadResultItem[] };
   const next = cloneSession(session);
@@ -568,10 +600,32 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
     ]);
   }
 
-  // Unlike the other catalog steps, especialidad is never auto-selected —
-  // the citizen must always tap it themselves from the list, even when
-  // there's only one option. Explicit product decision, not an oversight.
   if (result.status === "found" && result.items && result.items.length > 0) {
+    // Auto-select ONLY when the citizen already told us the specialty in
+    // free text before ever reaching the menu (see handlers.ts's
+    // main_menu_intent_pending) and it unambiguously matches one of the
+    // real options — asking them to tap it again would be a repeated step.
+    // Coming from the normal "Agendar cita" menu tap (no hint), this is
+    // skipped entirely and the list always shows, per the existing rule.
+    const hint = next.slots.citaEspecialidadHintText as string | undefined;
+    const matched = hint ? matchEspecialidadHint(hint, result.items) : undefined;
+
+    if (matched) {
+      delete next.slots.citaEspecialidadHintText;
+      next.slots.citaEspecialidadId = matched.codigoEspecialidad;
+      next.state = "cita_establecimiento_pending";
+      return buildResult(next, [
+        sendText(`Especialidad detectada: ${matched.nombreEspecialidad}. Buscando establecimientos…`),
+        query("list_establecimientos", {
+          especialidadId: matched.codigoEspecialidad,
+          ubigeo: String(next.slots.citaUbigeo ?? ""),
+        }),
+      ]);
+    }
+
+    // Unlike the other catalog steps, especialidad is never auto-selected —
+    // the citizen must always tap it themselves from the list, even when
+    // there's only one option. Explicit product decision, not an oversight.
     next.state = "cita_awaiting_especialidad_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.codigoEspecialidad,

@@ -1,4 +1,4 @@
-import { resolveDistritoAi } from "./ai";
+import { analyzeMainMenuIntent, resolveDistritoAi } from "./ai";
 import { handle } from "./handlers";
 import { isQueryEffect } from "./handlers-shared";
 import {
@@ -95,6 +95,9 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
 
     case "verify_code":
       return verifyCode(String(effect.payload.twofaId ?? ""), String(effect.payload.code ?? ""));
+
+    case "analyze_main_menu_intent":
+      return analyzeMainMenuIntent(String(effect.payload.text ?? ""));
 
     case "resolve_distrito_ai":
       return resolveDistritoAi(

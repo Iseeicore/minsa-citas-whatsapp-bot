@@ -1,8 +1,8 @@
 import { handleCita } from "./handlers-cita";
 import { handleReclamo } from "./handlers-reclamo";
-import { buildResult, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
+import { buildResult, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
 import { buildWelcomeEffect } from "./welcome";
-import type { HandleEvent, HandlerResult, InboundEvent, Session } from "./types";
+import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "./types";
 
 const MENU_ROWS = [
   { id: "agendar_cita", title: "Agendar una cita médica" },
@@ -69,6 +69,19 @@ function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
       !session.slots.initialMessageText && event.text
         ? { initialMessageText: event.text }
         : session.slots;
+
+    // Before just re-showing the menu, see if this free text already
+    // expresses a clear intent to book an appointment (e.g. "quiero una
+    // cita de odontología") — if so, skip the menu entirely instead of
+    // making them tap something they already told us in words.
+    if (event.text) {
+      const next: Session = { state: "main_menu_intent_pending", slots: preservedSlots, counters: {} };
+      return buildResult(next, [
+        sendText("Un momento, estamos revisando tu mensaje…"),
+        query("analyze_main_menu_intent", { text: event.text }),
+      ]);
+    }
+
     return enterMainMenu(preservedSlots);
   }
 
@@ -80,6 +93,27 @@ function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
   return handleAwaitingFlowStart(next);
 }
 
+function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { intent?: string; especialidad?: string };
+
+  if (result.intent === "cita") {
+    const next: Session = {
+      state: "cita_awaiting_dni",
+      slots: result.especialidad
+        ? { ...session.slots, citaEspecialidadHintText: result.especialidad }
+        : session.slots,
+      counters: {},
+    };
+    return buildResult(next, [
+      sendText(
+        "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).",
+      ),
+    ]);
+  }
+
+  return enterMainMenu(session.slots);
+}
+
 export function handle(session: Session, event: HandleEvent): HandlerResult {
   if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
     return enterMainMenuAfterTerminal();
@@ -87,6 +121,10 @@ export function handle(session: Session, event: HandleEvent): HandlerResult {
 
   if (session.state === "main_menu") {
     return handleMainMenu(session, event as InboundEvent);
+  }
+
+  if (session.state === "main_menu_intent_pending") {
+    return handleMainMenuIntentPending(session, event as QueryResultEvent);
   }
 
   if (session.state === "awaiting_flow_start") {

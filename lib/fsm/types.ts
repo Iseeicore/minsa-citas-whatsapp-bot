@@ -85,6 +85,7 @@ export type QueryEffectKind =
   | "quejas_submit"
   | "validate_user"
   | "verify_code"
+  | "analyze_main_menu_intent"
   | "resolve_distrito_ai"
   | "search_ubigeo"
   | "list_especialidades"
