@@ -436,6 +436,35 @@ function filterToPilotScope(
 // searchDistritoByPrefix never gets a chance to find "San Juan de
 // Lurigancho"/"San Juan de Miraflores", which are real Lima districts that
 // merely aren't an exact match for "San Juan".
+// A district mentioned inside a full sentence ("Quiero una cita en San
+// juan") isn't itself an exact match, and isn't a PREFIX of any district
+// name either — the sentence's leading words ("Quiero una cita en ")
+// aren't part of any real district name, so searchDistritoByPrefix(full
+// sentence) never matches even though the sentence clearly names one at
+// the end. Unlike the opening free-text message (cleaned by
+// analyzeMainMenuIntent into a bare place name before it ever reaches
+// here — see handleMainMenuIntentPending), a DIRECT reply to "¿en qué
+// distrito buscas atención?" has no such cleanup step, so it leans on the
+// AI fallback for phrasing local matching could resolve for free. This
+// tries progressively shorter trailing word-groups ("una cita en San
+// juan" -> "cita en San juan" -> ... -> "San juan") as exact/prefix keys,
+// so the same deterministic dataset match that already works for a bare
+// district name also works when it's the tail end of a sentence.
+function trailingWordGroupAttempts(text: string): Array<() => DistritoAiCandidateResult[]> {
+  const words = normalizeText(text).split(" ").filter(Boolean);
+  const attempts: Array<() => DistritoAiCandidateResult[]> = [];
+
+  // start=0 (the whole text) is already covered by resolveLocalDistritoCandidates's
+  // own first two attempts, so this only adds shorter tails.
+  for (let start = 1; start < words.length; start++) {
+    const tail = words.slice(start).join(" ");
+    attempts.push(() => searchDistrito(tail));
+    attempts.push(() => searchDistritoByPrefix(tail));
+  }
+
+  return attempts;
+}
+
 function resolveLocalDistritoCandidates(
   distritoText: string,
   contextText: string | undefined,
@@ -445,6 +474,8 @@ function resolveLocalDistritoCandidates(
     () => (contextText ? searchDistrito(contextText) : []),
     () => searchDistritoByPrefix(distritoText),
     () => (contextText ? searchDistritoByPrefix(contextText) : []),
+    ...trailingWordGroupAttempts(distritoText),
+    ...(contextText ? trailingWordGroupAttempts(contextText) : []),
   ];
 
   for (const attempt of attempts) {
