@@ -1,3 +1,5 @@
+import { normalizeText } from "./domain";
+
 // AI-assisted district resolution for the Cita flow's ubigeo entry point —
 // same flat real/fake branching style as minsa.ts/reniec.ts, gated on
 // SANDBOX_USE_REAL_AI (default false/fake).
@@ -213,9 +215,9 @@ Eres un asistente técnico que analiza UN mensaje libre escrito por un ciudadano
 
 ## 2. TAREA
 Analiza el mensaje y determiná:
-- Si el ciudadano claramente quiere AGENDAR UNA CITA MÉDICA, devolvé "intent": "cita".
-- En cualquier otro caso (quiere registrar un reclamo, un saludo, una pregunta ajena, un mensaje ambiguo, o no queda claro), devolvé "intent": "unclear". Ante la duda, "unclear" — nunca asumas intención de cita si no es clara.
-- Si detectás "cita" Y el mensaje menciona una especialidad médica (ej. "odontología", "medicina general", "pediatría", "ginecología"), devolvé el nombre tal como debería llamarse esa especialidad en "especialidad". Si no menciona ninguna, omití ese campo. Nunca inventes una especialidad que el mensaje no sugiere.
+- Si el ciudadano quiere AGENDAR UNA CITA / ATENCIÓN MÉDICA, devolvé "intent": "cita". Esto incluye cualquier forma natural de pedirlo, no solo la palabra literal "cita" — por ejemplo "quiero una atención", "necesito un turno", "quiero que me atiendan", "necesito ver a un médico/especialista", "quiero una consulta de [especialidad]", etc. No exijas la palabra exacta "cita" para reconocer la intención.
+- En cualquier otro caso (quiere registrar un reclamo, un saludo sin más, una pregunta ajena a salud, o un mensaje realmente ambiguo sin ninguna mención de atención médica), devolvé "intent": "unclear".
+- Si detectás intención de cita Y el mensaje menciona una especialidad médica (aunque esté en otra forma gramatical, ej. "pediátrico" → "Pediatría", "odontológico" → "Odontología", "de la vista" → "Oftalmología"), devolvé el nombre CORRECTO y completo de esa especialidad en "especialidad" — normalizá siempre al nombre oficial de la especialidad, nunca copies literalmente el adjetivo o la forma que usó el ciudadano. Si no menciona ninguna, omití ese campo. Nunca inventes una especialidad que el mensaje no sugiere ni corrijas hacia una especialidad no mencionada.
 - No intentes identificar ni validar distritos, establecimientos o clínicas — eso lo maneja otro proceso.
 
 ## 3. ALCANCE ESTRICTO
@@ -253,14 +255,21 @@ const MAIN_MENU_INTENT_RESPONSE_SCHEMA = {
 
 // Small keyword dictionary for the Sandbox (SANDBOX_USE_REAL_AI !== "true")
 // — same purpose as FAKE_DISTRITO_CANDIDATES: demo the fallback behavior
-// without spending real API quota.
+// without spending real API quota. Keys are matched against normalizeText'd
+// input (no accents, uppercase), so accented forms like "pediátrico" still
+// hit "PEDIATR" below.
 const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
-  odontolog: "Odontología",
-  odontologia: "Odontología",
-  "medicina general": "Medicina General",
-  pediatr: "Pediatría",
-  ginecolog: "Ginecología",
+  ODONTOLOG: "Odontología",
+  "MEDICINA GENERAL": "Medicina General",
+  PEDIATR: "Pediatría",
+  GINECOLOG: "Ginecología",
 };
+
+// Real citizens ask for an appointment in many ways without ever typing the
+// literal word "cita" — requiring that exact word (the original bug here)
+// meant a message like "quiero una atención de pediátrico" was never even
+// considered, regardless of how clearly it expressed the same intent.
+const FAKE_CITA_INTENT_KEYWORDS = ["CITA", "ATENCION", "CONSULTA", "TURNO", "MEDICO", "ATIENDAN"];
 
 export async function analyzeMainMenuIntent(text: string): Promise<MainMenuIntentResult> {
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
@@ -311,11 +320,12 @@ export async function analyzeMainMenuIntent(text: string): Promise<MainMenuInten
     }
   }
 
-  const lower = text.toLowerCase();
-  if (!lower.includes("cita")) return { intent: "unclear" };
+  const normalized = normalizeText(text);
+  const looksLikeCita = FAKE_CITA_INTENT_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  if (!looksLikeCita) return { intent: "unclear" };
 
   for (const [keyword, especialidad] of Object.entries(FAKE_ESPECIALIDAD_KEYWORDS)) {
-    if (lower.includes(keyword)) {
+    if (normalized.includes(keyword)) {
       return { intent: "cita", especialidad };
     }
   }
