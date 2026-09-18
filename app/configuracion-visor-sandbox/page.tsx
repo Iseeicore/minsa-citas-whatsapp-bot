@@ -25,7 +25,7 @@ export default function Home() {
   const [mobileShowingDetail, setMobileShowingDetail] = useState(false);
 
   return (
-    <div className="h-screen bg-gray-100">
+    <div className="h-dvh bg-gray-100">
       {/* Desktop (>= lg): two-column sidebar + main, unchanged. */}
       <div className="hidden h-full grid-cols-[320px_1fr] lg:grid">
         <aside className="flex h-full flex-col border-r border-gray-200 bg-white">

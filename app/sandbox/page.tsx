@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function SandboxPage() {
   return (
-    <div className="h-screen bg-gray-100">
+    <div className="h-dvh bg-gray-100">
       <Sandbox showDebugPanel={false} />
     </div>
   );
