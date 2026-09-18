@@ -101,6 +101,16 @@ const FAKE_DISTRITO_CANDIDATES: Record<string, DistritoAiCandidate[]> = {
     { departamento: "Lima", provincia: "Lima", distrito: "Miraflores" },
     { departamento: "Arequipa", provincia: "Arequipa", distrito: "Miraflores" },
   ],
+  // Real ambiguous case (4 official districts named "San Juan de ..."),
+  // matching data/peru-distritos.json exactly — the Sandbox should demo the
+  // same disambiguation list the real webhook gets from Gemini for this,
+  // not fall through to the "only available in Lima" dead end.
+  "san juan": [
+    { departamento: "Lima", provincia: "Lima", distrito: "San Juan de Lurigancho" },
+    { departamento: "Lima", provincia: "Lima", distrito: "San Juan de Miraflores" },
+    { departamento: "Lima", provincia: "Huarochirí", distrito: "San Juan de Iris" },
+    { departamento: "Lima", provincia: "Huarochirí", distrito: "San Juan de Tantaranche" },
+  ],
 };
 
 function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
