@@ -24,7 +24,8 @@ export type UbigeoItem = {
 export type SearchUbigeoResult =
   | { status: "found"; items: UbigeoItem[] }
   | { status: "empty" }
-  | { status: "error" };
+  | { status: "error" }
+  | { status: "unauthorized" };
 
 export type EspecialidadItem = {
   codigoEspecialidad: string;
@@ -35,7 +36,8 @@ export type EspecialidadItem = {
 export type ListEspecialidadesResult =
   | { status: "found"; items: EspecialidadItem[] }
   | { status: "empty" }
-  | { status: "error" };
+  | { status: "error" }
+  | { status: "unauthorized" };
 
 export type EstablecimientoItem = {
   renipressCode: string;
@@ -46,7 +48,8 @@ export type EstablecimientoItem = {
 export type ListEstablecimientosResult =
   | { status: "found"; items: EstablecimientoItem[] }
   | { status: "empty" }
-  | { status: "error" };
+  | { status: "error" }
+  | { status: "unauthorized" };
 
 export type FechaItem = {
   fechaCupo: string;
@@ -56,7 +59,8 @@ export type FechaItem = {
 export type ListFechasResult =
   | { status: "found"; items: FechaItem[] }
   | { status: "empty" }
-  | { status: "error" };
+  | { status: "error" }
+  | { status: "unauthorized" };
 
 export type HoraItem = {
   horaInicio: string;
@@ -67,7 +71,8 @@ export type HoraItem = {
 export type ListHorasResult =
   | { status: "found"; items: HoraItem[] }
   | { status: "empty" }
-  | { status: "error" };
+  | { status: "error" }
+  | { status: "unauthorized" };
 
 export type BookAppointmentParams = {
   codigoRenipress: string;
@@ -81,7 +86,8 @@ export type BookAppointmentResult =
   | { status: "booked"; url: string; message: string }
   | { status: "duplicate"; message: string }
   | { status: "rejected"; message: string }
-  | { status: "error" };
+  | { status: "error" }
+  | { status: "unauthorized" };
 
 // ---- Fake catalog (used when SANDBOX_USE_REAL_MINSA !== "true") -------
 
@@ -272,6 +278,7 @@ export async function searchUbigeo(
       { departamento, provincia, distrito, limite: 5 },
       bearer,
     );
+    if (response.status === 401) return { status: "unauthorized" };
     if (!response.ok) return { status: "error" };
 
     const body = await response.json();
@@ -299,6 +306,7 @@ export async function listEspecialidades(
       { ubigeo, fecha_inicio: todayYYYYMMDD(), fecha_fin: endOfMonthYYYYMMDD() },
       bearer,
     );
+    if (response.status === 401) return { status: "unauthorized" };
     if (!response.ok) return { status: "error" };
 
     const body = await response.json();
@@ -327,6 +335,7 @@ export async function listEstablecimientos(
       { especialidad_id: especialidadId, ubigeo, page: 1, page_size: 10 },
       bearer,
     );
+    if (response.status === 401) return { status: "unauthorized" };
     if (!response.ok) return { status: "error" };
 
     const body = await response.json();
@@ -355,6 +364,7 @@ export async function listFechas(
       { cod_eess: codEess, especialidad_id: especialidadId },
       bearer,
     );
+    if (response.status === 401) return { status: "unauthorized" };
     if (!response.ok) return { status: "error" };
 
     const body = await response.json();
@@ -381,6 +391,7 @@ export async function listHoras(
       { cod_eess: codEess, especialidad_id: especialidadId, fecha },
       bearer,
     );
+    if (response.status === 401) return { status: "unauthorized" };
     if (!response.ok) return { status: "error" };
 
     const body = await response.json();
@@ -412,6 +423,7 @@ export async function bookAppointment(
       },
       bearer,
     );
+    if (response.status === 401) return { status: "unauthorized" };
     if (!response.ok) return { status: "error" };
 
     const body = await response.json();

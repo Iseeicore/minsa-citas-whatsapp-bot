@@ -179,6 +179,15 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
     next.slots.citaDni = dni ?? null;
     next.state = "cita_awaiting_distrito_ai";
 
+    // Re-verifying after an expired token mid-flow (see
+    // beginReverification below) takes priority over the district hint —
+    // by this point we're well past the district step, already resolved.
+    const resumeState = next.slots.citaResumeState as string | undefined;
+    if (resumeState) {
+      delete next.slots.citaResumeState;
+      return resumeAfterReverification(next, resumeState);
+    }
+
     // If the citizen already named a place in their opening free-text
     // message (see handlers.ts's main_menu_intent_pending), search it right
     // away instead of asking the generic question again — they already told
@@ -212,6 +221,85 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
   return buildResult(next, [
     sendText(`Código incorrecto. Te quedan ${MAX_OTP_ATTEMPTS - attempts} intento(s).`),
   ]);
+}
+
+// ---- Token-expiry recovery ------------------------------------------------
+// MINSA's bearer token only lasts about 30 minutes. If a citizen pauses
+// mid-flow (deciding on a specialty, a date, etc.) and comes back later, the
+// next catalog/booking call fails with a 401 — surfaced as
+// result.status === "unauthorized" by lib/fsm/minsa.ts. Treating that like
+// any other API error would end the whole booking and discard everything
+// already chosen (district, especialidad, establecimiento…). Instead, this
+// asks the citizen to verify again WITHOUT losing that progress, then
+// resumes exactly at the step that failed once they do.
+
+function beginReverification(session: Session, resumeState: string): HandlerResult {
+  const next = cloneSession(session);
+  next.slots.citaResumeState = resumeState;
+  delete next.slots.citaBearer;
+  next.state = "cita_awaiting_dni";
+  return buildResult(next, [
+    sendText(
+      "Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu DNI (8 dígitos) para continuar justo donde quedaste.",
+    ),
+  ]);
+}
+
+// Re-fires the exact query the citizen was waiting on when their token
+// expired, using whatever's already stored in slots — never re-asks a
+// question they already answered. book_appointment resumes one step
+// earlier (re-listing horarios) instead of resubmitting a possibly-stale
+// hora selection, since real time passed and that slot might be gone.
+function resumeAfterReverification(session: Session, resumeState: string): HandlerResult {
+  const next = cloneSession(session);
+  next.state = resumeState;
+
+  switch (resumeState) {
+    case "cita_ubigeo_pending":
+      return buildResult(next, [
+        sendText("¡Listo! Continuemos con tu cita. Buscando tu ubigeo…"),
+        query("search_ubigeo", {
+          departamento: String(next.slots.citaDepartamento ?? ""),
+          provincia: String(next.slots.citaProvincia ?? ""),
+          distrito: String(next.slots.citaDistrito ?? ""),
+        }),
+      ]);
+
+    case "cita_especialidad_pending":
+      return buildResult(next, [
+        sendText("¡Listo! Continuemos con tu cita. Buscando especialidades disponibles…"),
+        query("list_especialidades", { ubigeo: String(next.slots.citaUbigeo ?? "") }),
+      ]);
+
+    case "cita_establecimiento_pending":
+      return buildResult(next, [
+        sendText("¡Listo! Continuemos con tu cita. Buscando establecimientos…"),
+        query("list_establecimientos", {
+          especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+          ubigeo: String(next.slots.citaUbigeo ?? ""),
+        }),
+      ]);
+
+    case "cita_fecha_pending":
+      return buildResult(next, [
+        sendText("¡Listo! Continuemos con tu cita. Buscando fechas disponibles…"),
+        query("list_fechas", {
+          codEess: String(next.slots.citaCodEess ?? ""),
+          especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        }),
+      ]);
+
+    case "cita_hora_pending":
+    default:
+      return buildResult(next, [
+        sendText("¡Listo! Continuemos con tu cita. Buscando horarios disponibles…"),
+        query("list_horas", {
+          codEess: String(next.slots.citaCodEess ?? ""),
+          especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+          fecha: String(next.slots.citaFecha ?? ""),
+        }),
+      ]);
+  }
 }
 
 // ---- Ubigeo ------------------------------------------------------------
@@ -523,6 +611,10 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
   const result = event.result as { status: string; items?: UbigeoResultItem[] };
   const next = cloneSession(session);
 
+  if (result.status === "unauthorized") {
+    return beginReverification(next, "cita_ubigeo_pending");
+  }
+
   if (result.status === "error") {
     next.state = "cita_awaiting_departamento";
     return buildResult(next, [
@@ -618,6 +710,10 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
   const result = event.result as { status: string; items?: EspecialidadResultItem[] };
   const next = cloneSession(session);
 
+  if (result.status === "unauthorized") {
+    return beginReverification(next, "cita_especialidad_pending");
+  }
+
   if (result.status === "error") {
     next.state = "cita_booking_rejected";
     return buildResult(next, [
@@ -701,6 +797,10 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
 
+  if (result.status === "unauthorized") {
+    return beginReverification(next, "cita_establecimiento_pending");
+  }
+
   if (result.status === "error") {
     next.state = "cita_booking_rejected";
     return buildResult(next, [
@@ -768,6 +868,10 @@ type FechaResultItem = {
 function handleFechaPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: FechaResultItem[] };
   const next = cloneSession(session);
+
+  if (result.status === "unauthorized") {
+    return beginReverification(next, "cita_fecha_pending");
+  }
 
   if (result.status === "error") {
     next.state = "cita_booking_rejected";
@@ -933,6 +1037,10 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
 function handleHoraPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: HoraResultItem[] };
 
+  if (result.status === "unauthorized") {
+    return beginReverification(session, "cita_hora_pending");
+  }
+
   if (result.status === "error") {
     const next = cloneSession(session);
     next.state = "cita_booking_rejected";
@@ -949,6 +1057,10 @@ function handleHoraPending(session: Session, event: QueryResultEvent): HandlerRe
 
 function handleHoraPagePending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: HoraResultItem[] };
+
+  if (result.status === "unauthorized") {
+    return beginReverification(session, "cita_hora_pending");
+  }
 
   if (result.status === "error") {
     const next = cloneSession(session);
@@ -1005,6 +1117,13 @@ function handleAwaitingHoraSelect(session: Session, event: InboundEvent): Handle
 function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; url?: string; message?: string };
   const next = cloneSession(session);
+
+  if (result.status === "unauthorized") {
+    // Resumes one step earlier (re-listing horarios) rather than
+    // resubmitting the exact same booking blindly — real time passed while
+    // re-verifying, so the previously-picked slot might no longer be free.
+    return beginReverification(next, "cita_hora_pending");
+  }
 
   if (result.status === "booked") {
     next.state = "cita_booked";
