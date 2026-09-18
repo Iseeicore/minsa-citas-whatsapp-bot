@@ -178,6 +178,21 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
     next.slots.citaBearer = result.token;
     next.slots.citaDni = dni ?? null;
     next.state = "cita_awaiting_distrito_ai";
+
+    // If the citizen already named a place in their opening free-text
+    // message (see handlers.ts's main_menu_intent_pending), search it right
+    // away instead of asking the generic question again — they already told
+    // us. Falls back to asking normally when there's no such hint.
+    const distritoHint = next.slots.citaDistritoHintText as string | undefined;
+    if (distritoHint) {
+      delete next.slots.citaDistritoHintText;
+      return resolveDistritoText(
+        next,
+        distritoHint,
+        next.slots.initialMessageText as string | undefined,
+      );
+    }
+
     return buildResult(next, [
       sendText('¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").'),
     ]);
@@ -250,6 +265,31 @@ function truncateForRow(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
+// Shared by handleAwaitingDistritoAi (a real inbound reply) and
+// handleVerifyPending's auto-trigger (a distrito already extracted from the
+// citizen's opening free-text message) — "given this district text (plus
+// optional context), resolve it" is identical either way.
+function resolveDistritoText(
+  session: Session,
+  distritoText: string,
+  contextText: string | undefined,
+): HandlerResult {
+  // Fast, free, deterministic first attempt against the real INEI dataset
+  // (lib/fsm/ubigeo-data.ts) before ever spending an AI call.
+  const localCandidates = resolveLocalDistritoCandidates(distritoText, contextText);
+
+  if (localCandidates.length > 0) {
+    return resolveDistritoCandidates(session, localCandidates);
+  }
+
+  const next = cloneSession(session);
+  next.state = "cita_distrito_ai_pending";
+  return buildResult(next, [
+    sendText(`Buscando tu distrito: "${distritoText}"…`),
+    query("resolve_distrito_ai", { distritoText, contextText }),
+  ]);
+}
+
 function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
   const rawText = (event.text ?? "").trim();
   if (!rawText) {
@@ -265,20 +305,7 @@ function handleAwaitingDistritoAi(session: Session, event: InboundEvent): Handle
     isAffirmativeReply(rawText) && initialMessageText ? initialMessageText : rawText;
   const contextText = distritoText === rawText ? initialMessageText : undefined;
 
-  // Fast, free, deterministic first attempt against the real INEI dataset
-  // (lib/fsm/ubigeo-data.ts) before ever spending an AI call.
-  const localCandidates = resolveLocalDistritoCandidates(distritoText, contextText);
-
-  if (localCandidates.length > 0) {
-    return resolveDistritoCandidates(session, localCandidates);
-  }
-
-  const next = cloneSession(session);
-  next.state = "cita_distrito_ai_pending";
-  return buildResult(next, [
-    sendText("Buscando tu distrito…"),
-    query("resolve_distrito_ai", { distritoText, contextText }),
-  ]);
+  return resolveDistritoText(session, distritoText, contextText);
 }
 
 type DistritoAiCandidateResult = {

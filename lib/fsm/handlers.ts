@@ -94,14 +94,16 @@ function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
 }
 
 function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { intent?: string; especialidad?: string };
+  const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
 
   if (result.intent === "cita") {
     const next: Session = {
       state: "cita_awaiting_dni",
-      slots: result.especialidad
-        ? { ...session.slots, citaEspecialidadHintText: result.especialidad }
-        : session.slots,
+      slots: {
+        ...session.slots,
+        ...(result.especialidad ? { citaEspecialidadHintText: result.especialidad } : {}),
+        ...(result.distrito ? { citaDistritoHintText: result.distrito } : {}),
+      },
       counters: {},
     };
     return buildResult(next, [

@@ -206,6 +206,7 @@ export async function resolveDistritoAi(
 export type MainMenuIntentResult = {
   intent: "cita" | "unclear";
   especialidad?: string;
+  distrito?: string;
 };
 
 const MAIN_MENU_INTENT_SYSTEM_PROMPT = `# SYSTEM PROMPT: Asistente de Detección de Intención — Canal MINSA
@@ -218,7 +219,8 @@ Analiza el mensaje y determiná:
 - Si el ciudadano quiere AGENDAR UNA CITA / ATENCIÓN MÉDICA, devolvé "intent": "cita". Esto incluye cualquier forma natural de pedirlo, no solo la palabra literal "cita" — por ejemplo "quiero una atención", "necesito un turno", "quiero que me atiendan", "necesito ver a un médico/especialista", "quiero una consulta de [especialidad]", etc. No exijas la palabra exacta "cita" para reconocer la intención.
 - En cualquier otro caso (quiere registrar un reclamo, un saludo sin más, una pregunta ajena a salud, o un mensaje realmente ambiguo sin ninguna mención de atención médica), devolvé "intent": "unclear".
 - Si detectás intención de cita Y el mensaje menciona una especialidad médica (aunque esté en otra forma gramatical, ej. "pediátrico" → "Pediatría", "odontológico" → "Odontología", "de la vista" → "Oftalmología"), devolvé el nombre CORRECTO y completo de esa especialidad en "especialidad" — normalizá siempre al nombre oficial de la especialidad, nunca copies literalmente el adjetivo o la forma que usó el ciudadano. Si no menciona ninguna, omití ese campo. Nunca inventes una especialidad que el mensaje no sugiere ni corrijas hacia una especialidad no mencionada.
-- No intentes identificar ni validar distritos, establecimientos o clínicas — eso lo maneja otro proceso.
+- Si detectás intención de cita Y el mensaje menciona un distrito, zona o lugar donde el ciudadano quiere ser atendido (ej. "en San Borja", "cerca de Miraflores", "en la parte de Sen BorjU" con errores de tipeo), devolvé exactamente el texto que el ciudadano usó para nombrar ese lugar en "distrito", corrigiendo solo errores de tipeo evidentes hacia el nombre real más parecido (ej. "Sen BorjU" → "San Borja") — NO valides si es un distrito oficial del Perú ni arme departamento/provincia, eso lo hace otro proceso; tu única tarea acá es extraer y limpiar el texto del lugar mencionado. Si no menciona ningún lugar, omití ese campo.
+- No intentes identificar ni validar establecimientos o clínicas — eso lo maneja otro proceso.
 
 ## 3. ALCANCE ESTRICTO
 Solo analizás intención de agendar cita médica en este canal — no respondas preguntas médicas, no des información de salud, no converses sobre otros temas.
@@ -234,12 +236,14 @@ Responde siempre ÚNICAMENTE como un objeto JSON con esta forma exacta (nunca te
 {
   "intent": "cita" | "unclear",
   "especialidad": "Nombre de la especialidad, si se detectó",
+  "distrito": "Texto del distrito/lugar mencionado (con typos evidentes corregidos), si se detectó",
   "detalle": "Explicación breve (uno o dos renglones)"
 }`;
 
 type MainMenuIntentJsonShape = {
   intent?: unknown;
   especialidad?: unknown;
+  distrito?: unknown;
   detalle?: string;
 };
 
@@ -248,6 +252,7 @@ const MAIN_MENU_INTENT_RESPONSE_SCHEMA = {
   properties: {
     intent: { type: "STRING", enum: ["cita", "unclear"] },
     especialidad: { type: "STRING" },
+    distrito: { type: "STRING" },
     detalle: { type: "STRING" },
   },
   required: ["intent", "detalle"],
@@ -314,6 +319,7 @@ export async function analyzeMainMenuIntent(text: string): Promise<MainMenuInten
       return {
         intent: "cita",
         especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
+        distrito: typeof parsed.distrito === "string" ? parsed.distrito : undefined,
       };
     } catch {
       return { intent: "unclear" };
