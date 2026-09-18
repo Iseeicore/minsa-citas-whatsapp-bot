@@ -15,6 +15,9 @@ type ChatEntry =
 
 const FROM_STORAGE_KEY = "sandbox-from";
 const DNI_AWAITING_STATE = "cita_awaiting_dni";
+// Temporarily hidden per product request — the reset button stays in the
+// code, just not rendered, so it's a one-line flip to bring back.
+const SHOW_RESET_BUTTON = false;
 
 // Vercel Functions hard-cap the request body at 4.5MB regardless of what the
 // destination API supports (the real quejas backend allows up to 50MB — that
@@ -218,8 +221,13 @@ export default function Sandbox({
                 </button>
               )}
               <div className="relative flex-shrink-0">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-sm font-bold">
-                  MD
+                <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- small fixed-size avatar, Next/Image's optimization isn't worth the extra config here */}
+                  <img
+                    src="/minsa-logo.png"
+                    alt="MINSA"
+                    className="h-full w-full object-cover object-top"
+                  />
                 </span>
                 <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[var(--sb-header-to)] bg-emerald-400" />
               </div>
@@ -248,14 +256,16 @@ export default function Sandbox({
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
-          <div className="flex items-center justify-end px-4 pt-2">
-            <button
-              onClick={handleReset}
-              className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-            >
-              Reiniciar conversación
-            </button>
-          </div>
+          {SHOW_RESET_BUTTON && (
+            <div className="flex items-center justify-end px-4 pt-2">
+              <button
+                onClick={handleReset}
+                className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Reiniciar conversación
+              </button>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto px-4 py-3">
             {entries.map((entry) => (
