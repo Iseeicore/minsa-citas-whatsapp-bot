@@ -19,9 +19,12 @@ export default function ConversationView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [windowOpen, setWindowOpen] = useState(true);
   const [windowExpiresAt, setWindowExpiresAt] = useState<string | null>(null);
+  const [status, setStatus] = useState<"OPEN" | "CLOSED">("OPEN");
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,11 +38,13 @@ export default function ConversationView({
           messages: Message[];
           windowOpen: boolean;
           windowExpiresAt: string | null;
+          status: "OPEN" | "CLOSED";
         };
         if (!cancelled) {
           setMessages(data.messages);
           setWindowOpen(data.windowOpen);
           setWindowExpiresAt(data.windowExpiresAt);
+          setStatus(data.status);
         }
       } catch {
         // Ignore transient network errors; next poll will retry.
@@ -86,6 +91,27 @@ export default function ConversationView({
     }
   }
 
+  async function handleClose() {
+    setClosing(true);
+    setCloseError(null);
+
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/close`, { method: "POST" });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCloseError(data.message ?? "No se pudo cerrar la conversación.");
+        return;
+      }
+
+      setStatus("CLOSED");
+    } catch {
+      setCloseError("No se pudo cerrar la conversación.");
+    } finally {
+      setClosing(false);
+    }
+  }
+
   const displayName = profileName ?? waId ?? "Contacto";
 
   // Recomputed from the already-fetched windowExpiresAt on every render
@@ -113,10 +139,22 @@ export default function ConversationView({
           <div className="truncate text-sm font-semibold">{displayName}</div>
           <div className="truncate text-xs text-white/80">Cuenta oficial</div>
         </div>
-        <div className="flex items-center gap-4 text-white/90">
-          <VideoIcon className="h-5 w-5" />
-          <PhoneIcon className="h-5 w-5" />
-          <DotsMenuIcon className="h-5 w-5" />
+        <div className="flex flex-shrink-0 items-center gap-3">
+          {status === "OPEN" ? (
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={closing}
+              className="rounded-full border border-white/40 px-3 py-1 text-xs font-medium text-white/90 hover:bg-white/10 disabled:opacity-50"
+            >
+              {closing ? "Cerrando…" : "Cerrar conversación"}
+            </button>
+          ) : (
+            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white/90">
+              Cerrada
+            </span>
+          )}
+          <DotsMenuIcon className="h-5 w-5 text-white/90" />
         </div>
       </header>
 
@@ -161,7 +199,13 @@ export default function ConversationView({
         </div>
       )}
 
-      {!windowOpen && (
+      {status === "CLOSED" && (
+        <div className="border-t border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
+          Esta conversación está cerrada.
+        </div>
+      )}
+
+      {status === "OPEN" && !windowOpen && (
         <div className="border-t border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
           La ventana de 24 horas está cerrada — envía un mensaje de plantilla aprobado en lugar de
           texto libre.
@@ -171,6 +215,12 @@ export default function ConversationView({
       {sendError && (
         <div className="border-t border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
           {sendError}
+        </div>
+      )}
+
+      {closeError && (
+        <div className="border-t border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {closeError}
         </div>
       )}
 
@@ -184,8 +234,14 @@ export default function ConversationView({
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSend();
             }}
-            disabled={!windowOpen || sending}
-            placeholder={windowOpen ? "Escribe un mensaje" : "Ventana de 24h cerrada"}
+            disabled={status === "CLOSED" || !windowOpen || sending}
+            placeholder={
+              status === "CLOSED"
+                ? "Conversación cerrada"
+                : windowOpen
+                  ? "Escribe un mensaje"
+                  : "Ventana de 24h cerrada"
+            }
             className="flex-1 border-none bg-transparent text-sm outline-none disabled:cursor-not-allowed"
           />
           <PaperclipIcon className="h-5 w-5 flex-shrink-0 text-gray-500" />
@@ -193,7 +249,7 @@ export default function ConversationView({
         </div>
         <button
           onClick={handleSend}
-          disabled={!windowOpen || sending || !text.trim()}
+          disabled={status === "CLOSED" || !windowOpen || sending || !text.trim()}
           aria-label="Enviar mensaje"
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--wa-accent)] text-white transition-opacity disabled:opacity-40"
         >
@@ -243,41 +299,6 @@ function PersonIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 001 1h14a1 1 0 001-1v-1c0-2.76-3.58-5-8-5z" />
-    </svg>
-  );
-}
-
-function VideoIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M15 10l5-3v10l-5-3" />
-      <rect x="3" y="6" width="12" height="12" rx="2" />
-    </svg>
-  );
-}
-
-function PhoneIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.68 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.32 1.85.55 2.81.68A2 2 0 0122 16.92z" />
     </svg>
   );
 }

@@ -10,6 +10,11 @@ export async function GET(
 ) {
   const { id } = await params;
 
+  const conversation = await prisma.conversation.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+
   const messages = await prisma.message.findMany({
     where: { conversationId: id },
     orderBy: { timestamp: "asc" },
@@ -30,5 +35,10 @@ export async function GET(
     ? new Date(lastInbound.timestamp.getTime() + WINDOW_MS).toISOString()
     : null;
 
-  return NextResponse.json({ messages, windowOpen, windowExpiresAt });
+  return NextResponse.json({
+    messages,
+    windowOpen,
+    windowExpiresAt,
+    status: conversation?.status ?? "OPEN",
+  });
 }
