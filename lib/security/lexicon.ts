@@ -10,14 +10,14 @@
 // ---- Insults --------------------------------------------------------------
 
 export const INSULT_TOKEN_PATTERNS: RegExp[] = [
-  /^idiot(?:a|as|ez|eces)$/,
-  /^imbecil(?:es|idad)?$/,
-  /^estupid(?:o|a|os|as|ez|eces)$/,
+  /^idiot(?:a|as|ez|eces|azo|azos|aza|azas)$/,
+  /^imbecil(?:es|idad|azo|azos|aza|azas)?$/,
+  /^estupid(?:o|a|os|as|ez|eces|azo|azos|aza|azas)$/,
   /^tarad(?:o|a|os|as|azo|azos)$/,
   /^cojud(?:o|a|os|as|ez|eces|azo|azos)$/,
   /^huev(?:on|ona|ones|onas|onazo|onazos|ada|adas)$/, // NOT huevo/huevos (eggs)
   /^mierd(?:a|as|oso|osa|osos|osas)$/,
-  /^pendej(?:o|a|os|as|ada|adas)$/,
+  /^pendej(?:o|a|os|as|ada|adas|azo|azos|aza|azas)$/,
   /^malparid(?:o|a|os|as)$/,
   /^maldit(?:o|a|os|as)$/,
   /^maricon(?:es|azo|azos)?$/,

@@ -60,14 +60,27 @@ function stripAccents(text: string): string {
   return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// A whitespace-free chunk made of words joined only by dots, dashes,
+// underscores or asterisks ("im.be.cil", "im-be-cil"): the syllable-splitting
+// evasion. Its joined form is matched too, next to the separate pieces.
+const SEPARATED_WORD = /^[\p{L}\p{N}@$!]+(?:[.\-_*·][\p{L}\p{N}@$!]+)+[.\-_*·]*$/u;
+const MAX_JOINED_LENGTH = 40;
+
 function toPieces(normalized: string): string[] {
   const pieces: string[] = [];
   for (const chunk of normalized.split(/\s+/)) {
+    const chunkPieces: string[] = [];
     for (const piece of chunk.split(NON_TOKEN_CHARS)) {
       // Leading/trailing "!" is punctuation ("hdp!!!"); an inner one is a
       // disguised "i" ("1mb3c!l") and is kept for the leet step.
       const cleaned = piece.replace(/^!+|!+$/g, "");
-      if (cleaned) pieces.push(cleaned);
+      if (cleaned) chunkPieces.push(cleaned);
+    }
+    pieces.push(...chunkPieces);
+
+    if (chunkPieces.length > 1 && SEPARATED_WORD.test(chunk)) {
+      const joined = chunkPieces.join("");
+      if (joined.length <= MAX_JOINED_LENGTH) pieces.push(joined);
     }
   }
   return pieces;
@@ -173,10 +186,27 @@ function findFuzzyInsult(token: string): { target: string; distance: number } | 
   return undefined;
 }
 
+// "hdpp" -> "hdp", "cojuddo" -> "cojudo": a doubled CONSONANT is also tried as a
+// single one. Vowels are left alone (the 3+ collapse and the fuzzy match cover
+// them), and only whole-token insult patterns are tested this way, so ordinary
+// double consonants (llama, pizza, accion) never become insults.
+function collapseDoubledConsonants(token: string): string {
+  return token.replace(/([b-df-hj-np-tv-z])\1+/g, "$1");
+}
+
+function matchesInsultPattern(token: string): boolean {
+  return INSULT_TOKEN_PATTERNS.some((pattern) => pattern.test(token));
+}
+
 function findInsult(tokens: string[]): string | undefined {
   for (const token of tokens) {
-    if (INSULT_TOKEN_PATTERNS.some((pattern) => pattern.test(token))) {
+    if (matchesInsultPattern(token)) {
       return `Coincidencia exacta de término: "${token}"`;
+    }
+
+    const collapsed = collapseDoubledConsonants(token);
+    if (collapsed !== token && matchesInsultPattern(collapsed)) {
+      return `Coincidencia de término con consonante repetida: "${token}" ~ "${collapsed}"`;
     }
   }
 

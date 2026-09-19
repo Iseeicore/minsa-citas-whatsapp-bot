@@ -144,3 +144,49 @@ describe("lexical guard — performance", () => {
     expect(averageMs).toBeLessThan(2);
   });
 });
+
+describe("lexical guard: augmentative suffixes (-azo / -aza)", () => {
+  it.each(["idiotazo", "imbecilazo", "1mb3c1lazo", "estupidazo", "estupidaza", "pendejazo", "imbecilazos", "cojudazo"])(
+    "detects %s",
+    (text) => {
+      expect(action(text)).toBe("DROP_AND_WARN");
+    },
+  );
+});
+
+describe("lexical guard: words split by interior dots and dashes", () => {
+  it.each(["im.be.cil", "im-be-cil", "i.mb.ec.il", "mier.da", "es.tu.pi.do", "co.ju.do", "im_be_cil", "im.be.cil."])(
+    "detects %s",
+    (text) => {
+      expect(action(text)).toBe("DROP_AND_WARN");
+    },
+  );
+
+  it.each([
+    "Ana-Maria Perez",
+    "post-operatorio",
+    "anti-inflamatorio",
+    "cita-medica",
+    "www.minsa.gob.pe",
+    "juan.perez@gmail.com",
+    "22.09.2026",
+    "S.A.C.",
+    "8.45 am",
+    "no.me.atendieron.ayer",
+  ])("does not flag %s", (text) => {
+    expect(action(text)).not.toBe("DROP_AND_WARN");
+  });
+});
+
+describe("lexical guard: doubled consonants (hdpp -> hdp)", () => {
+  it.each(["hdpp", "hdpps", "ctmm", "csmm", "cojuddo", "imbecill", "hhdp", "ptmm"])("detects %s", (text) => {
+    expect(action(text)).toBe("DROP_AND_WARN");
+  });
+
+  it.each(["llama", "ella", "pizza", "accion", "carrera", "perro", "annie", "Mallqui", "Quillabamba", "ellos"])(
+    "does not flag the legitimate double consonants in %s",
+    (text) => {
+      expect(action(text)).toBe("ALLOW");
+    },
+  );
+});

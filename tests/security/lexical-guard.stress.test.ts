@@ -101,19 +101,19 @@ describe("A.2 evasions", () => {
     },
   );
 
-  // Defect: the imbecil pattern only accepts -es/-idad, so an augmentative is
-  // missed even though leetspeak decoding works ("1mb3c1lazo" => imbecilazo).
-  gap("1mb3c1lazo (leetspeak + augmentative suffix)", () => {
+  // Regression: the imbecil pattern used to accept only -es/-idad, so an
+  // augmentative slipped through even though leetspeak decoding worked.
+  it("1mb3c1lazo (leetspeak + augmentative suffix)", () => {
     expect(action("1mb3c1lazo")).toBe("DROP_AND_WARN");
   });
 
-  // Defect: syllable splitting produces multi-letter fragments, which the
-  // single-letter run detection deliberately ignores.
-  gap("im.be.cil (syllables split by dots)", () => {
+  // Regression: syllable splitting produced multi-letter fragments that the
+  // single-letter run detection ignores; the chunk is now also matched joined.
+  it("im.be.cil (syllables split by dots)", () => {
     expect(action("im.be.cil")).toBe("DROP_AND_WARN");
   });
 
-  gap("hdpp (repeated final letter of a listed abbreviation)", () => {
+  it("hdpp (doubled consonant of a listed abbreviation)", () => {
     expect(action("hdpp")).toBe("DROP_AND_WARN");
   });
 
