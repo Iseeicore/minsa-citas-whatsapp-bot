@@ -46,7 +46,14 @@ export type TurnResult = {
 // same citizen turn, which is why this loops instead of hardcoding 2 passes.
 // MAX_PASSES is a defensive cap against a genuine state-machine bug (e.g. two
 // states that keep firing queries at each other), not an expected code path.
-const MAX_PASSES = 5;
+//
+// The longest LEGITIMATE chain is the OTP turn of a citizen whose specialty and
+// district are already known and for whom every catalog step has a single
+// option: verify_code -> search_ubigeo -> list_especialidades ->
+// list_establecimientos -> list_fechas -> list_horas -> book_appointment, plus
+// the pass that handles the last result (8). 12 leaves headroom while still
+// stopping a genuine loop quickly.
+const MAX_PASSES = 12;
 
 // One citizen's turns run one at a time (see lib/fsm/turn-lock.ts): a turn is
 // read session -> compute -> write session, so overlapping turns would read the

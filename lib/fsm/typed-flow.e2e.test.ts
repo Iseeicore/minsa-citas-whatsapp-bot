@@ -99,6 +99,24 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(insult.texts[0]).toContain("política de respeto");
   });
 
+  // Regression: with the specialty AND the district already known and a single
+  // establishment, the OTP turn auto-resolves verify_code -> ubigeo ->
+  // especialidades -> establecimientos -> fechas (6 passes). The executor used to
+  // cap a turn at 5 passes, threw, and left the citizen stuck at the OTP step.
+  it("an insulting request that names specialty and district reaches the date list in the same OTP turn", async () => {
+    const warning = await say("Apúrense cojudos quiero cita de odontología en Lurigancho");
+    expect(warning.session.state).toBe("cita_awaiting_dni");
+    expect(warning.session.slots.citaEspecialidadHintText).toBe("Odontología");
+    expect(warning.session.slots.citaDistritoHintText).toBe("Lurigancho");
+
+    await say("12345678");
+    const otp = await say("1234");
+
+    expect(otp.session.state).toBe("cita_awaiting_fecha_select");
+    expect(otp.texts.some((line) => line.includes("Especialidad detectada"))).toBe(true);
+    expect(otp.texts.some((line) => line.includes("Establecimiento encontrado"))).toBe(true);
+  });
+
   it("routes an angry complaint straight to the Reclamo flow with no AI step", async () => {
     const result = await say("Doctora imbécil no me dio mi medicina");
 
