@@ -16,6 +16,14 @@ export async function getSession(from: string): Promise<Session> {
   };
 }
 
+// Distinguishes "first-ever contact" (or "wiped by a reset, from anywhere")
+// from "picking up an in-progress conversation" — getSession alone can't
+// tell the two apart, since both return a fresh defaultSession().
+export async function sessionRowExists(from: string): Promise<boolean> {
+  const row = await prisma.sandboxSession.findUnique({ where: { id: from }, select: { id: true } });
+  return row !== null;
+}
+
 export async function saveSession(from: string, session: Session): Promise<void> {
   await prisma.sandboxSession.upsert({
     where: { id: from },

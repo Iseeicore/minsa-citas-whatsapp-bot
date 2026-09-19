@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { runTurn } from "@/lib/fsm/executor";
-import { resetAllSandboxTestSessions, resetSession } from "@/lib/fsm/session-store";
+import { resetAllSandboxTestSessions, resetSession, sessionRowExists } from "@/lib/fsm/session-store";
 import { buildWelcomeEffect } from "@/lib/fsm/welcome";
 
 const sandboxEventSchema = z.object({
@@ -44,12 +44,21 @@ export async function POST(request: NextRequest) {
     await resetSession(from);
   }
 
+  // Checked AFTER any reset above, so it's "did THIS from already have a
+  // row going into this exact turn" — true for an in-progress conversation,
+  // false for a brand-new device or one a resetAll just wiped, regardless
+  // of which device's request actually triggered that reset. A reset only
+  // shows the welcome to whoever clicked the button; every other sandbox-*
+  // session that was wiped along with it only finds out on its own next
+  // message, same as this one.
+  const hadExistingSession = await sessionRowExists(from);
+
   const { sent, session } = await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
 
   // Mirrors what a real citizen's very first WhatsApp message gets (see
-  // app/webhook/whatsapp/route.ts) — a reset should look like starting over
-  // from scratch, not skip straight to the bare menu list.
-  const sentWithWelcome = reset || resetAll ? [buildWelcomeEffect(), ...sent] : sent;
+  // app/webhook/whatsapp/route.ts) — starting over should look like
+  // starting over, not skip straight to the bare menu list.
+  const sentWithWelcome = hadExistingSession ? sent : [buildWelcomeEffect(), ...sent];
 
   return NextResponse.json({
     sent: sentWithWelcome,
