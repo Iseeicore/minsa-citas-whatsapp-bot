@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runTurn } from "@/lib/fsm/executor";
 import { resetAllSandboxTestSessions, resetSession, sessionRowExists } from "@/lib/fsm/session-store";
 import { buildWelcomeEffect } from "@/lib/fsm/welcome";
+import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 
 const sandboxEventSchema = z.object({
   from: z.string().min(1),
@@ -57,8 +58,13 @@ export async function POST(request: NextRequest) {
 
   // Mirrors what a real citizen's very first WhatsApp message gets (see
   // app/webhook/whatsapp/route.ts) — starting over should look like
-  // starting over, not skip straight to the bare menu list.
-  const sentWithWelcome = hadExistingSession ? sent : [buildWelcomeEffect(), ...sent];
+  // starting over, not skip straight to the bare menu list. An abusive first
+  // message gets no welcome there (the lexical guard answers it instead), so
+  // it gets none here either.
+  const abusiveFirstMessage =
+    type === "text" && !!text && evaluateLexicalGuard(text).action !== "ALLOW";
+  const sentWithWelcome =
+    hadExistingSession || abusiveFirstMessage ? sent : [buildWelcomeEffect(), ...sent];
 
   return NextResponse.json({
     sent: sentWithWelcome,

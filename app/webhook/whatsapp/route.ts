@@ -3,7 +3,10 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurn } from "@/lib/fsm/executor";
+import { routeLexicalAction } from "@/lib/fsm/handlers";
+import { isQueryEffect } from "@/lib/fsm/handlers-shared";
 import { saveSession } from "@/lib/fsm/session-store";
+import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator } from "@/lib/whatsapp-send";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
 import { WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, WELCOME_CTA_URL } from "@/lib/fsm/welcome";
@@ -273,6 +276,27 @@ async function processValue(value: WhatsAppValue) {
     const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
 
     if (!existingSession) {
+      // An abusive very first message never gets the branded welcome: the
+      // lexical guard routes it exactly like the FSM would at the main menu
+      // (warning + Continuar, straight into Cita, or straight into Reclamo),
+      // with zero AI calls. The session is still created so the button works.
+      const firstContactText = message.type === "text" ? message.text?.body : undefined;
+      const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
+
+      if (verdict && verdict.action !== "ALLOW") {
+        const routed = routeLexicalAction({ state: "main_menu", slots: {}, counters: {} }, verdict.action);
+        await saveSession(waId, routed.session);
+
+        for (const effect of routed.effects) {
+          if (isQueryEffect(effect)) continue;
+          await sendTypingIndicator(message.id);
+          await sleep(TYPING_DELAY_MS);
+          await sendAndRecordEffect(conversation.id, waId, effect);
+        }
+
+        continue;
+      }
+
       // Brand-new conversation — the welcome message IS the whole response
       // to first contact. No FSM turn runs for this message; whatever the
       // citizen wrote is stashed as initialMessageText so the Cita

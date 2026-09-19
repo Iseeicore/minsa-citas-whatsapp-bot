@@ -23,8 +23,12 @@ export type LexicalResult = {
   matchedReason?: string;
 };
 
-export const INSTITUTIONAL_WARNING_TEXT =
-  "Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Si desea registrar una queja o denuncia formal sobre un mal servicio de salud, escriba RECLAMO para iniciar el trámite oficial.";
+export const RESPECT_REMINDER_TEXT =
+  "Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto.";
+
+// Only shown where typing RECLAMO actually starts the complaint flow (the
+// main menu) — mid-flow states have no such shortcut.
+export const INSTITUTIONAL_WARNING_TEXT = `${RESPECT_REMINDER_TEXT} Si desea registrar una queja o denuncia formal sobre un mal servicio de salud, escriba RECLAMO para iniciar el trámite oficial.`;
 
 const LEET_MAP: Record<string, string> = {
   "0": "o",
