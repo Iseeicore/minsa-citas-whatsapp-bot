@@ -88,6 +88,7 @@ export type QueryEffectKind =
   | "analyze_main_menu_intent"
   | "resolve_distrito_ai"
   | "resolve_fecha_ai"
+  | "extract_selection_hints"
   | "search_ubigeo"
   | "list_especialidades"
   | "list_establecimientos"

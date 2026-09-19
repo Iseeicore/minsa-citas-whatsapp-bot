@@ -13,6 +13,9 @@ import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
 import { matchFechaText, type DateParts } from "./date-parser";
 import {
+  hintText,
+  leftoverHint,
+  matchAllTokens,
   matchSelection,
   OFFERED_SLOT,
   readOffered,
@@ -74,6 +77,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleEstablecimientoPending(session, event as QueryResultEvent);
     case "cita_awaiting_establecimiento_select":
       return handleAwaitingEstablecimientoSelect(session, event as InboundEvent);
+    case "cita_selection_hints_pending":
+      return handleSelectionHintsPending(session, event as QueryResultEvent);
     case "cita_fecha_pending":
       return handleFechaPending(session, event as QueryResultEvent);
     case "cita_awaiting_fecha_select":
@@ -432,7 +437,7 @@ type SelectionOptions = {
   onNoMatchText?: (typed: string) => HandlerResult | undefined;
 };
 
-type SelectionOutcome = { replyId: string } | { result: HandlerResult };
+type SelectionOutcome = { replyId: string; typed?: string } | { result: HandlerResult };
 
 function resolveSelection(
   session: Session,
@@ -458,12 +463,12 @@ function resolveSelection(
   }
 
   const custom = options.customMatch?.(typed, offered.rows);
-  if (custom?.kind === "match") return { replyId: custom.row.id };
+  if (custom?.kind === "match") return { replyId: custom.row.id, typed };
   if (custom?.kind === "ambiguous") return { result: narrowOffered(session, custom.rows) };
   if (custom?.kind === "notice") return { result: reshowOffered(session, offered, custom.text) };
 
   const match = matchSelection(typed, offered.rows, { includeDescription: options.includeDescription });
-  if (match.kind === "match") return { replyId: match.row.id };
+  if (match.kind === "match") return { replyId: match.row.id, typed };
   if (match.kind === "ambiguous") return { result: narrowOffered(session, match.rows) };
 
   return { result: options.onNoMatchText?.(typed) ?? reshowOffered(session, offered) };
@@ -928,12 +933,71 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
   ]);
 }
 
+// Something else named in the same message (an establishment, typically) is
+// kept and applied when that list arrives — see handleEstablecimientoPending.
+const HINT_MAX_LENGTH = 80;
+
+function askSelectionHints(
+  session: Session,
+  step: "especialidad" | "establecimiento",
+  typed: string,
+): HandlerResult | undefined {
+  // Only real words are worth an AI call — not "asdf" or "12345".
+  if (!/\p{L}{5,}/u.test(typed) || !readOffered(session.slots)) return undefined;
+
+  const next = cloneSession(session);
+  next.state = "cita_selection_hints_pending";
+  next.slots.citaSelectionStep = step;
+  return buildResult(next, [
+    sendText("Un momento, estamos revisando tu respuesta…"),
+    query("extract_selection_hints", { step, text: typed }),
+  ]);
+}
+
+// The AI only names things; they are matched against the rows actually offered
+// and applied only when exactly one row fits every word. Otherwise: the list.
+function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { especialidad?: unknown; establecimiento?: unknown };
+  const step = session.slots.citaSelectionStep === "establecimiento" ? "establecimiento" : "especialidad";
+  const offered = readOffered(session.slots);
+
+  const restored = cloneSession(session);
+  delete restored.slots.citaSelectionStep;
+  restored.state =
+    step === "establecimiento" ? "cita_awaiting_establecimiento_select" : "cita_awaiting_especialidad_select";
+
+  const own = step === "establecimiento" ? result.establecimiento : result.especialidad;
+  const matched = typeof own === "string" && offered ? matchAllTokens(own, offered.rows) : undefined;
+
+  if (!matched) {
+    return reshowOffered(restored, offered, `No pudimos identificar esa opción. ${SELECTION_REJECTION}`);
+  }
+
+  if (step === "especialidad" && typeof result.establecimiento === "string") {
+    const hint = hintText(result.establecimiento).slice(0, HINT_MAX_LENGTH);
+    if (hint) restored.slots.citaEstablecimientoHintText = hint;
+  }
+
+  const tap: InboundEvent = { from: event.from, type: "list", listId: matched.id };
+  return step === "establecimiento"
+    ? handleAwaitingEstablecimientoSelect(restored, tap)
+    : handleAwaitingEspecialidadSelect(restored, tap);
+}
+
 function handleAwaitingEspecialidadSelect(session: Session, event: InboundEvent): HandlerResult {
-  const outcome = resolveSelection(session, event);
+  const outcome = resolveSelection(session, event, {
+    onNoMatchText: (typed) => askSelectionHints(session, "especialidad", typed),
+  });
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
 
+  const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
+
   const next = clearOffered(session);
+  if (outcome.typed && chosen) {
+    const hint = leftoverHint(outcome.typed, chosen).slice(0, HINT_MAX_LENGTH);
+    if (hint) next.slots.citaEstablecimientoHintText = hint;
+  }
   next.slots.citaEspecialidadId = replyId;
   next.state = "cita_establecimiento_pending";
   return buildResult(next, [
@@ -956,6 +1020,10 @@ type EstablecimientoResultItem = {
 function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
+
+  // A hint is used once, on this list, and never kept around.
+  const hint = next.slots.citaEstablecimientoHintText as string | undefined;
+  delete next.slots.citaEstablecimientoHintText;
 
   if (result.status === "unauthorized") {
     return beginReverification(next, "cita_establecimiento_pending");
@@ -984,6 +1052,31 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
   }
 
   if (result.status === "found" && result.items && result.items.length > 1) {
+    // The citizen already named the establishment ("...en el hospital de
+    // Lurigancho"): apply it only when it singles out exactly one of the real
+    // options, so asking again would be a repeated step.
+    const matched = hint
+      ? matchAllTokens(
+          hint,
+          result.items.map((item) => ({ id: item.renipressCode, title: item.establishmentName })),
+        )
+      : undefined;
+    const detected = matched
+      ? result.items.find((item) => item.renipressCode === matched.id)
+      : undefined;
+
+    if (detected) {
+      next.slots.citaCodEess = detected.renipressCode;
+      next.state = "cita_fecha_pending";
+      return buildResult(next, [
+        sendText(`Establecimiento detectado: ${detected.establishmentName}. Buscando fechas disponibles…`),
+        query("list_fechas", {
+          codEess: detected.renipressCode,
+          especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        }),
+      ]);
+    }
+
     next.state = "cita_awaiting_establecimiento_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.renipressCode,
@@ -1001,7 +1094,9 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
 }
 
 function handleAwaitingEstablecimientoSelect(session: Session, event: InboundEvent): HandlerResult {
-  const outcome = resolveSelection(session, event);
+  const outcome = resolveSelection(session, event, {
+    onNoMatchText: (typed) => askSelectionHints(session, "establecimiento", typed),
+  });
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
 

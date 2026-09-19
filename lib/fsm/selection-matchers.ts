@@ -150,3 +150,49 @@ export function matchSelection(
   const winners = scored.filter((entry) => entry.score === best).map((entry) => entry.row);
   return winners.length === 1 ? { kind: "match", row: winners[0] } : { kind: "ambiguous", rows: winners };
 }
+
+// ---- Hints: what the citizen said beyond the row they picked ---------------
+
+// Words that ask for something instead of naming it.
+const HINT_NOISE_WORDS = new Set([
+  "cita", "citas", "atencion", "agendar", "consulta", "medico", "medica", "doctor", "doctora",
+  "reservar", "turno",
+]);
+
+function significantTokens(text: string): string[] {
+  return normalize(text)
+    .split(" ")
+    .filter((token) => token.length >= 2 && !STOP_WORDS.has(token) && !HINT_NOISE_WORDS.has(token));
+}
+
+// "odontología en el hospital de Lurigancho" after picking ODONTOLOGIA leaves
+// "hospital lurigancho": an establishment named too early, kept for later.
+export function leftoverHint(text: string, chosen: OfferedRow): string {
+  const chosenTokens = rowTokens(chosen, false);
+  return significantTokens(text)
+    .filter((token) => !chosenTokens.some((hay) => tokenMatches(token, hay)))
+    .join(" ");
+}
+
+// The hint as clean words (no fillers) — used to store an AI-extracted name.
+export function hintText(text: string): string {
+  return significantTokens(text).join(" ");
+}
+
+// Strict: EVERY hint word must belong to the row, and only one row may
+// qualify. A hint is applied without asking the citizen, so it never guesses.
+export function matchAllTokens(
+  hint: string,
+  rows: OfferedRow[],
+  options: MatchOptions = {},
+): OfferedRow | undefined {
+  const tokens = significantTokens(hint);
+  if (tokens.length === 0) return undefined;
+
+  const winners = rows.filter((row) => {
+    const hay = rowTokens(row, options.includeDescription ?? false);
+    return tokens.every((token) => hay.some((entry) => tokenMatches(token, entry)));
+  });
+
+  return winners.length === 1 ? winners[0] : undefined;
+}

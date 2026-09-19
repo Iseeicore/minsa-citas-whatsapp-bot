@@ -1,4 +1,10 @@
-import { analyzeMainMenuIntent, resolveDistritoAi, resolveFechaAi, type FechaAiOption } from "./ai";
+import {
+  analyzeMainMenuIntent,
+  extractSelectionHints,
+  resolveDistritoAi,
+  resolveFechaAi,
+  type FechaAiOption,
+} from "./ai";
 import { handle } from "./handlers";
 import { isQueryEffect } from "./handlers-shared";
 import {
@@ -111,6 +117,9 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
         String(effect.payload.today ?? ""),
         (effect.payload.options as FechaAiOption[] | undefined) ?? [],
       );
+
+    case "extract_selection_hints":
+      return extractSelectionHints(String(effect.payload.step ?? ""), String(effect.payload.text ?? ""));
 
     case "search_ubigeo":
       return searchUbigeo(

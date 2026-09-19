@@ -273,7 +273,7 @@ describe("especialidad and establecimiento selects", () => {
 
   it("unmatched specialty text is rejected and the list re-shown", () => {
     expectRejectedAndReshown(
-      handle(at("cita_awaiting_especialidad_select", especialidades), text("cardiología")),
+      handle(at("cita_awaiting_especialidad_select", especialidades), text("asdf")),
       "cita_awaiting_especialidad_select",
       especialidades,
     );
@@ -434,4 +434,122 @@ describe("fecha select — typed dates and AI fallback", () => {
       expect(listRowsOf(result)).toEqual(fechas.rows);
     },
   );
+});
+
+describe("especialidad/establecimiento — hints from a message that names more than one thing", () => {
+  const especialidadState = "cita_awaiting_especialidad_select";
+  const establecimientoState = "cita_awaiting_establecimiento_select";
+
+  it("keeps the establishment named while choosing the specialty as a hint", () => {
+    const result = handle(
+      at(especialidadState, especialidades, { citaUbigeo: "150101" }),
+      text("odontología en el hospital de Lurigancho"),
+    );
+
+    expect(result.session.state).toBe("cita_establecimiento_pending");
+    expect(result.session.slots.citaEspecialidadId).toBe("02");
+    expect(result.session.slots.citaEstablecimientoHintText).toBe("hospital lurigancho");
+  });
+
+  it("applies the hint when the establishment list arrives and matches exactly one row", () => {
+    const pending = at("cita_establecimiento_pending", undefined, {
+      citaEspecialidadId: "02",
+      citaEstablecimientoHintText: "hospital lurigancho",
+    });
+
+    const result = handle(
+      pending,
+      queryResult("list_establecimientos", {
+        status: "found",
+        items: [
+          { renipressCode: "0000123", establishmentName: "CENTRO DE SALUD SAN BORJA", quotasOnline: 10 },
+          { renipressCode: "0000456", establishmentName: "HOSPITAL DE LURIGANCHO", quotasOnline: 4 },
+        ],
+      }),
+    );
+
+    expect(result.session.state).toBe("cita_fecha_pending");
+    expect(result.session.slots.citaCodEess).toBe("0000456");
+    expect(result.session.slots.citaEstablecimientoHintText).toBeUndefined();
+    expect(queries(result)[0]).toMatchObject({ kind: "list_fechas", payload: { codEess: "0000456" } });
+  });
+
+  it("an ambiguous or non-matching hint just shows the normal list (and is discarded)", () => {
+    const pending = at("cita_establecimiento_pending", undefined, {
+      citaEspecialidadId: "02",
+      citaEstablecimientoHintText: "hospital",
+    });
+
+    const result = handle(
+      pending,
+      queryResult("list_establecimientos", {
+        status: "found",
+        items: [
+          { renipressCode: "1", establishmentName: "HOSPITAL A", quotasOnline: 1 },
+          { renipressCode: "2", establishmentName: "HOSPITAL B", quotasOnline: 1 },
+        ],
+      }),
+    );
+
+    expect(result.session.state).toBe(establecimientoState);
+    expect(queries(result)).toHaveLength(0);
+    expect(result.session.slots.citaEstablecimientoHintText).toBeUndefined();
+  });
+
+  it("unmatched specialty text that looks like a word asks the AI for hints, once", () => {
+    const result = handle(at(especialidadState, especialidades), text("cardiología"));
+
+    expect(result.session.state).toBe("cita_selection_hints_pending");
+    expect(result.session.slots.citaSelectionStep).toBe("especialidad");
+    expect(queries(result)).toHaveLength(1);
+    expect(queries(result)[0]).toMatchObject({
+      kind: "extract_selection_hints",
+      payload: { step: "especialidad", text: "cardiología" },
+    });
+  });
+
+  it("junk does not spend an AI call", () => {
+    expect(queries(handle(at(especialidadState, especialidades), text("asdf")))).toHaveLength(0);
+    expect(queries(handle(at(especialidadState, especialidades), text("12345")))).toHaveLength(0);
+  });
+
+  it("an AI hint that names an offered specialty is treated like a tap and keeps the establishment hint", () => {
+    const pending = at("cita_selection_hints_pending", especialidades, {
+      citaSelectionStep: "especialidad",
+      citaUbigeo: "150101",
+    });
+
+    const result = handle(
+      pending,
+      queryResult("extract_selection_hints", { especialidad: "Odontología", establecimiento: "Hospital de Lurigancho" }),
+    );
+
+    expect(result.session.state).toBe("cita_establecimiento_pending");
+    expect(result.session.slots.citaEspecialidadId).toBe("02");
+    expect(result.session.slots.citaEstablecimientoHintText).toBe("hospital lurigancho");
+    expect(result.session.slots.citaSelectionStep).toBeUndefined();
+  });
+
+  it("an AI hint that matches nothing offered goes back to the list", () => {
+    const pending = at("cita_selection_hints_pending", especialidades, { citaSelectionStep: "especialidad" });
+
+    const result = handle(pending, queryResult("extract_selection_hints", { especialidad: "Cardiología" }));
+
+    expect(result.session.state).toBe(especialidadState);
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("No pudimos identificar");
+    expect(listRowsOf(result)).toEqual(especialidades.rows);
+  });
+
+  it("at the establishment step an AI hint picks the offered establishment", () => {
+    const pending = at("cita_selection_hints_pending", establecimientos, {
+      citaSelectionStep: "establecimiento",
+      citaEspecialidadId: "02",
+    });
+
+    const result = handle(pending, queryResult("extract_selection_hints", { establecimiento: "San Borja" }));
+
+    expect(result.session.state).toBe("cita_fecha_pending");
+    expect(queries(result)[0]).toMatchObject({ kind: "list_fechas", payload: { codEess: "0000123" } });
+  });
 });

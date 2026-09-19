@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { matchSelection, readOffered, serializeOffered, type OfferedRow } from "./selection-matchers";
+import {
+  leftoverHint,
+  matchAllTokens,
+  matchSelection,
+  readOffered,
+  serializeOffered,
+  type OfferedRow,
+} from "./selection-matchers";
 
 const ubigeoRows: OfferedRow[] = [
   { id: "150101", title: "San Juan de Lurigancho", description: "Lima — Lima" },
@@ -78,6 +85,41 @@ describe("matchSelection — names over the offered rows", () => {
     expect(matchedId("sí", especialidadRows)).toBe("none");
     expect(matchedId("", especialidadRows)).toBe("none");
     expect(matchedId("150101|x|y", ubigeoRows)).toBe("none");
+  });
+});
+
+describe("leftoverHint — what the citizen said beyond the chosen row", () => {
+  const chosen = especialidadRows[1]; // ODONTOLOGIA
+
+  it("keeps the words that name something else (e.g. an establishment)", () => {
+    expect(leftoverHint("odontología en el hospital de Lurigancho", chosen)).toBe("hospital lurigancho");
+  });
+
+  it("drops filler and request words", () => {
+    expect(leftoverHint("quiero una cita de odontología por favor", chosen)).toBe("");
+  });
+
+  it("is empty when the text only named the chosen row", () => {
+    expect(leftoverHint("odontologia", chosen)).toBe("");
+  });
+});
+
+describe("matchAllTokens — strict hint matching", () => {
+  const establecimientos: OfferedRow[] = [
+    { id: "a", title: "CENTRO DE SALUD SAN BORJA" },
+    { id: "b", title: "HOSPITAL DE LURIGANCHO" },
+    { id: "c", title: "HOSPITAL DE SAN JUAN" },
+  ];
+
+  it("matches when every hint word belongs to exactly one row", () => {
+    expect(matchAllTokens("hospital lurigancho", establecimientos)?.id).toBe("b");
+    expect(matchAllTokens("san borja", establecimientos)?.id).toBe("a");
+  });
+
+  it("refuses to guess when a hint word matches nothing or several rows", () => {
+    expect(matchAllTokens("hospital", establecimientos)).toBeUndefined();
+    expect(matchAllTokens("hospital de miraflores", establecimientos)).toBeUndefined();
+    expect(matchAllTokens("", establecimientos)).toBeUndefined();
   });
 });
 
