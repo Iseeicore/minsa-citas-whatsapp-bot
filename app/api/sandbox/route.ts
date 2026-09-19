@@ -5,6 +5,7 @@ import { TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
 import { resetAllSandboxTestSessions, resetSession, sessionRowExists } from "@/lib/fsm/session-store";
 import { buildWelcomeEffect } from "@/lib/fsm/welcome";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
+import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 
 const sandboxEventSchema = z.object({
   from: z.string().min(1),
@@ -54,6 +55,18 @@ export async function POST(request: NextRequest) {
   // session that was wiped along with it only finds out on its own next
   // message, same as this one.
   const hadExistingSession = await sessionRowExists(from);
+
+  // Same first-message perimeter as the WhatsApp webhook (length, links, media
+  // without a session): a fixed reply, and the FSM is never touched.
+  if (!hadExistingSession && (type === "text" || type === "image")) {
+    const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text });
+    if (payload.kind === "rejected") {
+      return NextResponse.json({
+        sent: [{ kind: "send_text", text: payload.reply }],
+        session: { state: "main_menu", slots: {}, counters: {} },
+      });
+    }
+  }
 
   let turn;
   try {

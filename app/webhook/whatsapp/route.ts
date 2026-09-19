@@ -6,9 +6,16 @@ import { runTurnUnlocked } from "@/lib/fsm/executor";
 import { withTurnLock } from "@/lib/fsm/turn-lock";
 import { routeLexicalAction } from "@/lib/fsm/handlers";
 import { isQueryEffect } from "@/lib/fsm/handlers-shared";
-import { saveSession } from "@/lib/fsm/session-store";
+import { saveSession, sessionRowExists } from "@/lib/fsm/session-store";
+import { screenInbound } from "@/lib/security/perimeter";
+import { inboundRateLimiter } from "@/lib/security/rate-limiter";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
-import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator } from "@/lib/whatsapp-send";
+import {
+  sendAndRecordCtaUrl,
+  sendAndRecordEffect,
+  sendTypingIndicator,
+  sendWhatsAppEffect,
+} from "@/lib/whatsapp-send";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
 import { WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, WELCOME_CTA_URL } from "@/lib/fsm/welcome";
 import type { InboundEvent } from "@/lib/fsm/types";
@@ -294,6 +301,16 @@ async function answerMessage(message: WhatsAppMessage, conversationId: string): 
   }
 }
 
+// A rejection is plain text straight to the Graph API: no conversation row, no
+// outbound record, no session. If the send fails there is nothing to recover.
+async function sendFixedReply(waId: string, text: string): Promise<void> {
+  try {
+    await sendWhatsAppEffect(waId, { kind: "send_text", text });
+  } catch (error) {
+    console.error("Failed to send a perimeter reply", error);
+  }
+}
+
 async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
@@ -301,6 +318,20 @@ async function processValue(value: WhatsAppValue) {
   }
 
   for (const message of value.messages ?? []) {
+    // Perimeter first — before any database write, transaction or turn lock:
+    // flooding is dropped silently (Meta already got its 200), and a first
+    // message that is too long, carries links, or is unsolicited media gets a
+    // fixed text reply and is never stored. See lib/security/perimeter.ts.
+    const decision = await screenInbound(
+      { waId: message.from_user_id, type: message.type, text: message.text?.body },
+      { limiter: inboundRateLimiter, hasSession: sessionRowExists },
+    );
+    if (decision.action === "drop") continue;
+    if (decision.action === "reject") {
+      await sendFixedReply(message.from_user_id, decision.reply);
+      continue;
+    }
+
     const contact = contactsByWaId.get(message.from_user_id);
     const profileName = contact?.profile?.name;
     const phoneNumber = message.from ?? contact?.wa_id;
