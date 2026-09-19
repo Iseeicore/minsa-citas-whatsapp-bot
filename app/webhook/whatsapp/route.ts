@@ -2,7 +2,8 @@ import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
-import { runTurn } from "@/lib/fsm/executor";
+import { runTurnUnlocked } from "@/lib/fsm/executor";
+import { withTurnLock } from "@/lib/fsm/turn-lock";
 import { routeLexicalAction } from "@/lib/fsm/handlers";
 import { isQueryEffect } from "@/lib/fsm/handlers-shared";
 import { saveSession } from "@/lib/fsm/session-store";
@@ -217,6 +218,82 @@ async function toInboundEvent(
   return null;
 }
 
+// Everything a citizen's message triggers — the first-contact check, the FSM
+// turn AND the outbound sends — runs under that citizen's turn lock (see
+// lib/fsm/turn-lock.ts), so two messages sent in quick succession are answered
+// one after the other, in order, and never read a stale session. Called from
+// inside withTurnLock, hence runTurnUnlocked (runTurn would wait on its own lock).
+async function answerMessage(message: WhatsAppMessage, conversationId: string): Promise<void> {
+  const waId = message.from_user_id;
+  const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
+
+  if (!existingSession) {
+    // An abusive very first message never gets the branded welcome: the
+    // lexical guard routes it exactly like the FSM would at the main menu
+    // (warning + Continuar, straight into Cita, or straight into Reclamo),
+    // with zero AI calls. The session is still created so the button works.
+    const firstContactText = message.type === "text" ? message.text?.body : undefined;
+    const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
+
+    if (verdict && verdict.action !== "ALLOW") {
+      const routed = routeLexicalAction(
+        { state: "main_menu", slots: {}, counters: {} },
+        verdict.action,
+        firstContactText,
+      );
+      await saveSession(waId, routed.session);
+
+      for (const effect of routed.effects) {
+        if (isQueryEffect(effect)) continue;
+        await sendTypingIndicator(message.id);
+        await sleep(TYPING_DELAY_MS);
+        await sendAndRecordEffect(conversationId, waId, effect);
+      }
+
+      return;
+    }
+
+    // Brand-new conversation — the welcome message IS the whole response
+    // to first contact. No FSM turn runs for this message; whatever the
+    // citizen wrote is stashed as initialMessageText so the Cita
+    // district-resolution step can still use it later (same mechanism
+    // handleMainMenu already uses for a menu tap that doesn't match).
+    await saveSession(waId, {
+      state: "main_menu",
+      slots: message.text?.body ? { initialMessageText: message.text.body } : {},
+      counters: {},
+    });
+
+    await sendTypingIndicator(message.id);
+    await sleep(TYPING_DELAY_MS);
+    await sendAndRecordCtaUrl(conversationId, waId, {
+      bodyText: WELCOME_MESSAGE_TEXT,
+      buttonText: WELCOME_CTA_BUTTON_TEXT,
+      url: WELCOME_CTA_URL,
+    });
+
+    await sendTypingIndicator(message.id);
+    await sleep(TYPING_DELAY_MS);
+    await sendAndRecordEffect(conversationId, waId, {
+      kind: "send_buttons",
+      text: WELCOME_FOLLOWUP_TEXT,
+      buttons: [{ id: "seguir_aqui", title: "Seguir aquí" }],
+    });
+
+    return;
+  }
+
+  const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
+  if (!inboundEvent) return;
+
+  const { sent } = await runTurnUnlocked(waId, inboundEvent);
+  for (const effect of sent) {
+    await sendTypingIndicator(message.id);
+    await sleep(TYPING_DELAY_MS);
+    await sendAndRecordEffect(conversationId, waId, effect);
+  }
+}
+
 async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
@@ -272,74 +349,8 @@ async function processValue(value: WhatsAppValue) {
 
     if (alreadyProcessed) continue;
 
-    const waId = message.from_user_id;
-    const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
-
-    if (!existingSession) {
-      // An abusive very first message never gets the branded welcome: the
-      // lexical guard routes it exactly like the FSM would at the main menu
-      // (warning + Continuar, straight into Cita, or straight into Reclamo),
-      // with zero AI calls. The session is still created so the button works.
-      const firstContactText = message.type === "text" ? message.text?.body : undefined;
-      const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
-
-      if (verdict && verdict.action !== "ALLOW") {
-        const routed = routeLexicalAction(
-          { state: "main_menu", slots: {}, counters: {} },
-          verdict.action,
-          firstContactText,
-        );
-        await saveSession(waId, routed.session);
-
-        for (const effect of routed.effects) {
-          if (isQueryEffect(effect)) continue;
-          await sendTypingIndicator(message.id);
-          await sleep(TYPING_DELAY_MS);
-          await sendAndRecordEffect(conversation.id, waId, effect);
-        }
-
-        continue;
-      }
-
-      // Brand-new conversation — the welcome message IS the whole response
-      // to first contact. No FSM turn runs for this message; whatever the
-      // citizen wrote is stashed as initialMessageText so the Cita
-      // district-resolution step can still use it later (same mechanism
-      // handleMainMenu already uses for a menu tap that doesn't match).
-      await saveSession(waId, {
-        state: "main_menu",
-        slots: message.text?.body ? { initialMessageText: message.text.body } : {},
-        counters: {},
-      });
-
-      await sendTypingIndicator(message.id);
-      await sleep(TYPING_DELAY_MS);
-      await sendAndRecordCtaUrl(conversation.id, waId, {
-        bodyText: WELCOME_MESSAGE_TEXT,
-        buttonText: WELCOME_CTA_BUTTON_TEXT,
-        url: WELCOME_CTA_URL,
-      });
-
-      await sendTypingIndicator(message.id);
-      await sleep(TYPING_DELAY_MS);
-      await sendAndRecordEffect(conversation.id, waId, {
-        kind: "send_buttons",
-        text: WELCOME_FOLLOWUP_TEXT,
-        buttons: [{ id: "seguir_aqui", title: "Seguir aquí" }],
-      });
-
-      continue;
-    }
-
-    const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
-    if (!inboundEvent) continue;
-
-    const { sent } = await runTurn(waId, inboundEvent);
-    for (const effect of sent) {
-      await sendTypingIndicator(message.id);
-      await sleep(TYPING_DELAY_MS);
-      await sendAndRecordEffect(conversation.id, waId, effect);
-    }
+    // Locked per waId: see answerMessage.
+    await withTurnLock(message.from_user_id, () => answerMessage(message, conversation.id));
   }
 
   for (const status of value.statuses ?? []) {

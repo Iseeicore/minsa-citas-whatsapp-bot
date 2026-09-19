@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { runTurn } from "@/lib/fsm/executor";
+import { TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
 import { resetAllSandboxTestSessions, resetSession, sessionRowExists } from "@/lib/fsm/session-store";
 import { buildWelcomeEffect } from "@/lib/fsm/welcome";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -54,7 +55,18 @@ export async function POST(request: NextRequest) {
   // message, same as this one.
   const hadExistingSession = await sessionRowExists(from);
 
-  const { sent, session } = await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
+  let turn;
+  try {
+    turn = await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
+  } catch (error) {
+    // Another turn of this same session is still running and did not finish in
+    // time: tell the client to retry instead of answering from stale state.
+    if (error instanceof TurnLockTimeoutError) {
+      return NextResponse.json({ error: "BUSY", message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." }, { status: 503 });
+    }
+    throw error;
+  }
+  const { sent, session } = turn;
 
   // Mirrors what a real citizen's very first WhatsApp message gets (see
   // app/webhook/whatsapp/route.ts) — starting over should look like

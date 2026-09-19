@@ -22,6 +22,7 @@ import {
 import { submitQueja, type SubmitQuejaPayload } from "./quejas";
 import { reniecLookup } from "./reniec";
 import { getSession, saveSession } from "./session-store";
+import { withTurnLock, type TurnLock } from "./turn-lock";
 import type {
   HandleEvent,
   InboundEvent,
@@ -47,7 +48,23 @@ export type TurnResult = {
 // states that keep firing queries at each other), not an expected code path.
 const MAX_PASSES = 5;
 
-export async function runTurn(from: string, event: InboundEvent): Promise<TurnResult> {
+// One citizen's turns run one at a time (see lib/fsm/turn-lock.ts): a turn is
+// read session -> compute -> write session, so overlapping turns would read the
+// same stale session and lose an update. Both channels (webhook and Sandbox)
+// come through here.
+export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> {
+  return withTurnLock(from, () => runTurnUnlocked(from, event));
+}
+
+// Same, with an explicit lock — for composing several "instances" in tests.
+export function createRunTurn(lock: TurnLock) {
+  return (from: string, event: InboundEvent): Promise<TurnResult> =>
+    lock(from, () => runTurnUnlocked(from, event));
+}
+
+// The turn itself, WITHOUT any lock. Not for production callers: it exists so
+// the race can still be demonstrated and measured.
+export async function runTurnUnlocked(from: string, event: InboundEvent): Promise<TurnResult> {
   const session = await getSession(from);
 
   const sent: SendEffect[] = [];

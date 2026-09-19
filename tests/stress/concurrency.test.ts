@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "@/lib/fsm/types";
 import { gap } from "../support/known-gap";
-import { createKeyedMutex } from "../support/proposals";
 
 // The real session store is Postgres over the network: every turn is
 // read -> compute -> write, and a real turn also waits on MINSA/RENIEC/Gemini.
@@ -34,7 +33,7 @@ vi.mock("@/lib/fsm/session-store", () => {
   };
 });
 
-import { runTurn } from "@/lib/fsm/executor";
+import { runTurn, runTurnUnlocked } from "@/lib/fsm/executor";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -56,18 +55,18 @@ async function sequential(waId: string, messages: string[]): Promise<Outcome> {
   return snapshot(waId, replies);
 }
 
-type Runner = <T>(waId: string, task: () => Promise<T>) => Promise<T>;
-const unlocked: Runner = (_waId, task) => task();
+type TurnFn = typeof runTurn;
 
 // `perSecond` messages/second for the same waId, all launched on a timer and
 // therefore in flight at the same time whenever a turn takes longer than the gap.
-async function burst(waId: string, messages: string[], perSecond: number, runner: Runner = unlocked): Promise<Outcome> {
+// Uses the production runTurn (locked) unless told otherwise.
+async function burst(waId: string, messages: string[], perSecond: number, turn: TurnFn = runTurn): Promise<Outcome> {
   db.sessions.delete(waId);
   const spacing = 1000 / perSecond;
 
   const turns = messages.map(async (message, index) => {
     await sleep(index * spacing);
-    return runner(waId, () => runTurn(waId, text(waId, message)));
+    return turn(waId, text(waId, message));
   });
 
   const results = await Promise.all(turns);
@@ -117,11 +116,11 @@ describe("B.1 one waId, bursts of 5-10 messages per second (store latency 30-90 
     { label: "5 msg/s, slow turns (100-250 ms)", rate: 5, minMs: 100, maxMs: 250 },
   ];
 
-  // Defect: nothing serializes turns of one waId. Turn N reads the session
-  // before turn N-1 has written it, so it runs against a stale state and the
-  // last writer wins (lost update).
+  // Regression for the race fixed by the per-waId turn lock (lib/fsm/turn-lock.ts):
+  // turn N used to read the session before turn N-1 had written it, ran against
+  // a stale state, and the last writer won (lost update). runTurn is now locked.
   for (const scenario of SCENARIOS) {
-    gap(
+    it(
       `${scenario.label}: a burst reaches the same final state as sequential processing`,
       async () => {
         db.minMs = scenario.minMs;
@@ -147,7 +146,7 @@ describe("B.1 one waId, bursts of 5-10 messages per second (store latency 30-90 
     );
   }
 
-  it("evidence: unlocked bursts DO lose updates (they end in states the sequential run never reaches)", async () => {
+  it("evidence: WITHOUT the lock (runTurnUnlocked) bursts DO lose updates and end in states the sequential run never reaches", async () => {
     db.minMs = 100;
     db.maxMs = 250;
     const expected = await sequential("wa-ref-evidence", DEPENDENT_CHAIN);
@@ -155,7 +154,7 @@ describe("B.1 one waId, bursts of 5-10 messages per second (store latency 30-90 
     let diverged = 0;
     const wrongStates = new Set<string>();
     for (let run = 0; run < RUNS; run++) {
-      const outcome = await burst("wa-evidence", DEPENDENT_CHAIN, 5);
+      const outcome = await burst("wa-evidence", DEPENDENT_CHAIN, 5, runTurnUnlocked);
       if (!same(outcome, expected)) {
         diverged++;
         wrongStates.add(outcome.state);
@@ -189,35 +188,13 @@ describe("B.2 the messages from the brief", () => {
   }, LONG);
 });
 
-describe("B.3 proposal: serialize turns per waId", () => {
-  for (const scenario of [
-    { label: "10 msg/s, Neon-like store", rate: 10, minMs: 30, maxMs: 90 },
-    { label: "5 msg/s, slow turns", rate: 5, minMs: 100, maxMs: 250 },
-  ]) {
-    it(`a keyed mutex makes the "${scenario.label}" burst identical to sequential processing, ${RUNS} runs in a row`, async () => {
-      db.minMs = scenario.minMs;
-      db.maxMs = scenario.maxMs;
-      const expected = await sequential(`wa-lock-ref-${scenario.rate}`, DEPENDENT_CHAIN);
-      const lock = createKeyedMutex();
-
-      for (let run = 0; run < RUNS; run++) {
-        const outcome = await burst(`wa-locked-${scenario.rate}`, DEPENDENT_CHAIN, scenario.rate, lock);
-        expect(same(outcome, expected), `run ${run}: got ${JSON.stringify(outcome.state)}`).toBe(true);
-      }
-    }, LONG);
-  }
-
-  it("the lock is per waId: different users are not serialized against each other", async () => {
-    const lock = createKeyedMutex();
+describe("B.3 the lock is per waId", () => {
+  it("different users are not serialized against each other", async () => {
     db.minMs = 20;
     db.maxMs = 20;
 
     const started = Date.now();
-    await Promise.all(
-      Array.from({ length: 10 }, (_, index) =>
-        lock(`wa-par-${index}`, () => runTurn(`wa-par-${index}`, text(`wa-par-${index}`, "Hola"))),
-      ),
-    );
+    await Promise.all(Array.from({ length: 10 }, (_, index) => runTurn(`wa-par-${index}`, text(`wa-par-${index}`, "Hola"))));
     const elapsed = Date.now() - started;
 
     // One turn = 2 x 20 ms of store latency; 10 users in parallel take about
