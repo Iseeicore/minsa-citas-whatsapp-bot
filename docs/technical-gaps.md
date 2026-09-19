@@ -1,6 +1,6 @@
 # Gaps técnicos abiertos — rama `feat/lexical-guard`
 
-Estado de la rama: **662 tests** en verde. Los gaps que tienen un test ejecutable están marcados con `gap()` (ver `tests/support/known-gap.ts`): en `npm test` cuentan como fallos esperados y `npm run test:gaps` los corre como tests normales para ver el fallo real. Cuando un gap se corrija, su test pasará a rojo en `npm test` y hay que quitarle el marcador `gap`.
+Estado de la rama: **666 tests** en verde. Los gaps que tienen un test ejecutable están marcados con `gap()` (ver `tests/support/known-gap.ts`): en `npm test` cuentan como fallos esperados y `npm run test:gaps` los corre como tests normales para ver el fallo real. Cuando un gap se corrija, su test pasará a rojo en `npm test` y hay que quitarle el marcador `gap`.
 
 ---
 
@@ -42,17 +42,37 @@ Un horario único (o un único horario en una página) pasa a `cita_awaiting_hor
 
 ---
 
-## Otros gaps abiertos (ya comunicados; sin cambios)
+## G2. Typo extremo en insultos
 
-| Gap | Detalle | Test |
-|---|---|---|
-| `idotoaia` no se detecta | Está a 4 ediciones de «idiota» (razón 0.67). Ninguna regla de distancia lo atrapa sin marcar cientos de palabras reales. | `gap` en `tests/security/lexical-guard.stress.test.ts` |
-| Spam corto no se filtra | Un primer mensaje de menos de 300 caracteres y sin enlaces (`🔥🔥🔥💰💰💰`, 48 letras repetidas) pasa el perímetro. | Descrito en el playbook, caso 1.3 |
-| Límite de ritmo por instancia | Los contadores viven en memoria de cada instancia serverless; no hay Redis. Una inundación repartida entre instancias se cuenta por separado. | `lib/security/rate-limiter.test.ts` |
-| Mensaje perdido por timeout del candado | Si un turno espera demasiado el candado, el webhook solo lo registra en consola y el mensaje queda sin respuesta (Meta ya recibió su 200). Ya existía el mismo patrón para cualquier error tras el acuse. | — |
-| Latencia del candado sin medir desde Vercel | Desde una red lejana la adquisición tarda ≈2 viajes a la base (340 ms de mediana con 159 ms por viaje). Falta medirla desde una función en la región de la base. | `npm run smoke:neon` |
-| Tope de 4 turnos con candado por instancia | Evita agotar el pool de 10 conexiones; el costo es que una instancia atiende como máximo 4 turnos a la vez y los demás esperan hasta 20 s. Ajustable con `TURN_LOCK_MAX_CONCURRENCY`. | `lib/fsm/turn-lock.test.ts` |
-| Comentario inexacto en `lib/prisma.ts` | Dice que el adaptador de Neon usa HTTP; en realidad usa un pool por WebSocket (necesario para las transacciones del candado). | — |
+Un término a más de 3 ediciones de la palabra objetivo (por ejemplo `idotoaia`: **4** ediciones de «idiota», razón 0.67) no lo atrapa la distancia de Levenshtein. Ampliar la tolerancia para atraparlo marcaría palabras reales: con razón ≤ 0.50 se marcan 38 palabras de distritos del INEI (`maria`, `pedro`, `escudero`…), y con ≤ 0.35 ya se marcaban distritos reales (`Tarata`, `Taraco`, que hoy están protegidos por una lista de nombres oficiales).
+
+- **Decisión:** aceptado. Sin regla de distancia segura; lo que sí se atrapa son las evasiones estructurales (letras sueltas, puntos, números, sufijos, consonantes dobles).
+- **Test:** `gap` en `tests/security/lexical-guard.stress.test.ts` (`idotoaia`).
+
+## G3. Mensaje sin respuesta cuando el candado por `waId` se agota
+
+Si un turno espera demasiado el candado, se aborta con `TurnLockTimeoutError` y **el ciudadano no recibe respuesta**. Los límites son: 30 s en la cola en memoria (`TURN_PROCESS_LOCK_TIMEOUT_MS`), 20 s esperando uno de los 4 cupos de candado de la instancia y 10 s de `lock_timeout` en Postgres (`TURN_LOCK_TIMEOUT_MS`).
+
+Por qué queda sin respuesta: el webhook ya contestó 200 a Meta antes de procesar (`after()`), así que el error solo se registra en consola y Meta no reintenta. No hay cola de reintentos. El Sandbox sí responde 503 «BUSY» para que el cliente reintente.
+
+- **Tarjeta posterior:** decidir entre reintentar el turno una vez, responder un texto fijo de «estamos ocupados, escribe de nuevo» o encolar (p. ej. Redis/QStash).
+- **Cómo verlo:** logs `[turn-lock]` y `Failed to process webhook entry` con `TurnLockTimeoutError`.
+
+## G4. Latencia del candado sin medir desde Vercel
+
+Desde una red lejana (159 ms por viaje a la base) el candado tarda **340 ms de mediana** en adquirirse: son 2 viajes (`BEGIN` y la sentencia del candado) y 134 ms en liberarse (`COMMIT`). Es distancia de red, no código, pero el presupuesto de 200 ms **no está certificado**. Falta medirlo desde una función de Vercel en la región de la base (Neon está en `us-east-1`; se espera `iad1`, confirmar la región de la función del proyecto).
+
+- **Cómo medirlo:** durante la sección 4 del playbook, buscar en los logs `[turn-lock] database lock for ...NNNN took N ms`. Esa línea solo se escribe si tarda **200 ms o más**: si no aparece ninguna, la adquisición está por debajo del presupuesto.
+- **Referencia:** `npm run smoke:neon` (mide el candado real; ejecutado desde red local).
+
+## G5 a G8. Otros gaps abiertos (ya comunicados; sin cambios)
+
+| Id | Gap | Detalle | Test |
+|---|---|---|---|
+| G5 | Spam corto no se filtra | Un primer mensaje de menos de 300 caracteres y sin enlaces (`🔥🔥🔥💰💰💰`, 48 letras repetidas) pasa el perímetro. | Playbook, caso 1.3 |
+| G6 | Límite de ritmo por instancia | Los contadores viven en memoria de cada instancia serverless; no hay Redis. Una inundación repartida entre instancias se cuenta por separado. | `lib/security/rate-limiter.test.ts` |
+| G7 | Tope de 4 turnos con candado por instancia | Evita agotar el pool de 10 conexiones; el costo es que una instancia atiende como máximo 4 turnos a la vez y los demás esperan hasta 20 s. Ajustable con `TURN_LOCK_MAX_CONCURRENCY`. | `lib/fsm/turn-lock.test.ts` |
+| G8 | Comentario inexacto en `lib/prisma.ts` | Dice que el adaptador de Neon usa HTTP; en realidad usa un pool por WebSocket (necesario para las transacciones del candado). | — |
 
 ## Fuera del alcance de esta rama (auditoría del 2026-09-19)
 
