@@ -213,6 +213,8 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.11 | `odontología` (texto, sin tocar la lista) | `Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:`. | Coincide el nombre con la fila ofrecida. Sin IA. | ☐ ☐ |
 | 3.12 | `1` | `Buscando horarios disponibles…` y la lista `Selecciona el horario:` (08:00 - 08:30, 09:30 - 10:00, 13:00 - 13:30). | En listas, `1` es la posición 1. | ☐ ☐ |
 
+> **Gap conocido (`docs/technical-gaps.md`, G1):** si un día ofrece **un solo** horario, o si la última página de «Ver más horarios» deja un solo horario, el bot agenda **sin pedir confirmación**. Con el catálogo fake (tres horarios) no ocurre. Si lo encuentras en modo real, anótalo como **Gap conocido**, no como fallo nuevo.
+
 ### 3.13 Selección de horario (parte de la lista `08:00 / 09:30 / 13:00`)
 
 Vuelve a la lista de horarios (3.12) antes de cada caso. Tras cada confirmación intermedia, toca **No, ver horarios**.
