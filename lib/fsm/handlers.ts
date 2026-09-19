@@ -3,7 +3,9 @@ import { handleReclamo } from "./handlers-reclamo";
 import { buildResult, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
 import { extractCitaHints } from "./cita-hints";
 import { isGreeting, isReclamoKeyword } from "./menu-shortcuts";
-import { readOffered } from "./selection-matchers";
+import { OFFERED_SLOT, readOffered } from "./selection-matchers";
+import { detectSessionExpiry, resumeStateFor } from "./session-expiry-guard";
+import { normalizeText } from "./domain";
 import { buildWelcomeEffect } from "./welcome";
 import {
   evaluateLexicalGuard,
@@ -245,7 +247,81 @@ function handleMainMenuIntentPending(session: Session, event: QueryResultEvent):
   return enterMainMenu(session.slots);
 }
 
-export function handle(session: Session, event: HandleEvent): HandlerResult {
+// ---- Session expiry ---------------------------------------------------------
+// Detection lives in session-expiry-guard.ts; this is what happens next. The
+// bearer and every reservation-in-progress slot are dropped, but the DNI and
+// the choices already made (district, specialty, establishment, date) stay, so
+// a citizen who verifies again resumes where they were (citaResumeState, the
+// same mechanism as the 401 recovery in handlers-cita.ts).
+
+const REAUTH_YES_ID = "cita_reauth_si";
+const REAUTH_NO_ID = "cita_reauth_no";
+const TRANSIENT_BOOKING_SLOTS = [
+  "citaBearer",
+  "citaHorasDia",
+  "citaHoraConfirmId",
+  "citaHoraChoiceA",
+  "citaHoraChoiceB",
+  OFFERED_SLOT,
+];
+
+const REAUTH_PROMPT_TEXT =
+  "⏳ Tu sesión ha expirado por inactividad. Por tu seguridad, necesitamos confirmar nuevamente tu identidad para continuar con tu cita. ¿Deseas solicitar un nuevo código de verificación?\n\n[1] Sí, enviar código\n[2] Cancelar y volver al menú";
+
+const reauthPrompt = () =>
+  sendButtons(REAUTH_PROMPT_TEXT, [
+    { id: REAUTH_YES_ID, title: "Sí, enviar código" },
+    { id: REAUTH_NO_ID, title: "Cancelar" },
+  ]);
+
+function beginSessionReauth(session: Session): HandlerResult {
+  const next: Session = {
+    state: "cita_awaiting_reauth",
+    slots: { ...session.slots },
+    counters: { ...session.counters },
+  };
+  for (const slot of TRANSIENT_BOOKING_SLOTS) delete next.slots[slot];
+  delete next.counters.citaHoraPage;
+
+  const resumeState = resumeStateFor(session.state);
+  if (resumeState) next.slots.citaResumeState = resumeState;
+
+  return buildResult(next, [reauthPrompt()]);
+}
+
+function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerResult {
+  const reply = normalizeText(readReply(event) ?? "");
+
+  if (reply === REAUTH_NO_ID.toUpperCase() || reply === "2" || reply === "CANCELAR" || reply === "NO") {
+    return enterMainMenu();
+  }
+
+  if (reply === REAUTH_YES_ID.toUpperCase() || reply === "1" || reply === "SI") {
+    const dni = session.slots.citaDni;
+    const next: Session = { state: "cita_awaiting_dni", slots: { ...session.slots }, counters: { ...session.counters } };
+
+    if (typeof dni !== "string" || dni === "") {
+      return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu DNI (8 dígitos).")]);
+    }
+
+    next.state = "cita_validate_pending";
+    next.slots.citaDniPending = dni;
+    return buildResult(next, [
+      sendText("Enviándote un nuevo código de verificación…"),
+      query("validate_user", { numeroDocumento: dni }),
+    ]);
+  }
+
+  return buildResult(session, [reauthPrompt()]);
+}
+
+export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
+  if (session.state === "cita_awaiting_reauth" && event.type !== "query_result") {
+    return handleAwaitingReauth(session, event as InboundEvent);
+  }
+
+  if (detectSessionExpiry(session, event, now)) return beginSessionReauth(session);
+
   const guarded = applyLexicalGuard(session, event);
   if (guarded) return guarded;
 

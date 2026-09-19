@@ -4,6 +4,9 @@ export type Session = {
   state: string;
   slots: Record<string, SlotValue>;
   counters: Record<string, number>;
+  // Time of the last save, filled in by session-store.getSession only. Handlers
+  // never carry it forward: it exists for the idle check on a citizen's message.
+  updatedAt?: Date;
 };
 
 export type InboundEventType = "text" | "button" | "list" | "image";
