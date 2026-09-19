@@ -28,12 +28,9 @@ const GREETING_WORDS = new Set([
   "HI",
 ]);
 
-// A bare "hola" / "buenos días" — or a bare "1" / "2", which citizens type
-// meaning "show me the options" — needs no AI to be answered with the menu.
+// A bare "hola" / "buenos días" needs no AI to be answered with the menu.
+// ("1" / "2" are NOT greetings: they pick a menu option, see handlers.ts.)
 export function isGreeting(text: string): boolean {
-  const trimmed = text.trim();
-  if (trimmed === "1" || trimmed === "2") return true;
-
   const tokens = words(text);
   return tokens.length > 0 && tokens.every((token) => GREETING_WORDS.has(token));
 }

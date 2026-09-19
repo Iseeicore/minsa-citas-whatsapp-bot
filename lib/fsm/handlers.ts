@@ -20,6 +20,13 @@ const MENU_ROWS = [
 
 const CONTINUE_BUTTON_ID = "continuar_menu";
 
+// Typing the row's number is the same as tapping the row: no static menu is
+// printed again when the intent is that explicit.
+const NUMERIC_MENU_CHOICES: Record<string, string> = {
+  "1": "agendar_cita",
+  "2": "registrar_reclamo",
+};
+
 const RECLAMO_IDENTITY_BUTTONS = [
   { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
   { id: "reclamo_sin_dni", title: "No tengo DNI" },
@@ -159,7 +166,8 @@ function applyLexicalGuard(session: Session, event: HandleEvent): HandlerResult 
 }
 
 function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
+  const numericChoice = event.text ? NUMERIC_MENU_CHOICES[event.text.trim()] : undefined;
+  const replyId = numericChoice ?? readReply(event);
 
   if (replyId === CONTINUE_BUTTON_ID) {
     return enterMainMenu(session.slots);

@@ -88,7 +88,7 @@ describe("main_menu — RECLAMO keyword", () => {
 });
 
 describe("main_menu — deterministic greeting shortcut", () => {
-  it.each(["hola", "Buenos días", "buenas tardes", "Hola!!", "1", "2"])(
+  it.each(["hola", "Buenos días", "buenas tardes", "Hola!!"])(
     "%s shows the static menu with zero AI and without storing it as the opening message",
     (message) => {
       const result = handle(sessionAt("main_menu"), text(message));
@@ -177,5 +177,38 @@ describe("bypass — states where the guard must never run", () => {
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect((sentEffects(result)[0] as { text: string }).text).toContain("DNI inválido");
+  });
+});
+
+describe("main_menu — numeric shortcut", () => {
+  it.each(["1", " 1 ", "1\n"])("%j goes straight to the Cita flow without reprinting the menu", (message) => {
+    const result = handle(sessionAt("main_menu"), text(message));
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(hasQuery(result)).toBe(false);
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text"]);
+    expect((sentEffects(result)[0] as { text: string }).text).toContain("DNI");
+    expect(result.session.slots.menuChoice).toBe("agendar_cita");
+    expect(result.session.slots.initialMessageText).toBeUndefined();
+  });
+
+  it.each(["2", " 2 "])("%j goes straight to the Reclamo flow without reprinting the menu", (message) => {
+    const result = handle(sessionAt("main_menu"), text(message));
+
+    expect(result.session.state).toBe("reclamo_identity_choice");
+    expect(hasQuery(result)).toBe(false);
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_buttons"]);
+    expect(result.session.slots.menuChoice).toBe("registrar_reclamo");
+  });
+
+  it.each(["3", "0", "11", "12", "1 2", "uno"])("%j is not a menu shortcut and follows the normal path", (message) => {
+    const result = handle(sessionAt("main_menu"), text(message));
+
+    expect(["cita_awaiting_dni", "reclamo_identity_choice"]).not.toContain(result.session.state);
+  });
+
+  it("the numbers only mean a menu option in main_menu (a 1 inside another step is just input)", () => {
+    const inDni = handle(sessionAt("cita_awaiting_dni"), text("1"));
+    expect((sentEffects(inDni)[0] as { text: string }).text).toContain("DNI inválido");
   });
 });

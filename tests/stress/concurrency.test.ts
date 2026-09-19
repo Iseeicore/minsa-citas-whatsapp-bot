@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "@/lib/fsm/types";
-import { gap } from "../support/known-gap";
 
 // The real session store is Postgres over the network: every turn is
 // read -> compute -> write, and a real turn also waits on MINSA/RENIEC/Gemini.
@@ -174,16 +173,21 @@ describe("B.1 one waId, bursts of 5-10 messages per second (store latency 30-90 
 });
 
 describe("B.2 the messages from the brief", () => {
-  // The brief calls "1" a Cita selection. The approved main-menu rule is that a
-  // bare "1"/"2" only shows the static menu (like "hola"), so this sequence
-  // never leaves the menu.
-  it("current behavior: 'Hola', '1', 'Medicina general', '1' stays in main_menu", async () => {
-    const outcome = await sequential("wa-brief", BRIEF_CHAIN);
-    expect(outcome.state).toBe("main_menu");
+  // "1" in the main menu picks 'Agendar una cita médica' (numeric shortcut), so
+  // 'Hola', '1', 'Medicina general', '1' walks into the Cita flow: after '1' the
+  // bot waits for a DNI and the next two messages are just invalid DNIs.
+  it("'1' in the main menu selects 'Agendar una cita médica'", async () => {
+    const outcome = await sequential("wa-brief-1", ["Hola", "1"]);
+    expect(outcome.state).toBe("cita_awaiting_dni");
   }, LONG);
 
-  gap("'1' in the main menu selects 'Agendar una cita médica'", async () => {
-    const outcome = await sequential("wa-brief-1", ["Hola", "1"]);
+  it("'Hola', '1', 'Medicina general', '1' ends waiting for a DNI, not back in the menu", async () => {
+    const outcome = await sequential("wa-brief", BRIEF_CHAIN);
+    expect(outcome.state).toBe("cita_awaiting_dni");
+  }, LONG);
+
+  it("the same messages sent as a fast burst give the same result (the lock keeps the order)", async () => {
+    const outcome = await burst("wa-brief-burst", BRIEF_CHAIN, 10);
     expect(outcome.state).toBe("cita_awaiting_dni");
   }, LONG);
 });
