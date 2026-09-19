@@ -4,7 +4,6 @@ import { isQueryEffect } from "@/lib/fsm/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/selection-matchers";
 import { packHoraSlots, type HoraSlot } from "@/lib/fsm/time-parser";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/types";
-import { gap } from "../support/known-gap";
 
 const FROM = "sandbox-hora";
 
@@ -53,25 +52,23 @@ const listIds = (r: HandlerResult) => {
 describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
   const session = () => horaSession([slot("07:00", "07:30"), slot("08:00", "08:30"), slot("13:00", "13:30")]);
 
-  // Expectation from the brief: "1" is genuinely ambiguous (list position 1 =
-  // 07:00, or 1 PM = 13:00) and must be disambiguated. Today a bare 1..10 is
-  // ALWAYS a list position (approved rule), so the citizen only sees a
-  // confirmation for 07:00 — which they can refuse, but it never mentions 13:00.
-  gap("'1' offers the choice between position 1 (07:00) and 1 PM (13:00)", () => {
+  // "1" is genuinely ambiguous: list position 1 = 07:00, or 1 PM = 13:00. The
+  // citizen gets a two-button question naming both, and nothing is booked.
+  it("'1' offers the choice between position 1 (07:00) and 1 PM (13:00)", () => {
     const result = say(session(), "1");
 
     expect(queries(result)).toHaveLength(0);
-    const question = sent(result).find((e) => e.kind === "send_buttons") as { text: string } | undefined;
+    expect(result.session.state).toBe("cita_awaiting_hora_choice");
+
+    const question = sent(result).find((e) => e.kind === "send_buttons") as
+      | { text: string; buttons: Array<{ id: string; title: string }> }
+      | undefined;
     expect(question?.text).toContain("07:00");
     expect(question?.text).toContain("13:00");
-  });
-
-  it("'1' never books directly; it asks for confirmation of position 1", () => {
-    const result = say(session(), "1");
-
-    expect(queries(result)).toHaveLength(0);
-    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(confirmId(result)).toBe("07:00|07:30");
+    expect(question?.buttons).toEqual([
+      { id: "hora_choice_a", title: "Opción 1: 07:00" },
+      { id: "hora_choice_b", title: "1:00 PM: 13:00" },
+    ]);
   });
 
   it("'3' resolves to 13:00 by position with no disambiguation (3 AM/PM are not offered)", () => {
@@ -81,18 +78,22 @@ describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
     expect(confirmId(result)).toBe("13:00|13:30");
   });
 
-  // Expectation from the brief: there is no option 8, so "8" can only mean the
-  // hour and must resolve to 08:00. Today an out-of-range bare number is never
-  // retried as an hour, so the citizen is just told to pick from the list.
-  gap("'8' (no option 8) falls back to the hour and resolves to 08:00", () => {
+  // There is no option 8, so "8" can only mean the hour: it resolves to 08:00
+  // and asks for confirmation.
+  it("'8' (no option 8) falls back to the hour and resolves to 08:00", () => {
     const result = say(session(), "8");
 
+    expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
     expect(confirmId(result)).toBe("08:00|08:30");
   });
 
-  it("evidence for '8': today it is rejected and the list re-shown, never guessed", () => {
-    const result = say(session(), "8");
+  it("'2' is only a position (2 AM/PM are not offered): confirm position 2", () => {
+    expect(confirmId(say(session(), "2"))).toBe("08:00|08:30");
+  });
+
+  it("a bare number matching neither a position nor an hour is rejected and the list re-shown", () => {
+    const result = say(session(), "5");
 
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_hora_select");

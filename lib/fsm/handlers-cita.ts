@@ -94,6 +94,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleAwaitingHoraSelect(session, event as InboundEvent);
     case "cita_awaiting_hora_confirm":
       return handleHoraConfirm(session, event as InboundEvent);
+    case "cita_awaiting_hora_choice":
+      return handleHoraChoice(session, event as InboundEvent);
     case "cita_booking_pending":
       return handleBookingPending(session, event as QueryResultEvent);
     default:
@@ -426,7 +428,11 @@ function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
 
 // A step-specific reader tried before the generic ordinal/name matcher. It can
 // also explain why nothing was chosen ("notice") instead of a bare rejection.
-type CustomMatch = SelectionMatch | { kind: "notice"; text: string };
+type CustomMatch =
+  | SelectionMatch
+  | { kind: "notice"; text: string }
+  // The step already knows the whole answer (e.g. a two-button question).
+  | { kind: "handled"; result: HandlerResult };
 
 type SelectionOptions = {
   customMatch?: (typed: string, rows: OfferedRow[]) => CustomMatch | undefined;
@@ -467,6 +473,7 @@ function resolveSelection(
   if (custom?.kind === "match") return { replyId: custom.row.id, typed };
   if (custom?.kind === "ambiguous") return { result: narrowOffered(session, custom.rows) };
   if (custom?.kind === "notice") return { result: reshowOffered(session, offered, custom.text) };
+  if (custom?.kind === "handled") return { result: custom.result };
 
   const match = matchSelection(typed, offered.rows, { includeDescription: options.includeDescription });
   if (match.kind === "match") return { replyId: match.row.id, typed };
@@ -1417,12 +1424,141 @@ function rowToSlot(row: OfferedRow): HoraSlot | undefined {
     : undefined;
 }
 
+// ---- A bare "1".."10": list position or hour? ------------------------------
+// "1" can be option 1 of the list (07:00) or 1 PM (13:00, MINSA speaks 24h).
+// Both readings are checked against what is really offered:
+//  - only the position exists            -> the position (then confirmed);
+//  - only an hour exists ("8", no option 8) -> that hour (then confirmed);
+//  - the same slot is both               -> just that slot (then confirmed);
+//  - two different slots                 -> a two-button question naming both.
+// The tapped button names an exact time, so it books directly like a list tap.
+
+const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;
+const HORA_CHOICE_A_ID = "hora_choice_a";
+const HORA_CHOICE_B_ID = "hora_choice_b";
+const BUTTON_TITLE_MAX = 20;
+
+function formatHora12(start: string): string {
+  const [hour, minute] = start.split(":").map(Number);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+// "13:00" -> "1 PM" (the hour on its own, for a group of slots).
+function formatHourGroup(start: string): string {
+  const hour = Number(start.slice(0, 2));
+  return `${hour % 12 || 12} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+function resolveBareHoraNumber(
+  session: Session,
+  number: number,
+  visibleRows: OfferedRow[],
+  daySlots: HoraSlot[],
+): CustomMatch | undefined {
+  const positionRow = number <= visibleRows.length ? visibleRows[number - 1] : undefined;
+  const hourSlots = daySlots.filter((slot) => {
+    const hour = Number(slot.start.slice(0, 2));
+    return hour === number || hour === number + 12;
+  });
+  const otherHourSlots = positionRow ? hourSlots.filter((slot) => slotToRow(slot).id !== positionRow.id) : hourSlots;
+
+  if (otherHourSlots.length === 0) {
+    // Position only (or the position is itself the sole matching hour); with
+    // neither, undefined lets the generic matcher reject it.
+    return positionRow ? { kind: "match", row: positionRow } : undefined;
+  }
+
+  if (!positionRow) {
+    return otherHourSlots.length === 1
+      ? { kind: "match", row: slotToRow(otherHourSlots[0]) }
+      : { kind: "ambiguous", rows: otherHourSlots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
+  }
+
+  const positionSlot = rowToSlot(positionRow);
+  if (!positionSlot) return { kind: "match", row: positionRow };
+
+  const first = otherHourSlots[0];
+  const single = otherHourSlots.length === 1;
+  const hourLabel = single ? `${formatHora12(first.start)}: ${first.start}` : `${formatHourGroup(first.start)}: ver horas`;
+  const hourDescription = single
+    ? `${formatHora12(first.start)} (${first.start})`
+    : `${formatHourGroup(first.start)} (${otherHourSlots.map((slot) => slot.start).join(", ")})`;
+
+  const next = cloneSession(session);
+  next.state = "cita_awaiting_hora_choice";
+  next.slots.citaHoraChoiceA = positionRow.id;
+  next.slots.citaHoraChoiceB = packHoraSlots(otherHourSlots);
+
+  return {
+    kind: "handled",
+    result: buildResult(next, [
+      sendButtons(`¿A qué te refieres con "${number}"? Opción ${number}: ${positionSlot.start}, o ${hourDescription}.`, [
+        { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción ${number}: ${positionSlot.start}`, BUTTON_TITLE_MAX) },
+        { id: HORA_CHOICE_B_ID, title: truncateForRow(hourLabel, BUTTON_TITLE_MAX) },
+      ]),
+    ]),
+  };
+}
+
+function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
+  const slotA = String(session.slots.citaHoraChoiceA ?? "");
+  const slotsB = unpackHoraSlots(session.slots.citaHoraChoiceB);
+  const offered = readOffered(session.slots);
+
+  const back = () => {
+    const restored = cloneSession(session);
+    delete restored.slots.citaHoraChoiceA;
+    delete restored.slots.citaHoraChoiceB;
+    restored.state = "cita_awaiting_hora_select";
+    return restored;
+  };
+
+  // Typing instead of tapping: a normal typed time, read against the full list.
+  if (event.type === "text") return handleAwaitingHoraSelect(back(), event);
+
+  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
+
+  if (reply === HORA_CHOICE_A_ID && /^\d{2}:\d{2}\|/.test(slotA)) {
+    return startBooking(back(), slotA.split("|")[0]);
+  }
+
+  if (reply === HORA_CHOICE_B_ID && slotsB.length === 1) {
+    return startBooking(back(), slotsB[0].start);
+  }
+
+  if (reply === HORA_CHOICE_B_ID && slotsB.length > 1) {
+    const restored = back();
+    return buildResult(restored, [offerList(restored, NARROWED_LIST_TEXT, slotsB.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow))]);
+  }
+
+  // Anything else: ask again with the same two options.
+  const [startA] = slotA.split("|");
+  const first = slotsB[0];
+  if (!/^\d{2}:\d{2}$/.test(startA ?? "") || !first) return reshowOffered(back(), offered);
+
+  return buildResult(session, [
+    sendButtons("Elige una de las dos opciones:", [
+      { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción: ${startA}`, BUTTON_TITLE_MAX) },
+      {
+        id: HORA_CHOICE_B_ID,
+        title: truncateForRow(slotsB.length === 1 ? `${formatHora12(first.start)}: ${first.start}` : "Ver horas", BUTTON_TITLE_MAX),
+      },
+    ]),
+  ]);
+}
+
 // A typed time ("a la 1", "1:45 pm", "en la tarde") is read against the WHOLE
 // day MINSA offered; sessions without that (opened before it was stored) fall
 // back to the rows currently on screen.
 function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): CustomMatch | undefined {
   const day = unpackHoraSlots(session.slots.citaHorasDia);
   const slots = day.length > 0 ? day : rows.flatMap((row) => rowToSlot(row) ?? []);
+
+  if (BARE_SMALL_NUMBER.test(typed.trim())) {
+    const decided = resolveBareHoraNumber(session, Number(typed.trim()), rows, slots);
+    if (decided) return decided;
+    // No hour matches: fall through so the generic matcher reads it as a position.
+  }
 
   const match = matchHoraText(typed, slots);
   switch (match.kind) {
@@ -1456,6 +1592,8 @@ function startBooking(session: Session, horaInicio: string): HandlerResult {
   const next = clearOffered(session);
   delete next.slots.citaHorasDia;
   delete next.slots.citaHoraConfirmId;
+  delete next.slots.citaHoraChoiceA;
+  delete next.slots.citaHoraChoiceB;
   next.state = "cita_booking_pending";
   return buildResult(next, [
     sendText("Agendando tu cita…"),

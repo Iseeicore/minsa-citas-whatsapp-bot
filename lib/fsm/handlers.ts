@@ -52,6 +52,7 @@ const SELECTION_STATES = new Set([
   "cita_awaiting_establecimiento_select",
   "cita_awaiting_fecha_select",
   "cita_awaiting_hora_select",
+  "cita_awaiting_hora_choice",
 ]);
 
 function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
