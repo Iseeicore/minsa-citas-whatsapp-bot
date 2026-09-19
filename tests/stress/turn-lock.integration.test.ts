@@ -55,13 +55,9 @@ function createFakePostgres(): AdvisoryLockClient {
 
       const tx = {
         async $executeRawUnsafe(sql: string, ...values: unknown[]) {
-          if (sql.startsWith("SET LOCAL lock_timeout")) {
-            lockTimeoutMs = Number(sql.split("=")[1]);
-            return 0;
-          }
-
           if (sql.includes("pg_advisory_xact_lock")) {
             const key = String(values[0]);
+            lockTimeoutMs = parseInt(String(values[1]), 10); // "<n>ms" from set_config('lock_timeout', $2, true)
             const deadline = Date.now() + lockTimeoutMs;
 
             for (let current = held.get(key); current; current = held.get(key)) {

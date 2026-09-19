@@ -107,9 +107,14 @@ export function createPrismaAdvisoryLock(
       return await client.$transaction(
         async (tx) => {
           try {
-            // SET does not accept bind parameters; the value is an integer we built.
-            await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = ${lockTimeoutMs}`);
-            await tx.$executeRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", waId);
+            // ONE round trip instead of two (each costs a network hop): the CTE
+            // sets lock_timeout for this transaction and the lock is taken from it,
+            // so the timeout is guaranteed to be in force when the wait starts.
+            await tx.$executeRawUnsafe(
+              "WITH cfg AS (SELECT set_config('lock_timeout', $2, true)) SELECT pg_advisory_xact_lock(hashtext($1)) FROM cfg",
+              waId,
+              `${lockTimeoutMs}ms`,
+            );
           } catch (error) {
             if (isLockTimeout(error)) throw new TurnLockTimeoutError(waId, "database");
             throw error;

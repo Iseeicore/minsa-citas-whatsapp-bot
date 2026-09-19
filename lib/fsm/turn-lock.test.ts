@@ -157,8 +157,7 @@ describe("level 2: Postgres advisory lock", () => {
     expect(value).toBe(42);
     expect(db.log).toEqual([
       "BEGIN",
-      "SET LOCAL lock_timeout = 7000",
-      "SELECT pg_advisory_xact_lock(hashtext($1)) [5491100000000]",
+      "WITH cfg AS (SELECT set_config('lock_timeout', $2, true)) SELECT pg_advisory_xact_lock(hashtext($1)) FROM cfg [5491100000000,7000ms]",
       "TASK",
       "COMMIT",
     ]);
@@ -182,7 +181,7 @@ describe("level 2: Postgres advisory lock", () => {
   });
 
   it("lets other database errors through unchanged", async () => {
-    const db = fakePrisma({ failOn: (sql) => (sql.startsWith("SET LOCAL") ? new Error("connection reset") : undefined) });
+    const db = fakePrisma({ failOn: (sql) => (sql.includes("set_config") ? new Error("connection reset") : undefined) });
     const lock = createPrismaAdvisoryLock(db.prisma);
 
     await expect(lock("wa-1", async () => "x")).rejects.toThrow("connection reset");
