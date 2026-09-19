@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:gaps": "vitest run --mode strict-gaps",
+    "smoke:neon": "vitest run --config vitest.smoke.config.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["lib/**/*.test.ts", "tests/**/*.test.ts"],
+    // Real-infrastructure smoke tests run only via `npm run smoke:neon`.
+    exclude: ["tests/smoke/**", "node_modules/**"],
   },
 });
