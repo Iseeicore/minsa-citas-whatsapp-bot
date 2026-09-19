@@ -284,7 +284,11 @@ async function processValue(value: WhatsAppValue) {
       const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
 
       if (verdict && verdict.action !== "ALLOW") {
-        const routed = routeLexicalAction({ state: "main_menu", slots: {}, counters: {} }, verdict.action);
+        const routed = routeLexicalAction(
+          { state: "main_menu", slots: {}, counters: {} },
+          verdict.action,
+          firstContactText,
+        );
         await saveSession(waId, routed.session);
 
         for (const effect of routed.effects) {

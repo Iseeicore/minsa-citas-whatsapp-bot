@@ -1,6 +1,7 @@
 import { handleCita } from "./handlers-cita";
 import { handleReclamo } from "./handlers-reclamo";
 import { buildResult, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
+import { extractCitaHints } from "./cita-hints";
 import { isGreeting, isReclamoKeyword } from "./menu-shortcuts";
 import { readOffered } from "./selection-matchers";
 import { buildWelcomeEffect } from "./welcome";
@@ -98,6 +99,7 @@ function handleAwaitingFlowStart(session: Session): HandlerResult {
 export function routeLexicalAction(
   session: Session,
   action: Exclude<LexicalAction, "ALLOW">,
+  message?: string,
 ): HandlerResult {
   const slots = session.state === "main_menu" ? session.slots : {};
 
@@ -107,10 +109,20 @@ export function routeLexicalAction(
         sendButtons(INSTITUTIONAL_WARNING_TEXT, [{ id: CONTINUE_BUTTON_ID, title: "Continuar" }]),
       ]);
 
-    case "CITA_WITH_WARNING":
-      return buildResult({ state: "cita_awaiting_dni", slots, counters: {} }, [
+    case "CITA_WITH_WARNING": {
+      // What they asked for survives the warning: the specialty and district
+      // named in the message become the same hints a polite message gets.
+      const hints = message ? extractCitaHints(message) : {};
+      const withHints = {
+        ...slots,
+        ...(hints.especialidad ? { citaEspecialidadHintText: hints.especialidad } : {}),
+        ...(hints.distrito ? { citaDistritoHintText: hints.distrito } : {}),
+      };
+
+      return buildResult({ state: "cita_awaiting_dni", slots: withHints, counters: {} }, [
         sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu DNI (8 dígitos).`),
       ]);
+    }
 
     case "FORCE_RECLAMO":
       return buildResult({ state: "reclamo_identity_choice", slots, counters: {} }, [
@@ -133,7 +145,7 @@ function applyLexicalGuard(session: Session, event: HandleEvent): HandlerResult 
   const { action } = evaluateLexicalGuard(event.text);
   if (action === "ALLOW") return undefined;
 
-  if (isMenuLevel) return routeLexicalAction(session, action);
+  if (isMenuLevel) return routeLexicalAction(session, action, event.text);
 
   if (isSelection) {
     const offered = readOffered(session.slots);

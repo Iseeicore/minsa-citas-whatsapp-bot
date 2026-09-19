@@ -1,0 +1,63 @@
+import { normalizeText } from "./domain";
+import { searchDistrito } from "./ubigeo-data";
+
+// Deterministic (no AI) reading of what a citizen already said about the cita
+// they want, so it isn't thrown away when the message also carried an insult
+// (see routeLexicalAction). The result feeds the same hint slots the AI intent
+// step fills for a polite message.
+
+const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
+  [/^odontolog/, "Odontología"],
+  [/^pediatr/, "Pediatría"],
+  [/^ginecolog/, "Ginecología"],
+  [/^cardiolog/, "Cardiología"],
+  [/^dermatolog/, "Dermatología"],
+  [/^oftalmolog/, "Oftalmología"],
+  [/^traumatolog/, "Traumatología"],
+  [/^psicolog/, "Psicología"],
+  [/^nutricion/, "Nutrición"],
+];
+
+const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE"]);
+const MAX_PLACE_WORDS = 4;
+const PILOT_DEPARTAMENTO = "LIMA";
+
+export type CitaHints = { especialidad?: string; distrito?: string };
+
+export function extractCitaHints(message: string): CitaHints {
+  const words = normalizeText(message)
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .split(" ")
+    .filter(Boolean);
+
+  const hints: CitaHints = {};
+
+  for (const word of words) {
+    const lower = word.toLowerCase();
+    const found = ESPECIALIDAD_ROOTS.find(([root]) => root.test(lower));
+    if (found) {
+      hints.especialidad = found[1];
+      break;
+    }
+  }
+
+  // A district is only trusted right after a place preposition ("en San
+  // Borja") and only when it is an official district of the pilot department,
+  // so unrelated words and non-Lima places never become a hint.
+  for (let start = 1; start < words.length && !hints.distrito; start++) {
+    if (!PLACE_PREPOSITIONS.has(words[start - 1])) continue;
+
+    for (let length = Math.min(MAX_PLACE_WORDS, words.length - start); length >= 1; length--) {
+      const phrase = words.slice(start, start + length).join(" ");
+      const inPilotArea = searchDistrito(phrase).some(
+        (candidate) => normalizeText(candidate.departamento) === PILOT_DEPARTAMENTO,
+      );
+      if (inPilotArea) {
+        hints.distrito = phrase.toLowerCase().replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
+        break;
+      }
+    }
+  }
+
+  return hints;
+}
