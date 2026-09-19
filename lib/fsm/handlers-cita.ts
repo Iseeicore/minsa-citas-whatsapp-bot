@@ -12,6 +12,7 @@ import {
 import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
 import { matchFechaText, type DateParts } from "./date-parser";
+import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "./gibberish";
 import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "./time-parser";
 import {
   hintText,
@@ -499,6 +500,12 @@ function resolveDistritoText(
     return resolveDistritoCandidates(session, localCandidates);
   }
 
+  // Free and deterministic: keyboard mashing ("asdfghjk") never earns a paid AI
+  // call. A genuine typo still goes through.
+  if (isGibberishPlaceText(distritoText)) {
+    return buildResult(session, [sendText(UNRECOGNIZED_DISTRITO_TEXT)]);
+  }
+
   const next = cloneSession(session);
   next.state = "cita_distrito_ai_pending";
   return buildResult(next, [
@@ -702,14 +709,17 @@ function handleAwaitingDistritoDisambiguation(session: Session, event: InboundEv
     // Text naming none of the offered districts is a corrected district: it
     // goes back through the same dataset -> AI chain the first answer used. A
     // bare "sí"/"ese" names nothing, so it just re-shows the list.
-    onNoMatchText: (typed) =>
-      !looksLikePlaceName(typed) || isAffirmativeReply(typed)
-        ? undefined
-        : resolveDistritoText(
-            clearOffered(session),
-            typed,
-            session.slots.initialMessageText as string | undefined,
-          ),
+    onNoMatchText: (typed) => {
+      if (!looksLikePlaceName(typed) || isAffirmativeReply(typed)) return undefined;
+      if (isGibberishPlaceText(typed)) {
+        return reshowOffered(session, readOffered(session.slots), UNRECOGNIZED_DISTRITO_TEXT);
+      }
+      return resolveDistritoText(
+        clearOffered(session),
+        typed,
+        session.slots.initialMessageText as string | undefined,
+      );
+    },
   });
   if ("result" in outcome) return outcome.result;
 
