@@ -11,6 +11,7 @@ import {
 } from "./handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
+import { matchFechaText, type DateParts } from "./date-parser";
 import {
   matchSelection,
   OFFERED_SLOT,
@@ -18,6 +19,7 @@ import {
   serializeOffered,
   type OfferedList,
   type OfferedRow,
+  type SelectionMatch,
 } from "./selection-matchers";
 import type {
   HandleEvent,
@@ -76,6 +78,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleFechaPending(session, event as QueryResultEvent);
     case "cita_awaiting_fecha_select":
       return handleAwaitingFechaSelect(session, event as InboundEvent);
+    case "cita_fecha_ai_pending":
+      return handleFechaAiPending(session, event as QueryResultEvent);
     case "cita_hora_pending":
       return handleHoraPending(session, event as QueryResultEvent);
     case "cita_hora_page_pending":
@@ -391,8 +395,12 @@ function clearOffered(session: Session): Session {
   return next;
 }
 
-function reshowOffered(session: Session, offered: OfferedList | undefined): HandlerResult {
-  const effects: SendEffect[] = [sendText(SELECTION_REJECTION)];
+function reshowOffered(
+  session: Session,
+  offered: OfferedList | undefined,
+  message: string = SELECTION_REJECTION,
+): HandlerResult {
+  const effects: SendEffect[] = [sendText(message)];
   if (offered) effects.push(sendList(offered.text, offered.rows));
   return buildResult(session, effects);
 }
@@ -408,7 +416,12 @@ function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
   return buildResult(next, [offerList(next, NARROWED_LIST_TEXT, rows)]);
 }
 
+// A step-specific reader tried before the generic ordinal/name matcher. It can
+// also explain why nothing was chosen ("notice") instead of a bare rejection.
+type CustomMatch = SelectionMatch | { kind: "notice"; text: string };
+
 type SelectionOptions = {
+  customMatch?: (typed: string, rows: OfferedRow[]) => CustomMatch | undefined;
   // Match typed text against "Provincia — Departamento" descriptions too.
   includeDescription?: boolean;
   // Ids that are valid taps although they are not list rows (pagination buttons).
@@ -443,6 +456,11 @@ function resolveSelection(
   if (!typed || !offered || options.allowTypedText === false) {
     return { result: reshowOffered(session, offered) };
   }
+
+  const custom = options.customMatch?.(typed, offered.rows);
+  if (custom?.kind === "match") return { replyId: custom.row.id };
+  if (custom?.kind === "ambiguous") return { result: narrowOffered(session, custom.rows) };
+  if (custom?.kind === "notice") return { result: reshowOffered(session, offered, custom.text) };
 
   const match = matchSelection(typed, offered.rows, { includeDescription: options.includeDescription });
   if (match.kind === "match") return { replyId: match.row.id };
@@ -1054,8 +1072,70 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
   return buildResult(next, [sendText("No hay fechas disponibles para ese establecimiento.")]);
 }
 
+function todayInLima(): DateParts {
+  const fecha = nowInLima().fecha; // YYYYMMDD
+  return {
+    year: Number(fecha.slice(0, 4)),
+    month: Number(fecha.slice(4, 6)),
+    day: Number(fecha.slice(6, 8)),
+  };
+}
+
+// Only phrases that actually talk about time are worth an AI call — "asdf"
+// or a pasted id must not cost one.
+const TEMPORAL_PHRASE =
+  /\b(semana|mes|proxim[oa]s?|siguiente|dias?|fin|final|inicio|principios?|quincena|luego|despues|pronto|temprano|urgente|antes|cuando|fecha)\b/;
+
+function askFechaAi(session: Session, typed: string): HandlerResult | undefined {
+  if (!TEMPORAL_PHRASE.test(normalizeText(typed).toLowerCase())) return undefined;
+
+  const offered = readOffered(session.slots);
+  if (!offered) return undefined;
+
+  const today = todayInLima();
+  const pad = (value: number) => String(value).padStart(2, "0");
+
+  const next = cloneSession(session);
+  next.state = "cita_fecha_ai_pending";
+  return buildResult(next, [
+    sendText("Un momento, estamos revisando tu respuesta…"),
+    query("resolve_fecha_ai", {
+      text: typed,
+      today: `${today.year}-${pad(today.month)}-${pad(today.day)}`,
+      options: offered.rows.map((row) => ({ id: row.id, label: row.title })),
+    }),
+  ]);
+}
+
+// The AI only ever picks one of the dates already offered; anything else (or
+// no answer at all) goes back to the list. A valid pick is handled exactly
+// like the citizen tapping that row.
+function handleFechaAiPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { id?: unknown };
+  const offered = readOffered(session.slots);
+
+  const restored = cloneSession(session);
+  restored.state = "cita_awaiting_fecha_select";
+
+  if (typeof result.id === "string" && offered?.rows.some((row) => row.id === result.id)) {
+    return handleAwaitingFechaSelect(restored, { from: event.from, type: "list", listId: result.id });
+  }
+
+  return reshowOffered(restored, offered, `No pudimos identificar esa fecha. ${SELECTION_REJECTION}`);
+}
+
 function handleAwaitingFechaSelect(session: Session, event: InboundEvent): HandlerResult {
-  const outcome = resolveSelection(session, event);
+  const outcome = resolveSelection(session, event, {
+    customMatch: (typed, rows) => {
+      const parsed = matchFechaText(typed, rows, todayInLima());
+      if (parsed.kind === "unparsed") return undefined;
+      if (parsed.kind === "unavailable") {
+        return { kind: "notice", text: `No hay cupos para ${parsed.label}. Elige una de las fechas disponibles:` };
+      }
+      return parsed;
+    },
+    onNoMatchText: (typed) => askFechaAi(session, typed),
+  });
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RESPECT_REMINDER_TEXT } from "../security/lexical-guard";
 import { handle } from "./handlers";
 import { isQueryEffect } from "./handlers-shared";
@@ -356,4 +356,82 @@ describe("hora select", () => {
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe(state);
   });
+});
+
+describe("fecha select — typed dates and AI fallback", () => {
+  const state = "cita_awaiting_fecha_select";
+  const base = () => at(state, fechas, { citaCodEess: "0000123", citaEspecialidadId: "02" });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function setToday(iso: string) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(iso));
+  }
+
+  it("'mañana' picks tomorrow's offered date", () => {
+    setToday("2026-09-21T15:00:00-05:00"); // Monday in Lima
+
+    const result = handle(base(), text("mañana"));
+
+    expect(result.session.state).toBe("cita_hora_pending");
+    expect(queries(result)[0]).toMatchObject({ kind: "list_horas", payload: { fecha: "22/09/2026" } });
+  });
+
+  it("a date MINSA does not offer is explained and the list re-shown, never guessed", () => {
+    setToday("2026-09-21T15:00:00-05:00");
+
+    const result = handle(base(), text("el domingo"));
+
+    expect(result.session.state).toBe(state);
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("No hay cupos");
+    expect(listRowsOf(result)).toEqual(fechas.rows);
+  });
+
+  it("a temporal phrase no rule can read goes to the AI once, validated against the offered dates", () => {
+    const result = handle(base(), text("la próxima semana"));
+
+    expect(result.session.state).toBe("cita_fecha_ai_pending");
+    expect(queries(result)).toHaveLength(1);
+    expect(queries(result)[0]).toMatchObject({
+      kind: "resolve_fecha_ai",
+      payload: {
+        text: "la próxima semana",
+        options: [
+          { id: "22/09/2026", label: "22/09/2026" },
+          { id: "23/09/2026", label: "23/09/2026" },
+        ],
+      },
+    });
+  });
+
+  it("junk text does not spend an AI call", () => {
+    expect(queries(handle(base(), text("asdf")))).toHaveLength(0);
+  });
+
+  it("an AI answer that is one of the offered dates is treated like a tap", () => {
+    const pending = at("cita_fecha_ai_pending", fechas, { citaCodEess: "0000123", citaEspecialidadId: "02" });
+
+    const result = handle(pending, queryResult("resolve_fecha_ai", { id: "23/09/2026" }));
+
+    expect(result.session.state).toBe("cita_hora_pending");
+    expect(queries(result)[0]).toMatchObject({ kind: "list_horas", payload: { fecha: "23/09/2026" } });
+  });
+
+  it.each([{ id: "31/12/2099" }, { id: null }, {}])(
+    "an AI answer of %j returns to the list with an explanation and never reaches MINSA",
+    (aiResult) => {
+      const pending = at("cita_fecha_ai_pending", fechas);
+
+      const result = handle(pending, queryResult("resolve_fecha_ai", aiResult));
+
+      expect(result.session.state).toBe(state);
+      expect(queries(result)).toHaveLength(0);
+      expect((sent(result)[0] as { text: string }).text).toContain("No pudimos identificar");
+      expect(listRowsOf(result)).toEqual(fechas.rows);
+    },
+  );
 });

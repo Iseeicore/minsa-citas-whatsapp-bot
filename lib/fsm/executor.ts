@@ -1,4 +1,4 @@
-import { analyzeMainMenuIntent, resolveDistritoAi } from "./ai";
+import { analyzeMainMenuIntent, resolveDistritoAi, resolveFechaAi, type FechaAiOption } from "./ai";
 import { handle } from "./handlers";
 import { isQueryEffect } from "./handlers-shared";
 import {
@@ -103,6 +103,13 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
       return resolveDistritoAi(
         String(effect.payload.distritoText ?? ""),
         effect.payload.contextText as string | undefined,
+      );
+
+    case "resolve_fecha_ai":
+      return resolveFechaAi(
+        String(effect.payload.text ?? ""),
+        String(effect.payload.today ?? ""),
+        (effect.payload.options as FechaAiOption[] | undefined) ?? [],
       );
 
     case "search_ubigeo":
