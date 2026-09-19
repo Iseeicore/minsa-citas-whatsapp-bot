@@ -2,6 +2,7 @@ import { handleCita } from "./handlers-cita";
 import { handleReclamo } from "./handlers-reclamo";
 import { buildResult, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
 import { isGreeting, isReclamoKeyword } from "./menu-shortcuts";
+import { readOffered } from "./selection-matchers";
 import { buildWelcomeEffect } from "./welcome";
 import {
   evaluateLexicalGuard,
@@ -33,6 +34,17 @@ const FREE_TEXT_STATE_PROMPTS: Record<string, string> = {
   cita_awaiting_provincia: "¿En qué provincia?",
   cita_awaiting_distrito: "¿En qué distrito?",
 };
+
+// Selection steps: typed text is checked by the guard before any matching, and
+// the "repeat the question" is the list the citizen was last shown.
+const SELECTION_STATES = new Set([
+  "cita_awaiting_distrito_disambiguation",
+  "cita_awaiting_ubigeo_select",
+  "cita_awaiting_especialidad_select",
+  "cita_awaiting_establecimiento_select",
+  "cita_awaiting_fecha_select",
+  "cita_awaiting_hora_select",
+]);
 
 function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
   return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [
@@ -115,12 +127,21 @@ function applyLexicalGuard(session: Session, event: HandleEvent): HandlerResult 
 
   const isMenuLevel = session.state === "main_menu" || TERMINAL_STATES.has(session.state);
   const midFlowPrompt = FREE_TEXT_STATE_PROMPTS[session.state];
-  if (!isMenuLevel && midFlowPrompt === undefined) return undefined;
+  const isSelection = SELECTION_STATES.has(session.state);
+  if (!isMenuLevel && midFlowPrompt === undefined && !isSelection) return undefined;
 
   const { action } = evaluateLexicalGuard(event.text);
   if (action === "ALLOW") return undefined;
 
   if (isMenuLevel) return routeLexicalAction(session, action);
+
+  if (isSelection) {
+    const offered = readOffered(session.slots);
+    return buildResult(session, [
+      sendText(RESPECT_REMINDER_TEXT),
+      ...(offered ? [sendList(offered.text, offered.rows)] : []),
+    ]);
+  }
 
   return buildResult(session, [sendText(RESPECT_REMINDER_TEXT), sendText(midFlowPrompt)]);
 }
