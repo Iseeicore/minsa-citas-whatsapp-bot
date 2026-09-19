@@ -35,7 +35,12 @@ export type AdvisoryLockOptions = {
   maxConcurrent?: number;
   // How long a turn may wait for one of those slots.
   slotWaitMs?: number;
+  // Called with how long acquiring the lock took (slot + transaction + lock).
+  // The default logs only when it is slow (200 ms or more).
+  onAcquired?: (waId: string, ms: number) => void;
 };
+
+const SLOW_ACQUIRE_MS = 200;
 
 function createSemaphore(size: number) {
   let free = size;
@@ -88,8 +93,14 @@ export function createPrismaAdvisoryLock(
   const connectionWaitMs = options.connectionWaitMs ?? 10_000;
   const slotWaitMs = options.slotWaitMs ?? 20_000;
   const slots = createSemaphore(options.maxConcurrent ?? 4);
+  const onAcquired =
+    options.onAcquired ??
+    ((waId: string, ms: number) => {
+      if (ms >= SLOW_ACQUIRE_MS) console.info(`[turn-lock] database lock for ...${waId.slice(-4)} took ${Math.round(ms)} ms`);
+    });
 
   return async function withAdvisoryLock<T>(waId: string, task: () => Promise<T>): Promise<T> {
+    const startedAt = performance.now();
     await slots.acquire(waId, slotWaitMs);
 
     try {
@@ -104,6 +115,7 @@ export function createPrismaAdvisoryLock(
             throw error;
           }
 
+          onAcquired(waId, performance.now() - startedAt);
           return task();
         },
         { maxWait: connectionWaitMs, timeout: transactionTimeoutMs },

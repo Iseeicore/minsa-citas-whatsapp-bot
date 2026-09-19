@@ -239,3 +239,37 @@ describe("both levels together", () => {
     await expect(lock("wa-1", async () => "ok")).resolves.toBe("ok");
   });
 });
+
+describe("observability: waits are logged so a tester can see the lock working", () => {
+  it("logs a turn that waited behind another one, with the masked waId and the wait", async () => {
+    const lines: string[] = [];
+    const lock = createTurnLock({ slowWaitMs: 20, log: (line) => lines.push(line) });
+
+    await Promise.all([lock("5491100001234", () => sleep(60)), lock("5491100001234", async () => "second")]);
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/^\[turn-lock\] turn waited \d+ ms behind an earlier turn of \.\.\.1234$/);
+  });
+
+  it("stays silent when nothing had to wait", async () => {
+    const lines: string[] = [];
+    const lock = createTurnLock({ slowWaitMs: 20, log: (line) => lines.push(line) });
+
+    await lock("wa-1", async () => "alone");
+    await lock("wa-1", async () => "alone again");
+
+    expect(lines).toEqual([]);
+  });
+
+  it("the database layer reports how long it took to get the lock", async () => {
+    const seen: Array<{ waId: string; ms: number }> = [];
+    const db = fakePrisma();
+    const lock = createPrismaAdvisoryLock(db.prisma, { onAcquired: (waId, ms) => seen.push({ waId, ms }) });
+
+    await lock("wa-9", async () => "ok");
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0].waId).toBe("wa-9");
+    expect(seen[0].ms).toBeGreaterThanOrEqual(0);
+  });
+});

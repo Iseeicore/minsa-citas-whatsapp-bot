@@ -33,9 +33,14 @@ export type TurnLockOptions = {
   // process before giving up.
   processTimeoutMs?: number;
   dbLock?: DbTurnLock;
+  // A wait at least this long is logged, so a tester (or an operator reading
+  // the logs) can SEE the lock serializing a burst. Never logs the full waId.
+  slowWaitMs?: number;
+  log?: (line: string) => void;
 };
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 30_000;
+const DEFAULT_SLOW_WAIT_MS = 150;
 
 function waitFor(promise: Promise<unknown>, timeoutMs: number, onTimeout: () => Error): Promise<void> {
   return new Promise<void>((resolve, reject) => {
@@ -55,6 +60,8 @@ function waitFor(promise: Promise<unknown>, timeoutMs: number, onTimeout: () => 
 
 export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
   const timeoutMs = options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS;
+  const slowWaitMs = options.slowWaitMs ?? DEFAULT_SLOW_WAIT_MS;
+  const log = options.log ?? ((line: string) => console.info(line));
   const tails = new Map<string, Promise<void>>();
 
   return async function withTurnLock<T>(waId: string, task: TurnTask<T>): Promise<T> {
@@ -68,7 +75,14 @@ export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
     tails.set(waId, tail);
 
     try {
+      const queuedAt = Date.now();
       await waitFor(previous, timeoutMs, () => new TurnLockTimeoutError(waId, "process"));
+
+      const waited = Date.now() - queuedAt;
+      if (waited >= slowWaitMs) {
+        log(`[turn-lock] turn waited ${waited} ms behind an earlier turn of ...${waId.slice(-4)}`);
+      }
+
       return await (options.dbLock ? options.dbLock(waId, task) : task());
     } finally {
       // Also runs when this waiter timed out without ever starting: releasing
