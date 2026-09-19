@@ -9,6 +9,7 @@ import {
   PROTECTED_PHRASES,
   PROTECTED_WORDS,
 } from "./lexicon";
+import { PLACE_NAME_WORDS } from "./place-names";
 
 // Deterministic, in-memory pre-filter run before the FSM and before any AI
 // call. Pure function: no I/O, no shared state.
@@ -120,8 +121,16 @@ function removeProtectedPhrases(tokens: string[]): string[] {
   return joined.split(" ").filter(Boolean);
 }
 
+// Canonical initials — each capital followed by a period, separated by spaces,
+// as in "Atentamente C. S. M." or "Dra. Rosario P. T. M." — are a signature or
+// a name, not the abbreviation "csm"/"ptm". Removed BEFORE the letter runs are
+// joined. The spaced/dotted evasions people actually type ("c s m", "c.s.m",
+// "C S M", "C-S-M") do not have this shape and are still joined and caught.
+// Accepted trade-off: an abuser who types canonical initials slips through.
+const CANONICAL_INITIALS = /(?<![\p{L}\p{N}])(?:\p{Lu}\.\s+){2,}\p{Lu}\.?(?![\p{L}\p{N}])/gu;
+
 function tokenize(text: string): string[] {
-  const pieces = joinSpacedRuns(toPieces(stripAccents(text)));
+  const pieces = joinSpacedRuns(toPieces(stripAccents(text.replace(CANONICAL_INITIALS, " "))));
   const tokens = pieces.map(finalizeToken).filter(Boolean);
   return removeProtectedPhrases(tokens);
 }
@@ -148,7 +157,8 @@ function fuzzyTolerance(token: string): number {
 }
 
 function findFuzzyInsult(token: string): { target: string; distance: number } | undefined {
-  if (token.length < MIN_FUZZY_TOKEN_LENGTH || PROTECTED_WORDS.has(token)) return undefined;
+  if (token.length < MIN_FUZZY_TOKEN_LENGTH) return undefined;
+  if (PROTECTED_WORDS.has(token) || PLACE_NAME_WORDS.has(token)) return undefined;
 
   const tolerance = fuzzyTolerance(token);
 
