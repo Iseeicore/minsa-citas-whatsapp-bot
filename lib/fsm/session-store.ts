@@ -36,3 +36,16 @@ export async function saveSession(from: string, session: Session): Promise<void>
 export async function resetSession(from: string): Promise<void> {
   await prisma.sandboxSession.deleteMany({ where: { id: from } });
 }
+
+// Every browser-local Sandbox widget session is created with this prefix
+// (see Sandbox.tsx's getOrCreateFrom) — real WhatsApp sessions are keyed by
+// waId instead, which never matches it. Used by the operator console's
+// "reset everything" button so repeated testing never gets stuck, without
+// ever touching a real citizen's in-progress conversation.
+const SANDBOX_SESSION_ID_PREFIX = "sandbox-";
+
+export async function resetAllSandboxTestSessions(): Promise<void> {
+  await prisma.sandboxSession.deleteMany({
+    where: { id: { startsWith: SANDBOX_SESSION_ID_PREFIX } },
+  });
+}

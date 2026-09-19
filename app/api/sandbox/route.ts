@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { runTurn } from "@/lib/fsm/executor";
-import { resetSession } from "@/lib/fsm/session-store";
+import { resetAllSandboxTestSessions, resetSession } from "@/lib/fsm/session-store";
+import { buildWelcomeEffect } from "@/lib/fsm/welcome";
 
 const sandboxEventSchema = z.object({
   from: z.string().min(1),
@@ -11,6 +12,10 @@ const sandboxEventSchema = z.object({
   mediaId: z.string().optional(),
   mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
+  // Wipes every sandbox-* session (never a real WhatsApp waId one) instead
+  // of just this browser's — the operator console's "reset everything"
+  // button, so repeated manual testing never gets stuck on stale state.
+  resetAll: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,16 +36,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { from, type, text, listId, mediaId, mediaDataUri, reset } = parsed.data;
+  const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll } = parsed.data;
 
-  if (reset) {
+  if (resetAll) {
+    await resetAllSandboxTestSessions();
+  } else if (reset) {
     await resetSession(from);
   }
 
   const { sent, session } = await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
 
+  // Mirrors what a real citizen's very first WhatsApp message gets (see
+  // app/webhook/whatsapp/route.ts) — a reset should look like starting over
+  // from scratch, not skip straight to the bare menu list.
+  const sentWithWelcome = reset || resetAll ? [buildWelcomeEffect(), ...sent] : sent;
+
   return NextResponse.json({
-    sent,
+    sent: sentWithWelcome,
     session: { state: session.state, slots: session.slots, counters: session.counters },
   });
 }

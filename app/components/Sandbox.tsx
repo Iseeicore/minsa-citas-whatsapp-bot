@@ -104,6 +104,7 @@ export default function Sandbox({
       listId?: string;
       mediaDataUri?: string;
       reset?: boolean;
+      resetAll?: boolean;
     },
     userDisplayText?: string,
   ) {
@@ -165,10 +166,16 @@ export default function Sandbox({
   }
 
   function handleReset() {
+    // resetAll wipes every sandbox-* test session (never a real WhatsApp
+    // waId one), not just this browser's — worth a confirm since it's
+    // broader than "just reset what I'm looking at."
+    if (!window.confirm("Esto reiniciará TODAS las conversaciones de prueba (sandbox), en cualquier dispositivo. ¿Continuar?")) {
+      return;
+    }
     setEntries([]);
     setSession(null);
     setDniValue("");
-    sendTurn({ type: "text", reset: true });
+    sendTurn({ type: "text", resetAll: true });
   }
 
   async function handleImageSelect(fileList: FileList | null) {
@@ -259,7 +266,7 @@ export default function Sandbox({
                 onClick={handleReset}
                 className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
-                Reiniciar conversación
+                Reiniciar todas las pruebas
               </button>
             </div>
           )}
