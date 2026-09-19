@@ -12,6 +12,7 @@ import {
 import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
 import { matchFechaText, type DateParts } from "./date-parser";
+import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "./time-parser";
 import {
   hintText,
   leftoverHint,
@@ -91,6 +92,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleHoraPagePending(session, event as QueryResultEvent);
     case "cita_awaiting_hora_select":
       return handleAwaitingHoraSelect(session, event as InboundEvent);
+    case "cita_awaiting_hora_confirm":
+      return handleHoraConfirm(session, event as InboundEvent);
     case "cita_booking_pending":
       return handleBookingPending(session, event as QueryResultEvent);
     default:
@@ -431,8 +434,6 @@ type SelectionOptions = {
   includeDescription?: boolean;
   // Ids that are valid taps although they are not list rows (pagination buttons).
   passthroughIds?: string[];
-  // Off for the hora step until typed times can be confirmed before booking.
-  allowTypedText?: boolean;
   // Text that names nothing offered; return undefined to just re-show the list.
   onNoMatchText?: (typed: string) => HandlerResult | undefined;
 };
@@ -458,7 +459,7 @@ function resolveSelection(
   }
 
   const typed = event.type === "text" ? (event.text ?? "").trim() : "";
-  if (!typed || !offered || options.allowTypedText === false) {
+  if (!typed || !offered) {
     return { result: reshowOffered(session, offered) };
   }
 
@@ -1336,6 +1337,12 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
   const result = resolveHoraCandidates(session, pageItems);
   if (pageItems.length <= 1) return result; // auto-selected or genuinely empty — nothing to paginate
 
+  // The whole day's offer (not just this page) so a typed time on another
+  // page can still be recognized — see handleAwaitingHoraSelect.
+  result.session.slots.citaHorasDia = packHoraSlots(
+    orderedItems.map((item) => ({ start: item.horaInicio, end: item.horaFin, cupos: item.cantidadCupos })),
+  );
+
   const hasNext = start + WHATSAPP_LIST_MAX_ROWS < orderedItems.length;
   const hasPrev = page > 0;
   if (!hasNext && !hasPrev) return result;
@@ -1392,12 +1399,109 @@ function handleHoraPagePending(session: Session, event: QueryResultEvent): Handl
   return buildHoraPage(session, ordered, page);
 }
 
+const HORA_CONFIRM_YES_ID = "hora_confirm_si";
+const HORA_CONFIRM_NO_ID = "hora_confirm_no";
+
+function slotToRow(slot: HoraSlot): OfferedRow {
+  return {
+    id: `${slot.start}|${slot.end}`,
+    title: truncateForRow(`${slot.start} - ${slot.end}`, WHATSAPP_ROW_TITLE_MAX),
+    description: truncateForRow(`${slot.cupos} cupo(s) disponibles`, WHATSAPP_ROW_DESCRIPTION_MAX),
+  };
+}
+
+function rowToSlot(row: OfferedRow): HoraSlot | undefined {
+  const [start, end] = row.id.split("|");
+  return /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "")
+    ? { start, end, cupos: 0 }
+    : undefined;
+}
+
+// A typed time ("a la 1", "1:45 pm", "en la tarde") is read against the WHOLE
+// day MINSA offered; sessions without that (opened before it was stored) fall
+// back to the rows currently on screen.
+function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): CustomMatch | undefined {
+  const day = unpackHoraSlots(session.slots.citaHorasDia);
+  const slots = day.length > 0 ? day : rows.flatMap((row) => rowToSlot(row) ?? []);
+
+  const match = matchHoraText(typed, slots);
+  switch (match.kind) {
+    case "exact":
+      return { kind: "match", row: slotToRow(match.slot) };
+    case "several":
+      return { kind: "ambiguous", rows: match.slots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
+    case "unavailable":
+      return { kind: "notice", text: "No hay horarios disponibles a esa hora. Elige uno de la lista:" };
+    case "unparsed":
+      return undefined;
+  }
+}
+
+// Booking is the one step that can't be quietly undone, so a time that came
+// from typed text is confirmed first. Tapping a list row books directly.
+function askHoraConfirmation(session: Session, slotId: string): HandlerResult {
+  const [start, end] = slotId.split("|");
+  const next = cloneSession(session);
+  next.state = "cita_awaiting_hora_confirm";
+  next.slots.citaHoraConfirmId = slotId;
+  return buildResult(next, [
+    sendButtons(`¿Confirmas el horario ${start} - ${end}?`, [
+      { id: HORA_CONFIRM_YES_ID, title: "Sí, confirmar" },
+      { id: HORA_CONFIRM_NO_ID, title: "No, ver horarios" },
+    ]),
+  ]);
+}
+
+function startBooking(session: Session, horaInicio: string): HandlerResult {
+  const next = clearOffered(session);
+  delete next.slots.citaHorasDia;
+  delete next.slots.citaHoraConfirmId;
+  next.state = "cita_booking_pending";
+  return buildResult(next, [
+    sendText("Agendando tu cita…"),
+    query("book_appointment", {
+      codigoRenipress: String(next.slots.citaCodEess ?? ""),
+      codigoUps: String(next.slots.citaEspecialidadId ?? ""),
+      fechaCita: String(next.slots.citaFecha ?? ""),
+      horaInicio,
+      numeroDocumentoPaciente: String(next.slots.citaDni ?? ""),
+    }),
+  ]);
+}
+
+const HORA_DECLINE_WORDS = new Set(["no", "otra", "otro", "cambiar", "cancelar"]);
+
+function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
+  const slotId = String(session.slots.citaHoraConfirmId ?? "");
+  const [start] = slotId.split("|");
+  const offered = readOffered(session.slots);
+
+  const backToList = () => {
+    const restored = cloneSession(session);
+    delete restored.slots.citaHoraConfirmId;
+    restored.state = "cita_awaiting_hora_select";
+    return reshowOffered(restored, offered, "Sin problema. Elige otro horario:");
+  };
+
+  if (!/^\d{2}:\d{2}$/.test(start ?? "")) return backToList();
+
+  const typed = event.type === "text" ? (event.text ?? "").trim().toLowerCase() : "";
+  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
+
+  if (reply === HORA_CONFIRM_YES_ID || (typed && isAffirmativeReply(typed))) {
+    return startBooking(session, start);
+  }
+  if (reply === HORA_CONFIRM_NO_ID || (typed && HORA_DECLINE_WORDS.has(typed))) {
+    return backToList();
+  }
+
+  return askHoraConfirmation(session, slotId);
+}
+
 function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
-  // Typed times are not accepted yet: booking is the last irreversible step,
-  // so a typed hour will only be honored once it can be confirmed first.
   const outcome = resolveSelection(session, event, {
-    allowTypedText: false,
     passthroughIds: [HORA_PAGE_NEXT_ID, HORA_PAGE_PREV_ID],
+    customMatch: (typed, rows) => matchHoraTyped(session, typed, rows),
   });
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
@@ -1421,19 +1525,12 @@ function handleAwaitingHoraSelect(session: Session, event: InboundEvent): Handle
     return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
   }
 
+  // Typed text (a time or a list position) is confirmed before booking; a tap
+  // on a list row is already an explicit choice.
+  if (outcome.typed !== undefined) return askHoraConfirmation(session, replyId);
+
   const [horaInicio] = replyId.split("|");
-  const next = clearOffered(session);
-  next.state = "cita_booking_pending";
-  return buildResult(next, [
-    sendText("Agendando tu cita…"),
-    query("book_appointment", {
-      codigoRenipress: String(next.slots.citaCodEess ?? ""),
-      codigoUps: String(next.slots.citaEspecialidadId ?? ""),
-      fechaCita: String(next.slots.citaFecha ?? ""),
-      horaInicio,
-      numeroDocumentoPaciente: String(next.slots.citaDni ?? ""),
-    }),
-  ]);
+  return startBooking(session, horaInicio);
 }
 
 function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {

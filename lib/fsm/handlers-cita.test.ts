@@ -342,12 +342,24 @@ describe("hora select", () => {
     expect(queries(result)[0].kind).toBe("list_horas");
   });
 
-  it("typed text never books directly and is rejected until it can be confirmed", () => {
+  it("typed text never books directly: a bare '1' is a list position and asks for confirmation", () => {
     const result = handle(base, text("1"));
 
-    expect(result.session.state).toBe(state);
+    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
+    expect(result.session.slots.citaHoraConfirmId).toBe("08:00|08:30");
     expect(queries(result)).toHaveLength(0);
-    expect(listRowsOf(result)).toEqual(horas.rows);
+    expect(sent(result)[0]).toMatchObject({
+      kind: "send_buttons",
+      buttons: [
+        { id: "hora_confirm_si", title: "Sí, confirmar" },
+        { id: "hora_confirm_no", title: "No, ver horarios" },
+      ],
+    });
+    expect((sent(result)[0] as { text: string }).text).toContain("08:00 - 08:30");
+  });
+
+  it("unmatched text is rejected and the list re-shown", () => {
+    expectRejectedAndReshown(handle(base, text("asdf")), state, horas);
   });
 
   it("a tap on an id that was not offered does not book", () => {
@@ -551,5 +563,145 @@ describe("especialidad/establecimiento — hints from a message that names more 
 
     expect(result.session.state).toBe("cita_fecha_pending");
     expect(queries(result)[0]).toMatchObject({ kind: "list_fechas", payload: { codEess: "0000123" } });
+  });
+});
+
+describe("hora select — typed times (12h/24h) resolved against the whole day", () => {
+  const state = "cita_awaiting_hora_select";
+  const dayPacked =
+    "07:00|07:30|1;08:00|08:30|2;08:45|09:15|1;13:00|13:30|2;13:15|13:45|1;13:45|14:15|1;14:30|15:00|1;19:00|19:30|1";
+  const page: OfferedList = {
+    text: "Selecciona el horario:",
+    rows: [
+      { id: "07:00|07:30", title: "07:00 - 07:30", description: "1 cupo(s) disponibles" },
+      { id: "08:00|08:30", title: "08:00 - 08:30", description: "2 cupo(s) disponibles" },
+    ],
+  };
+  const base = () =>
+    at(state, page, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+      citaDni: "12345678",
+      citaHorasDia: dayPacked,
+    });
+
+  it("remembers the whole day's offer when a page of horarios is shown", () => {
+    const result = handle(
+      at("cita_hora_pending", undefined, { citaFecha: "31/12/2099" }),
+      queryResult("list_horas", {
+        status: "found",
+        items: [
+          { horaInicio: "08:00", horaFin: "08:30", cantidadCupos: 2 },
+          { horaInicio: "08:45", horaFin: "09:15", cantidadCupos: 1 },
+        ],
+      }),
+    );
+
+    expect(result.session.slots.citaHorasDia).toBe("08:00|08:30|2;08:45|09:15|1");
+  });
+
+  it("an exact time on ANOTHER page still resolves, and asks for confirmation before booking", () => {
+    const result = handle(base(), text("1:45 pm"));
+
+    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
+    expect(result.session.slots.citaHoraConfirmId).toBe("13:45|14:15");
+    expect(queries(result)).toHaveLength(0);
+  });
+
+  it("'a la 1' lists every offered slot in that hour instead of guessing", () => {
+    const result = handle(base(), text("a la 1"));
+
+    expect(result.session.state).toBe(state);
+    expect(queries(result)).toHaveLength(0);
+    expect(listRowsOf(result)?.map((row) => row.id)).toEqual(["13:00|13:30", "13:15|13:45", "13:45|14:15"]);
+  });
+
+  it("tapping a row of that filtered list books directly, as any tap does", () => {
+    const narrowed = handle(base(), text("a la 1")).session;
+
+    const result = handle(narrowed, tap("13:15|13:45"));
+
+    expect(result.session.state).toBe("cita_booking_pending");
+    expect(queries(result)[0]).toMatchObject({ kind: "book_appointment", payload: { horaInicio: "13:15" } });
+  });
+
+  it("'en la tarde' filters the day to the afternoon", () => {
+    const result = handle(base(), text("en la tarde"));
+
+    expect(listRowsOf(result)?.map((row) => row.id)).toEqual([
+      "13:00|13:30",
+      "13:15|13:45",
+      "13:45|14:15",
+      "14:30|15:00",
+      "19:00|19:30",
+    ]);
+  });
+
+  it("a time MINSA does not offer is explained and the list re-shown", () => {
+    const result = handle(base(), text("a las 3"));
+
+    expect(result.session.state).toBe(state);
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("No hay horarios");
+    expect(listRowsOf(result)).toEqual(page.rows);
+  });
+
+  it("works with only the visible page when the day's offer was not stored", () => {
+    const legacy = at(state, page, { citaFecha: "22/09/2026", citaDni: "12345678" });
+
+    const result = handle(legacy, text("8:00"));
+
+    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
+    expect(result.session.slots.citaHoraConfirmId).toBe("08:00|08:30");
+  });
+});
+
+describe("hora confirmation", () => {
+  const state = "cita_awaiting_hora_confirm";
+  const confirming = () =>
+    at(state, horas, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+      citaDni: "12345678",
+      citaHoraConfirmId: "13:45|14:15",
+      citaHorasDia: "13:45|14:15|1",
+    });
+  const button = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+
+  it("'Sí, confirmar' books the offered slot's own 24h start", () => {
+    const result = handle(confirming(), button("hora_confirm_si"));
+
+    expect(result.session.state).toBe("cita_booking_pending");
+    expect(queries(result)[0]).toMatchObject({
+      kind: "book_appointment",
+      payload: { horaInicio: "13:45", fechaCita: "22/09/2026", numeroDocumentoPaciente: "12345678" },
+    });
+    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
+    expect(result.session.slots.citaHorasDia).toBeUndefined();
+    expect(result.session.slots.citaOffered).toBeUndefined();
+  });
+
+  it("typing 'sí' also confirms", () => {
+    expect(queries(handle(confirming(), text("sí")))[0]).toMatchObject({ kind: "book_appointment" });
+  });
+
+  it("'No, ver horarios' goes back to the list without booking", () => {
+    const result = handle(confirming(), button("hora_confirm_no"));
+
+    expect(result.session.state).toBe("cita_awaiting_hora_select");
+    expect(queries(result)).toHaveLength(0);
+    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
+    expect((sent(result)[0] as { text: string }).text).toContain("Sin problema");
+    expect(listRowsOf(result)).toEqual(horas.rows);
+  });
+
+  it("anything else asks again and never books", () => {
+    const result = handle(confirming(), text("quizás"));
+
+    expect(result.session.state).toBe(state);
+    expect(queries(result)).toHaveLength(0);
+    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
   });
 });
