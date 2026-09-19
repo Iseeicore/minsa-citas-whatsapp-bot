@@ -37,8 +37,8 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     delete process.env.SANDBOX_USE_REAL_MINSA;
     delete process.env.SANDBOX_USE_REAL_RENIEC;
     delete process.env.SANDBOX_USE_REAL_AI;
-    // The fake catalog offers 2026-09-18/19; pin the clock to that morning so
-    // "today" filtering of horarios is deterministic.
+    // The fake catalog offers tomorrow and the day after (Lima); pin the clock
+    // so the dates are deterministic.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-19T05:00:00-05:00"));
   });
@@ -72,11 +72,11 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     const fecha = await say("la segunda");
     expect(fecha.session.state).toBe("cita_awaiting_hora_select");
 
-    // 24h from MINSA (08:45), 12h from the citizen: a typed time is CONFIRMED,
+    // 24h from MINSA (09:30), 12h from the citizen: a typed time is CONFIRMED,
     // never booked directly.
-    const hora = await say("a las 8 y 45");
+    const hora = await say("a las 9 y media");
     expect(hora.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(hora.texts[0]).toContain("08:45");
+    expect(hora.texts[0]).toContain("09:30");
     expect(hora.sent.some((effect) => effect.kind === "send_buttons")).toBe(true);
 
     const confirmed = await say("sí");

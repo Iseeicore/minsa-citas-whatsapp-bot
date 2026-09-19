@@ -112,14 +112,37 @@ const FAKE_ESTABLECIMIENTOS: EstablecimientoItem[] = [
   { renipressCode: "0000123", establishmentName: "CENTRO DE SALUD LURIGANCHO", quotasOnline: 10 },
 ];
 
-const FAKE_FECHAS: FechaItem[] = [
-  { fechaCupo: "20260918", cantidadCupos: 5 },
-  { fechaCupo: "20260919", cantidadCupos: 3 },
-];
+// Tomorrow and the day after, in LIMA's calendar (the citizen's, not the
+// server's), so the fake dates never go stale and never land on "today" (which
+// would hide morning slots that already started).
+function fakeFechas(): FechaItem[] {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
 
+  const ymd = (daysAhead: number) => {
+    const date = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + daysAhead));
+    return date.toISOString().slice(0, 10).replace(/-/g, "");
+  };
+
+  return [
+    { fechaCupo: ymd(1), cantidadCupos: 5 },
+    { fechaCupo: ymd(2), cantidadCupos: 3 },
+  ];
+}
+
+// Chosen so every typed-time case can be tried by hand:
+//  "1" -> position 1 (08:00) or 1 PM (13:00): two-button question;
+//  "8" -> no option 8, the only 8 o'clock slot is 08:00;  "3" -> position 3 = 13:00;
+//  "9" -> 09:30;  "en la tarde" -> only 13:00;  "a la 1" / "1 pm" -> 13:00.
 const FAKE_HORAS: HoraItem[] = [
   { horaInicio: "08:00", horaFin: "08:30", cantidadCupos: 2 },
-  { horaInicio: "08:45", horaFin: "09:15", cantidadCupos: 1 },
+  { horaInicio: "09:30", horaFin: "10:00", cantidadCupos: 1 },
+  { horaInicio: "13:00", horaFin: "13:30", cantidadCupos: 2 },
 ];
 
 // ---- Wire helpers -------------------------------------------------------
@@ -189,7 +212,7 @@ export function formatHoraCita(horaInicio: string): string {
 // MINSA's real quotas/dates endpoint returns fecha_cupo as "DD/MM/YYYY"
 // (shown to the citizen as-is, e.g. in a list row) but quotas/times and
 // appointments require "YYYYMMDD". Idempotent for values already in
-// YYYYMMDD (e.g. Sandbox's FAKE_FECHAS, which has no slashes) — those pass
+// YYYYMMDD (e.g. Sandbox's fakeFechas(), which has no slashes) — those pass
 // through unchanged.
 export function formatFechaForApi(fechaCupo: string): string {
   const [day, month, year] = fechaCupo.split("/");
@@ -376,7 +399,7 @@ export async function listFechas(
     return items.length === 0 ? { status: "empty" } : { status: "found", items };
   }
 
-  return { status: "found", items: FAKE_FECHAS };
+  return { status: "found", items: fakeFechas() };
 }
 
 export async function listHoras(
