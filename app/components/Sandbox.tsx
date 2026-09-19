@@ -14,6 +14,8 @@ type ChatEntry =
   | { id: string; from: "bot"; effect: SendEffect };
 
 const FROM_STORAGE_KEY = "sandbox-from";
+const ENTRIES_STORAGE_KEY = "sandbox-entries";
+const SESSION_STORAGE_KEY = "sandbox-session";
 const DNI_AWAITING_STATE = "cita_awaiting_dni";
 
 // Vercel Functions hard-cap the request body at 4.5MB regardless of what the
@@ -62,6 +64,32 @@ function getOrCreateFrom(): string | null {
   }
 }
 
+// A backgrounded mobile browser tab is often fully reloaded by the OS when
+// it comes back to the foreground — wiping this component's in-memory React
+// state even though the server-side FSM session (keyed by `from`) is
+// untouched. Restoring the last-seen transcript/session here means the
+// citizen sees exactly where they left off (e.g. still being asked for
+// their OTP code) instead of an empty chat with no clue what to do next.
+function readStoredEntries(): ChatEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(ENTRIES_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as ChatEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function readStoredSession(): SessionSnapshot | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as SessionSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Sandbox({
   onBack,
   showDebugPanel = true,
@@ -77,21 +105,59 @@ export default function Sandbox({
   // behind a client-only mode toggle). The real value is resolved in an
   // effect instead, which only ever runs after hydration completes.
   const [from, setFrom] = useState<string | null>(null);
-  useEffect(() => {
-    // One-shot bootstrap of a value only resolvable in the browser
-    // (localStorage) — not a live external subscription to sync against,
-    // so the usual "don't setState in an effect" guidance doesn't apply.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFrom(getOrCreateFrom());
-  }, []);
-  const [entries, setEntries] = useState<ChatEntry[]>([]);
+  const [entries, setEntriesState] = useState<ChatEntry[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [typing, setTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<SessionSnapshot | null>(null);
+  const [session, setSessionState] = useState<SessionSnapshot | null>(null);
   const [dniValue, setDniValue] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Persists alongside every actual state change instead of via a separate
+  // `useEffect([entries])` — that effect would also fire on mount with the
+  // pre-hydration `[]`/`null` initial value (before the bootstrap effect
+  // below has applied what it read from storage), overwriting the very
+  // transcript it's trying to restore. Writing at the same call site as the
+  // change sidesteps that ordering entirely.
+  function setEntries(updater: ChatEntry[] | ((prev: ChatEntry[]) => ChatEntry[])) {
+    setEntriesState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      try {
+        localStorage.setItem(ENTRIES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Private browsing / blocked storage — the transcript just won't
+        // survive a reload; not worth surfacing as a user-facing error.
+      }
+      return next;
+    });
+  }
+
+  function setSession(next: SessionSnapshot | null) {
+    setSessionState(next);
+    try {
+      if (next) {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+      } else {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+    } catch {
+      // Same as above — best-effort only.
+    }
+  }
+
+  useEffect(() => {
+    // One-shot bootstrap of values only resolvable in the browser
+    // (localStorage) — not a live external subscription to sync against,
+    // so the usual "don't setState in an effect" guidance doesn't apply.
+    // Uses the raw setters directly: this is a restore FROM storage, so
+    // re-persisting what was just read back would be redundant (harmless,
+    // but pointless).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFrom(getOrCreateFrom());
+    setEntriesState(readStoredEntries());
+    setSessionState(readStoredSession());
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
