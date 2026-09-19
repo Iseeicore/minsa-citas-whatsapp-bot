@@ -22,12 +22,17 @@ export default function SandboxWidgetDemo() {
         className="absolute inset-0 h-full w-full object-cover object-top"
       />
 
+      {/* Mobile-first: a small screen gets the chat full-bleed (it's the
+          main event there, not a corner widget) so it's fully usable
+          instead of a cramped card fighting the background for space.
+          From `sm` up it becomes the floating card over the backdrop. */}
       <div
-        className={`fixed bottom-24 right-4 z-20 flex h-[min(640px,calc(100dvh-112px))] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl shadow-2xl transition-all duration-200 ${
+        className={`fixed inset-0 z-20 flex flex-col overflow-hidden transition-all duration-200 sm:inset-auto sm:bottom-24 sm:right-4 sm:h-[min(640px,calc(100dvh-112px))] sm:w-[380px] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl sm:shadow-2xl ${
           open
             ? "translate-y-0 opacity-100"
             : "pointer-events-none translate-y-4 opacity-0"
         }`}
+        style={{ paddingBottom: open ? "env(safe-area-inset-bottom)" : undefined }}
       >
         <Sandbox showDebugPanel={false} onBack={() => setOpen(false)} />
       </div>
@@ -36,22 +41,28 @@ export default function SandboxWidgetDemo() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Pregúntale a MINSA"
-        className={`fixed bottom-4 right-4 z-20 flex items-center gap-2 rounded-full bg-[#9c1c3f] py-2 pl-2 pr-4 text-white shadow-xl transition-opacity duration-200 hover:bg-[#82182f] ${
+        className={`fixed bottom-4 right-4 z-20 flex items-center gap-2 rounded-full bg-[#9c1c3f] py-2 pl-2 pr-3 text-white shadow-xl transition-opacity duration-200 hover:bg-[#82182f] sm:pr-4 ${
           open ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
+        style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
-          {/* eslint-disable-next-line @next/next/no-img-element -- small fixed-size avatar */}
-          <img
-            src="/minsa-logo.png"
-            alt=""
-            className="h-full w-full object-cover object-top"
-          />
+        <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center">
+          {/* Attention ring — the backdrop is a busy screenshot, this keeps
+              the launcher from getting lost in it. */}
+          <span className="absolute inset-0 animate-ping rounded-full bg-white/50" />
+          <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element -- small fixed-size avatar */}
+            <img
+              src="/minsa-logo.png"
+              alt=""
+              className="h-full w-full object-cover object-top"
+            />
+          </span>
         </span>
         <span className="text-sm">
           Pregúntale a <span className="font-bold">MINSA</span>
         </span>
-        <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
+        <ChevronDownIcon className="hidden h-4 w-4 flex-shrink-0 sm:block" />
       </button>
     </div>
   );
