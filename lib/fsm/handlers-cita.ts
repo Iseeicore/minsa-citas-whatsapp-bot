@@ -1,3 +1,4 @@
+import { resolveConfirmation } from "./confirmation-parser";
 import { isValidDniFormat, isValidOtpFormat, normalizeText } from "./domain";
 import {
   buildResult,
@@ -1617,8 +1618,6 @@ function startBooking(session: Session, horaInicio: string): HandlerResult {
   ]);
 }
 
-const HORA_DECLINE_WORDS = new Set(["no", "otra", "otro", "cambiar", "cancelar"]);
-
 function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
   const slotId = String(session.slots.citaHoraConfirmId ?? "");
   const [start] = slotId.split("|");
@@ -1633,15 +1632,11 @@ function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult
 
   if (!/^\d{2}:\d{2}$/.test(start ?? "")) return backToList();
 
-  const typed = event.type === "text" ? (event.text ?? "").trim().toLowerCase() : "";
   const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
+  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
 
-  if (reply === HORA_CONFIRM_YES_ID || (typed && isAffirmativeReply(typed))) {
-    return startBooking(session, start);
-  }
-  if (reply === HORA_CONFIRM_NO_ID || (typed && HORA_DECLINE_WORDS.has(typed))) {
-    return backToList();
-  }
+  if (reply === HORA_CONFIRM_YES_ID || typed === "YES") return startBooking(session, start);
+  if (reply === HORA_CONFIRM_NO_ID || typed === "NO") return backToList();
 
   return askHoraConfirmation(session, slotId);
 }
@@ -1680,6 +1675,9 @@ function handleAwaitingHoraSelect(session: Session, event: InboundEvent): Handle
   const [horaInicio] = replyId.split("|");
   return startBooking(session, horaInicio);
 }
+
+const MAX_BOOKING_FAILURES = 3;
+const SLOT_TAKEN_MESSAGE = /cupo|horario|disponib|agotad|ocupad|tomad/i;
 
 function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; url?: string; message?: string };
@@ -1723,6 +1721,31 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
     next.state = "cita_booking_duplicate";
     return buildResult(next, [
       sendText(result.message ?? "Ya tienes una cita activa registrada."),
+    ]);
+  }
+
+  // The quota may have been taken a moment before the citizen confirmed (or
+  // MINSA answered without saying why). Instead of closing the flow, show the
+  // same day's horarios again — bounded, so a systematic failure ends instead
+  // of looping. A rejection that states a business reason still closes.
+  const failures = (next.counters.citaBookingFailures ?? 0) + 1;
+  const slotMayBeGone =
+    result.status === "error" ||
+    (result.status === "rejected" && (!result.message || SLOT_TAKEN_MESSAGE.test(result.message)));
+
+  if (slotMayBeGone && failures < MAX_BOOKING_FAILURES) {
+    next.counters.citaBookingFailures = failures;
+    delete next.counters.citaHoraPage;
+    next.state = "cita_hora_pending";
+    return buildResult(next, [
+      sendText(
+        "No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:",
+      ),
+      query("list_horas", {
+        codEess: String(next.slots.citaCodEess ?? ""),
+        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        fecha: String(next.slots.citaFecha ?? ""),
+      }),
     ]);
   }
 

@@ -5,7 +5,7 @@ import { extractCitaHints } from "./cita-hints";
 import { isGreeting, isReclamoKeyword } from "./menu-shortcuts";
 import { OFFERED_SLOT, readOffered } from "./selection-matchers";
 import { detectSessionExpiry, resumeStateFor } from "./session-expiry-guard";
-import { normalizeText } from "./domain";
+import { resolveConfirmation } from "./confirmation-parser";
 import { buildWelcomeEffect } from "./welcome";
 import {
   evaluateLexicalGuard,
@@ -290,13 +290,12 @@ function beginSessionReauth(session: Session): HandlerResult {
 }
 
 function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerResult {
-  const reply = normalizeText(readReply(event) ?? "");
+  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
+  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
 
-  if (reply === REAUTH_NO_ID.toUpperCase() || reply === "2" || reply === "CANCELAR" || reply === "NO") {
-    return enterMainMenu();
-  }
+  if (tapped === REAUTH_NO_ID || typed === "NO") return enterMainMenu();
 
-  if (reply === REAUTH_YES_ID.toUpperCase() || reply === "1" || reply === "SI") {
+  if (tapped === REAUTH_YES_ID || typed === "YES") {
     const dni = session.slots.citaDni;
     const next: Session = { state: "cita_awaiting_dni", slots: { ...session.slots }, counters: { ...session.counters } };
 

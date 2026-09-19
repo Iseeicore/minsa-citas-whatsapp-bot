@@ -430,6 +430,23 @@ export async function listHoras(
   return { status: "found", items: FAKE_HORAS };
 }
 
+// A failed booking used to reach the citizen as a generic message with nothing
+// in the logs. This keeps what is needed to diagnose it — the HTTP status, the
+// start of MINSA's answer and the payload without the patient's document —
+// with any long digit run (a DNI echoed back) masked.
+const BOOKING_LOG_BODY_LIMIT = 300;
+
+function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
+  const answer = body.replace(/\d{8,}/g, "********").slice(0, BOOKING_LOG_BODY_LIMIT);
+  const payload = {
+    codigoRenipress: params.codigoRenipress,
+    codigoUps: params.codigoUps,
+    fechaCita: params.fechaCita,
+    horaCita: params.horaCita,
+  };
+  console.error(`[minsa] book_appointment failed: HTTP ${httpStatus} body=${answer} payload=${JSON.stringify(payload)}`);
+}
+
 export async function bookAppointment(
   params: BookAppointmentParams,
   bearer: string,
@@ -447,7 +464,10 @@ export async function bookAppointment(
       bearer,
     );
     if (response.status === 401) return { status: "unauthorized" };
-    if (!response.ok) return { status: "error" };
+    if (!response.ok) {
+      logBookingFailure(params, response.status, await response.text().catch(() => ""));
+      return { status: "error" };
+    }
 
     const body = await response.json();
     const message: string = body?.message ?? "";
@@ -458,6 +478,7 @@ export async function bookAppointment(
     if (body?.data?.url) {
       return { status: "booked", url: body.data.url, message };
     }
+    logBookingFailure(params, response.status, JSON.stringify(body));
     return { status: "rejected", message };
   }
 
