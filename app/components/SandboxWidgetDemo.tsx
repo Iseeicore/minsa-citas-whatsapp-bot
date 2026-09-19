@@ -13,13 +13,29 @@ export default function SandboxWidgetDemo() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-gray-100">
-      {/* eslint-disable-next-line @next/next/no-img-element -- full-bleed decorative backdrop, not a content image */}
+    // On a small screen the chat panel becomes a full-screen overlay (see
+    // the `open` classes below) — the backdrop stays scrollable underneath
+    // it otherwise, which feels broken even though the panel visually
+    // covers everything, so scrolling locks there while open. From `sm` up
+    // the panel is just a small floating card, so the backdrop keeps
+    // scrolling normally regardless of `open`.
+    <div
+      className={`relative min-h-dvh w-full bg-gray-100 sm:overflow-auto ${
+        open ? "max-sm:overflow-hidden" : "overflow-auto"
+      }`}
+    >
+      {/* The screenshot is a wide desktop capture — shrinking it to a
+          narrow phone's width (object-cover or plain w-full) either crops
+          out the MINSA branding or scales the whole page down to an
+          illegible sliver. Keeping a legible minimum width instead and
+          letting the page scroll/pan (both axes) shows it at a readable
+          size, same as browsing the real desktop site on a phone. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop, not a content image */}
       <img
         src="/minsa-digital-bg.png"
         alt=""
         aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover object-top"
+        className="block h-auto min-w-[900px] w-full"
       />
 
       {/* Mobile-first: a small screen gets the chat full-bleed (it's the

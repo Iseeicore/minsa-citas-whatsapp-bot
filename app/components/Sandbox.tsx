@@ -215,7 +215,7 @@ export default function Sandbox({
                   type="button"
                   aria-label="Volver"
                   onClick={onBack}
-                  className="flex-shrink-0 text-white/80 hover:text-white"
+                  className="-m-3 flex-shrink-0 p-3 text-white/80 hover:text-white"
                 >
                   <BackArrowIcon className="h-5 w-5" />
                 </button>
