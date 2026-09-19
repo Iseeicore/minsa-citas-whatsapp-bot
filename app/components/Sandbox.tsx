@@ -15,9 +15,6 @@ type ChatEntry =
 
 const FROM_STORAGE_KEY = "sandbox-from";
 const DNI_AWAITING_STATE = "cita_awaiting_dni";
-// Temporarily hidden per product request — the reset button stays in the
-// code, just not rendered, so it's a one-line flip to bring back.
-const SHOW_RESET_BUTTON = false;
 
 // Vercel Functions hard-cap the request body at 4.5MB regardless of what the
 // destination API supports (the real quejas backend allows up to 50MB — that
@@ -256,7 +253,7 @@ export default function Sandbox({
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
-          {SHOW_RESET_BUTTON && (
+          {showDebugPanel && (
             <div className="flex items-center justify-end px-4 pt-2">
               <button
                 onClick={handleReset}

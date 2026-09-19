@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Sandbox from "./Sandbox";
 
 // Demo shell for the public /sandbox route: a static screenshot of the real
@@ -11,6 +11,26 @@ import Sandbox from "./Sandbox";
 // chat bubbles survive a close/reopen instead of resetting.
 export default function SandboxWidgetDemo() {
   const [open, setOpen] = useState(false);
+  const backdropScrollRef = useRef<HTMLDivElement>(null);
+  const backdropImgRef = useRef<HTMLImageElement>(null);
+
+  // The backdrop can't be resized to fit every screen without either
+  // cropping the branding or shrinking it to illegible size (see the
+  // min-w-[900px] below), so on a narrow viewport it overflows and starts
+  // scrolled to its left edge by default. Centering it on load instead
+  // matches how it looked before that fix.
+  function centerBackdrop() {
+    const el = backdropScrollRef.current;
+    if (!el) return;
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+  }
+
+  // The image can finish loading (e.g. served from cache) before React
+  // attaches the onLoad listener below, which then never fires — a known
+  // <img onLoad> race. Catching the already-complete case on mount covers it.
+  useEffect(() => {
+    if (backdropImgRef.current?.complete) centerBackdrop();
+  }, []);
 
   return (
     // On a small screen the chat panel becomes a full-screen overlay (see
@@ -20,6 +40,7 @@ export default function SandboxWidgetDemo() {
     // the panel is just a small floating card, so the backdrop keeps
     // scrolling normally regardless of `open`.
     <div
+      ref={backdropScrollRef}
       className={`relative min-h-dvh w-full bg-gray-100 sm:overflow-auto ${
         open ? "max-sm:overflow-hidden" : "overflow-auto"
       }`}
@@ -32,9 +53,11 @@ export default function SandboxWidgetDemo() {
           size, same as browsing the real desktop site on a phone. */}
       {/* eslint-disable-next-line @next/next/no-img-element -- decorative backdrop, not a content image */}
       <img
+        ref={backdropImgRef}
         src="/minsa-digital-bg.png"
         alt=""
         aria-hidden="true"
+        onLoad={centerBackdrop}
         className="block h-auto min-w-[900px] w-full"
       />
 
