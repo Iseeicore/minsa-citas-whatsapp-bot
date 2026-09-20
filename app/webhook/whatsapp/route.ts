@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurnUnlocked } from "@/lib/fsm/executor";
-import { TURN_BUSY_TEXT, TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
+import { TURN_FAILURE_TEXT, TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/handlers";
@@ -320,6 +320,51 @@ async function claimInboundMessage(
   }
 }
 
+// Stores the inbound message and answers it under the citizen's turn lock.
+async function processInboundMessage(message: WhatsAppMessage, contact: WhatsAppContact | undefined): Promise<void> {
+  const profileName = contact?.profile?.name;
+  const phoneNumber = message.from ?? contact?.wa_id;
+  const timestamp = new Date(Number(message.timestamp) * 1000);
+  const { content, mediaUrl } = extractContentAndMedia(message);
+
+  const conversation = await prisma.conversation.upsert({
+    where: { waId: message.from_user_id },
+    create: {
+      waId: message.from_user_id,
+      phoneNumber: phoneNumber ?? null,
+      profileName: profileName ?? null,
+      lastMessageAt: timestamp,
+    },
+    update: {
+      ...(phoneNumber ? { phoneNumber } : {}),
+      ...(profileName ? { profileName } : {}),
+      lastMessageAt: timestamp,
+    },
+  });
+
+  // Meta retries webhook deliveries, and a retry can arrive while the first
+  // delivery is still being processed. One INSERT decides who owns the
+  // message: the unique `waMessageId` index lets exactly one of them in, and
+  // the other gets P2002 and is skipped. (A read-then-write pair here would let
+  // both pass the read and answer the citizen twice.)
+  if (!(await claimInboundMessage(message, conversation.id, { content, mediaUrl, timestamp }))) return;
+
+  // Locked per waId: see answerMessage.
+  await withTurnLock(message.from_user_id, () => answerMessage(message, conversation.id));
+}
+
+// The turn could not be processed. A lock that gave up is a warning (busy); anything
+// else is an error worth reading. The turn's own failure was already logged by the
+// executor as turn.failed; this one also covers what happens around it.
+async function answerFailure(waId: string, error: unknown): Promise<void> {
+  if (error instanceof TurnLockTimeoutError) {
+    logger.warn("turn.lock_timeout", { waId: tail(waId), layer: error.layer });
+  } else {
+    logger.error("webhook.message_failed", { waId: tail(waId), error });
+  }
+  await sendFixedReply(waId, TURN_FAILURE_TEXT);
+}
+
 async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
@@ -341,42 +386,13 @@ async function processValue(value: WhatsAppValue) {
       continue;
     }
 
-    const contact = contactsByWaId.get(message.from_user_id);
-    const profileName = contact?.profile?.name;
-    const phoneNumber = message.from ?? contact?.wa_id;
-    const timestamp = new Date(Number(message.timestamp) * 1000);
-    const { content, mediaUrl } = extractContentAndMedia(message);
-
-    const conversation = await prisma.conversation.upsert({
-      where: { waId: message.from_user_id },
-      create: {
-        waId: message.from_user_id,
-        phoneNumber: phoneNumber ?? null,
-        profileName: profileName ?? null,
-        lastMessageAt: timestamp,
-      },
-      update: {
-        ...(phoneNumber ? { phoneNumber } : {}),
-        ...(profileName ? { profileName } : {}),
-        lastMessageAt: timestamp,
-      },
-    });
-
-    // Meta retries webhook deliveries, and a retry can arrive while the first
-    // delivery is still being processed. One INSERT decides who owns the
-    // message: the unique `waMessageId` index lets exactly one of them in, and
-    // the other gets P2002 and is skipped. (A read-then-write pair here would let
-    // both pass the read and answer the citizen twice.)
-    if (!(await claimInboundMessage(message, conversation.id, { content, mediaUrl, timestamp }))) continue;
-
-    // Locked per waId: see answerMessage. If the turn before this one is still
-    // running after the lock's wait, the message is not answered: say so.
+    // From here on ANY failure (storing the conversation, the lock, the turn, its
+    // replies) is answered with a friendly text instead of leaving the citizen in
+    // silence: Meta already got its 200, so nobody else will ever tell them.
     try {
-      await withTurnLock(message.from_user_id, () => answerMessage(message, conversation.id));
+      await processInboundMessage(message, contactsByWaId.get(message.from_user_id));
     } catch (error) {
-      if (!(error instanceof TurnLockTimeoutError)) throw error;
-      logger.warn("turn.lock_timeout", { waId: tail(message.from_user_id), layer: error.layer });
-      await sendFixedReply(message.from_user_id, TURN_BUSY_TEXT);
+      await answerFailure(message.from_user_id, error);
     }
   }
 

@@ -8,6 +8,8 @@ const EXAMPLES: Array<[OosCategory, string[]]> = [
   ["OOS-01", [
     "Mi mamá no puede respirar", "Me duele el pecho fuerte", "Mi hijo se cayó y sangra la cabeza", "Necesito una ambulancia urgente",
     "mi papa esta inconsciente", "se desmayó y no reacciona", "creo que es un infarto", "mi hija tiene convulsiones", "es una emergencia médica",
+    "dolor de pecho", "se está asfixiando", "mi bebé se asfixia", "me muero", "me estoy muriendo",
+    "mi hijo sigue sin respirar", "dejó de respirar", "no está respirando", "me falta el aire",
   ]],
   ["OOS-02", [
     "¿Mi SIS está activo?", "¿Cómo me afilio al SIS?", "Fui a atenderme y me dijeron que mi seguro está cancelado",
@@ -71,6 +73,10 @@ describe("detectOutOfScope: what is NOT out of scope stays with the flows", () =
     "vivo cerca del parque, punto de referencia el mercado",
     "San Juan de Lurigancho",
     "gracias",
+    "me muero de risa",
+    "me muero de ganas de que me atiendan",
+    "me muero de hambre",
+    "me muero por una cita",
     "",
     "   ",
   ])("%j", (text) => {
@@ -142,7 +148,8 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
   });
 
   it("each one tells the citizen how to go on, with a word the bot understands", () => {
-    expect(OOS_MESSAGES["OOS-01"]).toContain("CONTINUAR");
+    // The emergency ends the conversation: it does not invite the citizen to go on.
+    expect(OOS_MESSAGES["OOS-01"]).not.toMatch(/CONTINUAR|CITAS|RECLAMO/);
     // Vaccination needs no appointment (OOS-06), so its message points to the 113 line instead.
     for (const category of ["OOS-02", "OOS-03", "OOS-04", "OOS-07", "OOS-09"] as const) expect(OOS_MESSAGES[category]).toContain("CITAS");
     for (const category of ["OOS-05", "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("RECLAMO");
@@ -157,7 +164,7 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
 
   it("the emergency message is the one prescribed", () => {
     expect(OOS_MESSAGES["OOS-01"]).toBe(
-      "⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS\n\nSi usted o su familiar presentan una emergencia con riesgo vital:\n\nLlame de inmediato al SAMU: 106 o a los Bomberos: 116 (llamadas gratuitas).\n\nAcuda al servicio de emergencia del centro de salud u hospital más cercano.\n\nPara agendar una cita regular o registrar un reclamo, escriba CONTINUAR.",
+      "⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS\n\nSi usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato (llamadas gratuitas):\n\n- SAMU: 106 (ambulancias y emergencias médicas)\n- Bomberos: 116 (rescate y urgencias)\n\nAcuda ahora mismo al establecimiento de salud más cercano.",
     );
   });
 });

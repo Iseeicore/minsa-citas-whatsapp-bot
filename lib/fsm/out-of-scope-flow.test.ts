@@ -26,8 +26,12 @@ const SAMPLE: Array<[OosCategory, string]> = [
   ["OOS-09", "Necesito que me sellen mi descanso médico para mi trabajo"],
 ];
 
+// The emergency is left out of these tables: it does not keep the citizen in the menu, it
+// ends the conversation (see emergency-cut.test.ts).
+const STAYING = SAMPLE.filter(([category]) => category !== "OOS-01");
+
 describe("in the main menu: the fixed message, no AI, and the citizen stays in the menu", () => {
-  it.each(SAMPLE)("%s: %j", (category, message) => {
+  it.each(STAYING)("%s: %j", (category, message) => {
     const result = handle(menu(), text(message));
 
     expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES[category] }]);
@@ -104,13 +108,11 @@ describe("never inside a flow: each step reads what it asked for", () => {
     expect(oosNote(result)).toBeUndefined();
   });
 
-  it("an emergency typed in a step gets the short notice, not the menu message, and the step goes on", () => {
+  it("the one exception is an emergency: it ends the conversation instead of being read as a wrong answer", () => {
     const result = handle(at("cita_awaiting_dni"), text("ambulancia"));
 
-    // The full message ends by sending the citizen to the menu; here the flow stays open.
-    expect(sent(result)[0]).not.toEqual({ kind: "send_text", text: OOS_MESSAGES["OOS-01"] });
-    expect(oosNote(result)).toMatchObject({ detail: { category: "OOS-01", inFlow: true } });
-    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-01"] }]);
+    expect(result.session).toEqual({ state: "emergency_closed", slots: {}, counters: {} });
   });
 });
 
@@ -150,7 +152,7 @@ describe("the words the messages ask the citizen to type", () => {
 });
 
 describe("first contact", () => {
-  it.each(SAMPLE)("%s as the very first message: the message, and the session waits in the menu", (category, message) => {
+  it.each(STAYING)("%s as the very first message: the message, and the session waits in the menu", (category, message) => {
     const result = handleFirstContact(message);
 
     expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES[category] }]);

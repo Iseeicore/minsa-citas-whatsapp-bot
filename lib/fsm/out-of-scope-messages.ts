@@ -17,7 +17,14 @@ export type OosCategory =
   | "OOS-09";
 
 export const OOS_MESSAGES: Record<OosCategory, string> = {
-  "OOS-01": `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS\n\nSi usted o su familiar presentan una emergencia con riesgo vital:\n\nLlame de inmediato al SAMU: ${CHANNELS.samu} o a los Bomberos: ${CHANNELS.bomberos} (llamadas gratuitas).\n\nAcuda al servicio de emergencia del centro de salud u hospital más cercano.\n\nPara agendar una cita regular o registrar un reclamo, escriba CONTINUAR.`,
+  "OOS-01": `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS
+
+Si usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato (llamadas gratuitas):
+
+- SAMU: ${CHANNELS.samu} (ambulancias y emergencias médicas)
+- Bomberos: ${CHANNELS.bomberos} (rescate y urgencias)
+
+Acuda ahora mismo al establecimiento de salud más cercano.`,
   "OOS-02": `Consulta sobre SIS (Seguro Integral de Salud):\n\nPor este canal no gestionamos afiliaciones ni validaciones de seguro.\n\nPuede verificar si su SIS está activo ingresando a: ${CHANNELS.sisWeb} o desde la app móvil ${CHANNELS.sisApp}.\n\nConsultas directas al SIS por WhatsApp: ${CHANNELS.sisWhatsapp} o llamando gratis a la Línea ${CHANNELS.linea113} (${CHANNELS.sisLineOption}).\n\nSi ya cuenta con seguro activo y desea agendar una cita médica, escriba CITAS.`,
   "OOS-03": "Gestión de Referencias Médicas:\n\nLas citas para especialidades en hospitales e institutos requieren que su centro de origen haya emitido y tramitado la Hoja de Referencia (REFCON).\n\nDebe consultar el estado de su referencia directamente en la oficina de Admisión/Referencias de su posta o centro de salud de origen.\n\nSi desea solicitar una cita en su establecimiento asignado de primer nivel, escriba CITAS.",
   "OOS-04": "Entrega de Resultados Médicos:\n\nPor motivos de confidencialidad y reserva de la historia clínica (Ley N° 26842), los resultados de análisis, ecografías o placas se entregan únicamente de forma presencial en el área de Laboratorio o Diagnóstico por Imágenes del centro donde se atendió.\n\nSi requiere una cita médica para lectura de resultados con su médico, escriba CITAS.",
@@ -27,9 +34,3 @@ export const OOS_MESSAGES: Record<OosCategory, string> = {
   "OOS-08": `Seguimiento de Reclamos:\n\nEste asistente registra nuevos reclamos para su ingreso formal al Libro de Reclamaciones.\n\nDe acuerdo a la normativa de SUSALUD, el establecimiento tiene un plazo de hasta 30 días hábiles para emitir respuesta formal al correo o teléfono consignado.\n\nSi venció el plazo o requiere consultar el estado de su caso, puede acudir a la Plataforma de Atención al Usuario (PAUS) de su centro de salud o comunicarse con SUSALUD al ${CHANNELS.linea113} (${CHANNELS.susaludOption}).\n\nPara registrar un nuevo reclamo, escriba RECLAMO.`,
   "OOS-09": "Trámites Documentarios y Certificados:\n\nEstos trámites son presenciales y están a cargo de las áreas administrativas del establecimiento:\n\n- Descansos médicos / Canjes: Acérquese al área de Personal/Admisión con su receta y certificado original emitido por el médico tratante.\n\n- Certificados de discapacidad: Requieren evaluación presencial por un médico certificador autorizado.\n\n- SISFOH: Trámite exclusivo de la Unidad Local de Empadronamiento (ULE) de su municipalidad distrital.\n\nSi necesita una consulta médica previa, escriba CITAS.",
 };
-
-// Shown ahead of a flow's own reply when a medical emergency is typed INSIDE a flow
-// (DNI, OTP, district, complaint...). The flow stays open, so unlike OOS-01 it does
-// not send the citizen to the menu.
-export const EMERGENCY_IN_FLOW_TEXT =
-  `⚠️ Este canal no atiende emergencias médicas. Si usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato al SAMU: ${CHANNELS.samu} o a los Bomberos: ${CHANNELS.bomberos} (llamadas gratuitas), o acuda al servicio de emergencia más cercano.`;

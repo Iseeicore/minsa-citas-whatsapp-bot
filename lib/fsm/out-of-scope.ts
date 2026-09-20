@@ -1,7 +1,7 @@
 import { normalizeText } from "./domain";
 import type { OosCategory } from "./out-of-scope-messages";
 
-export { EMERGENCY_IN_FLOW_TEXT, OOS_MESSAGES, type OosCategory } from "./out-of-scope-messages";
+export { OOS_MESSAGES, type OosCategory } from "./out-of-scope-messages";
 
 // Consultations the channel does not attend (emergencies, SIS, referrals, lab
 // results, medicines, vaccines, tele-orientation, the status of a complaint
@@ -24,6 +24,10 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     [
       /\bNO (?:PUEDE|PUEDO|PUEDEN|PUEDES) RESPIRAR\b/,
       /\bNO RESPIRA(?:N)?\b/,
+      /\bSIN RESPIRAR\b/,
+      /\b(?:DEJO|DEJA|DEJAR) DE RESPIRAR\b/,
+      /\bNO ESTA RESPIRANDO\b/,
+      /\bFALTA(?:N)? (?:EL )?AIRE\b/,
       /\bSE (?:ESTA )?AHOGA(?:NDO)?\b/,
       /\bFALTA DE AIRE\b/,
       /\bDIFICULTAD PARA RESPIRAR\b/,
@@ -37,6 +41,12 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
       /\bNO REACCIONA\b/,
       /\bCONVULSION(?:ES)?\b/,
       /\bINFARTO\b/,
+      /\bASFIXI\w*/,
+      // "me muero" is an emergency ("me muero de dolor") unless it is the idiom
+      // ("me muero de risa / de ganas / por una cita").
+      /\bME MUERO\b(?! (?:DE (?:RISA|GANAS|HAMBRE|SUENO|VERGUENZA|MIEDO|CALOR|FRIO|SED|ENVIDIA|CURIOSIDAD|PENA|ABURRIMIENTO|CANSANCIO)|POR)\b)/,
+      /\bME ESTOY MURIENDO\b/,
+      /\bSE (?:ESTA )?MURIENDO\b|\bSE MUERE\b/,
       /\bENVENEN\w*/,
       /\bSOBREDOSIS\b/,
       /\bATRAGANT\w*/,

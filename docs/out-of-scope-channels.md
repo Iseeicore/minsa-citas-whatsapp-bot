@@ -1,6 +1,6 @@
 # Canales de derivación: lista de verificación
 
-Los mensajes de consultas fuera de alcance (`lib/fsm/out-of-scope-messages.ts`) y el aviso de urgencia dentro de un flujo mandan al ciudadano a teléfonos y enlaces oficiales. **Todos vienen de la hoja «Matriz de Derivación» del Excel de auditoría y ninguno se ha confirmado con la institución.** Un número equivocado en una urgencia es el peor caso, así que esta lista debe cerrarse antes de que el canal llegue a los ciudadanos.
+Los mensajes de consultas fuera de alcance (`lib/fsm/out-of-scope-messages.ts`) (incluido el de urgencias, que cierra la conversación) mandan al ciudadano a teléfonos y enlaces oficiales. **Todos vienen de la hoja «Matriz de Derivación» del Excel de auditoría y ninguno se ha confirmado con la institución.** Un número equivocado en una urgencia es el peor caso, así que esta lista debe cerrarse antes de que el canal llegue a los ciudadanos.
 
 ## Dónde se cambia un valor
 
@@ -21,8 +21,8 @@ Un solo archivo: `lib/fsm/out-of-scope-channels.ts` (objeto `CHANNELS`). Cambiar
 
 | # | Canal | Valor en `CHANNELS` | Clave | Aparece en | Qué comprobar | Verificado (quién y fecha) |
 |---|---|---|---|---|---|---|
-| 1 | SAMU | `106` | `samu` | OOS-01 y aviso dentro de un flujo | Que 106 sea el número vigente y gratuito | ☐ |
-| 2 | Bomberos | `116` | `bomberos` | OOS-01 y aviso dentro de un flujo | Que 116 sea el número vigente y gratuito | ☐ |
+| 1 | SAMU | `106` | `samu` | OOS-01 (mensaje de urgencia, en cualquier paso) | Que 106 sea el número vigente y gratuito | ☐ |
+| 2 | Bomberos | `116` | `bomberos` | OOS-01 (mensaje de urgencia, en cualquier paso) | Que 116 sea el número vigente y gratuito | ☐ |
 | 3 | Consulta web del SIS | `app.sis.gob.pe/ConsultaWeb` | `sisWeb` | OOS-02 | Que la dirección abra la consulta de afiliación | ☐ |
 | 4 | App del SIS | `Asegúrate e Infórmate` | `sisApp` | OOS-02 | Que el nombre de la aplicación sea el vigente | ☐ |
 | 5 | WhatsApp del SIS | `941 988 565` | `sisWhatsapp` | OOS-02 | Que el número atienda consultas del SIS por WhatsApp | ☐ |

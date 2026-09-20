@@ -45,12 +45,12 @@ Un término a más de 3 ediciones de la palabra objetivo (por ejemplo `idotoaia`
 
 ## G3. Mensaje sin respuesta cuando el candado por `waId` se agota — **cerrado (texto fijo)**
 
-**Estado:** cerrado en el Bloque 4. Si un turno espera demasiado el candado se aborta con `TurnLockTimeoutError` y, en vez de dejar al ciudadano sin respuesta, el webhook le envía un texto fijo: `Estamos atendiendo muchas solicitudes. Por favor, escribe de nuevo en unos segundos.` (`TURN_BUSY_TEXT`, `lib/fsm/turn-lock.ts`). El aviso sale por el mismo camino que las respuestas del perímetro (`sendFixedReply`), sin pasar por la máquina de estados. El Sandbox ya respondía 503 «BUSY».
+**Estado:** cerrado en el Bloque 4. Si un turno espera demasiado el candado se aborta con `TurnLockTimeoutError` y, en vez de dejar al ciudadano sin respuesta, el webhook le envía un texto fijo: `Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.` (`TURN_FAILURE_TEXT`, `lib/fsm/turn-lock.ts`). El mismo texto cubre **cualquier fallo inesperado** al procesar un mensaje (guardar la conversación, el turno o sus envíos), no solo el candado agotado; se registra como `turn.lock_timeout` (advertencia) o `webhook.message_failed` (error). El aviso sale por el mismo camino que las respuestas del perímetro (`sendFixedReply`), sin pasar por la máquina de estados. El Sandbox ya respondía 503 «BUSY».
 
 Los límites son los mismos: 30 s en la cola en memoria (`TURN_PROCESS_LOCK_TIMEOUT_MS`), 20 s esperando uno de los 4 cupos de candado de la instancia y 10 s de `lock_timeout` en Postgres (`TURN_LOCK_TIMEOUT_MS`).
 
 - **Qué queda igual:** el mensaje que no se pudo atender **no se reintenta** solo; el ciudadano lo escribe de nuevo. No hay cola de reintentos (Redis/QStash quedó fuera del alcance).
-- **Cómo verlo:** log `turn.lock_timeout` (warn) con `layer` y los últimos 4 dígitos del número.
+- **Cómo verlo:** log `turn.lock_timeout` (warn) con `layer`, o `webhook.message_failed` (error) con el error, y los últimos 4 dígitos del número.
 - **Pruebas:** `tests/security/webhook-perimeter.test.ts`, bloque «the turn lock timed out».
 
 ## G4. Latencia del candado sin medir desde Vercel

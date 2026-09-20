@@ -58,7 +58,7 @@ vi.mock("@/lib/fsm/turn-lock", async (importOriginal) => ({
 
 import { POST } from "@/app/webhook/whatsapp/route";
 import { OOS_MESSAGES } from "@/lib/fsm/out-of-scope-messages";
-import { TURN_BUSY_TEXT, TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
+import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
 import { configureLogger } from "@/lib/observability/logger";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";
@@ -252,6 +252,16 @@ describe("out-of-scope consultations at first contact", () => {
     expect(repliedWith()).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-01"] }]);
   });
 
+  it("an emergency as the first message ends the conversation: one message, and the session is closed", async () => {
+    mocks.sessionFindUnique.mockResolvedValue(null);
+
+    await deliver([textMessage(freshWaId(), "me duele el pecho, creo que es un infarto")]);
+
+    expect(repliedWith()).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-01"] }]);
+    expect(mocks.saveSession).toHaveBeenCalledWith(expect.any(String), { state: "emergency_closed", slots: {}, counters: {} });
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+  });
+
   it("an insult that is not an emergency still gets the warning", async () => {
     mocks.sessionFindUnique.mockResolvedValue(null);
 
@@ -366,16 +376,21 @@ describe("a message Meta delivers twice is answered once (DATA-01)", () => {
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
   });
 
-  it("any other database error is NOT taken for a redelivery: it is logged and the turn does not run", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("any other database error is NOT taken for a redelivery: the turn does not run and the citizen is told to write again", async () => {
+    const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
+    const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });
+    const waId = freshWaId();
     mocks.messageCreate.mockRejectedValueOnce(new Error("connection reset"));
 
-    const response = await deliver([textMessage(freshWaId(), "Hola")]);
+    const response = await deliver([textMessage(waId, "Hola")]);
+    restore();
 
     expect(response.status).toBe(200);
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalledWith("Failed to process webhook entry", expect.objectContaining({ message: "connection reset" }));
-    error.mockRestore();
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
+    const entry = lines.find((line) => line.record.event === "webhook.message_failed");
+    expect(entry?.level).toBe("error");
+    expect(entry?.record).toMatchObject({ error: { message: "connection reset" } });
   });
 
   it("a redelivery does not stop the messages after it in the same payload", async () => {
@@ -387,8 +402,8 @@ describe("a message Meta delivers twice is answered once (DATA-01)", () => {
   });
 });
 
-describe("the turn lock timed out: the citizen is told to write again (G3)", () => {
-  it("sends the fixed busy text instead of leaving the message unanswered", async () => {
+describe("a failed turn or a lock timeout never leaves the citizen in silence (G3, C4.3)", () => {
+  it("sends the fixed friendly text instead of leaving the message unanswered", async () => {
     const waId = freshWaId();
     mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
 
@@ -396,13 +411,14 @@ describe("the turn lock timed out: the citizen is told to write again (G3)", () 
 
     expect(response.status).toBe(200);
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
-    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_BUSY_TEXT });
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
   });
 
-  it("the busy text asks the citizen to write again in a few seconds", () => {
-    expect(TURN_BUSY_TEXT).toMatch(/escribe de nuevo/i);
-    expect(TURN_BUSY_TEXT.length).toBeLessThan(200);
+  it("the text is the institutional one: a temporary problem, and to write again in a moment", () => {
+    expect(TURN_FAILURE_TEXT).toBe(
+      "Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.",
+    );
   });
 
   it("the database layer timing out is answered the same way", async () => {
@@ -411,7 +427,7 @@ describe("the turn lock timed out: the citizen is told to write again (G3)", () 
 
     await deliver([textMessage(waId, "Hola")]);
 
-    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_BUSY_TEXT });
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
   });
 
   it("the timeout is logged as a warning with the layer, and the waId is masked", async () => {
@@ -437,14 +453,70 @@ describe("the turn lock timed out: the citizen is told to write again (G3)", () 
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
   });
 
-  it("an error that is not a lock timeout is not answered as «busy»", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("an unexpected error of the turn gets the same friendly text, and is logged as an error", async () => {
+    const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
+    const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });
     const waId = freshWaId();
     mocks.withTurnLock.mockRejectedValueOnce(new Error("boom"));
 
+    const response = await deliver([textMessage(waId, "Hola")]);
+    restore();
+
+    expect(response.status).toBe(200);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
+    const entry = lines.find((line) => line.record.event === "webhook.message_failed");
+    expect(entry?.level).toBe("error");
+    expect(entry?.record).toMatchObject({ waId: `...${waId.slice(-4)}`, error: { message: "boom" } });
+    expect(JSON.stringify(entry?.record)).not.toContain(waId);
+  });
+
+  it("a failure while storing the conversation is answered too, and the turn never runs", async () => {
+    const waId = freshWaId();
+    mocks.conversationUpsert.mockRejectedValueOnce(new Error("database is down"));
+
     await deliver([textMessage(waId, "Hola")]);
 
-    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_BUSY_TEXT });
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+  });
+
+  it("a failure inside the turn itself (after it started) is answered", async () => {
+    const waId = freshWaId();
+    mocks.runTurnUnlocked.mockRejectedValueOnce(new Error("MINSA exploded"));
+
+    await deliver([textMessage(waId, "Hola")]);
+
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
+  });
+
+  it("one citizen's failure does not stop the other messages of the same delivery", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.withTurnLock.mockRejectedValueOnce(new Error("boom"));
+
+    await deliver([textMessage(freshWaId(), "Hola"), textMessage(freshWaId(), "Hola")]);
+
+    expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
     error.mockRestore();
+  });
+
+  it("if even the friendly text cannot be sent, the webhook still answers Meta", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.withTurnLock.mockRejectedValueOnce(new Error("boom"));
+    mocks.sendWhatsAppEffect.mockRejectedValueOnce(new Error("graph down"));
+
+    const response = await deliver([textMessage(freshWaId(), "Hola")]);
+
+    expect(response.status).toBe(200);
+    error.mockRestore();
+  });
+
+  it("a redelivery (already received) is never answered with the failure text", async () => {
+    const waId = freshWaId();
+    mocks.messageCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+
+    await deliver([textMessage(waId, "Hola")]);
+
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
   });
 });
