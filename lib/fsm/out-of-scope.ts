@@ -1,7 +1,7 @@
 import { normalizeText } from "./domain";
 import type { OosCategory } from "./out-of-scope-messages";
 
-export { OOS_MESSAGES, type OosCategory } from "./out-of-scope-messages";
+export { EMERGENCY_IN_FLOW_TEXT, OOS_MESSAGES, type OosCategory } from "./out-of-scope-messages";
 
 // Consultations the channel does not attend (emergencies, SIS, referrals, lab
 // results, medicines, vaccines, tele-orientation, the status of a complaint
@@ -148,6 +148,12 @@ export function detectOutOfScope(text: string): OosCategory | undefined {
 // A medical emergency is the one category that is answered before anything else,
 // even before the lexical guard: a scared citizen who insults still gets the number.
 export const isEmergency = (text: string): boolean => detectOutOfScope(text) === "OOS-01";
+
+// Inside a flow the same reading applies, but only to a SHORT text: an emergency is
+// typed in a few words, while a complaint about a past event ("la ambulancia nunca
+// llegó...") is a narrative and is evidence for that step, not an alarm.
+export const IN_FLOW_MAX_CHARS = 120;
+export const isEmergencyInFlow = (text: string): boolean => text.length <= IN_FLOW_MAX_CHARS && isEmergency(text);
 
 // The words the messages ask the citizen to type. Exact single words only:
 // "quiero una cita" (with no hints) keeps going to the AI as before.
