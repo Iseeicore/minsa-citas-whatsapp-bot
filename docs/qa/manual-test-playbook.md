@@ -78,7 +78,7 @@ Para generar exactamente 300 y 301 caracteres en PowerShell: `('a' * 300) | clip
 |---|---|---|---|---|
 | 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo WhatsApp). | ☐ ☐ |
 | 1.1b | Enviar `('a' * 301)` como primer mensaje. | El mismo texto de rechazo. | Igual que 1.1a. | ☐ ☐ |
-| 1.1c | Enviar `('a' * 300)` como primer mensaje. | **No** se rechaza. Como no es un saludo ni un pedido, sale el menú `¿En qué podemos ayudarte hoy?` (WhatsApp y Sandbox), sin bienvenida. | El límite es «más de 300». | ☐ ☐ |
+| 1.1c | Enviar `hola ` repetido 60 veces (300 caracteres, sin una letra repetida). | **No** se rechaza. Como no es un saludo ni un pedido, sale el menú `¿En qué podemos ayudarte hoy?` (WhatsApp y Sandbox), sin bienvenida. | El límite es «más de 300». | ☐ ☐ |
 | 1.1d | Tras 1.1a, enviar `Hola`. | Se comporta como primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
 | 1.1e | **WhatsApp:** abrir **Chat real** tras 1.1a. | Tu número **no** aparece como conversación nueva. | Confirma que no se escribió nada. | ☐ ☐ |
 | 1.1f | Con sesión abierta (ya en el flujo de reclamo, en el paso de la descripción), enviar el texto de 383 caracteres. | **No** se rechaza: el bot lo acepta como descripción del reclamo (permite hasta 1000). | El filtro solo aplica al primer mensaje. | ☐ ☐ |
@@ -108,9 +108,10 @@ Respuesta esperada en todos los casos de rechazo: el mismo texto de 1.1a. Log: `
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 1.3a | Primer mensaje: `GANA DINERO FACIL ` repetido 18 veces (324 caracteres). | Texto de rechazo de 1.1a. | Igual que 1.1a. | ☐ ☐ |
-| 1.3b | Primer mensaje: `🔥🔥🔥💰💰💰` | **No** se bloquea. Sale el menú `¿En qué podemos ayudarte hoy?`, sin bienvenida (WhatsApp y Sandbox). | **0 IA** en ambos canales (el primer contacto no corre el bot). Sin errores. | ☐ ☐ |
-| 1.3c | Primer mensaje: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` (48 letras). | **No** se bloquea (es corto). Igual que 1.3b. | Sin errores. | ☐ ☐ |
+| 1.3b | Primer mensaje: `🔥🔥🔥💰💰💰` | Se rechaza con el texto de 1.1a (`Mensaje no reconocido…`). Sin bienvenida, sin menú. | Regla de repetición (seis emojis sin palabras). Sin IA, sin sesión. Log: `perimeter.rejected` con `reason: repeat`. | ☐ ☐ |
+| 1.3c | Primer mensaje: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` (48 letras). | Se rechaza con el texto de 1.1a. | Regla de repetición (10 o más iguales seguidas). Log: `reason: repeat`. | ☐ ☐ |
 | 1.3d | Con sesión abierta y en el menú: `🔥🔥🔥💰💰💰` | Aparece `Un momento, estamos revisando tu mensaje…` y luego el menú. | En modo real es **1 llamada a Gemini** (sale unclear y cae al menú). Sin errores. | ☐ ☐ |
+| 1.3e | Primer mensaje: `👍` (y en otra prueba `jajajajaja` o `holaaaa`). | **No** se rechaza: sale el menú `¿En qué podemos ayudarte hoy?` (o la bienvenida con `holaaaa`). | Un solo emoji, la risa y un saludo alargado no son spam: el límite es 10 iguales seguidas o 6 emojis sin palabras. | ☐ ☐ |
 
 ### 1.4 Multimedia sin sesión — solo WhatsApp (excepto imagen)
 
@@ -132,10 +133,11 @@ Requiere un número **sin sesión** (ver 0.4).
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.5a | Enviar `hola` **6 veces en menos de 10 segundos** (copia el texto y pulsa enviar rápido). | Se atienden los primeros 5. Del sexto en adelante: **ningún** mensaje de respuesta (silencio). | Descarte silencioso: sin respuesta, sin base de datos, sin IA. Meta recibe igualmente su 200 (no reintenta). Log por cada mensaje descartado: `perimeter.dropped` con `reason: throttled`. | ☐ ☐ |
-| 1.5b | Esperar 10 segundos y enviar `hola`. | Vuelve a responder con normalidad. | La ventana es deslizante: los mensajes viejos salen del conteo. | ☐ ☐ |
+| 1.5a | Enviar `hola` **6 veces en menos de 10 segundos** (copia el texto y pulsa enviar rápido). | Se atienden los primeros 5. Del sexto en adelante: **ningún** mensaje de respuesta (silencio). | Descarte silencioso: sin respuesta, sin base de datos, sin IA. Meta recibe igualmente su 200 (no reintenta). El sexto silencia el número **2 minutos**. Logs: `perimeter.muted` (una vez) y `perimeter.dropped` con `reason: throttled` por cada mensaje descartado. | ☐ ☐ |
+| 1.5b | Esperar 10 segundos y enviar `hola`. | **Sigue sin responder**: el número está silenciado 2 minutos. | El silencio dura más que la ventana de 10 s. Un ciudadano legítimo que escribió muy rápido espera 2 minutos. | ☐ ☐ |
 | 1.5c | Enviar mensajes sostenidos hasta pasar de 20 en un minuto (uno cada 2–3 s durante un minuto). | El bot deja de responder. Sigue en silencio aunque escribas tras unos minutos. | Sanción de 1 hora. Log: `perimeter.banned` (1 hora, más de 20 mensajes en 60 s). | ☐ ☐ |
 | 1.5d | Escribir con **otro** número mientras el primero está sancionado. | El segundo número responde normalmente. | La sanción es por número, no global. | ☐ ☐ |
+| 1.5e | Esperar **2 minutos** desde la ráfaga de 1.5a y enviar `hola`. | Vuelve a responder con normalidad. | El silencio terminó. Si en esos 2 minutos se insistió hasta pasar de 20 mensajes en 60 s, en cambio, aplica la sanción de 1 hora (1.5c). | ☐ ☐ |
 
 ### 1.6 Firma del webhook (Paso 0) — solo con herramientas
 
@@ -339,7 +341,7 @@ Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (
 | `external.http` | La llamada HTTP misma: `status` real y `durationMs`. Solo la ruta, nunca la clave ni el cuerpo. |
 | `minsa.book_appointment.failed` (`error`) | MINSA no agendó: `endpoint`, `status`, `minsaMessage`, `response` (300 caracteres) y el payload sin DNI. Es la evidencia del caso 3.15g. |
 | `ai.fallback` (`warn`) | La IA falló y el mensaje volvió al menú; `reason` dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca lleva el texto del ciudadano. |
-| `perimeter.dropped` / `perimeter.rejected` / `perimeter.banned` | El perímetro descartó, rechazó (`too_long`, `link`, `media`) o sancionó a un número (sección 1). |
+| `perimeter.dropped` / `perimeter.muted` / `perimeter.rejected` / `perimeter.banned` | El perímetro descartó, rechazó (`too_long`, `link`, `media`) o sancionó a un número (sección 1). |
 | `[turn-lock] turn waited 312 ms behind an earlier turn of ...1234` | Un turno esperó a otro del mismo ciudadano. **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
 | `[turn-lock] database lock for ...1234 took 340 ms` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |
 | `Failed to process webhook entry` seguido de `TurnLockTimeoutError` | Un turno esperó demasiado el candado y se abandonó. **No debería verse en estas pruebas**; si aparece, anótalo. |

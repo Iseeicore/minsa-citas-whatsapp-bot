@@ -9,13 +9,15 @@ const text = (body: string) => checkFirstMessagePayload({ type: "text", text: bo
 
 describe("length: a first message over 300 characters is rejected", () => {
   it("accepts exactly 300 and rejects 301", () => {
-    expect(text("a".repeat(300)).kind).toBe("ok");
-    expect(text("a".repeat(301))).toMatchObject({ kind: "rejected", reason: "too_long", reply: FIRST_MESSAGE_REJECTION_TEXT });
+    // Varied filler: a run of one letter would be rejected as repetition, not as length.
+    expect(text("hola ".repeat(60)).kind).toBe("ok");
+    expect(text("hola ".repeat(60) + "a")).toMatchObject({ kind: "rejected", reason: "too_long", reply: FIRST_MESSAGE_REJECTION_TEXT });
+    expect(text("a".repeat(301))).toMatchObject({ kind: "rejected", reason: "too_long" });
   });
 
   it("counts characters, not bytes (accents and emoji)", () => {
-    expect(text("ñ".repeat(300)).kind).toBe("ok");
-    expect(text("é".repeat(301)).kind).toBe("rejected");
+    expect(text("ñu".repeat(150)).kind).toBe("ok");
+    expect(text("éu".repeat(151))).toMatchObject({ kind: "rejected", reason: "too_long" });
   });
 
   it("a long paste of spam is rejected", () => {
@@ -53,6 +55,37 @@ describe("links: URLs, WhatsApp links and domains are rejected", () => {
     "pe",
     "compré .comida",
   ])("does not reject the ordinary message %s", (body) => {
+    expect(text(body).kind).toBe("ok");
+  });
+});
+
+describe("repetition: spam made of one character or a pile of emojis", () => {
+  it.each([
+    ["ten of the same letter", "a".repeat(10)],
+    ["48 of the same letter", "a".repeat(48)],
+    ["a repeated symbol", "!".repeat(12)],
+    ["a repeated digit", "0".repeat(11)],
+    ["repetition inside a sentence", "quiero " + "a".repeat(15) + " cita"],
+    ["the fire and money emojis", "🔥🔥🔥💰💰💰"],
+    ["ten of the same emoji", "😀".repeat(10)],
+    ["emojis with spaces between them", "🔥 🔥 🔥 💰 💰 💰"],
+    ["hearts with their variation selector", "❤️❤️❤️❤️❤️❤️"],
+  ])("rejects %s", (_name, body) => {
+    expect(text(body)).toMatchObject({ kind: "rejected", reason: "repeat", reply: FIRST_MESSAGE_REJECTION_TEXT });
+  });
+
+  it.each([
+    ["nine of the same letter (the limit is ten)", "a".repeat(9)],
+    ["a stretched greeting", "holaaaa"],
+    ["laughter", "jajajajajajajaja"],
+    ["a single emoji", "👍"],
+    ["three emojis", "😀😀😀"],
+    ["five emojis", "🔥🔥🔥💰💰"],
+    ["emojis next to real words", "quiero una cita 😀😀😀😀😀😀😀"],
+    ["a DNI", "12345678"],
+    ["a plain request", "Hola, quiero una cita de odontología"],
+    ["an ellipsis", "bueno..."],
+  ])("does not reject %s", (_name, body) => {
     expect(text(body).kind).toBe("ok");
   });
 });

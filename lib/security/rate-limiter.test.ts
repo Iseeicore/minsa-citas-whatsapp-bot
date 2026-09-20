@@ -25,7 +25,7 @@ describe("burst limit: more than 5 messages in 10 seconds are dropped", () => {
   });
 
   it("the window slides: once the old messages age out, messages are allowed again", () => {
-    const { limiter, advance } = limiterWithClock();
+    const { limiter, advance } = limiterWithClock({ muteMs: 0 }); // the mute has its own tests below
     for (let i = 0; i < 6; i++) limiter.check("wa-1"); // 6th throttled, all at t=0
 
     advance(10_001);
@@ -62,6 +62,88 @@ describe("burst limit: more than 5 messages in 10 seconds are dropped", () => {
 
     expect(limiter.check("noisy")).toBe("throttled");
     expect(limiter.check("quiet")).toBe("allow");
+  });
+});
+
+describe("mute: a burst silences the number for two minutes", () => {
+  const burst = (limiter: ReturnType<typeof createRateLimiter>, count = 6) => Array.from({ length: count }, () => limiter.check("wa-1"));
+
+  it("the 6th message in 10 s starts the mute: the burst window alone would have let the next one through at 10 s", () => {
+    const { limiter, advance } = limiterWithClock();
+
+    expect(burst(limiter)).toEqual(["allow", "allow", "allow", "allow", "allow", "throttled"]);
+
+    advance(10_001); // without the mute this would be allowed again
+    expect(limiter.check("wa-1")).toBe("throttled");
+  });
+
+  it("lasts two minutes, then the citizen is heard again", () => {
+    const { limiter, advance } = limiterWithClock();
+    burst(limiter);
+
+    advance(119_000);
+    expect(limiter.check("wa-1")).toBe("throttled");
+
+    advance(2_000); // 121 s after the burst
+    expect(limiter.check("wa-1")).toBe("allow");
+    expect(limiter.check("wa-1")).toBe("allow");
+  });
+
+  it("only five quick messages are never muted", () => {
+    const { limiter, advance } = limiterWithClock();
+
+    expect(burst(limiter, 5).every((verdict) => verdict === "allow")).toBe(true);
+    advance(11_000);
+    expect(limiter.check("wa-1")).toBe("allow");
+  });
+
+  it("is per number", () => {
+    const { limiter } = limiterWithClock();
+    burst(limiter);
+
+    expect(limiter.check("someone-else")).toBe("allow");
+  });
+
+  it("messages sent while muted still count toward the minute, so insisting ends in the one-hour ban", () => {
+    const { limiter, advance } = limiterWithClock();
+    burst(limiter); // 6 messages, the last one starts the mute
+
+    const during: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      advance(2_000);
+      during.push(limiter.check("wa-1"));
+    }
+
+    expect(during.includes("banned")).toBe(true); // the 21st message inside 60 s
+    advance(30 * 60 * 1000);
+    expect(limiter.check("wa-1")).toBe("banned");
+  });
+
+  it("is reported once per mute through onMute, not once per dropped message", () => {
+    const muted: string[] = [];
+    const { limiter, advance } = limiterWithClock({ onMute: (key) => muted.push(key) });
+
+    burst(limiter, 12);
+    expect(muted).toEqual(["wa-1"]);
+
+    advance(121_000);
+    burst(limiter);
+    expect(muted).toEqual(["wa-1", "wa-1"]);
+  });
+
+  it("muteMs: 0 keeps the previous behavior (only the messages over the limit are dropped)", () => {
+    const { limiter, advance } = limiterWithClock({ muteMs: 0 });
+    burst(limiter);
+
+    advance(10_001);
+
+    expect(limiter.check("wa-1")).toBe("allow");
+  });
+
+  it("is off with the rest of the limiter", () => {
+    const { limiter } = limiterWithClock({ enabled: false });
+
+    expect(burst(limiter, 30).every((verdict) => verdict === "allow")).toBe(true);
   });
 });
 
