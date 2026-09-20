@@ -17,6 +17,8 @@ import type { HandlerResult } from "./types";
 //  - anything else they wrote: the menu, so they can pick.
 // The lexical guard runs before this, at each caller.
 
+const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?";
+
 function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
   const what = especialidad ? ` de ${especialidad}` : "";
   const where = distrito ? ` en ${distrito}` : "";
@@ -34,14 +36,18 @@ export function handleFirstContact(text?: string): HandlerResult {
     return routed("welcome", buildResult({ state: "main_menu", slots: {}, counters: {} }, [buildWelcomeEffect()]));
   }
 
+  // The rejection text offers "[1] Citas [2] Reclamos": answering with the number
+  // must work even though there is no menu on screen yet.
+  if (message === "1") {
+    return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):"));
+  }
+  if (message === "2") return routed("reclamo", beginReclamo({}, RECLAMO_INTRO));
+
   const cita = detectCitaRequest(message);
   if (cita) return routed("cita", beginCita({ initialMessageText: message }, cita, describeCitaRequest(cita)));
 
   if (isReclamoKeyword(message)) {
-    return routed(
-      "reclamo",
-      beginReclamo({}, "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?"),
-    );
+    return routed("reclamo", beginReclamo({}, RECLAMO_INTRO));
   }
 
   // Kept as the opening message: the Cita district step can still use it.

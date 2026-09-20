@@ -79,6 +79,18 @@ describe("fixed texts", () => {
       expect(reply).toContain("MINSA");
       expect(reply.length).toBeLessThan(300);
     }
-    expect(FIRST_MESSAGE_REJECTION_TEXT).toContain("300");
+  });
+
+  // The wording is the one the audit spreadsheet prescribes (Pasos 1 and 2).
+  it("media without a session: asks for a text message with HOLA or a menu option", () => {
+    expect(MEDIA_WITHOUT_SESSION_TEXT).toBe(
+      "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.",
+    );
+  });
+
+  it("a first message that is too long, has links or is spam: says what the channel attends and offers [1] / [2]", () => {
+    expect(FIRST_MESSAGE_REJECTION_TEXT).toBe(
+      "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.",
+    );
   });
 });
