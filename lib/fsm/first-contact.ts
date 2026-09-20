@@ -1,17 +1,20 @@
-import { beginCita } from "./cita-entry";
 import type { CitaHints } from "./cita-hints";
+import { beginCita, beginReclamo, buildMenuEffect } from "./flow-entry";
 import { buildResult } from "./handlers-shared";
-import { detectCitaRequest, isGreeting } from "./menu-shortcuts";
-import { buildWelcomeEffect, buildWelcomeFollowupEffect } from "./welcome";
-import type { HandlerResult, Session } from "./types";
+import { detectCitaRequest, isGreeting, isReclamoKeyword } from "./menu-shortcuts";
+import { buildWelcomeEffect } from "./welcome";
+import type { HandlerResult } from "./types";
 
 // What a citizen gets when a conversation starts (their very first message, or
-// the first one after a cita/reclamo finished). Two outcomes, never both:
-//  - they already asked for a cita: straight into the Cita flow, asking the DNI
-//    — the welcome and the menu would only bury what they said;
-//  - anything else: the branded welcome and its "Seguir aquí" button, and STOP.
-//    The menu is not sent here: it comes from the citizen's answer (the button
-//    or a message), handled by the main menu.
+// the first one after a cita/reclamo finished). Nothing here calls the AI, and
+// the citizen never gets two things at once:
+//  - a greeting (or nothing readable): the branded welcome — ONE message, since a
+//    WhatsApp interactive message can't hold a link button and a reply button —
+//    and STOP. It invites them to write what they need; the menu comes from
+//    their answer, handled by the main menu;
+//  - they already asked for a cita, or to file a complaint: straight into that
+//    flow, so neither the welcome nor the menu stands in front of what they said;
+//  - anything else they wrote: the menu, so they can pick.
 // The lexical guard runs before this, at each caller.
 
 function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
@@ -22,17 +25,18 @@ function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
 
 export function handleFirstContact(text?: string): HandlerResult {
   const message = text?.trim();
-  const cita = message ? detectCitaRequest(message) : undefined;
 
-  if (message && cita) {
-    return beginCita({ initialMessageText: message }, cita, describeCitaRequest(cita));
+  if (!message || isGreeting(message)) {
+    return buildResult({ state: "main_menu", slots: {}, counters: {} }, [buildWelcomeEffect()]);
   }
 
-  // A bare greeting must not become the "opening message" later used as
-  // context (same rule as the main menu).
-  const slots: Session["slots"] = message && !isGreeting(message) ? { initialMessageText: message } : {};
-  return buildResult({ state: "main_menu", slots, counters: {} }, [
-    buildWelcomeEffect(),
-    buildWelcomeFollowupEffect(),
-  ]);
+  const cita = detectCitaRequest(message);
+  if (cita) return beginCita({ initialMessageText: message }, cita, describeCitaRequest(cita));
+
+  if (isReclamoKeyword(message)) {
+    return beginReclamo({}, "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?");
+  }
+
+  // Kept as the opening message: the Cita district step can still use it.
+  return buildResult({ state: "main_menu", slots: { initialMessageText: message }, counters: {} }, [buildMenuEffect()]);
 }

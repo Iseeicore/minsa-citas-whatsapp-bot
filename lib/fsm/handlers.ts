@@ -6,7 +6,7 @@ import { detectCitaRequest, isContinueReply, isGreeting, isReclamoKeyword } from
 import { OFFERED_SLOT, readOffered } from "./selection-matchers";
 import { detectSessionExpiry, resumeStateFor } from "./session-expiry-guard";
 import { resolveConfirmation } from "./confirmation-parser";
-import { beginCita } from "./cita-entry";
+import { beginCita, buildMenuEffect, RECLAMO_IDENTITY_BUTTONS } from "./flow-entry";
 import { handleFirstContact } from "./first-contact";
 import {
   evaluateLexicalGuard,
@@ -15,11 +15,6 @@ import {
   type LexicalAction,
 } from "../security/lexical-guard";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "./types";
-
-const MENU_ROWS = [
-  { id: "agendar_cita", title: "Agendar una cita médica" },
-  { id: "registrar_reclamo", title: "Registrar un reclamo" },
-];
 
 const CONTINUE_BUTTON_ID = "continuar_menu";
 
@@ -33,11 +28,6 @@ const NUMERIC_MENU_CHOICES: Record<string, string> = {
   "1": "agendar_cita",
   "2": "registrar_reclamo",
 };
-
-const RECLAMO_IDENTITY_BUTTONS = [
-  { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
-  { id: "reclamo_sin_dni", title: "No tengo DNI" },
-];
 
 // Free-text states where the lexical guard also runs (Camino A only: warn and
 // repeat the question). Structured inputs — DNI, OTP, name, the complaint
@@ -63,9 +53,7 @@ const SELECTION_STATES = new Set([
 ]);
 
 function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
-  return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [
-    sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS),
-  ]);
+  return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
 }
 
 // Resolves awaiting_flow_start's branch directly into its target state's

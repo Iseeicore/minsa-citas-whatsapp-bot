@@ -110,14 +110,18 @@ describe("main_menu — deterministic greeting shortcut", () => {
 });
 
 describe("terminal re-entry", () => {
-  it("a clean message after a finished cita gets the welcome and its button, not the menu on top of it", () => {
-    const result = handle(sessionAt("cita_booked"), text("hola de nuevo"));
+  it("a clean message after a finished cita gets the welcome alone, not the menu on top of it", () => {
+    const result = handle(sessionAt("cita_booked"), text("Hola"));
 
     expect(result.session.state).toBe("main_menu");
-    expect(sentEffects(result).map((effect) => effect.kind)).toEqual([
-      "send_cta_url",
-      "send_buttons",
-    ]);
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_cta_url"]);
+  });
+
+  it("any other clean message after a finished cita gets the menu, not the welcome", () => {
+    const result = handle(sessionAt("cita_booked"), text("quee ?"));
+
+    expect(result.session.state).toBe("main_menu");
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
   });
 
   it("an abusive message after a finished cita is routed by the guard instead", () => {

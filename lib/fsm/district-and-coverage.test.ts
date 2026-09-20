@@ -203,7 +203,7 @@ describe("no specialties in the district", () => {
 
     const step = handle(closed, text("hola"));
 
-    expect(sent(step).map((effect) => effect.kind)).toEqual(["send_cta_url", "send_buttons"]);
+    expect(sent(step).map((effect) => effect.kind)).toEqual(["send_cta_url"]);
   });
 
   it("a confused reply (the field «quee ?») asks again instead of restarting the conversation", () => {
