@@ -104,10 +104,13 @@ describe("never inside a flow: each step reads what it asked for", () => {
     expect(oosNote(result)).toBeUndefined();
   });
 
-  it("an emergency word typed in a selection step is not answered as an emergency there", () => {
+  it("an emergency typed in a step gets the short notice, not the menu message, and the step goes on", () => {
     const result = handle(at("cita_awaiting_dni"), text("ambulancia"));
 
-    expect(oosNote(result)).toBeUndefined();
+    // The full message ends by sending the citizen to the menu; here the flow stays open.
+    expect(sent(result)[0]).not.toEqual({ kind: "send_text", text: OOS_MESSAGES["OOS-01"] });
+    expect(oosNote(result)).toMatchObject({ detail: { category: "OOS-01", inFlow: true } });
+    expect(result.session.state).toBe("cita_awaiting_dni");
   });
 });
 

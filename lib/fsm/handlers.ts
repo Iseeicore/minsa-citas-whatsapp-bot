@@ -8,7 +8,7 @@ import { detectSessionExpiry, resumeStateFor } from "./session-expiry-guard";
 import { resolveConfirmation } from "./confirmation-parser";
 import { beginCita, buildMenuEffect, RECLAMO_IDENTITY_BUTTONS } from "./flow-entry";
 import { handleFirstContact } from "./first-contact";
-import { detectOutOfScope, isCitaKeyword, isContinueKeyword, isEmergency, OOS_MESSAGES, type OosCategory } from "./out-of-scope";
+import { detectOutOfScope, EMERGENCY_IN_FLOW_TEXT, isCitaKeyword, isContinueKeyword, isEmergency, isEmergencyInFlow, OOS_MESSAGES, type OosCategory } from "./out-of-scope";
 import {
   evaluateLexicalGuard,
   INSTITUTIONAL_WARNING_TEXT,
@@ -369,7 +369,32 @@ function answerEmergency(session: Session, event: HandleEvent): HandlerResult | 
   return outOfScopeReply("OOS-01", atMenu ? omitSlot(session.slots, AWAITING_CONTINUE_SLOT) : {});
 }
 
+// An emergency typed inside a flow. It is read before ANYTHING else in the turn
+// (even an expired session or the re-verification question), because the citizen
+// must see the number to call whatever state they are in. At the menu and after a
+// finished flow answerEmergency replies instead, so those states are left out here.
+function isEmergencyInsideFlow(session: Session, event: HandleEvent): boolean {
+  if (event.type !== "text" || !event.text) return false;
+  if (session.state === "main_menu" || TERMINAL_STATES.has(session.state)) return false;
+  return isEmergencyInFlow(event.text);
+}
+
+// The notice goes first and the step's own reply follows unchanged, so the flow
+// stays open and nothing the citizen had already given is lost.
+function withEmergencyNotice(result: HandlerResult, state: string): HandlerResult {
+  return withNote(
+    { ...result, effects: [sendText(EMERGENCY_IN_FLOW_TEXT), ...result.effects] },
+    { kind: "out_of_scope", level: "warn", detail: { category: "OOS-01", inFlow: true, state } },
+  );
+}
+
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
+  const emergencyInFlow = isEmergencyInsideFlow(session, event);
+  const result = handleTurn(session, event, now);
+  return emergencyInFlow ? withEmergencyNotice(result, session.state) : result;
+}
+
+function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
   if (session.state === "cita_awaiting_reauth" && event.type !== "query_result") {
     return handleAwaitingReauth(session, event as InboundEvent);
   }

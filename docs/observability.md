@@ -28,7 +28,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | Evento | Nivel | Campos principales |
 |---|---|---|
 | `turn.start` | info | `waId` (últimos 4), `stateBefore`, `eventType`, `inputLength`, `inputPreview` (40 caracteres, solo donde es seguro) |
-| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact`, `out_of_scope`, `hora_declined`, `cita_closed` (con `reason`: `declined` o `no_other_dates`) |
+| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact`, `out_of_scope` (con `inFlow: true` si la urgencia se escribió dentro de un flujo), `hora_declined`, `cita_closed` (con `reason`: `declined` o `no_other_dates`) |
 | `turn.external` | info / warn / error | `service` (minsa, reniec, gemini, quejas), `operation`, `durationMs`, `outcome`, `resultStatus` |
 | `external.http` | info / warn / error | `service`, `operation`, `method`, `path`, `status`, `durationMs` |
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |

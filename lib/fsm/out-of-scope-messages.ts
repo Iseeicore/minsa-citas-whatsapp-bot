@@ -25,3 +25,9 @@ export const OOS_MESSAGES: Record<OosCategory, string> = {
   "OOS-08": "Seguimiento de Reclamos:\n\nEste asistente registra nuevos reclamos para su ingreso formal al Libro de Reclamaciones.\n\nDe acuerdo a la normativa de SUSALUD, el establecimiento tiene un plazo de hasta 30 días hábiles para emitir respuesta formal al correo o teléfono consignado.\n\nSi venció el plazo o requiere consultar el estado de su caso, puede acudir a la Plataforma de Atención al Usuario (PAUS) de su centro de salud o comunicarse con SUSALUD al 113 (Opción 7).\n\nPara registrar un nuevo reclamo, escriba RECLAMO.",
   "OOS-09": "Trámites Documentarios y Certificados:\n\nEstos trámites son presenciales y están a cargo de las áreas administrativas del establecimiento:\n\n- Descansos médicos / Canjes: Acérquese al área de Personal/Admisión con su receta y certificado original emitido por el médico tratante.\n\n- Certificados de discapacidad: Requieren evaluación presencial por un médico certificador autorizado.\n\n- SISFOH: Trámite exclusivo de la Unidad Local de Empadronamiento (ULE) de su municipalidad distrital.\n\nSi necesita una consulta médica previa, escriba CITAS.",
 };
+
+// Shown ahead of a flow's own reply when a medical emergency is typed INSIDE a flow
+// (DNI, OTP, district, complaint...). The flow stays open, so unlike OOS-01 it does
+// not send the citizen to the menu.
+export const EMERGENCY_IN_FLOW_TEXT =
+  "⚠️ Este canal no atiende emergencias médicas. Si usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato al SAMU: 106 o a los Bomberos: 116 (llamadas gratuitas), o acuda al servicio de emergencia más cercano.";
