@@ -1,5 +1,5 @@
 import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "./cita-no-coverage";
-import { resolveConfirmation } from "./confirmation-parser";
+import { isSlotAcceptance, resolveConfirmation } from "./confirmation-parser";
 import { isValidDniFormat, isValidOtpFormat, normalizeText, toDisplayPlace } from "./domain";
 import {
   buildResult,
@@ -1336,19 +1336,11 @@ function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): HoraResu
 function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
 
+  // A lone horario is never booked on its own: booking cannot be quietly undone,
+  // and nobody chose this one. It goes through the same confirmation as a typed time.
   if (items.length === 1) {
     const [item] = items;
-    next.state = "cita_booking_pending";
-    return buildResult(next, [
-      sendText(`Horario encontrado: ${item.horaInicio} - ${item.horaFin}. Agendando tu cita…`),
-      query("book_appointment", {
-        codigoRenipress: String(next.slots.citaCodEess ?? ""),
-        codigoUps: String(next.slots.citaEspecialidadId ?? ""),
-        fechaCita: String(next.slots.citaFecha ?? ""),
-        horaInicio: item.horaInicio,
-        numeroDocumentoPaciente: String(next.slots.citaDni ?? ""),
-      }),
-    ]);
+    return askHoraConfirmation(next, `${item.horaInicio}|${item.horaFin}`, { only: true });
   }
 
   if (items.length > 1) {
@@ -1377,7 +1369,7 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
   const pageItems = orderedItems.slice(start, start + WHATSAPP_LIST_MAX_ROWS);
 
   const result = resolveHoraCandidates(session, pageItems);
-  if (pageItems.length <= 1) return result; // auto-selected or genuinely empty — nothing to paginate
+  if (pageItems.length <= 1) return result; // a lone horario to confirm, or genuinely empty — nothing to paginate
 
   // The whole day's offer (not just this page) so a typed time on another
   // page can still be recognized — see handleAwaitingHoraSelect.
@@ -1443,6 +1435,8 @@ function handleHoraPagePending(session: Session, event: QueryResultEvent): Handl
 
 const HORA_CONFIRM_YES_ID = "hora_confirm_si";
 const HORA_CONFIRM_NO_ID = "hora_confirm_no";
+// Slots hold flat scalars only: this marks a confirmation of the day's only horario.
+const ONLY_HORA_FLAG = "1";
 
 function slotToRow(slot: HoraSlot): OfferedRow {
   return {
@@ -1609,17 +1603,29 @@ function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): Cu
 }
 
 // Booking is the one step that can't be quietly undone, so a time that came
-// from typed text is confirmed first. Tapping a list row books directly.
-function askHoraConfirmation(session: Session, slotId: string): HandlerResult {
+// from typed text — or the only one there is — is confirmed first. Tapping a
+// list row books directly.
+//
+// `only` marks "this is the only horario on offer, nobody picked it": the
+// question says so, and a "no" has no list of the same day to go back to.
+function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {
   const [start, end] = slotId.split("|");
   const next = cloneSession(session);
   next.state = "cita_awaiting_hora_confirm";
   next.slots.citaHoraConfirmId = slotId;
+  if (options.only) next.slots.citaHoraConfirmOnly = ONLY_HORA_FLAG;
+  else delete next.slots.citaHoraConfirmOnly;
+
   return buildResult(next, [
-    sendButtons(`¿Confirmas el horario ${start} - ${end}?`, [
-      { id: HORA_CONFIRM_YES_ID, title: "Sí, confirmar" },
-      { id: HORA_CONFIRM_NO_ID, title: "No, ver horarios" },
-    ]),
+    options.only
+      ? sendButtons(`Solo hay un horario disponible: ${start} - ${end}. ¿Lo confirmas?`, [
+          { id: HORA_CONFIRM_YES_ID, title: "Sí, confirmar" },
+          { id: HORA_CONFIRM_NO_ID, title: "No, gracias" },
+        ])
+      : sendButtons(`¿Confirmas el horario ${start} - ${end}?`, [
+          { id: HORA_CONFIRM_YES_ID, title: "Sí, confirmar" },
+          { id: HORA_CONFIRM_NO_ID, title: "No, ver horarios" },
+        ]),
   ]);
 }
 
@@ -1627,6 +1633,7 @@ function startBooking(session: Session, horaInicio: string): HandlerResult {
   const next = clearOffered(session);
   delete next.slots.citaHorasDia;
   delete next.slots.citaHoraConfirmId;
+  delete next.slots.citaHoraConfirmOnly;
   delete next.slots.citaHoraChoiceA;
   delete next.slots.citaHoraChoiceB;
   next.state = "cita_booking_pending";
@@ -1642,14 +1649,52 @@ function startBooking(session: Session, horaInicio: string): HandlerResult {
   ]);
 }
 
+const NO_APPOINTMENT_TEXT = "No agendamos ninguna cita. Si quieres empezar de nuevo, escribe CITAS.";
+const NEGATION_WORD = /\b(?:no|ni|nunca|tampoco)\b/;
+
+// The citizen typed the hour that is waiting for confirmation ("a la 1", "13:00")
+// or said they take it ("esa hora", "me sirve"). Any negation cancels the reading,
+// so "no a la 1" never books.
+function acceptsPendingHora(typed: string, slotId: string): boolean {
+  const plain = normalizeText(typed).toLowerCase();
+  if (NEGATION_WORD.test(plain)) return false;
+  if (isSlotAcceptance(typed)) return true;
+
+  const [start, end] = slotId.split("|");
+  return matchHoraText(typed, [{ start, end, cupos: 0 }]).kind === "exact";
+}
+
+// The only horario was declined and there is no list to go back to: nothing was
+// booked, and the citizen is told how to start again. The flow closes (a terminal
+// state) instead of asking the same single question in a loop.
+function closeWithoutBooking(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  next.state = "cita_booking_rejected";
+  return withNote(buildResult(next, [sendText(NO_APPOINTMENT_TEXT)]), {
+    kind: "hora_declined",
+    detail: { step: "hora_confirm", only: true },
+  });
+}
+
 function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
   const slotId = String(session.slots.citaHoraConfirmId ?? "");
   const [start] = slotId.split("|");
+  const only = session.slots.citaHoraConfirmOnly === ONLY_HORA_FLAG;
   const offered = readOffered(session.slots);
 
   const backToList = () => {
     const restored = cloneSession(session);
     delete restored.slots.citaHoraConfirmId;
+    delete restored.slots.citaHoraConfirmOnly;
+
+    if (only) {
+      // The lone horario was the last page: its list is the previous page's, so
+      // the page steps back with it. Without a previous page there is no list.
+      const page = restored.counters.citaHoraPage ?? 0;
+      if (!offered || page < 1) return closeWithoutBooking(restored);
+      restored.counters.citaHoraPage = page - 1;
+    }
+
     restored.state = "cita_awaiting_hora_select";
     return reshowOffered(restored, offered, "Sin problema. Elige otro horario:");
   };
@@ -1657,12 +1702,14 @@ function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult
   if (!/^\d{2}:\d{2}$/.test(start ?? "")) return backToList();
 
   const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
+  const typedText = event.type === "text" ? (event.text ?? "") : "";
+  const typed = event.type === "text" ? resolveConfirmation(typedText) : "UNKNOWN";
+  const takesThatHora = typed === "UNKNOWN" && event.type === "text" && acceptsPendingHora(typedText, slotId);
 
-  if (reply === HORA_CONFIRM_YES_ID || typed === "YES") return startBooking(session, start);
+  if (reply === HORA_CONFIRM_YES_ID || typed === "YES" || takesThatHora) return startBooking(session, start);
   if (reply === HORA_CONFIRM_NO_ID || typed === "NO") return backToList();
 
-  return withNote(askHoraConfirmation(session, slotId), {
+  return withNote(askHoraConfirmation(session, slotId, { only }), {
     kind: "confirmation_unknown",
     level: "warn",
     detail: { step: "hora_confirm" },

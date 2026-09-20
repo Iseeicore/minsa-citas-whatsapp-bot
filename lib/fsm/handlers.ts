@@ -285,6 +285,7 @@ const TRANSIENT_BOOKING_SLOTS = [
   "citaBearer",
   "citaHorasDia",
   "citaHoraConfirmId",
+  "citaHoraConfirmOnly",
   "citaHoraChoiceA",
   "citaHoraChoiceB",
   OFFERED_SLOT,

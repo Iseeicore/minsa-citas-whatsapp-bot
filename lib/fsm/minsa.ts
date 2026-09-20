@@ -114,10 +114,10 @@ const FAKE_ESTABLECIMIENTOS: EstablecimientoItem[] = [
   { renipressCode: "0000123", establishmentName: "CENTRO DE SALUD LURIGANCHO", quotasOnline: 10 },
 ];
 
-// Tomorrow and the day after, in LIMA's calendar (the citizen's, not the
-// server's), so the fake dates never go stale and never land on "today" (which
-// would hide morning slots that already started).
-function fakeFechas(): FechaItem[] {
+// A day `daysAhead` from now in LIMA's calendar (the citizen's, not the
+// server's) as YYYYMMDD, so the fake dates never go stale and never land on
+// "today" (which would hide morning slots that already started).
+function limaDatePlus(daysAhead: number): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Lima",
     year: "numeric",
@@ -126,14 +126,19 @@ function fakeFechas(): FechaItem[] {
   }).formatToParts(new Date());
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
 
-  const ymd = (daysAhead: number) => {
-    const date = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + daysAhead));
-    return date.toISOString().slice(0, 10).replace(/-/g, "");
-  };
+  const date = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + daysAhead));
+  return date.toISOString().slice(0, 10).replace(/-/g, "");
+}
 
+// The third fake day has ONE horario, to try by hand the confirmation asked
+// before booking a lone horario ("Solo hay un horario disponible…").
+const SINGLE_HORARIO_DAYS_AHEAD = 3;
+
+function fakeFechas(): FechaItem[] {
   return [
-    { fechaCupo: ymd(1), cantidadCupos: 5 },
-    { fechaCupo: ymd(2), cantidadCupos: 3 },
+    { fechaCupo: limaDatePlus(1), cantidadCupos: 5 },
+    { fechaCupo: limaDatePlus(2), cantidadCupos: 3 },
+    { fechaCupo: limaDatePlus(SINGLE_HORARIO_DAYS_AHEAD), cantidadCupos: 2 },
   ];
 }
 
@@ -429,6 +434,7 @@ export async function listHoras(
     return items.length === 0 ? { status: "empty" } : { status: "found", items };
   }
 
+  if (fecha === limaDatePlus(SINGLE_HORARIO_DAYS_AHEAD)) return { status: "found", items: [FAKE_HORAS[2]] };
   return { status: "found", items: FAKE_HORAS };
 }
 

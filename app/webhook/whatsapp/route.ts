@@ -3,7 +3,9 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurnUnlocked } from "@/lib/fsm/executor";
-import { withTurnLock } from "@/lib/fsm/turn-lock";
+import { TURN_BUSY_TEXT, TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/handlers";
 import { isQueryEffect, withNote } from "@/lib/fsm/handlers-shared";
 import { traceTurn } from "@/lib/observability/tracer";
@@ -290,6 +292,34 @@ async function sendFixedReply(waId: string, text: string): Promise<void> {
   }
 }
 
+// True when this delivery is the first of the message and should be answered;
+// false when the same WhatsApp message id is already stored (a redelivery).
+// Prisma's unique-constraint error is recognized by its code, so any other
+// database failure still surfaces instead of being taken for a duplicate.
+async function claimInboundMessage(
+  message: WhatsAppMessage,
+  conversationId: string,
+  stored: { content: string | null; mediaUrl: string | null; timestamp: Date },
+): Promise<boolean> {
+  try {
+    await prisma.message.create({
+      data: {
+        conversationId,
+        direction: MessageDirection.INBOUND,
+        type: mapMessageType(message.type),
+        content: stored.content,
+        mediaUrl: stored.mediaUrl,
+        waMessageId: message.id,
+        timestamp: stored.timestamp,
+      },
+    });
+    return true;
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") return false;
+    throw error;
+  }
+}
+
 async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
@@ -332,35 +362,22 @@ async function processValue(value: WhatsAppValue) {
       },
     });
 
-    // Checked BEFORE the upsert below so we know whether this exact
-    // waMessageId was already processed — Meta retries webhook deliveries,
-    // and without this the bot's reply (welcome message or a real FSM
-    // turn) would fire a second time for the same inbound message.
-    const alreadyProcessed = await prisma.message.findUnique({
-      where: { waMessageId: message.id },
-      select: { id: true },
-    });
+    // Meta retries webhook deliveries, and a retry can arrive while the first
+    // delivery is still being processed. One INSERT decides who owns the
+    // message: the unique `waMessageId` index lets exactly one of them in, and
+    // the other gets P2002 and is skipped. (A read-then-write pair here would let
+    // both pass the read and answer the citizen twice.)
+    if (!(await claimInboundMessage(message, conversation.id, { content, mediaUrl, timestamp }))) continue;
 
-    // Meta retries webhook deliveries, so upsert by `waMessageId` keeps
-    // duplicate deliveries from creating duplicate rows.
-    await prisma.message.upsert({
-      where: { waMessageId: message.id },
-      create: {
-        conversationId: conversation.id,
-        direction: MessageDirection.INBOUND,
-        type: mapMessageType(message.type),
-        content,
-        mediaUrl,
-        waMessageId: message.id,
-        timestamp,
-      },
-      update: {},
-    });
-
-    if (alreadyProcessed) continue;
-
-    // Locked per waId: see answerMessage.
-    await withTurnLock(message.from_user_id, () => answerMessage(message, conversation.id));
+    // Locked per waId: see answerMessage. If the turn before this one is still
+    // running after the lock's wait, the message is not answered: say so.
+    try {
+      await withTurnLock(message.from_user_id, () => answerMessage(message, conversation.id));
+    } catch (error) {
+      if (!(error instanceof TurnLockTimeoutError)) throw error;
+      logger.warn("turn.lock_timeout", { waId: tail(message.from_user_id), layer: error.layer });
+      await sendFixedReply(message.from_user_id, TURN_BUSY_TEXT);
+    }
   }
 
   for (const status of value.statuses ?? []) {
