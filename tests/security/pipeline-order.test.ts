@@ -44,7 +44,8 @@ describe("1. the perimeter comes first", () => {
     for (let i = 0; i < 7; i++) decisions.push(await screen("eres un idiota"));
 
     expect(decisions.slice(0, 5).every((decision) => decision.action === "continue")).toBe(true);
-    expect(decisions.slice(5)).toEqual(Array(2).fill({ action: "drop", reason: "throttled" }));
+    expect(decisions[5]).toMatchObject({ action: "reject", reason: "muted" }); // the one notice
+    expect(decisions.slice(6)).toEqual([{ action: "drop", reason: "throttled" }]);
     expect(hasSession).not.toHaveBeenCalled();
   });
 });

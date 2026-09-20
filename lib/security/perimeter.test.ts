@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "./payload-filter";
-import { screenInbound } from "./perimeter";
+import { MUTE_NOTICE_TEXT, screenInbound } from "./perimeter";
 import { createRateLimiter } from "./rate-limiter";
 
 function setup(options: { hasSession?: boolean } = {}) {
@@ -19,15 +19,41 @@ describe("screenInbound: the cheapest checks run first and touch no database", (
     expect(hasSession).not.toHaveBeenCalled();
   });
 
-  it("a flood is dropped silently WITHOUT any session lookup", async () => {
+  it("a flood is dropped WITHOUT any session lookup: one notice when the mute starts, silence after it", async () => {
     const { deps, hasSession } = setup();
 
     const decisions = [];
     for (let i = 0; i < 8; i++) decisions.push(await screenInbound(text("hola"), deps));
 
     expect(decisions.slice(0, 5).every((decision) => decision.action === "continue")).toBe(true);
-    expect(decisions.slice(5)).toEqual(Array(3).fill({ action: "drop", reason: "throttled" }));
+    expect(decisions[5]).toEqual({ action: "reject", reason: "muted", reply: MUTE_NOTICE_TEXT });
+    expect(decisions.slice(6)).toEqual(Array(2).fill({ action: "drop", reason: "throttled" }));
     expect(hasSession).not.toHaveBeenCalled();
+  });
+
+  it("the notice tells the citizen how long to wait, in the same formal register as the other fixed replies", () => {
+    expect(MUTE_NOTICE_TEXT).toContain("2 minutos");
+    expect(MUTE_NOTICE_TEXT).toMatch(/^Está enviando mensajes muy rápido/);
+    expect(MUTE_NOTICE_TEXT.length).toBeLessThan(200);
+  });
+
+  it("a flood that is also spam gets the notice, not the spam rejection: the flood is what stops it", async () => {
+    const { deps } = setup();
+    for (let i = 0; i < 5; i++) await screenInbound(text("hola"), deps);
+
+    const decision = await screenInbound(text("visita https://ofertas.com"), deps);
+
+    expect(decision).toEqual({ action: "reject", reason: "muted", reply: MUTE_NOTICE_TEXT });
+  });
+
+  it("without a mute (muteMs 0) there is nothing to announce: the flood is dropped in silence", async () => {
+    const limiter = createRateLimiter({ muteMs: 0 });
+    const deps = { limiter, hasSession: vi.fn(async () => false) };
+
+    const decisions = [];
+    for (let i = 0; i < 7; i++) decisions.push(await screenInbound(text("hola"), deps));
+
+    expect(decisions.slice(5)).toEqual(Array(2).fill({ action: "drop", reason: "throttled" }));
   });
 
   it("a banned waId is dropped even with a spam payload (no reply, no lookup)", async () => {

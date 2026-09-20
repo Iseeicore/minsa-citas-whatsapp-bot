@@ -4,16 +4,20 @@ import { tail } from "../observability/mask";
 // (no Redis in this stack): each serverless instance counts on its own, which is
 // enough to stop a single client from hammering one instance and costs nothing.
 //
-//  - more than 5 messages in 10 s   -> "throttled": the message is dropped
-//    silently (no reply, no database work) and the number is MUTED for two
-//    minutes: everything it sends meanwhile is dropped the same way;
+//  - more than 5 messages in 10 s   -> the message is dropped (no database work)
+//    and the number is MUTED for two minutes. The message that starts the mute is
+//    reported as "muted" (the caller tells the citizen once, see perimeter.ts);
+//    everything it sends meanwhile is "throttled": dropped in silence;
 //  - more than 20 messages in 60 s  -> "banned" for one hour: everything from
 //    that waId is dropped silently until the ban expires.
 // Dropped messages still count toward the minute, so a flood always ends in a ban.
 // The mute is what keeps a quick but legitimate typist from being answered in
 // pieces; the ban is what stops someone who insists.
 
-export type RateVerdict = "allow" | "throttled" | "banned";
+export type RateVerdict = "allow" | "throttled" | "muted" | "banned";
+
+// How long a number stays silenced after a burst.
+export const DEFAULT_MUTE_MS = 2 * 60 * 1000;
 
 export type RateLimiterOptions = {
   now?: () => number;
@@ -40,7 +44,7 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
   const banThreshold = options.banThreshold ?? 20;
   const windowMs = options.windowMs ?? 60_000;
   const banMs = options.banMs ?? 60 * 60 * 1000;
-  const muteMs = options.muteMs ?? 2 * 60 * 1000;
+  const muteMs = options.muteMs ?? DEFAULT_MUTE_MS;
   const maxKeys = options.maxKeys ?? 20_000;
 
   const hits = new Map<string, number[]>();
@@ -100,6 +104,7 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
       if (muteMs > 0) {
         mutes.set(key, current + muteMs);
         options.onMute?.(key);
+        return "muted"; // the one message of a mute the citizen is answered
       }
       return "throttled";
     },
