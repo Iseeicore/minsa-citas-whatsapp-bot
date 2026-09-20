@@ -72,5 +72,17 @@ export function buildResult(
       ? "closed"
       : "continue";
 
-  return { session, effects, outcome };
+  return { session: dropBearerWhenClosed(session), effects, outcome };
+}
+
+// A finished flow has no further use for MINSA's token, and the session stays
+// stored until the citizen writes again — so it must not be left sitting there.
+function dropBearerWhenClosed(session: Session): Session {
+  if (!TERMINAL_STATES.has(session.state) || !("citaBearer" in session.slots)) return session;
+
+  return { ...session, slots: omitSlot(session.slots, "citaBearer") };
+}
+
+export function omitSlot(slots: Session["slots"], name: string): Session["slots"] {
+  return Object.fromEntries(Object.entries(slots).filter(([key]) => key !== name));
 }

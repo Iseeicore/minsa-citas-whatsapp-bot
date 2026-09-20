@@ -286,6 +286,11 @@ const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
 // considered, regardless of how clearly it expressed the same intent.
 const FAKE_CITA_INTENT_KEYWORDS = ["CITA", "ATENCION", "CONSULTA", "TURNO", "MEDICO", "ATIENDAN"];
 
+function unclearIntent(reason: string): MainMenuIntentResult {
+  console.warn(`[ai] analyze_main_menu_intent fell back to the menu: ${reason}`);
+  return { intent: "unclear" };
+}
+
 export async function analyzeMainMenuIntent(text: string): Promise<MainMenuIntentResult> {
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
     const model = process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
@@ -302,6 +307,10 @@ export async function analyzeMainMenuIntent(text: string): Promise<MainMenuInten
 
     // Fail-open, same discipline as resolveDistritoAi above — any failure
     // just means the citizen falls back to the menu, never gets blocked.
+    // Every way this can end in "unclear" is logged with its reason (never the
+    // citizen's text): a fail-open answer is otherwise indistinguishable from
+    // the model genuinely finding no intent — which is how a missing key or a
+    // bad model name looks like "the bot ignored my request".
     let response: Response;
     try {
       response = await fetch(url, {
@@ -310,21 +319,23 @@ export async function analyzeMainMenuIntent(text: string): Promise<MainMenuInten
         body,
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
-    } catch {
-      return { intent: "unclear" };
+    } catch (error) {
+      return unclearIntent(`request failed (${error instanceof Error ? error.name : "unknown"})`);
     }
 
     if (!response.ok) {
-      return { intent: "unclear" };
+      return unclearIntent(`HTTP ${response.status} from model ${model}`);
     }
 
     try {
       const envelope = (await response.json()) as GeminiGenerateContentBody;
       const responseText = envelope.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof responseText !== "string") return { intent: "unclear" };
+      if (typeof responseText !== "string") return unclearIntent("no text in the response");
 
       const parsed = JSON.parse(responseText) as MainMenuIntentJsonShape;
-      if (parsed.intent !== "cita") return { intent: "unclear" };
+      if (typeof parsed.intent !== "string" || parsed.intent.trim().toLowerCase() !== "cita") {
+        return { intent: "unclear" }; // the model's own answer, not a failure
+      }
 
       return {
         intent: "cita",
@@ -332,7 +343,7 @@ export async function analyzeMainMenuIntent(text: string): Promise<MainMenuInten
         distrito: typeof parsed.distrito === "string" ? parsed.distrito : undefined,
       };
     } catch {
-      return { intent: "unclear" };
+      return unclearIntent("response was not valid JSON");
     }
   }
 

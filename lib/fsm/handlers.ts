@@ -1,8 +1,8 @@
 import { handleCita } from "./handlers-cita";
 import { handleReclamo } from "./handlers-reclamo";
-import { buildResult, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
+import { buildResult, omitSlot, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
 import { extractCitaHints } from "./cita-hints";
-import { isGreeting, isReclamoKeyword } from "./menu-shortcuts";
+import { detectCitaRequest, isContinueReply, isGreeting, isReclamoKeyword } from "./menu-shortcuts";
 import { OFFERED_SLOT, readOffered } from "./selection-matchers";
 import { detectSessionExpiry, resumeStateFor } from "./session-expiry-guard";
 import { resolveConfirmation } from "./confirmation-parser";
@@ -21,6 +21,10 @@ const MENU_ROWS = [
 ];
 
 const CONTINUE_BUTTON_ID = "continuar_menu";
+
+// Set while the institutional warning's "Continuar" button is the pending
+// question, so a typed "ya dale" can answer it. The next message consumes it.
+const AWAITING_CONTINUE_SLOT = "awaitingContinue";
 
 // Typing the row's number is the same as tapping the row: no static menu is
 // printed again when the intent is that explicit.
@@ -111,11 +115,11 @@ export function routeLexicalAction(
   action: Exclude<LexicalAction, "ALLOW">,
   message?: string,
 ): HandlerResult {
-  const slots = session.state === "main_menu" ? session.slots : {};
+  const slots = session.state === "main_menu" ? omitSlot(session.slots, AWAITING_CONTINUE_SLOT) : {};
 
   switch (action) {
     case "DROP_AND_WARN":
-      return buildResult({ state: "main_menu", slots, counters: {} }, [
+      return buildResult({ state: "main_menu", slots: { ...slots, [AWAITING_CONTINUE_SLOT]: true }, counters: {} }, [
         sendButtons(INSTITUTIONAL_WARNING_TEXT, [{ id: CONTINUE_BUTTON_ID, title: "Continuar" }]),
       ]);
 
@@ -168,7 +172,14 @@ function applyLexicalGuard(session: Session, event: HandleEvent): HandlerResult 
   return buildResult(session, [sendText(RESPECT_REMINDER_TEXT), sendText(midFlowPrompt)]);
 }
 
-function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
+function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
+  const awaitingContinue = pending.slots[AWAITING_CONTINUE_SLOT] === true;
+  const session: Session = { ...pending, slots: omitSlot(pending.slots, AWAITING_CONTINUE_SLOT) };
+
+  if (awaitingContinue && event.text && isContinueReply(event.text)) {
+    return enterMainMenu(session.slots);
+  }
+
   const numericChoice = event.text ? NUMERIC_MENU_CHOICES[event.text.trim()] : undefined;
   const replyId = numericChoice ?? readReply(event);
 
@@ -201,6 +212,12 @@ function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
         ? { initialMessageText: event.text }
         : session.slots;
 
+    // A message that already names the cita and what the flow asks for
+    // ("quiero una cita en San Borja de odontología") goes straight to the
+    // Cita flow: no AI call, so nothing that can fail and bounce them back.
+    const cita = event.text ? detectCitaRequest(event.text) : undefined;
+    if (cita) return beginCitaFromIntent(preservedSlots, cita);
+
     // Before just re-showing the menu, see if this free text already
     // expresses a clear intent to book an appointment (e.g. "quiero una
     // cita de odontología") — if so, skip the menu entirely instead of
@@ -227,24 +244,31 @@ function handleMainMenu(session: Session, event: InboundEvent): HandlerResult {
 function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
 
-  if (result.intent === "cita") {
-    const next: Session = {
-      state: "cita_awaiting_dni",
-      slots: {
-        ...session.slots,
-        ...(result.especialidad ? { citaEspecialidadHintText: result.especialidad } : {}),
-        ...(result.distrito ? { citaDistritoHintText: result.distrito } : {}),
-      },
-      counters: {},
-    };
-    return buildResult(next, [
-      sendText(
-        "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).",
-      ),
-    ]);
-  }
+  if (result.intent === "cita") return beginCitaFromIntent(session.slots, result);
 
   return enterMainMenu(session.slots);
+}
+
+// Shared by the deterministic reading and the AI's: the specialty and district
+// the citizen already named seed the hints the Cita flow applies on its own.
+function beginCitaFromIntent(
+  slots: Session["slots"],
+  hints: { especialidad?: string; distrito?: string },
+): HandlerResult {
+  const next: Session = {
+    state: "cita_awaiting_dni",
+    slots: {
+      ...slots,
+      ...(hints.especialidad ? { citaEspecialidadHintText: hints.especialidad } : {}),
+      ...(hints.distrito ? { citaDistritoHintText: hints.distrito } : {}),
+    },
+    counters: {},
+  };
+  return buildResult(next, [
+    sendText(
+      "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).",
+    ),
+  ]);
 }
 
 // ---- Session expiry ---------------------------------------------------------

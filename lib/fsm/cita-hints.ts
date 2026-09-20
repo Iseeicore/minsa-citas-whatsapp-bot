@@ -32,7 +32,10 @@ export function extractCitaHints(message: string): CitaHints {
 
   const hints: CitaHints = {};
 
-  for (const word of words) {
+  // Two-word specialty: no single word identifies it.
+  if (/\bMEDIC(?:INA|O) GENERAL\b/.test(words.join(" "))) hints.especialidad = "Medicina General";
+
+  for (const word of hints.especialidad ? [] : words) {
     const lower = word.toLowerCase();
     const found = ESPECIALIDAD_ROOTS.find(([root]) => root.test(lower));
     if (found) {
