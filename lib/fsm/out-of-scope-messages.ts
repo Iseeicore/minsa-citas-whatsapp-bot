@@ -1,0 +1,27 @@
+// Reply texts for the consultations the channel does not attend, as the audit
+// spreadsheet prescribes them (sheet "Catálogo de Intenciones OutofSc", column
+// "Mensaje de Respuesta Sugerida del Bot"). The wording is the spreadsheet's; only
+// the extra line breaks were collapsed.
+
+export type OosCategory =
+  | "OOS-01"
+  | "OOS-02"
+  | "OOS-03"
+  | "OOS-04"
+  | "OOS-05"
+  | "OOS-06"
+  | "OOS-07"
+  | "OOS-08"
+  | "OOS-09";
+
+export const OOS_MESSAGES: Record<OosCategory, string> = {
+  "OOS-01": "⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS\n\nSi usted o su familiar presentan una emergencia con riesgo vital:\n\nLlame de inmediato al SAMU: 106 o a los Bomberos: 116 (llamadas gratuitas).\n\nAcuda al servicio de emergencia del centro de salud u hospital más cercano.\n\nPara agendar una cita regular o registrar un reclamo, escriba CONTINUAR.",
+  "OOS-02": "Consulta sobre SIS (Seguro Integral de Salud):\n\nPor este canal no gestionamos afiliaciones ni validaciones de seguro.\n\nPuede verificar si su SIS está activo ingresando a: app.sis.gob.pe/ConsultaWeb o desde la app móvil Asegúrate e Infórmate.\n\nConsultas directas al SIS por WhatsApp: 941 988 565 o llamando gratis a la Línea 113 (Opción 4).\n\nSi ya cuenta con seguro activo y desea agendar una cita médica, escriba CITAS.",
+  "OOS-03": "Gestión de Referencias Médicas:\n\nLas citas para especialidades en hospitales e institutos requieren que su centro de origen haya emitido y tramitado la Hoja de Referencia (REFCON).\n\nDebe consultar el estado de su referencia directamente en la oficina de Admisión/Referencias de su posta o centro de salud de origen.\n\nSi desea solicitar una cita en su establecimiento asignado de primer nivel, escriba CITAS.",
+  "OOS-04": "Entrega de Resultados Médicos:\n\nPor motivos de confidencialidad y reserva de la historia clínica (Ley N° 26842), los resultados de análisis, ecografías o placas se entregan únicamente de forma presencial en el área de Laboratorio o Diagnóstico por Imágenes del centro donde se atendió.\n\nSi requiere una cita médica para lectura de resultados con su médico, escriba CITAS.",
+  "OOS-05": "Consulta de Medicamentos:\n\nEste canal no cuenta con inventario en tiempo real de las farmacias institucionales.\n\nPuede consultar la disponibilidad y precios de medicamentos en establecimientos públicos y privados a través del Observatorio de Productos Farmacéuticos de DIGEMID: observatorio.digemid.minsa.gob.pe\n\n(Si no le entregaron sus medicamentos completos durante su atención y desea presentar una queja formal, escriba RECLAMO).",
+  "OOS-06": "Vacunación y Carnets Oficiales:\n\nLa atención de vacunación en el primer nivel es por orden de llegada y no requiere cita previa.\n\nPara consultar su historial o descargar su carnet digital de vacunación, ingrese a: carnetvacunacion.minsa.gob.pe\n\nPara ubicar puntos de vacunación cercanos, comuníquese gratuitamente a la Línea 113 (Opción 1).",
+  "OOS-07": "Orientación Médica Telefónica Gratuita:\n\nEste asistente virtual solo gestiona la reserva de turnos presenciales y no brinda diagnósticos ni prescripciones médicas.\n\nPara recibir orientación inmediata de un médico, enfermero u obstetra, llame gratis a Infosalud: Línea 113.\n\nSi desea programar una consulta presencial con un profesional de la salud, escriba CITAS.",
+  "OOS-08": "Seguimiento de Reclamos:\n\nEste asistente registra nuevos reclamos para su ingreso formal al Libro de Reclamaciones.\n\nDe acuerdo a la normativa de SUSALUD, el establecimiento tiene un plazo de hasta 30 días hábiles para emitir respuesta formal al correo o teléfono consignado.\n\nSi venció el plazo o requiere consultar el estado de su caso, puede acudir a la Plataforma de Atención al Usuario (PAUS) de su centro de salud o comunicarse con SUSALUD al 113 (Opción 7).\n\nPara registrar un nuevo reclamo, escriba RECLAMO.",
+  "OOS-09": "Trámites Documentarios y Certificados:\n\nEstos trámites son presenciales y están a cargo de las áreas administrativas del establecimiento:\n\n- Descansos médicos / Canjes: Acérquese al área de Personal/Admisión con su receta y certificado original emitido por el médico tratante.\n\n- Certificados de discapacidad: Requieren evaluación presencial por un médico certificador autorizado.\n\n- SISFOH: Trámite exclusivo de la Unidad Local de Empadronamiento (ULE) de su municipalidad distrital.\n\nSi necesita una consulta médica previa, escriba CITAS.",
+};

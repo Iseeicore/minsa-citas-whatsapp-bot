@@ -272,6 +272,27 @@ Vuelve a la lista de horarios (3.12) antes de cada caso. Tras cada confirmación
 | 3.15j | Tras 3.15i, responder `sí` (o `dale`, `cambiar`, `1`, o tocar **Sí, otro distrito**). | `Perfecto. Cuéntanos en qué otro distrito buscas atención (ej. "Miraflores").` | Se olvida el distrito anterior (y el primer mensaje, para que no lo vuelva a usar); se conservan el DNI y la verificación. | ☐ ☐ |
 | 3.15k | Tras 3.15i, responder `no` (o `salir`, `cancelar`, `2`, o tocar **No, salir**). | `Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋` | Sesión limpia (estado `cita_no_coverage_closed`). Escribir `Hola` después da la bienvenida. | ☐ ☐ |
 
+### 3.16 Consultas fuera de alcance (sin IA)
+
+Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenciones OutofSc»). Se pueden probar en el menú (Sandbox o WhatsApp) y también como **primer mensaje** de una sesión nueva: la respuesta es la misma y sin bienvenida. **Sin IA**: no aparece «Un momento…».
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 3.16a | `Mi mamá no puede respirar` | `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS` … `Llame de inmediato al SAMU: 106 o a los Bomberos: 116 (llamadas gratuitas).` … `escriba CONTINUAR.` | Se queda en el menú. Log `turn.note` (**warn**) con `kind: out_of_scope` y `category: OOS-01`. | ☐ ☐ |
+| 3.16b | `ustedes son unos idiotas, mi mamá no puede respirar` | El mismo mensaje de emergencia, **no** la advertencia institucional. | La emergencia se lee antes que el filtro léxico. | ☐ ☐ |
+| 3.16c | `¿Mi SIS está activo?` | `Consulta sobre SIS (Seguro Integral de Salud):` … `app.sis.gob.pe/ConsultaWeb` … `941 988 565` … `escriba CITAS.` | `category: OOS-02` (nivel info). | ☐ ☐ |
+| 3.16d | `¿Ya aceptaron mi referencia?` | `Gestión de Referencias Médicas:` … `REFCON` … `Admisión/Referencias`. | `OOS-03`. `punto de referencia` (una dirección) **no** dispara esto. | ☐ ☐ |
+| 3.16e | `¿Ya salieron mis análisis de sangre?` | `Entrega de Resultados Médicos:` … `Ley N° 26842` … `de forma presencial`. | `OOS-04`. | ☐ ☐ |
+| 3.16f | `¿Tienen Paracetamol o Insulina en la posta?` | `Consulta de Medicamentos:` … `observatorio.digemid.minsa.gob.pe` … `escriba RECLAMO`. | `OOS-05`. `medicina general` (una especialidad) **no** dispara esto. | ☐ ☐ |
+| 3.16g | `¿Qué días vacunan contra la influenza?` | `Vacunación y Carnets Oficiales:` … `carnetvacunacion.minsa.gob.pe` … `Línea 113 (Opción 1)`. | `OOS-06`. | ☐ ☐ |
+| 3.16h | `Quiero hablar con un doctor ahorita` | `Orientación Médica Telefónica Gratuita:` … `Infosalud: Línea 113`. | `OOS-07`. | ☐ ☐ |
+| 3.16i | `Mi reclamo N° 458-2026 sigue sin resolverse` | `Seguimiento de Reclamos:` … `SUSALUD al 113 (Opción 7)` … `escriba RECLAMO`. | `OOS-08`. Pedir el **estado** de un reclamo ya presentado no abre un reclamo nuevo. | ☐ ☐ |
+| 3.16j | `Necesito que me sellen mi descanso médico para mi trabajo` | `Trámites Documentarios y Certificados:` … `SISFOH` … `Unidad Local de Empadronamiento (ULE)`. | `OOS-09`. | ☐ ☐ |
+| 3.16k | Tras cualquiera de las anteriores, escribir `CITAS`; en otra prueba `CONTINUAR`; en otra `RECLAMO`. | `CITAS`: `Ingresa tu DNI (8 dígitos).` `CONTINUAR`: el menú `¿En qué podemos ayudarte hoy?`. `RECLAMO`: `¿Tienes tu DNI a la mano?` con los dos botones. | Las tres palabras que piden los mensajes se entienden **sin IA**. Solo la palabra sola: `quiero una cita` sigue su camino de antes. | ☐ ☐ |
+| 3.16l | Con la sesión ya iniciada, en el paso del DNI escribir `vacunas`; en el paso de la descripción del reclamo escribir `no me entregaron mis medicamentos`. | DNI: `DNI inválido. Debe tener 8 dígitos. Intenta de nuevo.` Reclamo: se toma como la descripción y sigue el flujo. | Dentro de un flujo **nunca** se aplica la lectura fuera de alcance: cada paso lee lo que pidió. | ☐ ☐ |
+| 3.16m | `quiero una cita de medicina general` y `necesito cita en medicina interna` | Siguen el camino de la cita (DNI o consulta a la IA), **sin** mensaje de medicamentos. | Contraejemplos de falsos positivos de OOS-05. | ☐ ☐ |
+| 3.16n | Tras terminar un flujo (por ejemplo tras 3.14a), escribir `¿Tienen vacunas para mi bebé?` | El mensaje de OOS-06, **sin** bienvenida. | El reingreso tras un estado terminal se lee igual que un primer mensaje. | ☐ ☐ |
+
 ---
 
 ## 4. Concurrencia manual: el candado por `waId`
@@ -335,7 +356,7 @@ Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (
 | `turn.start` → `turn.end` | Un mensaje contestado: estado antes y después, duración en ms, llamadas externas y cambios en los datos (sin DNI completo ni token). |
 | `turn.note` (`warn`) con `kind: confirmation_unknown` | Una confirmación escrita no se entendió (dice el paso: `hora_confirm`, `session_reauth`, `other_distrito`). |
 | `turn.note` (`warn`) con `kind: session_expired` | La sesión caducó: `reason` es `IDLE_TIMEOUT` o `JWT_EXPIRED`, y `idleMs` cuánto llevaba inactiva (3.15a). |
-| `turn.note` (`warn`) con `kind: lexical_guard` / `menu_fallback` / `no_coverage` / `booking_retry` | El filtro léxico actuó, la IA no entendió y volvió al menú, MINSA no tiene cobertura en el distrito, o falló una reserva y se reintentó. |
+| `turn.note` (`warn`) con `kind: lexical_guard` / `menu_fallback` / `no_coverage` / `booking_retry` / `out_of_scope` (la emergencia OOS-01 sale como aviso; las demás como información) | El filtro léxico actuó, la IA no entendió y volvió al menú, MINSA no tiene cobertura en el distrito, o falló una reserva y se reintentó. |
 | `turn.end` (`warn`) con `friction: menu_loop` | Un texto escrito dejó al ciudadano otra vez en el menú sin ninguna respuesta determinística (1.3d). |
 | `turn.external` | Una consulta a MINSA, RENIEC, Gemini o quejas, con `durationMs` y `resultStatus`. |
 | `external.http` | La llamada HTTP misma: `status` real y `durationMs`. Solo la ruta, nunca la clave ni el cuerpo. |
@@ -368,7 +389,7 @@ Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por 
 |---|---|---|---|---|
 | 1. Perímetro | 1.1 – 1.6 | | | |
 | 2. Filtro léxico | 2.1 – 2.4 | | | |
-| 3. Camino feliz | 3.1 – 3.15 | | | |
+| 3. Camino feliz | 3.1 – 3.16 | | | |
 | 4. Concurrencia | 4.2 – 4.3 | | | |
 
 Criterio de cierre: **todos** los casos de las secciones 2, 3 y 4 aprobados, y la sección 1 aprobada salvo los límites conocidos que se anotaron como tales (1.3b, 1.3c y 1.3d).

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { runTurn, type TurnResult } from "@/lib/fsm/executor";
 import { handleFirstContact } from "@/lib/fsm/first-contact";
+import { isEmergency } from "@/lib/fsm/out-of-scope";
 import { isQueryEffect } from "@/lib/fsm/handlers-shared";
 import { traceTurn } from "@/lib/observability/tracer";
 import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
   // when the citizen already asked for a cita, straight into the Cita flow.
   // An abusive first message is left to the FSM, whose lexical guard answers it.
   const abusiveFirstMessage =
-    type === "text" && !!text && evaluateLexicalGuard(text).action !== "ALLOW";
+    type === "text" && !!text && !isEmergency(text) && evaluateLexicalGuard(text).action !== "ALLOW";
 
   let turn;
   try {

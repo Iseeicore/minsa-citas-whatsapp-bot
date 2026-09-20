@@ -8,6 +8,7 @@ import { detectSessionExpiry, resumeStateFor } from "./session-expiry-guard";
 import { resolveConfirmation } from "./confirmation-parser";
 import { beginCita, buildMenuEffect, RECLAMO_IDENTITY_BUTTONS } from "./flow-entry";
 import { handleFirstContact } from "./first-contact";
+import { detectOutOfScope, isCitaKeyword, isContinueKeyword, isEmergency, OOS_MESSAGES, type OosCategory } from "./out-of-scope";
 import {
   evaluateLexicalGuard,
   INSTITUTIONAL_WARNING_TEXT,
@@ -187,6 +188,25 @@ function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
       return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "greeting" } });
     }
 
+    // The words the out-of-scope messages ask the citizen to type.
+    if (event.text && isContinueKeyword(event.text)) {
+      return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "continue_keyword" } });
+    }
+
+    if (event.text && isCitaKeyword(event.text)) {
+      return withNote(
+        handleAwaitingFlowStart({
+          state: "awaiting_flow_start",
+          slots: { ...session.slots, menuChoice: "agendar_cita" },
+          counters: {},
+        }),
+        { kind: "shortcut", detail: { name: "cita_keyword" } },
+      );
+    }
+
+    const outOfScope = event.text ? detectOutOfScope(event.text) : undefined;
+    if (outOfScope) return outOfScopeReply(outOfScope, session.slots);
+
     // Capture the citizen's very first free-text message (only once — not on
     // every subsequent invalid menu tap) so later steps like the Cita
     // district question can use it as context. A message like "quiero una
@@ -323,6 +343,31 @@ function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerRes
   });
 }
 
+// ---- Consultations the channel does not attend ------------------------------
+// A fixed message that points to the official channel (see out-of-scope.ts). The
+// citizen stays at the menu, where the words the message asks for (CITAS,
+// RECLAMO, CONTINUAR) are understood without any AI call.
+function outOfScopeReply(category: OosCategory, slots: Session["slots"] = {}): HandlerResult {
+  return withNote(buildResult({ state: "main_menu", slots, counters: {} }, [sendText(OOS_MESSAGES[category])]), {
+    kind: "out_of_scope",
+    // An emergency is the one that must stand out in the logs.
+    ...(category === "OOS-01" ? { level: "warn" as const } : {}),
+    detail: { category },
+  });
+}
+
+// A medical emergency is answered before anything else at menu level, even before
+// the lexical guard: someone scared who insults still gets the number to call.
+function answerEmergency(session: Session, event: HandleEvent): HandlerResult | undefined {
+  if (event.type !== "text" || !event.text) return undefined;
+
+  const atMenu = session.state === "main_menu";
+  if (!atMenu && !TERMINAL_STATES.has(session.state)) return undefined;
+  if (!isEmergency(event.text)) return undefined;
+
+  return outOfScopeReply("OOS-01", atMenu ? omitSlot(session.slots, AWAITING_CONTINUE_SLOT) : {});
+}
+
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
   if (session.state === "cita_awaiting_reauth" && event.type !== "query_result") {
     return handleAwaitingReauth(session, event as InboundEvent);
@@ -340,6 +385,9 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
       },
     });
   }
+
+  const emergency = answerEmergency(session, event);
+  if (emergency) return emergency;
 
   const guarded = applyLexicalGuard(session, event);
   if (guarded) return guarded;
