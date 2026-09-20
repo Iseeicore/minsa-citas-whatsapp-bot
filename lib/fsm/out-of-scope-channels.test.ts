@@ -1,24 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { GOLDEN_EMERGENCY_IN_FLOW_TEXT, GOLDEN_OOS_MESSAGES } from "../../tests/support/oos-golden";
+import { GOLDEN_OOS_MESSAGES } from "../../tests/support/oos-golden";
 import { CHANNELS } from "./out-of-scope-channels";
-import { EMERGENCY_IN_FLOW_TEXT, OOS_MESSAGES } from "./out-of-scope-messages";
+import { OOS_MESSAGES } from "./out-of-scope-messages";
 
 // Every phone number and link the citizen is sent to lives in ONE place
 // (out-of-scope-channels.ts), so checking one with its institution and changing it
 // never means hunting through nine paragraphs. These tests keep it that way.
 
 const channelValues = Object.values(CHANNELS);
-const allTexts = [...Object.values(OOS_MESSAGES), EMERGENCY_IN_FLOW_TEXT];
+const allTexts = Object.values(OOS_MESSAGES);
 
-describe("moving the channels to their own file changed no text", () => {
-  it("the nine messages are exactly what the citizen read before", () => {
+describe("the fixed texts are exactly the ones approved", () => {
+  it("the nine messages are exactly what was approved (change one on purpose: update tests/support/oos-golden.ts too)", () => {
     expect(OOS_MESSAGES).toEqual(GOLDEN_OOS_MESSAGES);
-  });
-
-  it("the in-flow emergency notice is exactly what it was", () => {
-    expect(EMERGENCY_IN_FLOW_TEXT).toBe(GOLDEN_EMERGENCY_IN_FLOW_TEXT);
   });
 });
 

@@ -28,14 +28,15 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | Evento | Nivel | Campos principales |
 |---|---|---|
 | `turn.start` | info | `waId` (últimos 4), `stateBefore`, `eventType`, `inputLength`, `inputPreview` (40 caracteres, solo donde es seguro) |
-| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact`, `out_of_scope` (con `inFlow: true` si la urgencia se escribió dentro de un flujo), `hora_declined`, `cita_closed` (con `reason`: `declined` o `no_other_dates`) |
+| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact`, `out_of_scope` (la urgencia va como aviso y lleva `closed: true`: cerró la conversación), `hora_declined`, `cita_closed` (con `reason`: `declined` o `no_other_dates`) |
 | `turn.external` | info / warn / error | `service` (minsa, reniec, gemini, quejas), `operation`, `durationMs`, `outcome`, `resultStatus` |
 | `external.http` | info / warn / error | `service`, `operation`, `method`, `path`, `status`, `durationMs` |
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
 | `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
-| `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el aviso fijo «escribe de nuevo» |
+| `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el texto fijo «Ocurrió un inconveniente temporal…» |
+| `webhook.message_failed` | error | `waId` (últimos 4), `error` (nombre y mensaje). Falló guardar la conversación, el turno o sus envíos; el ciudadano recibe el mismo texto fijo. El turno, si llegó a empezar, ya dejó su `turn.failed` |
 | `perimeter.dropped` / `.rejected` / `.muted` / `.banned` | info / warn | `waId`, `reason` (`repeat` entre los rechazos), `traceId` (el que tendría el turno). `muted` sale una vez por silencio de 2 minutos; el `dropped` del mensaje que inicia el silencio lleva `noticeSent: true` (es el único que recibe el aviso «espere 2 minutos») |
 
 ## Qué se oculta

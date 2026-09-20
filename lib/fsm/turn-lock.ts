@@ -22,10 +22,12 @@ export class TurnLockTimeoutError extends Error {
   }
 }
 
-// What a citizen reads when their message waited for the lock and gave up (the
-// turn before it is still running): the message is not answered, so they are
-// asked to send it again instead of being left in silence.
-export const TURN_BUSY_TEXT = "Estamos atendiendo muchas solicitudes. Por favor, escribe de nuevo en unos segundos.";
+// What a citizen reads when their message could not be processed: the lock gave up
+// waiting for the turn before it, or the turn (or its storage) failed in a way the
+// bot did not expect. Either way the message is not answered, so they are asked to
+// write again instead of being left in silence.
+export const TURN_FAILURE_TEXT =
+  "Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.";
 
 export type TurnTask<T> = () => Promise<T>;
 export type TurnLock = <T>(waId: string, task: TurnTask<T>) => Promise<T>;

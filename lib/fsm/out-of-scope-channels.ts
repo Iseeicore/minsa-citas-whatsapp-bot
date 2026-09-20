@@ -8,7 +8,7 @@
 // hardcodes a contact instead, or if a value is missing from the checklist in
 // docs/out-of-scope-channels.md (where each one is marked once it is verified).
 export const CHANNELS = {
-  // Emergencies (OOS-01 and the notice shown inside a flow).
+  // Emergencies (the message that ends the conversation, OOS-01).
   samu: "106",
   bomberos: "116",
 

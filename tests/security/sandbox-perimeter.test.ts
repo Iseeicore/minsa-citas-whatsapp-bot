@@ -94,7 +94,8 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent).toHaveLength(1);
     expect(json.sent[0].text).toContain("106");
-    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
+    // The emergency closes the session instead of waiting in the menu.
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", { state: "emergency_closed", slots: {}, counters: {} });
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 

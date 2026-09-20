@@ -1,5 +1,6 @@
 import type { CitaHints } from "./cita-hints";
 import { beginCita, beginReclamo, buildMenuEffect } from "./flow-entry";
+import { emergencyCut } from "./emergency";
 import { buildResult, sendText, withNote } from "./handlers-shared";
 import { detectCitaRequest, isGreeting, isReclamoKeyword } from "./menu-shortcuts";
 import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "./out-of-scope";
@@ -40,13 +41,12 @@ export function handleFirstContact(text?: string): HandlerResult {
   // A consultation the channel does not attend (emergency, SIS, vaccines...): the
   // fixed message that points to the official channel, and the menu waits.
   const outOfScope = detectOutOfScope(message);
+  // A medical emergency is not a consultation to answer and wait: it ends the
+  // conversation with the numbers to call (see emergency.ts).
+  if (outOfScope === "OOS-01") return routed("out_of_scope", emergencyCut("first_contact"));
   if (outOfScope) {
     const reply = buildResult({ state: "main_menu", slots: {}, counters: {} }, [sendText(OOS_MESSAGES[outOfScope])]);
-    return withNote(routed("out_of_scope", reply), {
-      kind: "out_of_scope",
-      ...(outOfScope === "OOS-01" ? { level: "warn" as const } : {}),
-      detail: { category: outOfScope },
-    });
+    return withNote(routed("out_of_scope", reply), { kind: "out_of_scope", detail: { category: outOfScope } });
   }
 
   // The rejection text offers "[1] Citas [2] Reclamos", and the out-of-scope
