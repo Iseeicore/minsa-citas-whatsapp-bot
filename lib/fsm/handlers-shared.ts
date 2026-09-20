@@ -1,3 +1,4 @@
+import type { TurnNote } from "../observability/types";
 import type {
   ButtonOption,
   HandlerOutcome,
@@ -22,6 +23,7 @@ export const TERMINAL_STATES = new Set([
   "cita_booking_duplicate",
   "cita_booking_rejected",
   "cita_national_redirect",
+  "cita_no_coverage_closed",
 ]);
 
 // A list/button reply carries its selected id in `listId`; a citizen can
@@ -62,6 +64,11 @@ export function isQueryEffect(effect: SendEffect | QueryEffect): effect is Query
   return "payload" in effect;
 }
 
+// Puts a decision or a friction point on the result, for the executor to log.
+export function withNote(result: HandlerResult, note: TurnNote): HandlerResult {
+  return { ...result, notes: [...(result.notes ?? []), note] };
+}
+
 export function buildResult(
   session: Session,
   effects: (SendEffect | QueryEffect)[],
@@ -72,5 +79,17 @@ export function buildResult(
       ? "closed"
       : "continue";
 
-  return { session, effects, outcome };
+  return { session: dropBearerWhenClosed(session), effects, outcome };
+}
+
+// A finished flow has no further use for MINSA's token, and the session stays
+// stored until the citizen writes again — so it must not be left sitting there.
+function dropBearerWhenClosed(session: Session): Session {
+  if (!TERMINAL_STATES.has(session.state) || !("citaBearer" in session.slots)) return session;
+
+  return { ...session, slots: omitSlot(session.slots, "citaBearer") };
+}
+
+export function omitSlot(slots: Session["slots"], name: string): Session["slots"] {
+  return Object.fromEntries(Object.entries(slots).filter(([key]) => key !== name));
 }

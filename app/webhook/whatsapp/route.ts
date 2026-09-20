@@ -2,25 +2,19 @@ import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
-import { runTurn } from "@/lib/fsm/executor";
-import { saveSession } from "@/lib/fsm/session-store";
-import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator } from "@/lib/whatsapp-send";
+import { runTurnUnlocked } from "@/lib/fsm/executor";
+import { withTurnLock } from "@/lib/fsm/turn-lock";
+import { routeLexicalAction } from "@/lib/fsm/handlers";
+import { isQueryEffect, withNote } from "@/lib/fsm/handlers-shared";
+import { traceTurn } from "@/lib/observability/tracer";
+import { saveSession, sessionRowExists } from "@/lib/fsm/session-store";
+import { screenInbound } from "@/lib/security/perimeter";
+import { inboundRateLimiter } from "@/lib/security/rate-limiter";
+import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
+import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp-send";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
-import { WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, WELCOME_CTA_URL } from "@/lib/fsm/welcome";
-import type { InboundEvent } from "@/lib/fsm/types";
-
-// Sent once, the first time a given waId ever writes to this number — this
-// IS the entire response to first contact, no FSM turn runs for it (see
-// processValue). Uses WhatsApp's own bold syntax (single asterisks), not
-// markdown. Two separate messages, because a WhatsApp interactive message
-// can only carry ONE action type — a link button (cta_url) and reply
-// buttons can't be mixed in the same message: first a cta_url message with
-// the "Continuar mi cita" link button, then a normal buttons message with
-// "Seguir aquí" to start the flow right here in WhatsApp. The text/button/
-// url themselves live in lib/fsm/welcome.ts, shared with handlers.ts's
-// terminal-state re-entry — this file only adds the first-contact-only
-// follow-up message below.
-const WELCOME_FOLLOWUP_TEXT = "¿Prefieres seguir por aquí mismo?";
+import { handleFirstContact } from "@/lib/fsm/first-contact";
+import type { InboundEvent, SendEffect } from "@/lib/fsm/types";
 
 // Gives the real "escribiendo…" indicator a moment to actually show before
 // each message lands, instead of the bot's replies arriving all at once.
@@ -214,6 +208,86 @@ async function toInboundEvent(
   return null;
 }
 
+// A brand-new conversation. No FSM turn runs for it, but it is traced like one
+// (same traceId a re-delivery of the message would get).
+async function answerFirstContact(message: WhatsAppMessage, conversationId: string): Promise<void> {
+  const waId = message.from_user_id;
+  const firstContactText = message.type === "text" ? message.text?.body : undefined;
+  const fresh = { state: "main_menu", slots: {}, counters: {} };
+
+  await traceTurn(
+    waId,
+    { type: message.type, text: firstContactText, messageId: message.id },
+    fresh,
+    async (trace) => {
+      // An abusive very first message never gets the branded welcome: the
+      // lexical guard routes it exactly like the FSM would at the main menu
+      // (warning + Continuar, straight into Cita, or straight into Reclamo),
+      // with zero AI calls. The session is still created so the button works.
+      const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
+
+      // Otherwise: a citizen who already asked for a cita goes straight into the
+      // Cita flow (their words seed the specialty and district); a greeting gets
+      // the welcome alone; the rest get the menu. See first-contact.ts.
+      const first =
+        verdict && verdict.action !== "ALLOW"
+          ? withNote(routeLexicalAction(fresh, verdict.action, firstContactText), {
+              kind: "lexical_guard",
+              level: "warn",
+              detail: { action: verdict.action, state: "first_contact" },
+            })
+          : handleFirstContact(firstContactText);
+
+      for (const note of first.notes ?? []) trace.note(note);
+      await saveSession(waId, first.session);
+
+      const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+      trace.complete({ session: first.session, sentCount: toSend.length });
+
+      for (const effect of toSend) {
+        await sendTypingIndicator(message.id);
+        await sleep(TYPING_DELAY_MS);
+        await sendAndRecordEffect(conversationId, waId, effect);
+      }
+    },
+  );
+}
+
+// Everything a citizen's message triggers — the first-contact check, the FSM
+// turn AND the outbound sends — runs under that citizen's turn lock (see
+// lib/fsm/turn-lock.ts), so two messages sent in quick succession are answered
+// one after the other, in order, and never read a stale session. Called from
+// inside withTurnLock, hence runTurnUnlocked (runTurn would wait on its own lock).
+async function answerMessage(message: WhatsAppMessage, conversationId: string): Promise<void> {
+  const waId = message.from_user_id;
+  const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
+
+  if (!existingSession) {
+    await answerFirstContact(message, conversationId);
+    return;
+  }
+
+  const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
+  if (!inboundEvent) return;
+
+  const { sent } = await runTurnUnlocked(waId, { ...inboundEvent, messageId: message.id });
+  for (const effect of sent) {
+    await sendTypingIndicator(message.id);
+    await sleep(TYPING_DELAY_MS);
+    await sendAndRecordEffect(conversationId, waId, effect);
+  }
+}
+
+// A rejection is plain text straight to the Graph API: no conversation row, no
+// outbound record, no session. If the send fails there is nothing to recover.
+async function sendFixedReply(waId: string, text: string): Promise<void> {
+  try {
+    await sendWhatsAppEffect(waId, { kind: "send_text", text });
+  } catch (error) {
+    console.error("Failed to send a perimeter reply", error);
+  }
+}
+
 async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
@@ -221,6 +295,20 @@ async function processValue(value: WhatsAppValue) {
   }
 
   for (const message of value.messages ?? []) {
+    // Perimeter first — before any database write, transaction or turn lock:
+    // flooding is dropped silently (Meta already got its 200), and a first
+    // message that is too long, carries links, or is unsolicited media gets a
+    // fixed text reply and is never stored. See lib/security/perimeter.ts.
+    const decision = await screenInbound(
+      { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
+      { limiter: inboundRateLimiter, hasSession: sessionRowExists },
+    );
+    if (decision.action === "drop") continue;
+    if (decision.action === "reject") {
+      await sendFixedReply(message.from_user_id, decision.reply);
+      continue;
+    }
+
     const contact = contactsByWaId.get(message.from_user_id);
     const profileName = contact?.profile?.name;
     const phoneNumber = message.from ?? contact?.wa_id;
@@ -269,49 +357,8 @@ async function processValue(value: WhatsAppValue) {
 
     if (alreadyProcessed) continue;
 
-    const waId = message.from_user_id;
-    const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
-
-    if (!existingSession) {
-      // Brand-new conversation — the welcome message IS the whole response
-      // to first contact. No FSM turn runs for this message; whatever the
-      // citizen wrote is stashed as initialMessageText so the Cita
-      // district-resolution step can still use it later (same mechanism
-      // handleMainMenu already uses for a menu tap that doesn't match).
-      await saveSession(waId, {
-        state: "main_menu",
-        slots: message.text?.body ? { initialMessageText: message.text.body } : {},
-        counters: {},
-      });
-
-      await sendTypingIndicator(message.id);
-      await sleep(TYPING_DELAY_MS);
-      await sendAndRecordCtaUrl(conversation.id, waId, {
-        bodyText: WELCOME_MESSAGE_TEXT,
-        buttonText: WELCOME_CTA_BUTTON_TEXT,
-        url: WELCOME_CTA_URL,
-      });
-
-      await sendTypingIndicator(message.id);
-      await sleep(TYPING_DELAY_MS);
-      await sendAndRecordEffect(conversation.id, waId, {
-        kind: "send_buttons",
-        text: WELCOME_FOLLOWUP_TEXT,
-        buttons: [{ id: "seguir_aqui", title: "Seguir aquí" }],
-      });
-
-      continue;
-    }
-
-    const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
-    if (!inboundEvent) continue;
-
-    const { sent } = await runTurn(waId, inboundEvent);
-    for (const effect of sent) {
-      await sendTypingIndicator(message.id);
-      await sleep(TYPING_DELAY_MS);
-      await sendAndRecordEffect(conversation.id, waId, effect);
-    }
+    // Locked per waId: see answerMessage.
+    await withTurnLock(message.from_user_id, () => answerMessage(message, conversation.id));
   }
 
   for (const status of value.statuses ?? []) {

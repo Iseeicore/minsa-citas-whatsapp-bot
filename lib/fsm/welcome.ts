@@ -10,7 +10,9 @@ export const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal ofi
 
 Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *MINSA Digital*.
 
-Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.`;
+Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.
+
+¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.`;
 
 export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita"; // 17 chars — cta_url's display_text caps at 20
 export const WELCOME_CTA_URL = "https://minsa-citas-whatsapp-bot.vercel.app/sandbox";
@@ -18,3 +20,4 @@ export const WELCOME_CTA_URL = "https://minsa-citas-whatsapp-bot.vercel.app/sand
 export function buildWelcomeEffect(): SendEffect {
   return sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, WELCOME_CTA_URL);
 }
+

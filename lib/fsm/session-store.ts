@@ -13,6 +13,7 @@ export async function getSession(from: string): Promise<Session> {
     state: row.state,
     slots: row.slots as Session["slots"],
     counters: row.counters as Session["counters"],
+    updatedAt: row.updatedAt,
   };
 }
 

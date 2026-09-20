@@ -1,3 +1,5 @@
+import { timedFetch } from "../observability/http";
+
 export type ReniecLookupResult =
   | { status: "found"; nombreCompleto: string }
   | { status: "not_found" }
@@ -8,7 +10,7 @@ const FAKE_NOMBRE_COMPLETO = "JUAN CARLOS QUISPE PEREZ";
 
 export async function reniecLookup(dni: string): Promise<ReniecLookupResult> {
   if (process.env.SANDBOX_USE_REAL_RENIEC === "true") {
-    const response = await fetch(`${process.env.RENIEC_LOOKUP_BASE_URL}/api/reniec/validate/${dni}`);
+    const response = await timedFetch("reniec", "validate", `${process.env.RENIEC_LOOKUP_BASE_URL}/api/reniec/validate/${dni}`);
 
     if (response.status === 404) {
       return { status: "not_found" };

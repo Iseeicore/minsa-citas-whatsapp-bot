@@ -20,6 +20,9 @@
 # production
 /build
 
+# daily structured logs (LOG_TO_FILE=true): logs/DD-MM-YYYY/*.ndjson
+/logs/
+
 # misc
 .DS_Store
 *.pem

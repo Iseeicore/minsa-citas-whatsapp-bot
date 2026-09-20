@@ -1,3 +1,5 @@
+import { timedFetch } from "../observability/http";
+import { logger } from "../observability/logger";
 import { signMinsaRequest } from "./minsa-signature";
 
 // ---- Result shapes returned to lib/fsm/executor.ts --------------------
@@ -112,14 +114,37 @@ const FAKE_ESTABLECIMIENTOS: EstablecimientoItem[] = [
   { renipressCode: "0000123", establishmentName: "CENTRO DE SALUD LURIGANCHO", quotasOnline: 10 },
 ];
 
-const FAKE_FECHAS: FechaItem[] = [
-  { fechaCupo: "20260918", cantidadCupos: 5 },
-  { fechaCupo: "20260919", cantidadCupos: 3 },
-];
+// Tomorrow and the day after, in LIMA's calendar (the citizen's, not the
+// server's), so the fake dates never go stale and never land on "today" (which
+// would hide morning slots that already started).
+function fakeFechas(): FechaItem[] {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
 
+  const ymd = (daysAhead: number) => {
+    const date = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + daysAhead));
+    return date.toISOString().slice(0, 10).replace(/-/g, "");
+  };
+
+  return [
+    { fechaCupo: ymd(1), cantidadCupos: 5 },
+    { fechaCupo: ymd(2), cantidadCupos: 3 },
+  ];
+}
+
+// Chosen so every typed-time case can be tried by hand:
+//  "1" -> position 1 (08:00) or 1 PM (13:00): two-button question;
+//  "8" -> no option 8, the only 8 o'clock slot is 08:00;  "3" -> position 3 = 13:00;
+//  "9" -> 09:30;  "en la tarde" -> only 13:00;  "a la 1" / "1 pm" -> 13:00.
 const FAKE_HORAS: HoraItem[] = [
   { horaInicio: "08:00", horaFin: "08:30", cantidadCupos: 2 },
-  { horaInicio: "08:45", horaFin: "09:15", cantidadCupos: 1 },
+  { horaInicio: "09:30", horaFin: "10:00", cantidadCupos: 1 },
+  { horaInicio: "13:00", horaFin: "13:30", cantidadCupos: 2 },
 ];
 
 // ---- Wire helpers -------------------------------------------------------
@@ -132,7 +157,7 @@ async function postSigned(path: string, body: Record<string, unknown>): Promise<
   const bodyJson = JSON.stringify(body);
   const signedHeaders = signMinsaRequest(bodyJson);
 
-  return fetch(`${minsaHost()}${path}`, {
+  return timedFetch("minsa", path, `${minsaHost()}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -149,7 +174,7 @@ async function postWithBearer(
   body: Record<string, unknown>,
   bearer: string,
 ): Promise<Response> {
-  return fetch(`${minsaHost()}${path}`, {
+  return timedFetch("minsa", path, `${minsaHost()}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -189,7 +214,7 @@ export function formatHoraCita(horaInicio: string): string {
 // MINSA's real quotas/dates endpoint returns fecha_cupo as "DD/MM/YYYY"
 // (shown to the citizen as-is, e.g. in a list row) but quotas/times and
 // appointments require "YYYYMMDD". Idempotent for values already in
-// YYYYMMDD (e.g. Sandbox's FAKE_FECHAS, which has no slashes) — those pass
+// YYYYMMDD (e.g. Sandbox's fakeFechas(), which has no slashes) — those pass
 // through unchanged.
 export function formatFechaForApi(fechaCupo: string): string {
   const [day, month, year] = fechaCupo.split("/");
@@ -376,7 +401,7 @@ export async function listFechas(
     return items.length === 0 ? { status: "empty" } : { status: "found", items };
   }
 
-  return { status: "found", items: FAKE_FECHAS };
+  return { status: "found", items: fakeFechas() };
 }
 
 export async function listHoras(
@@ -407,13 +432,44 @@ export async function listHoras(
   return { status: "found", items: FAKE_HORAS };
 }
 
+// A failed booking used to reach the citizen as a generic message with nothing
+// in the logs. This keeps what is needed to diagnose it: the endpoint, the HTTP
+// status, what MINSA said and the payload without the patient's document (the
+// logger also masks any long digit run, such as a DNI echoed back).
+const BOOKING_ENDPOINT = "/whatsapp/api/v1/appointments";
+const BOOKING_LOG_BODY_LIMIT = 300;
+
+function minsaMessageOf(body: string): string | undefined {
+  try {
+    const message = (JSON.parse(body) as { message?: unknown }).message;
+    return typeof message === "string" ? message : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
+  logger.error("minsa.book_appointment.failed", {
+    endpoint: BOOKING_ENDPOINT,
+    status: httpStatus,
+    minsaMessage: minsaMessageOf(body),
+    response: body.slice(0, BOOKING_LOG_BODY_LIMIT),
+    payload: {
+      codigoRenipress: params.codigoRenipress,
+      codigoUps: params.codigoUps,
+      fechaCita: params.fechaCita,
+      horaCita: params.horaCita,
+    },
+  });
+}
+
 export async function bookAppointment(
   params: BookAppointmentParams,
   bearer: string,
 ): Promise<BookAppointmentResult> {
   if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
     const response = await postWithBearer(
-      "/whatsapp/api/v1/appointments",
+      BOOKING_ENDPOINT,
       {
         codigo_renipress: params.codigoRenipress,
         codigo_ups: params.codigoUps,
@@ -424,7 +480,10 @@ export async function bookAppointment(
       bearer,
     );
     if (response.status === 401) return { status: "unauthorized" };
-    if (!response.ok) return { status: "error" };
+    if (!response.ok) {
+      logBookingFailure(params, response.status, await response.text().catch(() => ""));
+      return { status: "error" };
+    }
 
     const body = await response.json();
     const message: string = body?.message ?? "";
@@ -435,6 +494,7 @@ export async function bookAppointment(
     if (body?.data?.url) {
       return { status: "booked", url: body.data.url, message };
     }
+    logBookingFailure(params, response.status, JSON.stringify(body));
     return { status: "rejected", message };
   }
 

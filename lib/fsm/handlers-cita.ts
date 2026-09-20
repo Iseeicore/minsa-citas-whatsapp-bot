@@ -1,4 +1,6 @@
-import { isValidDniFormat, isValidOtpFormat, normalizeText } from "./domain";
+import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "./cita-no-coverage";
+import { resolveConfirmation } from "./confirmation-parser";
+import { isValidDniFormat, isValidOtpFormat, normalizeText, toDisplayPlace } from "./domain";
 import {
   buildResult,
   cloneSession,
@@ -8,10 +10,34 @@ import {
   sendList,
   sendButtons,
   sendCtaUrl,
+  withNote,
 } from "./handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
-import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "./types";
+import { matchFechaText, type DateParts } from "./date-parser";
+import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "./gibberish";
+import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "./time-parser";
+import {
+  hintText,
+  leftoverHint,
+  matchAllTokens,
+  matchSelection,
+  OFFERED_SLOT,
+  readOffered,
+  serializeOffered,
+  type OfferedList,
+  type OfferedRow,
+  type SelectionMatch,
+} from "./selection-matchers";
+import type {
+  HandleEvent,
+  HandlerResult,
+  InboundEvent,
+  ListRow,
+  QueryResultEvent,
+  SendEffect,
+  Session,
+} from "./types";
 
 const MAX_REGISTRATION_CHECKS = 3;
 const MAX_OTP_ATTEMPTS = 3;
@@ -48,6 +74,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleUbigeoPending(session, event as QueryResultEvent);
     case "cita_awaiting_ubigeo_select":
       return handleAwaitingUbigeoSelect(session, event as InboundEvent);
+    case OTHER_DISTRITO_STATE:
+      return handleOtherDistrito(session, event as InboundEvent);
     case "cita_especialidad_pending":
       return handleEspecialidadPending(session, event as QueryResultEvent);
     case "cita_awaiting_especialidad_select":
@@ -56,16 +84,24 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleEstablecimientoPending(session, event as QueryResultEvent);
     case "cita_awaiting_establecimiento_select":
       return handleAwaitingEstablecimientoSelect(session, event as InboundEvent);
+    case "cita_selection_hints_pending":
+      return handleSelectionHintsPending(session, event as QueryResultEvent);
     case "cita_fecha_pending":
       return handleFechaPending(session, event as QueryResultEvent);
     case "cita_awaiting_fecha_select":
       return handleAwaitingFechaSelect(session, event as InboundEvent);
+    case "cita_fecha_ai_pending":
+      return handleFechaAiPending(session, event as QueryResultEvent);
     case "cita_hora_pending":
       return handleHoraPending(session, event as QueryResultEvent);
     case "cita_hora_page_pending":
       return handleHoraPagePending(session, event as QueryResultEvent);
     case "cita_awaiting_hora_select":
       return handleAwaitingHoraSelect(session, event as InboundEvent);
+    case "cita_awaiting_hora_confirm":
+      return handleHoraConfirm(session, event as InboundEvent);
+    case "cita_awaiting_hora_choice":
+      return handleHoraChoice(session, event as InboundEvent);
     case "cita_booking_pending":
       return handleBookingPending(session, event as QueryResultEvent);
     default:
@@ -353,6 +389,105 @@ function truncateForRow(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
+// ---- Selection steps: taps and typed text ---------------------------------
+// Every list is sent through offerList so the rows the citizen can pick from
+// are remembered (Session.slots only holds scalars, hence a JSON string).
+// resolveSelection then turns whatever arrives — a tap, or typed text such as
+// "el segundo" / "odontología" / "el de Lima" — into one of THOSE rows, or
+// into a rejection that re-shows the list. Unparsed text never reaches MINSA.
+
+const SELECTION_REJECTION = "Selecciona una opción de la lista.";
+const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona una:";
+
+// Mutates `next` (always a fresh clone at the call sites).
+function offerList(next: Session, text: string, rows: ListRow[]): SendEffect {
+  next.slots[OFFERED_SLOT] = serializeOffered({ text, rows });
+  return sendList(text, rows);
+}
+
+function clearOffered(session: Session): Session {
+  const next = cloneSession(session);
+  delete next.slots[OFFERED_SLOT];
+  return next;
+}
+
+function reshowOffered(
+  session: Session,
+  offered: OfferedList | undefined,
+  message: string = SELECTION_REJECTION,
+): HandlerResult {
+  const effects: SendEffect[] = [sendText(message)];
+  if (offered) effects.push(sendList(offered.text, offered.rows));
+  return buildResult(session, effects);
+}
+
+// Guards the dataset -> AI district chain against junk ("a|b|c", "12345"):
+// only letters, spaces and the punctuation real place names use.
+function looksLikePlaceName(text: string): boolean {
+  return /^[\p{L}][\p{L}\s.'-]{2,59}$/u.test(text);
+}
+
+function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
+  const next = cloneSession(session);
+  return buildResult(next, [offerList(next, NARROWED_LIST_TEXT, rows)]);
+}
+
+// A step-specific reader tried before the generic ordinal/name matcher. It can
+// also explain why nothing was chosen ("notice") instead of a bare rejection.
+type CustomMatch =
+  | SelectionMatch
+  | { kind: "notice"; text: string }
+  // The step already knows the whole answer (e.g. a two-button question).
+  | { kind: "handled"; result: HandlerResult };
+
+type SelectionOptions = {
+  customMatch?: (typed: string, rows: OfferedRow[]) => CustomMatch | undefined;
+  // Match typed text against "Provincia — Departamento" descriptions too.
+  includeDescription?: boolean;
+  // Ids that are valid taps although they are not list rows (pagination buttons).
+  passthroughIds?: string[];
+  // Text that names nothing offered; return undefined to just re-show the list.
+  onNoMatchText?: (typed: string) => HandlerResult | undefined;
+};
+
+type SelectionOutcome = { replyId: string; typed?: string } | { result: HandlerResult };
+
+function resolveSelection(
+  session: Session,
+  event: InboundEvent,
+  options: SelectionOptions = {},
+): SelectionOutcome {
+  const offered = readOffered(session.slots);
+
+  if (event.type === "list" || event.type === "button") {
+    const id = event.listId;
+    if (!id) return { result: reshowOffered(session, offered) };
+
+    // Sessions opened before offered options were stored have nothing to
+    // validate against: keep accepting their taps.
+    const valid =
+      !offered || offered.rows.some((row) => row.id === id) || options.passthroughIds?.includes(id);
+    return valid ? { replyId: id } : { result: reshowOffered(session, offered) };
+  }
+
+  const typed = event.type === "text" ? (event.text ?? "").trim() : "";
+  if (!typed || !offered) {
+    return { result: reshowOffered(session, offered) };
+  }
+
+  const custom = options.customMatch?.(typed, offered.rows);
+  if (custom?.kind === "match") return { replyId: custom.row.id, typed };
+  if (custom?.kind === "ambiguous") return { result: narrowOffered(session, custom.rows) };
+  if (custom?.kind === "notice") return { result: reshowOffered(session, offered, custom.text) };
+  if (custom?.kind === "handled") return { result: custom.result };
+
+  const match = matchSelection(typed, offered.rows, { includeDescription: options.includeDescription });
+  if (match.kind === "match") return { replyId: match.row.id, typed };
+  if (match.kind === "ambiguous") return { result: narrowOffered(session, match.rows) };
+
+  return { result: options.onNoMatchText?.(typed) ?? reshowOffered(session, offered) };
+}
+
 // Shared by handleAwaitingDistritoAi (a real inbound reply) and
 // handleVerifyPending's auto-trigger (a distrito already extracted from the
 // citizen's opening free-text message) — "given this district text (plus
@@ -368,6 +503,12 @@ function resolveDistritoText(
 
   if (localCandidates.length > 0) {
     return resolveDistritoCandidates(session, localCandidates);
+  }
+
+  // Free and deterministic: keyboard mashing ("asdfghjk") never earns a paid AI
+  // call. A genuine typo still goes through.
+  if (isGibberishPlaceText(distritoText)) {
+    return buildResult(session, [sendText(UNRECOGNIZED_DISTRITO_TEXT)]);
   }
 
   const next = cloneSession(session);
@@ -539,7 +680,7 @@ function resolveDistritoCandidates(
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [sendList("Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
+    return buildResult(next, [offerList(next, "Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
   }
 
   // Zero candidates within Lima — either the district is real but outside
@@ -568,14 +709,32 @@ function handleDistritoAiPending(session: Session, event: QueryResultEvent): Han
 }
 
 function handleAwaitingDistritoDisambiguation(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
-  const parts = replyId?.split("|");
-  if (!parts || parts.length !== 3) {
-    return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
+  const outcome = resolveSelection(session, event, {
+    includeDescription: true,
+    // Text naming none of the offered districts is a corrected district: it
+    // goes back through the same dataset -> AI chain the first answer used. A
+    // bare "sí"/"ese" names nothing, so it just re-shows the list.
+    onNoMatchText: (typed) => {
+      if (!looksLikePlaceName(typed) || isAffirmativeReply(typed)) return undefined;
+      if (isGibberishPlaceText(typed)) {
+        return reshowOffered(session, readOffered(session.slots), UNRECOGNIZED_DISTRITO_TEXT);
+      }
+      return resolveDistritoText(
+        clearOffered(session),
+        typed,
+        session.slots.initialMessageText as string | undefined,
+      );
+    },
+  });
+  if ("result" in outcome) return outcome.result;
+
+  const parts = outcome.replyId.split("|");
+  if (parts.length !== 3) {
+    return reshowOffered(session, readOffered(session.slots));
   }
 
   const [departamento, provincia, distrito] = parts;
-  const next = cloneSession(session);
+  const next = clearOffered(session);
   next.slots.citaDepartamento = departamento;
   next.slots.citaProvincia = provincia;
   next.slots.citaDistrito = distrito;
@@ -638,6 +797,29 @@ type UbigeoResultItem = {
   departamento: string;
 };
 
+// The one ubigeo that needs no question: the only result, or the only one that
+// is exactly the district (and province and department, when known) already
+// resolved earlier in the conversation.
+function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoResultItem | undefined {
+  if (items.length === 1) return items[0];
+
+  const same = (found: string, known: unknown) =>
+    typeof known !== "string" || known === "" || normalizeText(found) === normalizeText(known);
+  const exact = items.filter(
+    (item) =>
+      typeof session.slots.citaDistrito === "string" &&
+      normalizeText(item.distrito) === normalizeText(session.slots.citaDistrito) &&
+      same(item.provincia, session.slots.citaProvincia) &&
+      same(item.departamento, session.slots.citaDepartamento),
+  );
+  return exact.length === 1 ? exact[0] : undefined;
+}
+
+// Said before the catalog is queried, so the citizen sees their district was
+// understood — whether it came from their words, a single match or a list tap.
+const searchingCatalogText = (distrito: string) =>
+  `Entendido. Buscando especialidades y citas disponibles en *${toDisplayPlace(distrito)}*…`;
+
 function handleUbigeoPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: UbigeoResultItem[] };
   const next = cloneSession(session);
@@ -654,16 +836,16 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
   }
 
   // A single match doesn't need a list tap — resolve it and keep moving.
-  // Only 2+ matches need the citizen to pick one.
-  if (result.status === "found" && result.items && result.items.length === 1) {
-    const [item] = result.items;
-    next.slots.citaUbigeo = item.ubigeoInei;
+  // Only 2+ matches need the citizen to pick one — unless one of them is
+  // exactly the district already resolved (MINSA's search is fuzzy, so asking
+  // for "San Juan de Lurigancho" can bring back its neighbours too).
+  const settled = result.status === "found" && result.items ? pickSettledUbigeo(next, result.items) : undefined;
+  if (settled) {
+    next.slots.citaUbigeo = settled.ubigeoInei;
     next.state = "cita_especialidad_pending";
     return buildResult(next, [
-      sendText(
-        `Ubigeo encontrado: ${item.distrito} - ${item.provincia} - ${item.departamento}. Buscando especialidades disponibles…`,
-      ),
-      query("list_especialidades", { ubigeo: item.ubigeoInei }),
+      sendText(searchingCatalogText(settled.distrito)),
+      query("list_especialidades", { ubigeo: settled.ubigeoInei }),
     ]);
   }
 
@@ -682,7 +864,7 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [sendList("Selecciona tu ubigeo:", rows)]);
+    return buildResult(next, [offerList(next, "Selecciona tu ubigeo:", rows)]);
   }
 
   // Empty (or errored) ubigeo search, or too many matches to fit WhatsApp's
@@ -696,16 +878,16 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
 }
 
 function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
-  if (!replyId) {
-    return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
-  }
+  const outcome = resolveSelection(session, event, { includeDescription: true });
+  if ("result" in outcome) return outcome.result;
+  const replyId = outcome.replyId;
 
-  const next = cloneSession(session);
+  const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
+  const next = clearOffered(session);
   next.slots.citaUbigeo = replyId;
   next.state = "cita_especialidad_pending";
   return buildResult(next, [
-    sendText("Buscando especialidades disponibles…"),
+    sendText(chosen ? searchingCatalogText(chosen.title) : "Buscando especialidades disponibles…"),
     query("list_especialidades", { ubigeo: replyId }),
   ]);
 }
@@ -789,22 +971,77 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [sendList("Selecciona la especialidad:", rows)]);
+    return buildResult(next, [offerList(next, "Selecciona la especialidad:", rows)]);
   }
 
-  next.state = "cita_booking_rejected";
+  return offerOtherDistrito(next, "especialidades");
+}
+
+// Something else named in the same message (an establishment, typically) is
+// kept and applied when that list arrives — see handleEstablecimientoPending.
+const HINT_MAX_LENGTH = 80;
+
+function askSelectionHints(
+  session: Session,
+  step: "especialidad" | "establecimiento",
+  typed: string,
+): HandlerResult | undefined {
+  // Only real words are worth an AI call — not "asdf" or "12345".
+  if (!/\p{L}{5,}/u.test(typed) || !readOffered(session.slots)) return undefined;
+
+  const next = cloneSession(session);
+  next.state = "cita_selection_hints_pending";
+  next.slots.citaSelectionStep = step;
   return buildResult(next, [
-    sendText("No hay especialidades disponibles en tu zona en este momento."),
+    sendText("Un momento, estamos revisando tu respuesta…"),
+    query("extract_selection_hints", { step, text: typed }),
   ]);
 }
 
-function handleAwaitingEspecialidadSelect(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
-  if (!replyId) {
-    return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
+// The AI only names things; they are matched against the rows actually offered
+// and applied only when exactly one row fits every word. Otherwise: the list.
+function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { especialidad?: unknown; establecimiento?: unknown };
+  const step = session.slots.citaSelectionStep === "establecimiento" ? "establecimiento" : "especialidad";
+  const offered = readOffered(session.slots);
+
+  const restored = cloneSession(session);
+  delete restored.slots.citaSelectionStep;
+  restored.state =
+    step === "establecimiento" ? "cita_awaiting_establecimiento_select" : "cita_awaiting_especialidad_select";
+
+  const own = step === "establecimiento" ? result.establecimiento : result.especialidad;
+  const matched = typeof own === "string" && offered ? matchAllTokens(own, offered.rows) : undefined;
+
+  if (!matched) {
+    return reshowOffered(restored, offered, `No pudimos identificar esa opción. ${SELECTION_REJECTION}`);
   }
 
-  const next = cloneSession(session);
+  if (step === "especialidad" && typeof result.establecimiento === "string") {
+    const hint = hintText(result.establecimiento).slice(0, HINT_MAX_LENGTH);
+    if (hint) restored.slots.citaEstablecimientoHintText = hint;
+  }
+
+  const tap: InboundEvent = { from: event.from, type: "list", listId: matched.id };
+  return step === "establecimiento"
+    ? handleAwaitingEstablecimientoSelect(restored, tap)
+    : handleAwaitingEspecialidadSelect(restored, tap);
+}
+
+function handleAwaitingEspecialidadSelect(session: Session, event: InboundEvent): HandlerResult {
+  const outcome = resolveSelection(session, event, {
+    onNoMatchText: (typed) => askSelectionHints(session, "especialidad", typed),
+  });
+  if ("result" in outcome) return outcome.result;
+  const replyId = outcome.replyId;
+
+  const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
+
+  const next = clearOffered(session);
+  if (outcome.typed && chosen) {
+    const hint = leftoverHint(outcome.typed, chosen).slice(0, HINT_MAX_LENGTH);
+    if (hint) next.slots.citaEstablecimientoHintText = hint;
+  }
   next.slots.citaEspecialidadId = replyId;
   next.state = "cita_establecimiento_pending";
   return buildResult(next, [
@@ -827,6 +1064,10 @@ type EstablecimientoResultItem = {
 function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
+
+  // A hint is used once, on this list, and never kept around.
+  const hint = next.slots.citaEstablecimientoHintText as string | undefined;
+  delete next.slots.citaEstablecimientoHintText;
 
   if (result.status === "unauthorized") {
     return beginReverification(next, "cita_establecimiento_pending");
@@ -855,6 +1096,31 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
   }
 
   if (result.status === "found" && result.items && result.items.length > 1) {
+    // The citizen already named the establishment ("...en el hospital de
+    // Lurigancho"): apply it only when it singles out exactly one of the real
+    // options, so asking again would be a repeated step.
+    const matched = hint
+      ? matchAllTokens(
+          hint,
+          result.items.map((item) => ({ id: item.renipressCode, title: item.establishmentName })),
+        )
+      : undefined;
+    const detected = matched
+      ? result.items.find((item) => item.renipressCode === matched.id)
+      : undefined;
+
+    if (detected) {
+      next.slots.citaCodEess = detected.renipressCode;
+      next.state = "cita_fecha_pending";
+      return buildResult(next, [
+        sendText(`Establecimiento detectado: ${detected.establishmentName}. Buscando fechas disponibles…`),
+        query("list_fechas", {
+          codEess: detected.renipressCode,
+          especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        }),
+      ]);
+    }
+
     next.state = "cita_awaiting_establecimiento_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.renipressCode,
@@ -864,20 +1130,20 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [sendList("Selecciona el establecimiento:", rows)]);
+    return buildResult(next, [offerList(next, "Selecciona el establecimiento:", rows)]);
   }
 
-  next.state = "cita_booking_rejected";
-  return buildResult(next, [sendText("No hay establecimientos disponibles para esa especialidad.")]);
+  return offerOtherDistrito(next, "establecimientos");
 }
 
 function handleAwaitingEstablecimientoSelect(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
-  if (!replyId) {
-    return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
-  }
+  const outcome = resolveSelection(session, event, {
+    onNoMatchText: (typed) => askSelectionHints(session, "establecimiento", typed),
+  });
+  if ("result" in outcome) return outcome.result;
+  const replyId = outcome.replyId;
 
-  const next = cloneSession(session);
+  const next = clearOffered(session);
   next.slots.citaCodEess = replyId;
   next.state = "cita_fecha_pending";
   return buildResult(next, [
@@ -937,20 +1203,81 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [sendList("Selecciona la fecha:", rows)]);
+    return buildResult(next, [offerList(next, "Selecciona la fecha:", rows)]);
   }
 
   next.state = "cita_booking_rejected";
   return buildResult(next, [sendText("No hay fechas disponibles para ese establecimiento.")]);
 }
 
-function handleAwaitingFechaSelect(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
-  if (!replyId) {
-    return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
-  }
+function todayInLima(): DateParts {
+  const fecha = nowInLima().fecha; // YYYYMMDD
+  return {
+    year: Number(fecha.slice(0, 4)),
+    month: Number(fecha.slice(4, 6)),
+    day: Number(fecha.slice(6, 8)),
+  };
+}
+
+// Only phrases that actually talk about time are worth an AI call — "asdf"
+// or a pasted id must not cost one.
+const TEMPORAL_PHRASE =
+  /\b(semana|mes|proxim[oa]s?|siguiente|dias?|fin|final|inicio|principios?|quincena|luego|despues|pronto|temprano|urgente|antes|cuando|fecha)\b/;
+
+function askFechaAi(session: Session, typed: string): HandlerResult | undefined {
+  if (!TEMPORAL_PHRASE.test(normalizeText(typed).toLowerCase())) return undefined;
+
+  const offered = readOffered(session.slots);
+  if (!offered) return undefined;
+
+  const today = todayInLima();
+  const pad = (value: number) => String(value).padStart(2, "0");
 
   const next = cloneSession(session);
+  next.state = "cita_fecha_ai_pending";
+  return buildResult(next, [
+    sendText("Un momento, estamos revisando tu respuesta…"),
+    query("resolve_fecha_ai", {
+      text: typed,
+      today: `${today.year}-${pad(today.month)}-${pad(today.day)}`,
+      options: offered.rows.map((row) => ({ id: row.id, label: row.title })),
+    }),
+  ]);
+}
+
+// The AI only ever picks one of the dates already offered; anything else (or
+// no answer at all) goes back to the list. A valid pick is handled exactly
+// like the citizen tapping that row.
+function handleFechaAiPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { id?: unknown };
+  const offered = readOffered(session.slots);
+
+  const restored = cloneSession(session);
+  restored.state = "cita_awaiting_fecha_select";
+
+  if (typeof result.id === "string" && offered?.rows.some((row) => row.id === result.id)) {
+    return handleAwaitingFechaSelect(restored, { from: event.from, type: "list", listId: result.id });
+  }
+
+  return reshowOffered(restored, offered, `No pudimos identificar esa fecha. ${SELECTION_REJECTION}`);
+}
+
+function handleAwaitingFechaSelect(session: Session, event: InboundEvent): HandlerResult {
+  const outcome = resolveSelection(session, event, {
+    customMatch: (typed, rows) => {
+      const parsed = matchFechaText(typed, rows, todayInLima());
+      if (parsed.kind === "unparsed") return undefined;
+      if (parsed.kind === "unavailable") {
+        return { kind: "notice", text: `No hay cupos para ${parsed.label}. Elige una de las fechas disponibles:` };
+      }
+      return parsed;
+    },
+    onNoMatchText: (typed) => askFechaAi(session, typed),
+  });
+  if ("result" in outcome) return outcome.result;
+  const replyId = outcome.replyId;
+
+  const next = clearOffered(session);
   next.slots.citaFecha = replyId;
   next.state = "cita_hora_pending";
   return buildResult(next, [
@@ -1034,7 +1361,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [sendList("Selecciona el horario:", rows)]);
+    return buildResult(next, [offerList(next, "Selecciona el horario:", rows)]);
   }
 
   next.state = "cita_booking_rejected";
@@ -1051,6 +1378,12 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
 
   const result = resolveHoraCandidates(session, pageItems);
   if (pageItems.length <= 1) return result; // auto-selected or genuinely empty — nothing to paginate
+
+  // The whole day's offer (not just this page) so a typed time on another
+  // page can still be recognized — see handleAwaitingHoraSelect.
+  result.session.slots.citaHorasDia = packHoraSlots(
+    orderedItems.map((item) => ({ start: item.horaInicio, end: item.horaFin, cupos: item.cantidadCupos })),
+  );
 
   const hasNext = start + WHATSAPP_LIST_MAX_ROWS < orderedItems.length;
   const hasPrev = page > 0;
@@ -1108,8 +1441,241 @@ function handleHoraPagePending(session: Session, event: QueryResultEvent): Handl
   return buildHoraPage(session, ordered, page);
 }
 
+const HORA_CONFIRM_YES_ID = "hora_confirm_si";
+const HORA_CONFIRM_NO_ID = "hora_confirm_no";
+
+function slotToRow(slot: HoraSlot): OfferedRow {
+  return {
+    id: `${slot.start}|${slot.end}`,
+    title: truncateForRow(`${slot.start} - ${slot.end}`, WHATSAPP_ROW_TITLE_MAX),
+    description: truncateForRow(`${slot.cupos} cupo(s) disponibles`, WHATSAPP_ROW_DESCRIPTION_MAX),
+  };
+}
+
+function rowToSlot(row: OfferedRow): HoraSlot | undefined {
+  const [start, end] = row.id.split("|");
+  return /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "")
+    ? { start, end, cupos: 0 }
+    : undefined;
+}
+
+// ---- A bare "1".."10": list position or hour? ------------------------------
+// "1" can be option 1 of the list (07:00) or 1 PM (13:00, MINSA speaks 24h).
+// Both readings are checked against what is really offered:
+//  - only the position exists            -> the position (then confirmed);
+//  - only an hour exists ("8", no option 8) -> that hour (then confirmed);
+//  - the same slot is both               -> just that slot (then confirmed);
+//  - two different slots                 -> a two-button question naming both.
+// The tapped button names an exact time, so it books directly like a list tap.
+
+const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;
+const HORA_CHOICE_A_ID = "hora_choice_a";
+const HORA_CHOICE_B_ID = "hora_choice_b";
+const BUTTON_TITLE_MAX = 20;
+
+function formatHora12(start: string): string {
+  const [hour, minute] = start.split(":").map(Number);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+// "13:00" -> "1 PM" (the hour on its own, for a group of slots).
+function formatHourGroup(start: string): string {
+  const hour = Number(start.slice(0, 2));
+  return `${hour % 12 || 12} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+function resolveBareHoraNumber(
+  session: Session,
+  number: number,
+  visibleRows: OfferedRow[],
+  daySlots: HoraSlot[],
+): CustomMatch | undefined {
+  const positionRow = number <= visibleRows.length ? visibleRows[number - 1] : undefined;
+  const hourSlots = daySlots.filter((slot) => {
+    const hour = Number(slot.start.slice(0, 2));
+    return hour === number || hour === number + 12;
+  });
+  const otherHourSlots = positionRow ? hourSlots.filter((slot) => slotToRow(slot).id !== positionRow.id) : hourSlots;
+
+  if (otherHourSlots.length === 0) {
+    // Position only (or the position is itself the sole matching hour); with
+    // neither, undefined lets the generic matcher reject it.
+    return positionRow ? { kind: "match", row: positionRow } : undefined;
+  }
+
+  if (!positionRow) {
+    return otherHourSlots.length === 1
+      ? { kind: "match", row: slotToRow(otherHourSlots[0]) }
+      : { kind: "ambiguous", rows: otherHourSlots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
+  }
+
+  const positionSlot = rowToSlot(positionRow);
+  if (!positionSlot) return { kind: "match", row: positionRow };
+
+  const first = otherHourSlots[0];
+  const single = otherHourSlots.length === 1;
+  const hourLabel = single ? `${formatHora12(first.start)}: ${first.start}` : `${formatHourGroup(first.start)}: ver horas`;
+  const hourDescription = single
+    ? `${formatHora12(first.start)} (${first.start})`
+    : `${formatHourGroup(first.start)} (${otherHourSlots.map((slot) => slot.start).join(", ")})`;
+
+  const next = cloneSession(session);
+  next.state = "cita_awaiting_hora_choice";
+  next.slots.citaHoraChoiceA = positionRow.id;
+  next.slots.citaHoraChoiceB = packHoraSlots(otherHourSlots);
+
+  return {
+    kind: "handled",
+    result: buildResult(next, [
+      sendButtons(`¿A qué te refieres con "${number}"? Opción ${number}: ${positionSlot.start}, o ${hourDescription}.`, [
+        { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción ${number}: ${positionSlot.start}`, BUTTON_TITLE_MAX) },
+        { id: HORA_CHOICE_B_ID, title: truncateForRow(hourLabel, BUTTON_TITLE_MAX) },
+      ]),
+    ]),
+  };
+}
+
+function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
+  const slotA = String(session.slots.citaHoraChoiceA ?? "");
+  const slotsB = unpackHoraSlots(session.slots.citaHoraChoiceB);
+  const offered = readOffered(session.slots);
+
+  const back = () => {
+    const restored = cloneSession(session);
+    delete restored.slots.citaHoraChoiceA;
+    delete restored.slots.citaHoraChoiceB;
+    restored.state = "cita_awaiting_hora_select";
+    return restored;
+  };
+
+  // Typing instead of tapping: a normal typed time, read against the full list.
+  if (event.type === "text") return handleAwaitingHoraSelect(back(), event);
+
+  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
+
+  if (reply === HORA_CHOICE_A_ID && /^\d{2}:\d{2}\|/.test(slotA)) {
+    return startBooking(back(), slotA.split("|")[0]);
+  }
+
+  if (reply === HORA_CHOICE_B_ID && slotsB.length === 1) {
+    return startBooking(back(), slotsB[0].start);
+  }
+
+  if (reply === HORA_CHOICE_B_ID && slotsB.length > 1) {
+    const restored = back();
+    return buildResult(restored, [offerList(restored, NARROWED_LIST_TEXT, slotsB.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow))]);
+  }
+
+  // Anything else: ask again with the same two options.
+  const [startA] = slotA.split("|");
+  const first = slotsB[0];
+  if (!/^\d{2}:\d{2}$/.test(startA ?? "") || !first) return reshowOffered(back(), offered);
+
+  return buildResult(session, [
+    sendButtons("Elige una de las dos opciones:", [
+      { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción: ${startA}`, BUTTON_TITLE_MAX) },
+      {
+        id: HORA_CHOICE_B_ID,
+        title: truncateForRow(slotsB.length === 1 ? `${formatHora12(first.start)}: ${first.start}` : "Ver horas", BUTTON_TITLE_MAX),
+      },
+    ]),
+  ]);
+}
+
+// A typed time ("a la 1", "1:45 pm", "en la tarde") is read against the WHOLE
+// day MINSA offered; sessions without that (opened before it was stored) fall
+// back to the rows currently on screen.
+function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): CustomMatch | undefined {
+  const day = unpackHoraSlots(session.slots.citaHorasDia);
+  const slots = day.length > 0 ? day : rows.flatMap((row) => rowToSlot(row) ?? []);
+
+  if (BARE_SMALL_NUMBER.test(typed.trim())) {
+    const decided = resolveBareHoraNumber(session, Number(typed.trim()), rows, slots);
+    if (decided) return decided;
+    // No hour matches: fall through so the generic matcher reads it as a position.
+  }
+
+  const match = matchHoraText(typed, slots);
+  switch (match.kind) {
+    case "exact":
+      return { kind: "match", row: slotToRow(match.slot) };
+    case "several":
+      return { kind: "ambiguous", rows: match.slots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
+    case "unavailable":
+      return { kind: "notice", text: "No hay horarios disponibles a esa hora. Elige uno de la lista:" };
+    case "unparsed":
+      return undefined;
+  }
+}
+
+// Booking is the one step that can't be quietly undone, so a time that came
+// from typed text is confirmed first. Tapping a list row books directly.
+function askHoraConfirmation(session: Session, slotId: string): HandlerResult {
+  const [start, end] = slotId.split("|");
+  const next = cloneSession(session);
+  next.state = "cita_awaiting_hora_confirm";
+  next.slots.citaHoraConfirmId = slotId;
+  return buildResult(next, [
+    sendButtons(`¿Confirmas el horario ${start} - ${end}?`, [
+      { id: HORA_CONFIRM_YES_ID, title: "Sí, confirmar" },
+      { id: HORA_CONFIRM_NO_ID, title: "No, ver horarios" },
+    ]),
+  ]);
+}
+
+function startBooking(session: Session, horaInicio: string): HandlerResult {
+  const next = clearOffered(session);
+  delete next.slots.citaHorasDia;
+  delete next.slots.citaHoraConfirmId;
+  delete next.slots.citaHoraChoiceA;
+  delete next.slots.citaHoraChoiceB;
+  next.state = "cita_booking_pending";
+  return buildResult(next, [
+    sendText("Agendando tu cita…"),
+    query("book_appointment", {
+      codigoRenipress: String(next.slots.citaCodEess ?? ""),
+      codigoUps: String(next.slots.citaEspecialidadId ?? ""),
+      fechaCita: String(next.slots.citaFecha ?? ""),
+      horaInicio,
+      numeroDocumentoPaciente: String(next.slots.citaDni ?? ""),
+    }),
+  ]);
+}
+
+function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
+  const slotId = String(session.slots.citaHoraConfirmId ?? "");
+  const [start] = slotId.split("|");
+  const offered = readOffered(session.slots);
+
+  const backToList = () => {
+    const restored = cloneSession(session);
+    delete restored.slots.citaHoraConfirmId;
+    restored.state = "cita_awaiting_hora_select";
+    return reshowOffered(restored, offered, "Sin problema. Elige otro horario:");
+  };
+
+  if (!/^\d{2}:\d{2}$/.test(start ?? "")) return backToList();
+
+  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
+  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
+
+  if (reply === HORA_CONFIRM_YES_ID || typed === "YES") return startBooking(session, start);
+  if (reply === HORA_CONFIRM_NO_ID || typed === "NO") return backToList();
+
+  return withNote(askHoraConfirmation(session, slotId), {
+    kind: "confirmation_unknown",
+    level: "warn",
+    detail: { step: "hora_confirm" },
+  });
+}
+
 function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
+  const outcome = resolveSelection(session, event, {
+    passthroughIds: [HORA_PAGE_NEXT_ID, HORA_PAGE_PREV_ID],
+    customMatch: (typed, rows) => matchHoraTyped(session, typed, rows),
+  });
+  if ("result" in outcome) return outcome.result;
+  const replyId = outcome.replyId;
 
   if (replyId === HORA_PAGE_NEXT_ID || replyId === HORA_PAGE_PREV_ID) {
     const next = cloneSession(session);
@@ -1130,20 +1696,16 @@ function handleAwaitingHoraSelect(session: Session, event: InboundEvent): Handle
     return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
   }
 
+  // Typed text (a time or a list position) is confirmed before booking; a tap
+  // on a list row is already an explicit choice.
+  if (outcome.typed !== undefined) return askHoraConfirmation(session, replyId);
+
   const [horaInicio] = replyId.split("|");
-  const next = cloneSession(session);
-  next.state = "cita_booking_pending";
-  return buildResult(next, [
-    sendText("Agendando tu cita…"),
-    query("book_appointment", {
-      codigoRenipress: String(next.slots.citaCodEess ?? ""),
-      codigoUps: String(next.slots.citaEspecialidadId ?? ""),
-      fechaCita: String(next.slots.citaFecha ?? ""),
-      horaInicio,
-      numeroDocumentoPaciente: String(next.slots.citaDni ?? ""),
-    }),
-  ]);
+  return startBooking(session, horaInicio);
 }
+
+const MAX_BOOKING_FAILURES = 3;
+const SLOT_TAKEN_MESSAGE = /cupo|horario|disponib|agotad|ocupad|tomad/i;
 
 function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; url?: string; message?: string };
@@ -1190,8 +1752,34 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
     ]);
   }
 
+  // The quota may have been taken a moment before the citizen confirmed (or
+  // MINSA answered without saying why). Instead of closing the flow, show the
+  // same day's horarios again — bounded, so a systematic failure ends instead
+  // of looping. A rejection that states a business reason still closes.
+  const failures = (next.counters.citaBookingFailures ?? 0) + 1;
+  const slotMayBeGone =
+    result.status === "error" ||
+    (result.status === "rejected" && (!result.message || SLOT_TAKEN_MESSAGE.test(result.message)));
+
+  if (slotMayBeGone && failures < MAX_BOOKING_FAILURES) {
+    next.counters.citaBookingFailures = failures;
+    delete next.counters.citaHoraPage;
+    next.state = "cita_hora_pending";
+    return withNote(buildResult(next, [
+      sendText(
+        "No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:",
+      ),
+      query("list_horas", {
+        codEess: String(next.slots.citaCodEess ?? ""),
+        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        fecha: String(next.slots.citaFecha ?? ""),
+      }),
+    ]), { kind: "booking_retry", level: "warn", detail: { failures, status: result.status } });
+  }
+
   next.state = "cita_booking_rejected";
-  return buildResult(next, [
-    sendText(result.message ?? "No pudimos agendar tu cita. Intenta de nuevo más tarde."),
-  ]);
+  return withNote(
+    buildResult(next, [sendText(result.message ?? "No pudimos agendar tu cita. Intenta de nuevo más tarde.")]),
+    { kind: "booking_rejected", level: "warn", detail: { failures, status: result.status } },
+  );
 }
