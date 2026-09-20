@@ -1,7 +1,7 @@
 import { logger } from "../observability/logger";
 import { tail } from "../observability/mask";
 import { deriveTraceId } from "../observability/tracer";
-import { checkFirstMessagePayload } from "./payload-filter";
+import { checkFirstMessagePayload, type RejectReason } from "./payload-filter";
 import type { RateLimiter } from "./rate-limiter";
 
 // Entry gate of the WhatsApp webhook, run for every inbound message BEFORE any
@@ -16,7 +16,7 @@ import type { RateLimiter } from "./rate-limiter";
 
 export type PerimeterDecision =
   | { action: "drop"; reason: "throttled" | "banned" }
-  | { action: "reject"; reason: "too_long" | "link" | "media"; reply: string }
+  | { action: "reject"; reason: RejectReason; reply: string }
   | { action: "continue" };
 
 export type PerimeterDeps = {

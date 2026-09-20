@@ -35,7 +35,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
 | `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
-| `perimeter.dropped` / `.rejected` / `.banned` | info / warn | `waId`, `reason`, `traceId` (el que tendría el turno) |
+| `perimeter.dropped` / `.rejected` / `.muted` / `.banned` | info / warn | `waId`, `reason` (`repeat` entre los rechazos), `traceId` (el que tendría el turno). `muted` sale una vez por silencio de 2 minutos |
 
 ## Qué se oculta
 

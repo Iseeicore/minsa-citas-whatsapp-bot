@@ -46,6 +46,8 @@ describe("screenInbound: payload rules apply only to a first message", () => {
     ["a very long first message", text("a".repeat(301)), FIRST_MESSAGE_REJECTION_TEXT, "too_long"],
     ["a link", text("visita https://ofertas.com"), FIRST_MESSAGE_REJECTION_TEXT, "link"],
     ["a wa.me link", text("wa.me/51999999999"), FIRST_MESSAGE_REJECTION_TEXT, "link"],
+    ["a wall of one letter", text("a".repeat(48)), FIRST_MESSAGE_REJECTION_TEXT, "repeat"],
+    ["a pile of emojis", text("🔥🔥🔥💰💰💰"), FIRST_MESSAGE_REJECTION_TEXT, "repeat"],
     ["a photo", { waId: "wa-1", type: "image" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
     ["a sticker", { waId: "wa-1", type: "sticker" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
     ["a voice note", { waId: "wa-1", type: "audio" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
@@ -60,6 +62,7 @@ describe("screenInbound: payload rules apply only to a first message", () => {
 
   it.each([
     ["a long complaint", text("a".repeat(900))],
+    ["a stretch of the same letter inside a flow", text("a".repeat(30))],
     ["a link inside a flow", text("mi dirección está en https://maps.example.org/x")],
     ["the photo of a complaint", { waId: "wa-1", type: "image" }],
   ])("%s WITH an open session goes through untouched", async (_name, message) => {

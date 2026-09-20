@@ -5,10 +5,13 @@ import { tail } from "../observability/mask";
 // enough to stop a single client from hammering one instance and costs nothing.
 //
 //  - more than 5 messages in 10 s   -> "throttled": the message is dropped
-//    silently (no reply, no database work);
+//    silently (no reply, no database work) and the number is MUTED for two
+//    minutes: everything it sends meanwhile is dropped the same way;
 //  - more than 20 messages in 60 s  -> "banned" for one hour: everything from
 //    that waId is dropped silently until the ban expires.
 // Dropped messages still count toward the minute, so a flood always ends in a ban.
+// The mute is what keeps a quick but legitimate typist from being answered in
+// pieces; the ban is what stops someone who insists.
 
 export type RateVerdict = "allow" | "throttled" | "banned";
 
@@ -20,9 +23,13 @@ export type RateLimiterOptions = {
   banThreshold?: number;
   windowMs?: number;
   banMs?: number;
+  // How long a number stays silenced after a burst. 0 = no mute (only the
+  // messages over the burst limit are dropped).
+  muteMs?: number;
   // Soft cap on tracked waIds; idle ones are swept when it is exceeded.
   maxKeys?: number;
   onBan?: (key: string) => void;
+  onMute?: (key: string) => void;
 };
 
 export function createRateLimiter(options: RateLimiterOptions = {}) {
@@ -33,14 +40,19 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
   const banThreshold = options.banThreshold ?? 20;
   const windowMs = options.windowMs ?? 60_000;
   const banMs = options.banMs ?? 60 * 60 * 1000;
+  const muteMs = options.muteMs ?? 2 * 60 * 1000;
   const maxKeys = options.maxKeys ?? 20_000;
 
   const hits = new Map<string, number[]>();
   const bans = new Map<string, number>();
+  const mutes = new Map<string, number>();
 
   function sweep(current: number) {
     for (const [key, until] of bans) {
       if (until <= current) bans.delete(key);
+    }
+    for (const [key, until] of mutes) {
+      if (until <= current) mutes.delete(key);
     }
     for (const [key, times] of hits) {
       if (times.length === 0 || times[times.length - 1] <= current - windowMs) hits.delete(key);
@@ -57,6 +69,7 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
       if (bannedUntil !== undefined) {
         if (bannedUntil > current) return "banned";
         bans.delete(key);
+        mutes.delete(key);
         hits.delete(key); // the ban is over: clean slate
       }
 
@@ -68,13 +81,27 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
 
       if (recent.length > banThreshold) {
         bans.set(key, current + banMs);
+        mutes.delete(key); // the ban supersedes the mute
         hits.delete(key);
         options.onBan?.(key);
         return "banned";
       }
 
+      // Still muted: dropped, and it counted toward the minute above.
+      const mutedUntil = mutes.get(key);
+      if (mutedUntil !== undefined) {
+        if (mutedUntil > current) return "throttled";
+        mutes.delete(key);
+      }
+
       const inBurst = recent.filter((time) => time > current - burstWindowMs).length;
-      return inBurst > burstLimit ? "throttled" : "allow";
+      if (inBurst <= burstLimit) return "allow";
+
+      if (muteMs > 0) {
+        mutes.set(key, current + muteMs);
+        options.onMute?.(key);
+      }
+      return "throttled";
     },
 
     size(): number {
@@ -91,4 +118,6 @@ export const inboundRateLimiter: RateLimiter = createRateLimiter({
   enabled: process.env.INBOUND_RATE_LIMIT !== "off",
   onBan: (key) =>
     logger.warn("perimeter.banned", { waId: tail(key), duration: "1 hour", limit: "more than 20 messages in 60 s" }),
+  onMute: (key) =>
+    logger.warn("perimeter.muted", { waId: tail(key), duration: "2 minutes", limit: "more than 5 messages in 10 s" }),
 });

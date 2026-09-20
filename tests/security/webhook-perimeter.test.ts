@@ -157,6 +157,18 @@ describe("rate limiting (drop silently, still acknowledge Meta)", () => {
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
   });
 
+  it("a number that just flooded stays muted: its next messages get no reply and no database work", async () => {
+    const waId = freshWaId();
+    await deliver(Array.from({ length: 8 }, () => textMessage(waId, "hola")));
+    vi.clearAllMocks();
+
+    await deliver([textMessage(waId, "Hola, quiero una cita")]);
+
+    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
+  });
+
   it("another citizen is not affected by someone else's flood", async () => {
     await deliver(Array.from({ length: 25 }, () => textMessage(freshWaId(), "hola")));
     vi.clearAllMocks();
