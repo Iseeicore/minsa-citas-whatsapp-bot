@@ -6,11 +6,13 @@
 
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
 
+// The wording of both replies is the one prescribed by the audit spreadsheet
+// (Pasos 1 and 2). The [1] / [2] they offer are answered by handleFirstContact.
 export const FIRST_MESSAGE_REJECTION_TEXT =
-  "Este es el canal oficial del *MINSA*. No podemos atender mensajes muy largos (máximo 300 caracteres) ni con enlaces. Escribe un mensaje corto, por ejemplo: *Hola*.";
+  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.";
 
 export const MEDIA_WITHOUT_SESSION_TEXT =
-  "Este es el canal oficial del *MINSA*. Por ahora solo podemos atenderte con mensajes de texto. Escribe *Hola* para comenzar.";
+  "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.";
 
 export type PayloadVerdict =
   | { kind: "ok" }

@@ -114,6 +114,46 @@ describe("first contact: a clear request for a cita", () => {
   });
 });
 
+describe("first contact: the welcome names the emergency line", () => {
+  it("tells the citizen to call 106 in a medical emergency, in the same single message", () => {
+    const welcome = sent(handleFirstContact("Hola"))[0];
+
+    expect(welcome.kind === "send_cta_url" && welcome.text).toContain("106");
+    expect(welcome.kind === "send_cta_url" && welcome.text).toMatch(/emergencia/i);
+  });
+});
+
+describe("first contact: answering the [1] / [2] the rejection text offers", () => {
+  it("«1» opens the Cita flow and asks for the DNI", () => {
+    const result = handleFirstContact("1");
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(sent(result)).toHaveLength(1);
+    expect(sent(result)[0]).toMatchObject({ kind: "send_text", text: expect.stringContaining("DNI") });
+    expect(sent(result).some((effect) => effect.kind === "send_cta_url" || effect.kind === "send_interactive_list")).toBe(false);
+  });
+
+  it("«2» opens the complaint flow", () => {
+    const result = handleFirstContact(" 2 ");
+
+    expect(result.session.state).toBe("reclamo_identity_choice");
+    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
+  });
+
+  it("any other number is just text: it gets the menu", () => {
+    for (const message of ["3", "12", "10"]) {
+      expect(sent(handleFirstContact(message)).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
+    }
+  });
+
+  it("works the same for a citizen returning after a finished flow", () => {
+    const finished: Session = { state: "cita_booked", slots: {}, counters: {} };
+
+    expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_dni");
+    expect(handle(finished, text("2")).session.state).toBe("reclamo_identity_choice");
+  });
+});
+
 describe("first contact: a request to file a complaint", () => {
   it.each(["Quiero poner una queja", "quiero hacer un reclamo", "RECLAMO"])("%j goes straight to the complaint flow", (message) => {
     const result = handleFirstContact(message);

@@ -76,12 +76,13 @@ Para generar exactamente 300 y 301 caracteres en PowerShell: `('a' * 300) | clip
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Este es el canal oficial del *MINSA*. No podemos atender mensajes muy largos (máximo 300 caracteres) ni con enlaces. Escribe un mensaje corto, por ejemplo: *Hola*.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo WhatsApp). | ☐ ☐ |
+| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo WhatsApp). | ☐ ☐ |
 | 1.1b | Enviar `('a' * 301)` como primer mensaje. | El mismo texto de rechazo. | Igual que 1.1a. | ☐ ☐ |
 | 1.1c | Enviar `('a' * 300)` como primer mensaje. | **No** se rechaza. Como no es un saludo ni un pedido, sale el menú `¿En qué podemos ayudarte hoy?` (WhatsApp y Sandbox), sin bienvenida. | El límite es «más de 300». | ☐ ☐ |
 | 1.1d | Tras 1.1a, enviar `Hola`. | Se comporta como primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
 | 1.1e | **WhatsApp:** abrir **Chat real** tras 1.1a. | Tu número **no** aparece como conversación nueva. | Confirma que no se escribió nada. | ☐ ☐ |
 | 1.1f | Con sesión abierta (ya en el flujo de reclamo, en el paso de la descripción), enviar el texto de 383 caracteres. | **No** se rechaza: el bot lo acepta como descripción del reclamo (permite hasta 1000). | El filtro solo aplica al primer mensaje. | ☐ ☐ |
+| 1.1g | Tras 1.1a, escribir `1` (y en otra prueba `2`). | `1`: `¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):`. `2`: `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?` con los botones **[Sí, tengo DNI]** y **[No tengo DNI]**. | El texto de rechazo ofrece «[1] Citas [2] Reclamos»: la respuesta numérica funciona sin menú previo. Sin IA. | ☐ ☐ |
 
 ### 1.2 Enlaces, publicidad y enlaces de WhatsApp — primer mensaje
 
@@ -117,7 +118,7 @@ Requiere un número **sin sesión** (ver 0.4).
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.4a | **WhatsApp:** enviar una **foto** como primer mensaje. | Solo texto: `Este es el canal oficial del *MINSA*. Por ahora solo podemos atenderte con mensajes de texto. Escribe *Hola* para comenzar.` | **No** descarga la foto (sin llamadas a Graph para media). Sin IA, sin base de datos, sin candado. Log: `... rejected a first message from ...NNNN: media`. | ☐ ☐ |
+| 1.4a | **WhatsApp:** enviar una **foto** como primer mensaje. | Solo texto: `Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.` | **No** descarga la foto (sin llamadas a Graph para media). Sin IA, sin base de datos, sin candado. Log: `... rejected a first message from ...NNNN: media`. | ☐ ☐ |
 | 1.4b | **WhatsApp:** enviar un **sticker** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4c | **WhatsApp:** enviar una **nota de voz** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4d | **WhatsApp:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
@@ -135,6 +136,13 @@ Requiere un número **sin sesión** (ver 0.4).
 | 1.5b | Esperar 10 segundos y enviar `hola`. | Vuelve a responder con normalidad. | La ventana es deslizante: los mensajes viejos salen del conteo. | ☐ ☐ |
 | 1.5c | Enviar mensajes sostenidos hasta pasar de 20 en un minuto (uno cada 2–3 s durante un minuto). | El bot deja de responder. Sigue en silencio aunque escribas tras unos minutos. | Sanción de 1 hora. Log: `perimeter.banned` (1 hora, más de 20 mensajes en 60 s). | ☐ ☐ |
 | 1.5d | Escribir con **otro** número mientras el primero está sancionado. | El segundo número responde normalmente. | La sanción es por número, no global. | ☐ ☐ |
+
+### 1.6 Firma del webhook (Paso 0) — solo con herramientas
+
+| # | Acción | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 1.6a | Enviar un `POST` a `/webhook/whatsapp` **sin** la cabecera `x-hub-signature-256` (por ejemplo con `curl -X POST -d '{}' <url>`). | HTTP **403** `Forbidden`. Ningún mensaje al ciudadano. | No se crea conversación, mensaje ni sesión; no hay línea `turn.start` en los logs. | ☐ ☐ |
+| 1.6b | Repetir con una firma inventada (`sha256=` y 64 ceros). | HTTP **403**. | Igual que 1.6a. La comparación de la firma es en tiempo constante. | ☐ ☐ |
 
 ---
 
@@ -200,7 +208,7 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 3.1a | `Hola` (sesión nueva). | **Un solo mensaje:** la bienvenida grande con el botón **[Continuar mi cita]** y, al final del texto, `¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.` **Sin** segundo mensaje y **sin** el menú `¿En qué podemos ayudarte hoy?`. | Igual en Sandbox y WhatsApp. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
+| 3.1a | `Hola` (sesión nueva). | **Un solo mensaje:** la bienvenida grande con el botón **[Continuar mi cita]** y, al final del texto, `¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.` Incluye la línea `⚠️ En caso de emergencia médica, llama al *106* (SAMU).` **Sin** segundo mensaje y **sin** el menú `¿En qué podemos ayudarte hoy?`. | Igual en Sandbox y WhatsApp. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
 | 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar un reclamo**. Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
 | 3.1c | Con **sesión nueva**, primer mensaje: `Sabes quiero una cita para san Juan de Lurigancho para medicina general`. | **Un solo mensaje:** `¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):`. **Sin** bienvenida ni menú. | Sin IA. Slots (panel Debug): `citaDistritoHintText` = `San Juan de Lurigancho`, `citaEspecialidadHintText` = `Medicina General`. Reiniciar antes de seguir con 3.2. | ☐ ☐ |
 | 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?` con **[Sí, tengo DNI]** y **[No tengo DNI]**. Sin bienvenida ni menú. | Sin IA. Estado `reclamo_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
@@ -356,7 +364,7 @@ Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por 
 
 | Sección | Casos | Aprobados | Rechazados | No aplicables |
 |---|---|---|---|---|
-| 1. Perímetro | 1.1 – 1.5 | | | |
+| 1. Perímetro | 1.1 – 1.6 | | | |
 | 2. Filtro léxico | 2.1 – 2.4 | | | |
 | 3. Camino feliz | 3.1 – 3.15 | | | |
 | 4. Concurrencia | 4.2 – 4.3 | | | |

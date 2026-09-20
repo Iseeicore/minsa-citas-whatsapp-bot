@@ -377,7 +377,8 @@ export async function POST(request: NextRequest) {
 
   const signatureHeader = request.headers.get("x-hub-signature-256");
   if (!isValidSignature(rawBody, signatureHeader)) {
-    return new NextResponse("Invalid signature", { status: 401 });
+    // Not signed by Meta: refused before anything is read, stored or answered.
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;

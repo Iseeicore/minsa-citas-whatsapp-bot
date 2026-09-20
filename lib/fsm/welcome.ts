@@ -12,6 +12,8 @@ Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu 
 
 Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.
 
+⚠️ En caso de emergencia médica, llama al *106* (SAMU).
+
 ¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.`;
 
 export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita"; // 17 chars — cta_url's display_text caps at 20

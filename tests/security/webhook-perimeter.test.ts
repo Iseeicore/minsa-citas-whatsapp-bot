@@ -85,11 +85,49 @@ async function deliver(messages: Message[], extra: Record<string, unknown> = {})
   return response;
 }
 
+// Same payload as deliver(), but with whatever signature header the test wants.
+async function deliverWithSignature(messages: Message[], signature: string | null) {
+  const body = JSON.stringify({ entry: [{ changes: [{ value: { contacts: [], messages } }] }] });
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (signature !== null) headers["x-hub-signature-256"] = signature;
+
+  const response = await POST(new NextRequest("http://localhost/webhook/whatsapp", { method: "POST", headers, body }));
+  await Promise.all(mocks.afterPromises.splice(0));
+  return response;
+}
+
 beforeEach(() => {
   process.env.META_APP_SECRET = SECRET;
   vi.clearAllMocks();
   mocks.sessionRowExists.mockResolvedValue(false);
   mocks.sessionFindUnique.mockResolvedValue({ id: "x", state: "main_menu" });
+});
+
+describe("transport security: HMAC-SHA256 signature (Paso 0)", () => {
+  const forged = "sha256=" + "0".repeat(64);
+
+  it.each([
+    ["a signature that does not match the payload", forged],
+    ["a signature made with another secret", "sha256=" + crypto.createHmac("sha256", "other-secret").update("x").digest("hex")],
+    ["no signature header at all", null],
+    ["a signature of the wrong length", "sha256=abc"],
+  ])("rejects %s with 403 and does nothing else", async (_name, signature) => {
+    const response = await deliverWithSignature([textMessage(freshWaId(), "Hola")], signature);
+
+    expect(response.status).toBe(403);
+    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.messageUpsert).not.toHaveBeenCalled();
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+    expect(mocks.withTurnLock).not.toHaveBeenCalled();
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
+    expect(mocks.sendAndRecordEffect).not.toHaveBeenCalled();
+  });
+
+  it("accepts a correctly signed payload", async () => {
+    const response = await deliver([textMessage(freshWaId(), "Hola")]);
+
+    expect(response.status).toBe(200);
+  });
 });
 
 describe("rate limiting (drop silently, still acknowledge Meta)", () => {
