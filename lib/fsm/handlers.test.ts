@@ -110,13 +110,13 @@ describe("main_menu — deterministic greeting shortcut", () => {
 });
 
 describe("terminal re-entry", () => {
-  it("a clean message after a finished cita gets the welcome + menu as before", () => {
+  it("a clean message after a finished cita gets the welcome and its button, not the menu on top of it", () => {
     const result = handle(sessionAt("cita_booked"), text("hola de nuevo"));
 
     expect(result.session.state).toBe("main_menu");
     expect(sentEffects(result).map((effect) => effect.kind)).toEqual([
       "send_cta_url",
-      "send_interactive_list",
+      "send_buttons",
     ]);
   });
 

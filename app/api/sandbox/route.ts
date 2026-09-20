@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { runTurn } from "@/lib/fsm/executor";
-import { TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
-import { resetAllSandboxTestSessions, resetSession, sessionRowExists } from "@/lib/fsm/session-store";
-import { buildWelcomeEffect } from "@/lib/fsm/welcome";
+import { runTurn, type TurnResult } from "@/lib/fsm/executor";
+import { handleFirstContact } from "@/lib/fsm/first-contact";
+import { isQueryEffect } from "@/lib/fsm/handlers-shared";
+import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
+import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session-store";
+import type { SendEffect } from "@/lib/fsm/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 
@@ -68,9 +70,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // A brand-new conversation is answered like the real webhook answers it (see
+  // lib/fsm/first-contact.ts): the welcome and its "Seguir aquí" button — or,
+  // when the citizen already asked for a cita, straight into the Cita flow.
+  // An abusive first message is left to the FSM, whose lexical guard answers it.
+  const abusiveFirstMessage =
+    type === "text" && !!text && evaluateLexicalGuard(text).action !== "ALLOW";
+
   let turn;
   try {
-    turn = await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
+    turn =
+      !hadExistingSession && !abusiveFirstMessage
+        ? await startConversation(from, type === "text" ? text : undefined)
+        : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
   } catch (error) {
     // Another turn of this same session is still running and did not finish in
     // time: tell the client to retry instead of answering from stale state.
@@ -81,18 +93,16 @@ export async function POST(request: NextRequest) {
   }
   const { sent, session } = turn;
 
-  // Mirrors what a real citizen's very first WhatsApp message gets (see
-  // app/webhook/whatsapp/route.ts) — starting over should look like
-  // starting over, not skip straight to the bare menu list. An abusive first
-  // message gets no welcome there (the lexical guard answers it instead), so
-  // it gets none here either.
-  const abusiveFirstMessage =
-    type === "text" && !!text && evaluateLexicalGuard(text).action !== "ALLOW";
-  const sentWithWelcome =
-    hadExistingSession || abusiveFirstMessage ? sent : [buildWelcomeEffect(), ...sent];
-
   return NextResponse.json({
-    sent: sentWithWelcome,
+    sent,
     session: { state: session.state, slots: session.slots, counters: session.counters },
+  });
+}
+
+async function startConversation(from: string, text?: string): Promise<TurnResult> {
+  return withTurnLock(from, async () => {
+    const first = handleFirstContact(text);
+    await saveSession(from, first.session);
+    return { sent: first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect)), session: first.session };
   });
 }

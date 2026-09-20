@@ -6,7 +6,8 @@ import { detectCitaRequest, isContinueReply, isGreeting, isReclamoKeyword } from
 import { OFFERED_SLOT, readOffered } from "./selection-matchers";
 import { detectSessionExpiry, resumeStateFor } from "./session-expiry-guard";
 import { resolveConfirmation } from "./confirmation-parser";
-import { buildWelcomeEffect } from "./welcome";
+import { beginCita } from "./cita-entry";
+import { handleFirstContact } from "./first-contact";
 import {
   evaluateLexicalGuard,
   INSTITUTIONAL_WARNING_TEXT,
@@ -65,18 +66,6 @@ function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
   return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [
     sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS),
   ]);
-}
-
-// Re-sends the branded welcome ahead of the menu when a citizen returns
-// after their previous cita/reclamo reached a terminal state — from their
-// perspective this is a fresh interaction, not a mid-flow reset, so it gets
-// the same welcome first-contact gets. Skips the separate "¿Prefieres
-// seguir por aquí mismo?" follow-up the true first-contact flow sends
-// (app/webhook/whatsapp/route.ts) — redundant here since they're already
-// typing back into the bot.
-function enterMainMenuAfterTerminal(): HandlerResult {
-  const result = enterMainMenu();
-  return { ...result, effects: [buildWelcomeEffect(), ...result.effects] };
 }
 
 // Resolves awaiting_flow_start's branch directly into its target state's
@@ -255,20 +244,11 @@ function beginCitaFromIntent(
   slots: Session["slots"],
   hints: { especialidad?: string; distrito?: string },
 ): HandlerResult {
-  const next: Session = {
-    state: "cita_awaiting_dni",
-    slots: {
-      ...slots,
-      ...(hints.especialidad ? { citaEspecialidadHintText: hints.especialidad } : {}),
-      ...(hints.distrito ? { citaDistritoHintText: hints.distrito } : {}),
-    },
-    counters: {},
-  };
-  return buildResult(next, [
-    sendText(
-      "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).",
-    ),
-  ]);
+  return beginCita(
+    slots,
+    hints,
+    "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).",
+  );
 }
 
 // ---- Session expiry ---------------------------------------------------------
@@ -349,7 +329,9 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
   if (guarded) return guarded;
 
   if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
-    return enterMainMenuAfterTerminal();
+    // A citizen returning after a finished cita/reclamo is starting over: same
+    // treatment as a first-ever message (see first-contact.ts).
+    return handleFirstContact(event.type === "text" ? event.text : undefined);
   }
 
   if (session.state === "main_menu") {

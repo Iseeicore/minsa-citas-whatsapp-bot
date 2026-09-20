@@ -53,7 +53,7 @@ Un primer mensaje es el que llega **sin sesión abierta**.
 
 | Comportamiento | Sandbox | WhatsApp real |
 |---|---|---|
-| Primer mensaje normal | Bienvenida **y** respuesta del bot. | Solo bienvenida y el botón **Seguir aquí** (no corre el bot ni la IA). |
+| Primer mensaje normal | Bienvenida y el botón **Seguir aquí** (no corre el bot ni la IA). | Igual: bienvenida y el botón **Seguir aquí**. |
 | Límite de ritmo (5 en 10 s / 20 en 60 s) | No aplica. | Sí aplica. |
 | Notas de voz y stickers | No se pueden enviar (solo imagen con 📎). | Sí. |
 | Registro en «Chat real» | No guarda conversaciones. | Guarda mensajes y respuestas. |
@@ -78,7 +78,7 @@ Para generar exactamente 300 y 301 caracteres en PowerShell: `('a' * 300) | clip
 |---|---|---|---|---|
 | 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Este es el canal oficial del *MINSA*. No podemos atender mensajes muy largos (máximo 300 caracteres) ni con enlaces. Escribe un mensaje corto, por ejemplo: *Hola*.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `[perimeter] rejected a first message from ...NNNN: too_long` (solo WhatsApp). | ☐ ☐ |
 | 1.1b | Enviar `('a' * 301)` como primer mensaje. | El mismo texto de rechazo. | Igual que 1.1a. | ☐ ☐ |
-| 1.1c | Enviar `('a' * 300)` como primer mensaje. | **No** se rechaza. WhatsApp: bienvenida y botón **Seguir aquí**. Sandbox: bienvenida y respuesta del bot. | El límite es «más de 300». | ☐ ☐ |
+| 1.1c | Enviar `('a' * 300)` como primer mensaje. | **No** se rechaza. Bienvenida y botón **Seguir aquí** (WhatsApp y Sandbox). | El límite es «más de 300». | ☐ ☐ |
 | 1.1d | Tras 1.1a, enviar `Hola`. | Se comporta como primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
 | 1.1e | **WhatsApp:** abrir **Chat real** tras 1.1a. | Tu número **no** aparece como conversación nueva. | Confirma que no se escribió nada. | ☐ ☐ |
 | 1.1f | Con sesión abierta (ya en el flujo de reclamo, en el paso de la descripción), enviar el texto de 383 caracteres. | **No** se rechaza: el bot lo acepta como descripción del reclamo (permite hasta 1000). | El filtro solo aplica al primer mensaje. | ☐ ☐ |
@@ -107,7 +107,7 @@ Respuesta esperada en todos los casos de rechazo: el mismo texto de 1.1a. Log: `
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 1.3a | Primer mensaje: `GANA DINERO FACIL ` repetido 18 veces (324 caracteres). | Texto de rechazo de 1.1a. | Igual que 1.1a. | ☐ ☐ |
-| 1.3b | Primer mensaje: `🔥🔥🔥💰💰💰` | **No** se bloquea. WhatsApp: bienvenida y **Seguir aquí**. Sandbox: bienvenida, `Un momento, estamos revisando tu mensaje…` y el menú `¿En qué podemos ayudarte hoy?`. | WhatsApp: **0 IA** (el primer contacto no corre el bot). Sandbox: pasa por la intención. Sin errores. | ☐ ☐ |
+| 1.3b | Primer mensaje: `🔥🔥🔥💰💰💰` | **No** se bloquea. Bienvenida y **Seguir aquí** (WhatsApp y Sandbox). | **0 IA** en ambos canales (el primer contacto no corre el bot). Sin errores. | ☐ ☐ |
 | 1.3c | Primer mensaje: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` (48 letras). | **No** se bloquea (es corto). Igual que 1.3b. | Sin errores. | ☐ ☐ |
 | 1.3d | Con sesión abierta y en el menú: `🔥🔥🔥💰💰💰` | Aparece `Un momento, estamos revisando tu mensaje…` y luego el menú. | En modo real es **1 llamada a Gemini** (sale unclear y cae al menú). Sin errores. | ☐ ☐ |
 
@@ -200,7 +200,9 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 3.1 | `Hola` | Solo el menú `¿En qué podemos ayudarte hoy?`. **Sandbox**, primer mensaje: antes sale la bienvenida. **WhatsApp**, primer contacto: bienvenida y el botón **Seguir aquí**; tócalo para ver el menú. | **Sin IA:** no aparece «Un momento…». | ☐ ☐ |
+| 3.1a | `Hola` (sesión nueva). | Solo la bienvenida grande con **[Continuar mi cita]** y, después, `¿Prefieres seguir por aquí mismo?` con el botón **[Seguir aquí]**. **Sin** el menú `¿En qué podemos ayudarte hoy?`. | Igual en Sandbox y WhatsApp. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
+| 3.1b | Tocar **Seguir aquí** (o escribir `hola`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar un reclamo**. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA. | ☐ ☐ |
+| 3.1c | Con **sesión nueva**, primer mensaje: `Sabes quiero una cita para san Juan de Lurigancho para medicina general`. | **Un solo mensaje:** `¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):`. **Sin** bienvenida ni menú. | Sin IA. Slots (panel Debug): `citaDistritoHintText` = `San Juan de Lurigancho`, `citaEspecialidadHintText` = `Medicina General`. Reiniciar antes de seguir con 3.2. | ☐ ☐ |
 | 3.2 | `1` | `Ingresa tu DNI (8 dígitos).` **Sin** volver a mostrar el menú. | Atajo numérico: `2` haría lo mismo con el reclamo. Sin IA. | ☐ ☐ |
 | 3.3 | `1234567` (7 dígitos) | `DNI inválido. Debe tener 8 dígitos. Intenta de nuevo.` | Validación de formato, sin IA. | ☐ ☐ |
 | 3.4 | `12345678` | `Validando tu DNI…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake). | ☐ ☐ |
@@ -240,7 +242,19 @@ Vuelve a la lista de horarios (3.12) antes de cada caso. Tras cada confirmación
 |---|---|---|---|---|
 | 3.14a | Tocar **Sí, confirmar** (o escribir `sí`). | Cuatro mensajes: `Agendando tu cita…`; la constancia que empieza con `*MINISTERIO DE SALUD DEL PERÚ*`; el enlace **[Ver mi cita]**; y `Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita o realizar una consulta, escríbenos nuevamente cuando lo necesites. ¡Que tengas un buen día! 👋`. | Estado final `cita_booked`. Se agendó una sola vez. | ☐ ☐ |
 | 3.14b | Tocar **No, ver horarios**. | `Sin problema. Elige otro horario:` y la lista. | No se agenda. | ☐ ☐ |
-| 3.14c | Tras 3.14a, escribir `Hola`. | La bienvenida grande y luego el menú. | Reinicio tras un estado terminal. | ☐ ☐ |
+| 3.14c | Tras 3.14a, escribir `Hola`. | La bienvenida grande y el botón **Seguir aquí**, **sin** el menú encima. | Reinicio tras un estado terminal: mismo tratamiento que un primer mensaje (3.1a). Con un pedido claro (`quiero una cita en Miraflores`) entra directo a la cita, como 3.1c. | ☐ ☐ |
+
+### 3.15 Comportamientos añadidos tras la prueba de campo
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 3.15a | Con el OTP ya verificado (por ejemplo tras 3.6), esperar **más de 10 minutos** y escribir cualquier cosa (`Miraflores`). | `⏳ Tu sesión ha expirado por inactividad. Por tu seguridad, necesitamos confirmar nuevamente tu identidad para continuar con tu cita. ¿Deseas solicitar un nuevo código de verificación?` con `[1] Sí, enviar código` y `[2] Cancelar y volver al menú`, y los botones **[Sí, enviar código]** y **[Cancelar]**. | Estado `cita_awaiting_reauth`. Se borran el token de MINSA y los datos del horario; el DNI y lo ya elegido (distrito, especialidad…) se conservan. Solo aplica cuando el bot espera al ciudadano con sesión verificada. | ☐ ☐ |
+| 3.15b | Tras 3.15a, escribir `si por favor` (o `1`, o tocar **Sí, enviar código**). | `Enviándote un nuevo código de verificación…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` Tras el código (`1234` en fake) continúa en el paso donde estaba. | Reusa el DNI guardado, no lo pide de nuevo. Sin IA. | ☐ ☐ |
+| 3.15c | Repetir 3.15a y responder `no, gracias` (o `2`, o **Cancelar**). | El menú `¿En qué podemos ayudarte hoy?`. | La sesión queda vacía, sin token ni DNI. | ☐ ☐ |
+| 3.15d | En `¿Confirmas el horario …?` escribir `Si por favor` (también `dale`, `ok`, `de acuerdo`). | `Agendando tu cita…` y sigue como con el botón. Con `no, gracias`, `otro horario` o `ver mas` vuelve `Sin problema. Elige otro horario:`. | Reconocedor de sí/no sin IA. Con algo ambiguo (`si pero a las 3`) repite los botones sin agendar. | ☐ ☐ |
+| 3.15e | Con la sesión ya iniciada (tras **Seguir aquí**), escribir `Quiero una cita en San Juan de Lurigancho para poder atenderme en medicina general`. | `¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).` **Sin** `Un momento, estamos revisando tu mensaje…`. | **Sin IA.** Mismos slots que 3.1c. | ☐ ☐ |
+| 3.15f | Escribir `hdp` en el menú y, tras la advertencia, `ya dale` (también `continuar`, `vamos`, `sigue`). | El menú `¿En qué podemos ayudarte hoy?`, sin `Un momento…`. | Equivale a tocar **Continuar**. Solo vale justo después de la advertencia. | ☐ ☐ |
+| 3.15g | Solo con MINSA real: provocar que la reserva falle (por ejemplo un cupo tomado). | `No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:` y la lista de nuevo. A la tercera falla: `No pudimos agendar tu cita. Intenta de nuevo más tarde.` | Log `[minsa] book_appointment failed: HTTP …` con el estado, el inicio de la respuesta y el payload sin DNI (ver 4.4). | ☐ ☐ |
 
 ---
 
@@ -286,7 +300,7 @@ done; wait
 |---|---|---|---|---|
 | 4.2a | Ejecutar el bloque de la consola. | Tres respuestas. Entre las tres aparecen **exactamente**: `Código incorrecto. Te quedan 2 intento(s).`, `Código incorrecto. Te quedan 1 intento(s).` y `Superaste el número de intentos permitidos. Por favor, inicia el proceso nuevamente más tarde.` (en cualquier orden entre respuestas). | Turnos serializados: cada uno vio el resultado del anterior. El tiempo total ≈ la suma de tres turnos, no de uno. | ☐ ☐ |
 | 4.2b | Revisar que **no** se repite ningún mensaje. | No hay dos veces `Te quedan 2 intento(s)`. | Si se repite, hubo *lost update* (se pisaron los turnos): es un **Rechazado grave**. | ☐ ☐ |
-| 4.2c | Tras 4.2a, escribir `Hola` en el Sandbox. | La bienvenida grande y el menú (estado terminal alcanzado). | El estado final es `cita_otp_locked`, consistente con 3 intentos contados. | ☐ ☐ |
+| 4.2c | Tras 4.2a, escribir `Hola` en el Sandbox. | La bienvenida grande y el botón **Seguir aquí** (estado terminal alcanzado). | El estado final es `cita_otp_locked`, consistente con 3 intentos contados. | ☐ ☐ |
 | 4.2d | Repetir 4.1 dos veces más (reinicia antes de cada una). | Mismo resultado las tres veces. | No es un acierto por casualidad. | ☐ ☐ |
 
 ### 4.3 Con el celular (WhatsApp)
@@ -306,6 +320,8 @@ Los logs los ves en **Vercel** (proyecto → Logs, filtra por `turn-lock`) o, en
 | `[turn-lock] database lock for ...1234 took 340 ms` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |
 | `[perimeter] dropped a message from ...1234: more than 5 in 10 s` | El limitador descartó un mensaje (1.5). |
 | `[perimeter] rejected a first message from ...1234: too_long` (o `link`, `media`) | El filtro de primer mensaje (sección 1). |
+| `[minsa] book_appointment failed: HTTP 409 body=… payload={…}` | MINSA no agendó. Trae el estado, los primeros 300 caracteres de su respuesta (con cualquier número de 8 o más dígitos tapado) y el payload sin el DNI. Es la evidencia para el caso 3.15g. |
+| `[ai] analyze_main_menu_intent fell back to the menu: HTTP 403 …` | La IA falló y el mensaje libre volvió al menú. El motivo dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca incluye el texto del ciudadano. |
 | `Failed to process webhook entry` seguido de `TurnLockTimeoutError` | Un turno esperó demasiado el candado y se abandonó. **No debería verse en estas pruebas**; si aparece, anótalo. |
 
 Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por sí solo: significa que los turnos duraron menos de 150 ms. Lo que decide es 4.2a/4.2b.
@@ -330,7 +346,7 @@ Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por 
 |---|---|---|---|---|
 | 1. Perímetro | 1.1 – 1.5 | | | |
 | 2. Filtro léxico | 2.1 – 2.4 | | | |
-| 3. Camino feliz | 3.1 – 3.14 | | | |
+| 3. Camino feliz | 3.1 – 3.15 | | | |
 | 4. Concurrencia | 4.2 – 4.3 | | | |
 
 Criterio de cierre: **todos** los casos de las secciones 2, 3 y 4 aprobados, y la sección 1 aprobada salvo los límites conocidos que se anotaron como tales (1.3b, 1.3c y 1.3d).

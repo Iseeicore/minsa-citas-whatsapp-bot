@@ -10,28 +10,10 @@ import { saveSession, sessionRowExists } from "@/lib/fsm/session-store";
 import { screenInbound } from "@/lib/security/perimeter";
 import { inboundRateLimiter } from "@/lib/security/rate-limiter";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
-import {
-  sendAndRecordCtaUrl,
-  sendAndRecordEffect,
-  sendTypingIndicator,
-  sendWhatsAppEffect,
-} from "@/lib/whatsapp-send";
+import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp-send";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
-import { WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, WELCOME_CTA_URL } from "@/lib/fsm/welcome";
+import { handleFirstContact } from "@/lib/fsm/first-contact";
 import type { InboundEvent } from "@/lib/fsm/types";
-
-// Sent once, the first time a given waId ever writes to this number — this
-// IS the entire response to first contact, no FSM turn runs for it (see
-// processValue). Uses WhatsApp's own bold syntax (single asterisks), not
-// markdown. Two separate messages, because a WhatsApp interactive message
-// can only carry ONE action type — a link button (cta_url) and reply
-// buttons can't be mixed in the same message: first a cta_url message with
-// the "Continuar mi cita" link button, then a normal buttons message with
-// "Seguir aquí" to start the flow right here in WhatsApp. The text/button/
-// url themselves live in lib/fsm/welcome.ts, shared with handlers.ts's
-// terminal-state re-entry — this file only adds the first-contact-only
-// follow-up message below.
-const WELCOME_FOLLOWUP_TEXT = "¿Prefieres seguir por aquí mismo?";
 
 // Gives the real "escribiendo…" indicator a moment to actually show before
 // each message lands, instead of the bot's replies arriving all at once.
@@ -260,32 +242,19 @@ async function answerMessage(message: WhatsAppMessage, conversationId: string): 
       return;
     }
 
-    // Brand-new conversation — the welcome message IS the whole response
-    // to first contact. No FSM turn runs for this message; whatever the
-    // citizen wrote is stashed as initialMessageText so the Cita
-    // district-resolution step can still use it later (same mechanism
-    // handleMainMenu already uses for a menu tap that doesn't match).
-    await saveSession(waId, {
-      state: "main_menu",
-      slots: message.text?.body ? { initialMessageText: message.text.body } : {},
-      counters: {},
-    });
+    // Brand-new conversation. No FSM turn runs for it: a citizen who already
+    // asked for a cita goes straight into the Cita flow (their words seed the
+    // specialty and district); anyone else gets the welcome and its "Seguir
+    // aquí" button — and the menu only once they answer it. See first-contact.ts.
+    const first = handleFirstContact(message.type === "text" ? message.text?.body : undefined);
+    await saveSession(waId, first.session);
 
-    await sendTypingIndicator(message.id);
-    await sleep(TYPING_DELAY_MS);
-    await sendAndRecordCtaUrl(conversationId, waId, {
-      bodyText: WELCOME_MESSAGE_TEXT,
-      buttonText: WELCOME_CTA_BUTTON_TEXT,
-      url: WELCOME_CTA_URL,
-    });
-
-    await sendTypingIndicator(message.id);
-    await sleep(TYPING_DELAY_MS);
-    await sendAndRecordEffect(conversationId, waId, {
-      kind: "send_buttons",
-      text: WELCOME_FOLLOWUP_TEXT,
-      buttons: [{ id: "seguir_aqui", title: "Seguir aquí" }],
-    });
+    for (const effect of first.effects) {
+      if (isQueryEffect(effect)) continue;
+      await sendTypingIndicator(message.id);
+      await sleep(TYPING_DELAY_MS);
+      await sendAndRecordEffect(conversationId, waId, effect);
+    }
 
     return;
   }

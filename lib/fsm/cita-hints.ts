@@ -18,8 +18,7 @@ const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
   [/^nutricion/, "Nutrición"],
 ];
 
-const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE"]);
-const MAX_PLACE_WORDS = 4;
+const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);const MAX_PLACE_WORDS = 4;
 const PILOT_DEPARTAMENTO = "LIMA";
 
 export type CitaHints = { especialidad?: string; distrito?: string };
@@ -56,7 +55,10 @@ export function extractCitaHints(message: string): CitaHints {
         (candidate) => normalizeText(candidate.departamento) === PILOT_DEPARTAMENTO,
       );
       if (inPilotArea) {
-        hints.distrito = phrase.toLowerCase().replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
+        hints.distrito = phrase
+          .toLowerCase()
+          .replace(/\b\p{L}/gu, (letter) => letter.toUpperCase())
+          .replace(/\b(?:De|Del|La|Las|Los|Y)\b/g, (word) => word.toLowerCase());
         break;
       }
     }

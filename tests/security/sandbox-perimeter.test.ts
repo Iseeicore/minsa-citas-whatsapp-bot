@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   sessionRowExists: vi.fn(async () => false),
   resetSession: vi.fn(async () => undefined),
   resetAll: vi.fn(async () => undefined),
+  saveSession: vi.fn(async () => undefined),
   runTurn: vi.fn(async () => ({
     sent: [{ kind: "send_text", text: "respuesta del bot" }],
     session: { state: "main_menu", slots: {}, counters: {} },
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/fsm/session-store", () => ({
   sessionRowExists: mocks.sessionRowExists,
   resetSession: mocks.resetSession,
+  saveSession: mocks.saveSession,
   resetAllSandboxTestSessions: mocks.resetAll,
 }));
 vi.mock("@/lib/fsm/executor", () => ({ runTurn: mocks.runTurn }));
@@ -67,11 +69,32 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.runTurn).toHaveBeenCalledTimes(1);
   });
 
-  it("an ordinary first message and a first button tap are not filtered", async () => {
-    await send({ type: "text", text: "Hola" });
+  it("an ordinary first message is not filtered: it gets the welcome, and no menu on top of it", async () => {
+    const { json } = await send({ type: "text", text: "Hola" });
+
+    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_cta_url", "send_buttons"]);
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
+    expect(mocks.runTurn).not.toHaveBeenCalled();
+  });
+
+  it("a first message asking for a cita goes straight to the DNI", async () => {
+    const { json } = await send({ type: "text", text: "Sabes quiero una cita para san Juan de Lurigancho para medicina general" });
+
+    expect(json.sent).toHaveLength(1);
+    expect(json.sent[0].text).toContain("Medicina General en San Juan de Lurigancho");
+    expect(mocks.saveSession).toHaveBeenCalledWith(
+      "sandbox-qa",
+      expect.objectContaining({ state: "cita_awaiting_dni" }),
+    );
+    expect(mocks.runTurn).not.toHaveBeenCalled();
+  });
+
+  it("a message once the conversation is open reaches the FSM", async () => {
+    mocks.sessionRowExists.mockResolvedValue(true);
+
     await send({ type: "button", listId: "agendar_cita" });
 
-    expect(mocks.runTurn).toHaveBeenCalledTimes(2);
+    expect(mocks.runTurn).toHaveBeenCalledTimes(1);
   });
 
   it("after a reset the next message is a first message again (so the rules apply again)", async () => {
@@ -86,6 +109,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
 describe("turn lock timeout", () => {
   it("answers 503 BUSY instead of replying from a stale session", async () => {
+    mocks.sessionRowExists.mockResolvedValue(true);
     mocks.runTurn.mockRejectedValueOnce(new TurnLockTimeoutError("sandbox-qa", "process"));
 
     const request = new NextRequest("http://localhost/api/sandbox", {
