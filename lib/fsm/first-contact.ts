@@ -1,7 +1,8 @@
 import type { CitaHints } from "./cita-hints";
 import { beginCita, beginReclamo, buildMenuEffect } from "./flow-entry";
-import { buildResult, withNote } from "./handlers-shared";
+import { buildResult, sendText, withNote } from "./handlers-shared";
 import { detectCitaRequest, isGreeting, isReclamoKeyword } from "./menu-shortcuts";
+import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "./out-of-scope";
 import { buildWelcomeEffect } from "./welcome";
 import type { HandlerResult } from "./types";
 
@@ -26,7 +27,7 @@ function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
 }
 
 // Which of the four answers a new conversation got, on the record.
-const routed = (route: "welcome" | "cita" | "reclamo" | "menu", result: HandlerResult): HandlerResult =>
+const routed = (route: "welcome" | "cita" | "reclamo" | "menu" | "out_of_scope", result: HandlerResult): HandlerResult =>
   withNote(result, { kind: "first_contact", detail: { route } });
 
 export function handleFirstContact(text?: string): HandlerResult {
@@ -36,9 +37,22 @@ export function handleFirstContact(text?: string): HandlerResult {
     return routed("welcome", buildResult({ state: "main_menu", slots: {}, counters: {} }, [buildWelcomeEffect()]));
   }
 
-  // The rejection text offers "[1] Citas [2] Reclamos": answering with the number
-  // must work even though there is no menu on screen yet.
-  if (message === "1") {
+  // A consultation the channel does not attend (emergency, SIS, vaccines...): the
+  // fixed message that points to the official channel, and the menu waits.
+  const outOfScope = detectOutOfScope(message);
+  if (outOfScope) {
+    const reply = buildResult({ state: "main_menu", slots: {}, counters: {} }, [sendText(OOS_MESSAGES[outOfScope])]);
+    return withNote(routed("out_of_scope", reply), {
+      kind: "out_of_scope",
+      ...(outOfScope === "OOS-01" ? { level: "warn" as const } : {}),
+      detail: { category: outOfScope },
+    });
+  }
+
+  // The rejection text offers "[1] Citas [2] Reclamos", and the out-of-scope
+  // messages ask for CITAS: answering must work even though there is no menu on
+  // screen yet.
+  if (message === "1" || isCitaKeyword(message)) {
     return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):"));
   }
   if (message === "2") return routed("reclamo", beginReclamo({}, RECLAMO_INTRO));

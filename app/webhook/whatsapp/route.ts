@@ -14,6 +14,7 @@ import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp-send";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
 import { handleFirstContact } from "@/lib/fsm/first-contact";
+import { isEmergency } from "@/lib/fsm/out-of-scope";
 import type { InboundEvent, SendEffect } from "@/lib/fsm/types";
 
 // Gives the real "escribiendo…" indicator a moment to actually show before
@@ -224,7 +225,8 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
       // lexical guard routes it exactly like the FSM would at the main menu
       // (warning + Continuar, straight into Cita, or straight into Reclamo),
       // with zero AI calls. The session is still created so the button works.
-      const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
+      // (A medical emergency skips the guard: it is answered first, see out-of-scope.ts.)
+      const verdict = firstContactText && !isEmergency(firstContactText) ? evaluateLexicalGuard(firstContactText) : undefined;
 
       // Otherwise: a citizen who already asked for a cita goes straight into the
       // Cita flow (their words seed the specialty and district); a greeting gets

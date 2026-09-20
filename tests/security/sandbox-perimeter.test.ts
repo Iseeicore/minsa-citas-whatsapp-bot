@@ -89,6 +89,15 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 
+  it("a first message that is an emergency and insults gets the emergency message, not the guard's warning", async () => {
+    const { json } = await send({ type: "text", text: "idiotas, mi hijo no respira" });
+
+    expect(json.sent).toHaveLength(1);
+    expect(json.sent[0].text).toContain("106");
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
+    expect(mocks.runTurn).not.toHaveBeenCalled();
+  });
+
   it("a message once the conversation is open reaches the FSM", async () => {
     mocks.sessionRowExists.mockResolvedValue(true);
 

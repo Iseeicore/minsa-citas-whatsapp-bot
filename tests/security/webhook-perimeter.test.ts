@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   messageFindUnique: vi.fn(async () => null),
   messageUpsert: vi.fn(async () => ({})),
   messageUpdateMany: vi.fn(async () => ({})),
-  sessionFindUnique: vi.fn(async () => ({ id: "x", state: "main_menu" })),
+  sessionFindUnique: vi.fn(async (): Promise<{ id: string; state: string } | null> => ({ id: "x", state: "main_menu" })),
   sessionRowExists: vi.fn(async () => false),
   saveSession: vi.fn(async () => undefined),
   sendWhatsAppEffect: vi.fn(async () => new Response("{}", { status: 200 })),
@@ -52,6 +52,7 @@ vi.mock("@/lib/fsm/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked })
 vi.mock("@/lib/fsm/turn-lock", () => ({ withTurnLock: mocks.withTurnLock }));
 
 import { POST } from "@/app/webhook/whatsapp/route";
+import { OOS_MESSAGES } from "@/lib/fsm/out-of-scope-messages";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 
 const SECRET = "test-app-secret";
@@ -176,6 +177,37 @@ describe("rate limiting (drop silently, still acknowledge Meta)", () => {
     await deliver([textMessage(freshWaId(), "hola")]);
 
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("out-of-scope consultations at first contact", () => {
+  const repliedWith = () => mocks.sendAndRecordEffect.mock.calls.map((call) => (call as unknown as [string, string, unknown])[2]);
+
+  it("a consultation gets its message and the session waits in the menu", async () => {
+    mocks.sessionFindUnique.mockResolvedValue(null);
+
+    await deliver([textMessage(freshWaId(), "¿Mi SIS está activo?")]);
+
+    expect(repliedWith()).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-02"] }]);
+    expect(mocks.saveSession).toHaveBeenCalledWith(expect.any(String), { state: "main_menu", slots: {}, counters: {} });
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+  });
+
+  it("an emergency that insults is answered as an emergency, not with the institutional warning", async () => {
+    mocks.sessionFindUnique.mockResolvedValue(null);
+
+    await deliver([textMessage(freshWaId(), "ustedes son unos idiotas, mi mamá no puede respirar")]);
+
+    expect(repliedWith()).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-01"] }]);
+  });
+
+  it("an insult that is not an emergency still gets the warning", async () => {
+    mocks.sessionFindUnique.mockResolvedValue(null);
+
+    await deliver([textMessage(freshWaId(), "eres un idiota")]);
+
+    expect(repliedWith()).toHaveLength(1);
+    expect(repliedWith()[0]).toMatchObject({ kind: "send_buttons" });
   });
 });
 
