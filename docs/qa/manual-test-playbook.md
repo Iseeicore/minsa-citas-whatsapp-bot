@@ -76,7 +76,7 @@ Para generar exactamente 300 y 301 caracteres en PowerShell: `('a' * 300) | clip
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Este es el canal oficial del *MINSA*. No podemos atender mensajes muy largos (máximo 300 caracteres) ni con enlaces. Escribe un mensaje corto, por ejemplo: *Hola*.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `[perimeter] rejected a first message from ...NNNN: too_long` (solo WhatsApp). | ☐ ☐ |
+| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Este es el canal oficial del *MINSA*. No podemos atender mensajes muy largos (máximo 300 caracteres) ni con enlaces. Escribe un mensaje corto, por ejemplo: *Hola*.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo WhatsApp). | ☐ ☐ |
 | 1.1b | Enviar `('a' * 301)` como primer mensaje. | El mismo texto de rechazo. | Igual que 1.1a. | ☐ ☐ |
 | 1.1c | Enviar `('a' * 300)` como primer mensaje. | **No** se rechaza. Como no es un saludo ni un pedido, sale el menú `¿En qué podemos ayudarte hoy?` (WhatsApp y Sandbox), sin bienvenida. | El límite es «más de 300». | ☐ ☐ |
 | 1.1d | Tras 1.1a, enviar `Hola`. | Se comporta como primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
@@ -131,9 +131,9 @@ Requiere un número **sin sesión** (ver 0.4).
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.5a | Enviar `hola` **6 veces en menos de 10 segundos** (copia el texto y pulsa enviar rápido). | Se atienden los primeros 5. Del sexto en adelante: **ningún** mensaje de respuesta (silencio). | Descarte silencioso: sin respuesta, sin base de datos, sin IA. Meta recibe igualmente su 200 (no reintenta). Log por cada mensaje descartado: `[perimeter] dropped a message from ...NNNN: more than 5 in 10 s`. | ☐ ☐ |
+| 1.5a | Enviar `hola` **6 veces en menos de 10 segundos** (copia el texto y pulsa enviar rápido). | Se atienden los primeros 5. Del sexto en adelante: **ningún** mensaje de respuesta (silencio). | Descarte silencioso: sin respuesta, sin base de datos, sin IA. Meta recibe igualmente su 200 (no reintenta). Log por cada mensaje descartado: `perimeter.dropped` con `reason: throttled`. | ☐ ☐ |
 | 1.5b | Esperar 10 segundos y enviar `hola`. | Vuelve a responder con normalidad. | La ventana es deslizante: los mensajes viejos salen del conteo. | ☐ ☐ |
-| 1.5c | Enviar mensajes sostenidos hasta pasar de 20 en un minuto (uno cada 2–3 s durante un minuto). | El bot deja de responder. Sigue en silencio aunque escribas tras unos minutos. | Sanción de 1 hora. Log: `[perimeter] waId ...NNNN banned for 1 hour (more than 20 messages in 60 s)`. | ☐ ☐ |
+| 1.5c | Enviar mensajes sostenidos hasta pasar de 20 en un minuto (uno cada 2–3 s durante un minuto). | El bot deja de responder. Sigue en silencio aunque escribas tras unos minutos. | Sanción de 1 hora. Log: `perimeter.banned` (1 hora, más de 20 mensajes en 60 s). | ☐ ☐ |
 | 1.5d | Escribir con **otro** número mientras el primero está sancionado. | El segundo número responde normalmente. | La sanción es por número, no global. | ☐ ☐ |
 
 ---
@@ -256,7 +256,7 @@ Vuelve a la lista de horarios (3.12) antes de cada caso. Tras cada confirmación
 | 3.15d | En `¿Confirmas el horario …?` escribir `Si por favor` (también `dale`, `ok`, `de acuerdo`). | `Agendando tu cita…` y sigue como con el botón. Con `no, gracias`, `otro horario` o `ver mas` vuelve `Sin problema. Elige otro horario:`. | Reconocedor de sí/no sin IA. Con algo ambiguo (`si pero a las 3`) repite los botones sin agendar. | ☐ ☐ |
 | 3.15e | Con la sesión ya iniciada (tras la bienvenida), escribir `Quiero una cita en San Juan de Lurigancho para poder atenderme en medicina general`. | `¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).` **Sin** `Un momento, estamos revisando tu mensaje…`. | **Sin IA.** Mismos slots que 3.1c. | ☐ ☐ |
 | 3.15f | Escribir `hdp` en el menú y, tras la advertencia, `ya dale` (también `continuar`, `vamos`, `sigue`). | El menú `¿En qué podemos ayudarte hoy?`, sin `Un momento…`. | Equivale a tocar **Continuar**. Solo vale justo después de la advertencia. | ☐ ☐ |
-| 3.15g | Solo con MINSA real: provocar que la reserva falle (por ejemplo un cupo tomado). | `No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:` y la lista de nuevo. A la tercera falla: `No pudimos agendar tu cita. Intenta de nuevo más tarde.` | Log `[minsa] book_appointment failed: HTTP …` con el estado, el inicio de la respuesta y el payload sin DNI (ver 4.4). | ☐ ☐ |
+| 3.15g | Solo con MINSA real: provocar que la reserva falle (por ejemplo un cupo tomado). | `No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:` y la lista de nuevo. A la tercera falla: `No pudimos agendar tu cita. Intenta de nuevo más tarde.` | Log `minsa.book_appointment.failed` con el endpoint, el estado, el mensaje de MINSA y el payload sin DNI (ver 4.4). | ☐ ☐ |
 | 3.15h | Con el OTP verificado, escribir un distrito que MINSA devuelva junto a vecinos (solo con MINSA real, por ejemplo `San Juan de Lurigancho`). | `Entendido. Buscando especialidades y citas disponibles en *San Juan de Lurigancho*…` y luego la lista de especialidades. **Sin** `Selecciona tu ubigeo:`. | Si entre los resultados hay uno que es exactamente el distrito ya resuelto, se elige solo. Si la lista sí aparece y se responde con texto (`San Juan de Lurigancho`), el mismo mensaje `Entendido…` nombra el distrito. | ☐ ☐ |
 | 3.15i | Solo con MINSA real: elegir un distrito sin especialidades disponibles. | `No encontramos especialidades disponibles en *{distrito}* en este momento.` `¿Deseas buscar en otro distrito cercano?` con `[1] Sí, buscar otro distrito` `[2] No, salir` y los botones **[Sí, otro distrito]** y **[No, salir]**. | Estado `cita_awaiting_other_distrito`: la conversación **no** se cierra. Un texto suelto (`quee ?`) repite la pregunta, sin bienvenida. | ☐ ☐ |
 | 3.15j | Tras 3.15i, responder `sí` (o `dale`, `cambiar`, `1`, o tocar **Sí, otro distrito**). | `Perfecto. Cuéntanos en qué otro distrito buscas atención (ej. "Miraflores").` | Se olvida el distrito anterior (y el primer mensaje, para que no lo vuelva a usar); se conservan el DNI y la verificación. | ☐ ☐ |
@@ -318,16 +318,22 @@ done; wait
 
 ### 4.4 Cómo comprobarlo en los logs
 
-Los logs los ves en **Vercel** (proyecto → Logs, filtra por `turn-lock`) o, en local, en la terminal donde corre `npm run dev`.
+Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (proyecto → Logs; escribe `turn.end`, un `traceId` o un evento en el buscador) o, en local, en la terminal de `npm run dev`. Con `LOG_TO_FILE=true` también quedan en `logs/DD-MM-AAAA/app.ndjson` (y solo los avisos y errores en `alerts.ndjson`). Todos los eventos de un mismo mensaje comparten el `traceId`. Detalle completo en `docs/observability.md`.
 
-| Línea de log | Qué significa |
+| Evento | Qué significa |
 |---|---|
-| `[turn-lock] turn waited 312 ms behind an earlier turn of ...1234` | Un turno esperó a otro del mismo ciudadano (los 4 últimos dígitos del número). **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
+| `turn.start` → `turn.end` | Un mensaje contestado: estado antes y después, duración en ms, llamadas externas y cambios en los datos (sin DNI completo ni token). |
+| `turn.note` (`warn`) con `kind: confirmation_unknown` | Una confirmación escrita no se entendió (dice el paso: `hora_confirm`, `session_reauth`, `other_distrito`). |
+| `turn.note` (`warn`) con `kind: session_expired` | La sesión caducó: `reason` es `IDLE_TIMEOUT` o `JWT_EXPIRED`, y `idleMs` cuánto llevaba inactiva (3.15a). |
+| `turn.note` (`warn`) con `kind: lexical_guard` / `menu_fallback` / `no_coverage` / `booking_retry` | El filtro léxico actuó, la IA no entendió y volvió al menú, MINSA no tiene cobertura en el distrito, o falló una reserva y se reintentó. |
+| `turn.end` (`warn`) con `friction: menu_loop` | Un texto escrito dejó al ciudadano otra vez en el menú sin ninguna respuesta determinística (1.3d). |
+| `turn.external` | Una consulta a MINSA, RENIEC, Gemini o quejas, con `durationMs` y `resultStatus`. |
+| `external.http` | La llamada HTTP misma: `status` real y `durationMs`. Solo la ruta, nunca la clave ni el cuerpo. |
+| `minsa.book_appointment.failed` (`error`) | MINSA no agendó: `endpoint`, `status`, `minsaMessage`, `response` (300 caracteres) y el payload sin DNI. Es la evidencia del caso 3.15g. |
+| `ai.fallback` (`warn`) | La IA falló y el mensaje volvió al menú; `reason` dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca lleva el texto del ciudadano. |
+| `perimeter.dropped` / `perimeter.rejected` / `perimeter.banned` | El perímetro descartó, rechazó (`too_long`, `link`, `media`) o sancionó a un número (sección 1). |
+| `[turn-lock] turn waited 312 ms behind an earlier turn of ...1234` | Un turno esperó a otro del mismo ciudadano. **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
 | `[turn-lock] database lock for ...1234 took 340 ms` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |
-| `[perimeter] dropped a message from ...1234: more than 5 in 10 s` | El limitador descartó un mensaje (1.5). |
-| `[perimeter] rejected a first message from ...1234: too_long` (o `link`, `media`) | El filtro de primer mensaje (sección 1). |
-| `[minsa] book_appointment failed: HTTP 409 body=… payload={…}` | MINSA no agendó. Trae el estado, los primeros 300 caracteres de su respuesta (con cualquier número de 8 o más dígitos tapado) y el payload sin el DNI. Es la evidencia para el caso 3.15g. |
-| `[ai] analyze_main_menu_intent fell back to the menu: HTTP 403 …` | La IA falló y el mensaje libre volvió al menú. El motivo dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca incluye el texto del ciudadano. |
 | `Failed to process webhook entry` seguido de `TurnLockTimeoutError` | Un turno esperó demasiado el candado y se abandonó. **No debería verse en estas pruebas**; si aparece, anótalo. |
 
 Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por sí solo: significa que los turnos duraron menos de 150 ms. Lo que decide es 4.2a/4.2b.
@@ -343,7 +349,7 @@ Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por 
 1. Número de caso (por ejemplo `2.3a`) y hora.
 2. Texto exacto que enviaste y respuesta exacta que recibiste (captura).
 3. En la consola: el `state` y los `slots` del panel Debug.
-4. Las líneas de log que empiecen con `[perimeter]` o `[turn-lock]` de ese minuto.
+4. Las líneas de log `perimeter.*` y `[turn-lock]` de ese minuto, y el `traceId` del turno que falló (ver 4.4).
 5. El modo: fake o real, y el canal (Sandbox o WhatsApp).
 
 ## 6. Hoja de resultados

@@ -1,3 +1,5 @@
+import { timedFetch } from "../observability/http";
+import { logger } from "../observability/logger";
 import { normalizeText } from "./domain";
 
 // AI-assisted district resolution for the Cita flow's ubigeo entry point —
@@ -153,7 +155,7 @@ export async function resolveDistritoAi(
     // the manual departamento/provincia/distrito flow).
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await timedFetch("gemini", "resolve_distrito_ai", url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
@@ -287,7 +289,7 @@ const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
 const FAKE_CITA_INTENT_KEYWORDS = ["CITA", "ATENCION", "CONSULTA", "TURNO", "MEDICO", "ATIENDAN"];
 
 function unclearIntent(reason: string): MainMenuIntentResult {
-  console.warn(`[ai] analyze_main_menu_intent fell back to the menu: ${reason}`);
+  logger.warn("ai.fallback", { operation: "analyze_main_menu_intent", fellBackTo: "menu", reason });
   return { intent: "unclear" };
 }
 
@@ -313,7 +315,7 @@ export async function analyzeMainMenuIntent(text: string): Promise<MainMenuInten
     // bad model name looks like "the bot ignored my request".
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await timedFetch("gemini", "analyze_main_menu_intent", url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
@@ -424,7 +426,7 @@ export async function resolveFechaAi(
     // Fail-open like the other AI helpers: any failure just sends the citizen
     // back to the list.
     try {
-      const response = await fetch(url, {
+      const response = await timedFetch("gemini", "resolve_fecha_ai", url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
@@ -505,7 +507,7 @@ export async function extractSelectionHints(_step: string, text: string): Promis
 
     // Fail-open: no hints just means the citizen picks from the list.
     try {
-      const response = await fetch(url, {
+      const response = await timedFetch("gemini", "extract_selection_hints", url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,

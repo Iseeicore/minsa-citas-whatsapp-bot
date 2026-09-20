@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { analyzeMainMenuIntent } from "./ai";
 import { extractCitaHints } from "./cita-hints";
+import { configureLogger } from "../observability/logger";
 import { normalizeText } from "./domain";
 import { handle } from "./handlers";
 import { isQueryEffect } from "./handlers-shared";
@@ -78,7 +79,16 @@ describe("when the AI is used and answers cita", () => {
 });
 
 describe("analyzeMainMenuIntent against a real model", () => {
+  let restoreLogger: (() => void) | undefined;
+  const captureLogs = (): string[] => {
+    const lines: string[] = [];
+    restoreLogger = configureLogger({ sink: (_level, line) => lines.push(line), level: "info" });
+    return lines;
+  };
+
   afterEach(() => {
+    restoreLogger?.();
+    restoreLogger = undefined;
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
@@ -103,22 +113,24 @@ describe("analyzeMainMenuIntent against a real model", () => {
   it("logs why it fell back when the model call fails, without the citizen's text", async () => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "true");
     vi.stubGlobal("fetch", geminiReplying("", 403));
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const lines = captureLogs();
 
     await expect(analyzeMainMenuIntent(FIELD_TEST_MESSAGE)).resolves.toEqual({ intent: "unclear" });
 
-    expect(warn).toHaveBeenCalledOnce();
-    expect(String(warn.mock.calls[0][0])).toContain("HTTP 403");
-    expect(String(warn.mock.calls[0][0])).not.toContain("Lurigancho");
+    const fallbacks = lines.map((line) => JSON.parse(line)).filter((record) => record.event === "ai.fallback");
+    expect(fallbacks).toHaveLength(1);
+    expect(fallbacks[0]).toMatchObject({ level: "warn", operation: "analyze_main_menu_intent", fellBackTo: "menu" });
+    expect(fallbacks[0].reason).toContain("HTTP 403");
+    expect(lines.join(" ")).not.toContain("Lurigancho");
   });
 
   it("does not log when the model itself says unclear", async () => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "true");
     vi.stubGlobal("fetch", geminiReplying(JSON.stringify({ intent: "unclear", detalle: "" })));
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const lines = captureLogs();
 
     await expect(analyzeMainMenuIntent("hola")).resolves.toEqual({ intent: "unclear" });
-    expect(warn).not.toHaveBeenCalled();
+    expect(lines.map((line) => JSON.parse(line)).some((record) => record.event === "ai.fallback")).toBe(false);
   });
 });
 

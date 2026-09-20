@@ -1,6 +1,6 @@
 import { handleCita } from "./handlers-cita";
 import { handleReclamo } from "./handlers-reclamo";
-import { buildResult, omitSlot, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES } from "./handlers-shared";
+import { buildResult, omitSlot, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES, withNote } from "./handlers-shared";
 import { extractCitaHints } from "./cita-hints";
 import { detectCitaRequest, isContinueReply, isGreeting, isReclamoKeyword } from "./menu-shortcuts";
 import { OFFERED_SLOT, readOffered } from "./selection-matchers";
@@ -136,17 +136,22 @@ function applyLexicalGuard(session: Session, event: HandleEvent): HandlerResult 
   const { action } = evaluateLexicalGuard(event.text);
   if (action === "ALLOW") return undefined;
 
-  if (isMenuLevel) return routeLexicalAction(session, action, event.text);
+  const verdict = { kind: "lexical_guard", level: "warn" as const, detail: { action, state: session.state } };
+
+  if (isMenuLevel) return withNote(routeLexicalAction(session, action, event.text), verdict);
 
   if (isSelection) {
     const offered = readOffered(session.slots);
-    return buildResult(session, [
-      sendText(RESPECT_REMINDER_TEXT),
-      ...(offered ? [sendList(offered.text, offered.rows)] : []),
-    ]);
+    return withNote(
+      buildResult(session, [
+        sendText(RESPECT_REMINDER_TEXT),
+        ...(offered ? [sendList(offered.text, offered.rows)] : []),
+      ]),
+      verdict,
+    );
   }
 
-  return buildResult(session, [sendText(RESPECT_REMINDER_TEXT), sendText(midFlowPrompt)]);
+  return withNote(buildResult(session, [sendText(RESPECT_REMINDER_TEXT), sendText(midFlowPrompt)]), verdict);
 }
 
 function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
@@ -154,7 +159,7 @@ function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
   const session: Session = { ...pending, slots: omitSlot(pending.slots, AWAITING_CONTINUE_SLOT) };
 
   if (awaitingContinue && event.text && isContinueReply(event.text)) {
-    return enterMainMenu(session.slots);
+    return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "continue_after_warning" } });
   }
 
   const numericChoice = event.text ? NUMERIC_MENU_CHOICES[event.text.trim()] : undefined;
@@ -168,15 +173,18 @@ function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
     // Deterministic shortcuts first: they cost no AI call, and a bare
     // greeting must not become the "opening message" later used as context.
     if (event.text && isReclamoKeyword(event.text)) {
-      return handleAwaitingFlowStart({
-        state: "awaiting_flow_start",
-        slots: { ...session.slots, menuChoice: "registrar_reclamo" },
-        counters: {},
-      });
+      return withNote(
+        handleAwaitingFlowStart({
+          state: "awaiting_flow_start",
+          slots: { ...session.slots, menuChoice: "registrar_reclamo" },
+          counters: {},
+        }),
+        { kind: "shortcut", detail: { name: "reclamo_keyword" } },
+      );
     }
 
     if (event.text && isGreeting(event.text)) {
-      return enterMainMenu(session.slots);
+      return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "greeting" } });
     }
 
     // Capture the citizen's very first free-text message (only once — not on
@@ -193,7 +201,7 @@ function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
     // ("quiero una cita en San Borja de odontología") goes straight to the
     // Cita flow: no AI call, so nothing that can fail and bounce them back.
     const cita = event.text ? detectCitaRequest(event.text) : undefined;
-    if (cita) return beginCitaFromIntent(preservedSlots, cita);
+    if (cita) return withNote(beginCitaFromIntent(preservedSlots, cita), { kind: "shortcut", detail: { name: "cita_request" } });
 
     // Before just re-showing the menu, see if this free text already
     // expresses a clear intent to book an appointment (e.g. "quiero una
@@ -223,7 +231,12 @@ function handleMainMenuIntentPending(session: Session, event: QueryResultEvent):
 
   if (result.intent === "cita") return beginCitaFromIntent(session.slots, result);
 
-  return enterMainMenu(session.slots);
+  // The AI found no intent (or failed, see the ai.fallback log): back to the menu.
+  return withNote(enterMainMenu(session.slots), {
+    kind: "menu_fallback",
+    level: "warn",
+    detail: { reason: "intent_unclear" },
+  });
 }
 
 // Shared by the deterministic reading and the AI's: the specialty and district
@@ -303,7 +316,11 @@ function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerRes
     ]);
   }
 
-  return buildResult(session, [reauthPrompt()]);
+  return withNote(buildResult(session, [reauthPrompt()]), {
+    kind: "confirmation_unknown",
+    level: "warn",
+    detail: { step: "session_reauth" },
+  });
 }
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
@@ -311,7 +328,18 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
     return handleAwaitingReauth(session, event as InboundEvent);
   }
 
-  if (detectSessionExpiry(session, event, now)) return beginSessionReauth(session);
+  const expiry = detectSessionExpiry(session, event, now);
+  if (expiry) {
+    return withNote(beginSessionReauth(session), {
+      kind: "session_expired",
+      level: "warn",
+      detail: {
+        reason: expiry === "idle" ? "IDLE_TIMEOUT" : "JWT_EXPIRED",
+        state: session.state,
+        ...(session.updatedAt ? { idleMs: now - session.updatedAt.getTime() } : {}),
+      },
+    });
+  }
 
   const guarded = applyLexicalGuard(session, event);
   if (guarded) return guarded;

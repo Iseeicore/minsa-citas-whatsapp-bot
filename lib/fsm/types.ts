@@ -1,3 +1,5 @@
+import type { TurnNote } from "../observability/types";
+
 export type SlotValue = string | number | boolean | null;
 
 export type Session = {
@@ -21,6 +23,9 @@ export type InboundEvent = {
   // WhatsApp media round-trip here). Kept separate from `mediaId` since that
   // field is just an opaque reference, not actual image bytes.
   mediaDataUri?: string;
+  // WhatsApp's id of the message (the Sandbox has none). Only used to give the
+  // turn a traceId that is the same when Meta delivers the message again.
+  messageId?: string;
 };
 
 // Synthesized by lib/fsm/executor.ts after resolving a QueryEffect, and fed
@@ -112,4 +117,6 @@ export type HandlerResult = {
   session: Session;
   effects: (SendEffect | QueryEffect)[];
   outcome: HandlerOutcome;
+  // Decisions and friction the executor should put on record (see TurnNote).
+  notes?: TurnNote[];
 };

@@ -1,3 +1,5 @@
+import { logger } from "../observability/logger";
+import { tail } from "../observability/mask";
 // Per-waId sliding-window rate limiter for the WhatsApp webhook. Pure in-memory
 // (no Redis in this stack): each serverless instance counts on its own, which is
 // enough to stop a single client from hammering one instance and costs nothing.
@@ -87,5 +89,6 @@ export type RateLimiter = ReturnType<typeof createRateLimiter>;
 // debugging); it is per server instance by design.
 export const inboundRateLimiter: RateLimiter = createRateLimiter({
   enabled: process.env.INBOUND_RATE_LIMIT !== "off",
-  onBan: (key) => console.warn(`[perimeter] waId ...${key.slice(-4)} banned for 1 hour (more than 20 messages in 60 s)`),
+  onBan: (key) =>
+    logger.warn("perimeter.banned", { waId: tail(key), duration: "1 hour", limit: "more than 20 messages in 60 s" }),
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runTurn, type TurnResult } from "@/lib/fsm/executor";
 import { handleFirstContact } from "@/lib/fsm/first-contact";
 import { isQueryEffect } from "@/lib/fsm/handlers-shared";
+import { traceTurn } from "@/lib/observability/tracer";
 import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
 import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session-store";
 import type { SendEffect } from "@/lib/fsm/types";
@@ -101,8 +102,16 @@ export async function POST(request: NextRequest) {
 
 async function startConversation(from: string, text?: string): Promise<TurnResult> {
   return withTurnLock(from, async () => {
-    const first = handleFirstContact(text);
-    await saveSession(from, first.session);
-    return { sent: first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect)), session: first.session };
+    const fresh = { state: "main_menu", slots: {}, counters: {} };
+
+    return traceTurn(from, { type: text === undefined ? "other" : "text", text }, fresh, async (trace) => {
+      const first = handleFirstContact(text);
+      for (const note of first.notes ?? []) trace.note(note);
+      await saveSession(from, first.session);
+
+      const sent = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+      trace.complete({ session: first.session, sentCount: sent.length });
+      return { sent, session: first.session };
+    });
   });
 }

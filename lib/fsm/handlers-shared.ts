@@ -1,3 +1,4 @@
+import type { TurnNote } from "../observability/types";
 import type {
   ButtonOption,
   HandlerOutcome,
@@ -61,6 +62,11 @@ export function query(kind: QueryEffectKind, payload: Record<string, unknown>): 
 
 export function isQueryEffect(effect: SendEffect | QueryEffect): effect is QueryEffect {
   return "payload" in effect;
+}
+
+// Puts a decision or a friction point on the result, for the executor to log.
+export function withNote(result: HandlerResult, note: TurnNote): HandlerResult {
+  return { ...result, notes: [...(result.notes ?? []), note] };
 }
 
 export function buildResult(

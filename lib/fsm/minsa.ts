@@ -1,3 +1,5 @@
+import { timedFetch } from "../observability/http";
+import { logger } from "../observability/logger";
 import { signMinsaRequest } from "./minsa-signature";
 
 // ---- Result shapes returned to lib/fsm/executor.ts --------------------
@@ -155,7 +157,7 @@ async function postSigned(path: string, body: Record<string, unknown>): Promise<
   const bodyJson = JSON.stringify(body);
   const signedHeaders = signMinsaRequest(bodyJson);
 
-  return fetch(`${minsaHost()}${path}`, {
+  return timedFetch("minsa", path, `${minsaHost()}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -172,7 +174,7 @@ async function postWithBearer(
   body: Record<string, unknown>,
   bearer: string,
 ): Promise<Response> {
-  return fetch(`${minsaHost()}${path}`, {
+  return timedFetch("minsa", path, `${minsaHost()}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -431,20 +433,34 @@ export async function listHoras(
 }
 
 // A failed booking used to reach the citizen as a generic message with nothing
-// in the logs. This keeps what is needed to diagnose it — the HTTP status, the
-// start of MINSA's answer and the payload without the patient's document —
-// with any long digit run (a DNI echoed back) masked.
+// in the logs. This keeps what is needed to diagnose it: the endpoint, the HTTP
+// status, what MINSA said and the payload without the patient's document (the
+// logger also masks any long digit run, such as a DNI echoed back).
+const BOOKING_ENDPOINT = "/whatsapp/api/v1/appointments";
 const BOOKING_LOG_BODY_LIMIT = 300;
 
+function minsaMessageOf(body: string): string | undefined {
+  try {
+    const message = (JSON.parse(body) as { message?: unknown }).message;
+    return typeof message === "string" ? message : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
-  const answer = body.replace(/\d{8,}/g, "********").slice(0, BOOKING_LOG_BODY_LIMIT);
-  const payload = {
-    codigoRenipress: params.codigoRenipress,
-    codigoUps: params.codigoUps,
-    fechaCita: params.fechaCita,
-    horaCita: params.horaCita,
-  };
-  console.error(`[minsa] book_appointment failed: HTTP ${httpStatus} body=${answer} payload=${JSON.stringify(payload)}`);
+  logger.error("minsa.book_appointment.failed", {
+    endpoint: BOOKING_ENDPOINT,
+    status: httpStatus,
+    minsaMessage: minsaMessageOf(body),
+    response: body.slice(0, BOOKING_LOG_BODY_LIMIT),
+    payload: {
+      codigoRenipress: params.codigoRenipress,
+      codigoUps: params.codigoUps,
+      fechaCita: params.fechaCita,
+      horaCita: params.horaCita,
+    },
+  });
 }
 
 export async function bookAppointment(
@@ -453,7 +469,7 @@ export async function bookAppointment(
 ): Promise<BookAppointmentResult> {
   if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
     const response = await postWithBearer(
-      "/whatsapp/api/v1/appointments",
+      BOOKING_ENDPOINT,
       {
         codigo_renipress: params.codigoRenipress,
         codigo_ups: params.codigoUps,

@@ -10,6 +10,7 @@ import {
   sendList,
   sendButtons,
   sendCtaUrl,
+  withNote,
 } from "./handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
@@ -1661,7 +1662,11 @@ function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult
   if (reply === HORA_CONFIRM_YES_ID || typed === "YES") return startBooking(session, start);
   if (reply === HORA_CONFIRM_NO_ID || typed === "NO") return backToList();
 
-  return askHoraConfirmation(session, slotId);
+  return withNote(askHoraConfirmation(session, slotId), {
+    kind: "confirmation_unknown",
+    level: "warn",
+    detail: { step: "hora_confirm" },
+  });
 }
 
 function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
@@ -1760,7 +1765,7 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
     next.counters.citaBookingFailures = failures;
     delete next.counters.citaHoraPage;
     next.state = "cita_hora_pending";
-    return buildResult(next, [
+    return withNote(buildResult(next, [
       sendText(
         "No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:",
       ),
@@ -1769,11 +1774,12 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         fecha: String(next.slots.citaFecha ?? ""),
       }),
-    ]);
+    ]), { kind: "booking_retry", level: "warn", detail: { failures, status: result.status } });
   }
 
   next.state = "cita_booking_rejected";
-  return buildResult(next, [
-    sendText(result.message ?? "No pudimos agendar tu cita. Intenta de nuevo más tarde."),
-  ]);
+  return withNote(
+    buildResult(next, [sendText(result.message ?? "No pudimos agendar tu cita. Intenta de nuevo más tarde.")]),
+    { kind: "booking_rejected", level: "warn", detail: { failures, status: result.status } },
+  );
 }

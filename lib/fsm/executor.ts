@@ -21,6 +21,8 @@ import {
 } from "./minsa";
 import { submitQueja, type SubmitQuejaPayload } from "./quejas";
 import { reniecLookup } from "./reniec";
+import { traceTurn } from "../observability/tracer";
+import type { ExternalService } from "../observability/types";
 import { getSession, saveSession } from "./session-store";
 import { withTurnLock, type TurnLock } from "./turn-lock";
 import type {
@@ -74,40 +76,65 @@ export function createRunTurn(lock: TurnLock) {
 export async function runTurnUnlocked(from: string, event: InboundEvent): Promise<TurnResult> {
   const session = await getSession(from);
 
-  const sent: SendEffect[] = [];
-  let currentEvent: HandleEvent = event;
-  let currentSession = session;
+  // The turn's trace (lib/observability/tracer.ts) lives out here: handle() stays
+  // pure and only returns the decisions it wants on record as `notes`.
+  return traceTurn(from, event, session, async (trace) => {
+    const sent: SendEffect[] = [];
+    let currentEvent: HandleEvent = event;
+    let currentSession = session;
 
-  for (let pass = 1; pass <= MAX_PASSES; pass++) {
-    const result = handle(currentSession, currentEvent);
-    currentSession = result.session;
+    for (let pass = 1; pass <= MAX_PASSES; pass++) {
+      const result = handle(currentSession, currentEvent);
+      currentSession = result.session;
+      for (const note of result.notes ?? []) trace.note(note);
 
-    const queries = result.effects.filter(isQueryEffect);
-    sent.push(...result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect)));
+      const queries = result.effects.filter(isQueryEffect);
+      sent.push(...result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect)));
 
-    if (queries.length === 0) {
-      await saveSession(from, currentSession);
-      return { sent, session: currentSession };
+      if (queries.length === 0) {
+        await saveSession(from, currentSession);
+        trace.complete({ session: currentSession, sentCount: sent.length });
+        return { sent, session: currentSession };
+      }
+      if (queries.length > 1) {
+        throw new Error("runTurn: handle() returned more than one query effect in a single pass");
+      }
+
+      const [queryEffect] = queries;
+      const queryResult = await trace.external(serviceFor(queryEffect.kind), queryEffect.kind, () =>
+        resolveQuery(queryEffect, currentSession),
+      );
+
+      const resultEvent: QueryResultEvent = {
+        from,
+        type: "query_result",
+        queryKind: queryEffect.kind,
+        result: queryResult,
+      };
+      currentEvent = resultEvent;
     }
-    if (queries.length > 1) {
-      throw new Error("runTurn: handle() returned more than one query effect in a single pass");
-    }
 
-    const [queryEffect] = queries;
-    const queryResult = await resolveQuery(queryEffect, currentSession);
+    throw new Error(
+      `runTurn: exceeded ${MAX_PASSES} query-resolution passes in a single turn — state machine bug`,
+    );
+  });
+}
 
-    const resultEvent: QueryResultEvent = {
-      from,
-      type: "query_result",
-      queryKind: queryEffect.kind,
-      result: queryResult,
-    };
-    currentEvent = resultEvent;
+// Which outside service a query goes to, for the trace.
+function serviceFor(kind: QueryEffect["kind"]): ExternalService {
+  switch (kind) {
+    case "reniec_lookup":
+      return "reniec";
+    case "quejas_submit":
+      return "quejas";
+    case "analyze_main_menu_intent":
+    case "resolve_distrito_ai":
+    case "resolve_fecha_ai":
+    case "extract_selection_hints":
+      return "gemini";
+    default:
+      return "minsa";
   }
-
-  throw new Error(
-    `runTurn: exceeded ${MAX_PASSES} query-resolution passes in a single turn — state machine bug`,
-  );
 }
 
 async function resolveQuery(effect: QueryEffect, session: Session): Promise<unknown> {

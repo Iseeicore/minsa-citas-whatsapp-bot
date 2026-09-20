@@ -1,3 +1,6 @@
+import { logger } from "../observability/logger";
+import { tail } from "../observability/mask";
+import { deriveTraceId } from "../observability/tracer";
 import { checkFirstMessagePayload } from "./payload-filter";
 import type { RateLimiter } from "./rate-limiter";
 
@@ -21,16 +24,27 @@ export type PerimeterDeps = {
   hasSession: (waId: string) => Promise<boolean>;
 };
 
-const tail = (waId: string) => `...${waId.slice(-4)}`;
+// The same traceId the turn would get, so a dropped or rejected message can be
+// followed in the logs like any other.
+const traceOf = (message: { waId: string; messageId?: string }) =>
+  message.messageId ? deriveTraceId(message.waId, message.messageId) : undefined;
 
 export async function screenInbound(
-  message: { waId: string; type: string; text?: string },
+  message: { waId: string; type: string; text?: string; messageId?: string },
   deps: PerimeterDeps,
 ): Promise<PerimeterDecision> {
   const verdict = deps.limiter.check(message.waId);
-  if (verdict === "banned") return { action: "drop", reason: "banned" };
+  if (verdict === "banned") {
+    logger.info("perimeter.dropped", { traceId: traceOf(message), waId: tail(message.waId), reason: "banned" });
+    return { action: "drop", reason: "banned" };
+  }
   if (verdict === "throttled") {
-    console.info(`[perimeter] dropped a message from ${tail(message.waId)}: more than 5 in 10 s`);
+    logger.info("perimeter.dropped", {
+      traceId: traceOf(message),
+      waId: tail(message.waId),
+      reason: "throttled",
+      limit: "more than 5 in 10 s",
+    });
     return { action: "drop", reason: "throttled" };
   }
 
@@ -39,6 +53,12 @@ export async function screenInbound(
 
   if (await deps.hasSession(message.waId)) return { action: "continue" };
 
-  console.info(`[perimeter] rejected a first message from ${tail(message.waId)}: ${payload.reason}`);
+  logger.info("perimeter.rejected", {
+    traceId: traceOf(message),
+    waId: tail(message.waId),
+    reason: payload.reason,
+    messageType: message.type,
+    inputLength: message.text?.length,
+  });
   return { action: "reject", reason: payload.reason, reply: payload.reply };
 }

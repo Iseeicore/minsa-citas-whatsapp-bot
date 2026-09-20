@@ -1,3 +1,5 @@
+import { timedFetch } from "../observability/http";
+
 export type SubmitQuejaPayload = {
   celular: string;
   dni: string | null;
@@ -20,7 +22,7 @@ export async function submitQueja(payload: SubmitQuejaPayload): Promise<SubmitQu
   // the MINSA real/fake toggle — otherwise every sandbox run would create a
   // real complaint record against the production ministry backend.
   if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await fetch(`${process.env.QUEJAS_API_BASE_URL}/api/v1/quejas/`, {
+    const response = await timedFetch("quejas", "submit", `${process.env.QUEJAS_API_BASE_URL}/api/v1/quejas/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -5,7 +5,8 @@ import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurnUnlocked } from "@/lib/fsm/executor";
 import { withTurnLock } from "@/lib/fsm/turn-lock";
 import { routeLexicalAction } from "@/lib/fsm/handlers";
-import { isQueryEffect } from "@/lib/fsm/handlers-shared";
+import { isQueryEffect, withNote } from "@/lib/fsm/handlers-shared";
+import { traceTurn } from "@/lib/observability/tracer";
 import { saveSession, sessionRowExists } from "@/lib/fsm/session-store";
 import { screenInbound } from "@/lib/security/perimeter";
 import { inboundRateLimiter } from "@/lib/security/rate-limiter";
@@ -13,7 +14,7 @@ import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp-send";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
 import { handleFirstContact } from "@/lib/fsm/first-contact";
-import type { InboundEvent } from "@/lib/fsm/types";
+import type { InboundEvent, SendEffect } from "@/lib/fsm/types";
 
 // Gives the real "escribiendo…" indicator a moment to actually show before
 // each message lands, instead of the bot's replies arriving all at once.
@@ -207,6 +208,51 @@ async function toInboundEvent(
   return null;
 }
 
+// A brand-new conversation. No FSM turn runs for it, but it is traced like one
+// (same traceId a re-delivery of the message would get).
+async function answerFirstContact(message: WhatsAppMessage, conversationId: string): Promise<void> {
+  const waId = message.from_user_id;
+  const firstContactText = message.type === "text" ? message.text?.body : undefined;
+  const fresh = { state: "main_menu", slots: {}, counters: {} };
+
+  await traceTurn(
+    waId,
+    { type: message.type, text: firstContactText, messageId: message.id },
+    fresh,
+    async (trace) => {
+      // An abusive very first message never gets the branded welcome: the
+      // lexical guard routes it exactly like the FSM would at the main menu
+      // (warning + Continuar, straight into Cita, or straight into Reclamo),
+      // with zero AI calls. The session is still created so the button works.
+      const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
+
+      // Otherwise: a citizen who already asked for a cita goes straight into the
+      // Cita flow (their words seed the specialty and district); a greeting gets
+      // the welcome alone; the rest get the menu. See first-contact.ts.
+      const first =
+        verdict && verdict.action !== "ALLOW"
+          ? withNote(routeLexicalAction(fresh, verdict.action, firstContactText), {
+              kind: "lexical_guard",
+              level: "warn",
+              detail: { action: verdict.action, state: "first_contact" },
+            })
+          : handleFirstContact(firstContactText);
+
+      for (const note of first.notes ?? []) trace.note(note);
+      await saveSession(waId, first.session);
+
+      const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+      trace.complete({ session: first.session, sentCount: toSend.length });
+
+      for (const effect of toSend) {
+        await sendTypingIndicator(message.id);
+        await sleep(TYPING_DELAY_MS);
+        await sendAndRecordEffect(conversationId, waId, effect);
+      }
+    },
+  );
+}
+
 // Everything a citizen's message triggers — the first-contact check, the FSM
 // turn AND the outbound sends — runs under that citizen's turn lock (see
 // lib/fsm/turn-lock.ts), so two messages sent in quick succession are answered
@@ -217,52 +263,14 @@ async function answerMessage(message: WhatsAppMessage, conversationId: string): 
   const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
 
   if (!existingSession) {
-    // An abusive very first message never gets the branded welcome: the
-    // lexical guard routes it exactly like the FSM would at the main menu
-    // (warning + Continuar, straight into Cita, or straight into Reclamo),
-    // with zero AI calls. The session is still created so the button works.
-    const firstContactText = message.type === "text" ? message.text?.body : undefined;
-    const verdict = firstContactText ? evaluateLexicalGuard(firstContactText) : undefined;
-
-    if (verdict && verdict.action !== "ALLOW") {
-      const routed = routeLexicalAction(
-        { state: "main_menu", slots: {}, counters: {} },
-        verdict.action,
-        firstContactText,
-      );
-      await saveSession(waId, routed.session);
-
-      for (const effect of routed.effects) {
-        if (isQueryEffect(effect)) continue;
-        await sendTypingIndicator(message.id);
-        await sleep(TYPING_DELAY_MS);
-        await sendAndRecordEffect(conversationId, waId, effect);
-      }
-
-      return;
-    }
-
-    // Brand-new conversation. No FSM turn runs for it: a citizen who already
-    // asked for a cita goes straight into the Cita flow (their words seed the
-    // specialty and district); anyone else gets the welcome and its "Seguir
-    // aquí" button — and the menu only once they answer it. See first-contact.ts.
-    const first = handleFirstContact(message.type === "text" ? message.text?.body : undefined);
-    await saveSession(waId, first.session);
-
-    for (const effect of first.effects) {
-      if (isQueryEffect(effect)) continue;
-      await sendTypingIndicator(message.id);
-      await sleep(TYPING_DELAY_MS);
-      await sendAndRecordEffect(conversationId, waId, effect);
-    }
-
+    await answerFirstContact(message, conversationId);
     return;
   }
 
   const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
   if (!inboundEvent) return;
 
-  const { sent } = await runTurnUnlocked(waId, inboundEvent);
+  const { sent } = await runTurnUnlocked(waId, { ...inboundEvent, messageId: message.id });
   for (const effect of sent) {
     await sendTypingIndicator(message.id);
     await sleep(TYPING_DELAY_MS);
@@ -292,7 +300,7 @@ async function processValue(value: WhatsAppValue) {
     // message that is too long, carries links, or is unsolicited media gets a
     // fixed text reply and is never stored. See lib/security/perimeter.ts.
     const decision = await screenInbound(
-      { waId: message.from_user_id, type: message.type, text: message.text?.body },
+      { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
       { limiter: inboundRateLimiter, hasSession: sessionRowExists },
     );
     if (decision.action === "drop") continue;

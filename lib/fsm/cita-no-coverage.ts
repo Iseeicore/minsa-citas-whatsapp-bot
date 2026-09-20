@@ -1,6 +1,6 @@
 import { resolveConfirmation } from "./confirmation-parser";
 import { normalizeText, toDisplayPlace } from "./domain";
-import { buildResult, cloneSession, omitSlot, sendButtons, sendText } from "./handlers-shared";
+import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } from "./handlers-shared";
 import { OFFERED_SLOT } from "./selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "./types";
 
@@ -51,7 +51,10 @@ export function offerOtherDistrito(session: Session, missing: "especialidades" |
   const where = distrito ? `en *${toDisplayPlace(distrito)}*` : "en tu zona";
   const what = missing === "especialidades" ? "especialidades" : "establecimientos para esa especialidad";
 
-  return buildResult(next, [questionButtons(`No encontramos ${what} disponibles ${where} en este momento.\n${QUESTION}`)]);
+  return withNote(
+    buildResult(next, [questionButtons(`No encontramos ${what} disponibles ${where} en este momento.\n${QUESTION}`)]),
+    { kind: "no_coverage", level: "warn", detail: { missing, distrito: distrito || "unknown" } },
+  );
 }
 
 export function handleOtherDistrito(session: Session, event: InboundEvent): HandlerResult {
@@ -72,5 +75,9 @@ export function handleOtherDistrito(session: Session, event: InboundEvent): Hand
     return buildResult({ state: "cita_no_coverage_closed", slots: {}, counters: {} }, [sendText(FAREWELL_TEXT)]);
   }
 
-  return buildResult(session, [questionButtons(QUESTION)]);
+  return withNote(buildResult(session, [questionButtons(QUESTION)]), {
+    kind: "confirmation_unknown",
+    level: "warn",
+    detail: { step: "other_distrito" },
+  });
 }
