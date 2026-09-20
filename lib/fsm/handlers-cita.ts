@@ -1,4 +1,5 @@
 import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "./cita-no-coverage";
+import { closeWithApology, discardedDates, handleOtherFecha, offerOtherFecha, OTHER_FECHA_STATE } from "./cita-other-fecha";
 import { isSlotAcceptance, resolveConfirmation } from "./confirmation-parser";
 import { isValidDniFormat, isValidOtpFormat, normalizeText, toDisplayPlace } from "./domain";
 import {
@@ -88,6 +89,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleSelectionHintsPending(session, event as QueryResultEvent);
     case "cita_fecha_pending":
       return handleFechaPending(session, event as QueryResultEvent);
+    case OTHER_FECHA_STATE:
+      return handleOtherFecha(session, event as InboundEvent);
     case "cita_awaiting_fecha_select":
       return handleAwaitingFechaSelect(session, event as InboundEvent);
     case "cita_fecha_ai_pending":
@@ -1179,8 +1182,16 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length === 1) {
-    const [item] = result.items;
+  // The dates the citizen already turned down (the only horario of the day was
+  // not what they wanted) are never offered again.
+  const discarded = discardedDates(next.slots);
+  const dates = (result.status === "found" ? (result.items ?? []) : []).filter(
+    (item) => !discarded.includes(item.fechaCupo),
+  );
+  if (discarded.length > 0 && dates.length === 0) return closeWithApology("no_other_dates");
+
+  if (dates.length === 1) {
+    const [item] = dates;
     next.slots.citaFecha = item.fechaCupo;
     next.state = "cita_hora_pending";
     return buildResult(next, [
@@ -1193,9 +1204,9 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length > 1) {
+  if (dates.length > 1) {
     next.state = "cita_awaiting_fecha_select";
-    const rows: ListRow[] = result.items.map((item) => ({
+    const rows: ListRow[] = dates.map((item) => ({
       id: item.fechaCupo,
       title: truncateForRow(item.fechaCupo, WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(
@@ -1649,7 +1660,6 @@ function startBooking(session: Session, horaInicio: string): HandlerResult {
   ]);
 }
 
-const NO_APPOINTMENT_TEXT = "No agendamos ninguna cita. Si quieres empezar de nuevo, escribe CITAS.";
 const NEGATION_WORD = /\b(?:no|ni|nunca|tampoco)\b/;
 
 // The citizen typed the hour that is waiting for confirmation ("a la 1", "13:00")
@@ -1662,18 +1672,6 @@ function acceptsPendingHora(typed: string, slotId: string): boolean {
 
   const [start, end] = slotId.split("|");
   return matchHoraText(typed, [{ start, end, cupos: 0 }]).kind === "exact";
-}
-
-// The only horario was declined and there is no list to go back to: nothing was
-// booked, and the citizen is told how to start again. The flow closes (a terminal
-// state) instead of asking the same single question in a loop.
-function closeWithoutBooking(session: Session): HandlerResult {
-  const next = cloneSession(session);
-  next.state = "cita_booking_rejected";
-  return withNote(buildResult(next, [sendText(NO_APPOINTMENT_TEXT)]), {
-    kind: "hora_declined",
-    detail: { step: "hora_confirm", only: true },
-  });
 }
 
 function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
@@ -1689,9 +1687,10 @@ function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult
 
     if (only) {
       // The lone horario was the last page: its list is the previous page's, so
-      // the page steps back with it. Without a previous page there is no list.
+      // the page steps back with it. Without a previous page there is no list of
+      // this day to go back to: the citizen is offered another date instead.
       const page = restored.counters.citaHoraPage ?? 0;
-      if (!offered || page < 1) return closeWithoutBooking(restored);
+      if (!offered || page < 1) return offerOtherFecha(restored);
       restored.counters.citaHoraPage = page - 1;
     }
 

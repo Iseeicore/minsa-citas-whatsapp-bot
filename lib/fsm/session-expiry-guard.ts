@@ -29,6 +29,7 @@ const RESUME_STATE_BY_WAITING_STATE: Readonly<Record<string, string | null>> = {
   cita_awaiting_especialidad_select: "cita_especialidad_pending",
   cita_awaiting_establecimiento_select: "cita_establecimiento_pending",
   cita_awaiting_fecha_select: "cita_fecha_pending",
+  cita_awaiting_other_fecha: "cita_fecha_pending",
   cita_awaiting_hora_select: "cita_hora_pending",
   cita_awaiting_hora_confirm: "cita_hora_pending",
   cita_awaiting_hora_choice: "cita_hora_pending",

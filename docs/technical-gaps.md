@@ -23,15 +23,16 @@ Los pasos del catálogo (ubigeo, especialidad por pista, establecimiento, fecha)
 ### Cómo se confirma
 
 - El botón **Sí, confirmar**, un sí escrito (`si`, `dale`, `ok`…), o decir que toma **ese** horario: `esa hora`, `esa misma`, `me sirve`, `me conviene`, `la tomo`, o escribir la hora pendiente (`13:00`, `a la 1`). Cualquier negación (`no a la 1`) o una hora distinta repite la pregunta sin agendar. Esto vale para toda confirmación de horario, no solo la del horario único.
-- **No** (botón o escrito): si hay una lista de la página anterior, vuelve a ella y retrocede el contador de página (así `Ver más horarios` no queda vacío). Si no hay lista (un día con un solo horario), **cierra**: `No agendamos ninguna cita. Si quieres empezar de nuevo, escribe CITAS.` Sin ese cierre el ciudadano quedaría en un bucle de la misma pregunta.
+- **No** (botón o escrito), con una lista de la página anterior: vuelve a ella y retrocede el contador de página (así `Ver más horarios` no queda vacío).
+- **No** al horario único de un día (no hay lista a la que volver): el bot **no cierra**. Recomienda otra fecha: `¿Deseas cambiar de fecha?` con **Sí, otra fecha** / **No, salir**. Con sí, vuelve a consultar las fechas (sin pedir DNI ni OTP) y **no vuelve a ofrecer las ya rechazadas**; con no, o si no queda otra fecha, se despide con una disculpa y cierra la sesión (sin pedirle que escriba CITAS).
 
 ### Dónde está en el código
 
-`resolveHoraCandidates`, `askHoraConfirmation` y `handleHoraConfirm` en `lib/fsm/handlers-cita.ts`; el lector de frases en `isSlotAcceptance` (`lib/fsm/confirmation-parser.ts`). La marca de «único horario» es el slot `citaHoraConfirmOnly`, que se borra al agendar, al volver a la lista y al expirar la sesión.
+`resolveHoraCandidates`, `askHoraConfirmation`, `handleHoraConfirm` y `handleFechaPending` en `lib/fsm/handlers-cita.ts`; el lector de frases en `isSlotAcceptance` (`lib/fsm/confirmation-parser.ts`); la pregunta de otra fecha en `lib/fsm/cita-other-fecha.ts` (estado `cita_awaiting_other_fecha`, cierre `cita_declined_closed`). La marca de «único horario» es el slot `citaHoraConfirmOnly` y las fechas rechazadas viven en `citaFechasDescartadas` (se borran al cambiar de distrito).
 
 ### Pruebas y cómo verlo
 
-`lib/fsm/single-horario.test.ts` y `tests/stress/auto-booking.test.ts` (ya no llevan marcador `gap`). A mano: caso 3.17 del playbook; el catálogo fake tiene una tercera fecha con un solo horario.
+`lib/fsm/single-horario.test.ts`, `lib/fsm/other-fecha.test.ts` y `tests/stress/auto-booking.test.ts` (ya no llevan marcador `gap`). A mano: caso 3.17 del playbook; el catálogo fake tiene una tercera fecha con un solo horario.
 
 ---
 

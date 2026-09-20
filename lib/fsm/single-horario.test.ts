@@ -182,35 +182,18 @@ describe("yes: the button or any way of taking that hour", () => {
   });
 });
 
-describe("no, with nothing to go back to: the flow closes", () => {
-  const CLOSING = "No agendamos ninguna cita. Si quieres empezar de nuevo, escribe CITAS.";
-
+describe("no, with nothing to go back to: another date is offered (see other-fecha.test.ts)", () => {
   it.each([["the button", tap("hora_confirm_no")], ["typed no", text("no")], ["typed «otro horario»", text("otro horario")]])(
-    "%s says so and closes",
+    "%s does not book and does not close: it asks about another date",
     (_label, event) => {
       const result = handle(confirmingLone(), event);
 
-      expect(sent(result)).toEqual([{ kind: "send_text", text: CLOSING }]);
       expect(queries(result)).toHaveLength(0);
-      expect(result.session.state).toBe("cita_booking_rejected");
+      expect(result.session.state).toBe("cita_awaiting_other_fecha");
       expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
       expect(result.session.slots.citaHoraConfirmOnly).toBeUndefined();
     },
   );
-
-  it("and the word CITAS starts again, with no AI", () => {
-    const closed = handle(confirmingLone(), tap("hora_confirm_no"));
-    const again = handle(closed.session, text("CITAS"));
-
-    expect(again.session.state).toBe("cita_awaiting_dni");
-    expect(queries(again)).toHaveLength(0);
-  });
-
-  it("nobody is left in a loop: the closed session no longer answers a confirmation", () => {
-    const closed = handle(confirmingLone(), text("no"));
-
-    expect(closed.session.state).not.toBe("cita_awaiting_hora_confirm");
-  });
 });
 
 describe("no, with the previous page's list still there: back to that list", () => {
