@@ -22,6 +22,7 @@ export const TERMINAL_STATES = new Set([
   "cita_booking_duplicate",
   "cita_booking_rejected",
   "cita_national_redirect",
+  "cita_no_coverage_closed",
 ]);
 
 // A list/button reply carries its selected id in `listId`; a citizen can

@@ -19,6 +19,15 @@ export function normalizeText(value: string): string {
     .replace(/\s+/g, " ");
 }
 
+// "SAN JUAN DE LURIGANCHO" -> "San Juan de Lurigancho", for showing a place
+// name back to the citizen (the INEI/MINSA data is all uppercase).
+export function toDisplayPlace(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/(^|[\s(-])(\p{L})/gu, (_match, separator: string, letter: string) => separator + letter.toUpperCase())
+    .replace(/(?<=\s)(De|Del|La|Las|Los|Y)(?=\s|$)/g, (word) => word.toLowerCase());
+}
+
 function normalizeName(value: string): Set<string> {
   return new Set(normalizeText(value).split(/\s+/).filter(Boolean));
 }

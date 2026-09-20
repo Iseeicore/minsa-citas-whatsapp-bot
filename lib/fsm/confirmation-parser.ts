@@ -40,6 +40,7 @@ const NO_PHRASES = new Set([
   "no",
   "nop",
   "nel",
+  "salir",
   "cancelar",
   "cancela",
   "cancelo",

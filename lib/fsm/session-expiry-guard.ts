@@ -24,6 +24,7 @@ const RESUME_STATE_BY_WAITING_STATE: Readonly<Record<string, string | null>> = {
   cita_awaiting_departamento: null,
   cita_awaiting_provincia: null,
   cita_awaiting_distrito: null,
+  cita_awaiting_other_distrito: null,
   cita_awaiting_ubigeo_select: "cita_ubigeo_pending",
   cita_awaiting_especialidad_select: "cita_especialidad_pending",
   cita_awaiting_establecimiento_select: "cita_establecimiento_pending",

@@ -1,5 +1,6 @@
+import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "./cita-no-coverage";
 import { resolveConfirmation } from "./confirmation-parser";
-import { isValidDniFormat, isValidOtpFormat, normalizeText } from "./domain";
+import { isValidDniFormat, isValidOtpFormat, normalizeText, toDisplayPlace } from "./domain";
 import {
   buildResult,
   cloneSession,
@@ -72,6 +73,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleUbigeoPending(session, event as QueryResultEvent);
     case "cita_awaiting_ubigeo_select":
       return handleAwaitingUbigeoSelect(session, event as InboundEvent);
+    case OTHER_DISTRITO_STATE:
+      return handleOtherDistrito(session, event as InboundEvent);
     case "cita_especialidad_pending":
       return handleEspecialidadPending(session, event as QueryResultEvent);
     case "cita_awaiting_especialidad_select":
@@ -793,6 +796,29 @@ type UbigeoResultItem = {
   departamento: string;
 };
 
+// The one ubigeo that needs no question: the only result, or the only one that
+// is exactly the district (and province and department, when known) already
+// resolved earlier in the conversation.
+function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoResultItem | undefined {
+  if (items.length === 1) return items[0];
+
+  const same = (found: string, known: unknown) =>
+    typeof known !== "string" || known === "" || normalizeText(found) === normalizeText(known);
+  const exact = items.filter(
+    (item) =>
+      typeof session.slots.citaDistrito === "string" &&
+      normalizeText(item.distrito) === normalizeText(session.slots.citaDistrito) &&
+      same(item.provincia, session.slots.citaProvincia) &&
+      same(item.departamento, session.slots.citaDepartamento),
+  );
+  return exact.length === 1 ? exact[0] : undefined;
+}
+
+// Said before the catalog is queried, so the citizen sees their district was
+// understood — whether it came from their words, a single match or a list tap.
+const searchingCatalogText = (distrito: string) =>
+  `Entendido. Buscando especialidades y citas disponibles en *${toDisplayPlace(distrito)}*…`;
+
 function handleUbigeoPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: UbigeoResultItem[] };
   const next = cloneSession(session);
@@ -809,16 +835,16 @@ function handleUbigeoPending(session: Session, event: QueryResultEvent): Handler
   }
 
   // A single match doesn't need a list tap — resolve it and keep moving.
-  // Only 2+ matches need the citizen to pick one.
-  if (result.status === "found" && result.items && result.items.length === 1) {
-    const [item] = result.items;
-    next.slots.citaUbigeo = item.ubigeoInei;
+  // Only 2+ matches need the citizen to pick one — unless one of them is
+  // exactly the district already resolved (MINSA's search is fuzzy, so asking
+  // for "San Juan de Lurigancho" can bring back its neighbours too).
+  const settled = result.status === "found" && result.items ? pickSettledUbigeo(next, result.items) : undefined;
+  if (settled) {
+    next.slots.citaUbigeo = settled.ubigeoInei;
     next.state = "cita_especialidad_pending";
     return buildResult(next, [
-      sendText(
-        `Ubigeo encontrado: ${item.distrito} - ${item.provincia} - ${item.departamento}. Buscando especialidades disponibles…`,
-      ),
-      query("list_especialidades", { ubigeo: item.ubigeoInei }),
+      sendText(searchingCatalogText(settled.distrito)),
+      query("list_especialidades", { ubigeo: settled.ubigeoInei }),
     ]);
   }
 
@@ -855,11 +881,12 @@ function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent): Hand
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
 
+  const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);
   next.slots.citaUbigeo = replyId;
   next.state = "cita_especialidad_pending";
   return buildResult(next, [
-    sendText("Buscando especialidades disponibles…"),
+    sendText(chosen ? searchingCatalogText(chosen.title) : "Buscando especialidades disponibles…"),
     query("list_especialidades", { ubigeo: replyId }),
   ]);
 }
@@ -946,10 +973,7 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
     return buildResult(next, [offerList(next, "Selecciona la especialidad:", rows)]);
   }
 
-  next.state = "cita_booking_rejected";
-  return buildResult(next, [
-    sendText("No hay especialidades disponibles en tu zona en este momento."),
-  ]);
+  return offerOtherDistrito(next, "especialidades");
 }
 
 // Something else named in the same message (an establishment, typically) is
@@ -1108,8 +1132,7 @@ function handleEstablecimientoPending(session: Session, event: QueryResultEvent)
     return buildResult(next, [offerList(next, "Selecciona el establecimiento:", rows)]);
   }
 
-  next.state = "cita_booking_rejected";
-  return buildResult(next, [sendText("No hay establecimientos disponibles para esa especialidad.")]);
+  return offerOtherDistrito(next, "establecimientos");
 }
 
 function handleAwaitingEstablecimientoSelect(session: Session, event: InboundEvent): HandlerResult {
