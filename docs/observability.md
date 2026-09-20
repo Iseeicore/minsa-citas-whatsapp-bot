@@ -28,13 +28,14 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | Evento | Nivel | Campos principales |
 |---|---|---|
 | `turn.start` | info | `waId` (últimos 4), `stateBefore`, `eventType`, `inputLength`, `inputPreview` (40 caracteres, solo donde es seguro) |
-| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact` |
+| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact`, `out_of_scope`, `hora_declined`, `cita_closed` (con `reason`: `declined` o `no_other_dates`) |
 | `turn.external` | info / warn / error | `service` (minsa, reniec, gemini, quejas), `operation`, `durationMs`, `outcome`, `resultStatus` |
 | `external.http` | info / warn / error | `service`, `operation`, `method`, `path`, `status`, `durationMs` |
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
 | `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
+| `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el aviso fijo «escribe de nuevo» |
 | `perimeter.dropped` / `.rejected` / `.muted` / `.banned` | info / warn | `waId`, `reason` (`repeat` entre los rechazos), `traceId` (el que tendría el turno). `muted` sale una vez por silencio de 2 minutos |
 
 ## Qué se oculta

@@ -1,6 +1,7 @@
 import { resolveConfirmation } from "./confirmation-parser";
 import { normalizeText, toDisplayPlace } from "./domain";
 import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } from "./handlers-shared";
+import { DISCARDED_DATES_SLOT } from "./cita-other-fecha";
 import { OFFERED_SLOT } from "./selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "./types";
 
@@ -26,6 +27,7 @@ const DISTRICT_BOUND_SLOTS = [
   "citaEspecialidadId",
   "citaCodEess",
   "citaFecha",
+  DISCARDED_DATES_SLOT, // dates declined at the old place mean nothing at the new one
   "citaDistritoHintText",
   "citaEstablecimientoHintText",
   "initialMessageText", // would be used as "context" and bring the old district back

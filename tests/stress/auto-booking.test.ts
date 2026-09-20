@@ -2,17 +2,13 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/handlers";
 import { isQueryEffect } from "@/lib/fsm/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/types";
-import { gap } from "../support/known-gap";
 
-// TECHNICAL GAP (follow-up ticket): booking is the one step that cannot be
-// quietly undone, yet when the catalog offers a SINGLE horario the bot books it
-// without any confirmation screen. Typed times are always confirmed and a list
-// tap is an explicit choice, but an auto-selected single option is neither.
-//
-// Kept as executable documentation. The wanted behavior: a lone horario goes to
-// the confirmation step ("¿Confirmas el horario …?"), never straight to
-// book_appointment. Current behavior is deliberately left unchanged in this
-// branch; see docs/technical-gaps.md.
+// Booking is the one step that cannot be quietly undone, so a lone horario is
+// never booked on its own: typed times are confirmed, a list tap is an explicit
+// choice, and an auto-selected single option goes to the confirmation step too
+// ("Solo hay un horario disponible: … ¿Lo confirmas?"). Closes gap G1 of
+// docs/technical-gaps.md. The step's own behavior (typed yes, "esa hora", "no")
+// is covered in lib/fsm/single-horario.test.ts.
 
 const FROM = "sandbox-auto-booking";
 
@@ -40,28 +36,8 @@ function horaPending(state: string, extra: Session["counters"] = {}): Session {
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const booksDirectly = (result: HandlerResult) => queries(result).some((query) => query.kind === "book_appointment");
 
-describe("auto-booking of a single horario (documented gap)", () => {
-  it("evidence: a day with ONE horario is booked without asking", () => {
-    const result = handle(horaPending("cita_hora_pending"), horasResult([{ horaInicio: "13:00", horaFin: "13:30" }]));
-
-    expect(booksDirectly(result)).toBe(true);
-    expect(result.session.state).toBe("cita_booking_pending");
-  });
-
-  it("evidence: a last page with ONE leftover horario is booked when the citizen only asked for 'Ver más horarios'", () => {
-    const eleven = Array.from({ length: 11 }, (_, index) => {
-      const start = `${String(7 + index).padStart(2, "0")}:00`;
-      return { horaInicio: start, horaFin: `${start.slice(0, 2)}:30` };
-    });
-
-    // Page index 1 holds only the 11th slot.
-    const result = handle(horaPending("cita_hora_page_pending", { citaHoraPage: 1 }), horasResult(eleven));
-
-    expect(booksDirectly(result)).toBe(true);
-    expect(result.session.state).toBe("cita_booking_pending");
-  });
-
-  gap("a lone horario goes to the confirmation step instead of booking", () => {
+describe("a single horario is never booked without asking", () => {
+  it("a day with ONE horario goes to the confirmation step", () => {
     const result = handle(horaPending("cita_hora_pending"), horasResult([{ horaInicio: "13:00", horaFin: "13:30" }]));
 
     expect(booksDirectly(result)).toBe(false);
@@ -69,12 +45,13 @@ describe("auto-booking of a single horario (documented gap)", () => {
     expect(result.session.slots.citaHoraConfirmId).toBe("13:00|13:30");
   });
 
-  gap("a one-slot last page also asks for confirmation", () => {
+  it("a last page with ONE leftover horario asks too, when the citizen only asked for 'Ver más horarios'", () => {
     const eleven = Array.from({ length: 11 }, (_, index) => {
       const start = `${String(7 + index).padStart(2, "0")}:00`;
       return { horaInicio: start, horaFin: `${start.slice(0, 2)}:30` };
     });
 
+    // Page index 1 holds only the 11th slot.
     const result = handle(horaPending("cita_hora_page_pending", { citaHoraPage: 1 }), horasResult(eleven));
 
     expect(booksDirectly(result)).toBe(false);

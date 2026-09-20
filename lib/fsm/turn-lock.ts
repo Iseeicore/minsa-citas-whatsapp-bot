@@ -22,6 +22,11 @@ export class TurnLockTimeoutError extends Error {
   }
 }
 
+// What a citizen reads when their message waited for the lock and gave up (the
+// turn before it is still running): the message is not answered, so they are
+// asked to send it again instead of being left in silence.
+export const TURN_BUSY_TEXT = "Estamos atendiendo muchas solicitudes. Por favor, escribe de nuevo en unos segundos.";
+
 export type TurnTask<T> = () => Promise<T>;
 export type TurnLock = <T>(waId: string, task: TurnTask<T>) => Promise<T>;
 

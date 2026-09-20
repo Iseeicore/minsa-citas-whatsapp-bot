@@ -8,8 +8,9 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   afterPromises: [] as Promise<unknown>[],
   conversationUpsert: vi.fn(async () => ({ id: "conv-1" })),
-  messageFindUnique: vi.fn(async () => null),
-  messageUpsert: vi.fn(async () => ({})),
+  // The inbound row is inserted (never read first): a duplicate delivery is the
+  // unique-constraint error P2002, which is how the webhook tells it is one.
+  messageCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
   messageUpdateMany: vi.fn(async () => ({})),
   sessionFindUnique: vi.fn(async (): Promise<{ id: string; state: string } | null> => ({ id: "x", state: "main_menu" })),
   sessionRowExists: vi.fn(async () => false),
@@ -36,7 +37,7 @@ vi.mock("next/server", async (importOriginal) => {
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     conversation: { upsert: mocks.conversationUpsert },
-    message: { findUnique: mocks.messageFindUnique, upsert: mocks.messageUpsert, updateMany: mocks.messageUpdateMany },
+    message: { create: mocks.messageCreate, updateMany: mocks.messageUpdateMany },
     sandboxSession: { findUnique: mocks.sessionFindUnique },
   },
 }));
@@ -49,10 +50,16 @@ vi.mock("@/lib/whatsapp-send", () => ({
 vi.mock("@/lib/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: mocks.downloadMedia }));
 vi.mock("@/lib/fsm/session-store", () => ({ sessionRowExists: mocks.sessionRowExists, saveSession: mocks.saveSession }));
 vi.mock("@/lib/fsm/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked }));
-vi.mock("@/lib/fsm/turn-lock", () => ({ withTurnLock: mocks.withTurnLock }));
+// Only the lock itself is replaced; its timeout error and busy text stay real.
+vi.mock("@/lib/fsm/turn-lock", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fsm/turn-lock")>()),
+  withTurnLock: mocks.withTurnLock,
+}));
 
 import { POST } from "@/app/webhook/whatsapp/route";
 import { OOS_MESSAGES } from "@/lib/fsm/out-of-scope-messages";
+import { TURN_BUSY_TEXT, TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
+import { configureLogger } from "@/lib/observability/logger";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 
 const SECRET = "test-app-secret";
@@ -117,7 +124,7 @@ describe("transport security: HMAC-SHA256 signature (Paso 0)", () => {
 
     expect(response.status).toBe(403);
     expect(mocks.conversationUpsert).not.toHaveBeenCalled();
-    expect(mocks.messageUpsert).not.toHaveBeenCalled();
+    expect(mocks.messageCreate).not.toHaveBeenCalled();
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
     expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
@@ -227,7 +234,7 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: reply });
     // Nothing was persisted or locked for it:
     expect(mocks.conversationUpsert).not.toHaveBeenCalled();
-    expect(mocks.messageUpsert).not.toHaveBeenCalled();
+    expect(mocks.messageCreate).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
     expect(mocks.saveSession).not.toHaveBeenCalled();
@@ -275,5 +282,125 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
     const response = await deliver([textMessage(freshWaId(), "a".repeat(400))]);
 
     expect(response.status).toBe(200);
+  });
+});
+
+describe("a message Meta delivers twice is answered once (DATA-01)", () => {
+  const duplicate = () => Object.assign(new Error("Unique constraint failed on the fields: (`waMessageId`)"), { code: "P2002" });
+
+  it("stores the inbound message with one insert, keyed by its WhatsApp id, and answers it", async () => {
+    const message = textMessage(freshWaId(), "Hola");
+
+    await deliver([message]);
+
+    expect(mocks.messageCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.messageCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ waMessageId: message.id, conversationId: "conv-1", content: "Hola" }),
+    });
+    expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
+  });
+
+  it("a redelivery (unique-constraint error) is skipped: no turn, no lock, no reply", async () => {
+    mocks.messageCreate.mockRejectedValueOnce(duplicate());
+
+    const response = await deliver([textMessage(freshWaId(), "Hola")]);
+
+    expect(response.status).toBe(200);
+    expect(mocks.withTurnLock).not.toHaveBeenCalled();
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
+    expect(mocks.sendAndRecordEffect).not.toHaveBeenCalled();
+  });
+
+  it("two copies of the same message racing in one payload: only the one that inserted is answered", async () => {
+    mocks.messageCreate.mockResolvedValueOnce({}).mockRejectedValueOnce(duplicate());
+    const message = textMessage(freshWaId(), "Hola");
+
+    await deliver([message, message]);
+
+    expect(mocks.messageCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
+  });
+
+  it("any other database error is NOT taken for a redelivery: it is logged and the turn does not run", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.messageCreate.mockRejectedValueOnce(new Error("connection reset"));
+
+    const response = await deliver([textMessage(freshWaId(), "Hola")]);
+
+    expect(response.status).toBe(200);
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith("Failed to process webhook entry", expect.objectContaining({ message: "connection reset" }));
+    error.mockRestore();
+  });
+
+  it("a redelivery does not stop the messages after it in the same payload", async () => {
+    mocks.messageCreate.mockRejectedValueOnce(duplicate());
+
+    await deliver([textMessage(freshWaId(), "Hola"), textMessage(freshWaId(), "Hola")]);
+
+    expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the turn lock timed out: the citizen is told to write again (G3)", () => {
+  it("sends the fixed busy text instead of leaving the message unanswered", async () => {
+    const waId = freshWaId();
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+
+    const response = await deliver([textMessage(waId, "Hola")]);
+
+    expect(response.status).toBe(200);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_BUSY_TEXT });
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
+  });
+
+  it("the busy text asks the citizen to write again in a few seconds", () => {
+    expect(TURN_BUSY_TEXT).toMatch(/escribe de nuevo/i);
+    expect(TURN_BUSY_TEXT.length).toBeLessThan(200);
+  });
+
+  it("the database layer timing out is answered the same way", async () => {
+    const waId = freshWaId();
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "database"));
+
+    await deliver([textMessage(waId, "Hola")]);
+
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_BUSY_TEXT });
+  });
+
+  it("the timeout is logged as a warning with the layer, and the waId is masked", async () => {
+    const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
+    const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });
+    const waId = freshWaId();
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "database"));
+
+    await deliver([textMessage(waId, "Hola")]);
+    restore();
+
+    const entry = lines.find((line) => line.record.event === "turn.lock_timeout");
+    expect(entry?.level).toBe("warn");
+    expect(entry?.record).toMatchObject({ layer: "database", waId: `...${waId.slice(-4)}` });
+    expect(JSON.stringify(entry?.record)).not.toContain(waId);
+  });
+
+  it("another citizen in the same payload is still answered", async () => {
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError("x", "process"));
+
+    await deliver([textMessage(freshWaId(), "Hola"), textMessage(freshWaId(), "Hola")]);
+
+    expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
+  });
+
+  it("an error that is not a lock timeout is not answered as «busy»", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const waId = freshWaId();
+    mocks.withTurnLock.mockRejectedValueOnce(new Error("boom"));
+
+    await deliver([textMessage(waId, "Hola")]);
+
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_BUSY_TEXT });
+    error.mockRestore();
   });
 });

@@ -28,7 +28,7 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 | Distrito que resuelve | `Lurigancho` (es el único con ubigeo de prueba) |
 | Especialidades | `MEDICINA GENERAL`, `ODONTOLOGIA` |
 | Establecimiento | uno solo: `CENTRO DE SALUD LURIGANCHO` (se elige solo) |
-| Fechas | mañana y pasado mañana en hora de Lima, mostradas como `AAAAMMDD` (ej. `20260920`) |
+| Fechas | los tres días siguientes en hora de Lima, mostradas como `AAAAMMDD` (ej. `20260920`). La tercera tiene un único horario (caso 3.17) |
 | Horarios | `08:00 - 08:30`, `09:30 - 10:00`, `13:00 - 13:30` |
 
 En **modo real** (variables `SANDBOX_USE_REAL_*` encendidas) los datos vienen de MINSA/RENIEC/Gemini y cambian cada día. Los casos marcados con ⚙ dependen de que el día tenga ese horario; si no lo tiene, anótalo como **No aplicable**, no como fallo.
@@ -227,7 +227,7 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.11 | `odontología` (texto, sin tocar la lista) | `Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:`. | Coincide el nombre con la fila ofrecida. Sin IA. | ☐ ☐ |
 | 3.12 | `1` | `Buscando horarios disponibles…` y la lista `Selecciona el horario:` (08:00 - 08:30, 09:30 - 10:00, 13:00 - 13:30). | En listas, `1` es la posición 1. | ☐ ☐ |
 
-> **Gap conocido (`docs/technical-gaps.md`, G1):** si un día ofrece **un solo** horario, o si la última página de «Ver más horarios» deja un solo horario, el bot agenda **sin pedir confirmación**. Con el catálogo fake (tres horarios) no ocurre. Si lo encuentras en modo real, anótalo como **Gap conocido**, no como fallo nuevo.
+> **Un solo horario (G1, cerrado):** si un día ofrece **un solo** horario, o la última página de «Ver más horarios» deja uno solo, el bot **pide confirmación** antes de agendar (caso 3.17). Con el catálogo fake, la **tercera fecha** de la lista tiene un único horario para probarlo.
 
 ### 3.13 Selección de horario (parte de la lista `08:00 / 09:30 / 13:00`)
 
@@ -292,6 +292,24 @@ Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenci
 | 3.16l | Con la sesión ya iniciada, en el paso del DNI escribir `vacunas`; en el paso de la descripción del reclamo escribir `no me entregaron mis medicamentos`. | DNI: `DNI inválido. Debe tener 8 dígitos. Intenta de nuevo.` Reclamo: se toma como la descripción y sigue el flujo. | Dentro de un flujo **nunca** se aplica la lectura fuera de alcance: cada paso lee lo que pidió. | ☐ ☐ |
 | 3.16m | `quiero una cita de medicina general` y `necesito cita en medicina interna` | Siguen el camino de la cita (DNI o consulta a la IA), **sin** mensaje de medicamentos. | Contraejemplos de falsos positivos de OOS-05. | ☐ ☐ |
 | 3.16n | Tras terminar un flujo (por ejemplo tras 3.14a), escribir `¿Tienen vacunas para mi bebé?` | El mensaje de OOS-06, **sin** bienvenida. | El reingreso tras un estado terminal se lee igual que un primer mensaje. | ☐ ☐ |
+
+### 3.17 Un solo horario disponible (confirmación antes de agendar)
+
+Sandbox con el catálogo fake: en la lista de fechas elige la **tercera** (tiene un único horario, 13:00 - 13:30). Con MINSA real sirve cualquier día con un solo horario, o una última página con uno solo.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 3.17a | Elegir la tercera fecha. | `Solo hay un horario disponible: 13:00 - 13:30. ¿Lo confirmas?` con **[Sí, confirmar]** y **[No, gracias]**. **No** aparece `Agendando tu cita…`. | Estado `cita_awaiting_hora_confirm`. No se consulta `book_appointment` hasta que el ciudadano confirma. | ☐ ☐ |
+| 3.17b | Tocar **Sí, confirmar**. | `Agendando tu cita…`, la constancia y el cierre (ver 3.14a). | Se agenda una sola vez. | ☐ ☐ |
+| 3.17c | Repetir 3.17a y escribir `esa hora` (también `me sirve`, `me conviene`, `esa misma`, `la tomo`, `13:00`, `a la 1`, `sí`). | Igual que 3.17b: agenda. | Se entiende que toma **ese** horario, escrito o con palabras. Sin IA. | ☐ ☐ |
+| 3.17d | Repetir 3.17a y escribir `a las 3`, `13:30`, `si pero a las 3` o `no a la 1`. | Repite `Solo hay un horario disponible: 13:00 - 13:30. ¿Lo confirmas?` con los botones. **No agenda.** | Una hora distinta, o cualquier negación, nunca agenda. Log `turn.note` (warn) `confirmation_unknown`. | ☐ ☐ |
+| 3.17e | Repetir 3.17a y tocar **No, gracias** (o escribir `no`, `otro horario`). | `Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.` `¿Deseas cambiar de fecha?` con `[1] Sí, cambiar de fecha` `[2] No, salir` y los botones **[Sí, otra fecha]** y **[No, salir]**. | Estado `cita_awaiting_other_fecha`. La sesión **no** se cierra: se conservan el token, el DNI, el establecimiento y la especialidad. La fecha rechazada se recuerda como descartada. Log `turn.note` `hora_declined`. | ☐ ☐ |
+| 3.17f | Tras 3.17e, tocar **Sí, otra fecha** (o `sí`, `1`, `otra fecha`, `cambiar`, `otro día`). | `Buscando otras fechas disponibles…` y la lista de fechas **sin la fecha descartada** (con el catálogo fake quedan las dos primeras). Sin pedir DNI ni OTP otra vez. | Vuelve a consultar las fechas. Si queda una sola, se toma sola y sigue a sus horarios. | ☐ ☐ |
+| 3.17g | Tras 3.17e, tocar **No, salir** (o `no`, `2`, `salir`). | `Lamentamos no haber encontrado un horario que se ajuste a lo que necesitas. Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋` **Sin** pedir que escriba CITAS. | Estado `cita_declined_closed`, sesión vacía sin token. Escribir `Hola` después da la bienvenida. Log `cita_closed` con `reason: declined`. | ☐ ☐ |
+| 3.17h | Con MINSA real y un establecimiento con **una sola** fecha: repetir 3.17a y 3.17f. | `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento.` y la despedida. | Como la fecha rechazada no se vuelve a ofrecer, no hay bucle. Log `cita_closed` con `reason: no_other_dates`. | ☐ ☐ |
+| 3.17i | En 3.17f elegir otra fecha que **también** tenga un solo horario y decir que no; pedir cambiar de fecha otra vez. | La lista deja fuera **las dos** fechas rechazadas; si no queda ninguna, la disculpa de 3.17h. | Las fechas descartadas se acumulan. | ☐ ☐ |
+| 3.17j | Con MINSA real y un día de 11 horarios: pedir `Ver más horarios` hasta la última página (un solo horario) y tocar **No, gracias**. | `Sin problema. Elige otro horario:` y la lista de la página **anterior**. | Vuelve a la página anterior; `Ver más horarios` sigue funcionando y no queda vacío. | ☐ ☐ |
+| 3.17k | En una confirmación normal (`¿Confirmas el horario 08:00 - 08:30?`, tras escribir `8`) escribir `esa hora` o `a las 8`. | Agenda. Con `a las 9` repite la pregunta sin agendar. | Vale para cualquier confirmación de horario, no solo la del horario único. | ☐ ☐ |
 
 ---
 
@@ -365,7 +383,7 @@ Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (
 | `perimeter.dropped` / `perimeter.muted` / `perimeter.rejected` / `perimeter.banned` | El perímetro descartó, rechazó (`too_long`, `link`, `media`) o sancionó a un número (sección 1). |
 | `[turn-lock] turn waited 312 ms behind an earlier turn of ...1234` | Un turno esperó a otro del mismo ciudadano. **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
 | `[turn-lock] database lock for ...1234 took 340 ms` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |
-| `Failed to process webhook entry` seguido de `TurnLockTimeoutError` | Un turno esperó demasiado el candado y se abandonó. **No debería verse en estas pruebas**; si aparece, anótalo. |
+| `turn.lock_timeout` (`warn`) con `layer` | Un turno esperó demasiado el candado y se abandonó. El ciudadano recibe `Estamos atendiendo muchas solicitudes. Por favor, escribe de nuevo en unos segundos.` **No debería verse en estas pruebas**; si aparece, anótalo. |
 
 Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por sí solo: significa que los turnos duraron menos de 150 ms. Lo que decide es 4.2a/4.2b.
 

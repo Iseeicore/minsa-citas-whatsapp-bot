@@ -78,6 +78,22 @@ function toWords(text: string): string[] {
     .filter((word) => word !== "" && !COURTESY_WORDS.has(word));
 }
 
+// Taking a specific, already-named slot in words: "esa hora", "esa misma", "me
+// sirve", "la tomo". Only meaningful where ONE thing is on the table (a pending
+// horario), so it is a separate reader and never part of resolveConfirmation.
+// Whole-reply match, so "esa no" or "me sirve otra" are not acceptances.
+const LEADING_YES = "(?:(?:si|ok|okey|dale|vale|claro|listo)\\s+)?";
+const TAKING_THAT = new RegExp(
+  `^${LEADING_YES}(?:(?:quiero|tomo|acepto|confirmo|me quedo con)\\s+)?(?:esa|ese)(?:\\s+(?:misma|mismo))?(?:\\s+(?:hora|horario|cita))?$`,
+);
+const SUITS_ME = new RegExp(`^${LEADING_YES}(?:(?:esa|ese)\\s+)?me\\s+(?:sirve|conviene)$`);
+const TAKING_IT = new RegExp(`^${LEADING_YES}(?:la|lo)\\s+(?:tomo|quiero|acepto|confirmo)$`);
+
+export function isSlotAcceptance(text: string): boolean {
+  const phrase = toWords(text).join(" ");
+  return TAKING_THAT.test(phrase) || SUITS_ME.test(phrase) || TAKING_IT.test(phrase);
+}
+
 export function resolveConfirmation(text: string): Confirmation {
   const words = toWords(text);
   if (words.length === 0) return "UNKNOWN";
