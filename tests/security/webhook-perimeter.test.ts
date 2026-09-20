@@ -61,6 +61,7 @@ import { OOS_MESSAGES } from "@/lib/fsm/out-of-scope-messages";
 import { TURN_BUSY_TEXT, TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
 import { configureLogger } from "@/lib/observability/logger";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
+import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";
 
 const SECRET = "test-app-secret";
 let counter = 0;
@@ -138,8 +139,8 @@ describe("transport security: HMAC-SHA256 signature (Paso 0)", () => {
   });
 });
 
-describe("rate limiting (drop silently, still acknowledge Meta)", () => {
-  it("processes 5 messages in a burst and silently drops the rest, with no database work for the dropped ones", async () => {
+describe("rate limiting (drop the flood, tell the citizen once, still acknowledge Meta)", () => {
+  it("processes 5 messages in a burst and drops the rest, with no database work for the dropped ones", async () => {
     const waId = freshWaId();
     const burst = Array.from({ length: 8 }, () => textMessage(waId, "hola"));
 
@@ -149,8 +150,51 @@ describe("rate limiting (drop silently, still acknowledge Meta)", () => {
     expect(await response.json()).toEqual({ received: true });
     expect(mocks.conversationUpsert).toHaveBeenCalledTimes(5);
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(5);
-    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled(); // no reply to the dropped ones
     expect(mocks.sessionRowExists).not.toHaveBeenCalled();
+  });
+
+  it("the citizen is told ONCE, when the mute starts, and the rest of the burst gets no reply", async () => {
+    const waId = freshWaId();
+
+    await deliver(Array.from({ length: 8 }, () => textMessage(waId, "hola")));
+
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: MUTE_NOTICE_TEXT });
+    // The notice is a fixed reply: nothing was stored or locked for that 6th message.
+    expect(mocks.conversationUpsert).toHaveBeenCalledTimes(5);
+    expect(mocks.messageCreate).toHaveBeenCalledTimes(5);
+    expect(mocks.withTurnLock).toHaveBeenCalledTimes(5);
+  });
+
+  it("while muted, further messages get no reply at all (the notice is not repeated)", async () => {
+    const waId = freshWaId();
+    await deliver(Array.from({ length: 6 }, () => textMessage(waId, "hola")));
+    vi.clearAllMocks();
+
+    await deliver([textMessage(waId, "hola"), textMessage(waId, "¿hay alguien?")]);
+
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
+    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+  });
+
+  it("a notice that fails to send does not break the webhook", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.sendWhatsAppEffect.mockRejectedValueOnce(new Error("graph down"));
+    const waId = freshWaId();
+
+    const response = await deliver(Array.from({ length: 7 }, () => textMessage(waId, "hola")));
+
+    expect(response.status).toBe(200);
+    error.mockRestore();
+  });
+
+  it("another citizen is told nothing because someone else flooded", async () => {
+    await deliver(Array.from({ length: 8 }, () => textMessage(freshWaId(), "hola")));
+    vi.clearAllMocks();
+
+    await deliver([textMessage(freshWaId(), "hola")]);
+
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
   });
 
   it("more than 20 messages in a minute bans the waId: later messages are dropped too", async () => {
