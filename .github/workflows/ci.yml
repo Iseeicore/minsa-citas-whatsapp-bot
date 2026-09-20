@@ -1,0 +1,60 @@
+name: CI
+
+# The same three checks that are run by hand before every commit: types, lint and
+# the whole automated suite. Nothing here talks to Meta, MINSA, Gemini or a real
+# database: the tests use in-memory stores and fakes, so the job needs no secrets.
+#
+# Runs on every pull request (stacked ones too: their base is another branch, not
+# main) and on every push to main, so a merge can never leave main red unnoticed.
+# `edited` is listed only to catch a pull request being re-targeted to main after
+# the one below it in a stack is merged; a title or description edit is skipped.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: types, lint and tests
+    if: github.event.action != 'edited' || github.event.changes.base != null
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+        env:
+          # `npm ci` runs `prisma generate` (postinstall), which only needs the schema
+          # to parse; it never connects, so a placeholder is enough. It is set for this
+          # step ONLY: with a DATABASE_URL present the app wires the Postgres turn lock
+          # and the tests would try to reach a database.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      # Next generates the global route types (LayoutProps, PageProps...) itself;
+      # on a clean checkout they do not exist until this runs.
+      - name: Route types
+        run: npx next typegen
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint lib app tests
+
+      - name: Tests
+        run: npx vitest run
