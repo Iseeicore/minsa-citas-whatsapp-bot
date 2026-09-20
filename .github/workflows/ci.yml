@@ -43,6 +43,11 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Next generates the global route types (LayoutProps, PageProps...) itself;
+      # on a clean checkout they do not exist until this runs.
+      - name: Route types
+        run: npx next typegen
+
       - name: Types
         run: npx tsc --noEmit
 
