@@ -28,10 +28,6 @@ jobs:
     if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      # `npm ci` runs `prisma generate` (postinstall), which only needs the schema
-      # to parse; it never connects. A placeholder is enough.
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +38,12 @@ jobs:
 
       - name: Install
         run: npm ci
+        env:
+          # `npm ci` runs `prisma generate` (postinstall), which only needs the schema
+          # to parse; it never connects, so a placeholder is enough. It is set for this
+          # step ONLY: with a DATABASE_URL present the app wires the Postgres turn lock
+          # and the tests would try to reach a database.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
       # Next generates the global route types (LayoutProps, PageProps...) itself;
       # on a clean checkout they do not exist until this runs.
