@@ -7,6 +7,7 @@ import { isQueryEffect } from "@/lib/fsm/handlers-shared";
 import { traceTurn } from "@/lib/observability/tracer";
 import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
 import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session-store";
+import { toPublicSession } from "@/lib/fsm/session-dto";
 import type { SendEffect } from "@/lib/fsm/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
@@ -146,13 +147,9 @@ export async function POST(request: NextRequest) {
   }
   const { sent, session } = turn;
 
-  return NextResponse.json(
-    {
-      sent,
-      session: { state: session.state, slots: session.slots, counters: session.counters },
-    },
-    { headers: cors },
-  );
+  // toPublicSession, nunca `session` directo: los slots llevan el bearer de
+  // MINSA y datos personales que no pueden cruzar este borde (ver session-dto.ts).
+  return NextResponse.json({ sent, session: toPublicSession(session) }, { headers: cors });
 }
 
 async function startConversation(from: string, text?: string): Promise<TurnResult> {
