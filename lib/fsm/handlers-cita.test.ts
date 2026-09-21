@@ -151,6 +151,45 @@ describe("offered options are remembered when a list is sent", () => {
   });
 });
 
+describe("especialidad list arrives (list_especialidades result)", () => {
+  const items = [
+    { codigoEspecialidad: "01", nombreEspecialidad: "MEDICINA GENERAL", cantidadCupos: 5 },
+    { codigoEspecialidad: "02", nombreEspecialidad: "ODONTOLOGIA", cantidadCupos: 3 },
+  ];
+
+  it("a hint that matches exactly one real item auto-selects it", () => {
+    const pending = at("cita_especialidad_pending", undefined, { citaEspecialidadHintText: "Odontología" });
+
+    const result = handle(pending, queryResult("list_especialidades", { status: "found", items }));
+
+    expect(result.session.state).toBe("cita_establecimiento_pending");
+    expect(result.session.slots.citaEspecialidadId).toBe("02");
+    expect(result.session.slots.citaEspecialidadHintText).toBeUndefined();
+    expect((sent(result)[0] as { text: string }).text).toContain("Especialidad detectada: ODONTOLOGIA");
+  });
+
+  it("a hint that doesn't match any real item says so before showing the real list", () => {
+    const pending = at("cita_especialidad_pending", undefined, { citaEspecialidadHintText: "Medicina Interna" });
+
+    const result = handle(pending, queryResult("list_especialidades", { status: "found", items }));
+
+    expect(result.session.state).toBe("cita_awaiting_especialidad_select");
+    expect(result.session.slots.citaEspecialidadHintText).toBeUndefined();
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("No encontramos *Medicina Interna*");
+    expect(listRowsOf(result)?.map((row) => row.id)).toEqual(["01", "02"]);
+  });
+
+  it("no hint at all just shows the real list, no comment", () => {
+    const pending = at("cita_especialidad_pending");
+
+    const result = handle(pending, queryResult("list_especialidades", { status: "found", items }));
+
+    expect(result.session.state).toBe("cita_awaiting_especialidad_select");
+    expect((sent(result)[0] as { text: string }).text).toBe("Selecciona la especialidad:");
+  });
+});
+
 describe("ubigeo select (list MINSA returned for a resolved district)", () => {
   const state = "cita_awaiting_ubigeo_select";
 
