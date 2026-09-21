@@ -96,6 +96,27 @@ describe("first contact: a clear request for a cita", () => {
     });
   });
 
+  // Field-tested gap: "necesito cita en medicina interna" fell to the generic
+  // menu because MEDICINA INTERNA wasn't in ESPECIALIDAD_ROOTS (only 9 roots
+  // + the "MEDICINA GENERAL" special case existed) — see cita-hints.ts.
+  it.each([
+    ["necesito cita en medicina interna", "Medicina Interna"],
+    ["quiero cita de cirugía general", "Cirugía General"],
+    ["quiero una cita de medicina familiar", "Medicina Familiar"],
+    ["necesito cita en urología", "Urología"],
+    ["quiero cita de otorrinolaringología", "Otorrinolaringología"],
+    ["necesito cita en neurología", "Neurología"],
+    ["quiero cita de psiquiatría", "Psiquiatría"],
+    ["necesito cita en endocrinología", "Endocrinología"],
+    ["quiero cita de reumatología", "Reumatología"],
+    ["necesito cita en obstetricia", "Obstetricia"],
+  ])("recognizes %j as a request for %s (no menu detour)", (message, especialidad) => {
+    const result = handleFirstContact(message);
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining(`tu cita de ${especialidad}. Para comenzar`) });
+  });
+
   it("does not treat something that is not a new cita as one: it gets the menu", () => {
     for (const message of ["quiero cancelar mi cita de odontología en Miraflores", "quiero una cita"]) {
       const result = handleFirstContact(message);

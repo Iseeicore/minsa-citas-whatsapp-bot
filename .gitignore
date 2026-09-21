@@ -23,6 +23,9 @@
 # daily structured logs (LOG_TO_FILE=true): logs/DD-MM-YYYY/*.ndjson
 /logs/
 
+# scripts/run-sandbox-playbook.mjs run output
+/scripts/playbook-runs/
+
 # misc
 .DS_Store
 *.pem

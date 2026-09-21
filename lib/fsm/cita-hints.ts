@@ -16,6 +16,29 @@ const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
   [/^traumatolog/, "Traumatología"],
   [/^psicolog/, "Psicología"],
   [/^nutricion/, "Nutrición"],
+  // Field-tested gap: "necesito cita en medicina interna" fell through to
+  // the generic menu because none of these existed yet — only single words
+  // were covered, and "medicina" alone is ambiguous with "MEDICINA GENERAL"
+  // (handled separately above as a two-word special case), so it's excluded
+  // here on purpose. This list is only a free-text hint (see
+  // matchEspecialidadHint in handlers-cita.ts) — it never decides what's
+  // actually offered, that always comes from MINSA's real especialidad list.
+  [/^urolog/, "Urología"],
+  [/^otorrinolaringolog/, "Otorrinolaringología"],
+  [/^neurolog/, "Neurología"],
+  [/^psiquiatr/, "Psiquiatría"],
+  [/^endocrinolog/, "Endocrinología"],
+  [/^reumatolog/, "Reumatología"],
+  [/^obstetric/, "Obstetricia"],
+];
+
+// Two-word specialties, same reason "MEDICINA GENERAL" already needed one:
+// no single word identifies them (and for "medicina interna"/"cirugía
+// general", the first word alone is ambiguous with other specialties).
+const ESPECIALIDAD_PHRASES: Array<[RegExp, string]> = [
+  [/\bMEDIC(?:INA|O) INTERNA\b/, "Medicina Interna"],
+  [/\bMEDIC(?:INA|O) FAMILIAR\b/, "Medicina Familiar"],
+  [/\bCIRUGIA GENERAL\b/, "Cirugía General"],
 ];
 
 const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);const MAX_PLACE_WORDS = 4;
@@ -32,7 +55,12 @@ export function extractCitaHints(message: string): CitaHints {
   const hints: CitaHints = {};
 
   // Two-word specialty: no single word identifies it.
-  if (/\bMEDIC(?:INA|O) GENERAL\b/.test(words.join(" "))) hints.especialidad = "Medicina General";
+  const joined = words.join(" ");
+  if (/\bMEDIC(?:INA|O) GENERAL\b/.test(joined)) hints.especialidad = "Medicina General";
+  if (!hints.especialidad) {
+    const phrase = ESPECIALIDAD_PHRASES.find(([root]) => root.test(joined));
+    if (phrase) hints.especialidad = phrase[1];
+  }
 
   for (const word of hints.especialidad ? [] : words) {
     const lower = word.toLowerCase();

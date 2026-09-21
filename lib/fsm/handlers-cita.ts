@@ -738,7 +738,16 @@ function handleEspecialidadPending(session: Session, event: QueryResultEvent): H
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [offerList(next, "Selecciona la especialidad:", rows)]);
+
+    // The citizen already named a specialty (in their opening message, or one
+    // the earlier AI intent step read), but it isn't among what THIS
+    // establishment actually offers — say so before the list, instead of
+    // silently discarding what they asked for. `result.items` is always the
+    // real, current MINSA catalog, never a static guess.
+    const notFoundNotice = hint ? [sendText(`No encontramos *${hint}* en este establecimiento. Estas son las especialidades disponibles aquí:`)] : [];
+    if (hint) delete next.slots.citaEspecialidadHintText;
+
+    return buildResult(next, [...notFoundNotice, offerList(next, "Selecciona la especialidad:", rows)]);
   }
 
   return offerOtherDistrito(next, "especialidades");
