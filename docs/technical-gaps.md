@@ -34,6 +34,10 @@ Los pasos del catálogo (ubigeo, especialidad por pista, establecimiento, fecha)
 
 `lib/fsm/single-horario.test.ts`, `lib/fsm/other-fecha.test.ts` y `tests/stress/auto-booking.test.ts` (ya no llevan marcador `gap`). A mano: caso 3.17 del playbook; el catálogo fake tiene una tercera fecha con un solo horario.
 
+### Nota: fecha y hora legibles (no es un gap, es una mejora aparte)
+
+Lo que el ciudadano lee ya no es la fecha ni la hora cruda que entrega MINSA (`22/09/2026`, o `20260922` sin separadores en el catálogo fake) ni siempre en 24 horas (`13:00 - 13:30`). Las filas de lista muestran día de semana + fecha con el mes en letras (`mar 22 sep`) y las horas en 12 horas con AM/PM (`1:00 PM - 1:30 PM`); los mensajes de texto («Fecha encontrada…», «¿Confirmas el horario…?», «Solo hay un horario disponible…») usan la fecha larga (`martes 22 de septiembre`). **Lo que viaja a MINSA no cambió**: `citaFecha` y `horaInicio` se guardan y se envían tal cual MINSA los entregó; `formatFechaForApi` y `formatHoraCita` (`lib/fsm/executor.ts`) siguen convirtiéndolos al formato que la API espera justo antes de la llamada, como ya lo hacían. Las funciones nuevas son `formatDateLong`/`formatDateShort` (`lib/fsm/date-parser.ts`) y el ya existente `formatHora12` (`lib/fsm/handlers-cita.ts`), ahora también usado en las listas. Un `fechaCupo` en un formato que `parseOfferedDate` no reconoce cae de vuelta al texto crudo: nunca rompe una fila.
+
 ---
 
 ## G2. Typo extremo en insultos

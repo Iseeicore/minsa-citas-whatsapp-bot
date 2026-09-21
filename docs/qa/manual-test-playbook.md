@@ -224,8 +224,8 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.8 | `qwertyuiop` | El mismo mensaje. | Igual. | ☐ ☐ |
 | 3.9 | `Lurigancjo` (error leve) | **Modo real:** `Buscando tu distrito: "Lurigancjo"…` y continúa (la IA lo corrige). **Modo fake:** `Buscando tu distrito: "Lurigancjo"…` y el botón **Cita Nivel Global** (el fake no corrige errores). | En modo real: **1 llamada a IA**. Aquí sí se llama a la IA (no es basura). | ☐ ☐ |
 | 3.10 | Reiniciar y llegar al paso 3.6 de nuevo. Escribir `Lurigancho`. | `Buscando tu ubigeo…`, `Entendido. Buscando especialidades y citas disponibles en *Lurigancho*…` y la lista `Selecciona la especialidad:` (MEDICINA GENERAL, ODONTOLOGIA). | Resuelto **sin IA** con el padrón local. | ☐ ☐ |
-| 3.11 | `odontología` (texto, sin tocar la lista) | `Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:`. | Coincide el nombre con la fila ofrecida. Sin IA. | ☐ ☐ |
-| 3.12 | `1` | `Buscando horarios disponibles…` y la lista `Selecciona el horario:` (08:00 - 08:30, 09:30 - 10:00, 13:00 - 13:30). | En listas, `1` es la posición 1. | ☐ ☐ |
+| 3.11 | `odontología` (texto, sin tocar la lista) | `Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:` con filas como `mar 22 sep` (no la fecha cruda que entrega MINSA o el catálogo fake). | Coincide el nombre con la fila ofrecida. Sin IA. La fila muestra día de semana + fecha con el mes en letras; lo que viaja a MINSA (`citaFecha`) no cambia. | ☐ ☐ |
+| 3.12 | `1` | `Buscando horarios disponibles…` y la lista `Selecciona el horario:` (8:00 AM - 8:30 AM, 9:30 AM - 10:00 AM, 1:00 PM - 1:30 PM). | En listas, `1` es la posición 1. Las horas se muestran en formato 12 horas; hacia MINSA siguen viajando en 24 horas (`08:00`, `13:00`…), sin cambio. | ☐ ☐ |
 
 > **Un solo horario (G1, cerrado):** si un día ofrece **un solo** horario, o la última página de «Ver más horarios» deja uno solo, el bot **pide confirmación** antes de agendar (caso 3.17). Con el catálogo fake, la **tercera fecha** de la lista tiene un único horario para probarlo.
 
@@ -235,15 +235,15 @@ Vuelve a la lista de horarios (3.12) antes de cada caso. Tras cada confirmación
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 3.13a | `8` (⚙) | `¿Confirmas el horario 08:00 - 08:30?` con **[Sí, confirmar]** **[No, ver horarios]**. | No existe la opción 8, pero sí un horario 08:00: resuelve a la hora y **pide confirmación**. No agenda solo. | ☐ ☐ |
-| 3.13b | `3` (⚙) | `¿Confirmas el horario 13:00 - 13:30?` | La posición 3 es 13:00 y no hay 3 AM ni 3 PM: resuelve directo, con confirmación. | ☐ ☐ |
+| 3.13a | `8` (⚙) | `¿Confirmas el horario 8:00 AM - 8:30 AM?` con **[Sí, confirmar]** **[No, ver horarios]**. | No existe la opción 8, pero sí un horario 08:00: resuelve a la hora y **pide confirmación**. No agenda solo. | ☐ ☐ |
+| 3.13b | `3` (⚙) | `¿Confirmas el horario 1:00 PM - 1:30 PM?` | La posición 3 es 13:00 y no hay 3 AM ni 3 PM: resuelve directo, con confirmación. | ☐ ☐ |
 | 3.13c | `1` (⚙) | `¿A qué te refieres con "1"? Opción 1: 08:00, o 1:00 PM (13:00).` con dos botones **[Opción 1: 08:00]** y **[1:00 PM: 13:00]**. | Hay dos lecturas distintas: pregunta. **No agenda.** | ☐ ☐ |
 | 3.13d | Tras 3.13c, tocar **1:00 PM: 13:00**. | `Agendando tu cita…`, la constancia y el cierre (ver 3.14). | El botón nombra la hora exacta: agenda directo. | ☐ ☐ |
 | 3.13e | Repetir 3.13c y tocar **Opción 1: 08:00**. | Agenda la cita de las 08:00. | Igual. | ☐ ☐ |
-| 3.13f | Repetir 3.13c y, en vez de tocar un botón, escribir `1 pm`. | `¿Confirmas el horario 13:00 - 13:30?` | Escribir una hora vale como una respuesta normal. | ☐ ☐ |
-| 3.13g | `en la tarde` | `¿Confirmas el horario 13:00 - 13:30?` | Filtra solo los horarios de 12:00 en adelante (solo hay uno). | ☐ ☐ |
-| 3.13h | `a las 9 y media` | `¿Confirmas el horario 09:30 - 10:00?` | Entiende 12h y lo cruza con lo ofrecido. Lo que se envía a MINSA es siempre `09:30` (24h de la fila). | ☐ ☐ |
-| 3.13i | `a la 1` | `¿Confirmas el horario 13:00 - 13:30?` | «a la 1» tiene marcador de hora: no es la posición 1. | ☐ ☐ |
+| 3.13f | Repetir 3.13c y, en vez de tocar un botón, escribir `1 pm`. | `¿Confirmas el horario 1:00 PM - 1:30 PM?` | Escribir una hora vale como una respuesta normal. | ☐ ☐ |
+| 3.13g | `en la tarde` | `¿Confirmas el horario 1:00 PM - 1:30 PM?` | Filtra solo los horarios de 12:00 en adelante (solo hay uno). | ☐ ☐ |
+| 3.13h | `a las 9 y media` | `¿Confirmas el horario 9:30 AM - 10:00 AM?` | Entiende 12h y lo cruza con lo ofrecido. La confirmación se muestra en 12h; lo que se envía a MINSA es siempre `09:30` (24h de la fila). | ☐ ☐ |
+| 3.13i | `a la 1` | `¿Confirmas el horario 1:00 PM - 1:30 PM?` | «a la 1» tiene marcador de hora: no es la posición 1. | ☐ ☐ |
 | 3.13j | `5` | `Selecciona una opción de la lista.` y la lista de nuevo. | No es posición ni hora ofrecida: se rechaza y **no** viaja a MINSA. | ☐ ☐ |
 | 3.13k | `a las 3` | `No hay horarios disponibles a esa hora. Elige uno de la lista:` y la lista. | Entendida pero no ofrecida. | ☐ ☐ |
 | 3.13l | `hdp` | `Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto.` y la lista de nuevo. | El filtro también protege los pasos de selección. | ☐ ☐ |
@@ -297,21 +297,21 @@ Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenci
 
 ### 3.17 Un solo horario disponible (confirmación antes de agendar)
 
-Sandbox con el catálogo fake: en la lista de fechas elige la **tercera** (tiene un único horario, 13:00 - 13:30). Con MINSA real sirve cualquier día con un solo horario, o una última página con uno solo.
+Sandbox con el catálogo fake: en la lista de fechas elige la **tercera** fila (`mié 24 sep` o el día que corresponda; tiene un único horario, 1:00 PM - 1:30 PM). Con MINSA real sirve cualquier día con un solo horario, o una última página con uno solo.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 3.17a | Elegir la tercera fecha. | `Solo hay un horario disponible: 13:00 - 13:30. ¿Lo confirmas?` con **[Sí, confirmar]** y **[No, gracias]**. **No** aparece `Agendando tu cita…`. | Estado `cita_awaiting_hora_confirm`. No se consulta `book_appointment` hasta que el ciudadano confirma. | ☐ ☐ |
+| 3.17a | Elegir la tercera fecha. | `Solo hay un horario disponible: 1:00 PM - 1:30 PM. ¿Lo confirmas?` con **[Sí, confirmar]** y **[No, gracias]**. **No** aparece `Agendando tu cita…`. | Estado `cita_awaiting_hora_confirm`. No se consulta `book_appointment` hasta que el ciudadano confirma. | ☐ ☐ |
 | 3.17b | Tocar **Sí, confirmar**. | `Agendando tu cita…`, la constancia y el cierre (ver 3.14a). | Se agenda una sola vez. | ☐ ☐ |
 | 3.17c | Repetir 3.17a y escribir `esa hora` (también `me sirve`, `me conviene`, `esa misma`, `la tomo`, `13:00`, `a la 1`, `sí`). | Igual que 3.17b: agenda. | Se entiende que toma **ese** horario, escrito o con palabras. Sin IA. | ☐ ☐ |
-| 3.17d | Repetir 3.17a y escribir `a las 3`, `13:30`, `si pero a las 3` o `no a la 1`. | Repite `Solo hay un horario disponible: 13:00 - 13:30. ¿Lo confirmas?` con los botones. **No agenda.** | Una hora distinta, o cualquier negación, nunca agenda. Log `turn.note` (warn) `confirmation_unknown`. | ☐ ☐ |
+| 3.17d | Repetir 3.17a y escribir `a las 3`, `13:30`, `si pero a las 3` o `no a la 1`. | Repite `Solo hay un horario disponible: 1:00 PM - 1:30 PM. ¿Lo confirmas?` con los botones. **No agenda.** | Una hora distinta, o cualquier negación, nunca agenda. Log `turn.note` (warn) `confirmation_unknown`. | ☐ ☐ |
 | 3.17e | Repetir 3.17a y tocar **No, gracias** (o escribir `no`, `otro horario`). | `Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.` `¿Deseas cambiar de fecha?` con `[1] Sí, cambiar de fecha` `[2] No, salir` y los botones **[Sí, otra fecha]** y **[No, salir]**. | Estado `cita_awaiting_other_fecha`. La sesión **no** se cierra: se conservan el token, el DNI, el establecimiento y la especialidad. La fecha rechazada se recuerda como descartada. Log `turn.note` `hora_declined`. | ☐ ☐ |
 | 3.17f | Tras 3.17e, tocar **Sí, otra fecha** (o `sí`, `1`, `otra fecha`, `cambiar`, `otro día`). | `Buscando otras fechas disponibles…` y la lista de fechas **sin la fecha descartada** (con el catálogo fake quedan las dos primeras). Sin pedir DNI ni OTP otra vez. | Vuelve a consultar las fechas. Si queda una sola, se toma sola y sigue a sus horarios. | ☐ ☐ |
 | 3.17g | Tras 3.17e, tocar **No, salir** (o `no`, `2`, `salir`). | `Lamentamos no haber encontrado un horario que se ajuste a lo que necesitas. Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋` **Sin** pedir que escriba CITAS. | Estado `cita_declined_closed`, sesión vacía sin token. Escribir `Hola` después da la bienvenida. Log `cita_closed` con `reason: declined`. | ☐ ☐ |
 | 3.17h | Con MINSA real y un establecimiento con **una sola** fecha: repetir 3.17a y 3.17f. | `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento.` y la despedida. | Como la fecha rechazada no se vuelve a ofrecer, no hay bucle. Log `cita_closed` con `reason: no_other_dates`. | ☐ ☐ |
 | 3.17i | En 3.17f elegir otra fecha que **también** tenga un solo horario y decir que no; pedir cambiar de fecha otra vez. | La lista deja fuera **las dos** fechas rechazadas; si no queda ninguna, la disculpa de 3.17h. | Las fechas descartadas se acumulan. | ☐ ☐ |
 | 3.17j | Con MINSA real y un día de 11 horarios: pedir `Ver más horarios` hasta la última página (un solo horario) y tocar **No, gracias**. | `Sin problema. Elige otro horario:` y la lista de la página **anterior**. | Vuelve a la página anterior; `Ver más horarios` sigue funcionando y no queda vacío. | ☐ ☐ |
-| 3.17k | En una confirmación normal (`¿Confirmas el horario 08:00 - 08:30?`, tras escribir `8`) escribir `esa hora` o `a las 8`. | Agenda. Con `a las 9` repite la pregunta sin agendar. | Vale para cualquier confirmación de horario, no solo la del horario único. | ☐ ☐ |
+| 3.17k | En una confirmación normal (`¿Confirmas el horario 8:00 AM - 8:30 AM?`, tras escribir `8`) escribir `esa hora` o `a las 8`. | Agenda. Con `a las 9` repite la pregunta sin agendar. | Vale para cualquier confirmación de horario, no solo la del horario único. | ☐ ☐ |
 
 ---
 
