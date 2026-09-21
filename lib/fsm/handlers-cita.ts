@@ -3,17 +3,28 @@ import { closeWithApology, discardedDates, handleOtherFecha, offerOtherFecha, OT
 import { isSlotAcceptance, resolveConfirmation } from "./confirmation-parser";
 import { isValidDniFormat, isValidOtpFormat, normalizeText, toDisplayPlace } from "./domain";
 import {
+  looksLikePlaceName,
+  resolveDistritoCandidates,
+  resolveDistritoText,
+  type DistritoAiCandidateResult,
+} from "./distrito-resolver";
+import {
   buildResult,
   cloneSession,
+  isAffirmativeReply,
+  offerList,
   query,
   readReply,
   sendText,
   sendList,
   sendButtons,
   sendCtaUrl,
+  truncateForRow,
   withNote,
+  WHATSAPP_LIST_MAX_ROWS,
+  WHATSAPP_ROW_DESCRIPTION_MAX,
+  WHATSAPP_ROW_TITLE_MAX,
 } from "./handlers-shared";
-import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
 import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate, type DateParts } from "./date-parser";
 import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "./gibberish";
@@ -25,7 +36,6 @@ import {
   matchSelection,
   OFFERED_SLOT,
   readOffered,
-  serializeOffered,
   type OfferedList,
   type OfferedRow,
   type SelectionMatch,
@@ -348,50 +358,6 @@ function resumeAfterReverification(session: Session, resumeState: string): Handl
 // 3-question chain below (cita_awaiting_departamento onward), which stays
 // completely unchanged as the safety net.
 
-// Short affirmative replies ("sí", "ese", "yes", "s", ...) carry no place
-// name of their own — relying on the AI alone to notice this and fall back
-// to the opening message is not reliable (it depends on the AI being
-// enabled at all, and on it reasoning about it correctly every time).
-// Detecting these deterministically means the fallback to the citizen's
-// opening message works the same way whether SANDBOX_USE_REAL_AI is on or
-// off, and never depends on model behavior for this specific case.
-const AFFIRMATIVE_REPLIES = new Set([
-  "si",
-  "sí",
-  "s",
-  "yes",
-  "y",
-  "ese",
-  "esa",
-  "eso",
-  "correcto",
-  "exacto",
-  "confirmo",
-  "afirmativo",
-  "claro",
-  "asi es",
-  "así es",
-]);
-
-function isAffirmativeReply(text: string): boolean {
-  return AFFIRMATIVE_REPLIES.has(text.trim().toLowerCase());
-}
-
-// WhatsApp's interactive list rows have hard limits — Meta rejects the
-// whole message (silently, from the citizen's side: sendAndRecordEffect
-// logs it server-side and never throws) if a title exceeds 24 characters,
-// a description exceeds 72, or there are more than 10 rows total. District
-// and establishment names routinely blow past 24 chars on their own (e.g.
-// "San Juan de Lurigancho"), so every row built from real-world names goes
-// through this truncation as cheap insurance.
-const WHATSAPP_ROW_TITLE_MAX = 24;
-const WHATSAPP_ROW_DESCRIPTION_MAX = 72;
-const WHATSAPP_LIST_MAX_ROWS = 10;
-
-function truncateForRow(text: string, maxLength: number): string {
-  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
-}
-
 // ---- Selection steps: taps and typed text ---------------------------------
 // Every list is sent through offerList so the rows the citizen can pick from
 // are remembered (Session.slots only holds scalars, hence a JSON string).
@@ -401,12 +367,6 @@ function truncateForRow(text: string, maxLength: number): string {
 
 const SELECTION_REJECTION = "Selecciona una opción de la lista.";
 const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona una:";
-
-// Mutates `next` (always a fresh clone at the call sites).
-function offerList(next: Session, text: string, rows: ListRow[]): SendEffect {
-  next.slots[OFFERED_SLOT] = serializeOffered({ text, rows });
-  return sendList(text, rows);
-}
 
 function clearOffered(session: Session): Session {
   const next = cloneSession(session);
@@ -422,12 +382,6 @@ function reshowOffered(
   const effects: SendEffect[] = [sendText(message)];
   if (offered) effects.push(sendList(offered.text, offered.rows));
   return buildResult(session, effects);
-}
-
-// Guards the dataset -> AI district chain against junk ("a|b|c", "12345"):
-// only letters, spaces and the punctuation real place names use.
-function looksLikePlaceName(text: string): boolean {
-  return /^[\p{L}][\p{L}\s.'-]{2,59}$/u.test(text);
 }
 
 function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
@@ -491,37 +445,10 @@ function resolveSelection(
   return { result: options.onNoMatchText?.(typed) ?? reshowOffered(session, offered) };
 }
 
-// Shared by handleAwaitingDistritoAi (a real inbound reply) and
-// handleVerifyPending's auto-trigger (a distrito already extracted from the
-// citizen's opening free-text message) — "given this district text (plus
-// optional context), resolve it" is identical either way.
-function resolveDistritoText(
-  session: Session,
-  distritoText: string,
-  contextText: string | undefined,
-): HandlerResult {
-  // Fast, free, deterministic first attempt against the real INEI dataset
-  // (lib/fsm/ubigeo-data.ts) before ever spending an AI call.
-  const localCandidates = resolveLocalDistritoCandidates(distritoText, contextText);
-
-  if (localCandidates.length > 0) {
-    return resolveDistritoCandidates(session, localCandidates);
-  }
-
-  // Free and deterministic: keyboard mashing ("asdfghjk") never earns a paid AI
-  // call. A genuine typo still goes through.
-  if (isGibberishPlaceText(distritoText)) {
-    return buildResult(session, [sendText(UNRECOGNIZED_DISTRITO_TEXT)]);
-  }
-
-  const next = cloneSession(session);
-  next.state = "cita_distrito_ai_pending";
-  return buildResult(next, [
-    sendText(`Buscando tu distrito: "${distritoText}"…`),
-    query("resolve_distrito_ai", { distritoText, contextText }),
-  ]);
-}
-
+// resolveDistritoText (local dataset -> gibberish check -> resolve_distrito_ai
+// query) and resolveDistritoCandidates ("what to do with N resolved
+// candidates") now live in ./distrito-resolver, shared with
+// cita-no-coverage.ts's "¿deseas buscar en otro distrito?" reply.
 function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
   const rawText = (event.text ?? "").trim();
   if (!rawText) {
@@ -538,169 +465,6 @@ function handleAwaitingDistritoAi(session: Session, event: InboundEvent): Handle
   const contextText = distritoText === rawText ? initialMessageText : undefined;
 
   return resolveDistritoText(session, distritoText, contextText);
-}
-
-type DistritoAiCandidateResult = {
-  departamento: string;
-  provincia: string;
-  distrito: string;
-};
-
-// Shared by the local-dataset fast path above and the AI-result path below —
-// "what do we do with N resolved candidates" is identical either way.
-// PILOT SCOPE: appointment booking only serves Lima for now. Filtering here
-// (the single point both the local-dataset path and the AI path funnel
-// into) drops national noise before deciding what to do with N candidates —
-// e.g. "Miraflores" narrows from 4 nationwide matches down to the 2 in
-// Lima department. This does NOT restrict the manual departamento/
-// provincia/distrito fallback below, which still accepts any department —
-// only the automatic name-based resolution is Lima-only during the pilot.
-// Next phase: once this expands nationally, remove this filter and add a
-// provincia follow-up question for names that are still ambiguous within
-// a single departamento.
-const PILOT_DEPARTAMENTO = "LIMA";
-const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global"; // 17 chars — cta_url's display_text caps at 20
-const NATIONAL_REDIRECT_URL = "https://dminsadigital.minsa.gob.pe/login";
-
-function filterToPilotScope(
-  candidates: DistritoAiCandidateResult[],
-): DistritoAiCandidateResult[] {
-  return candidates.filter(
-    (candidate) => normalizeText(candidate.departamento) === PILOT_DEPARTAMENTO,
-  );
-}
-
-// Tries increasingly loose local strategies — exact match, then prefix
-// match — against both the direct reply and the opening-message context,
-// evaluating each attempt ALREADY FILTERED TO LIMA before deciding whether
-// it "found" something. This matters because an exact match can succeed
-// nationally but fail the pilot's scope: "San Juan" is itself an official
-// district name in four other regions (none in Lima), so a raw exact match
-// finds those and would wrongly conclude "not in Lima" — without this,
-// searchDistritoByPrefix never gets a chance to find "San Juan de
-// Lurigancho"/"San Juan de Miraflores", which are real Lima districts that
-// merely aren't an exact match for "San Juan".
-// A district mentioned inside a full sentence ("Quiero una cita en San
-// juan") isn't itself an exact match, and isn't a PREFIX of any district
-// name either — the sentence's leading words ("Quiero una cita en ")
-// aren't part of any real district name, so searchDistritoByPrefix(full
-// sentence) never matches even though the sentence clearly names one at
-// the end. Unlike the opening free-text message (cleaned by
-// analyzeMainMenuIntent into a bare place name before it ever reaches
-// here — see handleMainMenuIntentPending), a DIRECT reply to "¿en qué
-// distrito buscas atención?" has no such cleanup step, so it leans on the
-// AI fallback for phrasing local matching could resolve for free. This
-// tries progressively shorter trailing word-groups ("una cita en San
-// juan" -> "cita en San juan" -> ... -> "San juan") as exact/prefix keys,
-// so the same deterministic dataset match that already works for a bare
-// district name also works when it's the tail end of a sentence.
-function trailingWordGroupAttempts(text: string): Array<() => DistritoAiCandidateResult[]> {
-  const words = normalizeText(text).split(" ").filter(Boolean);
-  const attempts: Array<() => DistritoAiCandidateResult[]> = [];
-
-  // start=0 (the whole text) is already covered by resolveLocalDistritoCandidates's
-  // own first two attempts, so this only adds shorter tails.
-  for (let start = 1; start < words.length; start++) {
-    const tail = words.slice(start).join(" ");
-    attempts.push(() => searchDistrito(tail));
-    attempts.push(() => searchDistritoByPrefix(tail));
-  }
-
-  return attempts;
-}
-
-function resolveLocalDistritoCandidates(
-  distritoText: string,
-  contextText: string | undefined,
-): DistritoAiCandidateResult[] {
-  const attempts = [
-    () => searchDistrito(distritoText),
-    () => (contextText ? searchDistrito(contextText) : []),
-    () => searchDistritoByPrefix(distritoText),
-    () => (contextText ? searchDistritoByPrefix(contextText) : []),
-    ...trailingWordGroupAttempts(distritoText),
-    ...(contextText ? trailingWordGroupAttempts(contextText) : []),
-  ];
-
-  for (const attempt of attempts) {
-    const filtered = filterToPilotScope(attempt());
-    if (filtered.length > 0) return filtered;
-  }
-
-  return [];
-}
-
-function resolveDistritoCandidates(
-  session: Session,
-  rawCandidates: DistritoAiCandidateResult[],
-): HandlerResult {
-  const candidates = filterToPilotScope(rawCandidates);
-  const next = cloneSession(session);
-
-  if (candidates.length === 1) {
-    const [candidate] = candidates;
-    next.slots.citaDepartamento = candidate.departamento;
-    next.slots.citaProvincia = candidate.provincia;
-    next.slots.citaDistrito = candidate.distrito;
-    next.state = "cita_ubigeo_pending";
-    return buildResult(next, [
-      sendText("Buscando tu ubigeo…"),
-      query("search_ubigeo", {
-        departamento: candidate.departamento,
-        provincia: candidate.provincia,
-        distrito: candidate.distrito,
-      }),
-    ]);
-  }
-
-  if (candidates.length > WHATSAPP_LIST_MAX_ROWS) {
-    // Too many matches to fit WhatsApp's 10-row list cap (a broad name like
-    // "San Juan" can legitimately match a dozen+ official districts) —
-    // sending an oversized list would just get rejected in silence, so this
-    // falls back to the manual flow the same way zero candidates does.
-    next.state = "cita_awaiting_departamento";
-    return buildResult(next, [
-      sendText(
-        "Encontramos demasiadas coincidencias para mostrarlas en una lista, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.",
-      ),
-    ]);
-  }
-
-  if (candidates.length > 1) {
-    next.state = "cita_awaiting_distrito_disambiguation";
-    // The chosen candidate's triple is encoded directly in the row id
-    // (pipe-separated, same convention as handleAwaitingHoraSelect's
-    // `${horaInicio}|${horaFin}`) rather than stashed in slots, since
-    // Session.slots only holds flat scalar values. The distrito name alone
-    // is the title (WhatsApp caps titles at 24 chars); provincia/departamento
-    // — the part that actually disambiguates same-named districts — goes in
-    // the description instead of being crammed into the title.
-    const rows: ListRow[] = candidates.map((candidate) => ({
-      id: `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`,
-      title: truncateForRow(candidate.distrito, WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        `${candidate.provincia} — ${candidate.departamento}`,
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
-    }));
-    return buildResult(next, [offerList(next, "Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
-  }
-
-  // Zero candidates within Lima — either the district is real but outside
-  // the pilot's scope, or it was an unrecognized name. Either way this
-  // channel doesn't serve it during the pilot: redirect to the national
-  // booking site and end the conversation, instead of falling to the
-  // manual departamento/provincia/distrito flow (that flow stays reachable
-  // from handleUbigeoPending's own fallback, for Lima ubigeos that don't
-  // match MINSA's catalog — a different, unrelated failure).
-  next.state = "cita_national_redirect";
-  return buildResult(next, [
-    sendCtaUrl(
-      "Por el momento el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.",
-      NATIONAL_REDIRECT_BUTTON_TEXT,
-      NATIONAL_REDIRECT_URL,
-    ),
-  ]);
 }
 
 // Thin wrapper around the AI query result — the actual candidate-handling
