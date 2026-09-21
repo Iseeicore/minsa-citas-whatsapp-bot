@@ -56,6 +56,25 @@ describe("matchHoraText — 12h / 24h and words", () => {
     expect(result("a las 7 de la mañana")).toBe("07:00");
   });
 
+  // Field-tested bug (docs/qa/manual-test-playbook.md case 3.13m): normalize()
+  // turns every "un"/"una" into "1" so the citizen's real hour can read as
+  // "la una" — but it did that BLINDLY, so the "una" in "quiero UNA cita a
+  // las 5" (just the indefinite article, not a number) was read as hour 1,
+  // and the regex grabs the FIRST bare 1-2 digit number in the sentence —
+  // "1" from "una" comes before the real "5", so the citizen's actual hour
+  // was never even reached. 5:45 PM was on screen; the bot said there was
+  // nothing at that hour. "un"/"una" must only become a digit right after
+  // "la"/"las" (how a citizen actually says a time: "a la una", "las una").
+  it("a natural sentence with 'una' as an article, not a number, still finds the real hour", () => {
+    expect(result("quiero una cita a las 7")).toEqual(["07:00", "19:00"]);
+    expect(result("necesito una cita a las 7")).toEqual(["07:00", "19:00"]);
+    expect(result("quiero un turno a las 7")).toEqual(["07:00", "19:00"]);
+  });
+
+  it("'una' right after 'la'/'las' still reads as the hour one, as before", () => {
+    expect(result("a la una", [slot("13:00", "13:30"), slot("19:00", "19:30")])).toBe("13:00");
+  });
+
   it("uses the period words to settle 12h ambiguity", () => {
     expect(result("1 de la mañana")).toBe("unavailable");
     expect(result("a las 7 de la noche")).toBe("19:00");
@@ -131,5 +150,18 @@ describe("packHoraSlots / unpackHoraSlots", () => {
   it("returns an empty list for a missing or corrupt slot", () => {
     expect(unpackHoraSlots(undefined)).toEqual([]);
     expect(unpackHoraSlots("garbage")).toEqual([]);
+  });
+
+  // General hardening found while investigating docs/qa/manual-test-playbook.md
+  // case 3.13m: MINSA's real hora_inicio (lib/fsm/minsa.ts) is taken as-is
+  // with no zero-padding, so a single unpadded early hour ("9:30" instead of
+  // "09:30") is a realistic malformed entry. It must not throw away every
+  // OTHER, well-formed hour offered that same day — only that one entry.
+  it("skips just the one malformed entry, keeps the rest of the day", () => {
+    const mostlyValid = "9:30|10:00|1;11:15|11:30|1;17:45|18:00|1"; // "9:30" is missing its leading zero
+    expect(unpackHoraSlots(mostlyValid)).toEqual([
+      { start: "11:15", end: "11:30", cupos: 1 },
+      { start: "17:45", end: "18:00", cupos: 1 },
+    ]);
   });
 });
