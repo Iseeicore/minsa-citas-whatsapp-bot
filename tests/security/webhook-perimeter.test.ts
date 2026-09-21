@@ -453,6 +453,53 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
   });
 
+  it("a burst that fails every message sends the friendly text only once, not one per message (C4.2)", async () => {
+    const waId = freshWaId();
+    for (let i = 0; i < 5; i++) mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+
+    await deliver(Array.from({ length: 5 }, () => textMessage(waId, "hola")));
+
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
+  });
+
+  it("a second delivery shortly after is still within the 30 s window: no second text", async () => {
+    const waId = freshWaId();
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+    await deliver([textMessage(waId, "Hola")]);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
+
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+    await deliver([textMessage(waId, "¿Hay alguien?")]);
+
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
+  });
+
+  it("every failure is still logged, even the ones the throttle silences", async () => {
+    const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
+    const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });
+    const waId = freshWaId();
+    for (let i = 0; i < 3; i++) mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+
+    await deliver(Array.from({ length: 3 }, () => textMessage(waId, "hola")));
+    restore();
+
+    expect(lines.filter((line) => line.record.event === "turn.lock_timeout")).toHaveLength(3);
+  });
+
+  it("a different number is never held back by someone else's burst", async () => {
+    const busy = freshWaId();
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(busy, "process"));
+    await deliver([textMessage(busy, "Hola")]);
+
+    const other = freshWaId();
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(other, "process"));
+    await deliver([textMessage(other, "Hola")]);
+
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(2);
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(other, { kind: "send_text", text: TURN_FAILURE_TEXT });
+  });
+
   it("an unexpected error of the turn gets the same friendly text, and is logged as an error", async () => {
     const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
     const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });

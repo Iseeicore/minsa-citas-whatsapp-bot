@@ -162,6 +162,14 @@ describe("the dates that come back leave out the ones already declined", () => {
     expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("Ministerio de Salud") });
   });
 
+  it("compares dates by their real day, not by the exact string: DD/MM/YYYY and YYYYMMDD of the same day are the same date", () => {
+    // "31/12/2099" was declined; MINSA's next answer names that same day as
+    // "20991231" (no slashes) instead. A raw string compare would miss it.
+    const result = handle(pendingWith("31/12/2099"), fechasResult(["20991231", DAY_2, DAY_3]));
+
+    expect((sent(result)[0] as { rows: Array<{ id: string }> }).rows.map((row) => row.id)).toEqual([DAY_2, DAY_3]);
+  });
+
   it("nothing declined yet: the list is untouched", () => {
     const result = handle(pendingWith(""), fechasResult([DAY_1, DAY_2]));
 

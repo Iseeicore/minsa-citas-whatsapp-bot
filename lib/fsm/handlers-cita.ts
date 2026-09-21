@@ -1183,10 +1183,13 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
   }
 
   // The dates the citizen already turned down (the only horario of the day was
-  // not what they wanted) are never offered again.
-  const discarded = discardedDates(next.slots);
+  // not what they wanted) are never offered again. Compared by the real day
+  // (normalized to YYYYMMDD), not by the exact string: MINSA's format could
+  // change between two queries and a raw comparison would miss the match,
+  // offering a declined date again.
+  const discarded = discardedDates(next.slots).map(formatFechaForApi);
   const dates = (result.status === "found" ? (result.items ?? []) : []).filter(
-    (item) => !discarded.includes(item.fechaCupo),
+    (item) => !discarded.includes(formatFechaForApi(item.fechaCupo)),
   );
   if (discarded.length > 0 && dates.length === 0) return closeWithApology("no_other_dates");
 
