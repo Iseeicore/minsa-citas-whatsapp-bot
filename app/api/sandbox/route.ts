@@ -11,6 +11,46 @@ import type { SendEffect } from "@/lib/fsm/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 
+// CORS for the sandbox widget embedded in ANOTHER frontend's own origin (see
+// docs' widget-integration notes). Same-origin callers (the /sandbox page
+// itself) never send an Origin header at all and are untouched by any of
+// this — the header is only ever added when the request's Origin exactly
+// matches one entry of a comma-separated allowlist, never a wildcard, so an
+// unrelated site can't read the response even if it can still reach the URL.
+function allowedOrigins(): string[] {
+  return (process.env.SANDBOX_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function corsHeaders(request: NextRequest): HeadersInit {
+  const origin = request.headers.get("origin");
+  if (!origin || !allowedOrigins().includes(origin)) return {};
+
+  return {
+    "Access-Control-Allow-Origin": origin,
+    Vary: "Origin",
+  };
+}
+
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  if (!origin || !allowedOrigins().includes(origin)) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type",
+      Vary: "Origin",
+    },
+  });
+}
+
 const sandboxEventSchema = z.object({
   from: z.string().min(1),
   type: z.enum(["text", "button", "list", "image"]),
@@ -26,11 +66,16 @@ const sandboxEventSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Computed once and attached to every response below — a cross-origin
+  // caller needs the header on an error response just as much as on 200,
+  // otherwise the browser hides even the rejection text from it.
+  const cors = corsHeaders(request);
+
   // Gated off by default — this app has no auth of its own, so anyone who
   // finds the public URL would otherwise reach the sandbox (and, with the
   // real-integration flags on, real MINSA/RENIEC/quejas calls).
   if (process.env.SANDBOX_ENABLED !== "true") {
-    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404, headers: cors });
   }
 
   const body = await request.json();
@@ -39,7 +84,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "INVALID_BODY", message: parsed.error.message },
-      { status: 400 },
+      { status: 400, headers: cors },
     );
   }
 
@@ -65,10 +110,13 @@ export async function POST(request: NextRequest) {
   if (!hadExistingSession && (type === "text" || type === "image")) {
     const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text });
     if (payload.kind === "rejected") {
-      return NextResponse.json({
-        sent: [{ kind: "send_text", text: payload.reply }],
-        session: { state: "main_menu", slots: {}, counters: {} },
-      });
+      return NextResponse.json(
+        {
+          sent: [{ kind: "send_text", text: payload.reply }],
+          session: { state: "main_menu", slots: {}, counters: {} },
+        },
+        { headers: cors },
+      );
     }
   }
 
@@ -89,16 +137,22 @@ export async function POST(request: NextRequest) {
     // Another turn of this same session is still running and did not finish in
     // time: tell the client to retry instead of answering from stale state.
     if (error instanceof TurnLockTimeoutError) {
-      return NextResponse.json({ error: "BUSY", message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." }, { status: 503 });
+      return NextResponse.json(
+        { error: "BUSY", message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." },
+        { status: 503, headers: cors },
+      );
     }
     throw error;
   }
   const { sent, session } = turn;
 
-  return NextResponse.json({
-    sent,
-    session: { state: session.state, slots: session.slots, counters: session.counters },
-  });
+  return NextResponse.json(
+    {
+      sent,
+      session: { state: session.state, slots: session.slots, counters: session.counters },
+    },
+    { headers: cors },
+  );
 }
 
 async function startConversation(from: string, text?: string): Promise<TurnResult> {
