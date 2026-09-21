@@ -1,4 +1,5 @@
 import type { TurnNote } from "../observability/types";
+import { OFFERED_SLOT, serializeOffered } from "./selection-matchers";
 import type {
   ButtonOption,
   HandlerOutcome,
@@ -94,4 +95,53 @@ function dropBearerWhenClosed(session: Session): Session {
 
 export function omitSlot(slots: Session["slots"], name: string): Session["slots"] {
   return Object.fromEntries(Object.entries(slots).filter(([key]) => key !== name));
+}
+
+// WhatsApp's interactive list rows have hard limits — Meta rejects the whole
+// message (silently, from the citizen's side: sendAndRecordEffect logs it
+// server-side and never throws) if a title exceeds 24 characters, a
+// description exceeds 72, or there are more than 10 rows total. District and
+// establishment names routinely blow past 24 chars on their own (e.g. "San
+// Juan de Lurigancho"), so every row built from real-world names goes
+// through this truncation as cheap insurance.
+export const WHATSAPP_ROW_TITLE_MAX = 24;
+export const WHATSAPP_ROW_DESCRIPTION_MAX = 72;
+export const WHATSAPP_LIST_MAX_ROWS = 10;
+
+export function truncateForRow(text: string, maxLength: number): string {
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
+}
+
+// Mutates `next` (always a fresh clone at the call sites). Every list is sent
+// through this so the rows the citizen can pick from are remembered
+// (Session.slots only holds scalars, hence a JSON string) for whatever step
+// reads them back next turn.
+export function offerList(next: Session, text: string, rows: ListRow[]): SendEffect {
+  next.slots[OFFERED_SLOT] = serializeOffered({ text, rows });
+  return sendList(text, rows);
+}
+
+// A citizen who already answered "sí"/"claro"/"ese" to a preceding question —
+// shared by more than one step that needs to tell "yes, no district named"
+// apart from "here is a fresh answer".
+const AFFIRMATIVE_REPLIES = new Set([
+  "si",
+  "sí",
+  "s",
+  "yes",
+  "y",
+  "ese",
+  "esa",
+  "eso",
+  "correcto",
+  "exacto",
+  "confirmo",
+  "afirmativo",
+  "claro",
+  "asi es",
+  "así es",
+]);
+
+export function isAffirmativeReply(text: string): boolean {
+  return AFFIRMATIVE_REPLIES.has(text.trim().toLowerCase());
 }

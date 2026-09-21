@@ -216,6 +216,70 @@ describe("no specialties in the district", () => {
     expect(sent(step)[0].kind).toBe("send_buttons");
     expect(JSON.stringify(step.effects)).not.toContain("Ministerio de Salud del Perú");
   });
+
+  describe("naming the new district in the same reply (no second question)", () => {
+    it("«Si quiero en San Borja» resolves directly: no «Perfecto, cuéntanos…», no repeated question", () => {
+      const { step: offered } = empty();
+
+      const step = handle(offered.session, text("Si quiero en San Borja"));
+
+      expect(step.session.state).toBe("cita_ubigeo_pending");
+      expect(step.session.slots.citaDistrito).toBe("SAN BORJA");
+      expect(queries(step)).toEqual([
+        { kind: "search_ubigeo", payload: { departamento: "LIMA", provincia: "LIMA", distrito: "SAN BORJA" } },
+      ]);
+      expect(JSON.stringify(step.effects)).not.toContain("Perfecto");
+      expect(JSON.stringify(step.effects)).not.toContain("otro distrito cercano");
+    });
+
+    it("forgets only the district left behind, same as the two-message path", () => {
+      const { step: offered } = empty();
+
+      const step = handle(offered.session, text("Si quiero en San Borja"));
+
+      expect(step.session.slots.citaBearer).toBe("token");
+      expect(step.session.slots.citaDni).toBe("12345678");
+      expect(JSON.stringify(step.effects)).not.toContain("LURIGANCHO");
+    });
+
+    it("a bare district name works too, with no «sí» at all", () => {
+      const step = handle(empty().step.session, text("San Borja"));
+
+      expect(step.session.state).toBe("cita_ubigeo_pending");
+      expect(step.session.slots.citaDistrito).toBe("SAN BORJA");
+    });
+
+    it("an ambiguous name asks to disambiguate, same as the initial district question", () => {
+      const step = handle(empty().step.session, text("prefiero Miraflores"));
+
+      expect(step.session.state).toBe("cita_awaiting_distrito_disambiguation");
+      const shown = JSON.stringify(step.effects).toUpperCase();
+      expect(shown).toContain("MIRAFLORES");
+    });
+
+    it("a real-looking name the local dataset can't find still asks the AI, in the same message", () => {
+      const step = handle(empty().step.session, text("Si quiero en Sam Borja"));
+
+      expect(step.session.state).toBe("cita_distrito_ai_pending");
+      expect(queries(step)).toEqual([
+        { kind: "resolve_distrito_ai", payload: { distritoText: "Si quiero en Sam Borja", contextText: undefined } },
+      ]);
+    });
+
+    it.each(["si", "sí", "dale", "cambiar", "1"])("a bare affirmation (%j) still just asks for the district name", (typed) => {
+      const step = handle(empty().step.session, text(typed));
+
+      expect(step.session.state).toBe("cita_awaiting_distrito_ai");
+      expect(sent(step)[0]).toMatchObject({ text: expect.stringContaining("otro distrito") });
+    });
+
+    it("«quee ?» is unaffected: still repeats the same yes/no question", () => {
+      const step = handle(empty().step.session, text("quee ?"));
+
+      expect(step.session.state).toBe("cita_awaiting_other_distrito");
+      expect(sent(step)[0]).toMatchObject({ kind: "send_buttons", text: expect.stringContaining("otro distrito cercano") });
+    });
+  });
 });
 
 describe("no establishments for the specialty in the district", () => {

@@ -1,5 +1,6 @@
 import { resolveConfirmation } from "./confirmation-parser";
 import { normalizeText, toDisplayPlace } from "./domain";
+import { looksLikePlaceName, resolveDistritoText } from "./distrito-resolver";
 import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } from "./handlers-shared";
 import { DISCARDED_DATES_SLOT } from "./cita-other-fecha";
 import { OFFERED_SLOT } from "./selection-matchers";
@@ -75,6 +76,19 @@ export function handleOtherDistrito(session: Session, event: InboundEvent): Hand
 
   if (tapped === OTHER_DISTRITO_NO_ID || answer === "NO") {
     return buildResult({ state: "cita_no_coverage_closed", slots: {}, counters: {} }, [sendText(FAREWELL_TEXT)]);
+  }
+
+  // Neither a tap nor a plain yes/no word (those are both handled above,
+  // "dale"/"cambiar" included): a reply that already NAMES a district
+  // ("Si quiero en San Borja", or just "San Borja") answers the "sí, ¿cuál?"
+  // exchange in one message, so it is resolved directly here (local dataset,
+  // then the AI if that finds nothing) instead of asking "Perfecto,
+  // cuéntanos..." and making the citizen repeat themselves. "quee ?" and other
+  // noise never look like a place name, so they still fall through unchanged.
+  if (typed && looksLikePlaceName(typed)) {
+    const next = cloneSession(session);
+    next.slots = DISTRICT_BOUND_SLOTS.reduce(omitSlot, next.slots);
+    return resolveDistritoText(next, typed, undefined);
   }
 
   return withNote(buildResult(session, [questionButtons(QUESTION)]), {
