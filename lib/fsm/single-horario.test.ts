@@ -65,7 +65,7 @@ describe("a day with ONE horario asks before booking", () => {
 
     expect(message).toMatchObject({
       kind: "send_buttons",
-      text: "Solo hay un horario disponible: 13:00 - 13:30. ¿Lo confirmas?",
+      text: "Solo hay un horario disponible: 1:00 PM - 1:30 PM. ¿Lo confirmas?",
     });
     expect((message as { buttons: Array<{ id: string }> }).buttons.map((button) => button.id)).toEqual([
       "hora_confirm_si",
@@ -169,7 +169,7 @@ describe("yes: the button or any way of taking that hour", () => {
       expect(result.session.slots.citaHoraConfirmId).toBe("13:00|13:30");
       expect(sent(result)[0]).toMatchObject({
         kind: "send_buttons",
-        text: "Solo hay un horario disponible: 13:00 - 13:30. ¿Lo confirmas?",
+        text: "Solo hay un horario disponible: 1:00 PM - 1:30 PM. ¿Lo confirmas?",
       });
     },
   );
@@ -237,7 +237,7 @@ describe("a confirmation the citizen picked from a list keeps its old behavior",
       counters: {},
     };
 
-    expect(sent(handle(session, text("no sé")))[0]).toMatchObject({ text: "¿Confirmas el horario 08:00 - 08:30?" });
+    expect(sent(handle(session, text("no sé")))[0]).toMatchObject({ text: "¿Confirmas el horario 8:00 AM - 8:30 AM?" });
   });
 
   it("the pending hour typed back, or «esa hora», also confirms here; another hour does not", () => {

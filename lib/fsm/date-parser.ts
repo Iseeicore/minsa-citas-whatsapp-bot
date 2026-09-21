@@ -41,6 +41,26 @@ function formatDate(date: DateParts): string {
   return `${pad(date.day)}/${pad(date.month)}/${date.year}`;
 }
 
+// What the citizen reads instead of a raw "22/09/2026" or the fake catalog's
+// "20260922". Never the year — MINSA only ever offers near dates, close enough
+// that it would be redundant. `formatDateShort` is built to always fit a
+// WhatsApp list row (24 chars): 3-letter weekday, day, 3-letter month.
+const WEEKDAY_NAMES_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const WEEKDAY_NAMES_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MONTH_NAMES_LONG = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+const MONTH_NAMES_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+export function formatDateLong(date: DateParts): string {
+  return `${WEEKDAY_NAMES_LONG[weekdayOf(date)]} ${date.day} de ${MONTH_NAMES_LONG[date.month - 1]}`;
+}
+
+export function formatDateShort(date: DateParts): string {
+  return `${WEEKDAY_NAMES_SHORT[weekdayOf(date)]} ${date.day} ${MONTH_NAMES_SHORT[date.month - 1]}`;
+}
+
 const MONTHS: Record<string, number> = {
   enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8,
   septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,

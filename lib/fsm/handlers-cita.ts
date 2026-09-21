@@ -15,7 +15,7 @@ import {
 } from "./handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
 import { formatFechaForApi } from "./minsa";
-import { matchFechaText, type DateParts } from "./date-parser";
+import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate, type DateParts } from "./date-parser";
 import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "./gibberish";
 import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "./time-parser";
 import {
@@ -1165,6 +1165,22 @@ type FechaResultItem = {
   cantidadCupos: number;
 };
 
+// What the citizen reads instead of MINSA's raw fechaCupo ("22/09/2026") or the
+// fake catalog's ("20260920", no separators at all). Never changes `fechaCupo`
+// itself — that keeps traveling as-is in `citaFecha` and, at the query-execution
+// boundary (executor.ts), through formatFechaForApi before it reaches MINSA. A
+// fechaCupo in a format parseOfferedDate does not recognize falls back to the
+// raw string, so a row never breaks over a display nicety.
+function displayFechaLong(fechaCupo: string): string {
+  const parsed = parseOfferedDate(fechaCupo);
+  return parsed ? formatDateLong(parsed) : fechaCupo;
+}
+
+function displayFechaShort(fechaCupo: string): string {
+  const parsed = parseOfferedDate(fechaCupo);
+  return parsed ? formatDateShort(parsed) : fechaCupo;
+}
+
 function handleFechaPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: FechaResultItem[] };
   const next = cloneSession(session);
@@ -1198,7 +1214,7 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
     next.slots.citaFecha = item.fechaCupo;
     next.state = "cita_hora_pending";
     return buildResult(next, [
-      sendText(`Fecha encontrada: ${item.fechaCupo}. Buscando horarios disponibles…`),
+      sendText(`Fecha encontrada: ${displayFechaLong(item.fechaCupo)}. Buscando horarios disponibles…`),
       query("list_horas", {
         codEess: String(next.slots.citaCodEess ?? ""),
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
@@ -1211,7 +1227,7 @@ function handleFechaPending(session: Session, event: QueryResultEvent): HandlerR
     next.state = "cita_awaiting_fecha_select";
     const rows: ListRow[] = dates.map((item) => ({
       id: item.fechaCupo,
-      title: truncateForRow(item.fechaCupo, WHATSAPP_ROW_TITLE_MAX),
+      title: truncateForRow(displayFechaShort(item.fechaCupo), WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(
         `${item.cantidadCupos} cupo(s) disponibles`,
         WHATSAPP_ROW_DESCRIPTION_MAX,
@@ -1361,7 +1377,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
     next.state = "cita_awaiting_hora_select";
     const rows: ListRow[] = items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,
-      title: truncateForRow(`${item.horaInicio} - ${item.horaFin}`, WHATSAPP_ROW_TITLE_MAX),
+      title: truncateForRow(`${formatHora12(item.horaInicio)} - ${formatHora12(item.horaFin)}`, WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(
         `${item.cantidadCupos} cupo(s) disponibles`,
         WHATSAPP_ROW_DESCRIPTION_MAX,
@@ -1626,17 +1642,21 @@ function askHoraConfirmation(session: Session, slotId: string, options: { only?:
   const [start, end] = slotId.split("|");
   const next = cloneSession(session);
   next.state = "cita_awaiting_hora_confirm";
+  // citaHoraConfirmId keeps the RAW 24h slot (start|end): it is what gets booked
+  // and what startBooking/handleHoraConfirm read back. Only the sentence below
+  // is reformatted for the citizen — via formatHora12, in 12h with AM/PM.
   next.slots.citaHoraConfirmId = slotId;
   if (options.only) next.slots.citaHoraConfirmOnly = ONLY_HORA_FLAG;
   else delete next.slots.citaHoraConfirmOnly;
 
+  const range = `${formatHora12(start)} - ${formatHora12(end)}`;
   return buildResult(next, [
     options.only
-      ? sendButtons(`Solo hay un horario disponible: ${start} - ${end}. ¿Lo confirmas?`, [
+      ? sendButtons(`Solo hay un horario disponible: ${range}. ¿Lo confirmas?`, [
           { id: HORA_CONFIRM_YES_ID, title: "Sí, confirmar" },
           { id: HORA_CONFIRM_NO_ID, title: "No, gracias" },
         ])
-      : sendButtons(`¿Confirmas el horario ${start} - ${end}?`, [
+      : sendButtons(`¿Confirmas el horario ${range}?`, [
           { id: HORA_CONFIRM_YES_ID, title: "Sí, confirmar" },
           { id: HORA_CONFIRM_NO_ID, title: "No, ver horarios" },
         ]),

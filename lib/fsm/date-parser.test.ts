@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchFechaText, parseOfferedDate } from "./date-parser";
+import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "./date-parser";
 import type { OfferedRow } from "./selection-matchers";
 
 const row = (id: string): OfferedRow => ({ id, title: id, description: "5 cupo(s) disponibles" });
@@ -26,6 +26,50 @@ describe("parseOfferedDate", () => {
     expect(parseOfferedDate("22/09/2026")).toEqual({ year: 2026, month: 9, day: 22 });
     expect(parseOfferedDate("20260922")).toEqual({ year: 2026, month: 9, day: 22 });
     expect(parseOfferedDate("nope")).toBeUndefined();
+  });
+});
+
+
+describe("formatDateLong: what the citizen reads in a sentence", () => {
+  it.each([
+    [{ year: 2026, month: 9, day: 22 }, "martes 22 de septiembre"],   // Tuesday
+    [{ year: 2026, month: 9, day: 21 }, "lunes 21 de septiembre"],    // Monday
+    [{ year: 2026, month: 9, day: 26 }, "sábado 26 de septiembre"],   // Saturday
+    [{ year: 2026, month: 9, day: 27 }, "domingo 27 de septiembre"],  // Sunday
+    [{ year: 2027, month: 1, day: 1 }, "viernes 1 de enero"],
+    [{ year: 2026, month: 12, day: 31 }, "jueves 31 de diciembre"],
+  ])("%o => %s", (date, expected) => {
+    expect(formatDateLong(date)).toBe(expected);
+  });
+
+  it("never carries the year: MINSA only ever offers near dates", () => {
+    expect(formatDateLong({ year: 2026, month: 9, day: 22 })).not.toMatch(/2026/);
+  });
+});
+
+describe("formatDateShort: what fits in a WhatsApp list row (max 24 chars)", () => {
+  it.each([
+    [{ year: 2026, month: 9, day: 22 }, "mar 22 sep"],
+    [{ year: 2026, month: 9, day: 21 }, "lun 21 sep"],
+    [{ year: 2026, month: 9, day: 23 }, "mié 23 sep"],
+    [{ year: 2026, month: 9, day: 26 }, "sáb 26 sep"],
+    [{ year: 2027, month: 1, day: 1 }, "vie 1 ene"],
+  ])("%o => %s", (date, expected) => {
+    expect(formatDateShort(date)).toBe(expected);
+  });
+
+  it("always fits the WhatsApp row title limit", () => {
+    for (let day = 1; day <= 28; day++) {
+      expect(formatDateShort({ year: 2026, month: 9, day }).length).toBeLessThanOrEqual(24);
+    }
+  });
+});
+
+describe("formatting an id straight from MINSA or the fake catalog", () => {
+  it.each(["22/09/2026", "20260922"])("%j reads the same real day", (id) => {
+    const parsed = parseOfferedDate(id);
+    expect(parsed && formatDateLong(parsed)).toBe("martes 22 de septiembre");
+    expect(parsed && formatDateShort(parsed)).toBe("mar 22 sep");
   });
 });
 
