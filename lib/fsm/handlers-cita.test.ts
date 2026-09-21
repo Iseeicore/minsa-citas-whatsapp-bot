@@ -655,6 +655,65 @@ describe("hora select — typed times (12h/24h) resolved against the whole day",
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
     expect(result.session.slots.citaHoraConfirmId).toBe("08:00|08:30");
   });
+
+  // Reproduces docs/qa/manual-test-playbook.md case 3.13m end to end: the
+  // citizen wrote a natural sentence ("quiero una cita a las 5", not the
+  // bare "a las 5"), with 5:45 PM genuinely on screen. Root cause confirmed
+  // by lib/fsm/time-parser.test.ts's "una as an article" cases: normalize()
+  // read the "una" in "quiero UNA cita" (just the article) as the number 1,
+  // and the hour regex grabs the FIRST bare number in the sentence — "1"
+  // came before the citizen's real "5" — so it looked for an hour-1 slot
+  // that was never offered, instead of the hour-17 slot sitting on screen.
+  it("a natural sentence ('quiero una cita a las 5') resolves the real hour, not the article", () => {
+    const laterPage: OfferedList = {
+      text: "Selecciona el horario:",
+      rows: [
+        { id: "12:45|13:00", title: "12:45 PM - 1:00 PM", description: "1 cupo(s) disponibles" },
+        { id: "17:45|18:00", title: "5:45 PM - 6:00 PM", description: "1 cupo(s) disponibles" },
+        { id: "18:00|18:15", title: "6:00 PM - 6:15 PM", description: "1 cupo(s) disponibles" },
+      ],
+    };
+    const onALaterPage = at(state, laterPage, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+      citaDni: "12345678",
+      citaHorasDia: "07:00|07:30|1;12:45|13:00|1;17:45|18:00|1;18:00|18:15|1;18:15|18:30|1",
+    });
+
+    const result = handle(onALaterPage, text("quiero una cita a las 5"));
+
+    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
+    expect(result.session.slots.citaHoraConfirmId).toBe("17:45|18:00");
+  });
+
+  // Separate, general hardening (not what caused 3.13m above, but a real gap
+  // found while investigating it): one malformed hour anywhere in the day's
+  // raw MINSA data must not blank out matching for every OTHER, well-formed
+  // hour that same day.
+  it("one malformed entry in the day's cache no longer breaks matching a well-formed hour visible on screen", () => {
+    const laterPage: OfferedList = {
+      text: "Selecciona el horario:",
+      rows: [
+        { id: "12:45|13:00", title: "12:45 PM - 1:00 PM", description: "1 cupo(s) disponibles" },
+        { id: "17:45|18:00", title: "5:45 PM - 6:00 PM", description: "1 cupo(s) disponibles" },
+      ],
+    };
+    const withAMalformedEntryElsewhereInTheDay = at(state, laterPage, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+      citaDni: "12345678",
+      // "9:30" is missing its leading zero — MINSA's real hora_inicio comes
+      // through with no padding validation (lib/fsm/minsa.ts).
+      citaHorasDia: "9:30|10:00|1;12:45|13:00|1;17:45|18:00|1",
+    });
+
+    const result = handle(withAMalformedEntryElsewhereInTheDay, text("a las 5"));
+
+    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
+    expect(result.session.slots.citaHoraConfirmId).toBe("17:45|18:00");
+  });
 });
 
 describe("hora confirmation", () => {

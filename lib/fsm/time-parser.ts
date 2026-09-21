@@ -27,7 +27,11 @@ export function unpackHoraSlots(raw: unknown): HoraSlot[] {
   const slots: HoraSlot[] = [];
   for (const part of raw.split(";")) {
     const [start, end, cupos] = part.split("|");
-    if (!/^\d{2}:\d{2}$/.test(start ?? "") || !/^\d{2}:\d{2}$/.test(end ?? "")) return [];
+    // Skip just THIS entry, not the whole day: MINSA's real hora_inicio/
+    // hora_fin (lib/fsm/minsa.ts) is taken as-is with no zero-padding, so
+    // one unpadded early hour ("9:30" instead of "09:30") must not blank
+    // out matching for every other, well-formed hour offered that day.
+    if (!/^\d{2}:\d{2}$/.test(start ?? "") || !/^\d{2}:\d{2}$/.test(end ?? "")) continue;
     slots.push({ start, end, cupos: Number(cupos) || 0 });
   }
   return slots;
@@ -52,9 +56,22 @@ function normalize(raw: string): string {
     .replace(/\s+/g, " ")
     .trim();
 
-  return text
-    .split(" ")
-    .map((word) => (NUMBER_WORDS[word] !== undefined ? String(NUMBER_WORDS[word]) : word))
+  const words = text.split(" ");
+  return words
+    .map((word, index) => {
+      // "un"/"una" is Spanish's indefinite article AND its word for "one" —
+      // "quiero UNA cita a las 5" ("an appointment") is not "quiero 1 cita a
+      // las 5". Only read it as the hour when it's actually said as one
+      // ("la una", "a la una"), i.e. right after "la"/"las" — otherwise the
+      // FIRST bare number the parser below finds would be this false "1",
+      // hiding whatever hour the citizen actually typed later in the
+      // sentence. Every other number word (dos, tres...) has no such
+      // article role in Spanish, so they keep converting unconditionally.
+      if ((word === "un" || word === "una") && words[index - 1] !== "la" && words[index - 1] !== "las") {
+        return word;
+      }
+      return NUMBER_WORDS[word] !== undefined ? String(NUMBER_WORDS[word]) : word;
+    })
     .join(" ");
 }
 
