@@ -385,7 +385,7 @@ Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (
 | `perimeter.dropped` / `perimeter.muted` / `perimeter.rejected` / `perimeter.banned` | El perímetro descartó, rechazó (`too_long`, `link`, `media`) o sancionó a un número (sección 1). |
 | `[turn-lock] turn waited 312 ms behind an earlier turn of ...1234` | Un turno esperó a otro del mismo ciudadano. **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
 | `[turn-lock] database lock for ...1234 took 340 ms` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |
-| `turn.lock_timeout` (`warn`) con `layer` / `webhook.message_failed` (`error`) | Un turno esperó demasiado el candado, o falló de forma inesperada (base de datos, MINSA, envío…). El ciudadano recibe `Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.` **No deberían verse en estas pruebas**; si aparecen, anótalos. |
+| `turn.lock_timeout` (`warn`) con `layer` / `webhook.message_failed` (`error`) | Un turno esperó demasiado el candado, o falló de forma inesperada (base de datos, MINSA, envío…). El ciudadano recibe `Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.`, como mucho una vez cada 30 s por número (una ráfaga que falla entera deja el resto de los logs sin ese texto, pero cada fallo se sigue registrando). **No deberían verse en estas pruebas**; si aparecen, anótalos. |
 
 Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por sí solo: significa que los turnos duraron menos de 150 ms. Lo que decide es 4.2a/4.2b.
 

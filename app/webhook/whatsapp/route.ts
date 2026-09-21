@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { runTurnUnlocked } from "@/lib/fsm/executor";
+import { failureNoticeThrottle } from "@/lib/fsm/failure-notice";
 import { TURN_FAILURE_TEXT, TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
@@ -362,7 +363,12 @@ async function answerFailure(waId: string, error: unknown): Promise<void> {
   } else {
     logger.error("webhook.message_failed", { waId: tail(waId), error });
   }
-  await sendFixedReply(waId, TURN_FAILURE_TEXT);
+  // Every failure is logged above; the reply to the citizen is throttled to
+  // one every 30 s so a burst that fails outright doesn't send one text per
+  // message (C4.2 of the audit report).
+  if (failureNoticeThrottle.shouldNotify(waId)) {
+    await sendFixedReply(waId, TURN_FAILURE_TEXT);
+  }
 }
 
 async function processValue(value: WhatsAppValue) {
