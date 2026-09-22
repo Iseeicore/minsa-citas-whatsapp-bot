@@ -142,13 +142,17 @@ describe("a booking that MINSA does not accept", () => {
     expect(sent(step)[0]).toMatchObject({ text: "Paciente fuera del rango de edad" });
   });
 
-  it("leaves duplicates and successes as they were", () => {
-    expect(handle(booking(), bookingResult({ status: "duplicate", message: "Ya tiene una cita activa" })).session.state).toBe(
-      "cita_booking_duplicate",
-    );
+  it("leaves successes as they were", () => {
     expect(handle(booking(), bookingResult({ status: "booked", url: "https://x.test", message: "ok" })).session.state).toBe(
       "cita_booked",
     );
+  });
+
+  it("a duplicate booking offers another date instead of a dead-end state", () => {
+    const step = handle(booking(), bookingResult({ status: "duplicate", message: "Ya tiene una cita activa" }));
+
+    expect(step.session.state).toBe("cita_awaiting_other_fecha");
+    expect(sent(step)[0]).toMatchObject({ text: expect.stringContaining("Ya tienes una cita activa registrada") });
   });
 });
 

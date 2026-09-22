@@ -21,7 +21,12 @@ const OTHER_FECHA_YES_ID = "cita_otra_fecha_si";
 const OTHER_FECHA_NO_ID = "cita_otra_fecha_no";
 
 const FAREWELL = "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
-const DECLINED_TEXT = `Lamentamos no haber encontrado un horario que se ajuste a lo que necesitas. ${FAREWELL}`;
+// Neutral on purpose: offerOtherFecha's "no" answer closes the same way
+// regardless of WHY it was offered (only horario declined, zero horarios,
+// or an already-active appointment) — a reason-specific apology here would
+// be wrong for the other two callers, and the session doesn't track which
+// one it was.
+const DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${FAREWELL}`;
 const NO_OTHER_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${FAREWELL}`;
 
 const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
@@ -29,6 +34,10 @@ const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el 
 // (resolveHoraCandidates in handlers-cita.ts) — kept identical on purpose so
 // the two callers of offerOtherFecha read as one consistent message, not two.
 const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
+// Own clean wording, never MINSA's raw "Error al generar la cita en el
+// servicio externo: ..." string (handleBookingPending discards that on
+// purpose — see lib/fsm/minsa.ts's duplicate-booking detection).
+const INTRO_DUPLICATE = "Ya tienes una cita activa registrada para ese mismo turno o servicio.";
 const QUESTION = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 
 // Slots that belong to the date being left behind. The verification (token, DNI)
@@ -71,11 +80,28 @@ export function closeWithApology(reason: "declined" | "no_other_dates"): Handler
   );
 }
 
+export type OfferOtherFechaReason = "only_declined" | "no_horarios" | "duplicate";
+
+const INTRO_BY_REASON: Record<OfferOtherFechaReason, string> = {
+  only_declined: INTRO_ONLY_DECLINED,
+  no_horarios: INTRO_NO_HORARIOS,
+  duplicate: INTRO_DUPLICATE,
+};
+
+const STEP_BY_REASON: Record<OfferOtherFechaReason, string> = {
+  only_declined: "hora_confirm",
+  no_horarios: "hora_pending",
+  duplicate: "booking_pending",
+};
+
 // "only_declined": the citizen was shown the day's ONLY horario and turned
 // it down. "no_horarios": list_horas came back empty for the date they just
-// picked — there was never anything to show. Same next question either way
-// (want another date?), different reason for asking it.
-export function offerOtherFecha(session: Session, reason: "only_declined" | "no_horarios" = "only_declined"): HandlerResult {
+// picked — there was never anything to show. "duplicate": MINSA rejected
+// the booking because the citizen already has an active appointment for
+// that same turno/servicio (see handleBookingPending) — the date they
+// picked isn't unavailable, it's just not usable a second time. Same next
+// question either way (want another date?), different reason for asking it.
+export function offerOtherFecha(session: Session, reason: OfferOtherFechaReason = "only_declined"): HandlerResult {
   const next = cloneSession(session);
 
   const declined = String(next.slots.citaFecha ?? "");
@@ -86,10 +112,9 @@ export function offerOtherFecha(session: Session, reason: "only_declined" | "no_
   delete next.counters.citaHoraPage;
   next.state = OTHER_FECHA_STATE;
 
-  const intro = reason === "no_horarios" ? INTRO_NO_HORARIOS : INTRO_ONLY_DECLINED;
-  return withNote(buildResult(next, [questionButtons(`${intro}\n${QUESTION}`)]), {
+  return withNote(buildResult(next, [questionButtons(`${INTRO_BY_REASON[reason]}\n${QUESTION}`)]), {
     kind: "hora_declined",
-    detail: { step: reason === "no_horarios" ? "hora_pending" : "hora_confirm", only: reason === "only_declined", declinedDates: discarded.length },
+    detail: { step: STEP_BY_REASON[reason], only: reason === "only_declined", declinedDates: discarded.length },
   });
 }
 

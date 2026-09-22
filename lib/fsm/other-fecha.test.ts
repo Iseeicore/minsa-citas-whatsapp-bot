@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { offerOtherFecha } from "./cita-other-fecha";
 import { handle } from "./handlers";
 import { isQueryEffect, TERMINAL_STATES } from "./handlers-shared";
 import { AUTHENTICATED_WAITING_STATES, resumeStateFor } from "./session-expiry-guard";
@@ -226,11 +227,16 @@ describe("«no, salir»: an apology and a goodbye, and the session is closed", (
     expect(sent(result)).toHaveLength(1);
   });
 
-  it("apologizes and says goodbye, and does NOT tell the citizen to type a command", () => {
+  it("acknowledges and says goodbye, and does NOT tell the citizen to type a command", () => {
     const [message] = sent(handle(askedForAnotherDate(), tap("cita_otra_fecha_no")));
     const body = (message as { text: string }).text;
 
-    expect(body).toMatch(/lamentamos|disculp/i);
+    // Neutral on purpose (not "lamentamos no encontrar un horario..."):
+    // offerOtherFecha is offered for 3 different reasons (declined the only
+    // horario, zero horarios that day, or an already-active appointment),
+    // and only ONE of them is actually about not finding a match — an
+    // apology tailored to that one would be wrong for the other two.
+    expect(body).toMatch(/entendido/i);
     expect(body).toContain("Ministerio de Salud del Perú");
     expect(body).not.toMatch(/CITAS/);
   });
@@ -302,5 +308,31 @@ describe("it plays well with the rest of the flow", () => {
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
     expect(result.session.slots.citaFechasDescartadas).toBeUndefined();
+  });
+});
+
+describe("offerOtherFecha reasons pick their own intro but the same question", () => {
+  const session: Session = { state: "cita_booking_pending", slots: { ...BASE_SLOTS }, counters: {} };
+
+  it("'duplicate' explains an already-active appointment, not a declined horario", () => {
+    const result = offerOtherFecha(session, "duplicate");
+
+    expect(result.session.state).toBe("cita_awaiting_other_fecha");
+    const body = (sent(result)[0] as { text: string }).text;
+    expect(body).toContain("Ya tienes una cita activa registrada");
+    expect(body).toContain("¿Deseas cambiar de fecha?");
+  });
+
+  it("all three reasons still ask the exact same question and offer the same buttons", () => {
+    for (const reason of ["only_declined", "no_horarios", "duplicate"] as const) {
+      const result = offerOtherFecha(session, reason);
+      expect(sent(result)[0]).toMatchObject({
+        kind: "send_buttons",
+        buttons: [
+          { id: "cita_otra_fecha_si", title: "Sí, otra fecha" },
+          { id: "cita_otra_fecha_no", title: "No, salir" },
+        ],
+      });
+    }
   });
 });

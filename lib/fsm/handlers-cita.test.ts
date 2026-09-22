@@ -381,6 +381,32 @@ describe("hora pending — zero horarios for the picked date", () => {
   });
 });
 
+describe("booking pending — a duplicate booking offers another date instead of closing", () => {
+  it("offers another date with a clean message, never MINSA's raw wording", () => {
+    const session = at("cita_booking_pending", undefined, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+      citaDni: "12345678",
+    });
+    const result = handle(
+      session,
+      queryResult("book_appointment", {
+        status: "duplicate",
+        message: "Error al generar la cita en el servicio externo: El paciente ya tiene una cita activa en el mismo turno o servicio.",
+      }),
+    );
+
+    expect(result.session.state).toBe("cita_awaiting_other_fecha");
+    const shown = (sent(result)[0] as { text: string }).text;
+    expect(shown).toContain("Ya tienes una cita activa registrada");
+    expect(shown).not.toContain("Error al generar la cita en el servicio externo");
+    // The date that turned out to be a duplicate is forgotten and never offered again.
+    expect(result.session.slots.citaFecha).toBeUndefined();
+    expect(result.session.slots.citaFechasDescartadas).toBe("22/09/2026");
+  });
+});
+
 describe("booking pending — raw HTTP errors are not the same as a real rejection", () => {
   const bookingState = () =>
     at("cita_booking_pending", undefined, {

@@ -529,7 +529,7 @@ async function section3_17() {
     const ctx = ctxFor("3.17g", s);
     await reachHorarioList(ctx, "3");
     await ctx.send({ type: "text", text: "no, gracias" }, { expect: "cambiar de fecha" });
-    await ctx.send({ type: "text", text: "no" }, { expect: "Lamentamos no haber encontrado" });
+    await ctx.send({ type: "text", text: "no" }, { expect: "no buscaremos otra fecha" });
   })();
 
   await (async () => {

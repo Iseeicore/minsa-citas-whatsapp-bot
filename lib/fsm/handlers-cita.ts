@@ -1597,10 +1597,14 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
   }
 
   if (result.status === "duplicate") {
-    next.state = "cita_booking_duplicate";
-    return buildResult(next, [
-      sendText(result.message ?? "Ya tienes una cita activa registrada."),
-    ]);
+    // Not a dead end: the citizen isn't blocked from booking altogether,
+    // just from this exact turno/servicio they already have. Same recovery
+    // as an empty list_horas — offer another date, forgetting this one
+    // (offerOtherFecha clears citaFecha/citaHoraConfirmId/citaHorasDia and
+    // remembers this date as discarded). result.message (MINSA's raw
+    // "Error al generar la cita en el servicio externo: ..." string) is
+    // deliberately not shown — offerOtherFecha's own wording is clearer.
+    return offerOtherFecha(next, "duplicate");
   }
 
   // The quota may have been taken a moment before the citizen confirmed (or
