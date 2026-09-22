@@ -82,7 +82,7 @@ Para generar exactamente 300 y 301 caracteres en PowerShell: `('a' * 300) | clip
 | 1.1d | Tras 1.1a, enviar `Hola`. | Se comporta como primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
 | 1.1e | **WhatsApp:** abrir **Chat real** tras 1.1a. | Tu número **no** aparece como conversación nueva. | Confirma que no se escribió nada. | ☐ ☐ |
 | 1.1f | Con sesión abierta (ya en el flujo de reclamo, en el paso de la descripción), enviar el texto de 383 caracteres. | **No** se rechaza: el bot lo acepta como descripción del reclamo (permite hasta 1000). | El filtro solo aplica al primer mensaje. | ☐ ☐ |
-| 1.1g | Tras 1.1a, escribir `1` (y en otra prueba `2`). | `1`: `¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):`. `2`: `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?` con los botones **[Sí, tengo DNI]** y **[No tengo DNI]**. | El texto de rechazo ofrece «[1] Citas [2] Reclamos»: la respuesta numérica funciona sin menú previo. Sin IA. | ☐ ☐ |
+| 1.1g | Tras 1.1a, escribir `1` (y en otra prueba `2`). | `1`: `¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento (8 dígitos):`. `2`: `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?` con los botones **[Sí, tengo documento]** y **[No tengo documento]**. | El texto de rechazo ofrece «[1] Citas [2] Reclamos»: la respuesta numérica funciona sin menú previo. Sin IA. | ☐ ☐ |
 
 ### 1.2 Enlaces, publicidad y enlaces de WhatsApp — primer mensaje
 
@@ -168,7 +168,7 @@ Mensaje de advertencia (`A`):
 | 2.1g | `c s m` | Mensaje `A`. | Sin IA. Une las letras sueltas. | ☐ ☐ |
 | 2.1h | `hijo de puta` | Mensaje `A`. | Sin IA. | ☐ ☐ |
 | 2.1i | Tras 2.1a, tocar **Continuar**. | El menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar un reclamo**. | Vuelve al menú sin IA. | ☐ ☐ |
-| 2.1j | Tras 2.1a, escribir `RECLAMO`. | `¿Tienes tu DNI a la mano?` con **[Sí, tengo DNI]** **[No tengo DNI]**. | La palabra que promete la advertencia funciona. Sin IA. | ☐ ☐ |
+| 2.1j | Tras 2.1a, escribir `RECLAMO`. | `¿Tienes tu documento de identidad a la mano?` con **[Sí, tengo documento]** **[No tengo documento]**. | La palabra que promete la advertencia funciona. Sin IA. | ☐ ☐ |
 | 2.1k | **Primer mensaje** `hdp` (número o sesión nuevos). | Mensaje `A` con **Continuar**. **Sin** bienvenida. | Se crea la sesión para que el botón funcione. | ☐ ☐ |
 
 > **No se detecta:** `idotoaia` pasa como texto normal (es demasiado distinto de «idiota»). Es un límite conocido y aceptado.
@@ -187,9 +187,9 @@ Mensaje de advertencia (`A`):
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 2.3a | `posta de mrda pésima atención del doctor` | `Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?` con **[Sí, tengo DNI]** **[No tengo DNI]**. **No** aparece el mensaje `A`. | **Sin IA.** Va directo al estado del reclamo. El usuario no queda bloqueado. | ☐ ☐ |
+| 2.3a | `posta de mrda pésima atención del doctor` | `Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?` con **[Sí, tengo documento]** **[No tengo documento]**. **No** aparece el mensaje `A`. | **Sin IA.** Va directo al estado del reclamo. El usuario no queda bloqueado. | ☐ ☐ |
 | 2.3b | `Doctora imbécil no me dio mi medicina` | Igual que 2.3a. | Sin IA. | ☐ ☐ |
-| 2.3c | Tras 2.3a, tocar **No tengo DNI** (aparece `Cuéntanos tu reclamo (hasta 1000 caracteres).`) y escribir `El doctor fue un idiota y me trató pésimo`. | Se acepta y avanza a `¿Deseas adjuntar una foto como evidencia? Envíala ahora, o escribe OMITIR.` | En la descripción del reclamo **el insulto nunca se bloquea** (es evidencia). | ☐ ☐ |
+| 2.3c | Tras 2.3a, tocar **No tengo documento** (aparece `Cuéntanos tu reclamo (hasta 1000 caracteres).`) y escribir `El doctor fue un idiota y me trató pésimo`. | Se acepta y avanza a `¿Deseas adjuntar una foto como evidencia? Envíala ahora, o escribe OMITIR.` | En la descripción del reclamo **el insulto nunca se bloquea** (es evidencia). | ☐ ☐ |
 
 ### 2.4 Agresión con cita → advertencia y se conservan los datos
 
@@ -197,10 +197,91 @@ Usa el **panel Debug** de la consola para ver los `slots`.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 2.4a | `Apúrense cojudos quiero cita de odontología en Lurigancho` | `Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Continuemos con tu cita: ingresa tu DNI (8 dígitos).` | **Sin IA.** Debug: `state: cita_awaiting_dni` y `slots` con `citaEspecialidadHintText: "Odontología"` y `citaDistritoHintText: "Lurigancho"`. **No** existe `initialMessageText`. | ☐ ☐ |
-| 2.4b | `12345678` | `Validando tu DNI…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Valida el DNI. | ☐ ☐ |
+| 2.4a | `Apúrense cojudos quiero cita de odontología en Lurigancho` | `Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Continuemos con tu cita: ingresa tu número de documento (8 dígitos).` | **Sin IA.** Debug: `state: cita_awaiting_dni` y `slots` con `citaEspecialidadHintText: "Odontología"` y `citaDistritoHintText: "Lurigancho"`. **No** existe `initialMessageText`. | ☐ ☐ |
+| 2.4b | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Valida el DNI. | ☐ ☐ |
 | 2.4c | `1234` | Toda esta secuencia **en una sola respuesta**: `Verificando código…`, `Buscando tu ubigeo…`, `Entendido. Buscando especialidades y citas disponibles en *Lurigancho*…`, `Especialidad detectada: ODONTOLOGIA. Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:`. | **No vuelve a preguntar el distrito ni la especialidad**: eso demuestra que se conservaron. Sin IA en toda la cadena. | ☐ ☐ |
 | 2.4d | Repetir 2.4a con `en San Borja` en vez de `en Lurigancho`. | Igual en 2.4a. En modo **fake**, tras el OTP dice `No encontramos ese ubigeo. Indícanos nuevamente el departamento.` (el catálogo de prueba no conoce San Borja). En modo **real** sigue de largo. | Buscó «San Borja» sin preguntarlo: el dato se conservó. | ☐ ☐ |
+
+### 2.5 Estrés — jerga, hostilidad y datos en medio del flujo
+
+Nacida de un dataset de 300 casos con jerga peruana (`tmr`, `webon`, `causa`,
+`al toque`, etc.) diseñado para probar 4 mecanismos: normalización de jerga,
+supervivencia de la intención de cita bajo `CITA_WITH_WARNING`, extracción de
+distrito/especialidad en medio del flujo ignorando ruido, y aislamiento del
+texto hostil del contexto que alimenta IA. Cada subsección aísla una sola
+variable — no repite la misma señal con 50 distritos distintos.
+
+**2.5.1 — Hostilidad + dato reconocible, primer mensaje (el camino que ya
+funciona, confirmación con otros distritos/especialidades).** Usa el panel
+Debug.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 2.5.1a | `oe hdp dame mi cita de cardiología en Surco` (primer mensaje) | Mensaje `A` (recordatorio) + `Continuemos con tu cita: ingresa tu número de documento (8 dígitos).` | Debug: `citaEspecialidadHintText: "Cardiología"`, `citaDistritoHintText: "Surco"`. | ☐ ☐ |
+| 2.5.1b | `imbeciles atiendanme, cita de pediatría en San Isidro` (primer mensaje) | Igual que 2.5.1a. | Debug: `citaEspecialidadHintText: "Pediatría"`, `citaDistritoHintText: "San Isidro"`. | ☐ ☐ |
+| 2.5.1c | `cojudos necesito cita de dermatología en Barranco` (primer mensaje) | Igual que 2.5.1a. | Debug: `citaEspecialidadHintText: "Dermatología"`, `citaDistritoHintText: "Barranco"`. | ☐ ☐ |
+
+**2.5.2 — Hostilidad + distrito abreviado (SJL/VMT/SJM), primer mensaje.**
+El resolvedor de distritos solo hace match exacto o por prefijo contra el
+nombre oficial completo (`lib/fsm/ubigeo-data.ts`) — no existe una tabla de
+abreviaturas en todo el repo. Se espera que la advertencia SÍ aparezca (el
+insulto y la palabra "cita" sí se reconocen), pero que el hint de distrito
+**no** se guarde.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 2.5.2a | `oe hdp cita en sjl` (primer mensaje) | Mensaje `A` + pide el documento, igual que 2.5.1. | Debug: **sin** `citaDistritoHintText` (gap conocido: "sjl" no es el nombre oficial ni su prefijo). | ☐ ☐ |
+| 2.5.2b | `imbeciles denme cita en vmt` (primer mensaje) | Igual que 2.5.2a. | Sin `citaDistritoHintText`. | ☐ ☐ |
+| 2.5.2c | `cojudos cita en sjm` (primer mensaje) | Igual que 2.5.2a. | Sin `citaDistritoHintText`. | ☐ ☐ |
+
+**2.5.3 — Jerga peruana ausente del diccionario (falso negativo).**
+`lib/security/lexicon.ts` no tiene `tmr`, `webon` ni `gil` (ni por fuzzy:
+`gil` tiene 3 letras, bajo el mínimo de 5; `webon` no coincide con `huevon`
+porque exige la misma primera letra). Se espera que pasen como texto normal,
+**sin** advertencia.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 2.5.3a | `tmr` (con sesión, tras `Hola`) | El menú `¿En qué podemos ayudarte hoy?`. **Sin** mensaje `A`. | `evaluateLexicalGuard` devuelve `ALLOW` — gap confirmado, no arreglar en esta pasada. | ☐ ☐ |
+| 2.5.3b | `webon` | Igual que 2.5.3a. | `ALLOW`. | ☐ ☐ |
+| 2.5.3c | `gil` | Igual que 2.5.3a. | `ALLOW`. | ☐ ☐ |
+
+**2.5.4 — Hostilidad en medio del flujo, estado CON guard
+(`cita_awaiting_distrito_ai`).** El guard, en este estado, descarta el
+mensaje completo y repite la pregunta — nunca llega a
+`extractCitaHints`/`resolveDistritoText` esa vuelta, sin importar si la
+acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_RECLAMO`
+(`lib/fsm/handlers.ts:156`). Llega hasta aquí con `reachDistritoPrompt`.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 2.5.4a | `hdp no jodas, san juan de lurigancho` | Mensaje `A` (recordatorio) + repite `Cuéntanos en qué distrito buscas atención`. **No** avanza a especialidad. | El distrito nombrado se pierde esa vuelta pese a ser válido. | ☐ ☐ |
+| 2.5.4b | `cojudos apurense, cita en surco` | Igual que 2.5.4a, aunque el mensaje sí tiene la palabra "cita" (internamente sería `CITA_WITH_WARNING`). | Confirma que en medio del flujo el tipo de acción no cambia el resultado: siempre se descarta. | ☐ ☐ |
+| 2.5.4c | `posta de mrda, en comas` | Igual que 2.5.4a (repite la pregunta de distrito). | Internamente sería `FORCE_RECLAMO` (hay palabra de salud "posta" sin "cita"), pero en medio del flujo **no** deriva a Reclamos: se queda pidiendo el distrito. Vale la pena decidir si esto es lo deseado. | ☐ ☐ |
+
+**2.5.5 — Hostilidad en medio del flujo, estado SIN guard
+(`cita_awaiting_hora_confirm`).** Este estado no está en `FREE_TEXT_STATE_PROMPTS`
+ni en `SELECTION_STATES` (`lib/fsm/handlers.ts:38-55`): el guard nunca corre
+aquí. Si el texto ruidoso igual matchea la hora pendiente
+(`acceptsPendingHora`, `lib/fsm/handlers-cita.ts:1455-1461`), la cita se
+confirma **sin ninguna advertencia**. Llega hasta aquí con
+`reachHorarioList` + `"8"` (deja `citaHoraConfirmId` en `08:00|...`).
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 2.5.5a | `a las 8 pe hdp` | `Agendando tu cita…` directo. **Sin** mensaje `A` ni recordatorio en ningún punto de la secuencia. | Bypass confirmado: el insulto nunca pasa por el guard porque el estado no está en ninguna lista. | ☐ ☐ |
+| 2.5.5b | `imbeciles a las 8 nomas` | Igual que 2.5.5a. | Mismo bypass con otra frase. | ☐ ☐ |
+
+**2.5.6 — Hora/fecha coloquial sin soporte hoy.** `time-parser.ts` no tiene
+regla para "tempranito" ni "después del almuerzo" (solo entiende dígitos,
+`am`/`pm`, `tarde`/`noche`/`mediodia`/`medianoche` y las frases exactas "lo
+más pronto"/"lo más temprano"). `date-parser.ts` no expande contracciones
+("pal" → "para el"), así que "pal 15" no matchea `\b(?:dia|el)\s+(\d{1,2})\b`.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 2.5.6a | En la lista de horarios, escribir `después del almuerzo` | `Selecciona una opción de la lista.` + repite la lista de horarios. **Confirmado con log** (corrida 2026-09-22T15-08-02). | `matchHoraText` devuelve `unparsed`. | ☐ ☐ |
+| 2.5.6b | En la lista de fechas, escribir `pal 15` | `Selecciona una opción de la lista.` + repite la lista de fechas. **Confirmado con log**. | `matchFechaText` devuelve `unparsed` (no hay expansión de "pal"). | ☐ ☐ |
 
 ---
 
@@ -212,12 +293,12 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 |---|---|---|---|---|
 | 3.1a | `Hola` (sesión nueva). | **Un solo mensaje:** la bienvenida grande con el botón **[Continuar mi cita]** y, al final del texto, `¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.` Incluye la línea `⚠️ En caso de emergencia médica, llama al *106* (SAMU).` **Sin** segundo mensaje y **sin** el menú `¿En qué podemos ayudarte hoy?`. | Igual en Sandbox y WhatsApp. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
 | 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar un reclamo**. Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
-| 3.1c | Con **sesión nueva**, primer mensaje: `Sabes quiero una cita para san Juan de Lurigancho para medicina general`. | **Un solo mensaje:** `¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):`. **Sin** bienvenida ni menú. | Sin IA. Slots (panel Debug): `citaDistritoHintText` = `San Juan de Lurigancho`, `citaEspecialidadHintText` = `Medicina General`. Reiniciar antes de seguir con 3.2. | ☐ ☐ |
-| 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?` con **[Sí, tengo DNI]** y **[No tengo DNI]**. Sin bienvenida ni menú. | Sin IA. Estado `reclamo_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
+| 3.1c | Con **sesión nueva**, primer mensaje: `Sabes quiero una cita para san Juan de Lurigancho para medicina general`. | **Un solo mensaje:** `¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de documento (8 dígitos):`. **Sin** bienvenida ni menú. | Sin IA. Slots (panel Debug): `citaDistritoHintText` = `San Juan de Lurigancho`, `citaEspecialidadHintText` = `Medicina General`. Reiniciar antes de seguir con 3.2. | ☐ ☐ |
+| 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?` con **[Sí, tengo documento]** y **[No tengo documento]**. Sin bienvenida ni menú. | Sin IA. Estado `reclamo_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
 | 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica** y **Registrar un reclamo**. **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
-| 3.2 | `1` | `Ingresa tu DNI (8 dígitos).` **Sin** volver a mostrar el menú. | Atajo numérico: `2` haría lo mismo con el reclamo. Sin IA. | ☐ ☐ |
-| 3.3 | `1234567` (7 dígitos) | `DNI inválido. Debe tener 8 dígitos. Intenta de nuevo.` | Validación de formato, sin IA. | ☐ ☐ |
-| 3.4 | `12345678` | `Validando tu DNI…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake). | ☐ ☐ |
+| 3.2 | `1` | `Ingresa tu número de documento (8 dígitos).` **Sin** volver a mostrar el menú. | Atajo numérico: `2` haría lo mismo con el reclamo. Sin IA. | ☐ ☐ |
+| 3.3 | `1234567` (7 dígitos) | `Documento inválido. Debe tener 8 dígitos. Intenta de nuevo.` | Validación de formato, sin IA. | ☐ ☐ |
+| 3.4 | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake). | ☐ ☐ |
 | 3.5 | `0000` | `Código incorrecto. Te quedan 2 intento(s).` | Cuenta el intento. | ☐ ☐ |
 | 3.6 | `1234` | `Verificando código…` y `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` | Guarda el token. | ☐ ☐ |
 | 3.7 | `asdfghjk` | `No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:` | **Sin IA:** el filtro de basura lo corta antes de Gemini. Sigue en el mismo paso. | ☐ ☐ |
@@ -264,7 +345,7 @@ Vuelve a la lista de horarios (3.12) antes de cada caso. Tras cada confirmación
 | 3.15b | Tras 3.15a, escribir `si por favor` (o `1`, o tocar **Sí, enviar código**). | `Enviándote un nuevo código de verificación…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` Tras el código (`1234` en fake) continúa en el paso donde estaba. | Reusa el DNI guardado, no lo pide de nuevo. Sin IA. | ☐ ☐ |
 | 3.15c | Repetir 3.15a y responder `no, gracias` (o `2`, o **Cancelar**). | El menú `¿En qué podemos ayudarte hoy?`. | La sesión queda vacía, sin token ni DNI. | ☐ ☐ |
 | 3.15d | En `¿Confirmas el horario …?` escribir `Si por favor` (también `dale`, `ok`, `de acuerdo`). | `Agendando tu cita…` y sigue como con el botón. Con `no, gracias`, `otro horario` o `ver mas` vuelve `Sin problema. Elige otro horario:`. | Reconocedor de sí/no sin IA. Con algo ambiguo (`si pero a las 3`) repite los botones sin agendar. | ☐ ☐ |
-| 3.15e | Con la sesión ya iniciada (tras la bienvenida), escribir `Quiero una cita en San Juan de Lurigancho para poder atenderme en medicina general`. | `¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).` **Sin** `Un momento, estamos revisando tu mensaje…`. | **Sin IA.** Mismos slots que 3.1c. | ☐ ☐ |
+| 3.15e | Con la sesión ya iniciada (tras la bienvenida), escribir `Quiero una cita en San Juan de Lurigancho para poder atenderme en medicina general`. | `¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento (8 dígitos).` **Sin** `Un momento, estamos revisando tu mensaje…`. | **Sin IA.** Mismos slots que 3.1c. | ☐ ☐ |
 | 3.15f | Escribir `hdp` en el menú y, tras la advertencia, `ya dale` (también `continuar`, `vamos`, `sigue`). | El menú `¿En qué podemos ayudarte hoy?`, sin `Un momento…`. | Equivale a tocar **Continuar**. Solo vale justo después de la advertencia. | ☐ ☐ |
 | 3.15g | Solo con MINSA real: provocar que la reserva falle (por ejemplo un cupo tomado). | `No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:` y la lista de nuevo. A la tercera falla: `No pudimos agendar tu cita. Intenta de nuevo más tarde.` | Log `minsa.book_appointment.failed` con el endpoint, el estado, el mensaje de MINSA y el payload sin DNI (ver 4.4). | ☐ ☐ |
 | 3.15h | Con el OTP verificado, escribir un distrito que MINSA devuelva junto a vecinos (solo con MINSA real, por ejemplo `San Juan de Lurigancho`). | `Entendido. Buscando especialidades y citas disponibles en *San Juan de Lurigancho*…` y luego la lista de especialidades. **Sin** `Selecciona tu ubigeo:`. | Si entre los resultados hay uno que es exactamente el distrito ya resuelto, se elige solo. Si la lista sí aparece y se responde con texto (`San Juan de Lurigancho`), el mismo mensaje `Entendido…` nombra el distrito. | ☐ ☐ |
@@ -289,8 +370,8 @@ Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenci
 | 3.16h | `Quiero hablar con un doctor ahorita` | `Orientación Médica Telefónica Gratuita:` … `Infosalud: Línea 113`. | `OOS-07`. | ☐ ☐ |
 | 3.16i | `Mi reclamo N° 458-2026 sigue sin resolverse` | `Seguimiento de Reclamos:` … `SUSALUD al 113 (Opción 7)` … `escriba RECLAMO`. | `OOS-08`. Pedir el **estado** de un reclamo ya presentado no abre un reclamo nuevo. | ☐ ☐ |
 | 3.16j | `Necesito que me sellen mi descanso médico para mi trabajo` | `Trámites Documentarios y Certificados:` … `SISFOH` … `Unidad Local de Empadronamiento (ULE)`. | `OOS-09`. | ☐ ☐ |
-| 3.16k | Tras cualquiera de las anteriores, escribir `CITAS`; en otra prueba `CONTINUAR`; en otra `RECLAMO`. | `CITAS`: `Ingresa tu DNI (8 dígitos).` `CONTINUAR`: el menú `¿En qué podemos ayudarte hoy?`. `RECLAMO`: `¿Tienes tu DNI a la mano?` con los dos botones. | Las tres palabras que piden los mensajes se entienden **sin IA**. Solo la palabra sola: `quiero una cita` sigue su camino de antes. | ☐ ☐ |
-| 3.16l | Con la sesión ya iniciada, en el paso del DNI escribir `vacunas`; en el paso de la descripción del reclamo escribir `no me entregaron mis medicamentos`. | DNI: `DNI inválido. Debe tener 8 dígitos. Intenta de nuevo.` Reclamo: se toma como la descripción y sigue el flujo. | Dentro de un flujo solo se aplica la lectura de urgencias (3.16o): las demás categorías nunca, cada paso lee lo que pidió. | ☐ ☐ |
+| 3.16k | Tras cualquiera de las anteriores, escribir `CITAS`; en otra prueba `CONTINUAR`; en otra `RECLAMO`. | `CITAS`: `Ingresa tu número de documento (8 dígitos).` `CONTINUAR`: el menú `¿En qué podemos ayudarte hoy?`. `RECLAMO`: `¿Tienes tu documento de identidad a la mano?` con los dos botones. | Las tres palabras que piden los mensajes se entienden **sin IA**. Solo la palabra sola: `quiero una cita` sigue su camino de antes. | ☐ ☐ |
+| 3.16l | Con la sesión ya iniciada, en el paso del DNI escribir `vacunas`; en el paso de la descripción del reclamo escribir `no me entregaron mis medicamentos`. | DNI: `Documento inválido. Debe tener 8 dígitos. Intenta de nuevo.` Reclamo: se toma como la descripción y sigue el flujo. | Dentro de un flujo solo se aplica la lectura de urgencias (3.16o): las demás categorías nunca, cada paso lee lo que pidió. | ☐ ☐ |
 | 3.16m | `quiero una cita de medicina general` y `necesito cita en medicina interna` | Siguen el camino de la cita (DNI o consulta a la IA), **sin** mensaje de medicamentos. | Contraejemplos de falsos positivos de OOS-05. | ☐ ☐ |
 | 3.16n | Tras terminar un flujo (por ejemplo tras 3.14a), escribir `¿Tienen vacunas para mi bebé?` | El mensaje de OOS-06, **sin** bienvenida. | El reingreso tras un estado terminal se lee igual que un primer mensaje. | ☐ ☐ |
 | 3.16o | En el paso del DNI (o del OTP, del distrito, de la descripción del reclamo, de la confirmación del horario) escribir `mi hijo no respira`. | El mismo mensaje de emergencia de 3.16a, **y nada más**: el flujo **se cierra**. | Sesión `emergency_closed` vacía: se pierde la verificación y lo elegido, a propósito (el bot no mantiene abierta una conversación con una urgencia). Solo textos de hasta 120 caracteres. Con la sesión expirada o esperando la nueva verificación también se corta. | ☐ ☐ |
@@ -366,7 +447,7 @@ done; wait
 | # | Acción | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 4.3a | Llega al paso del DNI (`1`), y luego escribe **seguidos, sin esperar respuesta**: `12345678` y `1234`. | El bot responde **en orden**: primero el OTP pedido (`Te enviamos un código…`) y **después** `¡Verificado! Cuéntanos en qué distrito…`. Nunca al revés ni una respuesta perdida. | El segundo mensaje esperó al primero. | ☐ ☐ |
-| 4.3b | Envía tres mensajes rápidos (`Hola`, `1`, `12345678`) sin esperar. | Las respuestas llegan una tras otra y coherentes: menú, `Ingresa tu DNI (8 dígitos).`, `Validando tu DNI…`. | Se procesan en el orden de llegada. | ☐ ☐ |
+| 4.3b | Envía tres mensajes rápidos (`Hola`, `1`, `12345678`) sin esperar. | Las respuestas llegan una tras otra y coherentes: menú, `Ingresa tu número de documento (8 dígitos).`, `Validando tu documento…`. | Se procesan en el orden de llegada. | ☐ ☐ |
 
 ### 4.4 Cómo comprobarlo en los logs
 

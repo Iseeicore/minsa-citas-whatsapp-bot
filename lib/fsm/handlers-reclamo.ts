@@ -35,7 +35,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
 
   if (replyId === "reclamo_con_dni") {
     next.state = "reclamo_awaiting_dni";
-    return buildResult(next, [sendText("Ingresa tu DNI (8 dígitos).")]);
+    return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
   }
 
   if (replyId === "reclamo_sin_dni") {
@@ -44,9 +44,9 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   }
 
   return buildResult(session, [
-    sendButtons("¿Tienes tu DNI a la mano?", [
-      { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
-      { id: "reclamo_sin_dni", title: "No tengo DNI" },
+    sendButtons("¿Tienes tu documento de identidad a la mano?", [
+      { id: "reclamo_con_dni", title: "Sí, tengo documento" },
+      { id: "reclamo_sin_dni", title: "No tengo documento" },
     ]),
   ]);
 }
@@ -56,14 +56,14 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 
   if (!isValidDniFormat(dni)) {
     return buildResult(session, [
-      sendText("DNI inválido. Debe tener 8 dígitos. Intenta de nuevo."),
+      sendText("Documento inválido. Debe tener 8 dígitos. Intenta de nuevo."),
     ]);
   }
 
   const next = cloneSession(session);
   next.slots.dni = dni;
   next.state = "reclamo_awaiting_nombre";
-  return buildResult(next, [sendText("Ingresa tu nombre (como aparece en tu DNI).")]);
+  return buildResult(next, [sendText("Ingresa tu nombre (como aparece en tu documento de identidad).")]);
 }
 
 function handleAwaitingNombre(session: Session, event: InboundEvent): HandlerResult {

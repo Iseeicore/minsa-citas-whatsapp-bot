@@ -27,7 +27,7 @@ describe("an explicit cita request typed in the main menu", () => {
     expect(normalizeText(String(result.session.slots.citaDistritoHintText))).toBe("SAN JUAN DE LURIGANCHO");
     expect(normalizeText(String(result.session.slots.citaEspecialidadHintText))).toBe("MEDICINA GENERAL");
     expect(result.session.slots.initialMessageText).toBe(FIELD_TEST_MESSAGE);
-    expect(sent(result)[0]).toMatchObject({ kind: "send_text", text: expect.stringContaining("ingresa tu DNI") });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_text", text: expect.stringContaining("ingresa tu número de documento") });
   });
 
   it.each([

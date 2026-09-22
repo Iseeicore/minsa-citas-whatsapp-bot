@@ -19,12 +19,12 @@ import type { HandlerResult } from "./types";
 //  - anything else they wrote: the menu, so they can pick.
 // The lexical guard runs before this, at each caller.
 
-const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?";
+const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?";
 
 function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
   const what = especialidad ? ` de ${especialidad}` : "";
   const where = distrito ? ` en ${distrito}` : "";
-  return `¡Hola! Te ayudaremos a agendar tu cita${what}${where}. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):`;
+  return `¡Hola! Te ayudaremos a agendar tu cita${what}${where}. Para comenzar, por favor indícanos tu número de documento (8 dígitos):`;
 }
 
 // Which of the four answers a new conversation got, on the record.
@@ -53,7 +53,7 @@ export function handleFirstContact(text?: string): HandlerResult {
   // messages ask for CITAS: answering must work even though there is no menu on
   // screen yet.
   if (message === "1" || isCitaKeyword(message)) {
-    return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):"));
+    return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento (8 dígitos):"));
   }
   if (message === "2") return routed("reclamo", beginReclamo({}, RECLAMO_INTRO));
 

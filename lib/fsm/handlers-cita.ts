@@ -128,14 +128,14 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
   const dni = (event.text ?? "").trim();
 
   if (!isValidDniFormat(dni)) {
-    return buildResult(session, [sendText("DNI inválido. Debe tener 8 dígitos. Intenta de nuevo.")]);
+    return buildResult(session, [sendText("Documento inválido. Debe tener 8 dígitos. Intenta de nuevo.")]);
   }
 
   const next = cloneSession(session);
   next.slots.citaDniPending = dni;
   next.state = "cita_validate_pending";
   return buildResult(next, [
-    sendText("Validando tu DNI…"),
+    sendText("Validando tu documento…"),
     query("validate_user", { numeroDocumento: dni }),
   ]);
 }
@@ -289,7 +289,7 @@ function beginReverification(session: Session, resumeState: string): HandlerResu
   next.state = "cita_awaiting_dni";
   return buildResult(next, [
     sendText(
-      "Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu DNI (8 dígitos) para continuar justo donde quedaste.",
+      "Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu número de documento (8 dígitos) para continuar justo donde quedaste.",
     ),
   ]);
 }
