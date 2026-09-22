@@ -24,7 +24,11 @@ const FAREWELL = "Gracias por comunicarte con el *Ministerio de Salud del Perú*
 const DECLINED_TEXT = `Lamentamos no haber encontrado un horario que se ajuste a lo que necesitas. ${FAREWELL}`;
 const NO_OTHER_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${FAREWELL}`;
 
-const INTRO = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
+const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
+// Same wording the citizen already sees when list_horas comes back empty
+// (resolveHoraCandidates in handlers-cita.ts) — kept identical on purpose so
+// the two callers of offerOtherFecha read as one consistent message, not two.
+const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
 const QUESTION = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 
 // Slots that belong to the date being left behind. The verification (token, DNI)
@@ -67,7 +71,11 @@ export function closeWithApology(reason: "declined" | "no_other_dates"): Handler
   );
 }
 
-export function offerOtherFecha(session: Session): HandlerResult {
+// "only_declined": the citizen was shown the day's ONLY horario and turned
+// it down. "no_horarios": list_horas came back empty for the date they just
+// picked — there was never anything to show. Same next question either way
+// (want another date?), different reason for asking it.
+export function offerOtherFecha(session: Session, reason: "only_declined" | "no_horarios" = "only_declined"): HandlerResult {
   const next = cloneSession(session);
 
   const declined = String(next.slots.citaFecha ?? "");
@@ -78,9 +86,10 @@ export function offerOtherFecha(session: Session): HandlerResult {
   delete next.counters.citaHoraPage;
   next.state = OTHER_FECHA_STATE;
 
-  return withNote(buildResult(next, [questionButtons(`${INTRO}\n${QUESTION}`)]), {
+  const intro = reason === "no_horarios" ? INTRO_NO_HORARIOS : INTRO_ONLY_DECLINED;
+  return withNote(buildResult(next, [questionButtons(`${intro}\n${QUESTION}`)]), {
     kind: "hora_declined",
-    detail: { step: "hora_confirm", only: true, declinedDates: discarded.length },
+    detail: { step: reason === "no_horarios" ? "hora_pending" : "hora_confirm", only: reason === "only_declined", declinedDates: discarded.length },
   });
 }
 

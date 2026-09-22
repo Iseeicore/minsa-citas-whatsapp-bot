@@ -102,6 +102,42 @@ function expectRejectedAndReshown(result: HandlerResult, state: string, offered:
   expect(listRowsOf(result)).toEqual(offered.rows);
 }
 
+describe("OTP verification — proactive district resolution from the opening message", () => {
+  it("tries to resolve the district from initialMessageText when the deterministic hint failed but a place preposition was used", () => {
+    const session = at("cita_verify_pending", undefined, {
+      citaDniPending: "12345678",
+      initialMessageText: "quiero cita de odontología en sam borja",
+    });
+    const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
+
+    // No blind "Cuéntanos en qué distrito" question: a place preposition was
+    // there, so the opening message is tried through resolveDistritoText
+    // (local search, then AI) before ever asking again.
+    expect(queries(result).some((effect) => effect.kind === "resolve_distrito_ai")).toBe(true);
+    expect(sent(result).some((effect) => "text" in effect && effect.text.includes("Cuéntanos en qué distrito"))).toBe(false);
+  });
+
+  it("still just asks plainly when the opening message never mentioned a place at all", () => {
+    const session = at("cita_verify_pending", undefined, {
+      citaDniPending: "12345678",
+      initialMessageText: "quiero una cita de odontología",
+    });
+    const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
+
+    // No place preposition at all: don't spend an AI call, just ask.
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("Cuéntanos en qué distrito");
+  });
+
+  it("still just asks plainly when there is no initialMessageText at all", () => {
+    const session = at("cita_verify_pending", undefined, { citaDniPending: "12345678" });
+    const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
+
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("Cuéntanos en qué distrito");
+  });
+});
+
 describe("offered options are remembered when a list is sent", () => {
   it("ubigeo list", () => {
     const result = handle(
@@ -313,6 +349,93 @@ describe("fecha select", () => {
   it("garbage is rejected and never sent to MINSA as a date", () => {
     expectRejectedAndReshown(handle(at(state, fechas), text("asdf")), state, fechas);
     expectRejectedAndReshown(handle(at(state, fechas), text("junk")), state, fechas);
+  });
+});
+
+describe("hora pending — zero horarios for the picked date", () => {
+  it("offers another date instead of a dead-end rejection", () => {
+    const session = at("cita_hora_pending", undefined, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+    });
+    const result = handle(session, queryResult("list_horas", { status: "empty" }));
+
+    // Not the old dead end (cita_booking_rejected, nothing else to do).
+    expect(result.session.state).toBe("cita_awaiting_other_fecha");
+    expect((sent(result)[0] as { text: string }).text).toContain("No hay horarios disponibles para esa fecha.");
+    expect((sent(result)[0] as { text: string }).text).toContain("¿Deseas cambiar de fecha?");
+    // The date that came back empty is remembered so it's never offered again.
+    expect(result.session.slots.citaFechasDescartadas).toBe("22/09/2026");
+  });
+
+  it("an explicit empty items array behaves the same as status: empty", () => {
+    const session = at("cita_hora_pending", undefined, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+    });
+    const result = handle(session, queryResult("list_horas", { status: "found", items: [] }));
+
+    expect(result.session.state).toBe("cita_awaiting_other_fecha");
+  });
+});
+
+describe("booking pending — raw HTTP errors are not the same as a real rejection", () => {
+  const bookingState = () =>
+    at("cita_booking_pending", undefined, {
+      citaCodEess: "0000123",
+      citaEspecialidadId: "02",
+      citaFecha: "22/09/2026",
+      citaDni: "12345678",
+    });
+
+  it("a raw HTTP error retries WITHOUT inventing a 'someone else took it' reason", () => {
+    const result = handle(bookingState(), queryResult("book_appointment", { status: "error" }));
+
+    expect(result.session.state).toBe("cita_hora_pending");
+    expect(queries(result)[0]).toMatchObject({ kind: "list_horas" });
+    const shown = (sent(result)[0] as { text: string }).text;
+    expect(shown).toContain("problema técnico");
+    expect(shown).not.toContain("otra persona");
+  });
+
+  it("a rejection with no message is still treated as an ambiguous 'may be taken' case", () => {
+    const result = handle(bookingState(), queryResult("book_appointment", { status: "rejected" }));
+
+    expect(result.session.state).toBe("cita_hora_pending");
+    expect((sent(result)[0] as { text: string }).text).toContain("otra persona lo haya tomado");
+  });
+
+  it("a rejection whose message mentions the slot is treated the same way", () => {
+    const result = handle(
+      bookingState(),
+      queryResult("book_appointment", { status: "rejected", message: "Ya no hay cupos para ese horario" }),
+    );
+
+    expect(result.session.state).toBe("cita_hora_pending");
+    expect((sent(result)[0] as { text: string }).text).toContain("otra persona lo haya tomado");
+  });
+
+  it("a rejection with an unrelated business message closes the flow with THAT message, no retry", () => {
+    const result = handle(
+      bookingState(),
+      queryResult("book_appointment", { status: "rejected", message: "El paciente no cumple los requisitos de la campaña." }),
+    );
+
+    expect(result.session.state).toBe("cita_booking_rejected");
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toBe("El paciente no cumple los requisitos de la campaña.");
+  });
+
+  it("the 3rd straight raw error closes the flow with the honest generic fallback, not a fabricated reason", () => {
+    const session = { ...bookingState(), counters: { citaBookingFailures: 2 } };
+    const result = handle(session, queryResult("book_appointment", { status: "error" }));
+
+    expect(result.session.state).toBe("cita_booking_rejected");
+    const shown = (sent(result)[0] as { text: string }).text;
+    expect(shown).toBe("No pudimos agendar tu cita. Intenta de nuevo más tarde.");
+    expect(shown).not.toContain("otra persona");
   });
 });
 

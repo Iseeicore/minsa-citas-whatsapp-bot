@@ -1,3 +1,4 @@
+import { mentionsPlacePreposition } from "./cita-hints";
 import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "./cita-no-coverage";
 import { closeWithApology, discardedDates, handleOtherFecha, offerOtherFecha, OTHER_FECHA_STATE } from "./cita-other-fecha";
 import { isSlotAcceptance, resolveConfirmation } from "./confirmation-parser";
@@ -249,6 +250,19 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
         distritoHint,
         next.slots.initialMessageText as string | undefined,
       );
+    }
+
+    // The deterministic hint above needs an exact match right after a
+    // preposition ("en San Borja"), so a typo ("en sam borja") leaves no
+    // hint even though the citizen DID name a place. Rather than asking the
+    // same question they already answered, try the full opening message
+    // through the same local-search-then-AI pipeline the reactive reply
+    // uses (resolveDistritoText). Gated on mentionsPlacePreposition so a
+    // message that never mentioned a place at all ("quiero una cita") still
+    // just asks, instead of spending an AI call on every citizen.
+    const initialMessageText = next.slots.initialMessageText as string | undefined;
+    if (initialMessageText && mentionsPlacePreposition(initialMessageText)) {
+      return resolveDistritoText(next, initialMessageText, undefined);
     }
 
     return buildResult(next, [
@@ -1150,8 +1164,12 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
     return buildResult(next, [offerList(next, "Selecciona el horario:", rows)]);
   }
 
-  next.state = "cita_booking_rejected";
-  return buildResult(next, [sendText("No hay horarios disponibles para esa fecha.")]);
+  // Zero horarios for the date just picked — not a booking rejection (no
+  // horario was ever offered to reject), and not a dead end either: the
+  // citizen can pick another date, same as when they decline the day's only
+  // horario (offerOtherFecha remembers this date as discarded so it's never
+  // offered again).
+  return offerOtherFecha(next, "no_horarios");
 }
 
 // Builds one page (≤10 rows) of an already-ordered candidate list, and
@@ -1589,30 +1607,47 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
   // MINSA answered without saying why). Instead of closing the flow, show the
   // same day's horarios again — bounded, so a systematic failure ends instead
   // of looping. A rejection that states a business reason still closes.
+  //
+  // "error" is any non-2xx/non-401 HTTP response from the booking endpoint —
+  // a raw transport/server failure, not MINSA telling us the slot is gone.
+  // Treating it identically to a real "slot taken" rejection invents a reason
+  // MINSA never gave, so the retry/closing text is kept separate: honest
+  // about a technical hiccup on our side, never blaming another citizen for
+  // something we can't actually confirm.
   const failures = (next.counters.citaBookingFailures ?? 0) + 1;
-  const slotMayBeGone =
-    result.status === "error" ||
-    (result.status === "rejected" && (!result.message || SLOT_TAKEN_MESSAGE.test(result.message)));
+  const isRawError = result.status === "error";
+  const isAmbiguousRejection =
+    result.status === "rejected" && (!result.message || SLOT_TAKEN_MESSAGE.test(result.message));
+  const slotMayBeGone = isRawError || isAmbiguousRejection;
 
   if (slotMayBeGone && failures < MAX_BOOKING_FAILURES) {
     next.counters.citaBookingFailures = failures;
     delete next.counters.citaHoraPage;
     next.state = "cita_hora_pending";
+    const retryText = isRawError
+      ? "Tuvimos un problema técnico al intentar reservar tu cita. Vamos a intentarlo de nuevo — estos son los horarios disponibles de la misma fecha:"
+      : "No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:";
     return withNote(buildResult(next, [
-      sendText(
-        "No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:",
-      ),
+      sendText(retryText),
       query("list_horas", {
         codEess: String(next.slots.citaCodEess ?? ""),
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         fecha: String(next.slots.citaFecha ?? ""),
       }),
-    ]), { kind: "booking_retry", level: "warn", detail: { failures, status: result.status } });
+    ]), {
+      kind: "booking_retry",
+      level: "warn",
+      detail: { failures, status: result.status, reason: isRawError ? "http_error" : "ambiguous_rejection" },
+    });
   }
 
   next.state = "cita_booking_rejected";
   return withNote(
     buildResult(next, [sendText(result.message ?? "No pudimos agendar tu cita. Intenta de nuevo más tarde.")]),
-    { kind: "booking_rejected", level: "warn", detail: { failures, status: result.status } },
+    {
+      kind: "booking_rejected",
+      level: "warn",
+      detail: { failures, status: result.status, reason: isRawError ? "http_error" : "ambiguous_rejection" },
+    },
   );
 }
