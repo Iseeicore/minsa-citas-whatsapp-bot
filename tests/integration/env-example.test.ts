@@ -3,10 +3,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 // .env.example is a bare list of variables in two blocks, each opened by a
-// "##### " title: the minimum for the WhatsApp channel and citas, then every
-// optional variable. The README documents them. This keeps the three in sync:
-// every variable the app reads is listed, nothing dead is listed (e.g. a
-// leftover REDIS_URL), and each one is documented.
+// "##### " title: the minimum for the MINSA Docker server (WhatsApp, citas and
+// the connected frontend), then every optional variable. The README documents
+// them. This keeps the three in sync: every variable the app reads is listed,
+// nothing dead is listed (e.g. a leftover REDIS_URL), and each one is
+// documented.
 
 const ROOT = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -25,6 +26,12 @@ const MINIMUM = [
   "MINSA_INTEGRATION_SECRET",
   "MINSA_CONVERSATION_ID_PLACEHOLDER",
   "SANDBOX_USE_REAL_MINSA",
+  "GOOGLE_CLIENT_API",
+  "GOOGLE_AI_MODEL",
+  "SANDBOX_USE_REAL_AI",
+  "SANDBOX_ENABLED",
+  "SANDBOX_ALLOWED_ORIGINS",
+  "DATABASE_ENABLED",
 ];
 
 const allLines = read(".env.example").split(/\r?\n/).filter((line) => line.trim() !== "");
@@ -62,7 +69,7 @@ describe(".env.example", () => {
     expect(allLines.filter((line) => SECTION_TITLE.test(line))).toHaveLength(2);
   });
 
-  it("opens with the minimum block: exactly what the WhatsApp channel and citas need", () => {
+  it("opens with the minimum block: exactly what the MINSA Docker server needs", () => {
     const [first, second] = allLines.map((line, index) => (SECTION_TITLE.test(line) ? index : -1)).filter((i) => i >= 0);
     expect(first).toBe(0);
     expect(allLines.slice(1, second).map((line) => line.split("=")[0])).toEqual(MINIMUM);

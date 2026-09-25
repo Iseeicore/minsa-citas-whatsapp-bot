@@ -18,7 +18,7 @@ Un solo comando construye la imagen, levanta el contenedor y **espera hasta que 
 npm run docker:up
 ```
 
-1. Copia `.env.example` a `.env` (ignorado por git) junto a `docker-compose.yml` y completa, como mínimo, el bloque **`##### Mínimo`**: las credenciales de Meta y del MINSA que necesitan el canal de WhatsApp y las citas (ver [Variables de entorno](#variables-de-entorno)).
+1. Copia `.env.example` a `.env` (ignorado por git) junto a `docker-compose.yml` y completa, como mínimo, el bloque **`##### Mínimo`**: Meta, MINSA, Gemini, el Sandbox para el frontend conectado y `DATABASE_ENABLED=false` (ver [Variables de entorno](#variables-de-entorno)).
 2. Ejecuta `npm run docker:up`. Si falta una credencial obligatoria, Docker Compose se detiene con un mensaje que la nombra, en lugar de arrancar un bot roto.
 3. Verifica que responde:
 
@@ -39,11 +39,13 @@ Detalles de la imagen:
 - **Seguridad:** corre con el usuario sin privilegios `node`; los secretos solo entran como variables de entorno, nunca quedan dentro de la imagen.
 - **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos.
 - **Puerto:** 3000 dentro del contenedor; `HOST_PORT` cambia el puerto publicado en el servidor (por defecto 3000).
+- **Variables:** `docker-compose.yml` pasa al contenedor **todas** las variables del `.env` (`env_file`). Solo fija tres: `NODE_ENV=production`, `PORT=3000` y `HOSTNAME=0.0.0.0`, para que un valor olvidado en el `.env` no saque al servidor del puerto que usan el mapeo y el healthcheck. Las 4 credenciales de Meta son obligatorias.
+- **Base de datos:** `DATABASE_ENABLED` vale `false` si no se define. La imagen se compila sin migraciones, así que `true` solo funciona contra un `DATABASE_URL` ya migrado (`npx prisma migrate deploy` ejecutado aparte) y deja de exigir una sola instancia.
 - **Webhook de Meta:** configura la URL de callback como `https://<servidor>/webhook/whatsapp`. El HTTPS lo termina el proxy inverso del servidor, no el contenedor.
 
 ### Conectar un frontend externo (widget del Sandbox)
 
-Para que otro sitio, por ejemplo el portal de MINSA Digital, converse con el bot a través de `POST /api/sandbox`, agrega al `.env`:
+Para que otro sitio, por ejemplo el portal de MINSA Digital, converse con el bot a través de `POST /api/sandbox`, el bloque mínimo ya trae `SANDBOX_ENABLED=true`; completa el origen:
 
 ```bash
 SANDBOX_ENABLED=true
@@ -66,7 +68,7 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    npm install
    ```
 
-2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de Neon y las credenciales de WhatsApp Cloud API).
+2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de Neon y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía:** el `false` del bloque mínimo es para el servidor en Docker.
 3. Aplica el esquema a tu base de datos de desarrollo:
 
    ```bash
@@ -101,10 +103,12 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
-| `##### Mínimo: canal de WhatsApp y citas` | Las 5 variables de Meta y las 4 del MINSA | Bot en Docker (servidor MINSA) que solo atiende citas por WhatsApp |
-| `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC y quejas), Gemini, Sandbox, logs, perímetro, candado y Docker | Todo lo demás: Vercel con base de datos, el flujo de reclamo, el widget en otro frontend |
+| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (4), Gemini (3), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
+| `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC y quejas), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de reclamo, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
+
+> **El bloque mínimo está pensado para Docker.** Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
 
 - **Sin el bloque completo, el reclamo no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL`, `SANDBOX_USE_REAL_RENIEC=true` y `QUEJAS_API_BASE_URL` solo acepta el DNI de prueba y el envío falla.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
