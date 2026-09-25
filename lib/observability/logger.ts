@@ -68,7 +68,8 @@ function envLevel(): LogLevel | "silent" {
 function defaultSink(): LogSink {
   if (process.env.LOG_TO_FILE !== "true" || (process.env.VERCEL && !process.env.LOG_DIR)) return consoleSink;
 
-  const file = createDailyFileSink({ dir: process.env.LOG_DIR ?? "logs" });
+  // `||`, not `??`: an empty LOG_DIR (as a copied .env.example leaves it) means "logs" too.
+  const file = createDailyFileSink({ dir: process.env.LOG_DIR || "logs" });
   return (level, line) => {
     consoleSink(level, line);
     file(level, line);
