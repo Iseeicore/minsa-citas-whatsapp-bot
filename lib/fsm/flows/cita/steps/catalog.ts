@@ -26,7 +26,7 @@ type EspecialidadResultItem = {
 // Deterministic match against the REAL especialidad list — never a second
 // AI call. Only auto-selects when exactly one item matches the hint the
 // citizen already typed in their opening message (analyzed by
-// analyzeMainMenuIntent in lib/fsm/parsing/ai.ts); an ambiguous or absent match
+// analyzeMainMenuIntent in lib/fsm/parsing/ai/main-menu-intent.ts); an ambiguous or absent match
 // falls through to the normal always-manual list below, same as if there
 // were no hint at all.
 function matchEspecialidadHint(

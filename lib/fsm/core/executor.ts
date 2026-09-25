@@ -1,10 +1,7 @@
-import {
-  analyzeMainMenuIntent,
-  extractSelectionHints,
-  resolveDistritoAi,
-  resolveFechaAi,
-  type FechaAiOption,
-} from "@/lib/fsm/parsing/ai";
+import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
+import { resolveFechaAi, type FechaAiOption } from "@/lib/fsm/parsing/ai/fecha";
+import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
+import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import {

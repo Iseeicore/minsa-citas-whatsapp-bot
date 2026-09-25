@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai";
+import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
 import { configureLogger } from "@/lib/observability/logger";
 import { normalizeText } from "@/lib/fsm/parsing/text";
