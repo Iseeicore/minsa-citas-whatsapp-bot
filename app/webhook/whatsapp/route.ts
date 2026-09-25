@@ -7,7 +7,7 @@ import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
 import { TURN_FAILURE_TEXT, TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
-import { routeLexicalAction } from "@/lib/fsm/core/handlers";
+import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
 import { isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
 import { traceTurn } from "@/lib/observability/tracer";
 import { saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";

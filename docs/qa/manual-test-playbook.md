@@ -251,7 +251,7 @@ porque exige la misma primera letra). Se espera que pasen como texto normal,
 mensaje completo y repite la pregunta — nunca llega a
 `extractCitaHints`/`resolveDistritoText` esa vuelta, sin importar si la
 acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_RECLAMO`
-(`lib/fsm/core/handlers.ts:156`). Llega hasta aquí con `reachDistritoPrompt`.
+(`lib/fsm/routing/lexical-guard-routing.ts:116`). Llega hasta aquí con `reachDistritoPrompt`.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
@@ -261,7 +261,7 @@ acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_RECLAMO`
 
 **2.5.5 — Hostilidad en medio del flujo, estado SIN guard
 (`cita_awaiting_hora_confirm`).** Este estado no está en `FREE_TEXT_STATE_PROMPTS`
-ni en `SELECTION_STATES` (`lib/fsm/core/handlers.ts:38-55`): el guard nunca corre
+ni en `SELECTION_STATES` (`lib/fsm/routing/lexical-guard-routing.ts:26-43`): el guard nunca corre
 aquí. Si el texto ruidoso igual matchea la hora pendiente
 (`acceptsPendingHora`, `lib/fsm/flows/cita/steps/hora.ts:344-351`), la cita se
 confirma **sin ninguna advertencia**. Llega hasta aquí con
