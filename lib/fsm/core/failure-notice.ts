@@ -1,5 +1,5 @@
 // Throttle for the citizen-facing text sent when a message could not be
-// processed (TURN_FAILURE_TEXT, see app/webhook/whatsapp/route.ts's
+// processed (TURN_FAILURE_TEXT, see lib/whatsapp/webhook/answer.ts's
 // answerFailure). A burst that fails every message of the same number — an
 // outage, a flapping dependency, a candado that keeps timing out — would
 // otherwise send one "inconveniente temporal" text per failed message. This

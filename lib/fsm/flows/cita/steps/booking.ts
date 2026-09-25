@@ -21,7 +21,7 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
     next.state = "cita_booked";
     // Three separate messages — the webhook's send loop already puts a
     // typing indicator + short pause between every effect it sends
-    // (app/webhook/whatsapp/route.ts), so this reads as the constancy
+    // (lib/whatsapp/webhook/answer.ts), so this reads as the constancy
     // arriving, a brief pause, the link button, another pause, then a
     // closing message, with no extra delay logic needed here.
     const constanciaText = `*MINISTERIO DE SALUD DEL PERÚ*
