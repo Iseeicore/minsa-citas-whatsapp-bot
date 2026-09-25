@@ -15,6 +15,8 @@ A WhatsApp Business Cloud API "web inbox" MVP built with Next.js (App Router), d
 
 ```
 app/                         Next.js routes (kept thin): inbox UI, /api/*, /webhook/whatsapp, sandbox pages
+  components/                inbox and Sandbox UI; Sandbox.tsx is the chat container
+    sandbox-chat/            its presentational pieces (header, composer, bubbles, DNI card, debug panel) and helpers
 lib/
   db/                        Prisma client
   whatsapp/                  outbound messages and media download (Meta Cloud API)
@@ -28,10 +30,12 @@ lib/
     session/                 session persistence, expiry guard and re-verification, per-citizen turn lock
     routing/                 first contact, welcome, main menu, lexical-guard routing, entry into a flow
     parsing/                 reading citizen input: dates, times, selections, text
-      ai/                    Gemini-assisted parsing, one module per task (distrito, menu intent, fecha, hints)
+      ai/                    Gemini-assisted parsing, one module per task (distrito, menu intent, fecha, hints);
+                             gemini.ts is the one shared request helper
     flows/
       cita/                  appointment flow: handlers-cita.ts routes each state to steps/
         steps/               one module per conversation step (identity, ubigeo, catalog, fecha, hora, booking…)
+          hora/              the hora step: list, typed times, "1".."10" choice, confirmation, ask-or-book
       reclamo/               complaint flow
       emergency/             emergency cut
       out-of-scope/          out-of-scope detection and the official channels it points to

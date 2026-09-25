@@ -9,7 +9,7 @@ import type { Conversation } from "@/app/components/types";
 type Mode = "real" | "sandbox";
 
 // Reading window.location during SSR would throw — same lazy-initializer
-// trick used elsewhere in this app (see Sandbox.tsx's getOrCreateFrom) to
+// trick used elsewhere in this app (see getOrCreateFrom in components/sandbox-chat/storage.ts) to
 // stay static-render-safe instead of pulling in useSearchParams (which
 // would force this page out of static prerendering).
 function initialModeFromQuery(): Mode {
