@@ -12,7 +12,10 @@
     "test:gaps": "vitest run --mode strict-gaps",
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "smoke:neon": "vitest run --config vitest.smoke.config.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "docker:up": "docker compose up -d --build --wait --wait-timeout 180",
+    "docker:logs": "docker compose logs -f",
+    "docker:down": "docker compose down"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
