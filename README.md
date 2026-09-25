@@ -115,6 +115,24 @@ For deployments that only need the bot to answer (message reactivity) and must n
 
 **Run exactly ONE instance in this mode.** State is per process: a second replica would not see the sessions the first one holds and would break conversations mid-flow, and a restart makes every in-progress citizen start over. Scaling out needs a shared store (for example Redis with TTLs) behind `lib/fsm/session/session-store.ts` and `lib/whatsapp/webhook/inbound-dedupe.ts`.
 
+## Run with Docker (MINSA server)
+
+The `Dockerfile` builds the no-database deployment: a multi-stage image on `node:22-alpine` (the Node version CI runs) that builds with `npm run build:no-db` and Next's standalone output, runs as the unprivileged `node` user on port 3000, and probes `GET /api/health` as its `HEALTHCHECK`.
+
+```bash
+# 1. Put the secrets in a git-ignored .env next to docker-compose.yml:
+#    META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_WEBHOOK_VERIFY_TOKEN, META_APP_SECRET
+#    (+ the SANDBOX_USE_REAL_* / MINSA_* / RENIEC_* / QUEJAS_* / GOOGLE_* values for real integrations)
+# 2. Build and start:
+docker compose up -d --build
+# 3. Check it:
+curl http://localhost:3000/api/health   # {"status":"ok","database":"disabled"}
+```
+
+- `docker-compose.yml` fixes `DATABASE_ENABLED=false`; a missing required secret stops `docker compose up` with a message instead of starting a broken bot. `HOST_PORT` changes the published port (default 3000).
+- Point Meta's webhook callback at `https://<server>/webhook/whatsapp` (TLS terminates in front of the container, e.g. the server's reverse proxy).
+- `next.config.ts` only switches to standalone output when `NEXT_OUTPUT_STANDALONE=true` (set by the Dockerfile), so Vercel builds are unchanged.
+
 ## Notes
 
 - The webhook route (`app/webhook/whatsapp/route.ts`) runs on the Node.js runtime (not Edge) because signature verification needs Node's `crypto` module. The path is fixed at `/webhook/whatsapp` to match the callback URL already registered in Meta for Developers.
