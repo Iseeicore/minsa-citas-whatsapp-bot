@@ -29,6 +29,26 @@ describe("masking", () => {
     expect(redactString("a las 13:45 el 31/12/2099")).toBe("a las 13:45 el 31/12/2099");
   });
 
+  it("hides the query string of any URL inside a text, where secrets travel", () => {
+    expect(redactString("Failed to parse URL from https://api.example.com/v1/x:run?key=SECRET-123&alt=json")).toBe(
+      "Failed to parse URL from https://api.example.com/v1/x:run?[redacted]",
+    );
+    expect(redactString("see http://h.example/p?token=abc#frag and more")).toBe(
+      "see http://h.example/p?[redacted]#frag and more",
+    );
+    // A URL without a query and a Spanish question stay as they are.
+    expect(redactString("https://api.example.com/v1/path")).toBe("https://api.example.com/v1/path");
+    expect(redactString("¿Confirmas el horario? responde sí")).toBe("¿Confirmas el horario? responde sí");
+  });
+
+  it("never lets a URL's secret reach a log line through an error message", () => {
+    const { raw, log } = capture();
+    log.error("external.http", { error: new TypeError("fetch failed for https://api.example.com/m?key=SECRET-123") });
+
+    expect(raw.join("\n")).not.toContain("SECRET-123");
+    expect(raw.join("\n")).toContain("https://api.example.com/m?[redacted]");
+  });
+
   it("sanitizes a slots snapshot: no bearer, masked DNI, long values reduced to their length", () => {
     const message = "quiero una cita, mi dni es 12345678";
     const offered = JSON.stringify({ rows: [1, 2, 3] });
