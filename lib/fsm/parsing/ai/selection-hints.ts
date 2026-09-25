@@ -1,5 +1,4 @@
-import { timedFetch } from "@/lib/observability/http";
-import { REQUEST_TIMEOUT_MS, type GeminiGenerateContentBody } from "@/lib/fsm/parsing/ai/gemini";
+import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
 // ---- Especialidad / establecimiento hints from a typed message ---------------
 // Runs only when the deterministic matcher found nothing among the offered
@@ -43,33 +42,17 @@ export async function extractSelectionHints(_step: string, text: string): Promis
   if (!text.trim()) return {};
 
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    const model = process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_CLIENT_API}`;
-
-    const body = JSON.stringify({
-      system_instruction: { parts: [{ text: SELECTION_HINTS_SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: SELECTION_HINTS_RESPONSE_SCHEMA,
-      },
-    });
-
     // Fail-open: no hints just means the citizen picks from the list.
+    const outcome = await requestGeminiJson({
+      operation: "extract_selection_hints",
+      systemPrompt: SELECTION_HINTS_SYSTEM_PROMPT,
+      userText: text,
+      responseSchema: SELECTION_HINTS_RESPONSE_SCHEMA,
+    });
+    if (!outcome.ok) return {};
+
     try {
-      const response = await timedFetch("gemini", "extract_selection_hints", url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-      if (!response.ok) return {};
-
-      const envelope = (await response.json()) as GeminiGenerateContentBody;
-      const responseText = envelope.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof responseText !== "string") return {};
-
-      const parsed = JSON.parse(responseText) as { especialidad?: unknown; establecimiento?: unknown };
+      const parsed = outcome.json as { especialidad?: unknown; establecimiento?: unknown };
       return {
         especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
         establecimiento: typeof parsed.establecimiento === "string" ? parsed.establecimiento : undefined,
