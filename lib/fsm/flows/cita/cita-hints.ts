@@ -1,5 +1,5 @@
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
-import { searchDistrito } from "./ubigeo-data";
+import { searchDistrito } from "@/lib/fsm/flows/cita/ubigeo-data";
 
 // Deterministic (no AI) reading of what a citizen already said about the cita
 // they want, so it isn't thrown away when the message also carried an insult

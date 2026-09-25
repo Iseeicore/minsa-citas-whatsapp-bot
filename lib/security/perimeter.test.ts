@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "./payload-filter";
-import { MUTE_NOTICE_TEXT, screenInbound } from "./perimeter";
-import { createRateLimiter } from "./rate-limiter";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
+import { MUTE_NOTICE_TEXT, screenInbound } from "@/lib/security/perimeter";
+import { createRateLimiter } from "@/lib/security/rate-limiter";
 
 function setup(options: { hasSession?: boolean } = {}) {
   const hasSession = vi.fn(async () => options.hasSession ?? false);

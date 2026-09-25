@@ -3,7 +3,7 @@ import {
   checkFirstMessagePayload,
   FIRST_MESSAGE_REJECTION_TEXT,
   MEDIA_WITHOUT_SESSION_TEXT,
-} from "./payload-filter";
+} from "@/lib/security/payload-filter";
 
 const text = (body: string) => checkFirstMessagePayload({ type: "text", text: body });
 

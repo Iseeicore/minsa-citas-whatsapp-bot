@@ -8,8 +8,8 @@ import {
   INSULT_TOKEN_PATTERNS,
   PROTECTED_PHRASES,
   PROTECTED_WORDS,
-} from "./lexicon";
-import { PLACE_NAME_WORDS } from "./place-names";
+} from "@/lib/security/lexicon";
+import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
 
 // Deterministic, in-memory pre-filter run before the FSM and before any AI
 // call. Pure function: no I/O, no shared state.

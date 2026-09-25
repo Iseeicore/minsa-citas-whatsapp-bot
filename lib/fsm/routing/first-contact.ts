@@ -1,10 +1,10 @@
 import type { CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
-import { beginCita, beginReclamo, buildMenuEffect } from "./flow-entry";
+import { beginCita, beginReclamo, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
 import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
-import { detectCitaRequest, isGreeting, isReclamoKeyword } from "./menu-shortcuts";
+import { detectCitaRequest, isGreeting, isReclamoKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import { buildWelcomeEffect } from "./welcome";
+import { buildWelcomeEffect } from "@/lib/fsm/routing/welcome";
 import type { HandlerResult } from "@/lib/fsm/core/types";
 
 // What a citizen gets when a conversation starts (their very first message, or

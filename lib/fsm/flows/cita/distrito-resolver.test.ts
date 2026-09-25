@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { looksLikePlaceName, resolveDistritoCandidates, resolveDistritoText } from "./distrito-resolver";
+import { looksLikePlaceName, resolveDistritoCandidates, resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 
 // Characterization tests for the district-resolution pipeline, moved here from

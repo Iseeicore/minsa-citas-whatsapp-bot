@@ -1,6 +1,6 @@
 import { handleCita } from "@/lib/fsm/flows/cita/handlers-cita";
 import { handleReclamo } from "@/lib/fsm/flows/reclamo/handlers-reclamo";
-import { buildResult, omitSlot, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES, withNote } from "./handlers-shared";
+import { buildResult, omitSlot, query, readReply, sendButtons, sendList, sendText, TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
 import { detectCitaRequest, isContinueReply, isGreeting, isReclamoKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { OFFERED_SLOT, readOffered } from "@/lib/fsm/parsing/selection-matchers";
@@ -16,7 +16,7 @@ import {
   RESPECT_REMINDER_TEXT,
   type LexicalAction,
 } from "@/lib/security/lexical-guard";
-import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "./types";
+import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 
 const CONTINUE_BUTTON_ID = "continuar_menu";
 

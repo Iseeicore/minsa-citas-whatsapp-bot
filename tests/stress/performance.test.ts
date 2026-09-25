@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import distritos from "@/data/peru-distritos.json";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
-import { createRandom, pick } from "../support/prng";
+import { createRandom, pick } from "@/tests/support/prng";
 
 // The brief calls the function `evaluateOffensiveContent` (the name used in the
 // original proposal). The shipped entry point is `evaluateLexicalGuard`.

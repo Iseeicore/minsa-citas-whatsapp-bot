@@ -7,7 +7,7 @@ import {
   detectSessionExpiry,
   SESSION_IDLE_TIMEOUT_MS,
   TOKEN_EXPIRY_MARGIN_MS,
-} from "./session-expiry-guard";
+} from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-expiry";

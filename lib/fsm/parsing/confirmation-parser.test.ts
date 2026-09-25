@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveConfirmation } from "./confirmation-parser";
+import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
 
 describe("resolveConfirmation", () => {
   it.each([

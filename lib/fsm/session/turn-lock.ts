@@ -119,7 +119,7 @@ function defaultDbLock(): DbTurnLock | undefined {
     if (!lock) {
       const [{ prisma }, { createPrismaAdvisoryLock }] = await Promise.all([
         import("@/lib/db/prisma"),
-        import("./turn-lock-db"),
+        import("@/lib/fsm/session/turn-lock-db"),
       ]);
       lock = createPrismaAdvisoryLock(prisma, {
         lockTimeoutMs: numberFromEnv("TURN_LOCK_TIMEOUT_MS"),

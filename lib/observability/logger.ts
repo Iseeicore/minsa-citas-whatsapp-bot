@@ -1,7 +1,7 @@
-import { currentTraceId } from "./context";
-import { createDailyFileSink } from "./file-sink";
-import { sanitizeValue } from "./mask";
-import type { LogFields, LogLevel, LogSink } from "./types";
+import { currentTraceId } from "@/lib/observability/context";
+import { createDailyFileSink } from "@/lib/observability/file-sink";
+import { sanitizeValue } from "@/lib/observability/mask";
+import type { LogFields, LogLevel, LogSink } from "@/lib/observability/types";
 
 // Structured logging as one JSON object per line (NDJSON), written with the
 // console so Vercel Logs and any log shipper read it as is. No dependency: a

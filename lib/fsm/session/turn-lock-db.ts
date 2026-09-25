@@ -1,4 +1,4 @@
-import { TurnLockTimeoutError, type DbTurnLock } from "./turn-lock";
+import { TurnLockTimeoutError, type DbTurnLock } from "@/lib/fsm/session/turn-lock";
 
 // Cross-instance layer of the per-waId turn lock.
 //

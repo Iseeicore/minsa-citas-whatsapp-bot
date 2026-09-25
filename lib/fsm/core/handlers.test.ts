@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { INSTITUTIONAL_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/security/lexical-guard";
-import { handle } from "./handlers";
-import { isQueryEffect } from "./handlers-shared";
-import type { InboundEvent, SendEffect, Session } from "./types";
+import { handle } from "@/lib/fsm/core/handlers";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-test";
 

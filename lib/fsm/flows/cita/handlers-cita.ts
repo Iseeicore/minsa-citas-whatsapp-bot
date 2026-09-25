@@ -1,6 +1,6 @@
-import { mentionsPlacePreposition } from "./cita-hints";
-import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "./cita-no-coverage";
-import { closeWithApology, discardedDates, handleOtherFecha, offerOtherFecha, OTHER_FECHA_STATE } from "./cita-other-fecha";
+import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/cita-hints";
+import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "@/lib/fsm/flows/cita/cita-no-coverage";
+import { closeWithApology, discardedDates, handleOtherFecha, offerOtherFecha, OTHER_FECHA_STATE } from "@/lib/fsm/flows/cita/cita-other-fecha";
 import { isSlotAcceptance, resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
 import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
@@ -9,7 +9,7 @@ import {
   resolveDistritoCandidates,
   resolveDistritoText,
   type DistritoAiCandidateResult,
-} from "./distrito-resolver";
+} from "@/lib/fsm/flows/cita/distrito-resolver";
 import {
   buildResult,
   cloneSession,

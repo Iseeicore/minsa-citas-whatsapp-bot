@@ -12,7 +12,7 @@ import {
   WHATSAPP_ROW_DESCRIPTION_MAX,
   WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
-import { searchDistrito, searchDistritoByPrefix } from "./ubigeo-data";
+import { searchDistrito, searchDistritoByPrefix } from "@/lib/fsm/flows/cita/ubigeo-data";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 
 // Resolving a district name to (departamento, provincia, distrito) — the fast

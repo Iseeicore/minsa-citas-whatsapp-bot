@@ -4,7 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection-matchers";
 import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
-import { createRandom, pick } from "../support/prng";
+import { createRandom, pick } from "@/tests/support/prng";
 
 // Robustness of every selection step under hostile input, with NO network:
 // fetch is replaced by a function that fails the test if anything calls it.

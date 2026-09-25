@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { activeTrace, runWithTrace } from "./context";
-import { logger as appLogger, type Logger } from "./logger";
-import { previewInput, sanitizeSlots, tail } from "./mask";
-import type { ExternalService, TurnNote } from "./types";
+import { activeTrace, runWithTrace } from "@/lib/observability/context";
+import { logger as appLogger, type Logger } from "@/lib/observability/logger";
+import { previewInput, sanitizeSlots, tail } from "@/lib/observability/mask";
+import type { ExternalService, TurnNote } from "@/lib/observability/types";
 
 // One trace per turn — one inbound message answered. It ties together, under a
 // single traceId: the state it started in, what came in, every decision that

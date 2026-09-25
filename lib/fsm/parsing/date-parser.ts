@@ -1,4 +1,4 @@
-import type { OfferedRow } from "./selection-matchers";
+import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
 
 // Deterministic reading of a typed date ("mañana", "el viernes", "22 de
 // septiembre", "22/09", "lo más pronto") against the dates MINSA actually

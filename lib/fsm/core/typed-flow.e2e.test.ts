@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { InboundEvent, SendEffect, Session } from "./types";
+import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 // End-to-end through the REAL runTurn (handlers + executor + fake adapters).
 // Only persistence is replaced by an in-memory map, so no database is needed.
@@ -13,7 +13,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   },
 }));
 
-import { runTurn } from "./executor";
+import { runTurn } from "@/lib/fsm/core/executor";
 
 const FROM = "sandbox-e2e";
 

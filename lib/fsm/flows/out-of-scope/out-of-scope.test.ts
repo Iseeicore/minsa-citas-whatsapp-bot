@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { detectOutOfScope, isEmergency, isCitaKeyword, isContinueKeyword } from "./out-of-scope";
-import { OOS_MESSAGES, type OosCategory } from "./out-of-scope-messages";
+import { detectOutOfScope, isEmergency, isCitaKeyword, isContinueKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 
 // The examples are the ones the audit spreadsheet lists for each category
 // (sheet "Catálogo de Intenciones OutofSc"), plus a few more phrasings.

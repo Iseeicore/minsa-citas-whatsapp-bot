@@ -1,6 +1,6 @@
 import { timedFetch } from "@/lib/observability/http";
 import { logger } from "@/lib/observability/logger";
-import { signMinsaRequest } from "./minsa-signature";
+import { signMinsaRequest } from "@/lib/integrations/minsa-signature";
 
 // ---- Result shapes returned to lib/fsm/core/executor.ts --------------------
 // These are internal-only shapes (not wire formats); the executor folds

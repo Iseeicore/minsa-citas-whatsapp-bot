@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRateLimiter } from "./rate-limiter";
+import { createRateLimiter } from "@/lib/security/rate-limiter";
 
 function limiterWithClock(options: Parameters<typeof createRateLimiter>[0] = {}) {
   let now = 1_000_000;

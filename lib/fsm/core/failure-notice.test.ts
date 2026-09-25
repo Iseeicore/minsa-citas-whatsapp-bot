@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFailureNoticeThrottle } from "./failure-notice";
+import { createFailureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
 
 function throttleWithClock(options: Parameters<typeof createFailureNoticeThrottle>[0] = {}) {
   let now = 1_000_000;

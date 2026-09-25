@@ -3,7 +3,7 @@
 // "Mensaje de Respuesta Sugerida del Bot"). The wording is the spreadsheet's; only
 // the extra line breaks were collapsed.
 
-import { CHANNELS } from "./out-of-scope-channels";
+import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
 
 export type OosCategory =
   | "OOS-01"

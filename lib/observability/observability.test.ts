@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createDailyFileSink, dateFolder, type FileSystemPort } from "./file-sink";
-import { createLogger } from "./logger";
-import { maskDni, previewInput, redactString, sanitizeSlots } from "./mask";
-import { createTurnTrace, deriveTraceId, traceIdFor, traceTurn } from "./tracer";
-import type { LogLevel } from "./types";
+import { createDailyFileSink, dateFolder, type FileSystemPort } from "@/lib/observability/file-sink";
+import { createLogger } from "@/lib/observability/logger";
+import { maskDni, previewInput, redactString, sanitizeSlots } from "@/lib/observability/mask";
+import { createTurnTrace, deriveTraceId, traceIdFor, traceTurn } from "@/lib/observability/tracer";
+import type { LogLevel } from "@/lib/observability/types";
 
 type Line = Record<string, unknown> & { level: LogLevel; event: string };
 

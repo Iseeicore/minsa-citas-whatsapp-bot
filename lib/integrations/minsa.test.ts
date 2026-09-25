@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bookAppointment, listFechas, listHoras } from "./minsa";
+import { bookAppointment, listFechas, listHoras } from "@/lib/integrations/minsa";
 import { configureLogger } from "@/lib/observability/logger";
 
 // The Sandbox's FAKE catalog (SANDBOX_USE_REAL_MINSA off). It exists so a human

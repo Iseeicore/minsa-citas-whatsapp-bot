@@ -5,7 +5,7 @@ import { configureLogger } from "@/lib/observability/logger";
 import { normalizeText } from "@/lib/fsm/parsing/text";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { detectCitaRequest, isContinueReply } from "./menu-shortcuts";
+import { detectCitaRequest, isContinueReply } from "@/lib/fsm/routing/menu-shortcuts";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-main-menu";

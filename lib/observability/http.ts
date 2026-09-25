@@ -1,5 +1,5 @@
-import { logger } from "./logger";
-import type { ExternalService } from "./types";
+import { logger } from "@/lib/observability/logger";
+import type { ExternalService } from "@/lib/observability/types";
 
 // fetch, plus one log line per call with what an outside service is worth
 // knowing for: which service and operation, the HTTP status and how long it took.

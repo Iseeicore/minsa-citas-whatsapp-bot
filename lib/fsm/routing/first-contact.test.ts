@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizeText } from "@/lib/fsm/parsing/text";
-import { handleFirstContact } from "./first-contact";
+import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";

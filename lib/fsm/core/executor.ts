@@ -5,8 +5,8 @@ import {
   resolveFechaAi,
   type FechaAiOption,
 } from "@/lib/fsm/parsing/ai";
-import { handle } from "./handlers";
-import { isQueryEffect } from "./handlers-shared";
+import { handle } from "@/lib/fsm/core/handlers";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import {
   bookAppointment,
   formatFechaForApi,
@@ -32,7 +32,7 @@ import type {
   QueryResultEvent,
   SendEffect,
   Session,
-} from "./types";
+} from "@/lib/fsm/core/types";
 
 export type TurnResult = {
   sent: SendEffect[];

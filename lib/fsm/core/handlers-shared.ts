@@ -10,7 +10,7 @@ import type {
   QueryEffectKind,
   SendEffect,
   Session,
-} from "./types";
+} from "@/lib/fsm/core/types";
 
 // Every terminal state — closedFlowHandler resets any of these back to
 // main_menu on the next inbound message from the citizen.

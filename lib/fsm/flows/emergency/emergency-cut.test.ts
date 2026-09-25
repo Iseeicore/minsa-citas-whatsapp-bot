@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMERGENCY_CLOSED_STATE } from "./emergency";
+import { EMERGENCY_CLOSED_STATE } from "@/lib/fsm/flows/emergency/emergency";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";

@@ -1,6 +1,6 @@
 import { timedFetch } from "@/lib/observability/http";
 import { logger } from "@/lib/observability/logger";
-import { normalizeText } from "./text";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 
 // AI-assisted district resolution for the Cita flow's ubigeo entry point —
 // same flat real/fake branching style as minsa.ts/reniec.ts, gated on

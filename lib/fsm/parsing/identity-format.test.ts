@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidDniFormat, isValidOtpFormat } from "./identity-format";
+import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
 
 describe("isValidDniFormat", () => {
   it("accepts exactly 8 digits (trimmed)", () => {

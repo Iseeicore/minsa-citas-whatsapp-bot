@@ -6,7 +6,7 @@ import {
   readOffered,
   serializeOffered,
   type OfferedRow,
-} from "./selection-matchers";
+} from "@/lib/fsm/parsing/selection-matchers";
 
 const ubigeoRows: OfferedRow[] = [
   { id: "150101", title: "San Juan de Lurigancho", description: "Lima — Lima" },

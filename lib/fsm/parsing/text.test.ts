@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { namesMatch, normalizeText } from "./text";
+import { namesMatch, normalizeText } from "@/lib/fsm/parsing/text";
 
 describe("normalizeText", () => {
   it("strips accents, uppercases and collapses whitespace", () => {

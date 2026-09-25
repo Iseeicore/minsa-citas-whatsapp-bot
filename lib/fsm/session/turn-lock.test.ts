@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createTurnLock, TurnLockTimeoutError } from "./turn-lock";
-import { createPrismaAdvisoryLock } from "./turn-lock-db";
+import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import distritos from "@/data/peru-distritos.json";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { serializeOffered } from "./selection-matchers";
-import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "./gibberish";
+import { serializeOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/gibberish";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 type Row = { departamento: string; provincia: string; distrito: string };

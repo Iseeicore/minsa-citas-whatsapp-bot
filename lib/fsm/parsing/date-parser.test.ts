@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "./date-parser";
-import type { OfferedRow } from "./selection-matchers";
+import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "@/lib/fsm/parsing/date-parser";
+import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
 
 const row = (id: string): OfferedRow => ({ id, title: id, description: "5 cupo(s) disponibles" });
 

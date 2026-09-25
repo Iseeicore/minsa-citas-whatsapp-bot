@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { GOLDEN_OOS_MESSAGES } from "@/tests/support/oos-golden";
-import { CHANNELS } from "./out-of-scope-channels";
-import { OOS_MESSAGES } from "./out-of-scope-messages";
+import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
+import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 
 // Every phone number and link the citizen is sent to lives in ONE place
 // (out-of-scope-channels.ts), so checking one with its institution and changing it

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "./time-parser";
+import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/time-parser";
 
 const slot = (start: string, end: string, cupos = 1): HoraSlot => ({ start, end, cupos });
 
