@@ -1,7 +1,7 @@
 import { sendCtaUrl } from "@/lib/fsm/core/handlers-shared";
 import type { SendEffect } from "@/lib/fsm/core/types";
 
-// Shared between two callers: app/webhook/whatsapp/route.ts sends this as
+// Shared between two callers: lib/whatsapp/webhook/answer.ts sends this as
 // the entire response to a citizen's very first-ever message (before any
 // FSM turn runs), and lib/fsm/core/handlers.ts's terminal-state re-entry sends
 // the same text+button as a normal FSM effect when a citizen returns after

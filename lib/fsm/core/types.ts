@@ -74,7 +74,7 @@ export type SendButtonsEffect = {
 // tappable link button that opens an external URL. Exposed as a normal
 // SendEffect so an FSM handler can produce one (e.g. redirecting a citizen
 // outside the pilot's Lima scope to the national booking site) without
-// route.ts needing a special case.
+// the webhook needing a special case.
 export type SendCtaUrlEffect = {
   kind: "send_cta_url";
   text: string;
@@ -106,7 +106,7 @@ export type QueryEffectKind =
 
 export type QueryEffect = {
   kind: QueryEffectKind;
-  // Plain payload passed to the matching function in minsa.ts/reniec.ts/quejas.ts.
+  // Plain payload passed to the matching function in lib/integrations (minsa/, reniec.ts, quejas.ts).
   // Left untyped-ish (Record<string, unknown>) since each query kind has its own shape.
   payload: Record<string, unknown>;
 };

@@ -14,18 +14,21 @@ A WhatsApp Business Cloud API "web inbox" MVP built with Next.js (App Router), d
 ## Project structure
 
 ```
-app/                         Next.js routes: inbox UI, /api/*, /webhook/whatsapp, sandbox pages
+app/                         Next.js routes (kept thin): inbox UI, /api/*, /webhook/whatsapp, sandbox pages
 lib/
   db/                        Prisma client
   whatsapp/                  outbound messages and media download (Meta Cloud API)
-  integrations/              HTTP clients for external services: MINSA, RENIEC, quejas
+    webhook/                 inbound pipeline: payload mapping, store + turn lock, answering the citizen
+  integrations/              HTTP clients for external services: RENIEC, quejas
+    minsa/                   MINSA client split by endpoint: identity, catalog, booking (+ wire, format, fakes)
   observability/             structured logger, tracer, PII masking, file sink
   security/                  webhook perimeter: payload filter, rate limiter, lexical guard
   fsm/                       the conversation state machine
-    core/                    engine: session types, executor, top-level handler dispatch
-    session/                 session persistence, expiry guard, per-citizen turn lock
-    routing/                 first contact, welcome, menu shortcuts, entry into a flow
-    parsing/                 reading citizen input: dates, times, selections, text, AI-assisted parsing
+    core/                    engine: session types, executor, the turn dispatcher (handle)
+    session/                 session persistence, expiry guard and re-verification, per-citizen turn lock
+    routing/                 first contact, welcome, main menu, lexical-guard routing, entry into a flow
+    parsing/                 reading citizen input: dates, times, selections, text
+      ai/                    Gemini-assisted parsing, one module per task (distrito, menu intent, fecha, hints)
     flows/
       cita/                  appointment flow: handlers-cita.ts routes each state to steps/
         steps/               one module per conversation step (identity, ubigeo, catalog, fecha, hora, booking…)

@@ -5,7 +5,7 @@ import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 // MINSA's bearer token only lasts about 30 minutes. If a citizen pauses
 // mid-flow (deciding on a specialty, a date, etc.) and comes back later, the
 // next catalog/booking call fails with a 401 — surfaced as
-// result.status === "unauthorized" by lib/integrations/minsa.ts. Treating that like
+// result.status === "unauthorized" by lib/integrations/minsa/. Treating that like
 // any other API error would end the whole booking and discard everything
 // already chosen (district, especialidad, establecimiento…). Instead, this
 // asks the citizen to verify again WITHOUT losing that progress, then

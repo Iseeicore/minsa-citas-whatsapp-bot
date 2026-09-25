@@ -1,6 +1,6 @@
 import distritos from "@/data/peru-distritos.json";
 import { normalizeText } from "@/lib/fsm/parsing/text";
-import type { DistritoAiCandidate } from "@/lib/fsm/parsing/ai";
+import type { DistritoAiCandidate } from "@/lib/fsm/parsing/ai/distrito";
 
 // Vendored from jmcastagnetto/ubigeo-peru-aumentado (MIT), trimmed to just
 // the three fields we need. Peru's district-level political division
@@ -26,7 +26,7 @@ for (const row of DISTRITOS) {
 
 // Exact match only (after normalization) — deliberately no fuzzy/typo
 // tolerance here. A name this doesn't recognize falls through to the AI
-// (lib/fsm/parsing/ai.ts's resolveDistritoAi) as a contingency layer, and from
+// (lib/fsm/parsing/ai/distrito.ts's resolveDistritoAi) as a contingency layer, and from
 // there to the manual departamento/provincia/distrito flow. This function
 // is the fast, free, deterministic first attempt, not the only attempt.
 export function searchDistrito(text: string): DistritoAiCandidate[] {
