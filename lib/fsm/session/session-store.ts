@@ -47,7 +47,7 @@ export async function resetSession(from: string): Promise<void> {
 }
 
 // Every browser-local Sandbox widget session is created with this prefix
-// (see Sandbox.tsx's getOrCreateFrom) — real WhatsApp sessions are keyed by
+// (see getOrCreateFrom in app/components/sandbox-chat/storage.ts) — real WhatsApp sessions are keyed by
 // waId instead, which never matches it. Used by the operator console's
 // "reset everything" button so repeated testing never gets stuck, without
 // ever touching a real citizen's in-progress conversation.

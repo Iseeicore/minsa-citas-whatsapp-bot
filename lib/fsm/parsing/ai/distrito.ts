@@ -1,5 +1,4 @@
-import { timedFetch } from "@/lib/observability/http";
-import { REQUEST_TIMEOUT_MS, type GeminiGenerateContentBody } from "@/lib/fsm/parsing/ai/gemini";
+import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
 // AI-assisted district resolution for the Cita flow's ubigeo entry point —
 // same flat real/fake branching style as integrations/minsa/ and reniec.ts, gated on
@@ -120,9 +119,6 @@ export async function resolveDistritoAi(
   contextText?: string,
 ): Promise<ResolveDistritoAiResult> {
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    const model = process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_CLIENT_API}`;
-
     const userTurn = [
       `Respuesta directa: ${distritoText}`,
       contextText ? `Mensaje inicial: ${contextText}` : null,
@@ -130,42 +126,21 @@ export async function resolveDistritoAi(
       .filter(Boolean)
       .join("\n");
 
-    const body = JSON.stringify({
-      system_instruction: { parts: [{ text: DISTRITO_AI_SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: userTurn }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: DISTRITO_AI_RESPONSE_SCHEMA,
-      },
-    });
-
     // Fail-open, same discipline as integrations/minsa/ and reniec.ts: any network error,
     // non-2xx response, or unparsable/unexpected response shape resolves to
     // zero candidates rather than throwing — an AI hiccup must never block a
     // real citizen from booking a real appointment (the caller falls back to
     // the manual departamento/provincia/distrito flow).
-    let response: Response;
-    try {
-      response = await timedFetch("gemini", "resolve_distrito_ai", url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch {
-      return { candidates: [] };
-    }
-
-    if (!response.ok) {
-      return { candidates: [] };
-    }
+    const outcome = await requestGeminiJson({
+      operation: "resolve_distrito_ai",
+      systemPrompt: DISTRITO_AI_SYSTEM_PROMPT,
+      userText: userTurn,
+      responseSchema: DISTRITO_AI_RESPONSE_SCHEMA,
+    });
+    if (!outcome.ok) return { candidates: [] };
 
     try {
-      const envelope = (await response.json()) as GeminiGenerateContentBody;
-      const text = envelope.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof text !== "string") return { candidates: [] };
-
-      const parsed = JSON.parse(text) as DistritoAiJsonShape;
+      const parsed = outcome.json as DistritoAiJsonShape;
       if (!Array.isArray(parsed.candidates)) return { candidates: [] };
 
       return { candidates: parsed.candidates.filter(isDistritoAiCandidate) };

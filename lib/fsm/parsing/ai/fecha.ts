@@ -1,5 +1,4 @@
-import { timedFetch } from "@/lib/observability/http";
-import { REQUEST_TIMEOUT_MS, type GeminiGenerateContentBody } from "@/lib/fsm/parsing/ai/gemini";
+import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
 // ---- Fecha selection from a typed phrase ---------------------------------
 // Last resort for the Cita fecha step: phrases the deterministic date parser
@@ -43,9 +42,6 @@ export async function resolveFechaAi(
   if (options.length === 0) return {};
 
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    const model = process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_CLIENT_API}`;
-
     const userTurn = [
       `Hoy: ${today}`,
       "Fechas disponibles:",
@@ -53,31 +49,18 @@ export async function resolveFechaAi(
       `Petición del ciudadano: ${text}`,
     ].join("\n");
 
-    const body = JSON.stringify({
-      system_instruction: { parts: [{ text: FECHA_AI_SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: userTurn }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: FECHA_AI_RESPONSE_SCHEMA,
-      },
-    });
-
     // Fail-open like the other AI helpers: any failure just sends the citizen
     // back to the list.
+    const outcome = await requestGeminiJson({
+      operation: "resolve_fecha_ai",
+      systemPrompt: FECHA_AI_SYSTEM_PROMPT,
+      userText: userTurn,
+      responseSchema: FECHA_AI_RESPONSE_SCHEMA,
+    });
+    if (!outcome.ok) return {};
+
     try {
-      const response = await timedFetch("gemini", "resolve_fecha_ai", url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-      if (!response.ok) return {};
-
-      const envelope = (await response.json()) as GeminiGenerateContentBody;
-      const responseText = envelope.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof responseText !== "string") return {};
-
-      const parsed = JSON.parse(responseText) as { id?: unknown };
+      const parsed = outcome.json as { id?: unknown };
       const offered = options.some((option) => option.id === parsed.id);
       return typeof parsed.id === "string" && offered ? { id: parsed.id } : {};
     } catch {

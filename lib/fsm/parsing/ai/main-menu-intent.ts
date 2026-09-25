@@ -1,7 +1,6 @@
-import { timedFetch } from "@/lib/observability/http";
 import { logger } from "@/lib/observability/logger";
 import { normalizeText } from "@/lib/fsm/parsing/text";
-import { REQUEST_TIMEOUT_MS, type GeminiGenerateContentBody } from "@/lib/fsm/parsing/ai/gemini";
+import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
 // ---- Main-menu free-text intent detection --------------------------------
 // When a citizen in main_menu writes free text instead of tapping a menu
@@ -94,46 +93,33 @@ function unclearIntent(reason: string): MainMenuIntentResult {
 
 export async function analyzeMainMenuIntent(text: string): Promise<MainMenuIntentResult> {
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    const model = process.env.GOOGLE_AI_MODEL ?? "gemini-3.6-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_CLIENT_API}`;
-
-    const body = JSON.stringify({
-      system_instruction: { parts: [{ text: MAIN_MENU_INTENT_SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: MAIN_MENU_INTENT_RESPONSE_SCHEMA,
-      },
-    });
-
     // Fail-open, same discipline as resolveDistritoAi (ai/distrito.ts) — any failure
     // just means the citizen falls back to the menu, never gets blocked.
     // Every way this can end in "unclear" is logged with its reason (never the
     // citizen's text): a fail-open answer is otherwise indistinguishable from
     // the model genuinely finding no intent — which is how a missing key or a
     // bad model name looks like "the bot ignored my request".
-    let response: Response;
-    try {
-      response = await timedFetch("gemini", "analyze_main_menu_intent", url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (error) {
-      return unclearIntent(`request failed (${error instanceof Error ? error.name : "unknown"})`);
+    const outcome = await requestGeminiJson({
+      operation: "analyze_main_menu_intent",
+      systemPrompt: MAIN_MENU_INTENT_SYSTEM_PROMPT,
+      userText: text,
+      responseSchema: MAIN_MENU_INTENT_RESPONSE_SCHEMA,
+    });
+    if (!outcome.ok) {
+      switch (outcome.failure) {
+        case "request_failed":
+          return unclearIntent(`request failed (${outcome.errorName})`);
+        case "http_error":
+          return unclearIntent(`HTTP ${outcome.status} from model ${outcome.model}`);
+        case "no_text":
+          return unclearIntent("no text in the response");
+        case "invalid_json":
+          return unclearIntent("response was not valid JSON");
+      }
     }
 
-    if (!response.ok) {
-      return unclearIntent(`HTTP ${response.status} from model ${model}`);
-    }
-
     try {
-      const envelope = (await response.json()) as GeminiGenerateContentBody;
-      const responseText = envelope.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (typeof responseText !== "string") return unclearIntent("no text in the response");
-
-      const parsed = JSON.parse(responseText) as MainMenuIntentJsonShape;
+      const parsed = outcome.json as MainMenuIntentJsonShape;
       if (typeof parsed.intent !== "string" || parsed.intent.trim().toLowerCase() !== "cita") {
         return { intent: "unclear" }; // the model's own answer, not a failure
       }
