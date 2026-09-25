@@ -36,7 +36,7 @@ const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el 
 const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
 // Own clean wording, never MINSA's raw "Error al generar la cita en el
 // servicio externo: ..." string (handleBookingPending discards that on
-// purpose — see lib/integrations/minsa.ts's duplicate-booking detection).
+// purpose — see lib/integrations/minsa/booking.ts's duplicate-booking detection).
 const INTRO_DUPLICATE = "Ya tienes una cita activa registrada para ese mismo turno o servicio.";
 const QUESTION = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 

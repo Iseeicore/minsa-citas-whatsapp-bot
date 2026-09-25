@@ -3,7 +3,7 @@
 // fetch that URL — never an inbound request of several MB to a Vercel
 // function, so Vercel's 4.5MB request-body limit (which forced the
 // Sandbox's own upload flow to cap at 3MB client-side) doesn't apply here.
-// Same fail-open discipline as lib/fsm/parsing/ai/ and lib/integrations/{minsa,reniec}.ts: any
+// Same fail-open discipline as lib/fsm/parsing/ai/ and lib/integrations/{minsa/,reniec.ts}: any
 // network error, non-2xx response, or oversized file resolves to null
 // instead of throwing — the webhook still owes Meta a fast 200.
 

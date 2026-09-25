@@ -2,7 +2,7 @@ import { timedFetch } from "@/lib/observability/http";
 import { REQUEST_TIMEOUT_MS, type GeminiGenerateContentBody } from "@/lib/fsm/parsing/ai/gemini";
 
 // AI-assisted district resolution for the Cita flow's ubigeo entry point —
-// same flat real/fake branching style as minsa.ts/reniec.ts, gated on
+// same flat real/fake branching style as integrations/minsa/ and reniec.ts, gated on
 // SANDBOX_USE_REAL_AI (default false/fake).
 
 export type DistritoAiCandidate = {
@@ -84,7 +84,7 @@ const DISTRITO_AI_RESPONSE_SCHEMA = {
 };
 
 // ---- Fake lookup (used when SANDBOX_USE_REAL_AI !== "true") -------------
-// "lurigancho" is kept consistent with minsa.ts's FAKE_UBIGEO (matched via
+// "lurigancho" is kept consistent with integrations/minsa/fake-data.ts's FAKE_UBIGEO (matched via
 // distrito.trim().toUpperCase() === "LURIGANCHO") so the two fakes chain
 // together end-to-end in the Sandbox.
 
@@ -139,7 +139,7 @@ export async function resolveDistritoAi(
       },
     });
 
-    // Fail-open, same discipline as minsa.ts/reniec.ts: any network error,
+    // Fail-open, same discipline as integrations/minsa/ and reniec.ts: any network error,
     // non-2xx response, or unparsable/unexpected response shape resolves to
     // zero candidates rather than throwing — an AI hiccup must never block a
     // real citizen from booking a real appointment (the caller falls back to

@@ -106,7 +106,7 @@ export type QueryEffectKind =
 
 export type QueryEffect = {
   kind: QueryEffectKind;
-  // Plain payload passed to the matching function in minsa.ts/reniec.ts/quejas.ts.
+  // Plain payload passed to the matching function in lib/integrations (minsa/, reniec.ts, quejas.ts).
   // Left untyped-ish (Record<string, unknown>) since each query kind has its own shape.
   payload: Record<string, unknown>;
 };

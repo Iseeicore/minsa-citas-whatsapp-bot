@@ -10,7 +10,7 @@ import {
   WHATSAPP_ROW_DESCRIPTION_MAX,
   WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
-import { formatFechaForApi } from "@/lib/integrations/minsa";
+import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "@/lib/fsm/parsing/date-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";

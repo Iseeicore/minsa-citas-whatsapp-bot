@@ -4,18 +4,16 @@ import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import { bookAppointment } from "@/lib/integrations/minsa/booking";
 import {
-  bookAppointment,
-  formatFechaForApi,
-  formatHoraCita,
   listEspecialidades,
   listEstablecimientos,
   listFechas,
   listHoras,
   searchUbigeo,
-  validateUser,
-  verifyCode,
-} from "@/lib/integrations/minsa";
+} from "@/lib/integrations/minsa/catalog";
+import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
+import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 import { submitQueja, type SubmitQuejaPayload } from "@/lib/integrations/quejas";
 import { reniecLookup } from "@/lib/integrations/reniec";
 import { traceTurn } from "@/lib/observability/tracer";
