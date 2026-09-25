@@ -5,7 +5,7 @@ import type { HandleEvent, Session } from "@/lib/fsm/core/types";
 //  - idle: nobody has written on this conversation for a while, so whoever
 //    writes next may not be the citizen who verified;
 //  - token: the bearer is a JWT that is already expired (or about to be).
-// lib/fsm/flows/cita/handlers-cita.ts keeps the reactive 401 recovery as the safety net.
+// lib/fsm/flows/cita/steps/reverification.ts keeps the reactive 401 recovery as the safety net.
 
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;

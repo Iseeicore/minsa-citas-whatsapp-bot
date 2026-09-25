@@ -40,7 +40,7 @@ export function searchDistrito(text: string): DistritoAiCandidate[] {
 // be an EXACT match in four other regions, none in Lima, which is what
 // searchDistrito alone would find), but IS the start of real district names
 // like "San Juan de Lurigancho". Caller decides what to do with an overly
-// broad prefix (handlers-cita.ts's WhatsApp row-count cap already handles
+// broad prefix (steps/ubigeo.ts's WhatsApp row-count cap already handles
 // that) — this just returns every match, nationwide, same as searchDistrito.
 export function searchDistritoByPrefix(text: string): DistritoAiCandidate[] {
   const key = normalizeText(text);

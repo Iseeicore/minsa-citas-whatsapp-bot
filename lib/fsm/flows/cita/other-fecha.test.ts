@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { offerOtherFecha } from "@/lib/fsm/flows/cita/cita-other-fecha";
+import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/other-fecha";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { AUTHENTICATED_WAITING_STATES, resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";

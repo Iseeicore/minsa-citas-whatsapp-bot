@@ -2,7 +2,7 @@ import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
 import { looksLikePlaceName, resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
 import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
-import { DISCARDED_DATES_SLOT } from "@/lib/fsm/flows/cita/cita-other-fecha";
+import { DISCARDED_DATES_SLOT } from "@/lib/fsm/flows/cita/steps/other-fecha";
 import { OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 

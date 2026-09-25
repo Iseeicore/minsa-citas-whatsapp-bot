@@ -18,8 +18,8 @@ import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 // Resolving a district name to (departamento, provincia, distrito) — the fast
 // local-dataset attempt, its Lima-only pilot filter, and the AI fallback for
 // what the local dataset can't read. Shared by more than one FSM step (the
-// direct "¿en qué distrito buscas atención?" question in handlers-cita.ts, the
-// disambiguation step's own free-text correction, and cita-no-coverage.ts's
+// direct "¿en qué distrito buscas atención?" question in steps/ubigeo.ts, the
+// disambiguation step's own free-text correction, and steps/no-coverage.ts's
 // "¿deseas buscar en otro distrito?" reply) — it lives in its own module so
 // none of those need to import from one another to reuse it.
 
@@ -40,7 +40,7 @@ export type DistritoAiCandidateResult = {
 // drops national noise before deciding what to do with N candidates — e.g.
 // "Miraflores" narrows from 4 nationwide matches down to the 2 in Lima
 // department. This does NOT restrict the manual departamento/provincia/
-// distrito fallback in handlers-cita.ts, which still accepts any department —
+// distrito fallback in steps/ubigeo.ts, which still accepts any department —
 // only the automatic name-based resolution is Lima-only during the pilot.
 // Next phase: once this expands nationally, remove this filter and add a
 // provincia follow-up question for names that are still ambiguous within a
@@ -114,7 +114,7 @@ function resolveLocalDistritoCandidates(
 
 // What to do with N resolved candidates — shared by the local-dataset fast
 // path (resolveDistritoText below) and the AI-result path
-// (handlers-cita.ts's handleDistritoAiPending).
+// (steps/ubigeo.ts's handleDistritoAiPending).
 export function resolveDistritoCandidates(
   session: Session,
   rawCandidates: DistritoAiCandidateResult[],
@@ -176,7 +176,7 @@ export function resolveDistritoCandidates(
   // doesn't serve it during the pilot: redirect to the national booking site
   // and end the conversation, instead of falling to the manual departamento/
   // provincia/distrito fallback (that flow stays reachable from
-  // handlers-cita.ts's handleUbigeoPending, for Lima ubigeos that don't match
+  // steps/ubigeo.ts's handleUbigeoPending, for Lima ubigeos that don't match
   // MINSA's catalog — a different, unrelated failure).
   next.state = "cita_national_redirect";
   return buildResult(next, [

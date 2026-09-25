@@ -278,7 +278,7 @@ function beginCitaFromIntent(
 // bearer and every reservation-in-progress slot are dropped, but the DNI and
 // the choices already made (district, specialty, establishment, date) stay, so
 // a citizen who verifies again resumes where they were (citaResumeState, the
-// same mechanism as the 401 recovery in handlers-cita.ts).
+// same mechanism as the 401 recovery in flows/cita/steps/reverification.ts).
 
 const REAUTH_YES_ID = "cita_reauth_si";
 const REAUTH_NO_ID = "cita_reauth_no";

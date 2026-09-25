@@ -4,7 +4,7 @@ import { looksLikePlaceName, resolveDistritoCandidates, resolveDistritoText } fr
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 
 // Characterization tests for the district-resolution pipeline, moved here from
-// lib/fsm/flows/cita/handlers-cita.ts (where it was private) so lib/fsm/flows/cita/cita-no-coverage.ts
+// lib/fsm/flows/cita/handlers-cita.ts (where it was private) so lib/fsm/flows/cita/steps/no-coverage.ts
 // can reuse it without a circular import. Nothing about the logic changed —
 // these pin the exact behavior the FSM-level tests (handlers-cita.test.ts,
 // district-and-coverage.test.ts) already exercise indirectly through `handle()`.

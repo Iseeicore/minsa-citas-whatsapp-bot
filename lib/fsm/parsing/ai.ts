@@ -213,7 +213,7 @@ export async function resolveDistritoAi(
 // especialidad is returned as a raw hint only, never validated here (the
 // real especialidad catalog can only be queried post-identity-verification,
 // scoped to a specific ubigeo — see matchEspecialidadHint in
-// handlers-cita.ts, which does that validation once the real list arrives).
+// flows/cita/steps/catalog.ts, which does that validation once the real list arrives).
 
 export type MainMenuIntentResult = {
   intent: "cita" | "unclear";

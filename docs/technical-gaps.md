@@ -28,7 +28,7 @@ Los pasos del catálogo (ubigeo, especialidad por pista, establecimiento, fecha)
 
 ### Dónde está en el código
 
-`resolveHoraCandidates`, `askHoraConfirmation`, `handleHoraConfirm` y `handleFechaPending` en `lib/fsm/flows/cita/handlers-cita.ts`; el lector de frases en `isSlotAcceptance` (`lib/fsm/parsing/confirmation-parser.ts`); la pregunta de otra fecha en `lib/fsm/flows/cita/cita-other-fecha.ts` (estado `cita_awaiting_other_fecha`, cierre `cita_declined_closed`). La marca de «único horario» es el slot `citaHoraConfirmOnly` y las fechas rechazadas viven en `citaFechasDescartadas` (se borran al cambiar de distrito).
+`resolveHoraCandidates`, `askHoraConfirmation` y `handleHoraConfirm` en `lib/fsm/flows/cita/steps/hora.ts` y `handleFechaPending` en `lib/fsm/flows/cita/steps/fecha.ts`; el lector de frases en `isSlotAcceptance` (`lib/fsm/parsing/confirmation-parser.ts`); la pregunta de otra fecha en `lib/fsm/flows/cita/steps/other-fecha.ts` (estado `cita_awaiting_other_fecha`, cierre `cita_declined_closed`). La marca de «único horario» es el slot `citaHoraConfirmOnly` y las fechas rechazadas viven en `citaFechasDescartadas` (se borran al cambiar de distrito).
 
 ### Pruebas y cómo verlo
 
@@ -36,7 +36,7 @@ Los pasos del catálogo (ubigeo, especialidad por pista, establecimiento, fecha)
 
 ### Nota: fecha y hora legibles (no es un gap, es una mejora aparte)
 
-Lo que el ciudadano lee ya no es la fecha ni la hora cruda que entrega MINSA (`22/09/2026`, o `20260922` sin separadores en el catálogo fake) ni siempre en 24 horas (`13:00 - 13:30`). Las filas de lista muestran día de semana + fecha con el mes en letras (`mar 22 sep`) y las horas en 12 horas con AM/PM (`1:00 PM - 1:30 PM`); los mensajes de texto («Fecha encontrada…», «¿Confirmas el horario…?», «Solo hay un horario disponible…») usan la fecha larga (`martes 22 de septiembre`). **Lo que viaja a MINSA no cambió**: `citaFecha` y `horaInicio` se guardan y se envían tal cual MINSA los entregó; `formatFechaForApi` y `formatHoraCita` (`lib/fsm/core/executor.ts`) siguen convirtiéndolos al formato que la API espera justo antes de la llamada, como ya lo hacían. Las funciones nuevas son `formatDateLong`/`formatDateShort` (`lib/fsm/parsing/date-parser.ts`) y el ya existente `formatHora12` (`lib/fsm/flows/cita/handlers-cita.ts`), ahora también usado en las listas. Un `fechaCupo` en un formato que `parseOfferedDate` no reconoce cae de vuelta al texto crudo: nunca rompe una fila.
+Lo que el ciudadano lee ya no es la fecha ni la hora cruda que entrega MINSA (`22/09/2026`, o `20260922` sin separadores en el catálogo fake) ni siempre en 24 horas (`13:00 - 13:30`). Las filas de lista muestran día de semana + fecha con el mes en letras (`mar 22 sep`) y las horas en 12 horas con AM/PM (`1:00 PM - 1:30 PM`); los mensajes de texto («Fecha encontrada…», «¿Confirmas el horario…?», «Solo hay un horario disponible…») usan la fecha larga (`martes 22 de septiembre`). **Lo que viaja a MINSA no cambió**: `citaFecha` y `horaInicio` se guardan y se envían tal cual MINSA los entregó; `formatFechaForApi` y `formatHoraCita` (`lib/fsm/core/executor.ts`) siguen convirtiéndolos al formato que la API espera justo antes de la llamada, como ya lo hacían. Las funciones nuevas son `formatDateLong`/`formatDateShort` (`lib/fsm/parsing/date-parser.ts`) y el ya existente `formatHora12` (`lib/fsm/flows/cita/hora-format.ts`), ahora también usado en las listas. Un `fechaCupo` en un formato que `parseOfferedDate` no reconoce cae de vuelta al texto crudo: nunca rompe una fila.
 
 ---
 
