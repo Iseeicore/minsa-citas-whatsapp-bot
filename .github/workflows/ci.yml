@@ -58,3 +58,7 @@ jobs:
 
       - name: Tests
         run: npx vitest run
+
+      # Latency and heap bounds, run alone so the parallel suite cannot skew them.
+      - name: Performance
+        run: npx vitest run --config vitest.perf.config.ts

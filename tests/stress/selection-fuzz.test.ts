@@ -150,6 +150,9 @@ describe("Step 5 robustness: hostile typed text in every selection step", () => 
 
       expect(fetchSpy).not.toHaveBeenCalled();
     },
+    // Asserts correctness, not speed: 1500 handler turns take ~1-2 s alone but can
+    // pass vitest's 5 s default when the machine or CI runner is busy.
+    30_000,
   );
 
   it.each(STEPS.map((step) => [step.state, step] as const))(
