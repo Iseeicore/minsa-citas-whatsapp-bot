@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { ConversationStatus } from "@prisma/client";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // The inbox is the message history: without a database there is none.
+  if (!isDatabaseEnabled()) return persistenceDisabledResponse();
+
   const { id } = await params;
 
   const conversation = await prisma.conversation.findUnique({ where: { id } });

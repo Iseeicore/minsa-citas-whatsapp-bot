@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
+import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 
 const sendMessageSchema = z.object({
@@ -11,6 +12,9 @@ const sendMessageSchema = z.object({
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
+  // The inbox is the message history: without a database there is none.
+  if (!isDatabaseEnabled()) return persistenceDisabledResponse();
+
   const body = await request.json();
   const parsed = sendMessageSchema.safeParse(body);
 

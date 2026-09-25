@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma migrate deploy && next build --webpack",
+    "build:no-db": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

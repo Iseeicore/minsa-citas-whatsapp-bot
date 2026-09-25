@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { MessageDirection } from "@prisma/client";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { sessionRowExists } from "@/lib/fsm/session/session-store";
@@ -13,6 +14,7 @@ import {
   extractContentAndMedia,
 } from "@/lib/whatsapp/webhook/payload";
 import { answerMessage, sendFixedReply, answerFailure } from "@/lib/whatsapp/webhook/answer";
+import { inboundDedupe } from "@/lib/whatsapp/webhook/inbound-dedupe";
 
 // True when this delivery is the first of the message and should be answered;
 // false when the same WhatsApp message id is already stored (a redelivery).
@@ -44,6 +46,14 @@ async function claimInboundMessage(
 
 // Stores the inbound message and answers it under the citizen's turn lock.
 async function processInboundMessage(message: WhatsAppMessage, contact: WhatsAppContact | undefined): Promise<void> {
+  // No database: no conversation row or message history, and this process's
+  // memory decides who owns the message (see inbound-dedupe.ts).
+  if (!isDatabaseEnabled()) {
+    if (!inboundDedupe.claim(message.id)) return;
+    await withTurnLock(message.from_user_id, () => answerMessage(message, null));
+    return;
+  }
+
   const profileName = contact?.profile?.name;
   const phoneNumber = message.from ?? contact?.wa_id;
   const timestamp = new Date(Number(message.timestamp) * 1000);
@@ -105,6 +115,10 @@ export async function processValue(value: WhatsAppValue) {
       await answerFailure(message.from_user_id, error);
     }
   }
+
+  // Delivery statuses only update the message history, which does not exist
+  // without a database.
+  if (!isDatabaseEnabled()) return;
 
   for (const status of value.statuses ?? []) {
     const mappedStatus = mapStatus(status.status);

@@ -1,3 +1,5 @@
+import { isDatabaseEnabled } from "@/lib/db/persistence";
+
 // Mutual exclusion for the turns of ONE waId.
 //
 // A turn is read session -> compute (possibly calling MINSA / RENIEC / Gemini)
@@ -108,10 +110,11 @@ function numberFromEnv(name: string): number | undefined {
 }
 
 // The database layer is only wired when there IS a database to lock on, and can
-// be switched off with TURN_DB_LOCK=off. Prisma is imported lazily so modules
-// (and tests) that never take a turn don't open a connection.
-function defaultDbLock(): DbTurnLock | undefined {
-  if (!process.env.DATABASE_URL || process.env.TURN_DB_LOCK === "off") return undefined;
+// be switched off with TURN_DB_LOCK=off, or with the whole database
+// (DATABASE_ENABLED=false). Prisma is imported lazily so modules (and tests)
+// that never take a turn don't open a connection.
+export function defaultDbLock(): DbTurnLock | undefined {
+  if (!process.env.DATABASE_URL || process.env.TURN_DB_LOCK === "off" || !isDatabaseEnabled()) return undefined;
 
   let lock: DbTurnLock | undefined;
 
