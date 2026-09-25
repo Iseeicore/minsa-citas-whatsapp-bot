@@ -1,0 +1,30 @@
+# Rebuilt inside the image.
+node_modules
+.next
+out
+build
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Never ship local secrets or runtime output.
+.env*
+logs
+scripts/playbook-runs
+
+# VCS, CI and editor/tooling caches.
+.git
+.github
+.vscode
+.idea
+.atl
+.claude
+.codegraph
+
+# Container files themselves.
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+*.log
+.DS_Store
