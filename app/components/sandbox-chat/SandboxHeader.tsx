@@ -17,7 +17,7 @@ export function SandboxHeader({ onBack }: { onBack?: () => void }) {
         )}
         <div className="relative flex-shrink-0">
           <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white">
-            {/* eslint-disable-next-line @next/next/no-img-element -- small fixed-size avatar, Next/Image's optimization isn't worth the extra config here */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- avatar pequeño de tamaño fijo */}
             <img
               src="/minsa-logo.png"
               alt="MINSA"

@@ -7,15 +7,6 @@ import { FIRST_MESSAGE_REJECTION_TEXT } from "@/lib/security/payload-filter";
 import { screenInbound } from "@/lib/security/perimeter";
 import { createRateLimiter } from "@/lib/security/rate-limiter";
 
-// The order an inbound message goes through, cheapest and most certain first:
-//
-//   1. perimeter        spam, links, media and flooding   (memory, no AI, no database)
-//   2. lexical guard    insults and aggression            (memory, no AI)
-//   3. deterministic    greetings, menu numbers, cita and reclamo requests (memory, no AI)
-//   4. AI               only for what nothing above could read
-//
-// These tests pin that order: a message stopped at a layer never reaches the next.
-
 const WA_ID = "51999000111";
 const menu = (): Session => ({ state: "main_menu", slots: {}, counters: {} });
 const text = (body: string) => ({ from: WA_ID, type: "text" as const, text: body });
@@ -44,7 +35,7 @@ describe("1. the perimeter comes first", () => {
     for (let i = 0; i < 7; i++) decisions.push(await screen("eres un idiota"));
 
     expect(decisions.slice(0, 5).every((decision) => decision.action === "continue")).toBe(true);
-    expect(decisions[5]).toMatchObject({ action: "reject", reason: "muted" }); // the one notice
+    expect(decisions[5]).toMatchObject({ action: "reject", reason: "muted" });
     expect(decisions.slice(6)).toEqual([{ action: "drop", reason: "throttled" }]);
     expect(hasSession).not.toHaveBeenCalled();
   });
@@ -62,8 +53,6 @@ describe("2. the lexical guard comes second, and without AI", () => {
   });
 
   it("an insulting first message gets the same guard answer, not the welcome", () => {
-    // The webhook routes an abusive first message through routeLexicalAction; the
-    // neutral first message below is what it would have received otherwise.
     const neutral = handleFirstContact("Hola");
     expect(neutral.effects[0]).toMatchObject({ kind: "send_cta_url" });
 

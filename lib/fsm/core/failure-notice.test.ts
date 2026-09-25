@@ -53,12 +53,12 @@ describe("createFailureNoticeThrottle: one friendly text per number, per window"
 
   it("a notified failure resets the window from the moment it was sent, not from the first one", () => {
     const { throttle, advance } = throttleWithClock();
-    throttle.shouldNotify("wa-1"); // t = 0, notified
+    throttle.shouldNotify("wa-1");
 
     advance(30_000);
-    expect(throttle.shouldNotify("wa-1")).toBe(true); // t = 30_000, notified again
+    expect(throttle.shouldNotify("wa-1")).toBe(true);
 
     advance(29_999);
-    expect(throttle.shouldNotify("wa-1")).toBe(false); // t = 59_999, still within 30 s of the last notice
+    expect(throttle.shouldNotify("wa-1")).toBe(false);
   });
 });

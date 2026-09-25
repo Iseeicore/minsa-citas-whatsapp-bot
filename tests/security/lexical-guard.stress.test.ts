@@ -15,9 +15,6 @@ const strip = (text: string) =>
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "");
 
-// ---------------------------------------------------------------------------
-// A.1 Real Peruvian collisions: names, initials, health facilities, places
-// ---------------------------------------------------------------------------
 describe("A.1 legitimate Peruvian inputs must be ALLOW", () => {
   it("'Mi posta es CS San Martín' (CS is a facility prefix, not an insult)", () => {
     expect(action("Mi posta es CS San Martín")).toBe("ALLOW");
@@ -36,8 +33,6 @@ describe("A.1 legitimate Peruvian inputs must be ALLOW", () => {
     expect(action("Ana M. S. D. Ruiz")).toBe("ALLOW");
   });
 
-  // Canonical initials (capital + period, spaced) are a signature or a name,
-  // not the abbreviation "csm"/"ptm". Evasions keep their own shape: see A.1c.
   it("'Atentamente C. S. M.' (signature initials)", () => {
     expect(action("Atentamente C. S. M.")).toBe("ALLOW");
   });
@@ -51,9 +46,6 @@ describe("A.1 legitimate Peruvian inputs must be ALLOW", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// A.1b Every official place name and common surnames must be ALLOW
-// ---------------------------------------------------------------------------
 describe("A.1b official place names and surnames (the district step runs the guard)", () => {
   const placeNames = [
     ...new Set(rows.flatMap((row) => [row.departamento, row.provincia, row.distrito])),
@@ -64,9 +56,6 @@ describe("A.1b official place names and surnames (the district step runs the gua
     expect(placeNames.length).toBeGreaterThan(1500);
   });
 
-  // Regression: the fuzzy rule used to flag "Tarata" (Tacna) and "Taraco"
-  // (Puno), 2 edits from "tarado", so a citizen typing their own district got a
-  // respect warning instead of a booking. Place-name words are now exempt.
   it("no INEI department / province / district name is flagged", () => {
     const offenders = placeNames.filter((name) => action(name) !== "ALLOW");
     expect(offenders).toEqual([]);
@@ -90,9 +79,6 @@ describe("A.1b official place names and surnames (the district step runs the gua
   });
 });
 
-// ---------------------------------------------------------------------------
-// A.2 Evasions: long typos and extreme leetspeak
-// ---------------------------------------------------------------------------
 describe("A.2 evasions", () => {
   it.each(["cojuuudooos", "m.i.e.r.d.a", "estup1d0", "i d i o t a", "hij0 de put4", "c0nch4tumadre"])(
     "detects %s",
@@ -101,14 +87,10 @@ describe("A.2 evasions", () => {
     },
   );
 
-  // Regression: the imbecil pattern used to accept only -es/-idad, so an
-  // augmentative slipped through even though leetspeak decoding worked.
   it("1mb3c1lazo (leetspeak + augmentative suffix)", () => {
     expect(action("1mb3c1lazo")).toBe("DROP_AND_WARN");
   });
 
-  // Regression: syllable splitting produced multi-letter fragments that the
-  // single-letter run detection ignores; the chunk is now also matched joined.
   it("im.be.cil (syllables split by dots)", () => {
     expect(action("im.be.cil")).toBe("DROP_AND_WARN");
   });
@@ -117,16 +99,11 @@ describe("A.2 evasions", () => {
     expect(action("hdpp")).toBe("DROP_AND_WARN");
   });
 
-  // Not feasible with edit distance (see A.2b). Kept as an explicit, honest gap
-  // so nobody assumes it is covered.
   gap("idotoaia (heavy typo of idiota)", () => {
     expect(action("idotoaia")).toBe("DROP_AND_WARN");
   });
 });
 
-// ---------------------------------------------------------------------------
-// A.2b Is a relative Levenshtein ratio (distance / target length <= 0.35) enough?
-// ---------------------------------------------------------------------------
 describe("A.2b the proposed relative-distance ratio, measured", () => {
   const targets = ["idiota", "imbecil", "estupido", "tarado", "cojudo", "huevon", "mierda", "pendejo", "malparido"];
 

@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "@/lib/fsm/core/types";
 
-// The real session store is Postgres over the network: every turn is
-// read -> compute -> write, and a real turn also waits on MINSA/RENIEC/Gemini.
-// Here the store is an in-memory map WITH latency so overlapping turns
-// interleave the way they do in production.
 const db = vi.hoisted(() => ({
   sessions: new Map<string, unknown>(),
   minMs: 30,
@@ -56,9 +52,6 @@ async function sequential(waId: string, messages: string[]): Promise<Outcome> {
 
 type TurnFn = typeof runTurn;
 
-// `perSecond` messages/second for the same waId, all launched on a timer and
-// therefore in flight at the same time whenever a turn takes longer than the gap.
-// Uses the production runTurn (locked) unless told otherwise.
 async function burst(waId: string, messages: string[], perSecond: number, turn: TurnFn = runTurn): Promise<Outcome> {
   db.sessions.delete(waId);
   const spacing = 1000 / perSecond;
@@ -78,10 +71,7 @@ const same = (a: Outcome, b: Outcome) =>
   JSON.stringify(a.slots) === JSON.stringify(b.slots) &&
   JSON.stringify(a.counters) === JSON.stringify(b.counters);
 
-// Messages that DEPEND on each other: each one is only meaningful in the state
-// the previous one produced.
 const DEPENDENT_CHAIN = ["Hola", "quiero una cita de odontología", "12345678", "1234"];
-// The exact messages from the brief.
 const BRIEF_CHAIN = ["Hola", "1", "Medicina general", "1"];
 
 const RUNS = 6;
@@ -91,7 +81,7 @@ beforeEach(() => {
   db.sessions.clear();
   db.reads = 0;
   db.writes = 0;
-  db.minMs = 30; // ~Neon over HTTP from a serverless function
+  db.minMs = 30;
   db.maxMs = 90;
 });
 
@@ -104,20 +94,11 @@ describe("B.1 one waId, bursts of 5-10 messages per second (store latency 30-90 
     expect(same(first, second)).toBe(true);
   }, LONG);
 
-  // The race needs a turn to last longer than the gap between two messages.
-  // Two realistic ways to get there (measured: a 5 msg/s burst against a fast
-  // 30-90 ms store did NOT diverge, 0/12; both scenarios below do):
-  //  - 10 msg/s against a Neon-like store (30-90 ms per query);
-  //  - 5 msg/s when the turn also waits on MINSA / RENIEC / Gemini (modelled as
-  //    100-250 ms per store operation).
   const SCENARIOS = [
     { label: "10 msg/s, Neon-like store (30-90 ms)", rate: 10, minMs: 30, maxMs: 90 },
     { label: "5 msg/s, slow turns (100-250 ms)", rate: 5, minMs: 100, maxMs: 250 },
   ];
 
-  // Regression for the race fixed by the per-waId turn lock (lib/fsm/session/turn-lock.ts):
-  // turn N used to read the session before turn N-1 had written it, ran against
-  // a stale state, and the last writer won (lost update). runTurn is now locked.
   for (const scenario of SCENARIOS) {
     it(
       `${scenario.label}: a burst reaches the same final state as sequential processing`,
@@ -173,9 +154,6 @@ describe("B.1 one waId, bursts of 5-10 messages per second (store latency 30-90 
 });
 
 describe("B.2 the messages from the brief", () => {
-  // "1" in the main menu picks 'Agendar una cita médica' (numeric shortcut), so
-  // 'Hola', '1', 'Medicina general', '1' walks into the Cita flow: after '1' the
-  // bot waits for a DNI and the next two messages are just invalid DNIs.
   it("'1' in the main menu selects 'Agendar una cita médica'", async () => {
     const outcome = await sequential("wa-brief-1", ["Hola", "1"]);
     expect(outcome.state).toBe("cita_awaiting_dni");
@@ -201,8 +179,6 @@ describe("B.3 the lock is per waId", () => {
     await Promise.all(Array.from({ length: 10 }, (_, index) => runTurn(`wa-par-${index}`, text(`wa-par-${index}`, "Hola"))));
     const elapsed = Date.now() - started;
 
-    // One turn = 2 x 20 ms of store latency; 10 users in parallel take about
-    // one turn, nowhere near ten (400 ms).
     expect(elapsed).toBeLessThan(200);
   }, LONG);
 });

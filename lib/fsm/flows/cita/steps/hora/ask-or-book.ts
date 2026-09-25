@@ -3,19 +3,10 @@ import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { formatHora12, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 
-// Booking is the one step that can't be quietly undone, so a time that came
-// from typed text — or the only one there is — is confirmed first. Tapping a
-// list row books directly.
-//
-// `only` marks "this is the only horario on offer, nobody picked it": the
-// question says so, and a "no" has no list of the same day to go back to.
 export function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {
   const [start, end] = slotId.split("|");
   const next = cloneSession(session);
   next.state = "cita_awaiting_hora_confirm";
-  // citaHoraConfirmId keeps the RAW 24h slot (start|end): it is what gets booked
-  // and what startBooking/handleHoraConfirm read back. Only the sentence below
-  // is reformatted for the citizen — via formatHora12, in 12h with AM/PM.
   next.slots.citaHoraConfirmId = slotId;
   if (options.only) next.slots.citaHoraConfirmOnly = ONLY_HORA_FLAG;
   else delete next.slots.citaHoraConfirmOnly;

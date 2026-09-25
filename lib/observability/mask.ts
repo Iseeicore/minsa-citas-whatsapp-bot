@@ -1,10 +1,5 @@
-// Everything that reaches a log line goes through here first. The rule is
-// "log what helps to diagnose, never what identifies": a document number keeps
-// its last four digits, tokens and free text disappear.
-
 const SENSITIVE_KEY = /bearer|token|authorization|secret|password|api[_-]?key|twofa|otp|code$/i;
 const DNI_KEY = /dni|documento/i;
-// Long values that are never worth their size in a log.
 const LENGTH_ONLY_KEYS = new Set(["citaOffered", "citaHorasDia", "citaHoraChoiceB", "initialMessageText"]);
 
 const MAX_STRING = 200;
@@ -14,16 +9,12 @@ const MAX_ITEMS = 20;
 export const tail = (value: string): string => `...${value.slice(-4)}`;
 
 export function maskDni(value: string): string {
-  // Already masked (a snapshot is sanitized once by the trace and again by the
-  // logger): masking it again would eat the four digits that are left.
   if (/^\*{4}\d{0,4}$/.test(value)) return value;
   const digits = value.replace(/\D/g, "");
   return digits.length > 4 ? `****${digits.slice(-4)}` : "****";
 }
 
-// A URL's query string (where API keys and tokens travel), a digit run of 7 or
-// more (a DNI, a phone number, an OTP echoed back), a Bearer header and a JWT
-// are hidden wherever they appear inside a string.
+/** Oculta query strings de URLs, series de 7+ dígitos (DNI, teléfono, OTP), cabeceras Bearer y JWT en cualquier texto. */
 export function redactString(value: string): string {
   return value
     .replace(/(https?:\/\/[^\s?#]+)\?[^\s#]*/gi, "$1?[redacted]")
@@ -59,8 +50,6 @@ export function sanitizeSlots(slots: Record<string, unknown>): Record<string, un
   return Object.fromEntries(Object.entries(slots).map(([key, value]) => [key, sanitizeValue(key, value)]));
 }
 
-// What the citizen typed, only where it is safe to show a piece of it. An
-// identity step (DNI, OTP, name) or a complaint is never quoted — only its length.
 const NEVER_PREVIEW_STATE = /^(cita_awaiting_(dni|otp)|reclamo_)/;
 const PREVIEW_CHARS = 40;
 

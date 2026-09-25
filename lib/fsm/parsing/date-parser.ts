@@ -1,20 +1,13 @@
 import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
 
-// Deterministic reading of a typed date ("mañana", "el viernes", "22 de
-// septiembre", "22/09", "lo más pronto") against the dates MINSA actually
-// offered. Pure: "today" is injected. Anything it cannot read is reported as
-// `unparsed` so the caller can try the generic matcher and, last, the AI.
-
 export type DateParts = { year: number; month: number; day: number };
 
 export type FechaMatch =
   | { kind: "match"; row: OfferedRow }
   | { kind: "ambiguous"; rows: OfferedRow[] }
-  // A date was understood, but MINSA offers no quota that day.
   | { kind: "unavailable"; label: string }
   | { kind: "unparsed" };
 
-// MINSA sends DD/MM/YYYY; the Sandbox's fake catalog uses YYYYMMDD.
 export function parseOfferedDate(id: string): DateParts | undefined {
   let match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(id);
   if (match) return { day: Number(match[1]), month: Number(match[2]), year: Number(match[3]) };
@@ -41,10 +34,6 @@ function formatDate(date: DateParts): string {
   return `${pad(date.day)}/${pad(date.month)}/${date.year}`;
 }
 
-// What the citizen reads instead of a raw "22/09/2026" or the fake catalog's
-// "20260922". Never the year — MINSA only ever offers near dates, close enough
-// that it would be redundant. `formatDateShort` is built to always fit a
-// WhatsApp list row (24 chars): 3-letter weekday, day, 3-letter month.
 const WEEKDAY_NAMES_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const WEEKDAY_NAMES_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const MONTH_NAMES_LONG = [
@@ -80,7 +69,6 @@ function normalize(text: string): string {
     .trim();
 }
 
-// A day/month with no year means its next occurrence.
 function resolveYear(day: number, month: number, today: DateParts, explicitYear?: number): number {
   if (explicitYear !== undefined) return explicitYear < 100 ? 2000 + explicitYear : explicitYear;
   return sortKey({ year: today.year, month, day }) < sortKey(today) ? today.year + 1 : today.year;
@@ -112,13 +100,11 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
   });
   if (dated.length === 0) return { kind: "unparsed" };
 
-  // "lo más pronto", "cualquiera", "la primera disponible"
   if (/\b(?:lo|la) mas (?:pronto|antes|cercan[oa])\b|\bcualquiera\b|\bcuanto antes\b|\bprimera (?:disponible|fecha)\b/.test(normalized)) {
     const earliest = [...dated].sort((a, b) => sortKey(a.date) - sortKey(b.date))[0];
     return { kind: "match", row: earliest.row };
   }
 
-  // "22/09", "22-09-2026"
   const numeric = /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/.exec(normalized);
   if (numeric) {
     const day = Number(numeric[1]);
@@ -128,7 +114,6 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
     return pickByDate(dated, { year, month, day });
   }
 
-  // "22 de septiembre"
   const named = new RegExp(`\\b(\\d{1,2})\\s+(?:de\\s+)?(${MONTH_NAMES})\\b`).exec(normalized);
   if (named) {
     const day = Number(named[1]);
@@ -137,12 +122,10 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
     return pickByDate(dated, { year: resolveYear(day, month, today), month, day });
   }
 
-  // "hoy", "mañana", "pasado mañana"
   if (/\bpasado manana\b/.test(normalized)) return pickByDate(dated, addDays(today, 2));
   if (/\bmanana\b/.test(normalized)) return pickByDate(dated, addDays(today, 1));
   if (/\bhoy\b/.test(normalized)) return pickByDate(dated, today);
 
-  // "el viernes": every offered date on that weekday from today on
   const weekday = new RegExp(`\\b(${WEEKDAY_NAMES})\\b`).exec(normalized);
   if (weekday) {
     const wanted = WEEKDAYS[weekday[1]];
@@ -152,8 +135,6 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
     return fromRows(matches, `el ${weekday[1]}`);
   }
 
-  // "el 25", "día 29" — only when some offered date really falls on that day;
-  // otherwise "el 2" is just an ordinal for the generic matcher.
   const dayOfMonth = /\b(?:dia|el)\s+(\d{1,2})\b/.exec(normalized);
   if (dayOfMonth) {
     const day = Number(dayOfMonth[1]);

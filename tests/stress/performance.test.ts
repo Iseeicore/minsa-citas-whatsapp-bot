@@ -3,9 +3,6 @@ import distritos from "@/data/peru-distritos.json";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { createRandom, pick } from "@/tests/support/prng";
 
-// The brief calls the function `evaluateOffensiveContent` (the name used in the
-// original proposal). The shipped entry point is `evaluateLexicalGuard`.
-
 type Row = { departamento: string; provincia: string; distrito: string };
 const districtNames = (distritos as Row[]).map((row) => row.distrito);
 
@@ -73,7 +70,6 @@ describe("D.1 latency of evaluateLexicalGuard over 10,000 varied messages", () =
   });
 
   it("P99 stays strictly below 2 ms", () => {
-    // Warm-up so the JIT is not part of the measurement.
     for (let i = 0; i < 1500; i++) evaluateLexicalGuard(corpus[i]);
 
     const micros: number[] = [];
@@ -128,7 +124,6 @@ describe("D.2 memory", () => {
     const growthMb = (process.memoryUsage().heapUsed - before) / 1024 / 1024;
     console.info(`[D.2] heap growth after 30,000 evaluations: ${growthMb.toFixed(1)} MB (gc exposed: ${Boolean(gc)})`);
 
-    // Without --expose-gc garbage may still be uncollected, so the bound is loose.
     expect(growthMb).toBeLessThan(60);
   });
 });

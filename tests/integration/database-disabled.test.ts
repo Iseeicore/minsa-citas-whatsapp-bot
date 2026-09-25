@@ -2,10 +2,6 @@ import crypto from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// The real webhook pipeline (route → perimeter → dedupe → turn lock → FSM →
-// session store) with DATABASE_ENABLED=false: every message is answered and the
-// conversation advances, yet Prisma is never constructed — not even with a
-// DATABASE_URL present, which would otherwise wire the Postgres turn lock.
 const state = vi.hoisted(() => {
   process.env.DATABASE_ENABLED = "false";
   process.env.DATABASE_URL = "postgresql://unused:unused@localhost:5432/unused";
@@ -39,7 +35,6 @@ vi.mock("next/server", async (importOriginal) => ({
     state.afterPromises.push(task());
   },
 }));
-// Only the network edge is replaced: the WhatsApp Graph API.
 vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
   sendWhatsAppEffect: vi.fn(async () => new Response("{}", { status: 200 })),
   sendTypingIndicator: vi.fn(async () => undefined),
@@ -101,19 +96,15 @@ describe("webhook with DATABASE_ENABLED=false", () => {
     const sessionAfterFirst = await getSession(WA_ID);
     expect(sessionAfterFirst.updatedAt).toBeInstanceOf(Date);
 
-    // Meta redelivers the same message id: answered exactly once.
     await deliver({ messages: [text("wamid.first", "Hola")] });
     expect(state.sent.length).toBe(afterFirst);
 
-    // A new message continues from the in-memory session.
     await deliver({ messages: [text("wamid.second", "1")] });
     expect(state.sent.length).toBeGreaterThan(afterFirst);
     expect((await getSession(WA_ID)).state).not.toBe(sessionAfterFirst.state);
 
-    // Delivery statuses have no message history to update.
     await deliver({ statuses: [{ id: "wamid.out", status: "delivered" }] });
 
-    // No inbox history: nothing is recorded against a conversation row.
     expect(state.sent.every((send) => send.conversationId === null)).toBe(true);
     expect(state.prismaConstructed).toBe(0);
     expect(state.adapterConstructed).toBe(0);

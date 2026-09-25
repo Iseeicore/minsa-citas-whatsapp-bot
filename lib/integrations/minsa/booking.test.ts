@@ -2,11 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bookAppointment } from "@/lib/integrations/minsa/booking";
 import { configureLogger } from "@/lib/observability/logger";
 
-// Real MINSA's booking endpoint (SANDBOX_USE_REAL_MINSA=true). Confirmed in
-// production: a duplicate-booking rejection ("the patient already has an
-// active appointment for the same turno/servicio") arrives as a raw HTTP
-// 500, not a graceful 2xx — so the duplicate check has to run before the
-// generic !response.ok branch, not after it.
 describe("real MINSA — bookAppointment", () => {
   const params = {
     codigoRenipress: "6181",

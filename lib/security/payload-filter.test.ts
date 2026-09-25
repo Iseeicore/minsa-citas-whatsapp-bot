@@ -9,7 +9,6 @@ const text = (body: string) => checkFirstMessagePayload({ type: "text", text: bo
 
 describe("length: a first message over 300 characters is rejected", () => {
   it("accepts exactly 300 and rejects 301", () => {
-    // Varied filler: a run of one letter would be rejected as repetition, not as length.
     expect(text("hola ".repeat(60)).kind).toBe("ok");
     expect(text("hola ".repeat(60) + "a")).toMatchObject({ kind: "rejected", reason: "too_long", reply: FIRST_MESSAGE_REJECTION_TEXT });
     expect(text("a".repeat(301))).toMatchObject({ kind: "rejected", reason: "too_long" });
@@ -114,7 +113,6 @@ describe("fixed texts", () => {
     }
   });
 
-  // The wording is the one the audit spreadsheet prescribes (Pasos 1 and 2).
   it("media without a session: asks for a text message with HOLA or a menu option", () => {
     expect(MEDIA_WITHOUT_SESSION_TEXT).toBe(
       "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.",

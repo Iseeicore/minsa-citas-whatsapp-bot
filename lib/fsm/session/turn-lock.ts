@@ -1,17 +1,5 @@
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 
-// Mutual exclusion for the turns of ONE waId.
-//
-// A turn is read session -> compute (possibly calling MINSA / RENIEC / Gemini)
-// -> write session. Two turns of the same citizen that overlap both read the
-// same stale session and the last writer wins (a lost update: the citizen's
-// answer is silently dropped, or a step runs twice). Two layers prevent that:
-//
-//  1. an in-process queue per waId — serializes rapid bursts on one instance
-//     without spending a database connection;
-//  2. a Postgres advisory lock (lib/fsm/session/turn-lock-db.ts) — serializes turns
-//     that land on DIFFERENT serverless instances.
-
 export type TurnLockLayer = "process" | "database";
 
 export class TurnLockTimeoutError extends Error {
@@ -24,26 +12,17 @@ export class TurnLockTimeoutError extends Error {
   }
 }
 
-// What a citizen reads when their message could not be processed: the lock gave up
-// waiting for the turn before it, or the turn (or its storage) failed in a way the
-// bot did not expect. Either way the message is not answered, so they are asked to
-// write again instead of being left in silence.
 export const TURN_FAILURE_TEXT =
   "Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.";
 
 export type TurnTask<T> = () => Promise<T>;
 export type TurnLock = <T>(waId: string, task: TurnTask<T>) => Promise<T>;
 
-// Wraps a task in the cross-instance lock; supplied by lib/fsm/session/turn-lock-db.ts.
 export type DbTurnLock = TurnLock;
 
 export type TurnLockOptions = {
-  // How long a turn may wait behind earlier turns of the same waId in this
-  // process before giving up.
   processTimeoutMs?: number;
   dbLock?: DbTurnLock;
-  // A wait at least this long is logged, so a tester (or an operator reading
-  // the logs) can SEE the lock serializing a burst. Never logs the full waId.
   slowWaitMs?: number;
   log?: (line: string) => void;
 };
@@ -67,6 +46,7 @@ function waitFor(promise: Promise<unknown>, timeoutMs: number, onTimeout: () => 
   });
 }
 
+/** Serializa los turnos de un mismo ciudadano: cola en memoria del proceso y, con base de datos, advisory lock de Postgres entre instancias. */
 export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
   const timeoutMs = options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS;
   const slowWaitMs = options.slowWaitMs ?? DEFAULT_SLOW_WAIT_MS;
@@ -94,25 +74,17 @@ export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
 
       return await (options.dbLock ? options.dbLock(waId, task) : task());
     } finally {
-      // Also runs when this waiter timed out without ever starting: releasing
-      // the gate keeps the chain moving for everyone queued behind it.
       release();
       if (tails.get(waId) === tail) tails.delete(waId);
     }
   };
 }
 
-// ---- The instance the app uses ----------------------------------------------
-
 function numberFromEnv(name: string): number | undefined {
   const value = Number(process.env[name]);
   return Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-// The database layer is only wired when there IS a database to lock on, and can
-// be switched off with TURN_DB_LOCK=off, or with the whole database
-// (DATABASE_ENABLED=false). Prisma is imported lazily so modules (and tests)
-// that never take a turn don't open a connection.
 export function defaultDbLock(): DbTurnLock | undefined {
   if (!process.env.DATABASE_URL || process.env.TURN_DB_LOCK === "off" || !isDatabaseEnabled()) return undefined;
 
@@ -140,7 +112,6 @@ let current: TurnLock = createTurnLock({
 
 export const withTurnLock: TurnLock = (waId, task) => current(waId, task);
 
-// Composition hooks (tests, or a different deployment topology).
 export function configureTurnLock(lock: TurnLock): void {
   current = lock;
 }

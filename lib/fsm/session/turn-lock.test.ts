@@ -4,7 +4,6 @@ import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-// Tracks how many tasks are inside the critical section at once.
 function tracker() {
   let active = 0;
   let max = 0;
@@ -34,7 +33,7 @@ describe("level 1: in-process lock per waId", () => {
       [1, 2, 3, 4, 5].map((n) =>
         lock("wa-1", () =>
           inside.run(async () => {
-            await sleep(5 + (5 - n) * 3); // earlier tasks are the slowest: order must still hold
+            await sleep(5 + (5 - n) * 3);
             order.push(n);
           }),
         ),
@@ -90,7 +89,7 @@ describe("level 1: in-process lock per waId", () => {
     });
 
     expect(later).toBe("ok");
-    expect(ran).toEqual(["slow", "later"]); // the timed-out task never ran
+    expect(ran).toEqual(["slow", "later"]);
   });
 
   it("the timeout error names the waId and the layer", async () => {
@@ -104,8 +103,6 @@ describe("level 1: in-process lock per waId", () => {
   });
 });
 
-// A minimal stand-in for the Prisma client: records every statement and the
-// transaction options, and can be told to fail a statement.
 function fakePrisma(options: { failOn?: (sql: string) => Error | undefined } = {}) {
   const log: string[] = [];
   const transactions: Array<{ maxWait?: number; timeout?: number }> = [];

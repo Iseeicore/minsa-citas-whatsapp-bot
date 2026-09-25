@@ -83,7 +83,7 @@ describe("screenInbound: payload rules apply only to a first message", () => {
     const decision = await screenInbound(message, deps);
 
     expect(decision).toEqual({ action: "reject", reason, reply });
-    expect(hasSession).toHaveBeenCalledTimes(1); // one read, no transaction, no lock
+    expect(hasSession).toHaveBeenCalledTimes(1);
   });
 
   it.each([

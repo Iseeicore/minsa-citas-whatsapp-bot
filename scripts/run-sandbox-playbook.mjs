@@ -1,43 +1,4 @@
 #!/usr/bin/env node
-// Fires the Sandbox-reachable cases from docs/qa/manual-test-playbook.md
-// against a locally running `npm run dev`, one HTTP call per playbook step,
-// and logs every request/response as NDJSON — a reviewable trail of the
-// happy path, the lexical guard and the out-of-scope catalog, without
-// touching WhatsApp or Meta at all.
-//
-// Requires, in a SEPARATE terminal:
-//   npm run dev
-// and a `.env.local` with `SANDBOX_ENABLED=true` and a real `DATABASE_URL`
-// (the Sandbox route always goes through Prisma — see app/api/sandbox/route.ts).
-// Run in fake mode (SANDBOX_USE_REAL_* off), matching the playbook's §0.2.
-//
-// Usage:
-//   node scripts/run-sandbox-playbook.mjs
-//   SANDBOX_URL=http://localhost:3000/api/sandbox node scripts/run-sandbox-playbook.mjs
-//
-// NOT covered here (see the playbook itself for why):
-//   - §1.4 (media/stickers/voice notes) and §1.5 (rate limiting): WhatsApp-only,
-//     the Sandbox explicitly doesn't apply (§0.5).
-//   - §1.6 (webhook signature): a different route than Sandbox — checked
-//     separately below (webhookSignatureCheck), no Meta credentials needed.
-//   - §3.15a-c: needs a real 10-minute wait, not practical in a scripted run.
-//   - §3.15g-l, §3.17h/j, and the real-mode branch of §3.9: need
-//     SANDBOX_USE_REAL_MINSA — the fake catalog has exactly one district
-//     (Lurigancho) and it always has coverage, so "sin especialidades" or
-//     "distrito con vecinos" can't happen against it.
-//   - Deep multi-step reclamo states (§1.1f, §1.2j, §2.3c, §3.16l/n/p) and the
-//     button-only disambiguation branches of §3.13d/e: skipped rather than
-//     guessed, since a wrong internal button id would silently log the wrong
-//     path. Everything else uses the typed equivalent the playbook itself
-//     documents next to each button.
-//
-// Every `expect` below is ADVISORY, not a verdict: the fake catalog's dates
-// are "the next 3 days" (they shift daily) and AI-mode text can vary, so a ❓
-// means "read this one yourself" — it does not mean "broken". The record
-// this script exists to produce is the NDJSON file, plus whatever the
-// `npm run dev` terminal printed in parallel (turn.*, ai.fallback,
-// perimeter.*, [turn-lock] — the lines docs/qa/manual-test-playbook.md §4.4
-// needs for C2.2/C2.3/C3.1/C3.5/C4.1).
 
 import { mkdir, appendFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -52,10 +13,6 @@ let seq = 0;
 const tally = { "✅": 0, "❓": 0, "🛑": 0, "•": 0 };
 
 function textsOf(sent = []) {
-  // A send_cta_url effect carries BOTH `text` (the body) and `buttonText`
-  // (e.g. "Continuar mi cita") — checking with `??` alone hides buttonText
-  // whenever text is also present, which produced a wall of false-negative
-  // ❓ marks on the welcome message across the whole first run.
   return sent
     .map((effect) => [effect.text, effect.buttonText].filter(Boolean).join(" ") || effect.kind)
     .join(" | ");
@@ -114,8 +71,6 @@ function ctxFor(id, section) {
   return { from, send: (action, opts = {}) => sendRaw(from, action, { caseId: id, section, ...opts }) };
 }
 
-// ---- reusable chains (typed equivalents only, per docs/qa/manual-test-playbook.md §3) ----
-
 async function welcome(ctx, text = "Hola") {
   return ctx.send({ type: "text", text, reset: true }, { expect: "Continuar mi cita" });
 }
@@ -145,8 +100,6 @@ async function reachHorarioList(ctx, fechaPos = "1") {
   await reachFechaList(ctx);
   return ctx.send({ type: "text", text: String(fechaPos) }, { expect: "horario" });
 }
-
-// ---- case list ----
 
 const REJECT_TEXT = "Mensaje no reconocido";
 const MENU_TEXT = "ayudarte hoy";
@@ -278,16 +231,8 @@ async function section2() {
 }
 
 async function section2_5Stress() {
-  // Stress cases from a 300-row Peruvian-slang dataset the user pasted,
-  // curated down to ~16 probes that each isolate ONE variable instead of
-  // repeating the same signal with a different district. See
-  // docs/qa/manual-test-playbook.md §2.5 for the full rationale and the
-  // exact code citations behind each prediction.
   const s = "2.5 Estrés — jerga, hostilidad y datos";
 
-  // 2.5.1 — hostility + a resolvable full district/specialty name, first
-  // message. This is the path that already works (same shape as §2.4a);
-  // just confirming it holds for other districts/specialties.
   for (const [id, text] of [
     ["2.5.1a", "oe hdp dame mi cita de cardiología en Surco"],
     ["2.5.1b", "imbeciles atiendanme, cita de pediatría en San Isidro"],
@@ -296,9 +241,6 @@ async function section2_5Stress() {
     await ctxFor(id, s).send({ type: "text", text, reset: true }, { expect: "ingresa tu número de documento" });
   }
 
-  // 2.5.2 — same shape, but the district is an abbreviation (sjl/vmt/sjm).
-  // Predicted: warning still fires (insult + "cita" token), but no district
-  // hint is captured (no abbreviation table anywhere in the repo).
   for (const [id, text] of [
     ["2.5.2a", "oe hdp cita en sjl"],
     ["2.5.2b", "imbeciles denme cita en vmt"],
@@ -310,8 +252,6 @@ async function section2_5Stress() {
     });
   }
 
-  // 2.5.3 — jerga peruana ausente del diccionario (lib/security/lexicon.ts):
-  // tmr/webon/gil puros, sin nada más. Predicted ALLOW (sin advertencia).
   for (const [id, text] of [
     ["2.5.3a", "tmr"],
     ["2.5.3b", "webon"],
@@ -322,9 +262,6 @@ async function section2_5Stress() {
     await ctx.send({ type: "text", text }, { expect: MENU_TEXT, note: "falso negativo esperado: no debe aparecer el mensaje A" });
   }
 
-  // 2.5.4 — mid-flow, estado CON guard (cita_awaiting_distrito_ai). Predicted:
-  // el mensaje se descarta entero y repite la pregunta, sin importar si la
-  // acción interna sería DROP_AND_WARN/CITA_WITH_WARNING/FORCE_RECLAMO.
   await (async () => {
     const ctx = ctxFor("2.5.4a", s);
     await reachDistritoPrompt(ctx);
@@ -347,10 +284,6 @@ async function section2_5Stress() {
     });
   })();
 
-  // 2.5.5 — mid-flow, estado SIN guard (cita_awaiting_hora_confirm: no está
-  // en FREE_TEXT_STATE_PROMPTS ni en SELECTION_STATES). Predicted: si el
-  // texto ruidoso matchea la hora pendiente, la cita se confirma SIN
-  // ninguna advertencia — bypass real, no hipotético.
   await (async () => {
     const ctx = ctxFor("2.5.5a", s);
     await reachHorarioList(ctx);
@@ -367,7 +300,6 @@ async function section2_5Stress() {
     await ctx.send({ type: "text", text: "imbeciles a las 8 nomas" }, { expect: "Agendando tu cita" });
   })();
 
-  // 2.5.6 — hora/fecha coloquial sin regla hoy (time-parser.ts/date-parser.ts).
   await (async () => {
     const ctx = ctxFor("2.5.6a", s);
     await reachHorarioList(ctx);
@@ -497,8 +429,6 @@ async function section3_16() {
 
 async function section3_17() {
   const s = "3.17 Un solo horario disponible";
-  // Solo la 3ra fecha del catálogo fake (§0.2) tiene un único horario, así que
-  // 3.17i (dos fechas de un solo horario seguidas) no es reproducible aquí.
 
   await (async () => {
     const ctx = ctxFor("3.17bc", s);

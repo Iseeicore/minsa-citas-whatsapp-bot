@@ -94,7 +94,6 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent).toHaveLength(1);
     expect(json.sent[0].text).toContain("106");
-    // The emergency closes the session instead of waiting in the menu.
     expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", { state: "emergency_closed", slots: {}, counters: {} });
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
@@ -108,7 +107,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
   });
 
   it("after a reset the next message is a first message again (so the rules apply again)", async () => {
-    mocks.sessionRowExists.mockResolvedValue(false); // reset wiped the row
+    mocks.sessionRowExists.mockResolvedValue(false);
 
     const { json } = await send({ type: "text", text: "a".repeat(400), reset: true });
 

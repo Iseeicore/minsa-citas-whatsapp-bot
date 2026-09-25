@@ -1,12 +1,4 @@
-# Compose Specification (Docker Compose v2): no top-level `version:` on purpose.
-#
-# The MINSA server deployment. It MUST run as a single replica — without a
-# database each citizen's conversation state lives in this one process's
-# memory; a second replica would break conversations mid-flow. Do not add
-# `deploy.replicas` or `docker compose up --scale`.
-#
-# Every variable in the git-ignored .env next to this file reaches the
-# container (env_file), so the README's variable list is the only reference.
+# Una sola réplica: sin base de datos, el estado de cada conversación vive en la memoria de este proceso.
 services:
   minsa-citas-whatsapp-bot:
     build: .
@@ -17,19 +9,13 @@ services:
       - "${HOST_PORT:-3000}:3000"
     env_file: .env
     environment:
-      # Pinned: `environment` wins over env_file, so a PORT, NODE_ENV or
-      # HOSTNAME left in a local .env can never move the server off the port
-      # the healthcheck and the mapping expect, or out of production mode.
+      # Fijadas: ganan sobre env_file para que el .env no mueva el puerto del healthcheck.
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0
 
-      # The image is built without migrations (npm run build:no-db): false by
-      # default, and "true" only against a DATABASE_URL already migrated.
       DATABASE_ENABLED: ${DATABASE_ENABLED:-false}
 
-      # No default on purpose: `docker compose up` stops with this message
-      # instead of starting a bot that cannot talk to WhatsApp.
       META_ACCESS_TOKEN: ${META_ACCESS_TOKEN:?set META_ACCESS_TOKEN}
       META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:?set META_PHONE_NUMBER_ID}
       META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:?set META_WEBHOOK_VERIFY_TOKEN}

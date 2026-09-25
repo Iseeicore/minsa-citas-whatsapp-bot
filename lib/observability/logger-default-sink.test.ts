@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// The app logger picks its sink once, when the module loads, so each case
-// stubs the environment and imports a fresh copy of the module.
 async function loadLoggerWith(env: Record<string, string | undefined>) {
   vi.resetModules();
   for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value as string);

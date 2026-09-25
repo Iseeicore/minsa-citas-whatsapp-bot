@@ -23,13 +23,12 @@ const BASE_SLOTS = {
   citaBearer: "token",
   citaCodEess: "0000123",
   citaEspecialidadId: "02",
-  citaFecha: "31/12/2099", // a future day, so "already started" slots are not filtered out
+  citaFecha: "31/12/2099",
   citaDni: "12345678",
 };
 
 const LONE = [{ horaInicio: "13:00", horaFin: "13:30" }];
 
-// The citizen is asked to confirm the only horario of the day.
 function confirmingLone(extra: Session["slots"] = {}, counters: Session["counters"] = {}): Session {
   return {
     state: "cita_awaiting_hora_confirm",

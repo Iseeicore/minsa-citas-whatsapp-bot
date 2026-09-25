@@ -1,17 +1,10 @@
 import type { Session } from "@/lib/fsm/core/types";
 
-// Typed-text handling for the Cita flow's selection steps. WhatsApp lists are
-// meant to be tapped, but citizens also type "el segundo", "odontología" or
-// "el de Lima". These matchers only ever pick among the rows the bot itself
-// just offered, so free text can never reach MINSA as an unvalidated id.
-
 export type OfferedRow = { id: string; title: string; description?: string };
 export type OfferedList = { text: string; rows: OfferedRow[] };
 
 export const OFFERED_SLOT = "citaOffered";
 
-// Session.slots only holds flat scalars, so the last list shown to the citizen
-// travels as a JSON string (at most 10 rows, ~1-2 KB).
 export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
 }
@@ -45,8 +38,6 @@ export type SelectionMatch =
   | { kind: "none" };
 
 export type MatchOptions = {
-  // Also match against each row's description (e.g. "Provincia — Departamento"
-  // for districts). Off for lists whose descriptions are just quota counts.
   includeDescription?: boolean;
 };
 
@@ -58,8 +49,6 @@ function normalize(text: string): string {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
-
-// ---- Ordinals ("2", "la 2", "el segundo", "la última") ----------------------
 
 const ORDINAL_WORDS: Record<string, number> = {
   uno: 1, primero: 1, primera: 1,
@@ -88,8 +77,6 @@ function parseOrdinal(normalized: string, count: number): number | undefined {
   return position !== undefined && position >= 1 && position <= count ? position : undefined;
 }
 
-// ---- Names ------------------------------------------------------------------
-
 const STOP_WORDS = new Set([
   "el", "la", "los", "las", "de", "del", "en", "un", "una", "unos", "unas", "y", "a", "al", "lo",
   "que", "quiero", "quisiera", "necesito", "por", "favor", "para", "con", "mi", "me", "es", "ese",
@@ -104,8 +91,6 @@ function rowTokens(row: OfferedRow, includeDescription: boolean): HayToken[] {
 
   const tokens: HayToken[] = titleWords.map((word, index) => ({
     word,
-    // WhatsApp row titles are cut at 24 chars with an ellipsis — only the last
-    // word can be a partial one.
     truncated: titleTruncated && index === titleWords.length - 1,
   }));
 
@@ -151,9 +136,6 @@ export function matchSelection(
   return winners.length === 1 ? { kind: "match", row: winners[0] } : { kind: "ambiguous", rows: winners };
 }
 
-// ---- Hints: what the citizen said beyond the row they picked ---------------
-
-// Words that ask for something instead of naming it.
 const HINT_NOISE_WORDS = new Set([
   "cita", "citas", "atencion", "agendar", "consulta", "medico", "medica", "doctor", "doctora",
   "reservar", "turno",
@@ -165,8 +147,6 @@ function significantTokens(text: string): string[] {
     .filter((token) => token.length >= 2 && !STOP_WORDS.has(token) && !HINT_NOISE_WORDS.has(token));
 }
 
-// "odontología en el hospital de Lurigancho" after picking ODONTOLOGIA leaves
-// "hospital lurigancho": an establishment named too early, kept for later.
 export function leftoverHint(text: string, chosen: OfferedRow): string {
   const chosenTokens = rowTokens(chosen, false);
   return significantTokens(text)
@@ -174,13 +154,10 @@ export function leftoverHint(text: string, chosen: OfferedRow): string {
     .join(" ");
 }
 
-// The hint as clean words (no fillers) — used to store an AI-extracted name.
 export function hintText(text: string): string {
   return significantTokens(text).join(" ");
 }
 
-// Strict: EVERY hint word must belong to the row, and only one row may
-// qualify. A hint is applied without asking the citizen, so it never guesses.
 export function matchAllTokens(
   hint: string,
   rows: OfferedRow[],

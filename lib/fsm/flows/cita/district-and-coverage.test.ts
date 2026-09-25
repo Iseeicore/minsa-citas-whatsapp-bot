@@ -20,7 +20,6 @@ const queries = (step: HandlerResult) => step.effects.filter(isQueryEffect);
 const firstText = (step: HandlerResult) => (sent(step)[0] as { text: string }).text;
 
 const SJL = { ubigeoInei: "150132", distrito: "SAN JUAN DE LURIGANCHO", provincia: "LIMA", departamento: "LIMA" };
-// MINSA's search is fuzzy: asking for San Juan de Lurigancho brings its neighbours too.
 const FUZZY_RESULT = [
   SJL,
   { ubigeoInei: "150133", distrito: "SAN JUAN DE MIRAFLORES", provincia: "LIMA", departamento: "LIMA" },
@@ -175,8 +174,6 @@ describe("no specialties in the district", () => {
   it("the new district is resolved on its own, not from the first message", () => {
     const step = handle(handle(empty().step.session, text("si")).session, text("Miraflores"));
 
-    // "Miraflores" exists twice in Lima, so it is disambiguated — and nothing of
-    // the district that was left behind comes back.
     expect(step.session.state).toBe("cita_awaiting_distrito_disambiguation");
     const shown = JSON.stringify(step.effects).toUpperCase();
     expect(shown).toContain("MIRAFLORES");

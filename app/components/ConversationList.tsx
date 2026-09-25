@@ -46,7 +46,6 @@ export default function ConversationList({
         const data = (await res.json()) as Conversation[];
         if (!cancelled) setConversations(data);
       } catch {
-        // Ignore transient network errors; next poll will retry.
       }
     }
 

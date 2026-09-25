@@ -1,7 +1,7 @@
 import type { DateParts } from "@/lib/fsm/parsing/date-parser";
 
 export function todayInLima(): DateParts {
-  const fecha = nowInLima().fecha; // YYYYMMDD
+  const fecha = nowInLima().fecha;
   return {
     year: Number(fecha.slice(0, 4)),
     month: Number(fecha.slice(4, 6)),
@@ -9,10 +9,7 @@ export function todayInLima(): DateParts {
   };
 }
 
-// Peru runs on America/Lima year-round (UTC-5, no DST) — the serverless
-// runtime's own local time zone can't be relied on, so this reads Lima's
-// wall-clock date/time explicitly via Intl instead of `new Date()`'s
-// local getters.
+/** Lee la hora de America/Lima con Intl (UTC-5, sin horario de verano): la zona horaria del servidor no es confiable. */
 export function nowInLima(): { fecha: string; hora: string } {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Lima",

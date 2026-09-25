@@ -5,15 +5,6 @@ import type { Session } from "@/lib/fsm/core/types";
 import type { CustomMatch } from "@/lib/fsm/flows/cita/selection";
 import { formatHora12, slotToRow, rowToSlot, formatHourGroup } from "@/lib/fsm/flows/cita/steps/hora/format";
 
-// ---- A bare "1".."10": list position or hour? ------------------------------
-// "1" can be option 1 of the list (07:00) or 1 PM (13:00, MINSA speaks 24h).
-// Both readings are checked against what is really offered:
-//  - only the position exists            -> the position (then confirmed);
-//  - only an hour exists ("8", no option 8) -> that hour (then confirmed);
-//  - the same slot is both               -> just that slot (then confirmed);
-//  - two different slots                 -> a two-button question naming both.
-// The tapped button names an exact time, so it books directly like a list tap.
-
 const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;
 export const HORA_CHOICE_A_ID = "hora_choice_a";
 export const HORA_CHOICE_B_ID = "hora_choice_b";
@@ -33,8 +24,6 @@ function resolveBareHoraNumber(
   const otherHourSlots = positionRow ? hourSlots.filter((slot) => slotToRow(slot).id !== positionRow.id) : hourSlots;
 
   if (otherHourSlots.length === 0) {
-    // Position only (or the position is itself the sole matching hour); with
-    // neither, undefined lets the generic matcher reject it.
     return positionRow ? { kind: "match", row: positionRow } : undefined;
   }
 
@@ -71,9 +60,6 @@ function resolveBareHoraNumber(
 }
 
 
-// A typed time ("a la 1", "1:45 pm", "en la tarde") is read against the WHOLE
-// day MINSA offered; sessions without that (opened before it was stored) fall
-// back to the rows currently on screen.
 export function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): CustomMatch | undefined {
   const day = unpackHoraSlots(session.slots.citaHorasDia);
   const slots = day.length > 0 ? day : rows.flatMap((row) => rowToSlot(row) ?? []);
@@ -81,7 +67,6 @@ export function matchHoraTyped(session: Session, typed: string, rows: OfferedRow
   if (BARE_SMALL_NUMBER.test(typed.trim())) {
     const decided = resolveBareHoraNumber(session, Number(typed.trim()), rows, slots);
     if (decided) return decided;
-    // No hour matches: fall through so the generic matcher reads it as a position.
   }
 
   const match = matchHoraText(typed, slots);

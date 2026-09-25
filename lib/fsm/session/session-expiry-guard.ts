@@ -1,23 +1,10 @@
 import type { HandleEvent, Session } from "@/lib/fsm/core/types";
 
-// A citizen who verified with an OTP holds a MINSA bearer (slots.citaBearer).
-// Two independent reasons to stop trusting it before MINSA has to say 401:
-//  - idle: nobody has written on this conversation for a while, so whoever
-//    writes next may not be the citizen who verified;
-//  - token: the bearer is a JWT that is already expired (or about to be).
-// lib/fsm/flows/cita/steps/reverification.ts keeps the reactive 401 recovery as the safety net.
-
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
 
 export type SessionExpiryReason = "idle" | "token_expired";
 
-// Every state that waits for the citizen's next message once a bearer exists,
-// and the state the flow resumes at after they verify again. `null` means
-// there is nothing to resume: the district is still being gathered, so the
-// normal post-OTP prompt is the right place to land.
-// Pending states (`*_pending`) are deliberately absent: they only ever run
-// mid-turn, on synthetic query results, and must never be cut in half.
 const RESUME_STATE_BY_WAITING_STATE: Readonly<Record<string, string | null>> = {
   cita_awaiting_distrito_ai: null,
   cita_awaiting_distrito_disambiguation: null,
@@ -41,10 +28,6 @@ export function resumeStateFor(waitingState: string): string | undefined {
   return RESUME_STATE_BY_WAITING_STATE[waitingState] ?? undefined;
 }
 
-// Best effort: MINSA's bearer is treated as opaque everywhere else, so
-// anything that is not a decodable JWT with a numeric `exp` is simply ignored
-// rather than guessed at. Signature is NOT verified — this only decides when
-// to stop using a token, never whether to trust it.
 export function decodeJwtExp(token: string): number | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
@@ -61,8 +44,6 @@ export function decodeJwtExp(token: string): number | null {
   }
 }
 
-// Pure: `now` is injected. Only judges a citizen's own message — the synthetic
-// query results of a turn already in progress are never interrupted.
 export function detectSessionExpiry(
   session: Session,
   event: HandleEvent,

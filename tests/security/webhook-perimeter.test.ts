@@ -2,14 +2,9 @@ import crypto from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// The webhook route end to end, with every external dependency replaced, to pin
-// down ORDER: the perimeter must run before any database write and before the
-// per-waId turn lock.
 const mocks = vi.hoisted(() => ({
   afterPromises: [] as Promise<unknown>[],
   conversationUpsert: vi.fn(async () => ({ id: "conv-1" })),
-  // The inbound row is inserted (never read first): a duplicate delivery is the
-  // unique-constraint error P2002, which is how the webhook tells it is one.
   messageCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
   messageUpdateMany: vi.fn(async () => ({})),
   sessionFindUnique: vi.fn(async (): Promise<{ id: string; state: string } | null> => ({ id: "x", state: "main_menu" })),
@@ -28,7 +23,6 @@ vi.mock("next/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/server")>();
   return {
     ...actual,
-    // Run the background work now and remember it so the test can await it.
     after: (task: () => Promise<unknown>) => {
       mocks.afterPromises.push(task());
     },
@@ -51,11 +45,9 @@ vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri
 vi.mock("@/lib/fsm/session/session-store", () => ({
   sessionRowExists: mocks.sessionRowExists,
   saveSession: mocks.saveSession,
-  // answer.ts reads the session row through the store; same stub as before.
   findSession: () => mocks.sessionFindUnique(),
 }));
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked }));
-// Only the lock itself is replaced; its timeout error and busy text stay real.
 vi.mock("@/lib/fsm/session/turn-lock", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/fsm/session/turn-lock")>()),
   withTurnLock: mocks.withTurnLock,
@@ -99,7 +91,6 @@ async function deliver(messages: Message[], extra: Record<string, unknown> = {})
   return response;
 }
 
-// Same payload as deliver(), but with whatever signature header the test wants.
 async function deliverWithSignature(messages: Message[], signature: string | null) {
   const body = JSON.stringify({ entry: [{ changes: [{ value: { contacts: [], messages } }] }] });
   const headers: Record<string, string> = { "content-type": "application/json" };
@@ -151,7 +142,7 @@ describe("rate limiting (drop the flood, tell the citizen once, still acknowledg
 
     const response = await deliver(burst);
 
-    expect(response.status).toBe(200); // Meta must always get its 200 or it retries the flood
+    expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ received: true });
     expect(mocks.conversationUpsert).toHaveBeenCalledTimes(5);
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(5);
@@ -165,7 +156,6 @@ describe("rate limiting (drop the flood, tell the citizen once, still acknowledg
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: MUTE_NOTICE_TEXT });
-    // The notice is a fixed reply: nothing was stored or locked for that 6th message.
     expect(mocks.conversationUpsert).toHaveBeenCalledTimes(5);
     expect(mocks.messageCreate).toHaveBeenCalledTimes(5);
     expect(mocks.withTurnLock).toHaveBeenCalledTimes(5);
@@ -291,7 +281,6 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: reply });
-    // Nothing was persisted or locked for it:
     expect(mocks.conversationUpsert).not.toHaveBeenCalled();
     expect(mocks.messageCreate).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();

@@ -47,7 +47,6 @@ export default function ConversationView({
           setStatus(data.status);
         }
       } catch {
-        // Ignore transient network errors; next poll will retry.
       }
     }
 
@@ -114,8 +113,6 @@ export default function ConversationView({
 
   const displayName = profileName ?? waId ?? "Contacto";
 
-  // Recomputed from the already-fetched windowExpiresAt on every render
-  // (i.e. every 4s poll cycle) — no separate timer needed.
   const countdown =
     windowOpen && windowExpiresAt ? formatWindowCountdown(windowExpiresAt) : null;
 
@@ -260,8 +257,6 @@ export default function ConversationView({
   );
 }
 
-// Derives the remaining time until windowExpiresAt from Date.now() — called
-// on every render (i.e. every 4s poll cycle), no dedicated timer needed.
 function formatWindowCountdown(windowExpiresAt: string): { label: string; warning: boolean } | null {
   const remainingMs = new Date(windowExpiresAt).getTime() - Date.now();
   if (!Number.isFinite(remainingMs) || remainingMs <= 0) return null;

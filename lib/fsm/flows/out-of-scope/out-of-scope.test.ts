@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import { detectOutOfScope, isEmergency, isCitaKeyword, isContinueKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 
-// The examples are the ones the audit spreadsheet lists for each category
-// (sheet "Catálogo de Intenciones OutofSc"), plus a few more phrasings.
 const EXAMPLES: Array<[OosCategory, string[]]> = [
   ["OOS-01", [
     "Mi mamá no puede respirar", "Me duele el pecho fuerte", "Mi hijo se cayó y sangra la cabeza", "Necesito una ambulancia urgente",
@@ -148,9 +146,7 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
   });
 
   it("each one tells the citizen how to go on, with a word the bot understands", () => {
-    // The emergency ends the conversation: it does not invite the citizen to go on.
     expect(OOS_MESSAGES["OOS-01"]).not.toMatch(/CONTINUAR|CITAS|RECLAMO/);
-    // Vaccination needs no appointment (OOS-06), so its message points to the 113 line instead.
     for (const category of ["OOS-02", "OOS-03", "OOS-04", "OOS-07", "OOS-09"] as const) expect(OOS_MESSAGES[category]).toContain("CITAS");
     for (const category of ["OOS-05", "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("RECLAMO");
   });

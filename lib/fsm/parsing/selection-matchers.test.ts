@@ -89,7 +89,7 @@ describe("matchSelection — names over the offered rows", () => {
 });
 
 describe("leftoverHint — what the citizen said beyond the chosen row", () => {
-  const chosen = especialidadRows[1]; // ODONTOLOGIA
+  const chosen = especialidadRows[1];
 
   it("keeps the words that name something else (e.g. an establishment)", () => {
     expect(leftoverHint("odontología en el hospital de Lurigancho", chosen)).toBe("hospital lurigancho");

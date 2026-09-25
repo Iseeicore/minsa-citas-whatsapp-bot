@@ -4,19 +4,9 @@ import { logger as appLogger, type Logger } from "@/lib/observability/logger";
 import { previewInput, sanitizeSlots, tail } from "@/lib/observability/mask";
 import type { ExternalService, TurnNote } from "@/lib/observability/types";
 
-// One trace per turn — one inbound message answered. It ties together, under a
-// single traceId: the state it started in, what came in, every decision that
-// was noted, every call to an outside service with its duration, how the slots
-// changed and where the conversation ended up.
-//
-//   turn.start -> turn.note* / turn.external* -> turn.end   (or turn.failed)
-
 export type TraceSession = { state: string; slots: Record<string, unknown> };
 export type TraceEvent = { type: string; text?: string; listId?: string; messageId?: string };
 
-// Deterministic: the same waId and the same message always get the same id — so
-// Meta re-delivering a message lands on the trace of the first delivery. Without
-// a message id (the Sandbox) the start time and the shape of the input stand in.
 export function deriveTraceId(waId: string, seed: string): string {
   return `t-${createHash("sha256").update(`${waId}|${seed}`).digest("hex").slice(0, 12)}`;
 }
@@ -123,8 +113,6 @@ export function createTurnTrace(
       const stateAfter = outcome?.session.state;
       const stalled = stateAfter !== undefined && stateAfter === session.state && event.type === "text";
       const answeredByShortcut = notes.some((note) => note.kind === "shortcut" || note.kind === "first_contact");
-      // A typed message that leaves the citizen at the same menu without any
-      // deterministic answer is the "menu loop" worth looking at.
       const friction =
         stalled && !answeredByShortcut ? (stateAfter === "main_menu" ? "menu_loop" : "no_progress") : undefined;
 
@@ -156,9 +144,6 @@ export function createTurnTrace(
   };
 }
 
-// Runs a turn inside its trace. Inside another traced turn it joins that one
-// instead of opening a second (the webhook traces first contact itself, and the
-// executor traces every FSM turn — neither has to know about the other).
 export async function traceTurn<T>(
   waId: string,
   event: TraceEvent,

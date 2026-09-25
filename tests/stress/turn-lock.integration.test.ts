@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "@/lib/fsm/core/types";
 
-// The real session store is Postgres over the network. Here it is an in-memory
-// map with latency that ALSO measures overlap: a turn is one getSession followed
-// by one saveSession, so two getSession calls without a saveSession in between
-// means two turns were inside the critical section at once.
 const db = vi.hoisted(() => ({
   sessions: new Map<string, unknown>(),
   open: new Map<string, number>(),
@@ -42,9 +38,6 @@ import { createPrismaAdvisoryLock, type AdvisoryLockClient } from "@/lib/fsm/ses
 const text = (waId: string, value: string) => ({ from: waId, type: "text" as const, text: value });
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-// A Postgres stand-in with the semantics that matter: advisory locks BLOCK
-// until the holder's transaction ends, honor `SET LOCAL lock_timeout`, and are
-// released when the transaction finishes (commit, rollback or error).
 function createFakePostgres(): AdvisoryLockClient {
   const held = new Map<string, Promise<void>>();
 
@@ -57,7 +50,7 @@ function createFakePostgres(): AdvisoryLockClient {
         async $executeRawUnsafe(sql: string, ...values: unknown[]) {
           if (sql.includes("pg_advisory_xact_lock")) {
             const key = String(values[0]);
-            lockTimeoutMs = parseInt(String(values[1]), 10); // "<n>ms" from set_config('lock_timeout', $2, true)
+            lockTimeoutMs = parseInt(String(values[1]), 10);
             const deadline = Date.now() + lockTimeoutMs;
 
             for (let current = held.get(key); current; current = held.get(key)) {
@@ -96,8 +89,6 @@ function createFakePostgres(): AdvisoryLockClient {
   };
 }
 
-// A dependent chain: each message only makes sense in the state the previous
-// one produced.
 const CHAIN = ["Hola", "quiero una cita de odontología", "12345678", "1234", "en Lurigancho"];
 
 async function sequentialFinal(waId: string): Promise<Session> {
@@ -120,7 +111,6 @@ describe("5 simultaneous runTurn calls for one waId", () => {
     const expected = await sequentialFinal("wa-expected");
     db.maxOpen = 0;
 
-    // Fired in the same tick: the worst case for a read-modify-write.
     await Promise.all(CHAIN.map((message) => runTurn("wa-five", text("wa-five", message))));
 
     const final = db.sessions.get("wa-five") as Session;
@@ -173,7 +163,6 @@ describe("two server instances sharing one Postgres", () => {
     const a = instance(postgres);
     const b = instance(postgres);
 
-    // 5 turns of one citizen, alternating instances, all at once.
     await Promise.all(CHAIN.map((message, index) => (index % 2 === 0 ? a : b)("wa-two", text("wa-two", message))));
 
     expect(db.maxOpen).toBe(1);
@@ -218,7 +207,7 @@ describe("two server instances sharing one Postgres", () => {
     const postgres = createFakePostgres();
     const a = instance(postgres);
     const b = instance(postgres, { lockTimeoutMs: 40 });
-    db.minMs = 120; // instance A's turn holds the lock well past B's timeout
+    db.minMs = 120;
     db.maxMs = 120;
     db.sessions.set("wa-timeout", { state: "cita_awaiting_dni", slots: {}, counters: {} });
 
@@ -230,7 +219,7 @@ describe("two server instances sharing one Postgres", () => {
     await first;
 
     const final = db.sessions.get("wa-timeout") as Session;
-    expect(final.slots.citaDniPending).toBe("12345678"); // only A's turn was applied
+    expect(final.slots.citaDniPending).toBe("12345678");
   }, 30_000);
 
   it("a turn that throws releases the lock, so the next one is not stuck", async () => {

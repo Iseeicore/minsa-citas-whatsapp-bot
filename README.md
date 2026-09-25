@@ -223,6 +223,7 @@ Convenciones (ESLint las hace cumplir donde se indica):
 | **Sin ciclos de imports** | `import/no-cycle`; solo se permiten ciclos a través de un `import()` diferido. |
 | **Tests junto al archivo que prueban** | `x.ts` + `x.test.ts`; los tests de escenario van en la carpeta del área que ejercitan (por ejemplo, `flows/cita/hora-choice.test.ts`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
+| **Comentarios** | No se comentan líneas ni bloques. Solo un docstring breve, en español, en funciones o tipos complejos cuya razón no se puede expresar en el código. |
 
 ## Pruebas
 

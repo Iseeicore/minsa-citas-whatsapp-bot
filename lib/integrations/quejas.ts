@@ -17,10 +17,8 @@ function classifyRejection(bodyText: string): "media_too_large" | "other" {
   return /imagen|tama[nñ]o|size/i.test(bodyText) ? "media_too_large" : "other";
 }
 
+/** Usa el interruptor de MINSA real: la API de quejas no tiene modo de prueba y cada envío crea un reclamo real. */
 export async function submitQueja(payload: SubmitQuejaPayload): Promise<SubmitQuejaResult> {
-  // The quejas API has no documented fake mode of its own, so this reuses
-  // the MINSA real/fake toggle — otherwise every sandbox run would create a
-  // real complaint record against the production ministry backend.
   if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
     const response = await timedFetch("quejas", "submit", `${process.env.QUEJAS_API_BASE_URL}/api/v1/quejas/`, {
       method: "POST",

@@ -23,18 +23,7 @@ import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } 
 import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 
-// ---- Ubigeo ------------------------------------------------------------
 
-// AI-assisted entry point: tries to resolve departamento/provincia/distrito
-// from a single district-name message before falling back to the manual
-// 3-question chain below (cita_awaiting_departamento onward), which stays
-// completely unchanged as the safety net.
-
-
-// resolveDistritoText (local dataset -> gibberish check -> resolve_distrito_ai
-// query) and resolveDistritoCandidates ("what to do with N resolved
-// candidates") now live in ./distrito-resolver, shared with
-// steps/no-coverage.ts's "¿deseas buscar en otro distrito?" reply.
 export function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
   const rawText = (event.text ?? "").trim();
   if (!rawText) {
@@ -43,9 +32,6 @@ export function handleAwaitingDistritoAi(session: Session, event: InboundEvent):
 
   const initialMessageText = session.slots.initialMessageText as string | undefined;
 
-  // A bare affirmative reply on its own names no district — if the citizen
-  // already mentioned one in their opening message, treat THAT as the real
-  // answer instead of sending the meaningless "sí"/"ese" to be resolved.
   const distritoText =
     isAffirmativeReply(rawText) && initialMessageText ? initialMessageText : rawText;
   const contextText = distritoText === rawText ? initialMessageText : undefined;
@@ -53,9 +39,6 @@ export function handleAwaitingDistritoAi(session: Session, event: InboundEvent):
   return resolveDistritoText(session, distritoText, contextText);
 }
 
-// Thin wrapper around the AI query result — the actual candidate-handling
-// logic lives in resolveDistritoCandidates, shared with the local-dataset
-// fast path in handleAwaitingDistritoAi above.
 export function handleDistritoAiPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { candidates?: DistritoAiCandidateResult[] };
   return resolveDistritoCandidates(session, result.candidates ?? []);
@@ -64,9 +47,6 @@ export function handleDistritoAiPending(session: Session, event: QueryResultEven
 export function handleAwaitingDistritoDisambiguation(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event, {
     includeDescription: true,
-    // Text naming none of the offered districts is a corrected district: it
-    // goes back through the same dataset -> AI chain the first answer used. A
-    // bare "sí"/"ese" names nothing, so it just re-shows the list.
     onNoMatchText: (typed) => {
       if (!looksLikePlaceName(typed) || isAffirmativeReply(typed)) return undefined;
       if (isGibberishPlaceText(typed)) {
@@ -97,8 +77,6 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
     query("search_ubigeo", { departamento, provincia, distrito }),
   ]);
 }
-
-// ---- Ubigeo (manual fallback: departamento -> provincia -> distrito) ----
 
 export function handleAwaitingDepartamento(session: Session, event: InboundEvent): HandlerResult {
   const departamento = (event.text ?? "").trim();
@@ -150,9 +128,6 @@ type UbigeoResultItem = {
   departamento: string;
 };
 
-// The one ubigeo that needs no question: the only result, or the only one that
-// is exactly the district (and province and department, when known) already
-// resolved earlier in the conversation.
 function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoResultItem | undefined {
   if (items.length === 1) return items[0];
 
@@ -168,8 +143,6 @@ function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoR
   return exact.length === 1 ? exact[0] : undefined;
 }
 
-// Said before the catalog is queried, so the citizen sees their district was
-// understood — whether it came from their words, a single match or a list tap.
 const searchingCatalogText = (distrito: string) =>
   `Entendido. Buscando especialidades y citas disponibles en *${toDisplayPlace(distrito)}*…`;
 
@@ -188,10 +161,6 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
     ]);
   }
 
-  // A single match doesn't need a list tap — resolve it and keep moving.
-  // Only 2+ matches need the citizen to pick one — unless one of them is
-  // exactly the district already resolved (MINSA's search is fuzzy, so asking
-  // for "San Juan de Lurigancho" can bring back its neighbours too).
   const settled = result.status === "found" && result.items ? pickSettledUbigeo(next, result.items) : undefined;
   if (settled) {
     next.slots.citaUbigeo = settled.ubigeoInei;
@@ -220,10 +189,6 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
     return buildResult(next, [offerList(next, "Selecciona tu ubigeo:", rows)]);
   }
 
-  // Empty (or errored) ubigeo search, or too many matches to fit WhatsApp's
-  // 10-row list cap, re-asks from departamento instead of failing the whole
-  // flow — this is the one catalog step that doesn't end the booking on an
-  // empty result.
   next.state = "cita_awaiting_departamento";
   return buildResult(next, [
     sendText("No encontramos ese ubigeo. Indícanos nuevamente el departamento."),

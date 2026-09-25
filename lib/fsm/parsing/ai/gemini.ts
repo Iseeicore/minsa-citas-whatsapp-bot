@@ -1,10 +1,5 @@
 import { timedFetch } from "@/lib/observability/http";
 
-// Shared by every Gemini call in this folder: one request shape, one timeout and
-// one way of reading the model's JSON answer. Each AI task keeps its own prompt,
-// schema, interpretation of the answer and fail-open value; this only reports
-// HOW a call failed so each task can map that to its own fallback.
-
 export const REQUEST_TIMEOUT_MS = 15_000;
 
 const DEFAULT_MODEL = "gemini-3.6-flash";
@@ -16,7 +11,6 @@ export type GeminiGenerateContentBody = {
 };
 
 export type GeminiJsonRequest = {
-  // timedFetch's operation name, as it appears in the external.http log line.
   operation: string;
   systemPrompt: string;
   userText: string;
@@ -30,10 +24,9 @@ export type GeminiJsonOutcome =
   | { ok: false; failure: "no_text" }
   | { ok: false; failure: "invalid_json" };
 
+/** La API key viaja en la cabecera x-goog-api-key, nunca en la URL, para que no llegue a mensajes de error ni logs. */
 export async function requestGeminiJson(request: GeminiJsonRequest): Promise<GeminiJsonOutcome> {
   const model = process.env.GOOGLE_AI_MODEL || DEFAULT_MODEL;
-  // The key goes in a header, never in the URL: a URL ends up in error messages,
-  // traces and log lines, a header does not.
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const body = JSON.stringify({
@@ -61,8 +54,6 @@ export async function requestGeminiJson(request: GeminiJsonRequest): Promise<Gem
     return { ok: false, failure: "http_error", status: response.status, model };
   }
 
-  // A body that is not JSON, or JSON without the envelope's shape (e.g. null),
-  // both count as an unreadable answer.
   try {
     const envelope = (await response.json()) as GeminiGenerateContentBody;
     const text = envelope.candidates?.[0]?.content?.parts?.[0]?.text;

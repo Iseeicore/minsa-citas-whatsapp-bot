@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "@/lib/fsm/core/types";
 
-// The turn executor with a real trace, an in-memory session store and the fake
-// MINSA/Gemini adapters: what a turn leaves in the logs, end to end.
 const store = vi.hoisted(() => ({ sessions: new Map<string, Session>() }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({

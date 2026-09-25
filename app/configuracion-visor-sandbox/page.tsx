@@ -8,10 +8,6 @@ import type { Conversation } from "@/app/components/types";
 
 type Mode = "real" | "sandbox";
 
-// Reading window.location during SSR would throw — same lazy-initializer
-// trick used elsewhere in this app (see getOrCreateFrom in components/sandbox-chat/storage.ts) to
-// stay static-render-safe instead of pulling in useSearchParams (which
-// would force this page out of static prerendering).
 function initialModeFromQuery(): Mode {
   if (typeof window === "undefined") return "real";
   return new URLSearchParams(window.location.search).get("panel") === "sandbox"
@@ -26,7 +22,6 @@ export default function Home() {
 
   return (
     <div className="h-dvh bg-gray-100">
-      {/* Desktop (>= lg): two-column sidebar + main, unchanged. */}
       <div className="hidden h-full grid-cols-[320px_1fr] lg:grid">
         <aside className="flex h-full flex-col border-r border-gray-200 bg-white">
           <div className="border-b border-gray-200 px-4 py-4">
@@ -59,7 +54,6 @@ export default function Home() {
         </main>
       </div>
 
-      {/* Mobile (< lg): single-pane list, tapping an item goes full-screen with a back button. */}
       <div className="flex h-full flex-col lg:hidden">
         {!mobileShowingDetail ? (
           <>

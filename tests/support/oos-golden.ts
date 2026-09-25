@@ -1,5 +1,3 @@
-// Every fixed text as it is sent today. Moving a phone number or a link to the channels
-// file must not change a single character of what the citizen reads.
 export const GOLDEN_OOS_MESSAGES: Record<string, string> = {
   "OOS-01": "⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS\n\nSi usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato (llamadas gratuitas):\n\n- SAMU: 106 (ambulancias y emergencias médicas)\n- Bomberos: 116 (rescate y urgencias)\n\nAcuda ahora mismo al establecimiento de salud más cercano.",
   "OOS-02": "Consulta sobre SIS (Seguro Integral de Salud):\n\nPor este canal no gestionamos afiliaciones ni validaciones de seguro.\n\nPuede verificar si su SIS está activo ingresando a: app.sis.gob.pe/ConsultaWeb o desde la app móvil Asegúrate e Infórmate.\n\nConsultas directas al SIS por WhatsApp: 941 988 565 o llamando gratis a la Línea 113 (Opción 4).\n\nSi ya cuenta con seguro activo y desea agendar una cita médica, escriba CITAS.",

@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listFechas, listHoras } from "@/lib/integrations/minsa/catalog";
 
-// The Sandbox's FAKE catalog (SANDBOX_USE_REAL_MINSA off). It exists so a human
-// can walk the whole Cita flow by hand, so it must never go stale and must offer
-// both morning and afternoon slots (a bare "1" is only ambiguous when the day has
-// a position 1 AND a 13:00).
-
 describe("fake catalog", () => {
   beforeEach(() => {
     delete process.env.SANDBOX_USE_REAL_MINSA;
@@ -17,7 +12,7 @@ describe("fake catalog", () => {
   });
 
   it("offers the next three days, as seen in Lima, whatever today is", async () => {
-    vi.setSystemTime(new Date("2026-12-30T22:00:00-05:00")); // Dec 30, 22:00 in Lima (Dec 31 03:00 UTC)
+    vi.setSystemTime(new Date("2026-12-30T22:00:00-05:00"));
 
     const result = await listFechas("0000123", "02", "fake-bearer-token");
 
@@ -32,7 +27,7 @@ describe("fake catalog", () => {
   });
 
   it("uses Lima's calendar, not the server's (a UTC server just after midnight is still 'yesterday' in Lima)", async () => {
-    vi.setSystemTime(new Date("2026-09-20T02:00:00Z")); // Sep 19, 21:00 in Lima
+    vi.setSystemTime(new Date("2026-09-20T02:00:00Z"));
 
     const result = await listFechas("0000123", "02", "fake-bearer-token");
 
@@ -42,7 +37,7 @@ describe("fake catalog", () => {
   });
 
   it("the third day has ONE horario, to try the confirmation asked before booking a lone horario", async () => {
-    vi.setSystemTime(new Date("2026-09-20T02:00:00Z")); // Sep 19 in Lima: the third day is Sep 22
+    vi.setSystemTime(new Date("2026-09-20T02:00:00Z"));
 
     const result = await listHoras("0000123", "02", "20260922", "fake-bearer-token");
 

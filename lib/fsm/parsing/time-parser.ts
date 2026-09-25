@@ -1,21 +1,10 @@
-// Deterministic reading of a typed time ("a la 1", "1:45 pm", "9 y media",
-// "en la tarde", "lo más temprano") against the slots MINSA offered for the
-// chosen day. MINSA speaks 24h ("13:00"); citizens speak 12h. The typed text
-// is only ever used to CHOOSE among offered slots — what gets booked is always
-// the offered slot's own 24h start, never anything derived from the text.
-
 export type HoraSlot = { start: string; end: string; cupos: number };
 
 export type HoraMatch =
   | { kind: "exact"; slot: HoraSlot }
   | { kind: "several"; slots: HoraSlot[] }
-  // A time was understood, but nothing offered fits it.
   | { kind: "unavailable" }
   | { kind: "unparsed" };
-
-// ---- Compact scalar slot for the whole day's offer ---------------------------
-// Session.slots only holds scalars: "08:00|08:30|2;08:45|09:15|1;..." (~2 KB for
-// a full day of 5-minute slots).
 
 export function packHoraSlots(slots: HoraSlot[]): string {
   return slots.map((slot) => `${slot.start}|${slot.end}|${slot.cupos}`).join(";");
@@ -32,8 +21,6 @@ export function unpackHoraSlots(raw: unknown): HoraSlot[] {
   }
   return slots;
 }
-
-// ---- Text normalization ------------------------------------------------------
 
 const NUMBER_WORDS: Record<string, number> = {
   un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8,
@@ -57,8 +44,6 @@ function normalize(raw: string): string {
     .map((word) => (NUMBER_WORDS[word] !== undefined ? String(NUMBER_WORDS[word]) : word))
     .join(" ");
 }
-
-// ---- Parsing -----------------------------------------------------------------
 
 type Period = "AM" | "PM";
 
@@ -116,8 +101,6 @@ function parse(text: string): Parsed {
     hasHourMarker = true;
   } else if ((match = /\b(\d{1,2})\b/.exec(text))) {
     hour = Number(match[1]);
-    // "a la 1", "las 7", "1 pm", "7 de la noche": an hour. A bare "1".."10"
-    // is a list position, which the generic matcher reads.
     hasHourMarker = /\ba las?\b|\blas \d|\bhoras?\b|\bhrs?\b/.test(text) || period !== null;
   }
 
@@ -129,8 +112,6 @@ function parse(text: string): Parsed {
   return { kind: "time", hour: hour % 24, minute, period };
 }
 
-// MINSA speaks 24h; a citizen's "1" may be 01:00 or 13:00. Every possibility
-// is kept and intersected with what is actually offered.
 function hourCandidates(hour: number, period: Period | null): number[] {
   let candidates: number[];
   if (hour === 0) candidates = [0];

@@ -5,10 +5,6 @@ import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { AUTHENTICATED_WAITING_STATES, resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
-// The only horario of a day was declined and there is no list to go back to. The
-// citizen is not sent away: they are asked whether they want another DATE, and
-// the flow only ends (with an apology and a goodbye) if they say no.
-
 const FROM = "sandbox-other-fecha";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
@@ -43,7 +39,6 @@ const BASE_SLOTS = {
   citaDistrito: "MIRAFLORES",
 };
 
-// Asked to confirm the only horario of DAY_1; nothing to go back to.
 const confirmingLone = (extra: Session["slots"] = {}): Session => ({
   state: "cita_awaiting_hora_confirm",
   slots: { ...BASE_SLOTS, citaHoraConfirmId: "13:00|13:30", citaHoraConfirmOnly: "1", ...extra },
@@ -164,8 +159,6 @@ describe("the dates that come back leave out the ones already declined", () => {
   });
 
   it("compares dates by their real day, not by the exact string: DD/MM/YYYY and YYYYMMDD of the same day are the same date", () => {
-    // "31/12/2099" was declined; MINSA's next answer names that same day as
-    // "20991231" (no slashes) instead. A raw string compare would miss it.
     const result = handle(pendingWith("31/12/2099"), fechasResult(["20991231", DAY_2, DAY_3]));
 
     expect((sent(result)[0] as { rows: Array<{ id: string }> }).rows.map((row) => row.id)).toEqual([DAY_2, DAY_3]);
@@ -231,11 +224,6 @@ describe("«no, salir»: an apology and a goodbye, and the session is closed", (
     const [message] = sent(handle(askedForAnotherDate(), tap("cita_otra_fecha_no")));
     const body = (message as { text: string }).text;
 
-    // Neutral on purpose (not "lamentamos no encontrar un horario..."):
-    // offerOtherFecha is offered for 3 different reasons (declined the only
-    // horario, zero horarios that day, or an already-active appointment),
-    // and only ONE of them is actually about not finding a match — an
-    // apology tailored to that one would be wrong for the other two.
     expect(body).toMatch(/entendido/i);
     expect(body).toContain("Ministerio de Salud del Perú");
     expect(body).not.toMatch(/CITAS/);

@@ -32,8 +32,6 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
     return buildResult(session, [sendText("Selecciona una opción de la lista.")]);
   }
 
-  // Typed text (a time or a list position) is confirmed before booking; a tap
-  // on a list row is already an explicit choice.
   if (outcome.typed !== undefined) return askHoraConfirmation(session, replyId);
 
   const [horaInicio] = replyId.split("|");

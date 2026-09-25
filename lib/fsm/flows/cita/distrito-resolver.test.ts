@@ -3,12 +3,6 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { looksLikePlaceName, resolveDistritoCandidates, resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 
-// Characterization tests for the district-resolution pipeline, moved here from
-// lib/fsm/flows/cita/handlers-cita.ts (where it was private) so lib/fsm/flows/cita/steps/no-coverage.ts
-// can reuse it without a circular import. Nothing about the logic changed —
-// these pin the exact behavior the FSM-level tests (handlers-cita.test.ts,
-// district-and-coverage.test.ts) already exercise indirectly through `handle()`.
-
 const session = (extra: Session["slots"] = {}): Session => ({
   state: "cita_awaiting_distrito_ai",
   slots: { citaBearer: "token", ...extra },
@@ -37,7 +31,7 @@ describe("resolveDistritoText: local dataset first, then gibberish, then AI", ()
     const result = resolveDistritoText(session(), "San Borja", undefined);
 
     expect(result.session.state).toBe("cita_ubigeo_pending");
-    expect(result.session.slots.citaDistrito).toBe("SAN BORJA"); // the padrón's own casing
+    expect(result.session.slots.citaDistrito).toBe("SAN BORJA");
     expect(queries(result)).toEqual([
       { kind: "search_ubigeo", payload: { departamento: "LIMA", provincia: "LIMA", distrito: "SAN BORJA" } },
     ]);
@@ -61,7 +55,7 @@ describe("resolveDistritoText: local dataset first, then gibberish, then AI", ()
     const result = resolveDistritoText(session(), "asdfghjk", undefined);
 
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai"); // unchanged
+    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
     expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No reconocimos ese distrito") });
   });
 
@@ -75,8 +69,6 @@ describe("resolveDistritoText: local dataset first, then gibberish, then AI", ()
   it("a district outside Lima resolves to zero candidates within scope, not a local match", () => {
     const result = resolveDistritoText(session(), "Chachapoyas", undefined);
 
-    // Not a Lima district, and not gibberish either: goes to the AI, same as
-    // any name the local (Lima-filtered) dataset doesn't resolve.
     expect(result.session.state).toBe("cita_distrito_ai_pending");
   });
 });
@@ -110,7 +102,6 @@ describe("resolveDistritoCandidates: what to do with N candidates (shared by the
       candidate("LIMA", "YAUYOS", "MIRAFLORES"),
     ]);
 
-    // Only the two Lima ones remain.
     expect(result.session.state).toBe("cita_awaiting_distrito_disambiguation");
     expect(sent(result)[0]).toMatchObject({ kind: "send_interactive_list", rows: expect.arrayContaining([expect.objectContaining({ title: "MIRAFLORES" })]) });
     const rows = (sent(result)[0] as { rows: Array<{ id: string }> }).rows;

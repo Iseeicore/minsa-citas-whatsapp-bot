@@ -19,9 +19,6 @@ import {
 import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 
-// The emergency cut (lib/fsm/flows/emergency/emergency.ts) is read before EVERYTHING else in the
-// turn, even an expired session or the re-verification question: the citizen must
-// see the numbers to call whatever state they are in.
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
   if (event.type === "text" && event.text && isEmergencyTurn(session.state, event.text)) {
     return emergencyCut(session.state);
@@ -51,8 +48,6 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
   if (guarded) return guarded;
 
   if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
-    // A citizen returning after a finished cita/reclamo is starting over: same
-    // treatment as a first-ever message (see first-contact.ts).
     return handleFirstContact(event.type === "text" ? event.text : undefined);
   }
 

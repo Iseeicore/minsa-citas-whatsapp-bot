@@ -6,9 +6,6 @@ import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { createRandom, pick } from "@/tests/support/prng";
 
-// Robustness of every selection step under hostile input, with NO network:
-// fetch is replaced by a function that fails the test if anything calls it.
-
 const FROM = "sandbox-fuzz";
 
 const list = (text: string, rows: Array<[string, string, string?]>): OfferedList => ({
@@ -44,7 +41,6 @@ const distritos = list("Encontramos varias opciones. ¿Cuál es tu distrito?", [
 type StepSpec = {
   state: string;
   offered: OfferedList;
-  // For each list-driven query kind: which payload key must hold an offered id.
   idChecks: Record<string, string>;
 };
 
@@ -57,7 +53,6 @@ const STEPS: StepSpec[] = [
   { state: "cita_awaiting_distrito_disambiguation", offered: distritos, idChecks: {} },
 ];
 
-// Only these may ever be spent on typed text besides the list-driven ones.
 const ALLOWED_AI_KINDS = new Set(["resolve_fecha_ai", "extract_selection_hints", "resolve_distrito_ai"]);
 
 function sessionFor(step: StepSpec): Session {
@@ -102,21 +97,17 @@ function assertSafe(step: StepSpec, result: HandlerResult, input: string) {
   const offeredIds = step.offered.rows.map((row) => row.id);
 
   for (const effect of result.effects.filter(isQueryEffect)) {
-    // Booking can never come from typed text.
     expect(effect.kind, `input ${JSON.stringify(input)}`).not.toBe("book_appointment");
 
     const key = step.idChecks[effect.kind];
     if (key) {
       expect(offeredIds, `input ${JSON.stringify(input)}`).toContain(String(effect.payload[key]));
     } else {
-      // Anything else must be one of the bounded AI helpers or the district chain.
       const allowed = ALLOWED_AI_KINDS.has(effect.kind) || effect.kind === "search_ubigeo";
       expect(allowed, `${effect.kind} for ${JSON.stringify(input)}`).toBe(true);
     }
   }
 
-  // Never leaves the cita flow through typed text in these states, except the
-  // guard/other documented moves.
   expect(result.session.state.startsWith("cita_") || result.session.state === "main_menu").toBe(true);
 }
 
@@ -150,8 +141,6 @@ describe("Step 5 robustness: hostile typed text in every selection step", () => 
 
       expect(fetchSpy).not.toHaveBeenCalled();
     },
-    // Asserts correctness, not speed: 1500 handler turns take ~1-2 s alone but can
-    // pass vitest's 5 s default when the machine or CI runner is busy.
     30_000,
   );
 
@@ -193,9 +182,6 @@ describe("Step 5 robustness: hostile typed text in every selection step", () => 
     }
   });
 
-  // Regression: random letters used to be re-run through the district chain,
-  // which ends in a paid Gemini call. Keyboard mashing is now rejected first
-  // (lib/fsm/parsing/gibberish.ts); a genuine typo still reaches the AI.
   it("keyboard mashing in the district disambiguation list does not spend an AI call", () => {
     expect(aiCalls(STEPS[5], "asdf")).toHaveLength(0);
     expect(aiCalls(STEPS[5], "qwertyuiop")).toHaveLength(0);

@@ -9,7 +9,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  // The inbox is the message history: without a database there is none.
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
   const { id } = await params;
@@ -24,8 +23,6 @@ export async function GET(
     orderBy: { timestamp: "asc" },
   });
 
-  // Based on the last INBOUND message only, so the UI can show/hide the
-  // template-required banner without a second round trip.
   const lastInbound = await prisma.message.findFirst({
     where: { conversationId: id, direction: MessageDirection.INBOUND },
     orderBy: { timestamp: "desc" },

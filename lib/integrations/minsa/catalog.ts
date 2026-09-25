@@ -21,8 +21,6 @@ import {
 } from "@/lib/integrations/minsa/fake-data";
 import { endOfMonthYYYYMMDD, postWithBearer, todayYYYYMMDD } from "@/lib/integrations/minsa/wire";
 
-// ---- Catalog / booking (bearer = citaBearer from verifyCode) -------------
-
 export async function searchUbigeo(
   departamento: string,
   provincia: string,

@@ -18,19 +18,11 @@ import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } fr
 import { todayInLima } from "@/lib/fsm/flows/cita/lima-clock";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 
-// ---- Fecha -----------------------------------------------------------
-
 type FechaResultItem = {
   fechaCupo: string;
   cantidadCupos: number;
 };
 
-// What the citizen reads instead of MINSA's raw fechaCupo ("22/09/2026") or the
-// fake catalog's ("20260920", no separators at all). Never changes `fechaCupo`
-// itself — that keeps traveling as-is in `citaFecha` and, at the query-execution
-// boundary (executor.ts), through formatFechaForApi before it reaches MINSA. A
-// fechaCupo in a format parseOfferedDate does not recognize falls back to the
-// raw string, so a row never breaks over a display nicety.
 function displayFechaLong(fechaCupo: string): string {
   const parsed = parseOfferedDate(fechaCupo);
   return parsed ? formatDateLong(parsed) : fechaCupo;
@@ -58,11 +50,6 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     ]);
   }
 
-  // The dates the citizen already turned down (the only horario of the day was
-  // not what they wanted) are never offered again. Compared by the real day
-  // (normalized to YYYYMMDD), not by the exact string: MINSA's format could
-  // change between two queries and a raw comparison would miss the match,
-  // offering a declined date again.
   const discarded = discardedDates(next.slots).map(formatFechaForApi);
   const dates = (result.status === "found" ? (result.items ?? []) : []).filter(
     (item) => !discarded.includes(formatFechaForApi(item.fechaCupo)),
@@ -100,8 +87,6 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
   return buildResult(next, [sendText("No hay fechas disponibles para ese establecimiento.")]);
 }
 
-// Only phrases that actually talk about time are worth an AI call — "asdf"
-// or a pasted id must not cost one.
 const TEMPORAL_PHRASE =
   /\b(semana|mes|proxim[oa]s?|siguiente|dias?|fin|final|inicio|principios?|quincena|luego|despues|pronto|temprano|urgente|antes|cuando|fecha)\b/;
 
@@ -126,9 +111,6 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
   ]);
 }
 
-// The AI only ever picks one of the dates already offered; anything else (or
-// no answer at all) goes back to the list. A valid pick is handled exactly
-// like the citizen tapping that row.
 export function handleFechaAiPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { id?: unknown };
   const offered = readOffered(session.slots);

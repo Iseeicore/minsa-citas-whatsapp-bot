@@ -1,8 +1,6 @@
 import { timedFetch } from "@/lib/observability/http";
 import { signMinsaRequest } from "@/lib/integrations/minsa/signature";
 
-// ---- Wire helpers -------------------------------------------------------
-
 function minsaHost(): string {
   return process.env.MINSA_API_HOST ?? "";
 }
@@ -21,8 +19,6 @@ export async function postSigned(path: string, body: Record<string, unknown>): P
   });
 }
 
-// The catalog endpoints run behind MINSA's own web app; they expect
-// browser-shaped headers rather than the HMAC signature used for identity.
 export async function postWithBearer(
   path: string,
   body: Record<string, unknown>,

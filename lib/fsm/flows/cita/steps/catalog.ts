@@ -15,20 +15,12 @@ import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } 
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 
-// ---- Especialidad --------------------------------------------------------
-
 type EspecialidadResultItem = {
   codigoEspecialidad: string;
   nombreEspecialidad: string;
   cantidadCupos: number;
 };
 
-// Deterministic match against the REAL especialidad list — never a second
-// AI call. Only auto-selects when exactly one item matches the hint the
-// citizen already typed in their opening message (analyzed by
-// analyzeMainMenuIntent in lib/fsm/parsing/ai/main-menu-intent.ts); an ambiguous or absent match
-// falls through to the normal always-manual list below, same as if there
-// were no hint at all.
 function matchEspecialidadHint(
   hint: string,
   items: EspecialidadResultItem[],
@@ -60,12 +52,6 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   }
 
   if (result.status === "found" && result.items && result.items.length > 0) {
-    // Auto-select ONLY when the citizen already told us the specialty in
-    // free text before ever reaching the menu (see handlers.ts's
-    // main_menu_intent_pending) and it unambiguously matches one of the
-    // real options — asking them to tap it again would be a repeated step.
-    // Coming from the normal "Agendar cita" menu tap (no hint), this is
-    // skipped entirely and the list always shows, per the existing rule.
     const hint = next.slots.citaEspecialidadHintText as string | undefined;
     const matched = hint ? matchEspecialidadHint(hint, result.items) : undefined;
 
@@ -82,9 +68,6 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
       ]);
     }
 
-    // Unlike the other catalog steps, especialidad is never auto-selected —
-    // the citizen must always tap it themselves from the list, even when
-    // there's only one option. Explicit product decision, not an oversight.
     next.state = "cita_awaiting_especialidad_select";
     const rows: ListRow[] = result.items.map((item) => ({
       id: item.codigoEspecialidad,
@@ -100,8 +83,6 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   return offerOtherDistrito(next, "especialidades");
 }
 
-// Something else named in the same message (an establishment, typically) is
-// kept and applied when that list arrives — see handleEstablecimientoPending.
 const HINT_MAX_LENGTH = 80;
 
 function askSelectionHints(
@@ -109,7 +90,6 @@ function askSelectionHints(
   step: "especialidad" | "establecimiento",
   typed: string,
 ): HandlerResult | undefined {
-  // Only real words are worth an AI call — not "asdf" or "12345".
   if (!/\p{L}{5,}/u.test(typed) || !readOffered(session.slots)) return undefined;
 
   const next = cloneSession(session);
@@ -121,8 +101,6 @@ function askSelectionHints(
   ]);
 }
 
-// The AI only names things; they are matched against the rows actually offered
-// and applied only when exactly one row fits every word. Otherwise: the list.
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { especialidad?: unknown; establecimiento?: unknown };
   const step = session.slots.citaSelectionStep === "establecimiento" ? "establecimiento" : "especialidad";
@@ -176,8 +154,6 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
   ]);
 }
 
-// ---- Establecimiento -----------------------------------------------------
-
 type EstablecimientoResultItem = {
   renipressCode: string;
   establishmentName: string;
@@ -188,7 +164,6 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
 
-  // A hint is used once, on this list, and never kept around.
   const hint = next.slots.citaEstablecimientoHintText as string | undefined;
   delete next.slots.citaEstablecimientoHintText;
 
@@ -219,9 +194,6 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   }
 
   if (result.status === "found" && result.items && result.items.length > 1) {
-    // The citizen already named the establishment ("...en el hospital de
-    // Lurigancho"): apply it only when it singles out exactly one of the real
-    // options, so asking again would be a repeated step.
     const matched = hint
       ? matchAllTokens(
           hint,

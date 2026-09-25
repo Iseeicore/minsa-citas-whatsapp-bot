@@ -6,15 +6,9 @@ import { type HoraResultItem, formatHora12, HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 import { askHoraConfirmation } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 
-// Shared by handleHoraPending (page 0, computed from the query result it
-// already has in hand) and handleHoraPagePending (any page, after
-// re-querying list_horas since Session.slots only holds flat scalars, not
-// the full candidate array, across turns).
 function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
 
-  // A lone horario is never booked on its own: booking cannot be quietly undone,
-  // and nobody chose this one. It goes through the same confirmation as a typed time.
   if (items.length === 1) {
     const [item] = items;
     return askHoraConfirmation(next, `${item.horaInicio}|${item.horaFin}`, { only: true });
@@ -33,27 +27,16 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
     return buildResult(next, [offerList(next, "Selecciona el horario:", rows)]);
   }
 
-  // Zero horarios for the date just picked — not a booking rejection (no
-  // horario was ever offered to reject), and not a dead end either: the
-  // citizen can pick another date, same as when they decline the day's only
-  // horario (offerOtherFecha remembers this date as discarded so it's never
-  // offered again).
   return offerOtherFecha(next, "no_horarios");
 }
 
-// Builds one page (≤10 rows) of an already-ordered candidate list, and
-// appends a navigation buttons effect only when there's actually another
-// page to move to in either direction — most days fit in one page and get
-// no extra message at all.
 function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: number): HandlerResult {
   const start = page * WHATSAPP_LIST_MAX_ROWS;
   const pageItems = orderedItems.slice(start, start + WHATSAPP_LIST_MAX_ROWS);
 
   const result = resolveHoraCandidates(session, pageItems);
-  if (pageItems.length <= 1) return result; // a lone horario to confirm, or genuinely empty — nothing to paginate
+  if (pageItems.length <= 1) return result;
 
-  // The whole day's offer (not just this page) so a typed time on another
-  // page can still be recognized — see handleAwaitingHoraSelect.
   result.session.slots.citaHorasDia = packHoraSlots(
     orderedItems.map((item) => ({ start: item.horaInicio, end: item.horaFin, cupos: item.cantidadCupos })),
   );
