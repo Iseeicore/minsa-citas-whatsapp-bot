@@ -32,7 +32,9 @@ export type GeminiJsonOutcome =
 
 export async function requestGeminiJson(request: GeminiJsonRequest): Promise<GeminiJsonOutcome> {
   const model = process.env.GOOGLE_AI_MODEL ?? DEFAULT_MODEL;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GOOGLE_CLIENT_API}`;
+  // The key goes in a header, never in the URL: a URL ends up in error messages,
+  // traces and log lines, a header does not.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: request.systemPrompt }] },
@@ -47,7 +49,7 @@ export async function requestGeminiJson(request: GeminiJsonRequest): Promise<Gem
   try {
     response = await timedFetch("gemini", request.operation, url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GOOGLE_CLIENT_API ?? "" },
       body,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

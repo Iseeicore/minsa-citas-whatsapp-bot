@@ -21,10 +21,12 @@ export function maskDni(value: string): string {
   return digits.length > 4 ? `****${digits.slice(-4)}` : "****";
 }
 
-// A digit run of 7 or more (a DNI, a phone number, an OTP echoed back), a
-// Bearer header and a JWT are hidden wherever they appear inside a string.
+// A URL's query string (where API keys and tokens travel), a digit run of 7 or
+// more (a DNI, a phone number, an OTP echoed back), a Bearer header and a JWT
+// are hidden wherever they appear inside a string.
 export function redactString(value: string): string {
   return value
+    .replace(/(https?:\/\/[^\s?#]+)\?[^\s#]*/gi, "$1?[redacted]")
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, "[jwt]")
     .replace(/\d{7,}/g, (run) => `****${run.slice(-4)}`);
