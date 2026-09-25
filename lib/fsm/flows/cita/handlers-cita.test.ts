@@ -110,9 +110,6 @@ describe("OTP verification — proactive district resolution from the opening me
     });
     const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
 
-    // No blind "Cuéntanos en qué distrito" question: a place preposition was
-    // there, so the opening message is tried through resolveDistritoText
-    // (local search, then AI) before ever asking again.
     expect(queries(result).some((effect) => effect.kind === "resolve_distrito_ai")).toBe(true);
     expect(sent(result).some((effect) => "text" in effect && effect.text.includes("Cuéntanos en qué distrito"))).toBe(false);
   });
@@ -124,7 +121,6 @@ describe("OTP verification — proactive district resolution from the opening me
     });
     const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
 
-    // No place preposition at all: don't spend an AI call, just ask.
     expect(queries(result)).toHaveLength(0);
     expect((sent(result)[0] as { text: string }).text).toContain("Cuéntanos en qué distrito");
   });
@@ -361,11 +357,9 @@ describe("hora pending — zero horarios for the picked date", () => {
     });
     const result = handle(session, queryResult("list_horas", { status: "empty" }));
 
-    // Not the old dead end (cita_booking_rejected, nothing else to do).
     expect(result.session.state).toBe("cita_awaiting_other_fecha");
     expect((sent(result)[0] as { text: string }).text).toContain("No hay horarios disponibles para esa fecha.");
     expect((sent(result)[0] as { text: string }).text).toContain("¿Deseas cambiar de fecha?");
-    // The date that came back empty is remembered so it's never offered again.
     expect(result.session.slots.citaFechasDescartadas).toBe("22/09/2026");
   });
 
@@ -401,7 +395,6 @@ describe("booking pending — a duplicate booking offers another date instead of
     const shown = (sent(result)[0] as { text: string }).text;
     expect(shown).toContain("Ya tienes una cita activa registrada");
     expect(shown).not.toContain("Error al generar la cita en el servicio externo");
-    // The date that turned out to be a duplicate is forgotten and never offered again.
     expect(result.session.slots.citaFecha).toBeUndefined();
     expect(result.session.slots.citaFechasDescartadas).toBe("22/09/2026");
   });
@@ -533,7 +526,7 @@ describe("fecha select — typed dates and AI fallback", () => {
   }
 
   it("'mañana' picks tomorrow's offered date", () => {
-    setToday("2026-09-21T15:00:00-05:00"); // Monday in Lima
+    setToday("2026-09-21T15:00:00-05:00");
 
     const result = handle(base(), text("mañana"));
 

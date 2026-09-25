@@ -23,11 +23,6 @@ vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 import { OPTIONS, POST } from "@/app/api/sandbox/route";
 import { logger } from "@/lib/observability/logger";
 
-// The widget embedded in a different frontend (a different origin) needs the
-// browser to actually let the response through — same-origin callers (the
-// /sandbox page itself) never send an Origin header at all and must keep
-// working exactly as before, untouched by any of this.
-
 function postFrom(origin: string | undefined) {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (origin) headers.origin = origin;

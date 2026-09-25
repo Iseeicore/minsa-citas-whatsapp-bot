@@ -1,16 +1,7 @@
 import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 
-// ---- Token-expiry recovery ------------------------------------------------
-// MINSA's bearer token only lasts about 30 minutes. If a citizen pauses
-// mid-flow (deciding on a specialty, a date, etc.) and comes back later, the
-// next catalog/booking call fails with a 401 — surfaced as
-// result.status === "unauthorized" by lib/integrations/minsa/. Treating that like
-// any other API error would end the whole booking and discard everything
-// already chosen (district, especialidad, establecimiento…). Instead, this
-// asks the citizen to verify again WITHOUT losing that progress, then
-// resumes exactly at the step that failed once they do.
-
+/** Ante un token del MINSA vencido (401) vuelve a pedir el documento sin perder los datos de la cita, y luego retoma el paso donde estaba. */
 export function beginReverification(session: Session, resumeState: string): HandlerResult {
   const next = cloneSession(session);
   next.slots.citaResumeState = resumeState;
@@ -23,11 +14,6 @@ export function beginReverification(session: Session, resumeState: string): Hand
   ]);
 }
 
-// Re-fires the exact query the citizen was waiting on when their token
-// expired, using whatever's already stored in slots — never re-asks a
-// question they already answered. book_appointment resumes one step
-// earlier (re-listing horarios) instead of resubmitting a possibly-stale
-// hora selection, since real time passed and that slot might be gone.
 export function resumeAfterReverification(session: Session, resumeState: string): HandlerResult {
   const next = cloneSession(session);
   next.state = resumeState;

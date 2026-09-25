@@ -26,8 +26,6 @@ const SAMPLE: Array<[OosCategory, string]> = [
   ["OOS-09", "Necesito que me sellen mi descanso médico para mi trabajo"],
 ];
 
-// The emergency is left out of these tables: it does not keep the citizen in the menu, it
-// ends the conversation (see emergency-cut.test.ts).
 const STAYING = SAMPLE.filter(([category]) => category !== "OOS-01");
 
 describe("in the main menu: the fixed message, no AI, and the citizen stays in the menu", () => {

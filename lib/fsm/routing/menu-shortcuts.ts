@@ -1,9 +1,6 @@
 import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
 import { normalizeText } from "@/lib/fsm/parsing/text";
 
-// Deterministic shortcuts for the main menu: they answer without any AI call
-// and without storing the message as the citizen's "opening message".
-
 function words(text: string): string[] {
   return normalizeText(text)
     .replace(/[^A-Z0-9 ]/g, " ")
@@ -29,20 +26,10 @@ const GREETING_WORDS = new Set([
   "HI",
 ]);
 
-// A bare "hola" / "buenos días" needs no AI to be answered with the menu.
-// ("1" / "2" are NOT greetings: they pick a menu option, see handlers.ts.)
 export function isGreeting(text: string): boolean {
   const tokens = words(text);
   return tokens.length > 0 && tokens.every((token) => GREETING_WORDS.has(token));
 }
-
-// ---- Explicit cita request -------------------------------------------------
-// "Quiero una cita en San Juan de Lurigancho para atenderme en medicina
-// general" already says everything the Cita flow asks for. Reading it here
-// costs no AI call and cannot fail the way one can. Deliberately conservative:
-// it needs a cita word AND at least one thing extractCitaHints recognizes, and
-// anything that sounds like an existing appointment or a complaint is left to
-// the AI (or the menu).
 
 const CITA_INTENT_WORDS = new Set([
   "CITA",
@@ -76,11 +63,6 @@ export function detectCitaRequest(text: string): CitaHints | undefined {
   const hints = extractCitaHints(text);
   return hints.especialidad || hints.distrito ? hints : undefined;
 }
-
-// ---- "Continuar" after the institutional warning ---------------------------
-// After a warning the only thing waiting is the "Continuar" button, which just
-// shows the menu again. A short message that clearly means "go on" does the
-// same — without an AI call and without tapping anything.
 
 const CONTINUE_WORDS = new Set([
   "CONTINUAR",
@@ -136,8 +118,6 @@ const RECLAMO_FILLER_WORDS = new Set([
   "PARA",
 ]);
 
-// "RECLAMO", "quiero hacer un reclamo", "registrar una queja" ... — the
-// institutional warning tells citizens to type RECLAMO, so it has to work.
 export function isReclamoKeyword(text: string): boolean {
   const tokens = words(text);
   if (tokens.length === 0 || tokens.length > 6) return false;

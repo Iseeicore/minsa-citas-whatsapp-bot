@@ -6,11 +6,6 @@ import { DISCARDED_DATES_SLOT } from "@/lib/fsm/flows/cita/steps/other-fecha";
 import { OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 
-// MINSA answered with nothing for the district the citizen chose. That is not
-// the end of the conversation: the state stays open and they are offered another
-// district, instead of a closed flow that answers their next message with the
-// welcome all over again.
-
 export const OTHER_DISTRITO_STATE = "cita_awaiting_other_distrito";
 const OTHER_DISTRITO_YES_ID = "cita_otro_distrito_si";
 const OTHER_DISTRITO_NO_ID = "cita_otro_distrito_no";
@@ -18,8 +13,6 @@ const OTHER_DISTRITO_NO_ID = "cita_otro_distrito_no";
 const FAREWELL_TEXT =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
 
-// Slots that only make sense for the district being left behind. The
-// verification (token, DNI) stays: the citizen has not asked to start over.
 const DISTRICT_BOUND_SLOTS = [
   "citaDistrito",
   "citaProvincia",
@@ -28,14 +21,13 @@ const DISTRICT_BOUND_SLOTS = [
   "citaEspecialidadId",
   "citaCodEess",
   "citaFecha",
-  DISCARDED_DATES_SLOT, // dates declined at the old place mean nothing at the new one
+  DISCARDED_DATES_SLOT,
   "citaDistritoHintText",
   "citaEstablecimientoHintText",
-  "initialMessageText", // would be used as "context" and bring the old district back
+  "initialMessageText",
   OFFERED_SLOT,
 ];
 
-// "cambiar" means "change the district" here, but "no" in a horario confirmation.
 const CHANGE_DISTRICT_ANSWERS = new Set(["CAMBIAR", "CAMBIAR DE DISTRITO", "OTRO DISTRITO", "OTRO", "BUSCAR OTRO DISTRITO"]);
 
 const QUESTION = "¿Deseas buscar en otro distrito cercano?\n\n[1] Sí, buscar otro distrito\n[2] No, salir";
@@ -78,13 +70,6 @@ export function handleOtherDistrito(session: Session, event: InboundEvent): Hand
     return buildResult({ state: "cita_no_coverage_closed", slots: {}, counters: {} }, [sendText(FAREWELL_TEXT)]);
   }
 
-  // Neither a tap nor a plain yes/no word (those are both handled above,
-  // "dale"/"cambiar" included): a reply that already NAMES a district
-  // ("Si quiero en San Borja", or just "San Borja") answers the "sí, ¿cuál?"
-  // exchange in one message, so it is resolved directly here (local dataset,
-  // then the AI if that finds nothing) instead of asking "Perfecto,
-  // cuéntanos..." and making the citizen repeat themselves. "quee ?" and other
-  // noise never look like a place name, so they still fall through unchanged.
   if (typed && looksLikePlaceName(typed)) {
     const next = cloneSession(session);
     next.slots = DISTRICT_BOUND_SLOTS.reduce(omitSlot, next.slots);

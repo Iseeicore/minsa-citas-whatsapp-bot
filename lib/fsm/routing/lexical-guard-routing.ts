@@ -19,10 +19,6 @@ import {
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import { CONTINUE_BUTTON_ID, AWAITING_CONTINUE_SLOT } from "@/lib/fsm/routing/main-menu";
 
-// Free-text states where the lexical guard also runs (Camino A only: warn and
-// repeat the question). Structured inputs — DNI, OTP, name, the complaint
-// description — are deliberately absent: they are validated by format, and an
-// insult inside a complaint is legitimate evidence.
 const FREE_TEXT_STATE_PROMPTS: Record<string, string> = {
   cita_awaiting_distrito_ai: 'Cuéntanos en qué distrito buscas atención (ej. "Miraflores").',
   cita_awaiting_departamento: "Indícanos el departamento.",
@@ -30,8 +26,6 @@ const FREE_TEXT_STATE_PROMPTS: Record<string, string> = {
   cita_awaiting_distrito: "¿En qué distrito?",
 };
 
-// Selection steps: typed text is checked by the guard before any matching, and
-// the "repeat the question" is the list the citizen was last shown.
 const SELECTION_STATES = new Set([
   "cita_awaiting_distrito_disambiguation",
   "cita_awaiting_ubigeo_select",
@@ -42,13 +36,6 @@ const SELECTION_STATES = new Set([
   "cita_awaiting_hora_choice",
 ]);
 
-// ---- Lexical guard routing -----------------------------------------------
-
-// Applies the guard's verdict for a menu-level message (first contact, the main
-// menu, or the first message after a finished cita/reclamo). Exported because
-// the webhook's first-contact branch never runs the FSM but must route the
-// same way. The abusive text itself is never stored as `initialMessageText`,
-// so it can't later leak into an AI call as "context".
 export function routeLexicalAction(
   session: Session,
   action: Exclude<LexicalAction, "ALLOW">,
@@ -63,8 +50,6 @@ export function routeLexicalAction(
       ]);
 
     case "CITA_WITH_WARNING": {
-      // What they asked for survives the warning: the specialty and district
-      // named in the message become the same hints a polite message gets.
       const hints = message ? extractCitaHints(message) : {};
       const withHints = {
         ...slots,

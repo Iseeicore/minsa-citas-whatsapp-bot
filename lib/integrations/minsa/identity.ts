@@ -2,8 +2,6 @@ import type { ValidateUserResult, VerifyCodeResult } from "@/lib/integrations/mi
 import { FAKE_BEARER, FAKE_DNI, FAKE_OTP, FAKE_TWOFA_ID } from "@/lib/integrations/minsa/fake-data";
 import { postSigned } from "@/lib/integrations/minsa/wire";
 
-// ---- Identity ------------------------------------------------------------
-
 export async function validateUser(dni: string): Promise<ValidateUserResult> {
   if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
     const response = await postSigned("/api/v1/whatsapp/validate-user", {

@@ -1,9 +1,5 @@
 import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
-// AI-assisted district resolution for the Cita flow's ubigeo entry point —
-// same flat real/fake branching style as integrations/minsa/ and reniec.ts, gated on
-// SANDBOX_USE_REAL_AI (default false/fake).
-
 export type DistritoAiCandidate = {
   departamento: string;
   provincia: string;
@@ -14,12 +10,6 @@ export type ResolveDistritoAiResult = {
   candidates: DistritoAiCandidate[];
 };
 
-// New system prompt — not the old field-by-field ubigeo-validation prompt
-// (that one assumed departamento/provincia/distrito were already typed and
-// just needed cross-checking). This task is different: given ONE district
-// name, return every official (departamento, provincia, distrito) triple in
-// Peru where that name exists, since the same district name can be official
-// in more than one region (e.g. "Miraflores" in Lima and in Arequipa).
 const DISTRITO_AI_SYSTEM_PROMPT = `# SYSTEM PROMPT: Asistente de Resolución de Distritos del Perú
 
 ## 1. ROL Y CONTEXTO
@@ -82,21 +72,12 @@ const DISTRITO_AI_RESPONSE_SCHEMA = {
   required: ["candidates", "detalle"],
 };
 
-// ---- Fake lookup (used when SANDBOX_USE_REAL_AI !== "true") -------------
-// "lurigancho" is kept consistent with integrations/minsa/fake-data.ts's FAKE_UBIGEO (matched via
-// distrito.trim().toUpperCase() === "LURIGANCHO") so the two fakes chain
-// together end-to-end in the Sandbox.
-
 const FAKE_DISTRITO_CANDIDATES: Record<string, DistritoAiCandidate[]> = {
   lurigancho: [{ departamento: "Lima", provincia: "Lima", distrito: "Lurigancho" }],
   miraflores: [
     { departamento: "Lima", provincia: "Lima", distrito: "Miraflores" },
     { departamento: "Arequipa", provincia: "Arequipa", distrito: "Miraflores" },
   ],
-  // Real ambiguous case (4 official districts named "San Juan de ..."),
-  // matching data/peru-distritos.json exactly — the Sandbox should demo the
-  // same disambiguation list the real webhook gets from Gemini for this,
-  // not fall through to the "only available in Lima" dead end.
   "san juan": [
     { departamento: "Lima", provincia: "Lima", distrito: "San Juan de Lurigancho" },
     { departamento: "Lima", provincia: "Lima", distrito: "San Juan de Miraflores" },
@@ -126,11 +107,6 @@ export async function resolveDistritoAi(
       .filter(Boolean)
       .join("\n");
 
-    // Fail-open, same discipline as integrations/minsa/ and reniec.ts: any network error,
-    // non-2xx response, or unparsable/unexpected response shape resolves to
-    // zero candidates rather than throwing — an AI hiccup must never block a
-    // real citizen from booking a real appointment (the caller falls back to
-    // the manual departamento/provincia/distrito flow).
     const outcome = await requestGeminiJson({
       operation: "resolve_distrito_ai",
       systemPrompt: DISTRITO_AI_SYSTEM_PROMPT,
@@ -153,13 +129,6 @@ export async function resolveDistritoAi(
   const direct = FAKE_DISTRITO_CANDIDATES[key];
   if (direct) return { candidates: direct };
 
-  // No exact match (distritoText might be a full sentence — e.g. the
-  // caller swapped in the citizen's opening message when the direct reply
-  // was a bare "sí"/"ese" — or contextText carries the opening message
-  // alongside a direct reply that also didn't match). Scan both texts for
-  // a known district name mentioned anywhere before giving up, so the
-  // Sandbox demos the same fallback-to-context behavior as the real prompt
-  // without spending real API quota.
   const haystack = `${distritoText} ${contextText ?? ""}`.toLowerCase();
   for (const [knownDistrito, candidates] of Object.entries(FAKE_DISTRITO_CANDIDATES)) {
     if (haystack.includes(knownDistrito)) {

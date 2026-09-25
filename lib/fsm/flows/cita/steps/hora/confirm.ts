@@ -11,9 +11,6 @@ import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/ho
 
 const NEGATION_WORD = /\b(?:no|ni|nunca|tampoco)\b/;
 
-// The citizen typed the hour that is waiting for confirmation ("a la 1", "13:00")
-// or said they take it ("esa hora", "me sirve"). Any negation cancels the reading,
-// so "no a la 1" never books.
 function acceptsPendingHora(typed: string, slotId: string): boolean {
   const plain = normalizeText(typed).toLowerCase();
   if (NEGATION_WORD.test(plain)) return false;
@@ -35,9 +32,6 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
     delete restored.slots.citaHoraConfirmOnly;
 
     if (only) {
-      // The lone horario was the last page: its list is the previous page's, so
-      // the page steps back with it. Without a previous page there is no list of
-      // this day to go back to: the citizen is offered another date instead.
       const page = restored.counters.citaHoraPage ?? 0;
       if (!offered || page < 1) return offerOtherFecha(restored);
       restored.counters.citaHoraPage = page - 1;

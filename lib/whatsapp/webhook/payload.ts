@@ -4,14 +4,14 @@ import type { InboundEvent } from "@/lib/fsm/core/types";
 
 export type WhatsAppContact = {
   user_id: string;
-  wa_id?: string; // present on non-migrated accounts; not sent for this WABA
+  wa_id?: string;
   profile?: { name?: string };
 };
 
 export type WhatsAppMessage = {
   id: string;
   from_user_id: string;
-  from?: string; // present on non-migrated accounts; not sent for this WABA
+  from?: string;
   timestamp: string;
   type: string;
   text?: { body?: string };
@@ -107,13 +107,6 @@ export function extractContentAndMedia(message: WhatsAppMessage): {
   }
 }
 
-// Maps a real inbound WhatsApp message to the same InboundEvent shape the
-// Sandbox already drives the FSM with. Returns null for message types the
-// FSM doesn't consume yet (audio/document/location) — those are still
-// stored above, just not fed into the bot. Images only trigger a real
-// media download when the citizen is actually at the Reclamo photo step —
-// anywhere else, a photo would just be ignored by the FSM anyway, so this
-// avoids spending two Graph API calls for nothing.
 export async function toInboundEvent(
   waId: string,
   message: WhatsAppMessage,

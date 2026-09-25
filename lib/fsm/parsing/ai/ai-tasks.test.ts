@@ -3,9 +3,6 @@ import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi } from "@/lib/fsm/parsing/ai/fecha";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 
-// Real-model mode of the three AI tasks that have no other coverage: what each one
-// makes of the model's answer and of every way a call can fail (all fail open).
-
 function modelSays(json: unknown): Response {
   return new Response(
     JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(json) }] } }] }),

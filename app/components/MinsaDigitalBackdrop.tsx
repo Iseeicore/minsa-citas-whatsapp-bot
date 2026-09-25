@@ -1,12 +1,5 @@
 import type { ReactNode } from "react";
 
-// Purely decorative recreation of the real MINSA Digital login page
-// (dminsadigital.minsa.gob.pe), used as the /sandbox demo's backdrop so the
-// widget looks embedded on the real site. A static screenshot doesn't
-// reflow — on a narrow phone it either crops out the branding or shrinks to
-// an illegible sliver — real markup does, at any width, for free. Every
-// "control" here is a styled <div>, not a real <input>/<button>: it's
-// aria-hidden and must never be keyboard-focusable or usable.
 export default function MinsaDigitalBackdrop() {
   return (
     <div aria-hidden="true" className="min-h-dvh w-full bg-white">
@@ -129,9 +122,6 @@ function FakeField({ label, children }: { label: string | null; children: ReactN
   );
 }
 
-// A handful of fixed (not random) glyphs/rotations — this never needs to
-// actually verify anything, just read as a normal skewed-text captcha at a
-// glance.
 function FakeCaptcha({ className }: { className?: string }) {
   const glyphs: { char: string; color: string; rotate: number }[] = [
     { char: "S", color: "#2E7D32", rotate: -8 },

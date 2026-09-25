@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// The container HEALTHCHECK probes /api/health: it must answer from the running
-// process alone, never from the database.
 const db = vi.hoisted(() => ({ touched: 0 }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: new Proxy(

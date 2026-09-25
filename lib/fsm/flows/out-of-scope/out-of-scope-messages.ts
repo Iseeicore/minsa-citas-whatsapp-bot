@@ -1,8 +1,3 @@
-// Reply texts for the consultations the channel does not attend, as the audit
-// spreadsheet prescribes them (sheet "Catálogo de Intenciones OutofSc", column
-// "Mensaje de Respuesta Sugerida del Bot"). The wording is the spreadsheet's; only
-// the extra line breaks were collapsed.
-
 import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
 
 export type OosCategory =

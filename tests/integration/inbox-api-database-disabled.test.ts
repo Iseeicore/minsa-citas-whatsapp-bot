@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// The web inbox reads and writes the message history, which does not exist with
-// DATABASE_ENABLED=false: every inbox endpoint answers 503 without touching Prisma.
 const db = vi.hoisted(() => ({ touched: 0 }));
 
 vi.mock("@/lib/db/prisma", () => ({

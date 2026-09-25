@@ -4,15 +4,6 @@ import { buildResult, cloneSession, query, sendButtons, sendText, withNote } fro
 import { OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 
-// The citizen declined the ONLY horario of a day, so there is no list of that
-// day to go back to. They are not sent away: they are asked whether they want
-// another DATE, and the conversation only ends (with an apology and a goodbye)
-// if they say no or if there is no other date left.
-//
-// The dates already declined are remembered, so the dates that come back never
-// offer them again. That is what keeps a day with a single date (or two days with
-// one horario each) from looping on the same question.
-
 export const OTHER_FECHA_STATE = "cita_awaiting_other_fecha";
 export const DECLINED_CLOSED_STATE = "cita_declined_closed";
 export const DISCARDED_DATES_SLOT = "citaFechasDescartadas";
@@ -21,31 +12,16 @@ const OTHER_FECHA_YES_ID = "cita_otra_fecha_si";
 const OTHER_FECHA_NO_ID = "cita_otra_fecha_no";
 
 const FAREWELL = "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
-// Neutral on purpose: offerOtherFecha's "no" answer closes the same way
-// regardless of WHY it was offered (only horario declined, zero horarios,
-// or an already-active appointment) — a reason-specific apology here would
-// be wrong for the other two callers, and the session doesn't track which
-// one it was.
 const DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${FAREWELL}`;
 const NO_OTHER_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${FAREWELL}`;
 
 const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
-// Same wording the citizen already sees when list_horas comes back empty
-// (resolveHoraCandidates in steps/hora/list.ts) — kept identical on purpose so
-// the two callers of offerOtherFecha read as one consistent message, not two.
 const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
-// Own clean wording, never MINSA's raw "Error al generar la cita en el
-// servicio externo: ..." string (handleBookingPending discards that on
-// purpose — see lib/integrations/minsa/booking.ts's duplicate-booking detection).
 const INTRO_DUPLICATE = "Ya tienes una cita activa registrada para ese mismo turno o servicio.";
 const QUESTION = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 
-// Slots that belong to the date being left behind. The verification (token, DNI)
-// and the establishment and specialty stay: the citizen has not asked to start over.
 const DATE_BOUND_SLOTS = ["citaFecha", "citaHoraConfirmId", "citaHoraConfirmOnly", "citaHorasDia", OFFERED_SLOT];
 
-// "otra fecha" or "cambiar" mean YES here, while the generic reader takes
-// "otro día" and "cambiar" as a NO (they are a "no" to a horario).
 const CHANGE_DATE_ANSWERS = new Set([
   "CAMBIAR",
   "CAMBIAR FECHA",
@@ -64,7 +40,6 @@ const questionButtons = (text: string) =>
     { id: OTHER_FECHA_NO_ID, title: "No, salir" },
   ]);
 
-// Slots hold flat values only, so the declined dates are one comma-separated string.
 export function discardedDates(slots: Session["slots"]): string[] {
   return String(slots[DISCARDED_DATES_SLOT] ?? "")
     .split(",")
@@ -94,13 +69,6 @@ const STEP_BY_REASON: Record<OfferOtherFechaReason, string> = {
   duplicate: "booking_pending",
 };
 
-// "only_declined": the citizen was shown the day's ONLY horario and turned
-// it down. "no_horarios": list_horas came back empty for the date they just
-// picked — there was never anything to show. "duplicate": MINSA rejected
-// the booking because the citizen already has an active appointment for
-// that same turno/servicio (see handleBookingPending) — the date they
-// picked isn't unavailable, it's just not usable a second time. Same next
-// question either way (want another date?), different reason for asking it.
 export function offerOtherFecha(session: Session, reason: OfferOtherFechaReason = "only_declined"): HandlerResult {
   const next = cloneSession(session);
 

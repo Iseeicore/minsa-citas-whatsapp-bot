@@ -1,11 +1,5 @@
 import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
-// ---- Fecha selection from a typed phrase ---------------------------------
-// Last resort for the Cita fecha step: phrases the deterministic date parser
-// can't read ("la próxima semana", "a fin de mes"). The model may only answer
-// with the id of one of the dates MINSA already offered — anything else is
-// discarded — so it can never introduce a date of its own.
-
 export type FechaAiOption = { id: string; label: string };
 export type FechaAiResult = { id?: string };
 
@@ -49,8 +43,6 @@ export async function resolveFechaAi(
       `Petición del ciudadano: ${text}`,
     ].join("\n");
 
-    // Fail-open like the other AI helpers: any failure just sends the citizen
-    // back to the list.
     const outcome = await requestGeminiJson({
       operation: "resolve_fecha_ai",
       systemPrompt: FECHA_AI_SYSTEM_PROMPT,
@@ -68,7 +60,5 @@ export async function resolveFechaAi(
     }
   }
 
-  // Fake mode: nothing is guessed. The Sandbox only exercises the
-  // deterministic parser; the citizen is sent back to the list.
   return {};
 }

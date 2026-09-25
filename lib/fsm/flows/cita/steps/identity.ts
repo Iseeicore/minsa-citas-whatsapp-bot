@@ -16,11 +16,9 @@ import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/reverifica
 const MAX_REGISTRATION_CHECKS = 3;
 const MAX_OTP_ATTEMPTS = 3;
 const MINSADIGITAL_REGISTRATION_URL = "https://dminsadigital.minsa.gob.pe/login";
-const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL"; // ≤20 chars, cta_url's display_text cap
+const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL";
 const REGISTRATION_RETRY_BUTTON_ID = "cita_registration_retry";
 const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
-
-// ---- Identity --------------------------------------------------------
 
 export function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
   const dni = (event.text ?? "").trim();
@@ -115,8 +113,6 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
 
   if (result.status === "verified" && typeof result.token === "string") {
     const dni = next.slots.citaDniPending;
-    // Clear the identity-flow-only slots/counters now that we're moving on
-    // to the catalog/booking stage.
     delete next.slots.citaDniPending;
     delete next.slots.citaTwofaId;
     delete next.counters.citaRegistrationChecks;
@@ -126,19 +122,12 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     next.slots.citaDni = dni ?? null;
     next.state = "cita_awaiting_distrito_ai";
 
-    // Re-verifying after an expired token mid-flow (see
-    // beginReverification below) takes priority over the district hint —
-    // by this point we're well past the district step, already resolved.
     const resumeState = next.slots.citaResumeState as string | undefined;
     if (resumeState) {
       delete next.slots.citaResumeState;
       return resumeAfterReverification(next, resumeState);
     }
 
-    // If the citizen already named a place in their opening free-text
-    // message (see handlers.ts's main_menu_intent_pending), search it right
-    // away instead of asking the generic question again — they already told
-    // us. Falls back to asking normally when there's no such hint.
     const distritoHint = next.slots.citaDistritoHintText as string | undefined;
     if (distritoHint) {
       delete next.slots.citaDistritoHintText;
@@ -149,14 +138,6 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
       );
     }
 
-    // The deterministic hint above needs an exact match right after a
-    // preposition ("en San Borja"), so a typo ("en sam borja") leaves no
-    // hint even though the citizen DID name a place. Rather than asking the
-    // same question they already answered, try the full opening message
-    // through the same local-search-then-AI pipeline the reactive reply
-    // uses (resolveDistritoText). Gated on mentionsPlacePreposition so a
-    // message that never mentioned a place at all ("quiero una cita") still
-    // just asks, instead of spending an AI call on every citizen.
     const initialMessageText = next.slots.initialMessageText as string | undefined;
     if (initialMessageText && mentionsPlacePreposition(initialMessageText)) {
       return resolveDistritoText(next, initialMessageText, undefined);

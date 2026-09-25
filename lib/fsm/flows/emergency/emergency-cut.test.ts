@@ -7,11 +7,6 @@ import { IN_FLOW_MAX_CHARS, isEmergency, isEmergencyInFlow } from "@/lib/fsm/flo
 import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
-// A medical emergency (chest pain, heart attack, suffocation, "me muero"…) ends the
-// conversation, wherever it is typed: ONE message with the official numbers and the
-// advice to go to the nearest health facility, and nothing else. The bot does not
-// assist, diagnose or keep a flow open, and leaves no pending step in the FSM.
-
 const FROM = "sandbox-emergency-cut";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const at = (state: string, slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
@@ -24,8 +19,6 @@ const CUT = { kind: "send_text", text: OOS_MESSAGES["OOS-01"] };
 const CLOSED = { state: EMERGENCY_CLOSED_STATE, slots: {}, counters: {} };
 const EMERGENCY = "mi hijo no respira";
 
-// Every place the citizen can be when they type it: the menu, after a finished flow
-// and each step of the Cita and Reclamo flows (with what those steps already hold).
 const STATES: Array<[string, Session["slots"]]> = [
   ["main_menu", {}],
   ["cita_booked", { citaDni: "12345678" }],

@@ -1,22 +1,8 @@
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
-// Per-waId sliding-window rate limiter for the WhatsApp webhook. Pure in-memory
-// (no Redis in this stack): each serverless instance counts on its own, which is
-// enough to stop a single client from hammering one instance and costs nothing.
-//
-//  - more than 5 messages in 10 s   -> the message is dropped (no database work)
-//    and the number is MUTED for two minutes. The message that starts the mute is
-//    reported as "muted" (the caller tells the citizen once, see perimeter.ts);
-//    everything it sends meanwhile is "throttled": dropped in silence;
-//  - more than 20 messages in 60 s  -> "banned" for one hour: everything from
-//    that waId is dropped silently until the ban expires.
-// Dropped messages still count toward the minute, so a flood always ends in a ban.
-// The mute is what keeps a quick but legitimate typist from being answered in
-// pieces; the ban is what stops someone who insists.
 
 export type RateVerdict = "allow" | "throttled" | "muted" | "banned";
 
-// How long a number stays silenced after a burst.
 export const DEFAULT_MUTE_MS = 2 * 60 * 1000;
 
 export type RateLimiterOptions = {
@@ -27,15 +13,13 @@ export type RateLimiterOptions = {
   banThreshold?: number;
   windowMs?: number;
   banMs?: number;
-  // How long a number stays silenced after a burst. 0 = no mute (only the
-  // messages over the burst limit are dropped).
   muteMs?: number;
-  // Soft cap on tracked waIds; idle ones are swept when it is exceeded.
   maxKeys?: number;
   onBan?: (key: string) => void;
   onMute?: (key: string) => void;
 };
 
+/** Contadores en memoria por instancia (no compartidos entre instancias): más de 20 mensajes en 60 s bloquean el número por 1 hora. */
 export function createRateLimiter(options: RateLimiterOptions = {}) {
   const now = options.now ?? Date.now;
   const enabled = options.enabled ?? true;
@@ -74,7 +58,7 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
         if (bannedUntil > current) return "banned";
         bans.delete(key);
         mutes.delete(key);
-        hits.delete(key); // the ban is over: clean slate
+        hits.delete(key);
       }
 
       if (hits.size >= maxKeys) sweep(current);
@@ -85,13 +69,12 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
 
       if (recent.length > banThreshold) {
         bans.set(key, current + banMs);
-        mutes.delete(key); // the ban supersedes the mute
+        mutes.delete(key);
         hits.delete(key);
         options.onBan?.(key);
         return "banned";
       }
 
-      // Still muted: dropped, and it counted toward the minute above.
       const mutedUntil = mutes.get(key);
       if (mutedUntil !== undefined) {
         if (mutedUntil > current) return "throttled";
@@ -104,7 +87,7 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
       if (muteMs > 0) {
         mutes.set(key, current + muteMs);
         options.onMute?.(key);
-        return "muted"; // the one message of a mute the citizen is answered
+        return "muted";
       }
       return "throttled";
     },
@@ -117,8 +100,6 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
 
 export type RateLimiter = ReturnType<typeof createRateLimiter>;
 
-// The limiter the webhook uses. INBOUND_RATE_LIMIT=off disables it (local
-// debugging); it is per server instance by design.
 export const inboundRateLimiter: RateLimiter = createRateLimiter({
   enabled: process.env.INBOUND_RATE_LIMIT !== "off",
   onBan: (key) =>

@@ -1,6 +1,5 @@
 import { PaperclipIcon, SendIcon } from "@/app/components/sandbox-chat/icons";
 
-// The bottom input bar: attach an image, type a message, send it.
 export function Composer({
   from,
   loading,

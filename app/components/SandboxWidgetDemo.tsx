@@ -4,24 +4,10 @@ import { useState } from "react";
 import MinsaDigitalBackdrop from "@/app/components/MinsaDigitalBackdrop";
 import Sandbox from "@/app/components/Sandbox";
 
-// Demo shell for the public /sandbox route: a recreated MINSA Digital login
-// page as a backdrop, with the bot presented as the floating chat-widget
-// launcher a citizen would actually see embedded there — instead of the
-// full-page chat view used everywhere else. Real markup instead of a
-// screenshot reflows at any width for free (a static image either crops out
-// the branding or shrinks to an illegible sliver on a narrow phone). Sandbox
-// itself is never unmounted while the panel is closed (just hidden via CSS),
-// so its in-memory chat bubbles survive a close/reopen instead of resetting.
 export default function SandboxWidgetDemo() {
   const [open, setOpen] = useState(false);
 
   return (
-    // On a small screen the chat panel becomes a full-screen overlay (see
-    // the `open` classes below) — the backdrop stays scrollable underneath
-    // it otherwise, which feels broken even though the panel visually
-    // covers everything, so scrolling locks there while open. From `sm` up
-    // the panel is just a small floating card, so the backdrop keeps
-    // scrolling normally regardless of `open`.
     <div
       className={`relative w-full bg-gray-100 sm:overflow-auto ${
         open ? "max-sm:overflow-hidden" : "overflow-auto"
@@ -29,10 +15,8 @@ export default function SandboxWidgetDemo() {
     >
       <MinsaDigitalBackdrop />
 
-      {/* Mobile-first: a small screen gets the chat full-bleed (it's the
-          main event there, not a corner widget) so it's fully usable
-          instead of a cramped card fighting the background for space.
-          From `sm` up it becomes the floating card over the backdrop. */}
+      {
+}
       <div
         className={`fixed inset-0 z-20 flex flex-col overflow-hidden transition-all duration-200 sm:inset-auto sm:bottom-24 sm:right-4 sm:h-[min(640px,calc(100dvh-112px))] sm:w-[380px] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl sm:shadow-2xl ${
           open
@@ -54,11 +38,11 @@ export default function SandboxWidgetDemo() {
         style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center">
-          {/* Attention ring — the backdrop is a busy screenshot, this keeps
-              the launcher from getting lost in it. */}
+          {
+}
           <span className="absolute inset-0 animate-ping rounded-full bg-white/50" />
           <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white">
-            {/* eslint-disable-next-line @next/next/no-img-element -- small fixed-size avatar */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- avatar pequeño de tamaño fijo */}
             <img
               src="/minsa-logo.png"
               alt=""

@@ -2,17 +2,6 @@ import { logger } from "@/lib/observability/logger";
 import { normalizeText } from "@/lib/fsm/parsing/text";
 import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
-// ---- Main-menu free-text intent detection --------------------------------
-// When a citizen in main_menu writes free text instead of tapping a menu
-// row (e.g. "quiero una atención de odontología"), this tries to recognize
-// a clear intent to book an appointment before falling back to just
-// re-showing the menu. Deliberately narrow: only "cita" vs "unclear" (no
-// reclamo detection yet — a separate, not-yet-scoped decision), and
-// especialidad is returned as a raw hint only, never validated here (the
-// real especialidad catalog can only be queried post-identity-verification,
-// scoped to a specific ubigeo — see matchEspecialidadHint in
-// flows/cita/steps/catalog.ts, which does that validation once the real list arrives).
-
 export type MainMenuIntentResult = {
   intent: "cita" | "unclear";
   especialidad?: string;
@@ -68,11 +57,6 @@ const MAIN_MENU_INTENT_RESPONSE_SCHEMA = {
   required: ["intent", "detalle"],
 };
 
-// Small keyword dictionary for the Sandbox (SANDBOX_USE_REAL_AI !== "true")
-// — same purpose as FAKE_DISTRITO_CANDIDATES: demo the fallback behavior
-// without spending real API quota. Keys are matched against normalizeText'd
-// input (no accents, uppercase), so accented forms like "pediátrico" still
-// hit "PEDIATR" below.
 const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
   ODONTOLOG: "Odontología",
   "MEDICINA GENERAL": "Medicina General",
@@ -80,10 +64,6 @@ const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
   GINECOLOG: "Ginecología",
 };
 
-// Real citizens ask for an appointment in many ways without ever typing the
-// literal word "cita" — requiring that exact word (the original bug here)
-// meant a message like "quiero una atención de pediátrico" was never even
-// considered, regardless of how clearly it expressed the same intent.
 const FAKE_CITA_INTENT_KEYWORDS = ["CITA", "ATENCION", "CONSULTA", "TURNO", "MEDICO", "ATIENDAN"];
 
 function unclearIntent(reason: string): MainMenuIntentResult {
@@ -93,12 +73,6 @@ function unclearIntent(reason: string): MainMenuIntentResult {
 
 export async function analyzeMainMenuIntent(text: string): Promise<MainMenuIntentResult> {
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    // Fail-open, same discipline as resolveDistritoAi (ai/distrito.ts) — any failure
-    // just means the citizen falls back to the menu, never gets blocked.
-    // Every way this can end in "unclear" is logged with its reason (never the
-    // citizen's text): a fail-open answer is otherwise indistinguishable from
-    // the model genuinely finding no intent — which is how a missing key or a
-    // bad model name looks like "the bot ignored my request".
     const outcome = await requestGeminiJson({
       operation: "analyze_main_menu_intent",
       systemPrompt: MAIN_MENU_INTENT_SYSTEM_PROMPT,
@@ -121,7 +95,7 @@ export async function analyzeMainMenuIntent(text: string): Promise<MainMenuInten
     try {
       const parsed = outcome.json as MainMenuIntentJsonShape;
       if (typeof parsed.intent !== "string" || parsed.intent.trim().toLowerCase() !== "cita") {
-        return { intent: "unclear" }; // the model's own answer, not a failure
+        return { intent: "unclear" };
       }
 
       return {

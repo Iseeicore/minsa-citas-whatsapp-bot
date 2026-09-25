@@ -1,7 +1,3 @@
-// NFD-decompose + strip diacritics (the combining marks left behind by NFD)
-// + uppercase — shared normalization used anywhere free-typed Spanish text
-// needs to be compared against an official name (RENIEC full names here,
-// UBIGEO district names in lib/fsm/flows/cita/ubigeo-data.ts).
 export function normalizeText(value: string): string {
   return value
     .normalize("NFD")
@@ -11,8 +7,6 @@ export function normalizeText(value: string): string {
     .replace(/\s+/g, " ");
 }
 
-// "SAN JUAN DE LURIGANCHO" -> "San Juan de Lurigancho", for showing a place
-// name back to the citizen (the INEI/MINSA data is all uppercase).
 export function toDisplayPlace(name: string): string {
   return name
     .toLowerCase()
@@ -24,9 +18,6 @@ function normalizeName(value: string): Set<string> {
   return new Set(normalizeText(value).split(/\s+/).filter(Boolean));
 }
 
-// Word-set containment: the smaller name's tokens must all appear in the
-// larger name's tokens (e.g. a single "Juan" typed by the user should match
-// a RENIEC full name of "JUAN CARLOS QUISPE PEREZ").
 export function namesMatch(typedName: string, officialFullName: string): boolean {
   const typedTokens = normalizeName(typedName);
   const officialTokens = normalizeName(officialFullName);

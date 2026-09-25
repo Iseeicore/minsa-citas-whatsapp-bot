@@ -8,9 +8,7 @@ function graphApiUrl(): string {
   return `https://graph.facebook.com/${version}/${process.env.META_PHONE_NUMBER_ID}/messages`;
 }
 
-// This WABA uses Meta's Business-Scoped User ID (BSUID) scheme — recipients
-// are addressed via `recipient`, not `to` (see app/api/messages/send/route.ts
-// for the same pattern used by the human-operator send path).
+/** Esta cuenta usa BSUID: el destinatario va en `recipient`; con `to` Graph API acepta la petición pero no entrega el mensaje. */
 function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknown> {
   const base = {
     messaging_product: "whatsapp",
@@ -87,11 +85,6 @@ export async function sendWhatsAppEffect(waId: string, effect: SendEffect): Prom
   });
 }
 
-// WhatsApp's cta_url is a distinct interactive subtype from "button" — a
-// single tappable link button that opens an external URL. It's not part of
-// the FSM's SendEffect union (no state produces one), it's only used for
-// the one-off welcome message, so it's kept as its own small helper rather
-// than folding it into buildGraphBody/sendWhatsAppEffect above.
 export async function sendCtaUrlMessage(
   waId: string,
   params: { bodyText: string; buttonText: string; url: string },
@@ -119,15 +112,6 @@ export async function sendCtaUrlMessage(
   });
 }
 
-// WhatsApp's typing indicator rides the same "mark as read" call as a read
-// receipt — it shows "escribiendo…" in the citizen's real app and
-// auto-dismisses the moment we send the next message (or after ~25s,
-// whichever comes first). Meta's docs don't say whether the same inbound
-// message_id can be reused across several calls in one turn, but marking an
-// already-read message as read again is normally harmless, so this is
-// called before every effect send in a multi-message turn — worst case it
-// silently no-ops and the message still goes out. Never throws, same
-// contract as the send helpers below.
 export async function sendTypingIndicator(inboundMessageId: string): Promise<void> {
   try {
     await fetch(graphApiUrl(), {
@@ -174,12 +158,6 @@ async function recordOutboundMessage(
   ]);
 }
 
-// Sends a real WhatsApp message for a bot-driven effect and records it as an
-// outbound Message, same as the human-operator send path — so the Chat real
-// UI shows everything the bot said. With no conversation row (null, when
-// DATABASE_ENABLED=false) the message is sent but not recorded. Never throws: a
-// failed automated send must not crash the webhook handler, which still owes
-// Meta its fast 200.
 export async function sendAndRecordEffect(
   conversationId: string | null,
   waId: string,
@@ -205,8 +183,6 @@ export async function sendAndRecordEffect(
   await recordOutboundMessage(conversationId, effect.text, waMessageId);
 }
 
-// Same send-then-record contract as sendAndRecordEffect, for the one-off
-// cta_url welcome message.
 export async function sendAndRecordCtaUrl(
   conversationId: string | null,
   waId: string,

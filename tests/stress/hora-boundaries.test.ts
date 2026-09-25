@@ -46,14 +46,9 @@ const listIds = (r: HandlerResult) => {
   return list?.kind === "send_interactive_list" ? list.rows.map((row) => row.id) : undefined;
 };
 
-// ---------------------------------------------------------------------------
-// C.1 The list from the brief:  1. 07:00   2. 08:00   3. 13:00
-// ---------------------------------------------------------------------------
 describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
   const session = () => horaSession([slot("07:00", "07:30"), slot("08:00", "08:30"), slot("13:00", "13:30")]);
 
-  // "1" is genuinely ambiguous: list position 1 = 07:00, or 1 PM = 13:00. The
-  // citizen gets a two-button question naming both, and nothing is booked.
   it("'1' offers the choice between position 1 (07:00) and 1 PM (13:00)", () => {
     const result = say(session(), "1");
 
@@ -78,8 +73,6 @@ describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
     expect(confirmId(result)).toBe("13:00|13:30");
   });
 
-  // There is no option 8, so "8" can only mean the hour: it resolves to 08:00
-  // and asks for confirmation.
   it("'8' (no option 8) falls back to the hour and resolves to 08:00", () => {
     const result = say(session(), "8");
 
@@ -102,7 +95,7 @@ describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
   it("'en la tarde' keeps only slots >= 12:00", () => {
     const result = say(session(), "en la tarde");
 
-    expect(confirmId(result)).toBe("13:00|13:30"); // the only afternoon slot
+    expect(confirmId(result)).toBe("13:00|13:30");
   });
 
   it("'en la mañana' keeps only slots < 12:00 (a list, since two match)", () => {
@@ -115,15 +108,11 @@ describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
   it.each(["11", "12", "13", "14", "20", "23"])("'%s' >= 11 can only be an hour, never a list position", (value) => {
     const result = say(session(), value);
     expect(queries(result)).toHaveLength(0);
-    // 13 is offered; the others are not: none may be treated as a position.
     if (value === "13") expect(confirmId(result)).toBe("13:00|13:30");
     else expect(result.session.state).toBe("cita_awaiting_hora_select");
   });
 });
 
-// ---------------------------------------------------------------------------
-// C.2 Non-standard formats
-// ---------------------------------------------------------------------------
 describe("C.2 formats on a fuller day", () => {
   const day = [
     slot("07:00", "07:30"),
@@ -142,7 +131,7 @@ describe("C.2 formats on a fuller day", () => {
     ["mediodía", "12:00|12:30"],
     ["12 pm", "12:00|12:30"],
     ["pasadas las 2", "14:15|14:45"],
-    ["ocho y cuarto", undefined], // 08:15 not offered
+    ["ocho y cuarto", undefined],
     ["dos y cuarto de la tarde", "14:15|14:45"],
   ])("%s => %s", (value, expected) => {
     const result = say(session(), value);

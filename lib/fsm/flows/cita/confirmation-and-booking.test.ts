@@ -158,7 +158,7 @@ describe("a booking that MINSA does not accept", () => {
 
 describe("typed dates against the dates MINSA offered", () => {
   const rows: OfferedRow[] = ["20/09/2026", "21/09/2026", "22/09/2026", "23/09/2026"].map((id) => ({ id, title: id }));
-  const today = { year: 2026, month: 9, day: 20 }; // Sunday
+  const today = { year: 2026, month: 9, day: 20 };
 
   it.each([
     ["para hoy", "20/09/2026"],

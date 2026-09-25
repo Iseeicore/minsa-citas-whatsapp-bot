@@ -21,7 +21,6 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
     return restored;
   };
 
-  // Typing instead of tapping: a normal typed time, read against the full list.
   if (event.type === "text") return handleAwaitingHoraSelect(back(), event);
 
   const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
@@ -39,7 +38,6 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
     return buildResult(restored, [offerList(restored, NARROWED_LIST_TEXT, slotsB.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow))]);
   }
 
-  // Anything else: ask again with the same two options.
   const [startA] = slotA.split("|");
   const first = slotsB[0];
   if (!/^\d{2}:\d{2}$/.test(startA ?? "") || !first) return reshowOffered(back(), offered);

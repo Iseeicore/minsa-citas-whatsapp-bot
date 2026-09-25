@@ -2,10 +2,6 @@ import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
 import { postWithBearer } from "@/lib/integrations/minsa/wire";
 
-// A failed booking used to reach the citizen as a generic message with nothing
-// in the logs. This keeps what is needed to diagnose it: the endpoint, the HTTP
-// status, what MINSA said and the payload without the patient's document (the
-// logger also masks any long digit run, such as a DNI echoed back).
 const BOOKING_ENDPOINT = "/whatsapp/api/v1/appointments";
 const BOOKING_LOG_BODY_LIMIT = 300;
 
@@ -53,16 +49,6 @@ export async function bookAppointment(
 
     const rawBody = await response.text().catch(() => "");
 
-    // MINSA doesn't reliably use HTTP status to mean "business rejection"
-    // vs. "server error": this exact rule (the patient already has an
-    // active appointment for the same turno/servicio) has been observed
-    // arriving as a raw HTTP 500, not a graceful 2xx body. Checking for it
-    // before the !response.ok branch means a citizen who already booked
-    // gets a clear, final answer instead of 3 pointless retries that would
-    // all fail the exact same way (confirmed in production: a real
-    // duplicate booking looped through booking_retry x3 as "problema
-    // técnico" before this fix). Not logged as a failure — it's an
-    // expected business outcome, not something to diagnose.
     const duplicateMessage = minsaMessageOf(rawBody);
     if (duplicateMessage && /ya tiene una cita activa/i.test(duplicateMessage)) {
       return { status: "duplicate", message: duplicateMessage };
@@ -77,8 +63,6 @@ export async function bookAppointment(
     try {
       body = JSON.parse(rawBody) as typeof body;
     } catch {
-      // Leave body empty — falls through to "rejected" below, same as an
-      // unparsable 2xx body always did.
     }
     const message = typeof body?.message === "string" ? body.message : "";
 

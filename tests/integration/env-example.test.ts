@@ -2,17 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-// .env.example is a bare list of variables in two blocks, each opened by a
-// "##### " title: the minimum for the MINSA Docker server (WhatsApp, citas and
-// the connected frontend), then every optional variable. The README documents
-// them. This keeps the three in sync: every variable the app reads is listed,
-// nothing dead is listed (e.g. a leftover REDIS_URL), and each one is
-// documented.
-
 const ROOT = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
 
-// Set by the platform or the build, never by whoever fills in a .env.
 const PLATFORM_VARIABLES = new Set(["NODE_ENV", "VERCEL", "NEXT_OUTPUT_STANDALONE"]);
 
 const SECTION_TITLE = /^##### \S/;
@@ -55,7 +47,6 @@ function variablesReadByTheApp(): Set<string> {
     const text = read(file);
     for (const pattern of patterns) for (const match of text.matchAll(pattern)) names.add(match[1]);
   }
-  // docker-compose.yml's own knobs (HOST_PORT) are filled in from the same .env.
   const composeWithoutComments = read("docker-compose.yml").replace(/^\s*#.*$/gm, "");
   for (const match of composeWithoutComments.matchAll(/\$\{([A-Z0-9_]+)/g)) names.add(match[1]);
 

@@ -5,7 +5,6 @@ const action = (text: string) => evaluateLexicalGuard(text).action;
 
 describe("lexical guard — legitimate messages must be ALLOWED", () => {
   const legitimate = [
-    // Common words that sat within Levenshtein distance of an insult target.
     "Buenas tarde, quiero agendar",
     "buenas tardes quiero una cita",
     "Necesito practicar mi idioma",
@@ -15,19 +14,15 @@ describe("lexical guard — legitimate messages must be ALLOWED", () => {
     "hueco en la agenda",
     "tengo huevo y leche en la nevera",
     "estupendo, muchas gracias",
-    // Names / surnames / initials that collapsed into short roots.
     "Isaac S. Mendoza",
     "Marc S. Morales",
     "Elizabeth D. Pérez",
     "Ladrón de Guevara Quispe",
     "Estupiñán Rojas Juan",
-    // Scunthorpe-style substrings.
     "mi computadora no abre la página",
     "el diputado no responde",
-    // Numbers / identifiers must never be deformed into letters.
     "mi DNI es 45781239",
     "mi celular es 987654321",
-    // Plain complaints and requests without insults.
     "Solicito una cita para mi hijo",
     "La atención fue pésima, no me atendieron",
     "quiero hacer un reclamo",
@@ -108,7 +103,6 @@ describe("lexical guard — result details", () => {
 });
 
 describe("lexical guard — fuzzy matching stays bounded", () => {
-  // Typical vocabulary of this bot's domain; none of it may ever be flagged.
   const vocabulary = [
     "cita", "citas", "medico", "medica", "doctor", "doctora", "hospital", "posta", "salud",
     "atencion", "turno", "consulta", "especialidad", "odontologia", "pediatria", "ginecologia",

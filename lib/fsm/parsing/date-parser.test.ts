@@ -4,15 +4,14 @@ import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
 
 const row = (id: string): OfferedRow => ({ id, title: id, description: "5 cupo(s) disponibles" });
 
-// "Today" is Monday 2026-09-21.
 const TODAY = { year: 2026, month: 9, day: 21 };
 
 const rows = [
-  row("22/09/2026"), // Tuesday
-  row("23/09/2026"), // Wednesday
-  row("25/09/2026"), // Friday
-  row("28/09/2026"), // Monday
-  row("29/09/2026"), // Tuesday
+  row("22/09/2026"),
+  row("23/09/2026"),
+  row("25/09/2026"),
+  row("28/09/2026"),
+  row("29/09/2026"),
 ];
 
 function ids(result: ReturnType<typeof matchFechaText>): string | string[] {
@@ -32,10 +31,10 @@ describe("parseOfferedDate", () => {
 
 describe("formatDateLong: what the citizen reads in a sentence", () => {
   it.each([
-    [{ year: 2026, month: 9, day: 22 }, "martes 22 de septiembre"],   // Tuesday
-    [{ year: 2026, month: 9, day: 21 }, "lunes 21 de septiembre"],    // Monday
-    [{ year: 2026, month: 9, day: 26 }, "sábado 26 de septiembre"],   // Saturday
-    [{ year: 2026, month: 9, day: 27 }, "domingo 27 de septiembre"],  // Sunday
+    [{ year: 2026, month: 9, day: 22 }, "martes 22 de septiembre"],
+    [{ year: 2026, month: 9, day: 21 }, "lunes 21 de septiembre"],
+    [{ year: 2026, month: 9, day: 26 }, "sábado 26 de septiembre"],
+    [{ year: 2026, month: 9, day: 27 }, "domingo 27 de septiembre"],
     [{ year: 2027, month: 1, day: 1 }, "viernes 1 de enero"],
     [{ year: 2026, month: 12, day: 31 }, "jueves 31 de diciembre"],
   ])("%o => %s", (date, expected) => {

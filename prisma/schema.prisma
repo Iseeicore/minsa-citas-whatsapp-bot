@@ -65,7 +65,7 @@ model Message {
 }
 
 model SandboxSession {
-  id        String   @id // synthetic "from" identifying each simulated conversation
+  id        String   @id
   state     String
   slots     Json
   counters  Json

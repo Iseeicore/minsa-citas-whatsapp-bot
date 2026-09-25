@@ -1,4 +1,3 @@
-// Small deterministic PRNG (mulberry32) so fuzz runs are reproducible.
 export function createRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {

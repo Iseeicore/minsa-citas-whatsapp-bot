@@ -3,21 +3,6 @@ import type { OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-mess
 
 export { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 
-// Consultations the channel does not attend (emergencies, SIS, referrals, lab
-// results, medicines, vaccines, tele-orientation, the status of a complaint
-// already filed, paperwork). Each one gets a fixed message that points to the
-// official channel — read by keywords in memory: no AI call, no database.
-//
-// The categories and their messages are the ones of the audit spreadsheet (sheet
-// "Catálogo de Intenciones OutofSc"). The spreadsheet has Gemini classify them;
-// this is the deterministic first line, so a life-safety message never depends on
-// a model call. Gemini as a fallback for what no rule reads stays out for now.
-//
-// Runs at menu level only (main menu, first contact, first message after a
-// finished flow). It is never applied inside a flow: a DNI, an OTP, a district or
-// the description of a complaint is read by that step, whatever words it holds.
-
-// Patterns run on normalized text: uppercase, no accents, punctuation as spaces.
 const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
   [
     "OOS-01",
@@ -42,8 +27,6 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
       /\bCONVULSION(?:ES)?\b/,
       /\bINFARTO\b/,
       /\bASFIXI\w*/,
-      // "me muero" is an emergency ("me muero de dolor") unless it is the idiom
-      // ("me muero de risa / de ganas / por una cita").
       /\bME MUERO\b(?! (?:DE (?:RISA|GANAS|HAMBRE|SUENO|VERGUENZA|MIEDO|CALOR|FRIO|SED|ENVIDIA|CURIOSIDAD|PENA|ABURRIMIENTO|CANSANCIO)|POR)\b)/,
       /\bME ESTOY MURIENDO\b/,
       /\bSE (?:ESTA )?MURIENDO\b|\bSE MUERE\b/,
@@ -56,7 +39,6 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     ],
   ],
   [
-    // A complaint ALREADY filed: asking how it is going is not filing a new one.
     "OOS-08",
     [
       /\b(?:PUSE|PUSIMOS|PRESENTE|REGISTRE|HICE|INTERPUSE|ENVIE|DEJE)\b.{0,25}\b(?:RECLAMO|QUEJA)\b/,
@@ -93,7 +75,6 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
       /\bJARABES?\b/,
       /\bRECETAS?\b/,
       /\bMEDICINAS\b/,
-      // "la medicina para la presión", but never the specialty "cita de medicina general".
       /\b(?:LA|MI|SU|UNA|DE LA) MEDICINA (?:PARA|DE)\b/,
     ],
   ],
@@ -109,7 +90,6 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
   [
     "OOS-03",
     [
-      // "punto de referencia" is how a citizen gives an address, not a medical referral.
       /\b(?<!PUNTO DE )REFERENCIAS?\b/,
       /\bCONTRARREFERENCIAS?\b/,
       /\bREFCON\b/,
@@ -144,7 +124,6 @@ const toPlainWords = (text: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-// The first category (most serious first) whose keywords appear, if any.
 export function detectOutOfScope(text: string): OosCategory | undefined {
   const plain = toPlainWords(text);
   if (!plain) return undefined;
@@ -155,18 +134,11 @@ export function detectOutOfScope(text: string): OosCategory | undefined {
   return undefined;
 }
 
-// A medical emergency is the one category that is answered before anything else,
-// even before the lexical guard: a scared citizen who insults still gets the number.
 export const isEmergency = (text: string): boolean => detectOutOfScope(text) === "OOS-01";
 
-// Inside a flow the same reading applies, but only to a SHORT text: an emergency is
-// typed in a few words, while a complaint about a past event ("la ambulancia nunca
-// llegó...") is a narrative and is evidence for that step, not an alarm.
 export const IN_FLOW_MAX_CHARS = 120;
 export const isEmergencyInFlow = (text: string): boolean => text.length <= IN_FLOW_MAX_CHARS && isEmergency(text);
 
-// The words the messages ask the citizen to type. Exact single words only:
-// "quiero una cita" (with no hints) keeps going to the AI as before.
 const single = (text: string): string | undefined => {
   const words = toPlainWords(text).split(" ");
   return words.length === 1 ? words[0] : undefined;

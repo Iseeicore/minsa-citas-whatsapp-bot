@@ -3,7 +3,6 @@ import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "@/
 
 const slot = (start: string, end: string, cupos = 1): HoraSlot => ({ start, end, cupos });
 
-// What MINSA offered for the day (24h, as MINSA sends it).
 const day: HoraSlot[] = [
   slot("07:00", "07:30"),
   slot("08:00", "08:30"),
@@ -62,7 +61,7 @@ describe("matchHoraText — 12h / 24h and words", () => {
   });
 
   it("'menos cuarto' counts back from the hour", () => {
-    expect(result("diez menos cuarto")).toBe("unavailable"); // 09:45 not offered
+    expect(result("diez menos cuarto")).toBe("unavailable");
     expect(result("dos menos cuarto de la tarde")).toBe("13:45");
   });
 });
@@ -80,7 +79,7 @@ describe("matchHoraText — period only and extremes", () => {
     expect(result("lo más temprano")).toBe("07:00");
     expect(result("lo más pronto")).toBe("07:00");
     expect(result("lo más tarde")).toBe("19:00");
-    expect(result("la última")).toBe("unparsed"); // ordinals belong to the generic matcher
+    expect(result("la última")).toBe("unparsed");
   });
 });
 
@@ -94,7 +93,7 @@ describe("matchHoraText — nothing to decide", () => {
   it.each([
     "hola",
     "",
-    "1", // a bare small number is a list position for the generic matcher
+    "1",
     "9",
     "la segunda",
     "a las 25",

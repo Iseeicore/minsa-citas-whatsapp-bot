@@ -1,7 +1,3 @@
-// ---- Result shapes returned to lib/fsm/core/executor.ts --------------------
-// These are internal-only shapes (not wire formats); the executor folds
-// them into a synthetic query-result event that the lib/fsm handlers read.
-
 export type ValidateUserResult =
   | { status: "valid"; twofaId: string }
   | { status: "not_valid" }
@@ -75,8 +71,8 @@ export type ListHorasResult =
 export type BookAppointmentParams = {
   codigoRenipress: string;
   codigoUps: string;
-  fechaCita: string; // YYYYMMDD
-  horaCita: string; // already transformed (no colon, no leading zero on the hour)
+  fechaCita: string;
+  horaCita: string;
   numeroDocumentoPaciente: string;
 };
 

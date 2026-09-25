@@ -12,17 +12,6 @@ import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 
-// CORS for the sandbox widget embedded in ANOTHER frontend's own origin (see
-// docs' widget-integration notes). Same-origin callers (the /sandbox page
-// itself) never send an Origin header at all and are untouched by any of
-// this — the header is only ever added when the request's Origin exactly
-// matches one entry of a comma-separated allowlist, never a wildcard, so an
-// unrelated site can't read the response even if it can still reach the URL.
-//
-// Each entry is reduced to its origin (scheme + host + port), because the
-// browser's Origin header never carries a path: "https://x.gob.pe/" would
-// otherwise never match "https://x.gob.pe" and CORS would fail silently.
-// An entry that is not a URL (a bare host, a "*") is dropped and logged once.
 const warnedInvalidOrigins = new Set<string>();
 
 function toOrigin(entry: string): string | undefined {
@@ -34,6 +23,7 @@ function toOrigin(entry: string): string | undefined {
   }
 }
 
+/** Reduce cada entrada a su origen: la cabecera Origin del navegador nunca trae ruta ni barra final. */
 function allowedOrigins(): string[] {
   return (process.env.SANDBOX_ALLOWED_ORIGINS ?? "")
     .split(",")
@@ -85,21 +75,12 @@ const sandboxEventSchema = z.object({
   mediaId: z.string().optional(),
   mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
-  // Wipes every sandbox-* session (never a real WhatsApp waId one) instead
-  // of just this browser's — the operator console's "reset everything"
-  // button, so repeated manual testing never gets stuck on stale state.
   resetAll: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
-  // Computed once and attached to every response below — a cross-origin
-  // caller needs the header on an error response just as much as on 200,
-  // otherwise the browser hides even the rejection text from it.
   const cors = corsHeaders(request);
 
-  // Gated off by default — this app has no auth of its own, so anyone who
-  // finds the public URL would otherwise reach the sandbox (and, with the
-  // real-integration flags on, real MINSA/RENIEC/quejas calls).
   if (process.env.SANDBOX_ENABLED !== "true") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404, headers: cors });
   }
@@ -122,17 +103,8 @@ export async function POST(request: NextRequest) {
     await resetSession(from);
   }
 
-  // Checked AFTER any reset above, so it's "did THIS from already have a
-  // row going into this exact turn" — true for an in-progress conversation,
-  // false for a brand-new device or one a resetAll just wiped, regardless
-  // of which device's request actually triggered that reset. A reset only
-  // shows the welcome to whoever clicked the button; every other sandbox-*
-  // session that was wiped along with it only finds out on its own next
-  // message, same as this one.
   const hadExistingSession = await sessionRowExists(from);
 
-  // Same first-message perimeter as the WhatsApp webhook (length, links, media
-  // without a session): a fixed reply, and the FSM is never touched.
   if (!hadExistingSession && (type === "text" || type === "image")) {
     const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text });
     if (payload.kind === "rejected") {
@@ -146,10 +118,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // A brand-new conversation is answered like the real webhook answers it (see
-  // lib/fsm/routing/first-contact.ts): the welcome and its "Seguir aquí" button — or,
-  // when the citizen already asked for a cita, straight into the Cita flow.
-  // An abusive first message is left to the FSM, whose lexical guard answers it.
   const abusiveFirstMessage =
     type === "text" && !!text && !isEmergency(text) && evaluateLexicalGuard(text).action !== "ALLOW";
 
@@ -160,8 +128,6 @@ export async function POST(request: NextRequest) {
         ? await startConversation(from, type === "text" ? text : undefined)
         : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
   } catch (error) {
-    // Another turn of this same session is still running and did not finish in
-    // time: tell the client to retry instead of answering from stale state.
     if (error instanceof TurnLockTimeoutError) {
       return NextResponse.json(
         { error: "BUSY", message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." },

@@ -1,12 +1,3 @@
-// Deterministic (no AI) reading of a typed yes/no for any step that offers an
-// interactive confirmation. A citizen often types "si por favor" instead of
-// tapping the button; the answer must count exactly like the tap.
-//
-// The reply is only accepted when EVERY word of it is a known yes-word (or every
-// word a known no-word), after courtesy words are set aside. Anything else —
-// "si pero a las 3", "no se", "si no" — is UNKNOWN, so the caller asks again
-// instead of booking on a misread.
-
 export type Confirmation = "YES" | "NO" | "UNKNOWN";
 
 const YES_PHRASES = new Set([
@@ -61,7 +52,6 @@ const NO_PHRASES = new Set([
   "no quiero",
 ]);
 
-// Politeness that carries no decision: "si por favor", "no, gracias".
 const COURTESY_WORDS = new Set(["por", "favor", "porfa", "porfis", "porfavor", "gracias", "muchas", "pues", "nomas"]);
 
 const LONGEST_PHRASE_WORDS = 3;
@@ -71,17 +61,13 @@ function toWords(text: string): string[] {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
-    .replace(/(.)\1{2,}/g, "$1") // "siii", "daleee"
+    .replace(/(.)\1{2,}/g, "$1")
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .split(" ")
     .filter((word) => word !== "" && !COURTESY_WORDS.has(word));
 }
 
-// Taking a specific, already-named slot in words: "esa hora", "esa misma", "me
-// sirve", "la tomo". Only meaningful where ONE thing is on the table (a pending
-// horario), so it is a separate reader and never part of resolveConfirmation.
-// Whole-reply match, so "esa no" or "me sirve otra" are not acceptances.
 const LEADING_YES = "(?:(?:si|ok|okey|dale|vale|claro|listo)\\s+)?";
 const TAKING_THAT = new RegExp(
   `^${LEADING_YES}(?:(?:quiero|tomo|acepto|confirmo|me quedo con)\\s+)?(?:esa|ese)(?:\\s+(?:misma|mismo))?(?:\\s+(?:hora|horario|cita))?$`,

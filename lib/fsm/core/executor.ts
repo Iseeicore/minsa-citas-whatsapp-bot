@@ -34,45 +34,21 @@ export type TurnResult = {
   session: Session;
 };
 
-// handle() may return at most one QueryEffect per pass; each one resolved
-// here is fed back in as a synthetic query-result event for the next pass —
-// the "bounded re-entry" pattern. Every existing state chain only ever needs
-// one such round trip (2 passes total) and keeps behaving exactly as before;
-// cita_distrito_ai_pending's single-candidate case is the first state that
-// chains a second query (resolve_distrito_ai -> search_ubigeo) within the
-// same citizen turn, which is why this loops instead of hardcoding 2 passes.
-// MAX_PASSES is a defensive cap against a genuine state-machine bug (e.g. two
-// states that keep firing queries at each other), not an expected code path.
-//
-// The longest LEGITIMATE chain is the OTP turn of a citizen whose specialty and
-// district are already known and for whom every catalog step has a single
-// option: verify_code -> search_ubigeo -> list_especialidades ->
-// list_establecimientos -> list_fechas -> list_horas -> book_appointment, plus
-// the pass that handles the last result (8). 12 leaves headroom while still
-// stopping a genuine loop quickly.
 const MAX_PASSES = 12;
 
-// One citizen's turns run one at a time (see lib/fsm/session/turn-lock.ts): a turn is
-// read session -> compute -> write session, so overlapping turns would read the
-// same stale session and lose an update. Both channels (webhook and Sandbox)
-// come through here.
 export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> {
   return withTurnLock(from, () => runTurnUnlocked(from, event));
 }
 
-// Same, with an explicit lock — for composing several "instances" in tests.
 export function createRunTurn(lock: TurnLock) {
   return (from: string, event: InboundEvent): Promise<TurnResult> =>
     lock(from, () => runTurnUnlocked(from, event));
 }
 
-// The turn itself, WITHOUT any lock. Not for production callers: it exists so
-// the race can still be demonstrated and measured.
+/** Ejecuta el turno sin tomar el candado; solo para quien ya lo tiene tomado (el webhook). */
 export async function runTurnUnlocked(from: string, event: InboundEvent): Promise<TurnResult> {
   const session = await getSession(from);
 
-  // The turn's trace (lib/observability/tracer.ts) lives out here: handle() stays
-  // pure and only returns the decisions it wants on record as `notes`.
   return traceTurn(from, event, session, async (trace) => {
     const sent: SendEffect[] = [];
     let currentEvent: HandleEvent = event;
@@ -115,7 +91,6 @@ export async function runTurnUnlocked(from: string, event: InboundEvent): Promis
   });
 }
 
-// Which outside service a query goes to, for the trace.
 function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   switch (kind) {
     case "reniec_lookup":
@@ -217,5 +192,4 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
   }
 }
 
-// Re-exported for the route handler's request validation.
 export type { InboundEvent };

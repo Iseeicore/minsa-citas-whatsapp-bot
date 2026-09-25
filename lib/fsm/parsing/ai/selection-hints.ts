@@ -1,12 +1,5 @@
 import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
 
-// ---- Especialidad / establecimiento hints from a typed message ---------------
-// Runs only when the deterministic matcher found nothing among the offered
-// rows. A citizen may name more than one thing in one message ("odontología
-// en el hospital de Lurigancho"); this returns whatever names appear, as
-// written, WITHOUT validating them — the caller matches them against the real
-// lists and applies only an unambiguous match.
-
 export type SelectionHintsResult = {
   especialidad?: string;
   establecimiento?: string;
@@ -42,7 +35,6 @@ export async function extractSelectionHints(_step: string, text: string): Promis
   if (!text.trim()) return {};
 
   if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    // Fail-open: no hints just means the citizen picks from the list.
     const outcome = await requestGeminiJson({
       operation: "extract_selection_hints",
       systemPrompt: SELECTION_HINTS_SYSTEM_PROMPT,
@@ -62,7 +54,5 @@ export async function extractSelectionHints(_step: string, text: string): Promis
     }
   }
 
-  // Fake mode: nothing is inferred; the deterministic matcher already handles
-  // names typed as they appear in the list.
   return {};
 }

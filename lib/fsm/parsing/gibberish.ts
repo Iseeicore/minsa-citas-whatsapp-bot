@@ -1,13 +1,3 @@
-// Cheap, free, deterministic check that a typed "district" is not keyboard
-// mashing, run BEFORE spending an AI call on it (Gemini resolves districts the
-// local dataset couldn't; asking it about "asdfghjk" costs money for nothing).
-//
-// The thresholds are set from the real data, not guessed: across every official
-// INEI department / province / district name, the longest run of consonants is
-// 4 ("Secclla"), the lowest vowel share is 0.25 ("Cruz") and no name contains
-// four adjacent keys of a keyboard row. Genuine typos ("Mirafloers", "Sen
-// BorjU") keep all of those properties, so they still reach the AI.
-
 export const UNRECOGNIZED_DISTRITO_TEXT =
   "No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:";
 
@@ -74,9 +64,6 @@ function isImplausibleWord(word: string): boolean {
   );
 }
 
-// True when the text is too short to be a name, or when every real word in it
-// looks like keyboard mashing. A sentence with at least one plausible word
-// ("no sé mi distrito es cerca del parque") is never rejected.
 export function isGibberishPlaceText(text: string): boolean {
   const words = stripAccents(text)
     .split(/[^a-z]+/)

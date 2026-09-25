@@ -5,10 +5,6 @@ import { GOLDEN_OOS_MESSAGES } from "@/tests/support/oos-golden";
 import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
 import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 
-// Every phone number and link the citizen is sent to lives in ONE place
-// (out-of-scope-channels.ts), so checking one with its institution and changing it
-// never means hunting through nine paragraphs. These tests keep it that way.
-
 const channelValues = Object.values(CHANNELS);
 const allTexts = Object.values(OOS_MESSAGES);
 
@@ -40,7 +36,6 @@ describe("the channels file is the single source of every contact", () => {
   });
 
   it("the messages file never writes a channel by hand: it only reads it from CHANNELS", () => {
-    // The interpolations themselves (`${CHANNELS.linea113}`) are the allowed way to mention one.
     const source = fs
       .readFileSync(path.join(process.cwd(), "lib", "fsm", "flows", "out-of-scope", "out-of-scope-messages.ts"), "utf8")
       .replace(/\$\{CHANNELS\.\w+\}/g, "");

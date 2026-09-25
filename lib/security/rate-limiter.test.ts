@@ -25,8 +25,8 @@ describe("burst limit: more than 5 messages in 10 seconds are dropped", () => {
   });
 
   it("the window slides: once the old messages age out, messages are allowed again", () => {
-    const { limiter, advance } = limiterWithClock({ muteMs: 0 }); // the mute has its own tests below
-    for (let i = 0; i < 6; i++) limiter.check("wa-1"); // 6th throttled, all at t=0
+    const { limiter, advance } = limiterWithClock({ muteMs: 0 });
+    for (let i = 0; i < 6; i++) limiter.check("wa-1");
 
     advance(10_001);
 
@@ -38,14 +38,14 @@ describe("burst limit: more than 5 messages in 10 seconds are dropped", () => {
       const { limiter, advance } = limiterWithClock();
       for (let i = 0; i < 5; i++) {
         limiter.check("wa-1");
-        advance(1900); // messages at t = 0, 1.9, 3.8, 5.7, 7.6 s; the clock now reads 9.5 s
+        advance(1900);
       }
       advance(probeAfterMs - 9500);
       return limiter.check("wa-1");
     };
 
-    expect(messagesAt(9500)).toBe("muted"); // still 5 messages inside the last 10 s (the 6th starts the mute)
-    expect(messagesAt(10_200)).toBe("allow"); // the one from t=0 has aged out
+    expect(messagesAt(9500)).toBe("muted");
+    expect(messagesAt(10_200)).toBe("allow");
   });
 
   it("a slow, normal conversation is never limited", () => {
@@ -73,7 +73,7 @@ describe("mute: a burst silences the number for two minutes", () => {
 
     expect(burst(limiter)).toEqual(["allow", "allow", "allow", "allow", "allow", "muted"]);
 
-    advance(10_001); // without the mute this would be allowed again
+    advance(10_001);
     expect(limiter.check("wa-1")).toBe("throttled");
   });
 
@@ -84,7 +84,7 @@ describe("mute: a burst silences the number for two minutes", () => {
     advance(119_000);
     expect(limiter.check("wa-1")).toBe("throttled");
 
-    advance(2_000); // 121 s after the burst
+    advance(2_000);
     expect(limiter.check("wa-1")).toBe("allow");
     expect(limiter.check("wa-1")).toBe("allow");
   });
@@ -106,7 +106,7 @@ describe("mute: a burst silences the number for two minutes", () => {
 
   it("messages sent while muted still count toward the minute, so insisting ends in the one-hour ban", () => {
     const { limiter, advance } = limiterWithClock();
-    burst(limiter); // 6 messages, the last one starts the mute
+    burst(limiter);
 
     const during: string[] = [];
     for (let i = 0; i < 20; i++) {
@@ -114,7 +114,7 @@ describe("mute: a burst silences the number for two minutes", () => {
       during.push(limiter.check("wa-1"));
     }
 
-    expect(during.includes("banned")).toBe(true); // the 21st message inside 60 s
+    expect(during.includes("banned")).toBe(true);
     advance(30 * 60 * 1000);
     expect(limiter.check("wa-1")).toBe("banned");
   });
@@ -172,7 +172,6 @@ describe("mute: a burst silences the number for two minutes", () => {
 });
 
 describe("ban: more than 20 messages in a minute earns a one-hour ban", () => {
-  // 7 s apart never trips the burst rule (2 per 10 s) but trips the minute rule.
   function sendSteadily(limiter: ReturnType<typeof createRateLimiter>, advance: (ms: number) => void, count: number) {
     const verdicts: string[] = [];
     for (let i = 0; i < count; i++) {
@@ -185,7 +184,6 @@ describe("ban: more than 20 messages in a minute earns a one-hour ban", () => {
   it("bans on the 21st message inside 60 s", () => {
     const { limiter, advance } = limiterWithClock();
 
-    // 2.9 s apart: 21 messages span 58 s (and only 4 per 10 s, so no burst drops)
     const verdicts = sendSteadily(limiter, advance, 21);
 
     expect(verdicts.slice(0, 20).every((verdict) => verdict === "allow")).toBe(true);
@@ -221,7 +219,7 @@ describe("ban: more than 20 messages in a minute earns a one-hour ban", () => {
   it("throttled messages still count toward the minute, so a flood ends in a ban", () => {
     const { limiter } = limiterWithClock();
 
-    const verdicts = Array.from({ length: 25 }, () => limiter.check("wa-1")); // all at the same instant
+    const verdicts = Array.from({ length: 25 }, () => limiter.check("wa-1"));
 
     expect(verdicts.slice(0, 5)).toEqual(Array(5).fill("allow"));
     expect(verdicts[5]).toBe("muted");
@@ -249,7 +247,7 @@ describe("memory", () => {
       advance(1000);
     }
 
-    expect(limiter.size()).toBeLessThanOrEqual(100 + 61); // at most the ones still inside a 60 s window plus the cap
+    expect(limiter.size()).toBeLessThanOrEqual(100 + 61);
   });
 
   it("can be switched off", () => {

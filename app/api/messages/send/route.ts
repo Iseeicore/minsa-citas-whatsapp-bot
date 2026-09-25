@@ -13,7 +13,6 @@ const sendMessageSchema = z.object({
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
-  // The inbox is the message history: without a database there is none.
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
   const body = await request.json();
@@ -39,8 +38,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // The 24h customer-service window is based on the last INBOUND message,
-  // not overall conversation activity — this is a WhatsApp business rule.
   const lastInbound = await prisma.message.findFirst({
     where: { conversationId, direction: MessageDirection.INBOUND },
     orderBy: { timestamp: "desc" },
@@ -72,9 +69,6 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         messaging_product: "whatsapp",
-        // This WABA uses Meta's Business-Scoped User ID (BSUID) scheme —
-        // recipients are addressed via `recipient`, not `to` (which is only
-        // for classic phone-number identifiers).
         recipient_type: "individual",
         recipient: conversation.waId,
         type: "text",

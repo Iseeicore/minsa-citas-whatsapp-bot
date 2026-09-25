@@ -36,7 +36,6 @@ describe("masking", () => {
     expect(redactString("see http://h.example/p?token=abc#frag and more")).toBe(
       "see http://h.example/p?[redacted]#frag and more",
     );
-    // A URL without a query and a Spanish question stay as they are.
     expect(redactString("https://api.example.com/v1/path")).toBe("https://api.example.com/v1/path");
     expect(redactString("¿Confirmas el horario? responde sí")).toBe("¿Confirmas el horario? responde sí");
   });
@@ -305,7 +304,6 @@ describe("turn trace", () => {
 describe("daily log folder", () => {
   it("names the folder after the day in Lima, as DD-MM-YYYY", () => {
     expect(dateFolder(new Date("2026-09-19T15:00:00Z"))).toBe("19-09-2026");
-    // 22:00 in Lima is still the 19th, although UTC is already the 20th.
     expect(dateFolder(new Date("2026-09-20T03:00:00Z"))).toBe("19-09-2026");
     expect(dateFolder(new Date("2026-09-20T05:30:00Z"))).toBe("20-09-2026");
   });
