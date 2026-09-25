@@ -1,13 +1,12 @@
 # Compose Specification (Docker Compose v2): no top-level `version:` on purpose.
 #
-# The MINSA server deployment: the bot answers WhatsApp messages and stores
-# nothing (DATABASE_ENABLED=false). It MUST run as a single replica — each
-# citizen's conversation state lives in this one process's memory; a second
-# replica would break conversations mid-flow. Do not add `deploy.replicas` or
-# `docker compose up --scale`.
+# The MINSA server deployment. It MUST run as a single replica — without a
+# database each citizen's conversation state lives in this one process's
+# memory; a second replica would break conversations mid-flow. Do not add
+# `deploy.replicas` or `docker compose up --scale`.
 #
-# Values come from the shell or a git-ignored .env next to this file. Secrets
-# have no default: `${VAR:?}` stops `docker compose up` if one is missing.
+# Every variable in the git-ignored .env next to this file reaches the
+# container (env_file), so the README's variable list is the only reference.
 services:
   minsa-citas-whatsapp-bot:
     build: .
@@ -16,34 +15,22 @@ services:
     restart: unless-stopped
     ports:
       - "${HOST_PORT:-3000}:3000"
+    env_file: .env
     environment:
-      DATABASE_ENABLED: "false"
+      # Pinned: `environment` wins over env_file, so a PORT, NODE_ENV or
+      # HOSTNAME left in a local .env can never move the server off the port
+      # the healthcheck and the mapping expect, or out of production mode.
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
 
-      # WhatsApp Cloud API (required)
+      # The image is built without migrations (npm run build:no-db): false by
+      # default, and "true" only against a DATABASE_URL already migrated.
+      DATABASE_ENABLED: ${DATABASE_ENABLED:-false}
+
+      # No default on purpose: `docker compose up` stops with this message
+      # instead of starting a bot that cannot talk to WhatsApp.
       META_ACCESS_TOKEN: ${META_ACCESS_TOKEN:?set META_ACCESS_TOKEN}
       META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:?set META_PHONE_NUMBER_ID}
       META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:?set META_WEBHOOK_VERIFY_TOKEN}
       META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET}
-      META_GRAPH_API_VERSION: ${META_GRAPH_API_VERSION:-v21.0}
-
-      # Real integrations instead of the built-in fakes ("true" to enable)
-      SANDBOX_USE_REAL_MINSA: ${SANDBOX_USE_REAL_MINSA:-false}
-      SANDBOX_USE_REAL_RENIEC: ${SANDBOX_USE_REAL_RENIEC:-false}
-      SANDBOX_USE_REAL_AI: ${SANDBOX_USE_REAL_AI:-false}
-      MINSA_API_HOST: ${MINSA_API_HOST:-}
-      MINSA_INTEGRATION_SECRET: ${MINSA_INTEGRATION_SECRET:-}
-      MINSA_CONVERSATION_ID_PLACEHOLDER: ${MINSA_CONVERSATION_ID_PLACEHOLDER:-}
-      RENIEC_LOOKUP_BASE_URL: ${RENIEC_LOOKUP_BASE_URL:-}
-      QUEJAS_API_BASE_URL: ${QUEJAS_API_BASE_URL:-}
-      GOOGLE_CLIENT_API: ${GOOGLE_CLIENT_API:-}
-      GOOGLE_AI_MODEL: ${GOOGLE_AI_MODEL:-}
-
-      # Browser sandbox widget (off unless explicitly enabled)
-      SANDBOX_ENABLED: ${SANDBOX_ENABLED:-false}
-      SANDBOX_ALLOWED_ORIGINS: ${SANDBOX_ALLOWED_ORIGINS:-}
-
-      # Operations
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_TO_FILE: ${LOG_TO_FILE:-false}
-      INBOUND_RATE_LIMIT: ${INBOUND_RATE_LIMIT:-}
-      TURN_PROCESS_LOCK_TIMEOUT_MS: ${TURN_PROCESS_LOCK_TIMEOUT_MS:-}
