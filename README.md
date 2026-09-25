@@ -18,7 +18,7 @@ Un solo comando construye la imagen, levanta el contenedor y **espera hasta que 
 npm run docker:up
 ```
 
-1. Crea un `.env` (ignorado por git) junto a `docker-compose.yml` con, como mínimo, las cuatro credenciales de Meta: `META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`, `META_WEBHOOK_VERIFY_TOKEN` y `META_APP_SECRET`.
+1. Copia `.env.example` a `.env` (ignorado por git) junto a `docker-compose.yml` y completa, como mínimo, el bloque **`##### Mínimo`**: las credenciales de Meta y del MINSA que necesitan el canal de WhatsApp y las citas (ver [Variables de entorno](#variables-de-entorno)).
 2. Ejecuta `npm run docker:up`. Si falta una credencial obligatoria, Docker Compose se detiene con un mensaje que la nombra, en lugar de arrancar un bot roto.
 3. Verifica que responde:
 
@@ -40,6 +40,21 @@ Detalles de la imagen:
 - **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos.
 - **Puerto:** 3000 dentro del contenedor; `HOST_PORT` cambia el puerto publicado en el servidor (por defecto 3000).
 - **Webhook de Meta:** configura la URL de callback como `https://<servidor>/webhook/whatsapp`. El HTTPS lo termina el proxy inverso del servidor, no el contenedor.
+
+### Conectar un frontend externo (widget del Sandbox)
+
+Para que otro sitio, por ejemplo el portal de MINSA Digital, converse con el bot a través de `POST /api/sandbox`, agrega al `.env`:
+
+```bash
+SANDBOX_ENABLED=true
+SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
+```
+
+- **Sin `SANDBOX_ENABLED=true`** la ruta responde 404, aunque el origen esté permitido.
+- **Cada entrada se reduce a su origen** (esquema + dominio + puerto): `https://dminsadigital.minsa.gob.pe/` también funciona. Varias entradas se separan con comas.
+- **Una entrada que no es una URL** (un dominio sin `https://`, un `*`) se ignora y se registra una sola vez en el log `sandbox.cors_invalid_origin`. Nunca se acepta un comodín.
+
+> **CORS no es autenticación.** Solo le dice al navegador qué sitios pueden leer las respuestas; quien llame a la API directamente (con `curl`, por ejemplo) no está limitado. Con `SANDBOX_USE_REAL_MINSA=true`, `/api/sandbox` consulta al MINSA real y puede agendar citas reales.
 
 > **Una sola instancia.** En este modo el estado de cada conversación vive en la memoria del proceso. Una segunda réplica no vería esas sesiones y rompería los flujos a la mitad, y un reinicio hace que quien estaba en medio de un trámite empiece de nuevo. Ver [Modos de persistencia](#modos-de-persistencia).
 
@@ -82,8 +97,16 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 
 ## Variables de entorno
 
-`.env.example` es solo la lista de variables, sin comentarios: **esta sección es su documentación.** Cópialo a `.env` y completa los valores.
+`.env.example` es solo la lista de variables, sin comentarios: **esta sección es su documentación.** Cópialo a `.env` y completa los valores. Está dividido en dos bloques:
 
+| Bloque | Qué contiene | Cuándo basta |
+|---|---|---|
+| `##### Mínimo: canal de WhatsApp y citas` | Las 5 variables de Meta y las 4 del MINSA | Bot en Docker (servidor MINSA) que solo atiende citas por WhatsApp |
+| `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC y quejas), Gemini, Sandbox, logs, perímetro, candado y Docker | Todo lo demás: Vercel con base de datos, el flujo de reclamo, el widget en otro frontend |
+
+La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
+
+- **Sin el bloque completo, el reclamo no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL`, `SANDBOX_USE_REAL_RENIEC=true` y `QUEJAS_API_BASE_URL` solo acepta el DNI de prueba y el envío falla.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
@@ -132,7 +155,7 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 | Variable | Uso |
 |---|---|
 | `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
-| `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend |
+| `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-widget-del-sandbox) |
 
 **Logs** (ver [docs/observability.md](docs/observability.md))
 
