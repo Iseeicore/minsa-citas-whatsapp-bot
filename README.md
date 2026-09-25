@@ -18,16 +18,18 @@ app/                         Next.js routes (kept thin): inbox UI, /api/*, /webh
   components/                inbox and Sandbox UI; Sandbox.tsx is the chat container
     sandbox-chat/            its presentational pieces (header, composer, bubbles, DNI card, debug panel) and helpers
 lib/
-  db/                        Prisma client
+  db/                        Prisma client (lazy) and the DATABASE_ENABLED flag
   whatsapp/                  outbound messages and media download (Meta Cloud API)
-    webhook/                 inbound pipeline: payload mapping, store + turn lock, answering the citizen
+    webhook/                 inbound pipeline: payload mapping, store + turn lock, answering the citizen,
+                             in-memory redelivery check (no-database mode)
   integrations/              HTTP clients for external services: RENIEC, quejas
     minsa/                   MINSA client split by endpoint: identity, catalog, booking (+ wire, format, fakes)
   observability/             structured logger, tracer, PII masking, file sink
   security/                  webhook perimeter: payload filter, rate limiter, lexical guard
   fsm/                       the conversation state machine
     core/                    engine: session types, executor, the turn dispatcher (handle)
-    session/                 session persistence, expiry guard and re-verification, per-citizen turn lock
+    session/                 session persistence (database or in-memory), expiry guard and re-verification,
+                             per-citizen turn lock
     routing/                 first contact, welcome, main menu, lexical-guard routing, entry into a flow
     parsing/                 reading citizen input: dates, times, selections, text
       ai/                    Gemini-assisted parsing, one module per task (distrito, menu intent, fecha, hints);
@@ -39,7 +41,7 @@ lib/
       reclamo/               complaint flow
       emergency/             emergency cut
       out-of-scope/          out-of-scope detection and the official channels it points to
-tests/                       cross-module suites: security/, stress/, smoke/ (real Neon), support/
+tests/                       cross-module suites: security/, stress/, integration/, smoke/ (real Neon), support/
 data/                        static datasets (Peru districts)
 prisma/                      schema and migrations
 scripts/  docs/              tooling and project documentation
@@ -97,7 +99,21 @@ See `.env.example`:
 - `META_WEBHOOK_VERIFY_TOKEN` — shared secret for the webhook verification handshake
 - `META_APP_SECRET` — used to validate the `X-Hub-Signature-256` header on incoming webhooks
 - `META_GRAPH_API_VERSION` — Graph API version to call (e.g. `v21.0`)
-- `DATABASE_URL` — Neon Postgres connection string
+- `DATABASE_URL` — Neon Postgres connection string (not needed with `DATABASE_ENABLED=false`)
+- `DATABASE_ENABLED` — set to exactly `false` to run without a database (see below). Unset or any other value keeps the database.
+
+## Running without a database (`DATABASE_ENABLED=false`)
+
+For deployments that only need the bot to answer (message reactivity) and must not store anything:
+
+- Prisma is never constructed and no connection is opened; `DATABASE_URL` can be absent.
+- Each citizen's conversation state lives in the process's memory and is evicted after an hour idle (six times the 10-minute session idle timeout, so the "your session expired" answer still works).
+- Meta's redeliveries of the same message are skipped by an in-memory list of message ids kept for a day.
+- Nothing is recorded: no `Conversation`/`Message` rows, no delivery statuses. The web inbox (`/api/conversations*`, `/api/messages/send`) answers `503 {"error":"persistence disabled"}`.
+- The per-citizen turn lock runs in memory even if `DATABASE_URL` is set.
+- Build with `npm run build:no-db` (no `prisma migrate deploy`).
+
+**Run exactly ONE instance in this mode.** State is per process: a second replica would not see the sessions the first one holds and would break conversations mid-flow, and a restart makes every in-progress citizen start over. Scaling out needs a shared store (for example Redis with TTLs) behind `lib/fsm/session/session-store.ts` and `lib/whatsapp/webhook/inbound-dedupe.ts`.
 
 ## Notes
 
