@@ -1,5 +1,5 @@
 import distritos from "@/data/peru-distritos.json";
-import { normalizeText } from "@/lib/fsm/parsing/domain";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 import type { DistritoAiCandidate } from "@/lib/fsm/parsing/ai";
 
 // Vendored from jmcastagnetto/ubigeo-peru-aumentado (MIT), trimmed to just

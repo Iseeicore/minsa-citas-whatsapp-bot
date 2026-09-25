@@ -1,5 +1,5 @@
 import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
-import { normalizeText } from "@/lib/fsm/parsing/domain";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 
 // Deterministic shortcuts for the main menu: they answer without any AI call
 // and without storing the message as the citizen's "opening message".

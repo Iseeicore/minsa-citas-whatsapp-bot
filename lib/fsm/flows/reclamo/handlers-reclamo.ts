@@ -1,4 +1,5 @@
-import { isValidDniFormat, namesMatch } from "@/lib/fsm/parsing/domain";
+import { isValidDniFormat } from "@/lib/fsm/parsing/identity-format";
+import { namesMatch } from "@/lib/fsm/parsing/text";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 

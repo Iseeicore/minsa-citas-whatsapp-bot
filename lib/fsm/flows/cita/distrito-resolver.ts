@@ -1,4 +1,4 @@
-import { normalizeText } from "@/lib/fsm/parsing/domain";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/gibberish";
 import {
   buildResult,

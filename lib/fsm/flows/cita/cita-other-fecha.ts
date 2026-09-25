@@ -1,5 +1,5 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
-import { normalizeText } from "@/lib/fsm/parsing/domain";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 import { buildResult, cloneSession, query, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import { OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";

@@ -1,4 +1,4 @@
-import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/domain";
+import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
 import { searchDistrito } from "./ubigeo-data";
 
 // Deterministic (no AI) reading of what a citizen already said about the cita

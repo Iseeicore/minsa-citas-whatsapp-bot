@@ -1,5 +1,5 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
-import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/domain";
+import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
 import { looksLikePlaceName, resolveDistritoText } from "./distrito-resolver";
 import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import { DISCARDED_DATES_SLOT } from "./cita-other-fecha";

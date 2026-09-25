@@ -2,7 +2,8 @@ import { mentionsPlacePreposition } from "./cita-hints";
 import { handleOtherDistrito, offerOtherDistrito, OTHER_DISTRITO_STATE } from "./cita-no-coverage";
 import { closeWithApology, discardedDates, handleOtherFecha, offerOtherFecha, OTHER_FECHA_STATE } from "./cita-other-fecha";
 import { isSlotAcceptance, resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
-import { isValidDniFormat, isValidOtpFormat, normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/domain";
+import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
+import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
 import {
   looksLikePlaceName,
   resolveDistritoCandidates,

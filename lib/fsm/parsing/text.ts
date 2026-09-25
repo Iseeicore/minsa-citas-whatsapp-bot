@@ -1,11 +1,3 @@
-export function isValidDniFormat(value: string): boolean {
-  return /^\d{8}$/.test(value.trim());
-}
-
-export function isValidOtpFormat(value: string): boolean {
-  return /^\d{4,8}$/.test(value.trim());
-}
-
 // NFD-decompose + strip diacritics (the combining marks left behind by NFD)
 // + uppercase — shared normalization used anywhere free-typed Spanish text
 // needs to be compared against an official name (RENIEC full names here,

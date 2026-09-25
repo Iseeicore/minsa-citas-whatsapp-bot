@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeText } from "@/lib/fsm/parsing/domain";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 import { handleFirstContact } from "./first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";

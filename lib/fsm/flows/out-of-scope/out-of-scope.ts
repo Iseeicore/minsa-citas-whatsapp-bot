@@ -1,4 +1,4 @@
-import { normalizeText } from "@/lib/fsm/parsing/domain";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 import type { OosCategory } from "./out-of-scope-messages";
 
 export { OOS_MESSAGES, type OosCategory } from "./out-of-scope-messages";

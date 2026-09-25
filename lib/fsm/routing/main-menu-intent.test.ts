@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
 import { configureLogger } from "@/lib/observability/logger";
-import { normalizeText } from "@/lib/fsm/parsing/domain";
+import { normalizeText } from "@/lib/fsm/parsing/text";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { detectCitaRequest, isContinueReply } from "./menu-shortcuts";

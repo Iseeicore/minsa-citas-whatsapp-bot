@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidDniFormat, isValidOtpFormat, namesMatch, normalizeText } from "./domain";
+import { isValidDniFormat, isValidOtpFormat } from "./identity-format";
 
 describe("isValidDniFormat", () => {
   it("accepts exactly 8 digits (trimmed)", () => {
@@ -24,22 +24,5 @@ describe("isValidOtpFormat", () => {
     expect(isValidOtpFormat("123")).toBe(false);
     expect(isValidOtpFormat("123456789")).toBe(false);
     expect(isValidOtpFormat("12a4")).toBe(false);
-  });
-});
-
-describe("normalizeText", () => {
-  it("strips accents, uppercases and collapses whitespace", () => {
-    expect(normalizeText("  Ñandú   Pérez ")).toBe("NANDU PEREZ");
-  });
-});
-
-describe("namesMatch", () => {
-  it("matches regardless of order, accents and case", () => {
-    expect(namesMatch("juan quispe", "JUAN CARLOS QUISPE PEREZ")).toBe(true);
-    expect(namesMatch("Pérez Quispe", "JUAN CARLOS QUISPE PEREZ")).toBe(true);
-  });
-
-  it("rejects a name with a token the official name lacks", () => {
-    expect(namesMatch("Pedro Quispe", "JUAN CARLOS QUISPE PEREZ")).toBe(false);
   });
 });
