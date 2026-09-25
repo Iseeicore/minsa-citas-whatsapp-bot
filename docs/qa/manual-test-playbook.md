@@ -263,7 +263,7 @@ acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_RECLAMO`
 (`cita_awaiting_hora_confirm`).** Este estado no está en `FREE_TEXT_STATE_PROMPTS`
 ni en `SELECTION_STATES` (`lib/fsm/routing/lexical-guard-routing.ts:26-43`): el guard nunca corre
 aquí. Si el texto ruidoso igual matchea la hora pendiente
-(`acceptsPendingHora`, `lib/fsm/flows/cita/steps/hora.ts:344-351`), la cita se
+(`acceptsPendingHora`, `lib/fsm/flows/cita/steps/hora/confirm.ts:17-24`), la cita se
 confirma **sin ninguna advertencia**. Llega hasta aquí con
 `reachHorarioList` + `"8"` (deja `citaHoraConfirmId` en `08:00|...`).
 

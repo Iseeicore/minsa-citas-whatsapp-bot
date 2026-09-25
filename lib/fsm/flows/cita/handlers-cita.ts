@@ -26,13 +26,10 @@ import {
   handleSelectionHintsPending,
 } from "@/lib/fsm/flows/cita/steps/catalog";
 import { handleFechaPending, handleAwaitingFechaSelect, handleFechaAiPending } from "@/lib/fsm/flows/cita/steps/fecha";
-import {
-  handleHoraPending,
-  handleHoraPagePending,
-  handleAwaitingHoraSelect,
-  handleHoraConfirm,
-  handleHoraChoice,
-} from "@/lib/fsm/flows/cita/steps/hora";
+import { handleHoraPending, handleHoraPagePending } from "@/lib/fsm/flows/cita/steps/hora/list";
+import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select";
+import { handleHoraConfirm } from "@/lib/fsm/flows/cita/steps/hora/confirm";
+import { handleHoraChoice } from "@/lib/fsm/flows/cita/steps/hora/choice";
 import { handleBookingPending } from "@/lib/fsm/flows/cita/steps/booking";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {

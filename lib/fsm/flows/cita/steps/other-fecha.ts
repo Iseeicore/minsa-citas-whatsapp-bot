@@ -31,7 +31,7 @@ const NO_OTHER_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fe
 
 const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
 // Same wording the citizen already sees when list_horas comes back empty
-// (resolveHoraCandidates in steps/hora.ts) — kept identical on purpose so
+// (resolveHoraCandidates in steps/hora/list.ts) — kept identical on purpose so
 // the two callers of offerOtherFecha read as one consistent message, not two.
 const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
 // Own clean wording, never MINSA's raw "Error al generar la cita en el
