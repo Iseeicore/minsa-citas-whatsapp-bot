@@ -78,51 +78,79 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
 
-Escalar el modo sin base de datos a varias instancias requiere un almacén compartido (por ejemplo, Redis con expiración) detrás de `lib/fsm/session/session-store.ts` y `lib/whatsapp/webhook/inbound-dedupe.ts`.
+Escalar el modo sin base de datos a varias instancias requiere un almacén compartido externo, con expiración, detrás de `lib/fsm/session/session-store.ts` y `lib/whatsapp/webhook/inbound-dedupe.ts`. Hoy el proyecto no usa ninguno.
 
 ## Variables de entorno
 
-La plantilla está en `.env.example`.
+`.env.example` es solo la lista de variables, sin comentarios: **esta sección es su documentación.** Cópialo a `.env` y completa los valores.
+
+- **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
+- **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
+- **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
+- `tests/integration/env-example.test.ts` falla si `.env.example` lista una variable que el código no lee, si le falta una que sí lee, o si alguna no está documentada aquí.
 
 **WhatsApp Cloud API (obligatorias)**
 
 | Variable | Uso |
 |---|---|
-| `META_ACCESS_TOKEN` | Token de acceso de WhatsApp Cloud API |
-| `META_PHONE_NUMBER_ID` | ID del número que envía los mensajes |
-| `META_WEBHOOK_VERIFY_TOKEN` | Secreto compartido para la verificación del webhook |
-| `META_APP_SECRET` | Valida la cabecera `X-Hub-Signature-256` de los webhooks entrantes |
-| `META_GRAPH_API_VERSION` | Versión de Graph API (por ejemplo, `v21.0`) |
+| `META_APP_SECRET` | Secreto de la app: valida la firma HMAC (`X-Hub-Signature-256`) de cada webhook |
+| `META_WEBHOOK_VERIFY_TOKEN` | Token que eliges tú; Meta lo envía en el `GET` de verificación del webhook |
+| `META_ACCESS_TOKEN` | Token de acceso: envía mensajes y descarga las fotos del Libro de Reclamaciones |
+| `META_PHONE_NUMBER_ID` | ID del número de WhatsApp desde el que responde el bot |
+| `META_GRAPH_API_VERSION` | Versión de Graph API, sin espacios (por defecto `v21.0`) |
 
 **Persistencia**
 
 | Variable | Uso |
 |---|---|
-| `DATABASE_ENABLED` | `false` = sin base de datos. Vacía = con base de datos |
-| `DATABASE_URL` | Cadena de conexión de Neon. No hace falta con `DATABASE_ENABLED=false` |
-| `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto 3000) |
+| `DATABASE_ENABLED` | `false` = sin base de datos (servidor MINSA). Vacía = con base de datos (Vercel). Ver [Modos de persistencia](#modos-de-persistencia) |
+| `DATABASE_URL` | Cadena del pooler de Neon. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy`. No hace falta con `DATABASE_ENABLED=false` |
+| `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
 
-**Integraciones** (sin ellas, el bot usa datos de prueba fijos)
-
-| Variable | Uso |
-|---|---|
-| `SANDBOX_USE_REAL_MINSA` | `true` llama a las APIs reales del MINSA (identidad, catálogo, reserva) y de quejas |
-| `SANDBOX_USE_REAL_RENIEC` | `true` usa la consulta real a RENIEC del flujo de reclamo |
-| `SANDBOX_USE_REAL_AI` | `true` usa Gemini para interpretar texto libre |
-| `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_CONVERSATION_ID_PLACEHOLDER` | Solo con `SANDBOX_USE_REAL_MINSA=true` |
-| `RENIEC_LOOKUP_BASE_URL` | Solo con `SANDBOX_USE_REAL_RENIEC=true` |
-| `QUEJAS_API_BASE_URL` | URL base de la API de quejas |
-| `GOOGLE_CLIENT_API`, `GOOGLE_AI_MODEL` | API key y modelo de Gemini. La key viaja en la cabecera `x-goog-api-key`, nunca en la URL |
-
-**Sandbox y operación**
+**MINSA, RENIEC y quejas** (en `false`, el bot usa datos de prueba fijos)
 
 | Variable | Uso |
 |---|---|
-| `SANDBOX_ENABLED` | `true` habilita `/api/sandbox` (responde 404 si no) |
-| `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS) para el widget del Sandbox en otro frontend |
-| `LOG_LEVEL`, `LOG_TO_FILE`, `LOG_DIR` | Nivel de log y escritura opcional en archivos diarios (ver [docs/observability.md](docs/observability.md)) |
-| `INBOUND_RATE_LIMIT` | Límite de mensajes entrantes por ciudadano |
-| `TURN_PROCESS_LOCK_TIMEOUT_MS`, `TURN_LOCK_TIMEOUT_MS`, `TURN_LOCK_MAX_CONCURRENCY`, `TURN_DB_LOCK` | Ajustes del candado de turno |
+| `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento) y API de quejas real. **La lee también el webhook real, no solo el Sandbox** |
+| `MINSA_API_HOST` | Host de la API del MINSA |
+| `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (DNI y OTP) |
+| `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
+| `QUEJAS_API_BASE_URL` | API que recibe los reclamos; se usa con `SANDBOX_USE_REAL_MINSA=true` |
+| `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
+| `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
+
+**IA (Gemini)**
+
+| Variable | Uso |
+|---|---|
+| `SANDBOX_USE_REAL_AI` | `true`: Gemini real (intención del mensaje libre, distrito, fecha y pistas). `false`: diccionario de prueba, sin costo |
+| `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL. Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`) |
+| `GOOGLE_AI_MODEL` | Modelo de Gemini (por defecto `gemini-3.6-flash`). Un nombre que no existe da HTTP 404 |
+
+**Sandbox**
+
+| Variable | Uso |
+|---|---|
+| `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
+| `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend |
+
+**Logs** (ver [docs/observability.md](docs/observability.md))
+
+| Variable | Uso |
+|---|---|
+| `LOG_LEVEL` | Nivel mínimo: `info` (por defecto), `warn`, `error` o `silent` |
+| `LOG_TO_FILE` | `true` escribe también en `logs/DD-MM-AAAA/app.ndjson` y `alerts.ndjson`. Solo local: en Vercel el disco es de solo lectura y los logs van a Vercel Logs. En Docker los archivos quedan dentro del contenedor y se pierden al recrearlo, así que usa `npm run docker:logs` |
+| `LOG_DIR` | Carpeta de los logs en archivo (por defecto `logs`) |
+
+**Perímetro y candado de turno** (opcionales: define alguna solo para cambiar su valor por defecto)
+
+| Variable | Uso |
+|---|---|
+| `INBOUND_RATE_LIMIT` | `off` desactiva el límite de mensajes entrantes (más de 20 en 60 s bloquea al número por 1 hora); solo para depurar en local |
+| `TURN_PROCESS_LOCK_TIMEOUT_MS` | Espera máxima en la cola en memoria del proceso (por defecto `30000`) |
+| `TURN_LOCK_TIMEOUT_MS` | `lock_timeout` del candado en Postgres (por defecto `10000`) |
+| `TURN_LOCK_MAX_CONCURRENCY` | Turnos con candado de Postgres a la vez por instancia (por defecto `4`) |
+| `TURN_DB_LOCK` | `off` desactiva el candado de Postgres y deja solo el de memoria |
 
 ## Estructura del proyecto
 
