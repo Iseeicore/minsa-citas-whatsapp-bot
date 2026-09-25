@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { handle } from "@/lib/fsm/handlers";
-import { isQueryEffect } from "@/lib/fsm/handlers-shared";
-import { serializeOffered, type OfferedList } from "@/lib/fsm/selection-matchers";
-import { packHoraSlots } from "@/lib/fsm/time-parser";
-import type { HandlerResult, Session } from "@/lib/fsm/types";
+import { handle } from "@/lib/fsm/core/handlers";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection-matchers";
+import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
+import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { createRandom, pick } from "../support/prng";
 
 // Robustness of every selection step under hostile input, with NO network:
@@ -192,7 +192,7 @@ describe("Step 5 robustness: hostile typed text in every selection step", () => 
 
   // Regression: random letters used to be re-run through the district chain,
   // which ends in a paid Gemini call. Keyboard mashing is now rejected first
-  // (lib/fsm/gibberish.ts); a genuine typo still reaches the AI.
+  // (lib/fsm/parsing/gibberish.ts); a genuine typo still reaches the AI.
   it("keyboard mashing in the district disambiguation list does not spend an AI call", () => {
     expect(aiCalls(STEPS[5], "asdf")).toHaveLength(0);
     expect(aiCalls(STEPS[5], "qwertyuiop")).toHaveLength(0);

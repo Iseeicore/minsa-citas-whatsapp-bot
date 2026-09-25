@@ -12,16 +12,16 @@ const mocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("@/lib/fsm/session-store", () => ({
+vi.mock("@/lib/fsm/session/session-store", () => ({
   sessionRowExists: mocks.sessionRowExists,
   resetSession: mocks.resetSession,
   saveSession: mocks.saveSession,
   resetAllSandboxTestSessions: mocks.resetAll,
 }));
-vi.mock("@/lib/fsm/executor", () => ({ runTurn: mocks.runTurn }));
+vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { POST } from "@/app/api/sandbox/route";
-import { TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 
 async function send(body: Record<string, unknown>) {

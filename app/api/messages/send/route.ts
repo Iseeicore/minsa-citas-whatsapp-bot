@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 
 const sendMessageSchema = z.object({

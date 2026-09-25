@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/prisma";
 import { MessageDirection } from "@prisma/client";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;

@@ -34,31 +34,31 @@ vi.mock("next/server", async (importOriginal) => {
     },
   };
 });
-vi.mock("@/lib/prisma", () => ({
+vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     conversation: { upsert: mocks.conversationUpsert },
     message: { create: mocks.messageCreate, updateMany: mocks.messageUpdateMany },
     sandboxSession: { findUnique: mocks.sessionFindUnique },
   },
 }));
-vi.mock("@/lib/whatsapp-send", () => ({
+vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
   sendWhatsAppEffect: mocks.sendWhatsAppEffect,
   sendAndRecordEffect: mocks.sendAndRecordEffect,
   sendAndRecordCtaUrl: mocks.sendAndRecordCtaUrl,
   sendTypingIndicator: mocks.sendTypingIndicator,
 }));
-vi.mock("@/lib/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: mocks.downloadMedia }));
-vi.mock("@/lib/fsm/session-store", () => ({ sessionRowExists: mocks.sessionRowExists, saveSession: mocks.saveSession }));
-vi.mock("@/lib/fsm/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked }));
+vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: mocks.downloadMedia }));
+vi.mock("@/lib/fsm/session/session-store", () => ({ sessionRowExists: mocks.sessionRowExists, saveSession: mocks.saveSession }));
+vi.mock("@/lib/fsm/core/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked }));
 // Only the lock itself is replaced; its timeout error and busy text stay real.
-vi.mock("@/lib/fsm/turn-lock", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/fsm/turn-lock")>()),
+vi.mock("@/lib/fsm/session/turn-lock", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fsm/session/turn-lock")>()),
   withTurnLock: mocks.withTurnLock,
 }));
 
 import { POST } from "@/app/webhook/whatsapp/route";
-import { OOS_MESSAGES } from "@/lib/fsm/out-of-scope-messages";
-import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
+import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
 import { configureLogger } from "@/lib/observability/logger";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";

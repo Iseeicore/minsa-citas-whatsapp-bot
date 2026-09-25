@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Session } from "@/lib/fsm/types";
+import type { Session } from "@/lib/fsm/core/types";
 
 // The real session store is Postgres over the network. Here it is an in-memory
 // map with latency that ALSO measures overlap: a turn is one getSession followed
@@ -14,7 +14,7 @@ const db = vi.hoisted(() => ({
   maxMs: 20,
 }));
 
-vi.mock("@/lib/fsm/session-store", () => {
+vi.mock("@/lib/fsm/session/session-store", () => {
   const wait = () =>
     new Promise<void>((resolve) => setTimeout(resolve, db.minMs + Math.random() * (db.maxMs - db.minMs)));
 
@@ -35,9 +35,9 @@ vi.mock("@/lib/fsm/session-store", () => {
   };
 });
 
-import { createRunTurn, runTurn, runTurnUnlocked } from "@/lib/fsm/executor";
-import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
-import { createPrismaAdvisoryLock, type AdvisoryLockClient } from "@/lib/fsm/turn-lock-db";
+import { createRunTurn, runTurn, runTurnUnlocked } from "@/lib/fsm/core/executor";
+import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createPrismaAdvisoryLock, type AdvisoryLockClient } from "@/lib/fsm/session/turn-lock-db";
 
 const text = (waId: string, value: string) => ({ from: waId, type: "text" as const, text: value });
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

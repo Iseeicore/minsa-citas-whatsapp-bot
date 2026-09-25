@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
-import { runTurnUnlocked } from "@/lib/fsm/executor";
-import { failureNoticeThrottle } from "@/lib/fsm/failure-notice";
-import { TURN_FAILURE_TEXT, TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
+import { runTurnUnlocked } from "@/lib/fsm/core/executor";
+import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
+import { TURN_FAILURE_TEXT, TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
-import { routeLexicalAction } from "@/lib/fsm/handlers";
-import { isQueryEffect, withNote } from "@/lib/fsm/handlers-shared";
+import { routeLexicalAction } from "@/lib/fsm/core/handlers";
+import { isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
 import { traceTurn } from "@/lib/observability/tracer";
-import { saveSession, sessionRowExists } from "@/lib/fsm/session-store";
+import { saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import { screenInbound } from "@/lib/security/perimeter";
 import { inboundRateLimiter } from "@/lib/security/rate-limiter";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
-import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp-send";
-import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp-media";
-import { handleFirstContact } from "@/lib/fsm/first-contact";
-import { isEmergency } from "@/lib/fsm/out-of-scope";
-import type { InboundEvent, SendEffect } from "@/lib/fsm/types";
+import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp/whatsapp-send";
+import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
+import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import type { InboundEvent, SendEffect } from "@/lib/fsm/core/types";
 
 // Gives the real "escribiendo…" indicator a moment to actually show before
 // each message lands, instead of the bot's replies arriving all at once.
@@ -260,7 +260,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
 
 // Everything a citizen's message triggers — the first-contact check, the FSM
 // turn AND the outbound sends — runs under that citizen's turn lock (see
-// lib/fsm/turn-lock.ts), so two messages sent in quick succession are answered
+// lib/fsm/session/turn-lock.ts), so two messages sent in quick succession are answered
 // one after the other, in order, and never read a stale session. Called from
 // inside withTurnLock, hence runTurnUnlocked (runTurn would wait on its own lock).
 async function answerMessage(message: WhatsAppMessage, conversationId: string): Promise<void> {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { SendEffect } from "@/lib/fsm/types";
+import type { SendEffect } from "@/lib/fsm/core/types";
 
 type SessionSnapshot = {
   state: string;

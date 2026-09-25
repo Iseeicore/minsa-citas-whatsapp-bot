@@ -50,4 +50,5 @@ next-env.d.ts
 
 # tooling caches
 .atl/
+.claude/
 .codegraph/

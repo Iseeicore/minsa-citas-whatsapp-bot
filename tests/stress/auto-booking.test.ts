@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { handle } from "@/lib/fsm/handlers";
-import { isQueryEffect } from "@/lib/fsm/handlers-shared";
-import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/types";
+import { handle } from "@/lib/fsm/core/handlers";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 
 // Booking is the one step that cannot be quietly undone, so a lone horario is
 // never booked on its own: typed times are confirmed, a list tap is an explicit
 // choice, and an auto-selected single option goes to the confirmation step too
 // ("Solo hay un horario disponible: … ¿Lo confirmas?"). Closes gap G1 of
 // docs/technical-gaps.md. The step's own behavior (typed yes, "esa hora", "no")
-// is covered in lib/fsm/single-horario.test.ts.
+// is covered in lib/fsm/flows/cita/single-horario.test.ts.
 
 const FROM = "sandbox-auto-booking";
 

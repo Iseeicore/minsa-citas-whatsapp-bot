@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { handle } from "@/lib/fsm/handlers";
-import { isQueryEffect } from "@/lib/fsm/handlers-shared";
-import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/types";
+import { handle } from "@/lib/fsm/core/handlers";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-slots";
 const MESSAGE = "Apúrense cojudos quiero cita de odontología en San Borja";

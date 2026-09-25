@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/turn-lock";
-import { createPrismaAdvisoryLock } from "@/lib/fsm/turn-lock-db";
-import { prisma } from "@/lib/prisma";
+import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
+import { prisma } from "@/lib/db/prisma";
 
 // SMOKE TEST against the REAL Neon database (WebSocket pool, the same client the
 // app uses). Run it with `npm run smoke:neon`; it is NOT part of `npm test`.
