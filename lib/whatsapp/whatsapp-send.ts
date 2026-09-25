@@ -1,9 +1,10 @@
+import { graphApiVersion } from "@/lib/whatsapp/graph-api";
 import { prisma } from "@/lib/db/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import type { SendEffect } from "@/lib/fsm/core/types";
 
 function graphApiUrl(): string {
-  const version = process.env.META_GRAPH_API_VERSION ?? "v21.0";
+  const version = graphApiVersion();
   return `https://graph.facebook.com/${version}/${process.env.META_PHONE_NUMBER_ID}/messages`;
 }
 

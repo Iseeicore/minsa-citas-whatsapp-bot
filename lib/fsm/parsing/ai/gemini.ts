@@ -31,7 +31,7 @@ export type GeminiJsonOutcome =
   | { ok: false; failure: "invalid_json" };
 
 export async function requestGeminiJson(request: GeminiJsonRequest): Promise<GeminiJsonOutcome> {
-  const model = process.env.GOOGLE_AI_MODEL ?? DEFAULT_MODEL;
+  const model = process.env.GOOGLE_AI_MODEL || DEFAULT_MODEL;
   // The key goes in a header, never in the URL: a URL ends up in error messages,
   // traces and log lines, a header does not.
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;

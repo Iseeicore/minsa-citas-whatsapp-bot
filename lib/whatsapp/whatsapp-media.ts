@@ -16,7 +16,7 @@ type MetaMediaInfo = {
 };
 
 export async function downloadWhatsAppMediaAsDataUri(mediaId: string): Promise<string | null> {
-  const version = process.env.META_GRAPH_API_VERSION ?? "v21.0";
+  const version = graphApiVersion();
   const bearer = `Bearer ${process.env.META_ACCESS_TOKEN}`;
 
   try {
@@ -38,4 +38,5 @@ export async function downloadWhatsAppMediaAsDataUri(mediaId: string): Promise<s
     console.error("downloadWhatsAppMediaAsDataUri: failed", err);
     return null;
   }
-}
+}import { graphApiVersion } from "@/lib/whatsapp/graph-api";
+

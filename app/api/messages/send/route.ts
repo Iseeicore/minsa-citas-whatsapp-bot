@@ -1,3 +1,4 @@
+import { graphApiVersion } from "@/lib/whatsapp/graph-api";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
@@ -59,10 +60,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const graphApiVersion = process.env.META_GRAPH_API_VERSION ?? "v21.0";
+  const version = graphApiVersion();
 
   const graphResponse = await fetch(
-    `https://graph.facebook.com/${graphApiVersion}/${process.env.META_PHONE_NUMBER_ID}/messages`,
+    `https://graph.facebook.com/${version}/${process.env.META_PHONE_NUMBER_ID}/messages`,
     {
       method: "POST",
       headers: {

@@ -61,6 +61,15 @@ describe("requestGeminiJson", () => {
     expect(url).toContain("/models/gemini-3.6-flash:generateContent");
   });
 
+  it("falls back to the default model when GOOGLE_AI_MODEL is set but empty", async () => {
+    vi.stubEnv("GOOGLE_AI_MODEL", "");
+
+    await requestGeminiJson(REQUEST);
+
+    const [url] = fetchSpy.mock.calls[0] as [string];
+    expect(url).toContain("/models/gemini-3.6-flash:generateContent");
+  });
+
   it("returns the parsed JSON the model wrote in its first text part", async () => {
     await expect(requestGeminiJson(REQUEST)).resolves.toEqual({ ok: true, json: { answer: 42 } });
   });
