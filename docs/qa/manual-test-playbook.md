@@ -223,7 +223,7 @@ Debug.
 
 **2.5.2 — Hostilidad + distrito abreviado (SJL/VMT/SJM), primer mensaje.**
 El resolvedor de distritos solo hace match exacto o por prefijo contra el
-nombre oficial completo (`lib/fsm/ubigeo-data.ts`) — no existe una tabla de
+nombre oficial completo (`lib/fsm/flows/cita/ubigeo-data.ts`) — no existe una tabla de
 abreviaturas en todo el repo. Se espera que la advertencia SÍ aparezca (el
 insulto y la palabra "cita" sí se reconocen), pero que el hint de distrito
 **no** se guarde.
@@ -251,7 +251,7 @@ porque exige la misma primera letra). Se espera que pasen como texto normal,
 mensaje completo y repite la pregunta — nunca llega a
 `extractCitaHints`/`resolveDistritoText` esa vuelta, sin importar si la
 acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_RECLAMO`
-(`lib/fsm/handlers.ts:156`). Llega hasta aquí con `reachDistritoPrompt`.
+(`lib/fsm/core/handlers.ts:156`). Llega hasta aquí con `reachDistritoPrompt`.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
@@ -261,9 +261,9 @@ acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_RECLAMO`
 
 **2.5.5 — Hostilidad en medio del flujo, estado SIN guard
 (`cita_awaiting_hora_confirm`).** Este estado no está en `FREE_TEXT_STATE_PROMPTS`
-ni en `SELECTION_STATES` (`lib/fsm/handlers.ts:38-55`): el guard nunca corre
+ni en `SELECTION_STATES` (`lib/fsm/core/handlers.ts:38-55`): el guard nunca corre
 aquí. Si el texto ruidoso igual matchea la hora pendiente
-(`acceptsPendingHora`, `lib/fsm/handlers-cita.ts:1455-1461`), la cita se
+(`acceptsPendingHora`, `lib/fsm/flows/cita/steps/hora.ts:344-351`), la cita se
 confirma **sin ninguna advertencia**. Llega hasta aquí con
 `reachHorarioList` + `"8"` (deja `citaHoraConfirmId` en `08:00|...`).
 

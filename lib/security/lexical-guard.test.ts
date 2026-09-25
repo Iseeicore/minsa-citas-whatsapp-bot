@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateLexicalGuard } from "./lexical-guard";
+import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 
 const action = (text: string) => evaluateLexicalGuard(text).action;
 

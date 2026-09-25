@@ -1,12 +1,12 @@
 # Canales de derivación: lista de verificación
 
-Los mensajes de consultas fuera de alcance (`lib/fsm/out-of-scope-messages.ts`) (incluido el de urgencias, que cierra la conversación) mandan al ciudadano a teléfonos y enlaces oficiales. **Todos vienen de la hoja «Matriz de Derivación» del Excel de auditoría y ninguno se ha confirmado con la institución.** Un número equivocado en una urgencia es el peor caso, así que esta lista debe cerrarse antes de que el canal llegue a los ciudadanos.
+Los mensajes de consultas fuera de alcance (`lib/fsm/flows/out-of-scope/out-of-scope-messages.ts`) (incluido el de urgencias, que cierra la conversación) mandan al ciudadano a teléfonos y enlaces oficiales. **Todos vienen de la hoja «Matriz de Derivación» del Excel de auditoría y ninguno se ha confirmado con la institución.** Un número equivocado en una urgencia es el peor caso, así que esta lista debe cerrarse antes de que el canal llegue a los ciudadanos.
 
 ## Dónde se cambia un valor
 
-Un solo archivo: `lib/fsm/out-of-scope-channels.ts` (objeto `CHANNELS`). Cambiar el valor ahí actualiza todos los textos que lo mencionan. No hay que tocar los mensajes.
+Un solo archivo: `lib/fsm/flows/out-of-scope/out-of-scope-channels.ts` (objeto `CHANNELS`). Cambiar el valor ahí actualiza todos los textos que lo mencionan. No hay que tocar los mensajes.
 
-`lib/fsm/out-of-scope-channels.test.ts` protege esta regla:
+`lib/fsm/flows/out-of-scope/out-of-scope-channels.test.ts` protege esta regla:
 - falla si un mensaje escribe un teléfono o un enlace a mano en vez de usar `CHANNELS`;
 - falla si un canal de `CHANNELS` no aparece en la tabla de abajo (así ninguno se agrega sin quedar en la lista);
 - falla si cambia un texto sin querer: al cambiar un valor a propósito, actualiza también `tests/support/oos-golden.ts`.

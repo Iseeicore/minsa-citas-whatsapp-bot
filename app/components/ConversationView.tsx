@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Message } from "./types";
+import type { Message } from "@/app/components/types";
 
 const POLL_INTERVAL_MS = 4000;
 

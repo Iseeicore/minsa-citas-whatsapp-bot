@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import ConversationList from "../components/ConversationList";
-import ConversationView from "../components/ConversationView";
-import Sandbox from "../components/Sandbox";
-import type { Conversation } from "../components/types";
+import ConversationList from "@/app/components/ConversationList";
+import ConversationView from "@/app/components/ConversationView";
+import Sandbox from "@/app/components/Sandbox";
+import type { Conversation } from "@/app/components/types";
 
 type Mode = "real" | "sandbox";
 

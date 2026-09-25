@@ -12,13 +12,13 @@ const mocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("@/lib/fsm/session-store", () => ({
+vi.mock("@/lib/fsm/session/session-store", () => ({
   sessionRowExists: mocks.sessionRowExists,
   resetSession: mocks.resetSession,
   saveSession: mocks.saveSession,
   resetAllSandboxTestSessions: mocks.resetAll,
 }));
-vi.mock("@/lib/fsm/executor", () => ({ runTurn: mocks.runTurn }));
+vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { OPTIONS, POST } from "@/app/api/sandbox/route";
 

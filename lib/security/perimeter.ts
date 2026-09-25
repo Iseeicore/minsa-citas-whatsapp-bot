@@ -1,8 +1,8 @@
-import { logger } from "../observability/logger";
-import { tail } from "../observability/mask";
-import { deriveTraceId } from "../observability/tracer";
-import { checkFirstMessagePayload, type RejectReason } from "./payload-filter";
-import { DEFAULT_MUTE_MS, type RateLimiter } from "./rate-limiter";
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
+import { deriveTraceId } from "@/lib/observability/tracer";
+import { checkFirstMessagePayload, type RejectReason } from "@/lib/security/payload-filter";
+import { DEFAULT_MUTE_MS, type RateLimiter } from "@/lib/security/rate-limiter";
 
 // Entry gate of the WhatsApp webhook, run for every inbound message BEFORE any
 // database write, transaction or turn lock. Cheapest first:

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import distritos from "@/data/peru-distritos.json";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
-import { gap } from "../support/known-gap";
-import { levenshtein } from "../support/levenshtein";
+import { gap } from "@/tests/support/known-gap";
+import { levenshtein } from "@/tests/support/levenshtein";
 
 const action = (text: string) => evaluateLexicalGuard(text).action;
 

@@ -11,6 +11,8 @@ export default defineConfig({
     environment: "node",
     include: ["lib/**/*.test.ts", "tests/**/*.test.ts"],
     // Real-infrastructure smoke tests run only via `npm run smoke:neon`.
-    exclude: ["tests/smoke/**", "node_modules/**"],
+    // Wall-clock performance tests run alone via `npm run test:perf`: sharing the
+    // CPU with the parallel suite makes their latency and heap bounds flaky.
+    exclude: ["tests/smoke/**", "tests/stress/performance.test.ts", "node_modules/**"],
   },
 });

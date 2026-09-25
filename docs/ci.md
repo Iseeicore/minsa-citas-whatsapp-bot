@@ -11,13 +11,14 @@ Un solo job, `types, lint and tests`, en Ubuntu con Node 22:
 3. `npx tsc --noEmit`
 4. `npx eslint lib app tests`
 5. `npx vitest run`
+6. `npx vitest run --config vitest.perf.config.ts`: las pruebas de rendimiento (latencia P99, crecimiento del heap, ReDoS) corren solas, después de la suite principal. En paralelo con los demás archivos compiten por CPU y sus límites de tiempo fallan sin que haya un problema real.
 
 No necesita secretos: las pruebas usan almacenes en memoria y adaptadores fake. No corre `next build`: Vercel ya compila cada PR y el build necesita variables de entorno.
 
 ## Correrlo en local
 
 ```bash
-npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npx vitest run
+npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npx vitest run && npm run test:perf
 ```
 
 ## Regla de la rama `main`

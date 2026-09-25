@@ -1,5 +1,5 @@
-import { logger } from "../observability/logger";
-import { tail } from "../observability/mask";
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
 // Per-waId sliding-window rate limiter for the WhatsApp webhook. Pure in-memory
 // (no Redis in this stack): each serverless instance counts on its own, which is
 // enough to stop a single client from hammering one instance and costs nothing.

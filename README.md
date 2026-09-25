@@ -11,6 +11,40 @@ A WhatsApp Business Cloud API "web inbox" MVP built with Next.js (App Router), d
 - Zod for input validation
 - Client polling every 4s (`fetch` + `setInterval`) — no WebSockets, no extra data-fetching library
 
+## Project structure
+
+```
+app/                         Next.js routes: inbox UI, /api/*, /webhook/whatsapp, sandbox pages
+lib/
+  db/                        Prisma client
+  whatsapp/                  outbound messages and media download (Meta Cloud API)
+  integrations/              HTTP clients for external services: MINSA, RENIEC, quejas
+  observability/             structured logger, tracer, PII masking, file sink
+  security/                  webhook perimeter: payload filter, rate limiter, lexical guard
+  fsm/                       the conversation state machine
+    core/                    engine: session types, executor, top-level handler dispatch
+    session/                 session persistence, expiry guard, per-citizen turn lock
+    routing/                 first contact, welcome, menu shortcuts, entry into a flow
+    parsing/                 reading citizen input: dates, times, selections, text, AI-assisted parsing
+    flows/
+      cita/                  appointment flow: handlers-cita.ts routes each state to steps/
+        steps/               one module per conversation step (identity, ubigeo, catalog, fecha, hora, booking…)
+      reclamo/               complaint flow
+      emergency/             emergency cut
+      out-of-scope/          out-of-scope detection and the official channels it points to
+tests/                       cross-module suites: security/, stress/, smoke/ (real Neon), support/
+data/                        static datasets (Peru districts)
+prisma/                      schema and migrations
+scripts/  docs/              tooling and project documentation
+```
+
+Conventions (enforced by ESLint where noted):
+
+- **Imports always use the `@/` alias** — relative imports are rejected (`no-restricted-imports`).
+- **No import cycles** (`import/no-cycle`); cycles only through a lazy `import()` are allowed.
+- **Unit tests live next to the file they cover** (`x.ts` + `x.test.ts`); scenario tests sit in the folder of the area they exercise (e.g. `flows/cita/hora-choice.test.ts`).
+- **Features are grouped by flow, not by layer**: a bug in a conversation step lives under `lib/fsm/flows/<flow>/`.
+
 ## Local setup
 
 1. Install dependencies:

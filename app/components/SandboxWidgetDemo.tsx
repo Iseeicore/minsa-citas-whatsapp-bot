@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import MinsaDigitalBackdrop from "./MinsaDigitalBackdrop";
-import Sandbox from "./Sandbox";
+import MinsaDigitalBackdrop from "@/app/components/MinsaDigitalBackdrop";
+import Sandbox from "@/app/components/Sandbox";
 
 // Demo shell for the public /sandbox route: a recreated MINSA Digital login
 // page as a backdrop, with the bot presented as the floating chat-widget

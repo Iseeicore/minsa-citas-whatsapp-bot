@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { runTurn, type TurnResult } from "@/lib/fsm/executor";
-import { handleFirstContact } from "@/lib/fsm/first-contact";
-import { isEmergency } from "@/lib/fsm/out-of-scope";
-import { isQueryEffect } from "@/lib/fsm/handlers-shared";
+import { runTurn, type TurnResult } from "@/lib/fsm/core/executor";
+import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { traceTurn } from "@/lib/observability/tracer";
-import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/turn-lock";
-import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session-store";
-import type { SendEffect } from "@/lib/fsm/types";
+import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/session/turn-lock";
+import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
+import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
   }
 
   // A brand-new conversation is answered like the real webhook answers it (see
-  // lib/fsm/first-contact.ts): the welcome and its "Seguir aquí" button — or,
+  // lib/fsm/routing/first-contact.ts): the welcome and its "Seguir aquí" button — or,
   // when the citizen already asked for a cita, straight into the Cita flow.
   // An abusive first message is left to the FSM, whose lexical guard answers it.
   const abusiveFirstMessage =

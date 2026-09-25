@@ -1,4 +1,4 @@
-import type { LogLevel, LogSink } from "./types";
+import type { LogLevel, LogSink } from "@/lib/observability/types";
 
 // Logs written to a folder per day: logs/19-09-2026/app.ndjson (everything) and
 // alerts.ndjson (warn and error only, for a quick look at what went wrong).

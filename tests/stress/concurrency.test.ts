@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Session } from "@/lib/fsm/types";
+import type { Session } from "@/lib/fsm/core/types";
 
 // The real session store is Postgres over the network: every turn is
 // read -> compute -> write, and a real turn also waits on MINSA/RENIEC/Gemini.
@@ -13,7 +13,7 @@ const db = vi.hoisted(() => ({
   writes: 0,
 }));
 
-vi.mock("@/lib/fsm/session-store", () => {
+vi.mock("@/lib/fsm/session/session-store", () => {
   const wait = () =>
     new Promise<void>((resolve) => setTimeout(resolve, db.minMs + Math.random() * (db.maxMs - db.minMs)));
 
@@ -32,7 +32,7 @@ vi.mock("@/lib/fsm/session-store", () => {
   };
 });
 
-import { runTurn, runTurnUnlocked } from "@/lib/fsm/executor";
+import { runTurn, runTurnUnlocked } from "@/lib/fsm/core/executor";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -115,7 +115,7 @@ describe("B.1 one waId, bursts of 5-10 messages per second (store latency 30-90 
     { label: "5 msg/s, slow turns (100-250 ms)", rate: 5, minMs: 100, maxMs: 250 },
   ];
 
-  // Regression for the race fixed by the per-waId turn lock (lib/fsm/turn-lock.ts):
+  // Regression for the race fixed by the per-waId turn lock (lib/fsm/session/turn-lock.ts):
   // turn N used to read the session before turn N-1 had written it, ran against
   // a stale state, and the last writer won (lost update). runTurn is now locked.
   for (const scenario of SCENARIOS) {
