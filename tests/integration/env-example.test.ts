@@ -2,9 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-// .env.example is a bare list of variables; the README documents them. This
-// keeps the three in sync: every variable the app reads is listed, nothing
-// dead is listed (e.g. a leftover REDIS_URL), and each one is documented.
+// .env.example is a bare list of variables in two blocks, each opened by a
+// "##### " title: the minimum for the WhatsApp channel and citas, then every
+// optional variable. The README documents them. This keeps the three in sync:
+// every variable the app reads is listed, nothing dead is listed (e.g. a
+// leftover REDIS_URL), and each one is documented.
 
 const ROOT = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -12,7 +14,21 @@ const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
 // Set by the platform or the build, never by whoever fills in a .env.
 const PLATFORM_VARIABLES = new Set(["NODE_ENV", "VERCEL", "NEXT_OUTPUT_STANDALONE"]);
 
-const exampleLines = read(".env.example").split(/\r?\n/).filter((line) => line.trim() !== "");
+const SECTION_TITLE = /^##### \S/;
+const MINIMUM = [
+  "META_APP_SECRET",
+  "META_WEBHOOK_VERIFY_TOKEN",
+  "META_ACCESS_TOKEN",
+  "META_PHONE_NUMBER_ID",
+  "META_GRAPH_API_VERSION",
+  "MINSA_API_HOST",
+  "MINSA_INTEGRATION_SECRET",
+  "MINSA_CONVERSATION_ID_PLACEHOLDER",
+  "SANDBOX_USE_REAL_MINSA",
+];
+
+const allLines = read(".env.example").split(/\r?\n/).filter((line) => line.trim() !== "");
+const exampleLines = allLines.filter((line) => !SECTION_TITLE.test(line));
 const exampleNames = exampleLines.map((line) => line.split("=")[0]);
 
 function variablesReadByTheApp(): Set<string> {
@@ -41,8 +57,15 @@ function variablesReadByTheApp(): Set<string> {
 }
 
 describe(".env.example", () => {
-  it("is a bare NAME=value list: no comments, no inline notes", () => {
+  it("is a bare NAME=value list: no comments or inline notes, only the two section titles", () => {
     for (const line of exampleLines) expect(line).toMatch(/^[A-Z][A-Z0-9_]*=[^#\s]*$/);
+    expect(allLines.filter((line) => SECTION_TITLE.test(line))).toHaveLength(2);
+  });
+
+  it("opens with the minimum block: exactly what the WhatsApp channel and citas need", () => {
+    const [first, second] = allLines.map((line, index) => (SECTION_TITLE.test(line) ? index : -1)).filter((i) => i >= 0);
+    expect(first).toBe(0);
+    expect(allLines.slice(1, second).map((line) => line.split("=")[0])).toEqual(MINIMUM);
   });
 
   it("lists every variable the app reads, and nothing it does not read", () => {

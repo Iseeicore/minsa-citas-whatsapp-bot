@@ -4,6 +4,7 @@ import { runTurn, type TurnResult } from "@/lib/fsm/core/executor";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import { logger } from "@/lib/observability/logger";
 import { traceTurn } from "@/lib/observability/tracer";
 import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
@@ -17,11 +18,36 @@ import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 // this — the header is only ever added when the request's Origin exactly
 // matches one entry of a comma-separated allowlist, never a wildcard, so an
 // unrelated site can't read the response even if it can still reach the URL.
+//
+// Each entry is reduced to its origin (scheme + host + port), because the
+// browser's Origin header never carries a path: "https://x.gob.pe/" would
+// otherwise never match "https://x.gob.pe" and CORS would fail silently.
+// An entry that is not a URL (a bare host, a "*") is dropped and logged once.
+const warnedInvalidOrigins = new Set<string>();
+
+function toOrigin(entry: string): string | undefined {
+  try {
+    const { origin } = new URL(entry);
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return undefined;
+  }
+}
+
 function allowedOrigins(): string[] {
   return (process.env.SANDBOX_ALLOWED_ORIGINS ?? "")
     .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .flatMap((entry) => {
+      const origin = toOrigin(entry);
+      if (origin) return [origin];
+      if (!warnedInvalidOrigins.has(entry)) {
+        warnedInvalidOrigins.add(entry);
+        logger.warn("sandbox.cors_invalid_origin", { entry });
+      }
+      return [];
+    });
 }
 
 function corsHeaders(request: NextRequest): HeadersInit {
