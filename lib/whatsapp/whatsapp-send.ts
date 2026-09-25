@@ -175,10 +175,12 @@ async function recordOutboundMessage(
 
 // Sends a real WhatsApp message for a bot-driven effect and records it as an
 // outbound Message, same as the human-operator send path — so the Chat real
-// UI shows everything the bot said. Never throws: a failed automated send
-// must not crash the webhook handler, which still owes Meta its fast 200.
+// UI shows everything the bot said. With no conversation row (null, when
+// DATABASE_ENABLED=false) the message is sent but not recorded. Never throws: a
+// failed automated send must not crash the webhook handler, which still owes
+// Meta its fast 200.
 export async function sendAndRecordEffect(
-  conversationId: string,
+  conversationId: string | null,
   waId: string,
   effect: SendEffect,
 ): Promise<void> {
@@ -198,13 +200,14 @@ export async function sendAndRecordEffect(
 
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
+  if (conversationId === null) return;
   await recordOutboundMessage(conversationId, effect.text, waMessageId);
 }
 
 // Same send-then-record contract as sendAndRecordEffect, for the one-off
 // cta_url welcome message.
 export async function sendAndRecordCtaUrl(
-  conversationId: string,
+  conversationId: string | null,
   waId: string,
   params: { bodyText: string; buttonText: string; url: string },
 ): Promise<void> {
@@ -224,5 +227,6 @@ export async function sendAndRecordCtaUrl(
 
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
+  if (conversationId === null) return;
   await recordOutboundMessage(conversationId, params.bodyText, waMessageId);
 }

@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db/prisma";
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
 import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
@@ -7,7 +6,7 @@ import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
 import { isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
 import { traceTurn } from "@/lib/observability/tracer";
-import { saveSession } from "@/lib/fsm/session/session-store";
+import { findSession, saveSession } from "@/lib/fsm/session/session-store";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp/whatsapp-send";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
@@ -25,7 +24,7 @@ function sleep(ms: number): Promise<void> {
 
 // A brand-new conversation. No FSM turn runs for it, but it is traced like one
 // (same traceId a re-delivery of the message would get).
-async function answerFirstContact(message: WhatsAppMessage, conversationId: string): Promise<void> {
+async function answerFirstContact(message: WhatsAppMessage, conversationId: string | null): Promise<void> {
   const waId = message.from_user_id;
   const firstContactText = message.type === "text" ? message.text?.body : undefined;
   const fresh = { state: "main_menu", slots: {}, counters: {} };
@@ -74,9 +73,11 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
 // lib/fsm/session/turn-lock.ts), so two messages sent in quick succession are answered
 // one after the other, in order, and never read a stale session. Called from
 // inside withTurnLock, hence runTurnUnlocked (runTurn would wait on its own lock).
-export async function answerMessage(message: WhatsAppMessage, conversationId: string): Promise<void> {
+// conversationId is null when there is no database (DATABASE_ENABLED=false):
+// the replies are sent but not recorded.
+export async function answerMessage(message: WhatsAppMessage, conversationId: string | null): Promise<void> {
   const waId = message.from_user_id;
-  const existingSession = await prisma.sandboxSession.findUnique({ where: { id: waId } });
+  const existingSession = await findSession(waId);
 
   if (!existingSession) {
     await answerFirstContact(message, conversationId);

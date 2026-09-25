@@ -48,7 +48,12 @@ vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
   sendTypingIndicator: mocks.sendTypingIndicator,
 }));
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: mocks.downloadMedia }));
-vi.mock("@/lib/fsm/session/session-store", () => ({ sessionRowExists: mocks.sessionRowExists, saveSession: mocks.saveSession }));
+vi.mock("@/lib/fsm/session/session-store", () => ({
+  sessionRowExists: mocks.sessionRowExists,
+  saveSession: mocks.saveSession,
+  // answer.ts reads the session row through the store; same stub as before.
+  findSession: () => mocks.sessionFindUnique(),
+}));
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked }));
 // Only the lock itself is replaced; its timeout error and busy text stay real.
 vi.mock("@/lib/fsm/session/turn-lock", async (importOriginal) => ({

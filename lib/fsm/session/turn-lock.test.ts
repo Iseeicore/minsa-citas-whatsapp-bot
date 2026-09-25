@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createTurnLock, defaultDbLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
 import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -270,5 +270,25 @@ describe("observability: waits are logged so a tester can see the lock working",
     expect(seen).toHaveLength(1);
     expect(seen[0].waId).toBe("wa-9");
     expect(seen[0].ms).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("which lock the app wires", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("uses the Postgres lock when there is a database", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://u:p@localhost:5432/db");
+    vi.stubEnv("TURN_DB_LOCK", "");
+    vi.stubEnv("DATABASE_ENABLED", "");
+    expect(defaultDbLock()).toBeTypeOf("function");
+  });
+
+  it("stays in memory with DATABASE_ENABLED=false, even with a DATABASE_URL present", () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://u:p@localhost:5432/db");
+    vi.stubEnv("TURN_DB_LOCK", "");
+    vi.stubEnv("DATABASE_ENABLED", "false");
+    expect(defaultDbLock()).toBeUndefined();
   });
 });
