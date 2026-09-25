@@ -21,6 +21,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { OPTIONS, POST } from "@/app/api/sandbox/route";
+import { logger } from "@/lib/observability/logger";
 
 // The widget embedded in a different frontend (a different origin) needs the
 // browser to actually let the response through — same-origin callers (the
@@ -124,6 +125,40 @@ describe("SANDBOX_ALLOWED_ORIGINS configured with the new frontend's origin", ()
 
   it("the preflight OPTIONS for an unlisted origin gets no CORS headers", async () => {
     const response = await OPTIONS(preflightFrom("https://an-unrelated-site.example.org"));
+
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});
+
+describe("SANDBOX_ALLOWED_ORIGINS entries are read as origins, whatever their shape", () => {
+  it("a trailing slash in the configured value still matches the browser's Origin (which never has one)", async () => {
+    process.env.SANDBOX_ALLOWED_ORIGINS = "https://dminsadigital.minsa.gob.pe/";
+
+    const post = await POST(postFrom("https://dminsadigital.minsa.gob.pe"));
+    const preflight = await OPTIONS(preflightFrom("https://dminsadigital.minsa.gob.pe"));
+
+    expect(post.headers.get("access-control-allow-origin")).toBe("https://dminsadigital.minsa.gob.pe");
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("https://dminsadigital.minsa.gob.pe");
+  });
+
+  it("an entry that is not a URL is skipped with one warning, and the valid entries keep working", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    process.env.SANDBOX_ALLOWED_ORIGINS = "dminsadigital.minsa.gob.pe, https://minsadigital-front.example.org";
+
+    await POST(postFrom("https://minsadigital-front.example.org"));
+    const response = await POST(postFrom("https://minsadigital-front.example.org"));
+
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://minsadigital-front.example.org");
+    const invalid = warn.mock.calls.filter(([event]) => event === "sandbox.cors_invalid_origin");
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0][1]).toEqual({ entry: "dminsadigital.minsa.gob.pe" });
+    warn.mockRestore();
+  });
+
+  it("a wildcard is never honored", async () => {
+    process.env.SANDBOX_ALLOWED_ORIGINS = "*";
+
+    const response = await POST(postFrom("https://an-unrelated-site.example.org"));
 
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
   });
