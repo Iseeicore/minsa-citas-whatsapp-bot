@@ -32,17 +32,23 @@ describe("requestGeminiJson", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/test-model:generateContent?key=test-key",
-    );
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/test-model:generateContent");
     expect(init.method).toBe("POST");
-    expect(init.headers).toEqual({ "Content-Type": "application/json" });
+    expect(init.headers).toEqual({ "Content-Type": "application/json", "x-goog-api-key": "test-key" });
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(JSON.parse(String(init.body))).toEqual({
       system_instruction: { parts: [{ text: "SYSTEM" }] },
       contents: [{ role: "user", parts: [{ text: "USER" }] }],
       generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT" } },
     });
+  });
+
+  it("never puts the API key in the URL, where an error message or log line could carry it", async () => {
+    await requestGeminiJson(REQUEST);
+
+    const [url] = fetchSpy.mock.calls[0] as [string];
+    expect(url).not.toContain("test-key");
+    expect(new URL(url).search).toBe("");
   });
 
   it("falls back to the default model when none is configured", async () => {
