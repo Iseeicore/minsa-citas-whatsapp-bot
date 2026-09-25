@@ -69,12 +69,12 @@ function handleAwaitingFlowStart(session: Session): HandlerResult {
 
   if (next.slots.menuChoice === "registrar_reclamo") {
     next.state = "reclamo_identity_choice";
-    return buildResult(next, [sendButtons("¿Tienes tu DNI a la mano?", RECLAMO_IDENTITY_BUTTONS)]);
+    return buildResult(next, [sendButtons("¿Tienes tu documento de identidad a la mano?", RECLAMO_IDENTITY_BUTTONS)]);
   }
 
   if (next.slots.menuChoice === "agendar_cita") {
     next.state = "cita_awaiting_dni";
-    return buildResult(next, [sendText("Ingresa tu DNI (8 dígitos).")]);
+    return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
   }
 
   // Defensive fallback — should be unreachable since main_menu only accepts
@@ -113,14 +113,14 @@ export function routeLexicalAction(
       };
 
       return buildResult({ state: "cita_awaiting_dni", slots: withHints, counters: {} }, [
-        sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu DNI (8 dígitos).`),
+        sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu número de documento (8 dígitos).`),
       ]);
     }
 
     case "FORCE_RECLAMO":
       return buildResult({ state: "reclamo_identity_choice", slots, counters: {} }, [
         sendButtons(
-          "Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?",
+          "Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?",
           RECLAMO_IDENTITY_BUTTONS,
         ),
       ]);
@@ -269,7 +269,7 @@ function beginCitaFromIntent(
   return beginCita(
     slots,
     hints,
-    "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu DNI (8 dígitos).",
+    "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento (8 dígitos).",
   );
 }
 
@@ -327,7 +327,7 @@ function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerRes
     const next: Session = { state: "cita_awaiting_dni", slots: { ...session.slots }, counters: { ...session.counters } };
 
     if (typeof dni !== "string" || dni === "") {
-      return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu DNI (8 dígitos).")]);
+      return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu número de documento (8 dígitos).")]);
     }
 
     next.state = "cita_validate_pending";

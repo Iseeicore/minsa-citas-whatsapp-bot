@@ -12,8 +12,8 @@ export const MENU_ROWS = [
 ];
 
 export const RECLAMO_IDENTITY_BUTTONS = [
-  { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
-  { id: "reclamo_sin_dni", title: "No tengo DNI" },
+  { id: "reclamo_con_dni", title: "Sí, tengo documento" },
+  { id: "reclamo_sin_dni", title: "No tengo documento" },
 ];
 
 export const buildMenuEffect = () => sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS);

@@ -50,7 +50,7 @@ describe("main_menu — lexical guard routing", () => {
     const [effect] = sentEffects(result);
     expect(effect.kind).toBe("send_text");
     expect((effect as { text: string }).text).toContain(RESPECT_REMINDER_TEXT);
-    expect((effect as { text: string }).text).toContain("DNI");
+    expect((effect as { text: string }).text).toContain("documento");
   });
 
   it("aggression with a service complaint: goes straight to the Reclamo flow without AI", () => {
@@ -180,7 +180,7 @@ describe("bypass — states where the guard must never run", () => {
     const result = handle(sessionAt("cita_awaiting_dni"), text("hdp"));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect((sentEffects(result)[0] as { text: string }).text).toContain("DNI inválido");
+    expect((sentEffects(result)[0] as { text: string }).text).toContain("Documento inválido");
   });
 });
 
@@ -191,7 +191,7 @@ describe("main_menu — numeric shortcut", () => {
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(hasQuery(result)).toBe(false);
     expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text"]);
-    expect((sentEffects(result)[0] as { text: string }).text).toContain("DNI");
+    expect((sentEffects(result)[0] as { text: string }).text).toContain("documento");
     expect(result.session.slots.menuChoice).toBe("agendar_cita");
     expect(result.session.slots.initialMessageText).toBeUndefined();
   });
@@ -213,6 +213,6 @@ describe("main_menu — numeric shortcut", () => {
 
   it("the numbers only mean a menu option in main_menu (a 1 inside another step is just input)", () => {
     const inDni = handle(sessionAt("cita_awaiting_dni"), text("1"));
-    expect((sentEffects(inDni)[0] as { text: string }).text).toContain("DNI inválido");
+    expect((sentEffects(inDni)[0] as { text: string }).text).toContain("Documento inválido");
   });
 });

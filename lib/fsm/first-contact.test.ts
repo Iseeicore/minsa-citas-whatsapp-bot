@@ -76,7 +76,7 @@ describe("first contact: a clear request for a cita", () => {
     expect(sent(result)).toEqual([
       {
         kind: "send_text",
-        text: "¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de DNI (8 dígitos):",
+        text: "¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de documento (8 dígitos):",
       },
     ]);
   });
@@ -129,7 +129,7 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(sent(result)).toHaveLength(1);
-    expect(sent(result)[0]).toMatchObject({ kind: "send_text", text: expect.stringContaining("DNI") });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_text", text: expect.stringContaining("documento") });
     expect(sent(result).some((effect) => effect.kind === "send_cta_url" || effect.kind === "send_interactive_list")).toBe(false);
   });
 
@@ -162,10 +162,10 @@ describe("first contact: a request to file a complaint", () => {
     expect(sent(result)).toHaveLength(1);
     expect(sent(result)[0]).toMatchObject({
       kind: "send_buttons",
-      text: "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu DNI a la mano?",
+      text: "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?",
       buttons: [
-        { id: "reclamo_con_dni", title: "Sí, tengo DNI" },
-        { id: "reclamo_sin_dni", title: "No tengo DNI" },
+        { id: "reclamo_con_dni", title: "Sí, tengo documento" },
+        { id: "reclamo_sin_dni", title: "No tengo documento" },
       ],
     });
   });

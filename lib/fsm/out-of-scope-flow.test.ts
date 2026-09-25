@@ -98,7 +98,7 @@ describe("never inside a flow: each step reads what it asked for", () => {
     const result = handle(at("cita_awaiting_dni"), text("vacunas"));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("DNI inválido") });
+    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("Documento inválido") });
   });
 
   it("the description of a complaint is evidence, whatever words it holds", () => {
@@ -122,7 +122,7 @@ describe("the words the messages ask the citizen to type", () => {
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(queries(result)).toHaveLength(0);
-    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("DNI") });
+    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("documento") });
   });
 
   it("«CONTINUAR» goes back to the menu, with no AI", () => {
