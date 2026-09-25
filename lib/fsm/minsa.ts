@@ -486,21 +486,42 @@ export async function bookAppointment(
       bearer,
     );
     if (response.status === 401) return { status: "unauthorized" };
+
+    const rawBody = await response.text().catch(() => "");
+
+    // MINSA doesn't reliably use HTTP status to mean "business rejection"
+    // vs. "server error": this exact rule (the patient already has an
+    // active appointment for the same turno/servicio) has been observed
+    // arriving as a raw HTTP 500, not a graceful 2xx body. Checking for it
+    // before the !response.ok branch means a citizen who already booked
+    // gets a clear, final answer instead of 3 pointless retries that would
+    // all fail the exact same way (confirmed in production: a real
+    // duplicate booking looped through booking_retry x3 as "problema
+    // técnico" before this fix). Not logged as a failure — it's an
+    // expected business outcome, not something to diagnose.
+    const duplicateMessage = minsaMessageOf(rawBody);
+    if (duplicateMessage && /ya tiene una cita activa/i.test(duplicateMessage)) {
+      return { status: "duplicate", message: duplicateMessage };
+    }
+
     if (!response.ok) {
-      logBookingFailure(params, response.status, await response.text().catch(() => ""));
+      logBookingFailure(params, response.status, rawBody);
       return { status: "error" };
     }
 
-    const body = await response.json();
-    const message: string = body?.message ?? "";
-
-    if (/ya tiene una cita activa/i.test(message)) {
-      return { status: "duplicate", message };
+    let body: { data?: { url?: string }; message?: string } = {};
+    try {
+      body = JSON.parse(rawBody) as typeof body;
+    } catch {
+      // Leave body empty — falls through to "rejected" below, same as an
+      // unparsable 2xx body always did.
     }
+    const message = typeof body?.message === "string" ? body.message : "";
+
     if (body?.data?.url) {
       return { status: "booked", url: body.data.url, message };
     }
-    logBookingFailure(params, response.status, JSON.stringify(body));
+    logBookingFailure(params, response.status, rawBody);
     return { status: "rejected", message };
   }
 

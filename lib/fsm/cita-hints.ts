@@ -18,7 +18,8 @@ const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
   [/^nutricion/, "Nutrición"],
 ];
 
-const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);const MAX_PLACE_WORDS = 4;
+const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);
+const MAX_PLACE_WORDS = 4;
 const PILOT_DEPARTAMENTO = "LIMA";
 
 export type CitaHints = { especialidad?: string; distrito?: string };
@@ -62,4 +63,25 @@ export function extractCitaHints(message: string): CitaHints {
   }
 
   return hints;
+}
+
+// A stricter subset of PLACE_PREPOSITIONS for mentionsPlacePreposition below:
+// "de"/"del"/"para"/"por" are common for reasons that have nothing to do
+// with a place ("cita de odontología", "para mañana"), so using the full
+// set there would fire on almost every message. These three are locative
+// often enough to be worth an AI call when nothing else matched.
+const STRONG_PLACE_PREPOSITIONS = new Set(["EN", "CERCA", "DESDE"]);
+
+// A cheap, deterministic signal that the message probably named a place,
+// even when extractCitaHints couldn't resolve it locally (a typo like "sam
+// borja" defeats the exact-match search above, but the preposition is still
+// there). Callers use this to decide whether an AI resolution attempt over
+// the raw message is worth its cost, instead of firing on every message
+// that never mentioned a place at all (e.g. a bare "quiero una cita").
+export function mentionsPlacePreposition(message: string): boolean {
+  const words = normalizeText(message)
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .split(" ")
+    .filter(Boolean);
+  return words.some((word) => STRONG_PLACE_PREPOSITIONS.has(word));
 }
