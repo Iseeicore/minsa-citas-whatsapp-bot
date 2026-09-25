@@ -1,158 +1,217 @@
-# WhatsApp Inbox
+# Bot de citas MINSA por WhatsApp
 
-A WhatsApp Business Cloud API "web inbox" MVP built with Next.js (App Router), deployed on Vercel as serverless functions. Postgres via Neon, Prisma ORM with the Neon serverless (HTTP) driver adapter, Tailwind CSS, and short polling (every 4s) for realtime-ish updates in the UI.
+Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra reclamos, deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + Neon, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
 
-## Stack
+## Inicio rápido
 
-- Next.js 16 (App Router, TypeScript)
-- Prisma ORM 6.x + `@prisma/adapter-neon` + `@neondatabase/serverless`
-- Postgres via [Neon](https://neon.tech)
-- Tailwind CSS
-- Zod for input validation
-- Client polling every 4s (`fetch` + `setInterval`) — no WebSockets, no extra data-fetching library
+| Quiero… | Comando | Detalle |
+|---|---|---|
+| Levantar el bot en Docker (servidor MINSA) | `npm run docker:up` | [Ejecutar con Docker](#ejecutar-con-docker-servidor-minsa) |
+| Desarrollar en local | `npm run dev` | [Desarrollo local](#desarrollo-local) |
+| Correr las pruebas | `npm test` | [Pruebas](#pruebas) |
 
-## Project structure
+## Ejecutar con Docker (servidor MINSA)
 
-```
-app/                         Next.js routes (kept thin): inbox UI, /api/*, /webhook/whatsapp, sandbox pages
-  components/                inbox and Sandbox UI; Sandbox.tsx is the chat container
-    sandbox-chat/            its presentational pieces (header, composer, bubbles, DNI card, debug panel) and helpers
-lib/
-  db/                        Prisma client (lazy) and the DATABASE_ENABLED flag
-  whatsapp/                  outbound messages and media download (Meta Cloud API)
-    webhook/                 inbound pipeline: payload mapping, store + turn lock, answering the citizen,
-                             in-memory redelivery check (no-database mode)
-  integrations/              HTTP clients for external services: RENIEC, quejas
-    minsa/                   MINSA client split by endpoint: identity, catalog, booking (+ wire, format, fakes)
-  observability/             structured logger, tracer, PII masking, file sink
-  security/                  webhook perimeter: payload filter, rate limiter, lexical guard
-  fsm/                       the conversation state machine
-    core/                    engine: session types, executor, the turn dispatcher (handle)
-    session/                 session persistence (database or in-memory), expiry guard and re-verification,
-                             per-citizen turn lock
-    routing/                 first contact, welcome, main menu, lexical-guard routing, entry into a flow
-    parsing/                 reading citizen input: dates, times, selections, text
-      ai/                    Gemini-assisted parsing, one module per task (distrito, menu intent, fecha, hints);
-                             gemini.ts is the one shared request helper
-    flows/
-      cita/                  appointment flow: handlers-cita.ts routes each state to steps/
-        steps/               one module per conversation step (identity, ubigeo, catalog, fecha, hora, booking…)
-          hora/              the hora step: list, typed times, "1".."10" choice, confirmation, ask-or-book
-      reclamo/               complaint flow
-      emergency/             emergency cut
-      out-of-scope/          out-of-scope detection and the official channels it points to
-tests/                       cross-module suites: security/, stress/, integration/, smoke/ (real Neon), support/
-data/                        static datasets (Peru districts)
-prisma/                      schema and migrations
-scripts/  docs/              tooling and project documentation
+Un solo comando construye la imagen, levanta el contenedor y **espera hasta que el healthcheck lo marque sano**:
+
+```bash
+npm run docker:up
 ```
 
-Conventions (enforced by ESLint where noted):
+1. Crea un `.env` (ignorado por git) junto a `docker-compose.yml` con, como mínimo, las cuatro credenciales de Meta: `META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`, `META_WEBHOOK_VERIFY_TOKEN` y `META_APP_SECRET`.
+2. Ejecuta `npm run docker:up`. Si falta una credencial obligatoria, Docker Compose se detiene con un mensaje que la nombra, en lugar de arrancar un bot roto.
+3. Verifica que responde:
 
-- **Imports always use the `@/` alias** — relative imports are rejected (`no-restricted-imports`).
-- **No import cycles** (`import/no-cycle`); cycles only through a lazy `import()` are allowed.
-- **Unit tests live next to the file they cover** (`x.ts` + `x.test.ts`); scenario tests sit in the folder of the area they exercise (e.g. `flows/cita/hora-choice.test.ts`).
-- **Features are grouped by flow, not by layer**: a bug in a conversation step lives under `lib/fsm/flows/<flow>/`.
+   ```bash
+   curl http://localhost:3000/api/health
+   # {"status":"ok","database":"disabled"}
+   ```
 
-## Local setup
+| Comando | Qué hace |
+|---|---|
+| `npm run docker:up` | Construye la imagen y levanta el contenedor en segundo plano; termina cuando está sano (máximo 180 s). |
+| `npm run docker:logs` | Muestra los logs del contenedor en vivo. |
+| `npm run docker:down` | Detiene y elimina el contenedor. |
 
-1. Install dependencies:
+Detalles de la imagen:
+
+- **Base:** `node:22-alpine` (la misma versión de Node que usa el CI), multi-stage, compilada con `npm run build:no-db` y la salida *standalone* de Next.
+- **Seguridad:** corre con el usuario sin privilegios `node`; los secretos solo entran como variables de entorno, nunca quedan dentro de la imagen.
+- **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos.
+- **Puerto:** 3000 dentro del contenedor; `HOST_PORT` cambia el puerto publicado en el servidor (por defecto 3000).
+- **Webhook de Meta:** configura la URL de callback como `https://<servidor>/webhook/whatsapp`. El HTTPS lo termina el proxy inverso del servidor, no el contenedor.
+
+> **Una sola instancia.** En este modo el estado de cada conversación vive en la memoria del proceso. Una segunda réplica no vería esas sesiones y rompería los flujos a la mitad, y un reinicio hace que quien estaba en medio de un trámite empiece de nuevo. Ver [Modos de persistencia](#modos-de-persistencia).
+
+## Desarrollo local
+
+1. Instala las dependencias (también ejecuta `prisma generate` mediante `postinstall`):
 
    ```bash
    npm install
    ```
 
-   This also runs `prisma generate` via the `postinstall` script.
-
-2. Copy `.env.example` to `.env` and fill in real values (a Neon `DATABASE_URL` and your WhatsApp Cloud API credentials).
-
-3. Apply the schema to your local/dev Neon database:
+2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de Neon y las credenciales de WhatsApp Cloud API).
+3. Aplica el esquema a tu base de datos de desarrollo:
 
    ```bash
    npx prisma migrate dev
    ```
 
-4. Run the dev server:
+4. Levanta el servidor de desarrollo:
 
    ```bash
    npm run dev
    ```
 
-## Production migrations (Vercel)
+## Modos de persistencia
 
-`DATABASE_URL` and the WhatsApp env vars are already configured in Vercel. The `build` script runs `prisma migrate deploy` before `next build`, so pending migrations apply automatically on every deploy:
+La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor exacto `false` la desactiva; vacía o con cualquier otro valor, la base de datos sigue activa.
+
+| Aspecto | Con base de datos (por defecto, Vercel) | Sin base de datos (`DATABASE_ENABLED=false`, Docker) |
+|---|---|---|
+| ORM (Prisma) | Conectado a Neon | Nunca se instancia ni abre conexión; `DATABASE_URL` puede faltar |
+| Estado de cada conversación | Tabla `SandboxSession` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
+| Reentregas de Meta (no responder dos veces) | Índice único `waMessageId` | Lista en memoria de ids de mensaje, conservada 24 h |
+| Historial de mensajes y estados de entrega | Tablas `Conversation` y `Message` | No se guarda nada |
+| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503 {"error":"persistence disabled"}` |
+| Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
+| Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
+
+Escalar el modo sin base de datos a varias instancias requiere un almacén compartido (por ejemplo, Redis con expiración) detrás de `lib/fsm/session/session-store.ts` y `lib/whatsapp/webhook/inbound-dedupe.ts`.
+
+## Variables de entorno
+
+La plantilla está en `.env.example`.
+
+**WhatsApp Cloud API (obligatorias)**
+
+| Variable | Uso |
+|---|---|
+| `META_ACCESS_TOKEN` | Token de acceso de WhatsApp Cloud API |
+| `META_PHONE_NUMBER_ID` | ID del número que envía los mensajes |
+| `META_WEBHOOK_VERIFY_TOKEN` | Secreto compartido para la verificación del webhook |
+| `META_APP_SECRET` | Valida la cabecera `X-Hub-Signature-256` de los webhooks entrantes |
+| `META_GRAPH_API_VERSION` | Versión de Graph API (por ejemplo, `v21.0`) |
+
+**Persistencia**
+
+| Variable | Uso |
+|---|---|
+| `DATABASE_ENABLED` | `false` = sin base de datos. Vacía = con base de datos |
+| `DATABASE_URL` | Cadena de conexión de Neon. No hace falta con `DATABASE_ENABLED=false` |
+| `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto 3000) |
+
+**Integraciones** (sin ellas, el bot usa datos de prueba fijos)
+
+| Variable | Uso |
+|---|---|
+| `SANDBOX_USE_REAL_MINSA` | `true` llama a las APIs reales del MINSA (identidad, catálogo, reserva) y de quejas |
+| `SANDBOX_USE_REAL_RENIEC` | `true` usa la consulta real a RENIEC del flujo de reclamo |
+| `SANDBOX_USE_REAL_AI` | `true` usa Gemini para interpretar texto libre |
+| `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_CONVERSATION_ID_PLACEHOLDER` | Solo con `SANDBOX_USE_REAL_MINSA=true` |
+| `RENIEC_LOOKUP_BASE_URL` | Solo con `SANDBOX_USE_REAL_RENIEC=true` |
+| `QUEJAS_API_BASE_URL` | URL base de la API de quejas |
+| `GOOGLE_CLIENT_API`, `GOOGLE_AI_MODEL` | API key y modelo de Gemini. La key viaja en la cabecera `x-goog-api-key`, nunca en la URL |
+
+**Sandbox y operación**
+
+| Variable | Uso |
+|---|---|
+| `SANDBOX_ENABLED` | `true` habilita `/api/sandbox` (responde 404 si no) |
+| `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS) para el widget del Sandbox en otro frontend |
+| `LOG_LEVEL`, `LOG_TO_FILE`, `LOG_DIR` | Nivel de log y escritura opcional en archivos diarios (ver [docs/observability.md](docs/observability.md)) |
+| `INBOUND_RATE_LIMIT` | Límite de mensajes entrantes por ciudadano |
+| `TURN_PROCESS_LOCK_TIMEOUT_MS`, `TURN_LOCK_TIMEOUT_MS`, `TURN_LOCK_MAX_CONCURRENCY`, `TURN_DB_LOCK` | Ajustes del candado de turno |
+
+## Estructura del proyecto
+
+```
+app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /webhook/whatsapp, páginas del Sandbox
+  components/                UI de la bandeja y del Sandbox; Sandbox.tsx es el contenedor del chat
+    sandbox-chat/            piezas de presentación del chat (cabecera, composer, burbujas, tarjeta de DNI, panel de depuración)
+lib/
+  db/                        cliente Prisma (carga diferida) y el flag DATABASE_ENABLED
+  whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
+    webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
+                             control de reentregas en memoria (modo sin base de datos)
+  integrations/              clientes HTTP de servicios externos: RENIEC, quejas
+    minsa/                   cliente del MINSA separado por endpoint: identidad, catálogo, reserva (+ wire, formato, fakes)
+  observability/             logger estructurado, tracer, enmascarado de datos personales, logs en archivo
+  security/                  perímetro del webhook: filtro de payload, rate limiter, guardia léxica
+  fsm/                       la máquina de estados de la conversación
+    core/                    motor: tipos de sesión, ejecutor, despachador de turnos (handle)
+    session/                 persistencia de sesión (base de datos o memoria), expiración, reverificación,
+                             candado de turno por ciudadano
+    routing/                 primer contacto, bienvenida, menú principal, enrutamiento de la guardia léxica, entrada a un flujo
+    parsing/                 lectura del texto del ciudadano: fechas, horas, selecciones, texto
+      ai/                    interpretación asistida por Gemini, un módulo por tarea (distrito, intención del menú, fecha, pistas);
+                             gemini.ts es el único helper de peticiones compartido
+    flows/
+      cita/                  flujo de cita: handlers-cita.ts enruta cada estado a steps/
+        steps/               un módulo por paso de la conversación (identidad, ubigeo, catálogo, fecha, hora, reserva…)
+          hora/              el paso de hora: lista, horas escritas, elección «1»..«10», confirmación
+      reclamo/               flujo de reclamo
+      emergency/             corte por urgencia
+      out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
+tests/                       suites transversales: security/, stress/, integration/, smoke/ (Neon real), support/
+data/                        datos estáticos (distritos del Perú)
+prisma/                      esquema y migraciones
+scripts/  docs/              herramientas y documentación del proyecto
+```
+
+Convenciones (ESLint las hace cumplir donde se indica):
+
+| Regla | Detalle |
+|---|---|
+| **Imports siempre con el alias `@/`** | Los imports relativos se rechazan (`no-restricted-imports`). |
+| **Sin ciclos de imports** | `import/no-cycle`; solo se permiten ciclos a través de un `import()` diferido. |
+| **Tests junto al archivo que prueban** | `x.ts` + `x.test.ts`; los tests de escenario van en la carpeta del área que ejercitan (por ejemplo, `flows/cita/hora-choice.test.ts`). |
+| **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
+
+## Pruebas
+
+| Comando | Qué corre |
+|---|---|
+| `npm test` | Suite completa (unitarias, escenarios, seguridad, estrés) con almacenes en memoria y fakes; no necesita secretos ni base de datos |
+| `npm run test:perf` | Pruebas de rendimiento (latencia P99, heap, ReDoS). Corren solas, porque en paralelo con la suite sus límites de tiempo fallan sin motivo real |
+| `npm run test:gaps` | La suite en modo estricto para las brechas conocidas (`tests/support/known-gap.ts`) |
+| `npm run smoke:neon` | Pruebas de humo contra una base Neon real |
+
+El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
+
+## Despliegue en Vercel (con base de datos)
+
+`DATABASE_URL` y las variables de WhatsApp ya están configuradas en Vercel. El script `build` ejecuta `prisma migrate deploy` antes de `next build`, así que las migraciones pendientes se aplican en cada despliegue:
 
 ```json
 "build": "prisma migrate deploy && next build --webpack"
 ```
 
-(`--webpack` forces the classic compiler instead of Turbopack — Turbopack's production build had a `_global-error` prerender crash specific to this Next.js version.)
+- `--webpack` fuerza el compilador clásico en lugar de Turbopack, cuyo build de producción fallaba al prerenderizar `_global-error` en esta versión de Next.js.
+- Correr las migraciones dentro del build es un enfoque simple, suficiente para la escala actual. Conviene revisarlo si el equipo crece o si las migraciones se vuelven riesgosas de ejecutar sin supervisión.
+- `next.config.ts` solo activa la salida *standalone* cuando `NEXT_OUTPUT_STANDALONE=true` (lo hace el Dockerfile), así que los builds de Vercel no cambian.
 
-This is an MVP-simple approach (migrations run inline with the build), not a full CI/CD migration pipeline with staged approval — acceptable for this project's scale, but worth revisiting if the team grows or migrations become risky to run unattended.
+## Sandbox (probador de los flujos de cita y reclamo)
 
-## Environment variables
+Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de reclamo, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
-See `.env.example`:
+- Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería.
+- Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678`, OTP `1234`, distrito `lurigancho`.
 
-- `META_ACCESS_TOKEN` — WhatsApp Cloud API access token
-- `META_PHONE_NUMBER_ID` — the sending phone number ID
-- `META_WEBHOOK_VERIFY_TOKEN` — shared secret for the webhook verification handshake
-- `META_APP_SECRET` — used to validate the `X-Hub-Signature-256` header on incoming webhooks
-- `META_GRAPH_API_VERSION` — Graph API version to call (e.g. `v21.0`)
-- `DATABASE_URL` — Neon Postgres connection string (not needed with `DATABASE_ENABLED=false`)
-- `DATABASE_ENABLED` — set to exactly `false` to run without a database (see below). Unset or any other value keeps the database.
+## Notas técnicas
 
-## Running without a database (`DATABASE_ENABLED=false`)
+- **Webhook en runtime Node.js.** `app/webhook/whatsapp/route.ts` no corre en Edge porque la verificación de la firma necesita el módulo `crypto` de Node. La ruta está fija en `/webhook/whatsapp` para coincidir con la URL de callback registrada en Meta for Developers.
+- **Ventana de atención de 24 horas.** Se calcula desde el **último mensaje entrante** de la conversación, no desde la actividad general.
+- **Identificadores BSUID.** Los contactos de esta cuenta usan el esquema *Business-Scoped User ID* de Meta. Los webhooks traen `user_id`/`from_user_id` en lugar de `wa_id`/`from`, y los envíos deben usar `recipient` (con `recipient_type: "individual"`) en lugar de `to`: con `to`, Graph API acepta la petición pero el mensaje nunca se entrega.
+- **Sin autenticación.** La aplicación no incluye login; por eso el Sandbox está desactivado por defecto.
 
-For deployments that only need the bot to answer (message reactivity) and must not store anything:
+## Documentación relacionada
 
-- Prisma is never constructed and no connection is opened; `DATABASE_URL` can be absent.
-- Each citizen's conversation state lives in the process's memory and is evicted after an hour idle (six times the 10-minute session idle timeout, so the "your session expired" answer still works).
-- Meta's redeliveries of the same message are skipped by an in-memory list of message ids kept for a day.
-- Nothing is recorded: no `Conversation`/`Message` rows, no delivery statuses. The web inbox (`/api/conversations*`, `/api/messages/send`) answers `503 {"error":"persistence disabled"}`.
-- The per-citizen turn lock runs in memory even if `DATABASE_URL` is set.
-- Build with `npm run build:no-db` (no `prisma migrate deploy`).
-
-**Run exactly ONE instance in this mode.** State is per process: a second replica would not see the sessions the first one holds and would break conversations mid-flow, and a restart makes every in-progress citizen start over. Scaling out needs a shared store (for example Redis with TTLs) behind `lib/fsm/session/session-store.ts` and `lib/whatsapp/webhook/inbound-dedupe.ts`.
-
-## Run with Docker (MINSA server)
-
-The `Dockerfile` builds the no-database deployment: a multi-stage image on `node:22-alpine` (the Node version CI runs) that builds with `npm run build:no-db` and Next's standalone output, runs as the unprivileged `node` user on port 3000, and probes `GET /api/health` as its `HEALTHCHECK`.
-
-```bash
-# 1. Put the secrets in a git-ignored .env next to docker-compose.yml:
-#    META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_WEBHOOK_VERIFY_TOKEN, META_APP_SECRET
-#    (+ the SANDBOX_USE_REAL_* / MINSA_* / RENIEC_* / QUEJAS_* / GOOGLE_* values for real integrations)
-# 2. Build and start:
-docker compose up -d --build
-# 3. Check it:
-curl http://localhost:3000/api/health   # {"status":"ok","database":"disabled"}
-```
-
-- `docker-compose.yml` fixes `DATABASE_ENABLED=false`; a missing required secret stops `docker compose up` with a message instead of starting a broken bot. `HOST_PORT` changes the published port (default 3000).
-- Point Meta's webhook callback at `https://<server>/webhook/whatsapp` (TLS terminates in front of the container, e.g. the server's reverse proxy).
-- `next.config.ts` only switches to standalone output when `NEXT_OUTPUT_STANDALONE=true` (set by the Dockerfile), so Vercel builds are unchanged.
-
-## Notes
-
-- The webhook route (`app/webhook/whatsapp/route.ts`) runs on the Node.js runtime (not Edge) because signature verification needs Node's `crypto` module. The path is fixed at `/webhook/whatsapp` to match the callback URL already registered in Meta for Developers.
-- The 24-hour customer service window (required before sending free-text messages) is computed from the conversation's **last inbound message**, not overall conversation activity.
-- This WABA's contacts use Meta's **Business-Scoped User ID (BSUID)** scheme (rolled out April–July 2026), not classic phone-number identifiers. Webhook payloads carry `user_id`/`from_user_id` instead of `wa_id`/`from`, and outbound sends must use `recipient` (with `recipient_type: "individual"`) instead of `to` — using `to` is silently accepted by the Graph API but never actually delivers. `Conversation.phoneNumber` is populated only if Meta ever includes the legacy fields as a fallback.
-- No authentication/login and no automated tests are included — out of scope for this MVP.
-
-## Sandbox (Cita / Reclamo flow tester)
-
-Alongside the real chat inbox, `/` has a **Sandbox** tab: a simulated conversation tester for the two citizen-facing flows — scheduling a medical appointment ("Cita") and filing a complaint ("Reclamo") — driven by typing messages directly, no real WhatsApp needed. It runs its own small flat state machine (`lib/fsm/`) with a dedicated `SandboxSession` table (separate from `Conversation`/`Message`) and never touches the real chat.
-
-It's **gated off by default** (`SANDBOX_ENABLED=false`) because this app has no authentication of its own — anyone hitting the public URL would otherwise see it.
-
-Env vars (see `.env.example`):
-
-- `SANDBOX_ENABLED` — must be `"true"` for `/api/sandbox` to respond (404 otherwise).
-- `SANDBOX_USE_REAL_MINSA` — `"true"` calls the real MINSA APIs (identity + catalog/booking) and the real quejas API; `"false"` (default) uses hardcoded fake data (DNI `12345678`, OTP `1234`, distrito `lurigancho`).
-- `SANDBOX_USE_REAL_RENIEC` — same toggle for the RENIEC lookup used by the Reclamo flow.
-- `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_CONVERSATION_ID_PLACEHOLDER` — only needed when `SANDBOX_USE_REAL_MINSA=true`.
-- `RENIEC_LOOKUP_BASE_URL` — only needed when `SANDBOX_USE_REAL_RENIEC=true`.
-- `QUEJAS_API_BASE_URL` — the quejas API base URL (reused for both real and — with the flag off — skipped fake submission).
-
-With everything left at its default (`false`), the Sandbox runs entirely offline against fixed test data.
+| Documento | Contenido |
+|---|---|
+| [docs/ci.md](docs/ci.md) | Qué comprueba el CI y la regla de la rama `main` |
+| [docs/observability.md](docs/observability.md) | Logs estructurados, trazas y enmascarado |
+| [docs/technical-gaps.md](docs/technical-gaps.md) | Brechas técnicas conocidas y su estado |
+| [docs/out-of-scope-channels.md](docs/out-of-scope-channels.md) | Canales oficiales de derivación pendientes de confirmar |
+| [docs/qa/manual-test-playbook.md](docs/qa/manual-test-playbook.md) | Casos de prueba manual |
