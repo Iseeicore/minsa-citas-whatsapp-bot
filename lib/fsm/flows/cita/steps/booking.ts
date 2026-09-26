@@ -1,4 +1,4 @@
-import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/other-fecha";
+import { offerOtherEspecialidad } from "@/lib/fsm/flows/cita/steps/duplicate";
 import { buildResult, cloneSession, query, sendText, sendCtaUrl, withNote } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
@@ -38,7 +38,7 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
   }
 
   if (result.status === "duplicate") {
-    return offerOtherFecha(next, "duplicate");
+    return offerOtherEspecialidad(next);
   }
 
   const failures = (next.counters.citaBookingFailures ?? 0) + 1;

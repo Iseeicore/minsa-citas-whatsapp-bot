@@ -31,6 +31,7 @@ import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select
 import { handleHoraConfirm } from "@/lib/fsm/flows/cita/steps/hora/confirm";
 import { handleHoraChoice } from "@/lib/fsm/flows/cita/steps/hora/choice";
 import { handleBookingPending } from "@/lib/fsm/flows/cita/steps/booking";
+import { DUPLICATE_CHOICE_STATE, handleDuplicateChoice } from "@/lib/fsm/flows/cita/steps/duplicate";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -92,6 +93,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleHoraChoice(session, event as InboundEvent);
     case "cita_booking_pending":
       return handleBookingPending(session, event as QueryResultEvent);
+    case DUPLICATE_CHOICE_STATE:
+      return handleDuplicateChoice(session, event as InboundEvent);
     default:
       throw new Error(`handleCita: unknown state "${session.state}"`);
   }

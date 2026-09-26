@@ -302,17 +302,8 @@ describe("it plays well with the rest of the flow", () => {
 describe("offerOtherFecha reasons pick their own intro but the same question", () => {
   const session: Session = { state: "cita_booking_pending", slots: { ...BASE_SLOTS }, counters: {} };
 
-  it("'duplicate' explains an already-active appointment, not a declined horario", () => {
-    const result = offerOtherFecha(session, "duplicate");
-
-    expect(result.session.state).toBe("cita_awaiting_other_fecha");
-    const body = (sent(result)[0] as { text: string }).text;
-    expect(body).toContain("Ya tienes una cita activa registrada");
-    expect(body).toContain("¿Deseas cambiar de fecha?");
-  });
-
-  it("all three reasons still ask the exact same question and offer the same buttons", () => {
-    for (const reason of ["only_declined", "no_horarios", "duplicate"] as const) {
+  it("both reasons still ask the exact same question and offer the same buttons", () => {
+    for (const reason of ["only_declined", "no_horarios"] as const) {
       const result = offerOtherFecha(session, reason);
       expect(sent(result)[0]).toMatchObject({
         kind: "send_buttons",

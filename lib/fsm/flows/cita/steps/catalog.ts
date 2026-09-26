@@ -15,6 +15,7 @@ import { hintText, leftoverHint, matchAllTokens, readOffered } from "@/lib/fsm/p
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { discardedEspecialidades } from "@/lib/fsm/flows/cita/steps/duplicate";
 
 type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -52,13 +53,17 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length > 0) {
+  const discarded = discardedEspecialidades(next.slots);
+  const items = result.items?.filter((item) => !discarded.includes(item.codigoEspecialidad)) ?? [];
+
+  if (result.status === "found" && items.length > 0) {
     const hint = next.slots.citaEspecialidadHintText as string | undefined;
-    const matched = hint ? matchEspecialidadHint(hint, result.items) : undefined;
+    const matched = hint ? matchEspecialidadHint(hint, items) : undefined;
 
     if (matched) {
       delete next.slots.citaEspecialidadHintText;
       next.slots.citaEspecialidadId = matched.codigoEspecialidad;
+      next.slots.citaEspecialidadNombre = matched.nombreEspecialidad;
       next.state = "cita_establecimiento_pending";
       return buildResult(next, [
         sendText(`Especialidad detectada: ${matched.nombreEspecialidad}. Buscando establecimientos…`),
@@ -70,7 +75,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
     }
 
     next.state = "cita_awaiting_especialidad_select";
-    const rows: ListRow[] = result.items.map((item) => ({
+    const rows: ListRow[] = items.map((item) => ({
       id: item.codigoEspecialidad,
       title: truncateForRow(item.nombreEspecialidad, WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(
@@ -145,6 +150,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
     if (hint) next.slots.citaEstablecimientoHintText = hint;
   }
   next.slots.citaEspecialidadId = replyId;
+  if (chosen) next.slots.citaEspecialidadNombre = chosen.title;
   next.state = "cita_establecimiento_pending";
   return buildResult(next, [
     sendText("Buscando establecimientos…"),

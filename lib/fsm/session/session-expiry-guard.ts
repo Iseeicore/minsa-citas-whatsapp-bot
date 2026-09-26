@@ -20,6 +20,7 @@ const RESUME_STATE_BY_WAITING_STATE: Readonly<Record<string, string | null>> = {
   cita_awaiting_hora_select: "cita_hora_pending",
   cita_awaiting_hora_confirm: "cita_hora_pending",
   cita_awaiting_hora_choice: "cita_hora_pending",
+  cita_awaiting_duplicate_choice: "cita_especialidad_pending",
 };
 
 export const AUTHENTICATED_WAITING_STATES: readonly string[] = Object.keys(RESUME_STATE_BY_WAITING_STATE);
