@@ -1,6 +1,6 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
+import { EXIT_INTENT_RULE, PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
 
 export type DistritoAiCandidate = {
   departamento: string;
@@ -14,7 +14,7 @@ export type ResolveDistritoAiResult = {
 
 export type DistritoAiOutcome = "found" | "not_found" | "failed";
 
-export type ResolveDistritoAiDetailedResult = ResolveDistritoAiResult & { outcome: DistritoAiOutcome };
+export type ResolveDistritoAiDetailedResult = ResolveDistritoAiResult & { outcome: DistritoAiOutcome; quiereSalir?: true };
 
 const FAILED: ResolveDistritoAiDetailedResult = { outcome: "failed", candidates: [] };
 
@@ -49,6 +49,8 @@ Tu valor "sin resultado" es una lista vacía de candidatos.
 
 ${PROMPT_GUARDRAILS}
 
+${EXIT_INTENT_RULE}
+
 ## 4. FORMATO DE RESPUESTA
 Responde siempre ÚNICAMENTE como un objeto JSON con esta forma exacta (nunca texto libre, nunca markdown, nunca explicación fuera del JSON):
 
@@ -56,12 +58,14 @@ Responde siempre ÚNICAMENTE como un objeto JSON con esta forma exacta (nunca te
   "candidates": [
     { "departamento": "Nombre exacto del departamento", "provincia": "Nombre exacto de la provincia", "distrito": "Nombre exacto del distrito" }
   ],
-  "detalle": "Explicación breve (uno o dos renglones) de la resolución encontrada, o de por qué no se encontró ninguna."
+  "detalle": "Explicación breve (uno o dos renglones) de la resolución encontrada, o de por qué no se encontró ninguna.",
+  "quiere_salir": false
 }`;
 
 type DistritoAiJsonShape = {
   candidates?: unknown;
   detalle?: string;
+  quiere_salir?: unknown;
 };
 
 export const DISTRITO_AI_RESPONSE_SCHEMA: JsonSchema = {
@@ -80,8 +84,9 @@ export const DISTRITO_AI_RESPONSE_SCHEMA: JsonSchema = {
       },
     },
     detalle: { type: "string" },
+    quiere_salir: { type: "boolean" },
   },
-  required: ["candidates", "detalle"],
+  required: ["candidates", "detalle", "quiere_salir"],
 };
 
 const FAKE_DISTRITO_CANDIDATES: Record<string, DistritoAiCandidate[]> = {
@@ -132,7 +137,8 @@ export async function resolveDistritoAiDetailed(
       const parsed = outcome.json as DistritoAiJsonShape;
       if (!Array.isArray(parsed.candidates)) return FAILED;
 
-      return withOutcome(parsed.candidates.filter(isDistritoAiCandidate));
+      const resolved = withOutcome(parsed.candidates.filter(isDistritoAiCandidate));
+      return parsed.quiere_salir === true ? { ...resolved, quiereSalir: true } : resolved;
     } catch {
       return FAILED;
     }

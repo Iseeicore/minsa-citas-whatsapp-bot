@@ -207,16 +207,18 @@ describe("each AI task's standard schema, translated for Gemini", () => {
           },
         },
         detalle: { type: "STRING" },
+        quiere_salir: { type: "BOOLEAN" },
       },
-      required: ["candidates", "detalle"],
+      required: ["candidates", "detalle", "quiere_salir"],
     });
     expect(toGeminiSchema(FECHA_AI_RESPONSE_SCHEMA)).toEqual({
       type: "OBJECT",
       properties: {
         id: { type: "STRING", nullable: true },
         detalle: { type: "STRING" },
+        quiere_salir: { type: "BOOLEAN" },
       },
-      required: ["detalle"],
+      required: ["detalle", "quiere_salir"],
     });
     expect(toGeminiSchema(MAIN_MENU_INTENT_RESPONSE_SCHEMA)).toEqual({
       type: "OBJECT",
@@ -234,8 +236,9 @@ describe("each AI task's standard schema, translated for Gemini", () => {
         especialidad: { type: "STRING", nullable: true },
         establecimiento: { type: "STRING", nullable: true },
         detalle: { type: "STRING" },
+        quiere_salir: { type: "BOOLEAN" },
       },
-      required: ["detalle"],
+      required: ["detalle", "quiere_salir"],
     });
   });
 });

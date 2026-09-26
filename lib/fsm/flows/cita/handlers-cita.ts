@@ -33,6 +33,7 @@ import { handleHoraChoice } from "@/lib/fsm/flows/cita/steps/hora/choice";
 import { handleBookingPending } from "@/lib/fsm/flows/cita/steps/booking";
 import { DUPLICATE_CHOICE_STATE, handleDuplicateChoice } from "@/lib/fsm/flows/cita/steps/duplicate";
 import { handleOtherEstablecimiento, OTHER_ESTABLECIMIENTO_STATE } from "@/lib/fsm/flows/cita/steps/other-establecimiento";
+import { EXIT_CONFIRM_STATE, handleExitConfirm } from "@/lib/fsm/flows/cita/steps/exit";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -98,6 +99,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleDuplicateChoice(session, event as InboundEvent);
     case OTHER_ESTABLECIMIENTO_STATE:
       return handleOtherEstablecimiento(session, event as InboundEvent);
+    case EXIT_CONFIRM_STATE:
+      return handleExitConfirm(session, event as InboundEvent);
     default:
       throw new Error(`handleCita: unknown state "${session.state}"`);
   }

@@ -15,6 +15,7 @@ import { hintText, leftoverHint, matchAllTokens, readOffered } from "@/lib/fsm/p
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit";
 import { discardedEspecialidades } from "@/lib/fsm/flows/cita/steps/duplicate";
 import {
   discardedEstablecimientos,
@@ -114,7 +115,7 @@ function askSelectionHints(
 }
 
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { especialidad?: unknown; establecimiento?: unknown };
+  const result = event.result as { especialidad?: unknown; establecimiento?: unknown; quiereSalir?: boolean };
   const step = session.slots.citaSelectionStep === "establecimiento" ? "establecimiento" : "especialidad";
   const offered = readOffered(session.slots);
 
@@ -122,6 +123,8 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
   delete restored.slots.citaSelectionStep;
   restored.state =
     step === "establecimiento" ? "cita_awaiting_establecimiento_select" : "cita_awaiting_especialidad_select";
+
+  if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
   const own = step === "establecimiento" ? result.establecimiento : result.especialidad;
   const matched = typeof own === "string" && offered ? matchAllTokens(own, offered.rows) : undefined;

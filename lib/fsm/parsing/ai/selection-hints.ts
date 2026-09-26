@@ -1,10 +1,11 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
+import { EXIT_INTENT_RULE, PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
 
 export type SelectionHintsResult = {
   especialidad?: string;
   establecimiento?: string;
+  quiereSalir?: true;
 };
 
 const SELECTION_HINTS_SYSTEM_PROMPT = `# SYSTEM PROMPT: Extractor de pistas — Canal MINSA
@@ -20,9 +21,11 @@ Solo extraes esos dos datos. Tu valor "sin resultado" es ambos como null.
 
 ${PROMPT_GUARDRAILS}
 
+${EXIT_INTENT_RULE}
+
 ## 3. FORMATO DE RESPUESTA
 Responde SIEMPRE únicamente con un objeto JSON, sin markdown ni texto adicional:
-{ "especialidad": "<texto o null>", "establecimiento": "<texto o null>", "detalle": "Explicación breve." }`;
+{ "especialidad": "<texto o null>", "establecimiento": "<texto o null>", "detalle": "Explicación breve.", "quiere_salir": false }`;
 
 export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
@@ -30,8 +33,9 @@ export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
     especialidad: { type: ["string", "null"] },
     establecimiento: { type: ["string", "null"] },
     detalle: { type: "string" },
+    quiere_salir: { type: "boolean" },
   },
-  required: ["detalle"],
+  required: ["detalle", "quiere_salir"],
 };
 
 export async function extractSelectionHints(
@@ -51,11 +55,12 @@ export async function extractSelectionHints(
     if (!outcome.ok) return {};
 
     try {
-      const parsed = outcome.json as { especialidad?: unknown; establecimiento?: unknown };
-      return {
+      const parsed = outcome.json as { especialidad?: unknown; establecimiento?: unknown; quiere_salir?: unknown };
+      const hints: SelectionHintsResult = {
         especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
         establecimiento: typeof parsed.establecimiento === "string" ? parsed.establecimiento : undefined,
       };
+      return parsed.quiere_salir === true ? { ...hints, quiereSalir: true } : hints;
     } catch {
       return {};
     }

@@ -19,6 +19,7 @@ import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } fr
 import { todayInLima } from "@/lib/time/lima-clock";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/other-establecimiento";
+import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -113,11 +114,13 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
 }
 
 export function handleFechaAiPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { id?: unknown };
+  const result = event.result as { id?: unknown; quiereSalir?: boolean };
   const offered = readOffered(session.slots);
 
   const restored = cloneSession(session);
   restored.state = "cita_awaiting_fecha_select";
+
+  if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
   if (typeof result.id === "string" && offered?.rows.some((row) => row.id === result.id)) {
     return handleAwaitingFechaSelect(restored, { from: event.from, type: "list", listId: result.id });
