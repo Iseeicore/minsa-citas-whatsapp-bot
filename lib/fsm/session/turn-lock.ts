@@ -1,3 +1,5 @@
+import { logger } from "@/lib/observability/logger";
+import { tail as maskWaId } from "@/lib/observability/mask";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 
 export type TurnLockLayer = "process" | "database";
@@ -50,7 +52,6 @@ function waitFor(promise: Promise<unknown>, timeoutMs: number, onTimeout: () => 
 export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
   const timeoutMs = options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS;
   const slowWaitMs = options.slowWaitMs ?? DEFAULT_SLOW_WAIT_MS;
-  const log = options.log ?? ((line: string) => console.info(line));
   const tails = new Map<string, Promise<void>>();
 
   return async function withTurnLock<T>(waId: string, task: TurnTask<T>): Promise<T> {
@@ -69,7 +70,8 @@ export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
 
       const waited = Date.now() - queuedAt;
       if (waited >= slowWaitMs) {
-        log(`[turn-lock] turn waited ${waited} ms behind an earlier turn of ...${waId.slice(-4)}`);
+        if (options.log) options.log(`[turn-lock] turn waited ${waited} ms behind an earlier turn of ...${waId.slice(-4)}`);
+        else logger.info("turn_lock.waited", { waId: maskWaId(waId), waitedMs: waited, layer: "process" });
       }
 
       return await (options.dbLock ? options.dbLock(waId, task) : task());

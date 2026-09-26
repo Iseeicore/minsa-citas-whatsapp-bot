@@ -1,3 +1,5 @@
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
 import { TurnLockTimeoutError, type DbTurnLock } from "@/lib/fsm/session/turn-lock";
 
 type Tx = { $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number> };
@@ -73,7 +75,7 @@ export function createPrismaAdvisoryLock(
   const onAcquired =
     options.onAcquired ??
     ((waId: string, ms: number) => {
-      if (ms >= SLOW_ACQUIRE_MS) console.info(`[turn-lock] database lock for ...${waId.slice(-4)} took ${Math.round(ms)} ms`);
+      if (ms >= SLOW_ACQUIRE_MS) logger.info("turn_lock.waited", { waId: tail(waId), waitedMs: Math.round(ms), layer: "database" });
     });
 
   return async function withAdvisoryLock<T>(waId: string, task: () => Promise<T>): Promise<T> {

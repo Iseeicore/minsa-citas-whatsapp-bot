@@ -1,3 +1,6 @@
+import { logger } from "@/lib/observability/logger";
+import { graphApiVersion } from "@/lib/whatsapp/graph-api";
+
 const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
 
 type MetaMediaInfo = {
@@ -25,9 +28,8 @@ export async function downloadWhatsAppMediaAsDataUri(mediaId: string): Promise<s
 
     const buffer = Buffer.from(await mediaResponse.arrayBuffer());
     return `data:${info.mime_type};base64,${buffer.toString("base64")}`;
-  } catch (err) {
-    console.error("downloadWhatsAppMediaAsDataUri: failed", err);
+  } catch (error) {
+    logger.warn("whatsapp.media_failed", { error });
     return null;
   }
-}import { graphApiVersion } from "@/lib/whatsapp/graph-api";
-
+}

@@ -80,7 +80,7 @@ export async function sendFixedReply(waId: string, text: string): Promise<void> 
   try {
     await sendWhatsAppEffect(waId, { kind: "send_text", text });
   } catch (error) {
-    console.error("Failed to send a perimeter reply", error);
+    logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
   }
 }
 

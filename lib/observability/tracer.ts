@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { activeTrace, runWithTrace } from "@/lib/observability/context";
-import { logger as appLogger, type Logger } from "@/lib/observability/logger";
+import { logger as appLogger, type AppLogger } from "@/lib/observability/logger";
 import { previewInput, sanitizeSlots, tail } from "@/lib/observability/mask";
 import type { ExternalService, TurnNote } from "@/lib/observability/types";
 
@@ -25,7 +25,7 @@ export type TurnTrace = {
   fail: (error: unknown) => void;
 };
 
-type TraceOptions = { now?: () => number; log?: Logger };
+type TraceOptions = { now?: () => number; log?: AppLogger };
 
 const statusOf = (result: unknown): string | undefined =>
   typeof result === "object" && result !== null && typeof (result as { status?: unknown }).status === "string"

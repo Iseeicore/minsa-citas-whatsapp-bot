@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import type { WhatsAppWebhookPayload } from "@/lib/whatsapp/webhook/payload";
 import { processValue } from "@/lib/whatsapp/webhook/process";
+import { logger } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.error("Failed to process webhook entry", error);
+        logger.error("webhook.entry_failed", { error });
       }
     }
   });

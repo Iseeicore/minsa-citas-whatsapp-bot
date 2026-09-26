@@ -1,5 +1,6 @@
 import { currentTraceId } from "@/lib/observability/context";
 import { createDailyFileSink } from "@/lib/observability/file-sink";
+import type { LogEvent } from "@/lib/observability/events";
 import { sanitizeValue } from "@/lib/observability/mask";
 import type { LogFields, LogLevel, LogSink } from "@/lib/observability/types";
 
@@ -9,6 +10,12 @@ export type Logger = {
   info: (event: string, fields?: LogFields) => void;
   warn: (event: string, fields?: LogFields) => void;
   error: (event: string, fields?: LogFields) => void;
+};
+
+export type AppLogger = {
+  info: (event: LogEvent, fields?: LogFields) => void;
+  warn: (event: LogEvent, fields?: LogFields) => void;
+  error: (event: LogEvent, fields?: LogFields) => void;
 };
 
 export function createLogger(options: {
@@ -64,7 +71,7 @@ function defaultSink(): LogSink {
 
 let current = createLogger({ sink: defaultSink(), level: envLevel() });
 
-export const logger: Logger = {
+export const logger: AppLogger = {
   info: (event, fields) => current.info(event, fields),
   warn: (event, fields) => current.warn(event, fields),
   error: (event, fields) => current.error(event, fields),
