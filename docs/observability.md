@@ -95,4 +95,4 @@ rg '"event":"minsa.book_appointment.failed"' logs/19-09-2026/app.ndjson
 
 La máquina de estados **sigue siendo pura**: los handlers no escriben logs. Devuelven `notes` (datos) en su resultado y el ejecutor (`runTurn`) es quien los registra. Por eso el aviso de sesión caducada sale del ejecutor y no de `session-expiry-guard.ts`.
 
-Los logs `[turn-lock] …` de la rama anterior se mantienen con su formato de texto.
+La espera del candado se registra como el evento `turn_lock.waited` (ver la tabla de eventos).

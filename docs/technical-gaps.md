@@ -61,7 +61,7 @@ Los límites son los mismos: 30 s en la cola en memoria (`TURN_PROCESS_LOCK_TIME
 
 Desde una red lejana (159 ms por viaje a la base) el candado tarda **340 ms de mediana** en adquirirse: son 2 viajes (`BEGIN` y la sentencia del candado) y 134 ms en liberarse (`COMMIT`). Es distancia de red, no código, pero el presupuesto de 200 ms **no está certificado**. Falta medirlo desde una función de Vercel en la región de la base (Neon está en `us-east-1`; se espera `iad1`, confirmar la región de la función del proyecto).
 
-- **Cómo medirlo:** durante la sección 4 del playbook, buscar en los logs `[turn-lock] database lock for ...NNNN took N ms`. Esa línea solo se escribe si tarda **200 ms o más**: si no aparece ninguna, la adquisición está por debajo del presupuesto.
+- **Cómo medirlo:** durante la sección 4 del playbook, buscar en los logs el evento `turn_lock.waited` con `layer: "database"` (el campo `waitedMs` da la duración). Esa línea solo se escribe si tarda **200 ms o más**: si no aparece ninguna, la adquisición está por debajo del presupuesto.
 - **Referencia:** `npm run smoke:neon` (mide el candado real; ejecutado desde red local).
 
 ## G5 a G8. Otros gaps abiertos (ya comunicados; sin cambios)
