@@ -11,6 +11,17 @@ export type ResolveDistritoAiResult = {
   candidates: DistritoAiCandidate[];
 };
 
+export type DistritoAiOutcome = "found" | "not_found" | "failed";
+
+export type ResolveDistritoAiDetailedResult = ResolveDistritoAiResult & { outcome: DistritoAiOutcome };
+
+const FAILED: ResolveDistritoAiDetailedResult = { outcome: "failed", candidates: [] };
+
+const withOutcome = (candidates: DistritoAiCandidate[]): ResolveDistritoAiDetailedResult => ({
+  outcome: candidates.length > 0 ? "found" : "not_found",
+  candidates,
+});
+
 const DISTRITO_AI_SYSTEM_PROMPT = `# SYSTEM PROMPT: Asistente de Resolución de Distritos del Perú
 
 ## 1. ROL Y CONTEXTO
@@ -96,11 +107,11 @@ function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
   );
 }
 
-export async function resolveDistritoAi(
+export async function resolveDistritoAiDetailed(
   distritoText: string,
   contextText?: string,
   llm: LlmClient | null = getLlmClient(),
-): Promise<ResolveDistritoAiResult> {
+): Promise<ResolveDistritoAiDetailedResult> {
   if (llm) {
     const userTurn = [
       `Respuesta directa: ${distritoText}`,
@@ -115,28 +126,37 @@ export async function resolveDistritoAi(
       userText: userTurn,
       schema: DISTRITO_AI_RESPONSE_SCHEMA,
     });
-    if (!outcome.ok) return { candidates: [] };
+    if (!outcome.ok) return FAILED;
 
     try {
       const parsed = outcome.json as DistritoAiJsonShape;
-      if (!Array.isArray(parsed.candidates)) return { candidates: [] };
+      if (!Array.isArray(parsed.candidates)) return FAILED;
 
-      return { candidates: parsed.candidates.filter(isDistritoAiCandidate) };
+      return withOutcome(parsed.candidates.filter(isDistritoAiCandidate));
     } catch {
-      return { candidates: [] };
+      return FAILED;
     }
   }
 
   const key = distritoText.trim().toLowerCase();
   const direct = FAKE_DISTRITO_CANDIDATES[key];
-  if (direct) return { candidates: direct };
+  if (direct) return withOutcome(direct);
 
   const haystack = `${distritoText} ${contextText ?? ""}`.toLowerCase();
   for (const [knownDistrito, candidates] of Object.entries(FAKE_DISTRITO_CANDIDATES)) {
     if (haystack.includes(knownDistrito)) {
-      return { candidates };
+      return withOutcome(candidates);
     }
   }
 
-  return { candidates: [] };
+  return withOutcome([]);
+}
+
+export async function resolveDistritoAi(
+  distritoText: string,
+  contextText?: string,
+  llm: LlmClient | null = getLlmClient(),
+): Promise<ResolveDistritoAiResult> {
+  const { candidates } = await resolveDistritoAiDetailed(distritoText, contextText, llm);
+  return { candidates };
 }

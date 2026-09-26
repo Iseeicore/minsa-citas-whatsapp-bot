@@ -25,6 +25,16 @@ export type DistritoAiCandidateResult = {
   distrito: string;
 };
 
+export const DISTRITO_MANUAL_FALLBACK_TEXT =
+  "No pudimos identificar tu distrito en este momento. Vamos por partes: indícanos el departamento donde buscas atención.";
+
+export function enterManualDistritoFlow(session: Session, text: string): HandlerResult {
+  const next = cloneSession(session);
+  delete next.counters.distritoNotFound;
+  next.state = "cita_awaiting_departamento";
+  return buildResult(next, [sendText(text)]);
+}
+
 const PILOT_DEPARTAMENTO = "LIMA";
 const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global";
 const NATIONAL_REDIRECT_URL = "https://dminsadigital.minsa.gob.pe/login";

@@ -1,5 +1,7 @@
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
 import {
+  DISTRITO_MANUAL_FALLBACK_TEXT,
+  enterManualDistritoFlow,
   looksLikePlaceName,
   resolveDistritoCandidates,
   resolveDistritoText,
@@ -22,6 +24,7 @@ import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import type { DistritoAiOutcome } from "@/lib/fsm/parsing/ai/distrito";
 
 
 export function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
@@ -39,9 +42,29 @@ export function handleAwaitingDistritoAi(session: Session, event: InboundEvent):
   return resolveDistritoText(session, distritoText, contextText);
 }
 
+const MAX_DISTRITO_NOT_FOUND = 2;
+
 export function handleDistritoAiPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { candidates?: DistritoAiCandidateResult[] };
-  return resolveDistritoCandidates(session, result.candidates ?? []);
+  const result = event.result as { outcome?: DistritoAiOutcome; candidates?: DistritoAiCandidateResult[] };
+
+  if (result.outcome === "failed") {
+    return enterManualDistritoFlow(session, DISTRITO_MANUAL_FALLBACK_TEXT);
+  }
+
+  if (result.outcome === "not_found") {
+    const misses = (session.counters.distritoNotFound ?? 0) + 1;
+    if (misses >= MAX_DISTRITO_NOT_FOUND) {
+      return enterManualDistritoFlow(session, DISTRITO_MANUAL_FALLBACK_TEXT);
+    }
+    const next = cloneSession(session);
+    next.counters.distritoNotFound = misses;
+    next.state = "cita_awaiting_distrito_ai";
+    return buildResult(next, [sendText(UNRECOGNIZED_DISTRITO_TEXT)]);
+  }
+
+  const next = cloneSession(session);
+  delete next.counters.distritoNotFound;
+  return resolveDistritoCandidates(next, result.candidates ?? []);
 }
 
 export function handleAwaitingDistritoDisambiguation(session: Session, event: InboundEvent): HandlerResult {

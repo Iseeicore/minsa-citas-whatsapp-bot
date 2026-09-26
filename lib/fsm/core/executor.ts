@@ -1,4 +1,4 @@
-import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
+import { resolveDistritoAiDetailed } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi, type FechaAiOption } from "@/lib/fsm/parsing/ai/fecha";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
@@ -128,7 +128,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
       return analyzeMainMenuIntent(String(effect.payload.text ?? ""));
 
     case "resolve_distrito_ai":
-      return resolveDistritoAi(
+      return resolveDistritoAiDetailed(
         String(effect.payload.distritoText ?? ""),
         effect.payload.contextText as string | undefined,
       );
