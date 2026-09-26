@@ -1,7 +1,7 @@
 import { buildResult, cloneSession, query, sendText, sendButtons } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { clearOffered } from "@/lib/fsm/flows/cita/selection";
-import { formatHora12, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
+import { formatHoraRange, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 
 export function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {
   const [start, end] = slotId.split("|");
@@ -11,7 +11,7 @@ export function askHoraConfirmation(session: Session, slotId: string, options: {
   if (options.only) next.slots.citaHoraConfirmOnly = ONLY_HORA_FLAG;
   else delete next.slots.citaHoraConfirmOnly;
 
-  const range = `${formatHora12(start)} - ${formatHora12(end)}`;
+  const range = formatHoraRange(start, end);
   return buildResult(next, [
     options.only
       ? sendButtons(`Solo hay un horario disponible: ${range}. ¿Lo confirmas?`, [

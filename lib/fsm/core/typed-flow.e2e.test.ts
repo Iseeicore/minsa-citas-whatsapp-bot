@@ -66,7 +66,7 @@ describe("typed Cita flow end to end (fake adapters)", () => {
 
     const hora = await say("a las 9 y media");
     expect(hora.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(hora.texts[0]).toContain("9:30 AM");
+    expect(hora.texts[0]).toContain("9:30 - 10:00 AM");
     expect(hora.sent.some((effect) => effect.kind === "send_buttons")).toBe(true);
 
     const confirmed = await say("sí");

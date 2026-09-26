@@ -497,7 +497,7 @@ describe("hora select", () => {
         { id: "hora_confirm_no", title: "No, ver horarios" },
       ],
     });
-    expect((sent(result)[0] as { text: string }).text).toContain("8:00 AM - 8:30 AM");
+    expect((sent(result)[0] as { text: string }).text).toContain("8:00 - 8:30 AM");
   });
 
   it("unmatched text is rejected and the list re-shown", () => {
