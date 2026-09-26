@@ -5,6 +5,8 @@ export type OfferedList = { text: string; rows: OfferedRow[] };
 
 export const OFFERED_SLOT = "citaOffered";
 
+export const OFFERED_NAMES_SLOT = "citaOfferedNames";
+
 export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
 }

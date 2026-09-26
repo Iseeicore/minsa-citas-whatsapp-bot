@@ -11,6 +11,7 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import {
   matchSelection,
+  OFFERED_NAMES_SLOT,
   OFFERED_SLOT,
   readOffered,
   type OfferedList,
@@ -25,6 +26,7 @@ export const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona 
 export function clearOffered(session: Session): Session {
   const next = cloneSession(session);
   delete next.slots[OFFERED_SLOT];
+  delete next.slots[OFFERED_NAMES_SLOT];
   delete next.counters[LIST_PAGE_COUNTER];
   return next;
 }

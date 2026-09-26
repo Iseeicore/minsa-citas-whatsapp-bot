@@ -1,6 +1,6 @@
 const SENSITIVE_KEY = /bearer|token|authorization|secret|password|api[_-]?key|twofa|otp|code$/i;
 const DNI_KEY = /dni|documento/i;
-const LENGTH_ONLY_KEYS = new Set(["citaOffered", "citaHorasDia", "citaHoraChoiceB", "initialMessageText"]);
+const LENGTH_ONLY_KEYS = new Set(["citaOffered", "citaOfferedNames", "citaHorasDia", "citaHoraChoiceB", "initialMessageText"]);
 
 const MAX_STRING = 200;
 const MAX_DEPTH = 4;

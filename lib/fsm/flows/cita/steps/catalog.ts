@@ -6,7 +6,8 @@ import {
   catalogRowDescription,
   formatEspecialidadName,
   formatEstablecimientoName,
-  fullNameFromRow,
+  offeredFullName,
+  rememberFullNames,
 } from "@/lib/fsm/flows/cita/catalog-names";
 import { hintText, leftoverHint, matchAllTokens, readOffered } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
@@ -80,8 +81,10 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
     }
 
     next.state = "cita_awaiting_especialidad_select";
-    const rows: ListRow[] = items.map((item) => {
-      const name = formatEspecialidadName(item.nombreEspecialidad);
+    const names = items.map((item) => ({ id: item.codigoEspecialidad, name: formatEspecialidadName(item.nombreEspecialidad) }));
+    rememberFullNames(next.slots, names.map(({ id, name }) => ({ id, full: name.full })));
+    const rows: ListRow[] = items.map((item, index) => {
+      const { name } = names[index];
       return { id: item.codigoEspecialidad, title: name.title, description: catalogRowDescription(name, item.cantidadCupos) };
     });
     return buildResult(next, offerPagedList(next, "Selecciona la especialidad:", rows));
@@ -150,11 +153,11 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
 
   const next = clearOffered(session);
   if (outcome.typed && chosen) {
-    const hint = leftoverHint(outcome.typed, { ...chosen, title: fullNameFromRow(chosen) }).slice(0, HINT_MAX_LENGTH);
+    const hint = leftoverHint(outcome.typed, { ...chosen, title: offeredFullName(session.slots, chosen) }).slice(0, HINT_MAX_LENGTH);
     if (hint) next.slots.citaEstablecimientoHintText = hint;
   }
   next.slots.citaEspecialidadId = replyId;
-  if (chosen) next.slots.citaEspecialidadNombre = fullNameFromRow(chosen);
+  if (chosen) next.slots.citaEspecialidadNombre = offeredFullName(session.slots, chosen);
   next.state = "cita_establecimiento_pending";
   return buildResult(next, [
     sendText("Buscando establecimientos…"),
@@ -203,6 +206,10 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
 
   const discarded = discardedEstablecimientos(next.slots);
   const items = result.status === "found" ? (result.items ?? []).filter((item) => !discarded.includes(item.renipressCode)) : [];
+
+  if (items.length > 0) {
+    rememberFullNames(next.slots, items.map((item) => ({ id: item.renipressCode, full: establecimientoFullName(item) })));
+  }
 
   if (isSearchingOtherEstablecimiento(next.slots)) {
     return offerOtherEstablecimiento(
@@ -268,7 +275,7 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);
   next.slots.citaCodEess = replyId;
-  if (chosen) next.slots[ESTABLECIMIENTO_NAME_SLOT] = fullNameFromRow(chosen);
+  if (chosen) next.slots[ESTABLECIMIENTO_NAME_SLOT] = offeredFullName(session.slots, chosen);
   next.state = "cita_fecha_pending";
   return buildResult(next, [
     sendText("Buscando fechas disponibles…"),
