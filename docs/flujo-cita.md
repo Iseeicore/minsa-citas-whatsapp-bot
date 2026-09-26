@@ -73,9 +73,9 @@ Reserva 💬 "Agendando tu cita…"
 | Desambiguación de distrito | 📋 ≤ 10 | posición ("2", "segunda"), nombre, provincia o departamento; un lugar nuevo inicia otra búsqueda | 📋 reducida | solo si inicia otra búsqueda |
 | Modo manual (depto → prov → distrito) | 💬 | cualquier texto | — | no |
 | Ubigeo | 📋 2–10 | posición o nombre | 📋 reducida | no |
-| Especialidad | 📋 paginada | posición, ordinal o nombre | 📋 reducida | 🤖 pistas (texto de 5+ letras) |
+| Especialidad | 📋 paginada (título corto; descripción: nombre completo · cupos) | posición, ordinal, nombre corto o completo | 📋 reducida | 🤖 pistas (texto de 5+ letras) |
 | Sin cobertura | 🔘 [Sí, otro distrito] [No, salir] | sí/no, "cambiar", "otro distrito", un nombre de lugar | — | solo si inicia otra búsqueda |
-| Establecimiento | 📋 ≤ 10 | posición, ordinal o nombre | 📋 reducida | 🤖 pistas |
+| Establecimiento | 📋 ≤ 10 (título abreviado; descripción: nombre completo · cupos) | posición, ordinal, nombre corto o completo | 📋 reducida | 🤖 pistas |
 | Fecha | 📋 paginada | "22/09", "22 de septiembre", "hoy", "mañana", "martes", "el 22", "lo más pronto", posición | 📋 reducida (varios martes, varios "22") | 🤖 fecha (frases temporales) |
 | Hora | 📋 ≤ 10 por página + 🔘 [Ver más horarios] | "8:45", "8 y 45", "8 y media", "a las 3 de la tarde", "mediodía", "lo más temprano", posición | 📋 reducida; "1".."10" ambiguo → 🔘 2 opciones | no |
 | Elección de hora ambigua | 🔘 2 opciones | la hora escrita otra vez | 📋 reducida | no |
@@ -139,7 +139,9 @@ En los pasos de documento, OTP, registro pendiente, distrito, modo manual y en t
 | Sí | ⛔ *"Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋"* La sesión termina (`cita_abandoned`) y el siguiente mensaje es un primer contacto. |
 | No | vuelve al mismo paso y repite su pregunta (o la lista) |
 
-> **No hay comandos "menú" o "reiniciar" a mitad del flujo.** Para volver al menú hay que llegar a un estado terminal o cancelar la reverificación.
+Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero** aparece la alerta de sesión expirada (ver abajo); al reverificar, vuelve al paso donde estaba antes de preguntarle si quería salir.
+
+> **No hay comandos "menú" o "reiniciar" a mitad del flujo.** Para salir se usa la salida voluntaria, o se llega a un estado terminal.
 
 ### La IA se cayó o tardó más de 8 s
 
@@ -153,14 +155,17 @@ En los pasos de documento, OTP, registro pendiente, distrito, modo manual y en t
 ### La sesión expiró
 
 **Por inactividad o token vencido:**
-- **Dónde aplica:** en los pasos posteriores al OTP que esperan una respuesta del ciudadano.
+- **Dónde aplica:** en los pasos posteriores al OTP que esperan una respuesta del ciudadano, incluida la pregunta "¿Deseas salir?" hecha en uno de esos pasos.
 - **Qué la dispara:** más de 10 min sin actividad, o que el token del MINSA venza en menos de 30 s.
 - **Qué envía el bot:**
-  - 🔘 *"⏳ Tu sesión ha expirado por inactividad. Por tu seguridad, necesitamos confirmar nuevamente tu identidad para continuar con tu cita. ¿Deseas solicitar un nuevo código de verificación?"* con [Sí, enviar código] [Cancelar].
+  - 🔘 *"⏳ Tu sesión ha expirado por inactividad. Por tu seguridad, necesitamos confirmar nuevamente tu identidad para continuar con tu cita. ¿Deseas solicitar un nuevo código de verificación?
+
+[1] Sí, enviar código
+[2] Cancelar"* con [Sí, enviar código] [Cancelar].
   - El mensaje que llegó en ese momento **no se procesa**.
 - **Qué pasa después:**
   - **Sí** → nuevo OTP y el flujo retoma donde estaba.
-  - **Cancelar** → 📋 menú.
+  - **Cancelar** → 🔘 *"Parece que prefieres no continuar con tu cita… ¿Deseas salir?"*: **Sí** cierra la cita (`cita_abandoned`); **No** vuelve a mostrar la alerta.
 
 **Por un 401 del MINSA a mitad del flujo:**
 - **Qué envía el bot:** 💬 *"Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu número de documento (8 dígitos) para continuar justo donde quedaste."*
@@ -217,3 +222,18 @@ Mientras la IA responde, el ciudadano ve "escribiendo…"; si tarda más de 8 s,
 - **Horas en 12 h:** el ciudadano ve los rangos como *8:00 - 8:15 AM*, *1:00 - 1:15 PM* o *11:45 AM - 12:00 PM* (listas, lista reducida, horario único, confirmación y la elección entre posición y hora). Al MINSA se sigue enviando 24 h (`08:00|08:15`), y el bot entiende horas escritas en 12 h o 24 h.
 - **Departamentos permitidos:** los define `CITA_ALLOWED_DEPARTAMENTOS` (por ejemplo `LIMA`). Vacía o sin definir = sin filtro. El filtro aplica a la búsqueda por nombre, a las pistas del primer mensaje y al modo manual (departamento → provincia → distrito).
 - **Fechas del MINSA:** "hoy" y "fin de mes" se calculan con el reloj de Lima, no con el del servidor.
+
+## Nombres de especialidad y establecimiento en las listas
+
+El MINSA entrega nombres largos (por ejemplo `CONSULTA EXTERNA-MEDICINA GENERAL / ATENCIÓN DEL ADULTO-`). `lib/fsm/flows/cita/catalog-names.ts` los limpia sin IA, con reglas fijas:
+
+| Dato | Especialidad | Establecimiento |
+|---|---|---|
+| Nombre del MINSA | `CONSULTA EXTERNA-MEDICINA GENERAL / ATENCIÓN DEL ADULTO-` | `HOSPITAL NACIONAL HIPOLITO UNANUE` |
+| Título de la fila (≤ 24) | `Medicina General` | `Hosp. Nacional Hipolito` |
+| Descripción (≤ 72) | `Medicina General / Atención del Adulto · 1312 cupos` | `Hospital Nacional Hipolito Unanue · 12 cupos` |
+
+- Se quita el prefijo `CONSULTA EXTERNA-` y los guiones sobrantes; mayúsculas de título; siglas (`CS`), abreviaturas con punto (`C.S.`) y números romanos (`II`) quedan en mayúscula.
+- En establecimientos, el título abrevia Hospital → Hosp., Centro de Salud → C.S., Puesto de Salud → P.S., Centro Materno Infantil → C.M.I.
+- Si el nombre completo cabe en el título, la descripción lleva solo los cupos.
+- El texto escrito se compara también con la descripción ("atención del adulto" elige esa fila), y los mensajes que nombran la especialidad o el establecimiento usan el nombre completo limpio.

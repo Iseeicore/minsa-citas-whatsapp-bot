@@ -5,6 +5,7 @@ import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
 import { buildResult, cloneSession, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import { reshowOffered } from "@/lib/fsm/flows/cita/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity";
+import { REAUTH_STATE, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 
 export const EXIT_CONFIRM_STATE = "cita_awaiting_exit_confirm";
@@ -49,7 +50,7 @@ const exitButtons = () =>
     { id: EXIT_NO_ID, title: "No, continuar" },
   ]);
 
-export function askToLeave(session: Session, source: "local" | "ai"): HandlerResult {
+export function askToLeave(session: Session, source: "local" | "ai" | "reauth"): HandlerResult {
   const next = cloneSession(session);
   next.slots[RESUME_SLOT] = session.state;
   next.state = EXIT_CONFIRM_STATE;
@@ -69,6 +70,7 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
   restored.state = String(session.slots[RESUME_SLOT] ?? "cita_awaiting_dni");
   delete restored.slots[RESUME_SLOT];
 
+  if (restored.state === REAUTH_STATE) return buildResult(restored, [reauthPrompt()]);
   const prompt = TEXT_PROMPTS[restored.state];
   if (prompt) return buildResult(restored, [sendText(prompt)]);
   if (restored.state === REGISTRATION_WAIT_STATE) return handleRegistrationWait(restored, { ...event, type: "text", text: "" });

@@ -70,7 +70,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     expect(sent(result)).toEqual([
       {
         kind: "send_buttons",
-        text: "No hay fechas disponibles en *CS SAN BORJA*. ¿Quieres buscar en *HOSPITAL LURIGANCHO*?",
+        text: "No hay fechas disponibles en *CS SAN BORJA*. ¿Quieres buscar en *Hospital Lurigancho*?",
         buttons: [
           { id: "cita_otro_establecimiento_si", title: "Sí, buscar ahí" },
           { id: "cita_otro_establecimiento_no", title: "No, salir" },
@@ -110,7 +110,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     const result = handle(asked.session, text("asdf"));
 
     expect(result.session.state).toBe("cita_awaiting_other_establecimiento");
-    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", text: "¿Quieres buscar en *HOSPITAL LURIGANCHO*?" });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", text: "¿Quieres buscar en *Hospital Lurigancho*?" });
   });
 
   it("with several left, lists them after saying they also offer the especialidad", () => {
@@ -151,7 +151,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     ]);
 
     expect(sent(result)[0]).toMatchObject({
-      text: "No hay fechas disponibles en ese establecimiento. ¿Quieres buscar en *HOSPITAL LURIGANCHO*?",
+      text: "No hay fechas disponibles en ese establecimiento. ¿Quieres buscar en *Hospital Lurigancho*?",
     });
   });
 
@@ -176,6 +176,6 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     );
     const picked = handle(listed.session, { from: FROM, type: "list", listId: "0000789" });
 
-    expect(picked.session.slots.citaEstablecimientoNombre).toBe("CS SANTA ANITA");
+    expect(picked.session.slots.citaEstablecimientoNombre).toBe("CS Santa Anita");
   });
 });

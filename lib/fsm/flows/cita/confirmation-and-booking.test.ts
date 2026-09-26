@@ -94,8 +94,8 @@ describe("typed yes/no when the session expired", () => {
     expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "12345678" } }]);
   });
 
-  it("«no, gracias» goes back to the menu", () => {
-    expect(handle(waiting(), text("no, gracias")).session.state).toBe("main_menu");
+  it("«no, gracias» asks whether the citizen is sure to leave", () => {
+    expect(handle(waiting(), text("no, gracias")).session.state).toBe("cita_awaiting_exit_confirm");
   });
 });
 
