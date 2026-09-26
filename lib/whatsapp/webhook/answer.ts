@@ -1,6 +1,7 @@
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
-import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TURN_FAILURE_TEXT } from "@/lib/fsm/core/failure-texts";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
@@ -80,7 +81,7 @@ export async function sendFixedReply(waId: string, text: string): Promise<void> 
   try {
     await sendWhatsAppEffect(waId, { kind: "send_text", text });
   } catch (error) {
-    console.error("Failed to send a perimeter reply", error);
+    logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
   }
 }
 

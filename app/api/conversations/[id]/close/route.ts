@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { ConversationStatus } from "@prisma/client";
+import { apiError } from "@/lib/http/api-error";
 
 export async function POST(
   request: NextRequest,
@@ -14,10 +15,7 @@ export async function POST(
   const conversation = await prisma.conversation.findUnique({ where: { id } });
 
   if (!conversation) {
-    return NextResponse.json(
-      { error: "NOT_FOUND", message: "Conversation not found." },
-      { status: 404 },
-    );
+    return apiError("NOT_FOUND", { message: "No se encontró la conversación." });
   }
 
   const updated = await prisma.conversation.update({

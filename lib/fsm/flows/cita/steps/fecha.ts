@@ -1,3 +1,4 @@
+import { searchFailureText } from "@/lib/fsm/core/failure-texts";
 import { closeWithApology, discardedDates } from "@/lib/fsm/flows/cita/steps/other-fecha";
 import { normalizeText } from "@/lib/fsm/parsing/text";
 import {
@@ -45,7 +46,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        "Ocurrió un error al buscar fechas disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+        searchFailureText("fechas"),
       ),
     ]);
   }

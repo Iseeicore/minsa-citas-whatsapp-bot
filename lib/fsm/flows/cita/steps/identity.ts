@@ -1,3 +1,4 @@
+import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/cita-hints";
 import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
@@ -24,7 +25,7 @@ export function handleAwaitingDni(session: Session, event: InboundEvent): Handle
   const dni = (event.text ?? "").trim();
 
   if (!isValidDniFormat(dni)) {
-    return buildResult(session, [sendText("Documento inválido. Debe tener 8 dígitos. Intenta de nuevo.")]);
+    return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
   }
 
   const next = cloneSession(session);

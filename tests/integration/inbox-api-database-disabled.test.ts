@@ -45,7 +45,7 @@ describe("inbox API with DATABASE_ENABLED=false", () => {
   ])("%s answers 503 persistence disabled", async (_name, call) => {
     const response = await call();
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({ error: "persistence disabled" });
+    await expect(response.json()).resolves.toEqual({ error: "PERSISTENCE_DISABLED", message: "La persistencia está desactivada en este despliegue." });
     expect(db.touched).toBe(0);
   });
 });

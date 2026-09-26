@@ -2,6 +2,8 @@ import { graphApiVersion } from "@/lib/whatsapp/graph-api";
 import { prisma } from "@/lib/db/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import type { SendEffect } from "@/lib/fsm/core/types";
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
 
 function graphApiUrl(): string {
   const version = graphApiVersion();
@@ -127,8 +129,8 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
         typing_indicator: { type: "text" },
       }),
     });
-  } catch (err) {
-    console.error("sendTypingIndicator: network error", err);
+  } catch (error) {
+    logger.warn("whatsapp.typing_failed", { error });
   }
 }
 
@@ -167,13 +169,13 @@ export async function sendAndRecordEffect(
   try {
     response = await sendWhatsAppEffect(waId, effect);
   } catch (err) {
-    console.error("sendAndRecordEffect: network error sending to Graph API", err);
+    logger.error("whatsapp.send_failed", { operation: "send_effect", waId: tail(waId), error: err });
     return;
   }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    console.error("sendAndRecordEffect: Graph API returned an error", response.status, body);
+    logger.error("whatsapp.send_failed", { operation: "send_effect", waId: tail(waId), status: response.status, response: body });
     return;
   }
 
@@ -192,13 +194,13 @@ export async function sendAndRecordCtaUrl(
   try {
     response = await sendCtaUrlMessage(waId, params);
   } catch (err) {
-    console.error("sendAndRecordCtaUrl: network error sending to Graph API", err);
+    logger.error("whatsapp.send_failed", { operation: "send_cta_url", waId: tail(waId), error: err });
     return;
   }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    console.error("sendAndRecordCtaUrl: Graph API returned an error", response.status, body);
+    logger.error("whatsapp.send_failed", { operation: "send_cta_url", waId: tail(waId), status: response.status, response: body });
     return;
   }
 

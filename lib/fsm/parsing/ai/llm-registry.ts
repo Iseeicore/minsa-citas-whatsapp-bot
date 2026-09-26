@@ -12,6 +12,10 @@ function requestedProvider(): string {
   return process.env.AI_PROVIDER || DEFAULT_PROVIDER;
 }
 
+export function isRegisteredLlmProvider(name: string): boolean {
+  return PROVIDERS.has(name);
+}
+
 export function configuredLlmProvider(): LlmProvider {
   const requested = requestedProvider();
   return PROVIDERS.has(requested) ? (requested as LlmProvider) : DEFAULT_PROVIDER;

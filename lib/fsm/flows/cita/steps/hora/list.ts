@@ -1,3 +1,4 @@
+import { searchFailureText } from "@/lib/fsm/core/failure-texts";
 import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/other-fecha";
 import { buildResult, cloneSession, offerList, sendText, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
 import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
@@ -66,7 +67,7 @@ export function handleHoraPending(session: Session, event: QueryResultEvent): Ha
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        "Ocurrió un error al buscar horarios disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+        searchFailureText("horarios"),
       ),
     ]);
   }
@@ -87,7 +88,7 @@ export function handleHoraPagePending(session: Session, event: QueryResultEvent)
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        "Ocurrió un error al buscar horarios disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+        searchFailureText("horarios"),
       ),
     ]);
   }

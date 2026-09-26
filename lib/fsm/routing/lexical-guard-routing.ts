@@ -17,6 +17,7 @@ import {
   type LexicalAction,
 } from "@/lib/security/lexical-guard";
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
+import type { TurnNote } from "@/lib/observability/types";
 import { CONTINUE_BUTTON_ID, AWAITING_CONTINUE_SLOT } from "@/lib/fsm/routing/main-menu";
 
 const FREE_TEXT_STATE_PROMPTS: Record<string, string> = {
@@ -83,7 +84,7 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
   const { action } = evaluateLexicalGuard(event.text);
   if (action === "ALLOW") return undefined;
 
-  const verdict = { kind: "lexical_guard", level: "warn" as const, detail: { action, state: session.state } };
+  const verdict: TurnNote = { kind: "lexical_guard", level: "warn", detail: { action, state: session.state } };
 
   if (isMenuLevel) return withNote(routeLexicalAction(session, action, event.text), verdict);
 
