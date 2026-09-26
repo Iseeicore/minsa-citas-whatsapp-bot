@@ -1,7 +1,7 @@
 import { timedFetch } from "@/lib/observability/http";
 import type { JsonSchema, LlmClient, LlmJsonOutcome } from "@/lib/fsm/parsing/ai/llm";
 
-export const REQUEST_TIMEOUT_MS = 15_000;
+export const REQUEST_TIMEOUT_MS = 8_000;
 
 const DEFAULT_MODEL = "gemini-3.6-flash";
 

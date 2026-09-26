@@ -109,8 +109,8 @@ describe("requestGeminiJson", () => {
     await expect(requestGeminiJson(REQUEST)).resolves.toEqual({ ok: false, failure: "invalid_json" });
   });
 
-  it("keeps the 15 s request timeout", () => {
-    expect(REQUEST_TIMEOUT_MS).toBe(15_000);
+  it("keeps the 8 s request timeout", () => {
+    expect(REQUEST_TIMEOUT_MS).toBe(8_000);
   });
 });
 
@@ -221,7 +221,7 @@ describe("each AI task's standard schema, translated for Gemini", () => {
     expect(toGeminiSchema(MAIN_MENU_INTENT_RESPONSE_SCHEMA)).toEqual({
       type: "OBJECT",
       properties: {
-        intent: { type: "STRING", enum: ["cita", "unclear"] },
+        intent: { type: "STRING", enum: ["cita", "fuera_de_alcance", "unclear"] },
         especialidad: { type: "STRING" },
         distrito: { type: "STRING" },
         detalle: { type: "STRING" },

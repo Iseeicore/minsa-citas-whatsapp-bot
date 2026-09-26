@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
+import { resolveDistritoAi, resolveDistritoAiDetailed } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi } from "@/lib/fsm/parsing/ai/fecha";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
@@ -166,6 +166,52 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
     await expect(extractSelectionHints("especialidad", "pediatria", client)).resolves.toEqual({
       especialidad: "Pediatría",
       establecimiento: undefined,
+    });
+  });
+});
+
+describe("resolveDistritoAiDetailed: tells a failure apart from 'no district found'", () => {
+  function clientAnswering(outcome: LlmJsonOutcome): LlmClient {
+    return { provider: "gemini", generateJson: async () => outcome };
+  }
+
+  const good = { departamento: "Lima", provincia: "Lima", distrito: "Comas" };
+
+  it("reports found with the well-formed candidates", async () => {
+    const client = clientAnswering({ ok: true, json: { candidates: [good] } });
+    await expect(resolveDistritoAiDetailed("comas", undefined, client)).resolves.toEqual({
+      outcome: "found",
+      candidates: [good],
+    });
+  });
+
+  it("reports not_found when the model answers with no valid candidate", async () => {
+    const client = clientAnswering({ ok: true, json: { candidates: [{ distrito: "Incompleto" }] } });
+    await expect(resolveDistritoAiDetailed("xyz", undefined, client)).resolves.toEqual({
+      outcome: "not_found",
+      candidates: [],
+    });
+  });
+
+  it.each<[string, LlmJsonOutcome]>([
+    ["a request failure", { ok: false, failure: "request_failed", errorName: "TimeoutError" }],
+    ["an HTTP error", { ok: false, failure: "http_error", status: 500, model: "m" }],
+    ["no text", { ok: false, failure: "no_text" }],
+    ["invalid JSON", { ok: false, failure: "invalid_json" }],
+    ["a JSON null answer", { ok: true, json: null }],
+    ["candidates that are not a list", { ok: true, json: { candidates: "Comas" } }],
+  ])("reports failed on %s", async (_label, outcome) => {
+    await expect(resolveDistritoAiDetailed("comas", undefined, clientAnswering(outcome))).resolves.toEqual({
+      outcome: "failed",
+      candidates: [],
+    });
+  });
+
+  it("with no client reports found or not_found from the fixed fallback", async () => {
+    await expect(resolveDistritoAiDetailed("lurigancho", undefined, null)).resolves.toMatchObject({ outcome: "found" });
+    await expect(resolveDistritoAiDetailed("nada", undefined, null)).resolves.toEqual({
+      outcome: "not_found",
+      candidates: [],
     });
   });
 });

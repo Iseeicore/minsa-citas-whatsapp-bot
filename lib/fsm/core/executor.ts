@@ -1,4 +1,4 @@
-import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
+import { resolveDistritoAiDetailed } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi, type FechaAiOption } from "@/lib/fsm/parsing/ai/fecha";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
@@ -35,6 +35,12 @@ export type TurnResult = {
   session: Session;
 };
 
+/** Entrega cada mensaje apenas se produce y avisa antes de cada consulta externa, para que el ciudadano no espere en silencio. */
+export type TurnHooks = {
+  onSend(effect: SendEffect): Promise<void>;
+  onWaitingForQuery(): Promise<void>;
+};
+
 const MAX_PASSES = 12;
 
 export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> {
@@ -47,7 +53,7 @@ export function createRunTurn(lock: TurnLock) {
 }
 
 /** Ejecuta el turno sin tomar el candado; solo para quien ya lo tiene tomado (el webhook). */
-export async function runTurnUnlocked(from: string, event: InboundEvent): Promise<TurnResult> {
+export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?: TurnHooks): Promise<TurnResult> {
   const session = await getSession(from);
 
   return traceTurn(from, event, session, async (trace) => {
@@ -61,7 +67,11 @@ export async function runTurnUnlocked(from: string, event: InboundEvent): Promis
       for (const note of result.notes ?? []) trace.note(note);
 
       const queries = result.effects.filter(isQueryEffect);
-      sent.push(...result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect)));
+      const sends = result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+      sent.push(...sends);
+      if (hooks) {
+        for (const effect of sends) await hooks.onSend(effect);
+      }
 
       if (queries.length === 0) {
         await saveSession(from, currentSession);
@@ -73,6 +83,7 @@ export async function runTurnUnlocked(from: string, event: InboundEvent): Promis
       }
 
       const [queryEffect] = queries;
+      if (hooks) await hooks.onWaitingForQuery();
       const queryResult = await trace.external(serviceFor(queryEffect.kind), queryEffect.kind, () =>
         resolveQuery(queryEffect, currentSession),
       );
@@ -128,7 +139,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
       return analyzeMainMenuIntent(String(effect.payload.text ?? ""));
 
     case "resolve_distrito_ai":
-      return resolveDistritoAi(
+      return resolveDistritoAiDetailed(
         String(effect.payload.distritoText ?? ""),
         effect.payload.contextText as string | undefined,
       );

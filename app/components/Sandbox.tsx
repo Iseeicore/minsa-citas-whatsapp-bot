@@ -94,6 +94,7 @@ export default function Sandbox({
 
     setLoading(true);
     setError(null);
+    setTyping(true);
 
     try {
       const res = await fetch("/api/sandbox", {
