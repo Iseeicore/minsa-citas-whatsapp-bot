@@ -48,6 +48,10 @@ Ubigeo ── 1 ─► sigue │ 2–10 ─► 📋 "Selecciona tu ubigeo:"
 Especialidad 📋 🤖   (se salta si la pista de especialidad coincide con una sola)
 Establecimiento 📋 🤖 (1 resultado ─► se elige solo)
 Fecha 📋 🤖          (1 fecha ─► se elige sola)
+   └─ el establecimiento no tiene fechas ─► se descarta y se buscan otros
+      ├─ queda 1 ───► 🔘 "¿Quieres buscar en *Y*?"
+      ├─ quedan varios ─► 💬 + 📋 establecimientos restantes
+      └─ no queda ninguno ─► 🔘 ¿otro distrito cercano?
 Hora 📋              (1 horario ─► 🔘 "Solo hay un horario… ¿Lo confirmas?")
    ├─ toque en la lista ───────────► reserva directa
    └─ hora escrita ("8 y 45") ─────► 🔘 "¿Confirmas el horario…?" ─► reserva
@@ -77,6 +81,8 @@ Reserva 💬 "Agendando tu cita…"
 | Elección de hora ambigua | 🔘 2 opciones | la hora escrita otra vez | 📋 reducida | no |
 | Confirmación de hora | 🔘 [Sí, confirmar] [No…] | "sí", "ok", "dale", "confirmo", "esa", "me sirve", la misma hora | — | no |
 | Otra fecha | 🔘 [Sí, otra fecha] [No, salir] | sí/no, "cambiar", "otra fecha", "otro día" | — | no |
+| Otro establecimiento | 🔘 [Sí, buscar ahí] [No, salir] | sí/no ("sí", "dale", "no", "salir") | — | no |
+| Confirmar salida | 🔘 [Sí, salir] [No, continuar] | "sí", "salir", "quiero salir" / "no", "continuar", "seguir" | — | no |
 | Reserva | 💬 "Agendando tu cita…" | — | — | no |
 | Reverificación | 🔘 [Sí, enviar código] [Cancelar] | sí/no | — | no |
 
@@ -118,8 +124,22 @@ Todos los pasos con 📋 siguen el mismo orden (`lib/fsm/flows/cita/selection.ts
 | Cita duplicada | "sí", "otra especialidad", "cambiar" | vuelve a listar especialidades sin la que ya tiene cita |
 | Cita duplicada | "no", "salir" | ⛔ despedida (`cita_booking_duplicate`) |
 | Sin cobertura | un nombre de distrito | nueva búsqueda de distrito |
+| Otro establecimiento | "sí" / "no", "salir" | busca fechas en el propuesto / ⛔ despedida |
 
-> **No hay comandos "menú", "salir" o "reiniciar" a mitad del flujo.** "salir" o "cancelar" solo funcionan como respuesta *No* en las preguntas de sí/no. Para volver al menú hay que llegar a un estado terminal o cancelar la reverificación.
+### Quiere salir
+En los pasos de documento, OTP, registro pendiente, distrito, modo manual y en todas las listas, una frase clara de abandono pide confirmación antes de cerrar:
+
+- **Local, sin costo:** "quiero salir", "salir", "ya no quiero nada", "no quiero seguir", "me aburrí", "olvídalo", "déjalo", "cancela la cita", "me cansé"…
+- **Con la IA:** en distrito, pistas de especialidad o establecimiento y fecha, la IA también marca `quiere_salir` ("puff, muchos pasos").
+- **No se activa con:** "no" o "cancelar" solos, nombres de lugar, ni frases como "no quiero esa fecha". Tampoco en los pasos de sí/no (otra fecha, otro distrito, otro establecimiento, confirmación de hora, cita duplicada, reverificación), donde "no" y "salir" ya tienen su propio sentido.
+
+| Respuesta | Resultado |
+|---|---|
+| (se detecta) | 🔘 *"Parece que prefieres no continuar con tu cita. Entiendo que pueda ser frustrante. ¿Deseas salir?"* [Sí, salir] [No, continuar] |
+| Sí | ⛔ *"Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋"* La sesión termina (`cita_abandoned`) y el siguiente mensaje es un primer contacto. |
+| No | vuelve al mismo paso y repite su pregunta (o la lista) |
+
+> **No hay comandos "menú" o "reiniciar" a mitad del flujo.** Para volver al menú hay que llegar a un estado terminal o cancelar la reverificación.
 
 ### La IA se cayó o tardó más de 8 s
 
@@ -168,13 +188,17 @@ Todos los pasos con 📋 siguen el mismo orden (`lib/fsm/flows/cita/selection.ts
 
 ### Sin cobertura
 - **Sin especialidades o establecimientos:** 🔘 *"No encontramos … disponibles … ¿Deseas buscar en otro distrito cercano?"* con [Sí, otro distrito] [No, salir].
-- **Sin fechas:** 💬 *"No hay fechas disponibles para ese establecimiento."* ⛔ No se ofrece otra fecha ni otro distrito.
+- **Sin fechas en el establecimiento elegido** (sin fechas rechazadas antes): se descarta y se vuelven a pedir los establecimientos sin él.
+  - **Queda uno:** 🔘 *"No hay fechas disponibles en {X}. ¿Quieres buscar en {Y}?"* [Sí, buscar ahí] [No, salir].
+  - **Quedan varios:** 💬 *"No hay fechas disponibles en {X}. Estos establecimientos también atienden {especialidad}:"* + 📋 lista.
+  - **No queda ninguno:** la pregunta de otro distrito cercano.
 
 ## Interrupciones globales (en cualquier paso)
 
 | Interrupción | Dónde aplica | Efecto |
 |---|---|---|
 | **Urgencia** ("no puedo respirar", "dolor de pecho", "ambulancia"…) | todos los estados (a mitad del flujo, textos de hasta 120 caracteres) | ⛔ corta el flujo: *"⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS…"* (SAMU 106, Bomberos 116) |
+| **Salida voluntaria** ("quiero salir", "me aburrí"…) | documento, OTP, registro, distrito, modo manual y listas | pide confirmación; Sí termina la sesión, No vuelve al paso |
 | **Insultos** (guardia léxica) | menú, listas y pasos de texto libre del distrito | aviso de respeto y **conserva el paso** (vuelve a mostrar la lista o la pregunta) |
 | **Fuera de alcance** | solo en el primer contacto y en el menú | mensaje del canal oficial correspondiente |
 | **Mensajes demasiado rápidos** | antes del flujo | más de 5 en 10 s: *"Está enviando mensajes muy rápido…"* (2 min); más de 20 en 60 s: se ignoran por 1 h. El paso se conserva |
@@ -193,6 +217,3 @@ Mientras la IA responde, el ciudadano ve "escribiendo…"; si tarda más de 8 s,
 - **Horas en 12 h:** el ciudadano ve los rangos como *8:00 - 8:15 AM*, *1:00 - 1:15 PM* o *11:45 AM - 12:00 PM* (listas, lista reducida, horario único, confirmación y la elección entre posición y hora). Al MINSA se sigue enviando 24 h (`08:00|08:15`), y el bot entiende horas escritas en 12 h o 24 h.
 - **Departamentos permitidos:** los define `CITA_ALLOWED_DEPARTAMENTOS` (por ejemplo `LIMA`). Vacía o sin definir = sin filtro. El filtro aplica a la búsqueda por nombre, a las pistas del primer mensaje y al modo manual (departamento → provincia → distrito).
 - **Fechas del MINSA:** "hoy" y "fin de mes" se calculan con el reloj de Lima, no con el del servidor.
-
-## Observaciones del código (pendientes de decidir)
-- **"No hay fechas disponibles para ese establecimiento." cierra el flujo** sin ofrecer otra fecha ni otro distrito.
