@@ -11,33 +11,19 @@ import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExist
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
+import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 
 const warnedInvalidOrigins = new Set<string>();
 
-function toOrigin(entry: string): string | undefined {
-  try {
-    const { origin } = new URL(entry);
-    return origin === "null" ? undefined : origin;
-  } catch {
-    return undefined;
-  }
-}
-
 /** Reduce cada entrada a su origen: la cabecera Origin del navegador nunca trae ruta ni barra final. */
 function allowedOrigins(): string[] {
-  return (process.env.SANDBOX_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .flatMap((entry) => {
-      const origin = toOrigin(entry);
-      if (origin) return [origin];
-      if (!warnedInvalidOrigins.has(entry)) {
-        warnedInvalidOrigins.add(entry);
-        logger.warn("sandbox.cors_invalid_origin", { entry });
-      }
-      return [];
-    });
+  const { origins, invalid } = parseAllowedOrigins(process.env.SANDBOX_ALLOWED_ORIGINS);
+  for (const entry of invalid) {
+    if (warnedInvalidOrigins.has(entry)) continue;
+    warnedInvalidOrigins.add(entry);
+    logger.warn("sandbox.cors_invalid_origin", { entry });
+  }
+  return origins;
 }
 
 function corsHeaders(request: NextRequest): HeadersInit {

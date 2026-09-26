@@ -46,7 +46,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; el reclamo sigue sin imagen |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |
-| `config.invalid` | error | `code`, `message`. Problema de configuración detectado al arrancar el servidor (ver `lib/config/config-errors.ts`); el bot sigue funcionando con su respaldo y `/api/health` responde `degraded` |
+| `config.invalid` | error / warn | `issue` (el código del catálogo), `value`, `message`. Problema de configuración detectado al arrancar el servidor (ver `lib/config/config-errors.ts`); el bot sigue funcionando con su respaldo y `/api/health` responde `degraded` |
 
 ## Qué se oculta
 
