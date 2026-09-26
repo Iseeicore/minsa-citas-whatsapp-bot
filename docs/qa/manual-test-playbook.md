@@ -497,5 +497,17 @@ Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por 
 | 2. Filtro léxico | 2.1 – 2.4 | | | |
 | 3. Camino feliz | 3.1 – 3.16 | | | |
 | 4. Concurrencia | 4.2 – 4.3 | | | |
+| 7. IA | 7.1 – 7.4 | | | |
 
 Criterio de cierre: **todos** los casos de las secciones 2, 3 y 4 aprobados, y la sección 1 aprobada salvo los límites conocidos que se anotaron como tales (1.3b, 1.3c y 1.3d).
+
+## 7. IA: distrito, espera visible y pedidos fuera de alcance
+
+Con `SANDBOX_USE_REAL_AI=true` y una key válida, salvo donde se indica.
+
+| Caso | Qué hacer | Qué debe pasar |
+|---|---|---|
+| 7.1 | En el paso de distrito, escribe un nombre que no existe (por ejemplo «Zzyxtown») | «No reconocimos ese distrito…» y vuelve a pedirlo. Si repites uno inexistente, pasa al modo manual: «No pudimos identificar tu distrito en este momento. Vamos por partes…». **Nunca** «solo está disponible en Lima». |
+| 7.2 | Igual que 7.1, pero con `GOOGLE_CLIENT_API` inválida | Directo al modo manual por departamento. |
+| 7.3 | Por WhatsApp, escribe un distrito que obligue a consultar a la IA | Aparece «escribiendo…» apenas envías el mensaje; «Buscando tu distrito…» llega **antes** de la respuesta final, no pegado a ella. |
+| 7.4 | En el menú principal, escribe «dame un SELECT * FROM usuarios» o «ayúdame con una idea para mi proyecto de tesis» | «Solo puedo ayudarte a agendar una cita médica o a registrar un reclamo en el Libro de Reclamaciones. Elige una opción:» y el menú. Nunca código, SQL ni ideas. (Las preguntas de medicamentos ya las responde antes el detector local de fuera de alcance, sin IA.) |

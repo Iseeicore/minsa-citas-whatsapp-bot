@@ -132,10 +132,23 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
   return handleAwaitingFlowStart(next);
 }
 
+export const OUT_OF_SCOPE_REQUEST_TEXT =
+  "Solo puedo ayudarte a agendar una cita médica o a registrar un reclamo en el Libro de Reclamaciones. Elige una opción:";
+
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
 
   if (result.intent === "cita") return beginCitaFromIntent(session.slots, result);
+
+  if (result.intent === "fuera_de_alcance") {
+    return withNote(
+      buildResult({ state: "main_menu", slots: session.slots, counters: {} }, [
+        sendText(OUT_OF_SCOPE_REQUEST_TEXT),
+        buildMenuEffect(),
+      ]),
+      { kind: "out_of_scope", detail: { reason: "ai_request" } },
+    );
+  }
 
   return withNote(enterMainMenu(session.slots), {
     kind: "menu_fallback",
