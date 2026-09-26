@@ -69,12 +69,28 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
   const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
   if (!inboundEvent) return;
 
-  const { sent } = await runTurnUnlocked(waId, { ...inboundEvent, messageId: message.id });
-  for (const effect of sent) {
+  await sendTypingIndicator(message.id);
+
+  const deliver = async (effect: SendEffect) => {
     await sendTypingIndicator(message.id);
     await sleep(TYPING_DELAY_MS);
     await sendAndRecordEffect(conversationId, waId, effect);
-  }
+  };
+
+  let delivered = 0;
+  const { sent } = await runTurnUnlocked(
+    waId,
+    { ...inboundEvent, messageId: message.id },
+    {
+      onSend: async (effect) => {
+        delivered += 1;
+        await deliver(effect);
+      },
+      onWaitingForQuery: () => sendTypingIndicator(message.id),
+    },
+  );
+
+  for (const effect of sent.slice(delivered)) await deliver(effect);
 }
 
 export async function sendFixedReply(waId: string, text: string): Promise<void> {

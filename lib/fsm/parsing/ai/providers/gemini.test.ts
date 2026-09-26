@@ -109,8 +109,8 @@ describe("requestGeminiJson", () => {
     await expect(requestGeminiJson(REQUEST)).resolves.toEqual({ ok: false, failure: "invalid_json" });
   });
 
-  it("keeps the 15 s request timeout", () => {
-    expect(REQUEST_TIMEOUT_MS).toBe(15_000);
+  it("keeps the 8 s request timeout", () => {
+    expect(REQUEST_TIMEOUT_MS).toBe(8_000);
   });
 });
 
