@@ -37,7 +37,7 @@ Detalles de la imagen:
 
 - **Base:** `node:22-alpine` (la misma versión de Node que usa el CI), multi-stage, compilada con `npm run build:no-db` y la salida *standalone* de Next.
 - **Seguridad:** corre con el usuario sin privilegios `node`; los secretos solo entran como variables de entorno, nunca quedan dentro de la imagen.
-- **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos.
+- **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos. Responde `200` con `status: "ok"`, o `status: "degraded"` y los códigos en `config` si hay una variable mal configurada (ver [Manejo de errores](#manejo-de-errores)); el contenedor no se reinicia por eso.
 - **Puerto:** 3000 dentro del contenedor; `HOST_PORT` cambia el puerto publicado en el servidor (por defecto 3000).
 - **Variables:** `docker-compose.yml` pasa al contenedor **todas** las variables del `.env` (`env_file`). Solo fija tres: `NODE_ENV=production`, `PORT=3000` y `HOSTNAME=0.0.0.0`, para que un valor olvidado en el `.env` no saque al servidor del puerto que usan el mapeo y el healthcheck. Las 4 credenciales de Meta son obligatorias.
 - **Base de datos:** `DATABASE_ENABLED` vale `false` si no se define. La imagen se compila sin migraciones, así que `true` solo funciona contra un `DATABASE_URL` ya migrado (`npx prisma migrate deploy` ejecutado aparte) y deja de exigir una sola instancia.
@@ -91,7 +91,7 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 | Estado de cada conversación | Tabla `SandboxSession` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
 | Reentregas de Meta (no responder dos veces) | Índice único `waMessageId` | Lista en memoria de ids de mensaje, conservada 24 h |
 | Historial de mensajes y estados de entrega | Tablas `Conversation` y `Message` | No se guarda nada |
-| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503 {"error":"persistence disabled"}` |
+| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
 
@@ -103,7 +103,7 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
-| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (4), Gemini (3), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
+| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (4), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
 | `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC y quejas), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de reclamo, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
@@ -151,7 +151,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `SANDBOX_USE_REAL_AI` | `true`: IA real (intención del mensaje libre, distrito, fecha y pistas). `false`: diccionario de prueba, sin costo |
-| `AI_PROVIDER` | Proveedor de IA. Vacía o `gemini`: Gemini (hoy el único). Un valor desconocido apaga la IA real (respaldo fijo) y se registra una vez como `ai.provider_unknown` |
+| `AI_PROVIDER` | Proveedor de IA; va en el bloque mínimo junto a las credenciales de ese proveedor. Vacía o `gemini`: Gemini (hoy el único). Un valor desconocido apaga la IA real (respaldo fijo), se registra al arrancar como `config.invalid` (`AI_PROVIDER_UNKNOWN`) y `/api/health` responde `degraded` |
 | `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL. Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`) |
 | `GOOGLE_AI_MODEL` | Modelo de Gemini (por defecto `gemini-3.6-flash`). Un nombre que no existe da HTTP 404 |
 
@@ -193,7 +193,9 @@ lib/
                              control de reentregas en memoria (modo sin base de datos)
   integrations/              clientes HTTP de servicios externos: RENIEC, quejas
     minsa/                   cliente del MINSA separado por endpoint: identidad, catálogo, reserva (+ wire, formato, fakes)
-  observability/             logger estructurado, tracer, enmascarado de datos personales, logs en archivo
+  config/                    catálogo de errores de configuración y su revisión al arrancar
+  http/                      formato único de error de la API (apiError)
+  observability/             logger estructurado, catálogo de eventos (events.ts), tracer, enmascarado, logs en archivo
   security/                  perímetro del webhook: filtro de payload, rate limiter, guardia léxica
   fsm/                       la máquina de estados de la conversación
     core/                    motor: tipos de sesión, ejecutor, despachador de turnos (handle)
@@ -239,6 +241,19 @@ Las tareas de IA no conocen al proveedor: piden un JSON a un `LlmClient` (`lib/f
 | 4. Tests | Probar el adaptador con `fetch` simulado, como `providers/gemini.test.ts`; las tareas ya se prueban con un `LlmClient` falso |
 
 Las tareas, los prompts y el FSM no cambian.
+
+### Manejo de errores
+
+El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca deja al ciudadano sin respuesta; se convierte en un respaldo o en un texto fijo y queda registrada. Cada tipo de error tiene un único catálogo:
+
+| Qué | Catálogo | Regla |
+|---|---|---|
+| Eventos de log | `lib/observability/events.ts` (`LogEvent`, `TurnNoteKind`) | TypeScript rechaza un nombre que no esté en el catálogo; un test exige que cada evento figure en `docs/observability.md`. Nada del servidor escribe en la consola directamente |
+| Configuración | `lib/config/config-errors.ts` (`CONFIG_ERRORS`) | `instrumentation.ts` revisa la configuración al arrancar y registra cada problema como `config.invalid`; `/api/health` pasa a `degraded`. El bot no se detiene |
+| Textos al ciudadano | `lib/fsm/core/failure-texts.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
+| Respuestas HTTP | `lib/http/api-error.ts` (`API_ERRORS`, `apiError`) | Toda respuesta de error es `{ error: CÓDIGO, message }` (más `detail` opcional), con el status del catálogo y el mensaje en español. Los `403` del webhook siguen en texto plano porque Meta no lee el cuerpo |
+
+Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usarlo desde ahí; nunca un string suelto.
 
 ## Pruebas
 
