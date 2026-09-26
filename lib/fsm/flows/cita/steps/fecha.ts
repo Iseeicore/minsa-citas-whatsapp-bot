@@ -18,6 +18,7 @@ import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } 
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { todayInLima } from "@/lib/time/lima-clock";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/other-establecimiento";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -84,8 +85,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     return buildResult(next, offerPagedList(next, "Selecciona la fecha:", rows));
   }
 
-  next.state = "cita_booking_rejected";
-  return buildResult(next, [sendText("No hay fechas disponibles para ese establecimiento.")]);
+  return searchOtherEstablecimiento(next);
 }
 
 const TEMPORAL_PHRASE =

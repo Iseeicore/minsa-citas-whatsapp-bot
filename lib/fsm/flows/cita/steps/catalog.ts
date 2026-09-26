@@ -16,6 +16,12 @@ import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } 
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 import { discardedEspecialidades } from "@/lib/fsm/flows/cita/steps/duplicate";
+import {
+  discardedEstablecimientos,
+  ESTABLECIMIENTO_NAME_SLOT,
+  isSearchingOtherEstablecimiento,
+  offerOtherEstablecimiento,
+} from "@/lib/fsm/flows/cita/steps/other-establecimiento";
 
 type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -167,6 +173,17 @@ type EstablecimientoResultItem = {
   quotasOnline: number;
 };
 
+function establecimientoRows(items: EstablecimientoResultItem[]): ListRow[] {
+  return items.map((item) => ({
+    id: item.renipressCode,
+    title: truncateForRow(item.establishmentName, WHATSAPP_ROW_TITLE_MAX),
+    description: truncateForRow(
+      `${item.quotasOnline} cupo(s) en línea`,
+      WHATSAPP_ROW_DESCRIPTION_MAX,
+    ),
+  }));
+}
+
 export function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
@@ -187,9 +204,21 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length === 1) {
-    const [item] = result.items;
+  const discarded = discardedEstablecimientos(next.slots);
+  const items = result.status === "found" ? (result.items ?? []).filter((item) => !discarded.includes(item.renipressCode)) : [];
+
+  if (isSearchingOtherEstablecimiento(next.slots)) {
+    return offerOtherEstablecimiento(
+      next,
+      items.map((item) => ({ id: item.renipressCode, name: item.establishmentName })),
+      establecimientoRows(items),
+    );
+  }
+
+  if (items.length === 1) {
+    const [item] = items;
     next.slots.citaCodEess = item.renipressCode;
+    next.slots[ESTABLECIMIENTO_NAME_SLOT] = item.establishmentName;
     next.state = "cita_fecha_pending";
     return buildResult(next, [
       sendText(`Establecimiento encontrado: ${item.establishmentName}. Buscando fechas disponibles…`),
@@ -200,19 +229,20 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     ]);
   }
 
-  if (result.status === "found" && result.items && result.items.length > 1) {
+  if (items.length > 1) {
     const matched = hint
       ? matchAllTokens(
           hint,
-          result.items.map((item) => ({ id: item.renipressCode, title: item.establishmentName })),
+          items.map((item) => ({ id: item.renipressCode, title: item.establishmentName })),
         )
       : undefined;
     const detected = matched
-      ? result.items.find((item) => item.renipressCode === matched.id)
+      ? items.find((item) => item.renipressCode === matched.id)
       : undefined;
 
     if (detected) {
       next.slots.citaCodEess = detected.renipressCode;
+      next.slots[ESTABLECIMIENTO_NAME_SLOT] = detected.establishmentName;
       next.state = "cita_fecha_pending";
       return buildResult(next, [
         sendText(`Establecimiento detectado: ${detected.establishmentName}. Buscando fechas disponibles…`),
@@ -224,15 +254,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     }
 
     next.state = "cita_awaiting_establecimiento_select";
-    const rows: ListRow[] = result.items.map((item) => ({
-      id: item.renipressCode,
-      title: truncateForRow(item.establishmentName, WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        `${item.quotasOnline} cupo(s) en línea`,
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
-    }));
-    return buildResult(next, offerPagedList(next, "Selecciona el establecimiento:", rows));
+    return buildResult(next, offerPagedList(next, "Selecciona el establecimiento:", establecimientoRows(items)));
   }
 
   return offerOtherDistrito(next, "establecimientos");
@@ -245,8 +267,10 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
 
+  const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);
   next.slots.citaCodEess = replyId;
+  if (chosen) next.slots[ESTABLECIMIENTO_NAME_SLOT] = chosen.title;
   next.state = "cita_fecha_pending";
   return buildResult(next, [
     sendText("Buscando fechas disponibles…"),
