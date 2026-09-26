@@ -5,7 +5,6 @@ import {
   cloneSession,
   offerList,
   query,
-  sendCtaUrl,
   sendText,
   truncateForRow,
   WHATSAPP_LIST_MAX_ROWS,
@@ -14,6 +13,7 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "@/lib/fsm/flows/cita/ubigeo-data";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
+import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
 
 export function looksLikePlaceName(text: string): boolean {
   return /^[\p{L}][\p{L}\s.'-]{2,59}$/u.test(text);
@@ -35,17 +35,10 @@ export function enterManualDistritoFlow(session: Session, text: string): Handler
   return buildResult(next, [sendText(text)]);
 }
 
-const PILOT_DEPARTAMENTO = "LIMA";
-const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global";
-const NATIONAL_REDIRECT_URL = "https://dminsadigital.minsa.gob.pe/login";
-
-/** Alcance del piloto: la reserva por nombre de distrito solo atiende Lima; fuera de Lima se deriva al sitio nacional. */
 function filterToPilotScope(
   candidates: DistritoAiCandidateResult[],
 ): DistritoAiCandidateResult[] {
-  return candidates.filter(
-    (candidate) => normalizeText(candidate.departamento) === PILOT_DEPARTAMENTO,
-  );
+  return candidates.filter((candidate) => isAllowedDepartamento(candidate.departamento));
 }
 
 function trailingWordGroupAttempts(text: string): Array<() => DistritoAiCandidateResult[]> {
@@ -127,14 +120,7 @@ export function resolveDistritoCandidates(
     return buildResult(next, [offerList(next, "Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
   }
 
-  next.state = "cita_national_redirect";
-  return buildResult(next, [
-    sendCtaUrl(
-      "Por el momento el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.",
-      NATIONAL_REDIRECT_BUTTON_TEXT,
-      NATIONAL_REDIRECT_URL,
-    ),
-  ]);
+  return redirectToNationalSite(next);
 }
 
 export function resolveDistritoText(
