@@ -14,8 +14,7 @@ export class TurnLockTimeoutError extends Error {
   }
 }
 
-export const TURN_FAILURE_TEXT =
-  "Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.";
+export { TURN_FAILURE_TEXT } from "@/lib/fsm/core/failure-texts";
 
 export type TurnTask<T> = () => Promise<T>;
 export type TurnLock = <T>(waId: string, task: TurnTask<T>) => Promise<T>;

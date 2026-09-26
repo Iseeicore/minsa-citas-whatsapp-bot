@@ -1,3 +1,4 @@
+import { searchFailureText } from "@/lib/fsm/core/failure-texts";
 import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/no-coverage";
 import { normalizeText } from "@/lib/fsm/parsing/text";
 import {
@@ -46,7 +47,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        "Ocurrió un error al buscar especialidades disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+        searchFailureText("especialidades"),
       ),
     ]);
   }
@@ -175,7 +176,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        "Ocurrió un error al buscar establecimientos disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
+        searchFailureText("establecimientos"),
       ),
     ]);
   }
