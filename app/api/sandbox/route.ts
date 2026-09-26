@@ -12,6 +12,7 @@ import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
+import { apiError } from "@/lib/http/api-error";
 
 const warnedInvalidOrigins = new Set<string>();
 
@@ -68,17 +69,15 @@ export async function POST(request: NextRequest) {
   const cors = corsHeaders(request);
 
   if (process.env.SANDBOX_ENABLED !== "true") {
-    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404, headers: cors });
+    return apiError("NOT_FOUND", { message: "El Sandbox no está habilitado en este despliegue.", headers: cors });
   }
 
-  const body = await request.json();
+  const body = await request.json().catch(() => undefined);
+  if (body === undefined) return apiError("INVALID_BODY", { headers: cors });
   const parsed = sandboxEventSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "INVALID_BODY", message: parsed.error.message },
-      { status: 400, headers: cors },
-    );
+    return apiError("INVALID_BODY", { detail: parsed.error.message, headers: cors });
   }
 
   const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll } = parsed.data;
@@ -115,10 +114,7 @@ export async function POST(request: NextRequest) {
         : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
   } catch (error) {
     if (error instanceof TurnLockTimeoutError) {
-      return NextResponse.json(
-        { error: "BUSY", message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." },
-        { status: 503, headers: cors },
-      );
+      return apiError("BUSY", { headers: cors });
     }
     throw error;
   }

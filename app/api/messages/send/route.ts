@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
+import { apiError } from "@/lib/http/api-error";
 
 const sendMessageSchema = z.object({
   conversationId: z.string().min(1),
@@ -15,14 +16,12 @@ const WINDOW_MS = 24 * 60 * 60 * 1000;
 export async function POST(request: NextRequest) {
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
-  const body = await request.json();
+  const body = await request.json().catch(() => undefined);
+  if (body === undefined) return apiError("INVALID_BODY");
   const parsed = sendMessageSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "INVALID_BODY", message: parsed.error.message },
-      { status: 400 },
-    );
+    return apiError("INVALID_BODY", { detail: parsed.error.message });
   }
 
   const { conversationId, text } = parsed.data;
@@ -32,10 +31,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (!conversation) {
-    return NextResponse.json(
-      { error: "NOT_FOUND", message: "Conversation not found." },
-      { status: 404 },
-    );
+    return apiError("NOT_FOUND", { message: "No se encontró la conversación." });
   }
 
   const lastInbound = await prisma.message.findFirst({
@@ -47,14 +43,7 @@ export async function POST(request: NextRequest) {
     !lastInbound || Date.now() - lastInbound.timestamp.getTime() > WINDOW_MS;
 
   if (windowExpired) {
-    return NextResponse.json(
-      {
-        error: "WINDOW_EXPIRED",
-        message:
-          "The 24-hour customer service window is closed. Send an approved template message instead.",
-      },
-      { status: 422 },
-    );
+    return apiError("WINDOW_EXPIRED");
   }
 
   const version = graphApiVersion();

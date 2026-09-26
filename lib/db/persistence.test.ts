@@ -34,6 +34,6 @@ describe("persistenceDisabledResponse", () => {
   it("is a 503 with a clear JSON error", async () => {
     const response = persistenceDisabledResponse();
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({ error: "persistence disabled" });
+    await expect(response.json()).resolves.toEqual({ error: "PERSISTENCE_DISABLED", message: "La persistencia está desactivada en este despliegue." });
   });
 });

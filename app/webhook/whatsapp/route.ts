@@ -3,6 +3,7 @@ import crypto from "crypto";
 import type { WhatsAppWebhookPayload } from "@/lib/whatsapp/webhook/payload";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 import { logger } from "@/lib/observability/logger";
+import { apiError } from "@/lib/http/api-error";
 
 export const runtime = "nodejs";
 
@@ -49,7 +50,12 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  const payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;
+  let payload: WhatsAppWebhookPayload;
+  try {
+    payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;
+  } catch {
+    return apiError("INVALID_BODY");
+  }
 
   after(async () => {
     for (const entry of payload.entry ?? []) {
