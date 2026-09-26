@@ -1,4 +1,5 @@
-import { requestGeminiJson } from "@/lib/fsm/parsing/ai/providers/gemini";
+import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
+import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 
 export type DistritoAiCandidate = {
   departamento: string;
@@ -52,22 +53,22 @@ type DistritoAiJsonShape = {
   detalle?: string;
 };
 
-const DISTRITO_AI_RESPONSE_SCHEMA = {
-  type: "OBJECT",
+export const DISTRITO_AI_RESPONSE_SCHEMA: JsonSchema = {
+  type: "object",
   properties: {
     candidates: {
-      type: "ARRAY",
+      type: "array",
       items: {
-        type: "OBJECT",
+        type: "object",
         properties: {
-          departamento: { type: "STRING" },
-          provincia: { type: "STRING" },
-          distrito: { type: "STRING" },
+          departamento: { type: "string" },
+          provincia: { type: "string" },
+          distrito: { type: "string" },
         },
         required: ["departamento", "provincia", "distrito"],
       },
     },
-    detalle: { type: "STRING" },
+    detalle: { type: "string" },
   },
   required: ["candidates", "detalle"],
 };
@@ -98,8 +99,9 @@ function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
 export async function resolveDistritoAi(
   distritoText: string,
   contextText?: string,
+  llm: LlmClient | null = getLlmClient(),
 ): Promise<ResolveDistritoAiResult> {
-  if (process.env.SANDBOX_USE_REAL_AI === "true") {
+  if (llm) {
     const userTurn = [
       `Respuesta directa: ${distritoText}`,
       contextText ? `Mensaje inicial: ${contextText}` : null,
@@ -107,11 +109,11 @@ export async function resolveDistritoAi(
       .filter(Boolean)
       .join("\n");
 
-    const outcome = await requestGeminiJson({
+    const outcome = await llm.generateJson({
       operation: "resolve_distrito_ai",
       systemPrompt: DISTRITO_AI_SYSTEM_PROMPT,
       userText: userTurn,
-      responseSchema: DISTRITO_AI_RESPONSE_SCHEMA,
+      schema: DISTRITO_AI_RESPONSE_SCHEMA,
     });
     if (!outcome.ok) return { candidates: [] };
 

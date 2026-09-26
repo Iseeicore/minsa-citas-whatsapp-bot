@@ -1,6 +1,7 @@
 import { logger } from "@/lib/observability/logger";
 import { normalizeText } from "@/lib/fsm/parsing/text";
-import { requestGeminiJson } from "@/lib/fsm/parsing/ai/providers/gemini";
+import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
+import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 
 export type MainMenuIntentResult = {
   intent: "cita" | "unclear";
@@ -46,13 +47,13 @@ type MainMenuIntentJsonShape = {
   detalle?: string;
 };
 
-const MAIN_MENU_INTENT_RESPONSE_SCHEMA = {
-  type: "OBJECT",
+export const MAIN_MENU_INTENT_RESPONSE_SCHEMA: JsonSchema = {
+  type: "object",
   properties: {
-    intent: { type: "STRING", enum: ["cita", "unclear"] },
-    especialidad: { type: "STRING" },
-    distrito: { type: "STRING" },
-    detalle: { type: "STRING" },
+    intent: { type: "string", enum: ["cita", "unclear"] },
+    especialidad: { type: "string" },
+    distrito: { type: "string" },
+    detalle: { type: "string" },
   },
   required: ["intent", "detalle"],
 };
@@ -71,13 +72,16 @@ function unclearIntent(reason: string): MainMenuIntentResult {
   return { intent: "unclear" };
 }
 
-export async function analyzeMainMenuIntent(text: string): Promise<MainMenuIntentResult> {
-  if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    const outcome = await requestGeminiJson({
+export async function analyzeMainMenuIntent(
+  text: string,
+  llm: LlmClient | null = getLlmClient(),
+): Promise<MainMenuIntentResult> {
+  if (llm) {
+    const outcome = await llm.generateJson({
       operation: "analyze_main_menu_intent",
       systemPrompt: MAIN_MENU_INTENT_SYSTEM_PROMPT,
       userText: text,
-      responseSchema: MAIN_MENU_INTENT_RESPONSE_SCHEMA,
+      schema: MAIN_MENU_INTENT_RESPONSE_SCHEMA,
     });
     if (!outcome.ok) {
       switch (outcome.failure) {

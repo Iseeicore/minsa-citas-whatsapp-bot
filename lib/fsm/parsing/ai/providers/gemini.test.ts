@@ -183,3 +183,59 @@ describe("createGeminiClient", () => {
     expect(outcome).toEqual({ ok: true, json: { answer: 42 } });
   });
 });
+
+describe("each AI task's standard schema, translated for Gemini", () => {
+  it("is exactly the Gemini schema the tasks sent before the port existed", async () => {
+    const { DISTRITO_AI_RESPONSE_SCHEMA } = await import("@/lib/fsm/parsing/ai/distrito");
+    const { FECHA_AI_RESPONSE_SCHEMA } = await import("@/lib/fsm/parsing/ai/fecha");
+    const { MAIN_MENU_INTENT_RESPONSE_SCHEMA } = await import("@/lib/fsm/parsing/ai/main-menu-intent");
+    const { SELECTION_HINTS_RESPONSE_SCHEMA } = await import("@/lib/fsm/parsing/ai/selection-hints");
+
+    expect(toGeminiSchema(DISTRITO_AI_RESPONSE_SCHEMA)).toEqual({
+      type: "OBJECT",
+      properties: {
+        candidates: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              departamento: { type: "STRING" },
+              provincia: { type: "STRING" },
+              distrito: { type: "STRING" },
+            },
+            required: ["departamento", "provincia", "distrito"],
+          },
+        },
+        detalle: { type: "STRING" },
+      },
+      required: ["candidates", "detalle"],
+    });
+    expect(toGeminiSchema(FECHA_AI_RESPONSE_SCHEMA)).toEqual({
+      type: "OBJECT",
+      properties: {
+        id: { type: "STRING", nullable: true },
+        detalle: { type: "STRING" },
+      },
+      required: ["detalle"],
+    });
+    expect(toGeminiSchema(MAIN_MENU_INTENT_RESPONSE_SCHEMA)).toEqual({
+      type: "OBJECT",
+      properties: {
+        intent: { type: "STRING", enum: ["cita", "unclear"] },
+        especialidad: { type: "STRING" },
+        distrito: { type: "STRING" },
+        detalle: { type: "STRING" },
+      },
+      required: ["intent", "detalle"],
+    });
+    expect(toGeminiSchema(SELECTION_HINTS_RESPONSE_SCHEMA)).toEqual({
+      type: "OBJECT",
+      properties: {
+        especialidad: { type: "STRING", nullable: true },
+        establecimiento: { type: "STRING", nullable: true },
+        detalle: { type: "STRING" },
+      },
+      required: ["detalle"],
+    });
+  });
+});

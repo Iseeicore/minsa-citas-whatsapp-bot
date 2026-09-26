@@ -2,6 +2,7 @@ import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi, type FechaAiOption } from "@/lib/fsm/parsing/ai/fecha";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
+import { configuredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { bookAppointment } from "@/lib/integrations/minsa/booking";
@@ -101,7 +102,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case "resolve_distrito_ai":
     case "resolve_fecha_ai":
     case "extract_selection_hints":
-      return "gemini";
+      return configuredLlmProvider();
     default:
       return "minsa";
   }
