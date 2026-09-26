@@ -146,11 +146,12 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
-**IA (Gemini)**
+**IA** (ver [Cambiar de proveedor de IA](#cambiar-de-proveedor-de-ia))
 
 | Variable | Uso |
 |---|---|
-| `SANDBOX_USE_REAL_AI` | `true`: Gemini real (intención del mensaje libre, distrito, fecha y pistas). `false`: diccionario de prueba, sin costo |
+| `SANDBOX_USE_REAL_AI` | `true`: IA real (intención del mensaje libre, distrito, fecha y pistas). `false`: diccionario de prueba, sin costo |
+| `AI_PROVIDER` | Proveedor de IA. Vacía o `gemini`: Gemini (hoy el único). Un valor desconocido apaga la IA real (respaldo fijo) y se registra una vez como `ai.provider_unknown` |
 | `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL. Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`) |
 | `GOOGLE_AI_MODEL` | Modelo de Gemini (por defecto `gemini-3.6-flash`). Un nombre que no existe da HTTP 404 |
 
@@ -200,8 +201,9 @@ lib/
                              candado de turno por ciudadano
     routing/                 primer contacto, bienvenida, menú principal, enrutamiento de la guardia léxica, entrada a un flujo
     parsing/                 lectura del texto del ciudadano: fechas, horas, selecciones, texto
-      ai/                    interpretación asistida por Gemini, un módulo por tarea (distrito, intención del menú, fecha, pistas);
-                             gemini.ts es el único helper de peticiones compartido
+      ai/                    interpretación asistida por IA, un módulo por tarea (distrito, intención del menú, fecha, pistas);
+                             llm.ts es el puerto, llm-registry.ts elige el proveedor
+        providers/           un adaptador por proveedor de IA (hoy gemini.ts)
     flows/
       cita/                  flujo de cita: handlers-cita.ts enruta cada estado a steps/
         steps/               un módulo por paso de la conversación (identidad, ubigeo, catálogo, fecha, hora, reserva…)
@@ -224,6 +226,19 @@ Convenciones (ESLint las hace cumplir donde se indica):
 | **Tests junto al archivo que prueban** | `x.ts` + `x.test.ts`; los tests de escenario van en la carpeta del área que ejercitan (por ejemplo, `flows/cita/hora-choice.test.ts`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
 | **Comentarios** | No se comentan líneas ni bloques. Solo un docstring breve, en español, en funciones o tipos complejos cuya razón no se puede expresar en el código. |
+
+### Cambiar de proveedor de IA
+
+Las tareas de IA no conocen al proveedor: piden un JSON a un `LlmClient` (`lib/fsm/parsing/ai/llm.ts`) con un JSON Schema estándar, y `getLlmClient()` (`llm-registry.ts`) decide cuál se usa según `AI_PROVIDER`.
+
+| Paso | Qué hacer |
+|---|---|
+| 1. Adaptador | Crear `lib/fsm/parsing/ai/providers/<proveedor>.ts` que implemente `LlmClient.generateJson`: traducir el JSON Schema al formato del proveedor, hacer la petición con `timedFetch` y devolver `LlmJsonOutcome` (los mismos 4 tipos de falla que Gemini) |
+| 2. Registro | Sumar el proveedor a `LlmProvider` (`llm.ts`) y a `PROVIDERS` (`llm-registry.ts`) |
+| 3. Configuración | Definir `AI_PROVIDER=<proveedor>` y su API key, y documentar la variable nueva aquí y en `.env.example` |
+| 4. Tests | Probar el adaptador con `fetch` simulado, como `providers/gemini.test.ts`; las tareas ya se prueban con un `LlmClient` falso |
+
+Las tareas, los prompts y el FSM no cambian.
 
 ## Pruebas
 

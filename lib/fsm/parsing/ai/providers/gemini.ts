@@ -1,4 +1,5 @@
 import { timedFetch } from "@/lib/observability/http";
+import type { JsonSchema, LlmClient, LlmJsonOutcome } from "@/lib/fsm/parsing/ai/llm";
 
 export const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -17,12 +18,7 @@ export type GeminiJsonRequest = {
   responseSchema: object;
 };
 
-export type GeminiJsonOutcome =
-  | { ok: true; json: unknown }
-  | { ok: false; failure: "request_failed"; errorName: string }
-  | { ok: false; failure: "http_error"; status: number; model: string }
-  | { ok: false; failure: "no_text" }
-  | { ok: false; failure: "invalid_json" };
+export type GeminiJsonOutcome = LlmJsonOutcome;
 
 /** La API key viaja en la cabecera x-goog-api-key, nunca en la URL, para que no llegue a mensajes de error ni logs. */
 export async function requestGeminiJson(request: GeminiJsonRequest): Promise<GeminiJsonOutcome> {
@@ -62,4 +58,35 @@ export async function requestGeminiJson(request: GeminiJsonRequest): Promise<Gem
   } catch {
     return { ok: false, failure: "invalid_json" };
   }
+}
+
+export function toGeminiSchema(schema: JsonSchema): Record<string, unknown> {
+  if (schema.type === "object") {
+    const properties = Object.fromEntries(
+      Object.entries(schema.properties).map(([name, property]) => [name, toGeminiSchema(property)]),
+    );
+    return schema.required ? { type: "OBJECT", properties, required: schema.required } : { type: "OBJECT", properties };
+  }
+  if (schema.type === "array") return { type: "ARRAY", items: toGeminiSchema(schema.items) };
+
+  const nullable = Array.isArray(schema.type);
+  const scalar = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+  return {
+    type: scalar.toUpperCase(),
+    ...(nullable ? { nullable: true } : {}),
+    ...(schema.enum ? { enum: schema.enum } : {}),
+  };
+}
+
+export function createGeminiClient(): LlmClient {
+  return {
+    provider: "gemini",
+    generateJson: (request) =>
+      requestGeminiJson({
+        operation: request.operation,
+        systemPrompt: request.systemPrompt,
+        userText: request.userText,
+        responseSchema: toGeminiSchema(request.schema),
+      }),
+  };
 }

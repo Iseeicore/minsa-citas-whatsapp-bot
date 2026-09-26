@@ -1,4 +1,5 @@
-import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
+import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
+import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 
 export type SelectionHintsResult = {
   especialidad?: string;
@@ -21,25 +22,29 @@ No valides ni inventes: si un dato no está claramente en el texto, devuélvelo 
 Responde SIEMPRE únicamente con un objeto JSON, sin markdown ni texto adicional:
 { "especialidad": "<texto o null>", "establecimiento": "<texto o null>", "detalle": "Explicación breve." }`;
 
-const SELECTION_HINTS_RESPONSE_SCHEMA = {
-  type: "OBJECT",
+export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
+  type: "object",
   properties: {
-    especialidad: { type: "STRING", nullable: true },
-    establecimiento: { type: "STRING", nullable: true },
-    detalle: { type: "STRING" },
+    especialidad: { type: ["string", "null"] },
+    establecimiento: { type: ["string", "null"] },
+    detalle: { type: "string" },
   },
   required: ["detalle"],
 };
 
-export async function extractSelectionHints(_step: string, text: string): Promise<SelectionHintsResult> {
+export async function extractSelectionHints(
+  _step: string,
+  text: string,
+  llm: LlmClient | null = getLlmClient(),
+): Promise<SelectionHintsResult> {
   if (!text.trim()) return {};
 
-  if (process.env.SANDBOX_USE_REAL_AI === "true") {
-    const outcome = await requestGeminiJson({
+  if (llm) {
+    const outcome = await llm.generateJson({
       operation: "extract_selection_hints",
       systemPrompt: SELECTION_HINTS_SYSTEM_PROMPT,
       userText: text,
-      responseSchema: SELECTION_HINTS_RESPONSE_SCHEMA,
+      schema: SELECTION_HINTS_RESPONSE_SCHEMA,
     });
     if (!outcome.ok) return {};
 

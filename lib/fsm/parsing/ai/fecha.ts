@@ -1,4 +1,5 @@
-import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
+import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
+import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 
 export type FechaAiOption = { id: string; label: string };
 export type FechaAiResult = { id?: string };
@@ -19,11 +20,11 @@ Devuelve el id de la ÚNICA fecha de la lista que mejor corresponde a lo que pid
 Responde SIEMPRE únicamente con un objeto JSON, sin markdown ni texto adicional:
 { "id": "<id de la lista o null>", "detalle": "Explicación breve de la decisión." }`;
 
-const FECHA_AI_RESPONSE_SCHEMA = {
-  type: "OBJECT",
+export const FECHA_AI_RESPONSE_SCHEMA: JsonSchema = {
+  type: "object",
   properties: {
-    id: { type: "STRING", nullable: true },
-    detalle: { type: "STRING" },
+    id: { type: ["string", "null"] },
+    detalle: { type: "string" },
   },
   required: ["detalle"],
 };
@@ -32,10 +33,11 @@ export async function resolveFechaAi(
   text: string,
   today: string,
   options: FechaAiOption[],
+  llm: LlmClient | null = getLlmClient(),
 ): Promise<FechaAiResult> {
   if (options.length === 0) return {};
 
-  if (process.env.SANDBOX_USE_REAL_AI === "true") {
+  if (llm) {
     const userTurn = [
       `Hoy: ${today}`,
       "Fechas disponibles:",
@@ -43,11 +45,11 @@ export async function resolveFechaAi(
       `Petición del ciudadano: ${text}`,
     ].join("\n");
 
-    const outcome = await requestGeminiJson({
+    const outcome = await llm.generateJson({
       operation: "resolve_fecha_ai",
       systemPrompt: FECHA_AI_SYSTEM_PROMPT,
       userText: userTurn,
-      responseSchema: FECHA_AI_RESPONSE_SCHEMA,
+      schema: FECHA_AI_RESPONSE_SCHEMA,
     });
     if (!outcome.ok) return {};
 
