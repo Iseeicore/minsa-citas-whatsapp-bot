@@ -136,7 +136,7 @@ describe("handle() with an expired session", () => {
     expect(prompt.kind).toBe("send_buttons");
     expect(prompt.kind === "send_buttons" && prompt.text).toContain("Tu sesión ha expirado por inactividad");
     expect(prompt.kind === "send_buttons" && prompt.text).toContain("[1] Sí, enviar código");
-    expect(prompt.kind === "send_buttons" && prompt.text).toContain("[2] Cancelar y volver al menú");
+    expect(prompt.kind === "send_buttons" && prompt.text).toMatch(/\[2\] Cancelar$/);
   });
 
   it("cuts an already-expired JWT before any MINSA query, even when the citizen was active a second ago", () => {
@@ -191,12 +191,12 @@ describe("cita_awaiting_reauth", () => {
     ["button", tap("cita_reauth_no")],
     ["typed 2", text("2")],
     ["typed cancelar", text("cancelar")],
-  ])("%s goes back to the menu and forgets the session", (_label, event) => {
+  ])("%s asks whether the citizen is sure to leave", (_label, event) => {
     const result = handle(waiting(), event, NOW);
 
-    expect(result.session.state).toBe("main_menu");
-    expect(result.session.slots).toEqual({});
-    expect(sent(result)[0].kind).toBe("send_interactive_list");
+    expect(result.session.state).toBe("cita_awaiting_exit_confirm");
+    expect(result.session.slots.citaExitResumeState).toBe("cita_awaiting_reauth");
+    expect(sent(result)[0].kind).toBe("send_buttons");
   });
 
   it("repeats the question for anything else, changing nothing", () => {

@@ -26,8 +26,17 @@ const RESUME_STATE_BY_WAITING_STATE: Readonly<Record<string, string | null>> = {
 
 export const AUTHENTICATED_WAITING_STATES: readonly string[] = Object.keys(RESUME_STATE_BY_WAITING_STATE);
 
-export function resumeStateFor(waitingState: string): string | undefined {
-  return RESUME_STATE_BY_WAITING_STATE[waitingState] ?? undefined;
+const EXIT_CONFIRM_STATE = "cita_awaiting_exit_confirm";
+
+function guardedStateOf(state: string, slots: Session["slots"]): string | undefined {
+  if (state !== EXIT_CONFIRM_STATE) return state in RESUME_STATE_BY_WAITING_STATE ? state : undefined;
+  const before = slots.citaExitResumeState;
+  return typeof before === "string" && before in RESUME_STATE_BY_WAITING_STATE ? before : undefined;
+}
+
+export function resumeStateFor(waitingState: string, slots: Session["slots"] = {}): string | undefined {
+  const guarded = guardedStateOf(waitingState, slots);
+  return guarded ? (RESUME_STATE_BY_WAITING_STATE[guarded] ?? undefined) : undefined;
 }
 
 export function decodeJwtExp(token: string): number | null {
@@ -52,7 +61,7 @@ export function detectSessionExpiry(
   now: number,
 ): SessionExpiryReason | null {
   if (event.type === "query_result") return null;
-  if (!(session.state in RESUME_STATE_BY_WAITING_STATE)) return null;
+  if (!guardedStateOf(session.state, session.slots)) return null;
 
   const bearer = session.slots.citaBearer;
   if (typeof bearer !== "string" || bearer === "") return null;
