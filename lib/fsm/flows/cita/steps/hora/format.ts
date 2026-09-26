@@ -2,7 +2,7 @@ import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } 
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import type { HoraSlot } from "@/lib/fsm/parsing/time-parser";
 import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
-import { nowInLima } from "@/lib/fsm/flows/cita/lima-clock";
+import { nowInLima } from "@/lib/time/lima-clock";
 
 export type HoraResultItem = {
   horaInicio: string;
