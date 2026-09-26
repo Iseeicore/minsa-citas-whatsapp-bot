@@ -104,6 +104,37 @@ export function offerList(next: Session, text: string, rows: ListRow[]): SendEff
   return sendList(text, rows);
 }
 
+export const LIST_PAGE_NEXT_ID = "lista_pagina_siguiente";
+export const LIST_PAGE_PREV_ID = "lista_pagina_anterior";
+export const LIST_PAGE_COUNTER = "citaListPage";
+
+export function pageCount(rowCount: number): number {
+  return Math.max(1, Math.ceil(rowCount / WHATSAPP_LIST_MAX_ROWS));
+}
+
+export function pageEffects(text: string, rows: ListRow[], page: number): SendEffect[] {
+  if (rows.length <= WHATSAPP_LIST_MAX_ROWS) return [sendList(text, rows)];
+
+  const current = Math.min(Math.max(page, 0), pageCount(rows.length) - 1);
+  const start = current * WHATSAPP_LIST_MAX_ROWS;
+  const visible = rows.slice(start, start + WHATSAPP_LIST_MAX_ROWS);
+  const buttons: ButtonOption[] = [];
+  if (current > 0) buttons.push({ id: LIST_PAGE_PREV_ID, title: "Anteriores" });
+  if (start + visible.length < rows.length) buttons.push({ id: LIST_PAGE_NEXT_ID, title: "Ver más opciones" });
+
+  return [
+    sendList(text, visible),
+    sendButtons(`Mostrando ${start + 1} a ${start + visible.length} de ${rows.length} opciones.`, buttons),
+  ];
+}
+
+/** Guarda la lista completa (para reconocer cualquier fila escrita) y muestra solo la página actual de 10 filas. */
+export function offerPagedList(next: Session, text: string, rows: ListRow[]): SendEffect[] {
+  next.slots[OFFERED_SLOT] = serializeOffered({ text, rows });
+  delete next.counters[LIST_PAGE_COUNTER];
+  return pageEffects(text, rows, 0);
+}
+
 const AFFIRMATIVE_REPLIES = new Set([
   "si",
   "sí",

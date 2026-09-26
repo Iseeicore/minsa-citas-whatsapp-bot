@@ -4,7 +4,7 @@ import { normalizeText } from "@/lib/fsm/parsing/text";
 import {
   buildResult,
   cloneSession,
-  offerList,
+  offerPagedList,
   query,
   sendText,
   truncateForRow,
@@ -81,7 +81,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [offerList(next, "Selecciona la fecha:", rows)]);
+    return buildResult(next, offerPagedList(next, "Selecciona la fecha:", rows));
   }
 
   next.state = "cita_booking_rejected";

@@ -4,7 +4,7 @@ import { normalizeText } from "@/lib/fsm/parsing/text";
 import {
   buildResult,
   cloneSession,
-  offerList,
+  offerPagedList,
   query,
   sendText,
   truncateForRow,
@@ -83,7 +83,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [offerList(next, "Selecciona la especialidad:", rows)]);
+    return buildResult(next, offerPagedList(next, "Selecciona la especialidad:", rows));
   }
 
   return offerOtherDistrito(next, "especialidades");
@@ -232,7 +232,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [offerList(next, "Selecciona el establecimiento:", rows)]);
+    return buildResult(next, offerPagedList(next, "Selecciona el establecimiento:", rows));
   }
 
   return offerOtherDistrito(next, "establecimientos");
