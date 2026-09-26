@@ -1,5 +1,5 @@
 import { buildResult, query, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
-import { OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
+import { OFFERED_NAMES_SLOT, OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
 import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
@@ -14,6 +14,7 @@ const TRANSIENT_BOOKING_SLOTS = [
   "citaHoraChoiceA",
   "citaHoraChoiceB",
   OFFERED_SLOT,
+  OFFERED_NAMES_SLOT,
 ];
 
 export function beginSessionReauth(session: Session): HandlerResult {

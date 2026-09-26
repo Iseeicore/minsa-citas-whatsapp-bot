@@ -1,6 +1,7 @@
 import { toDisplayPlace } from "@/lib/fsm/parsing/text";
 import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
-import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
+import { OFFERED_NAMES_SLOT, type OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
+import type { Session } from "@/lib/fsm/core/types";
 
 export type CatalogName = { title: string; full: string };
 
@@ -60,4 +61,22 @@ export function catalogRowDescription(name: CatalogName, cupos: number): string 
 export function fullNameFromRow(row: OfferedRow): string {
   const at = row.description?.lastIndexOf(FULL_NAME_SEPARATOR) ?? -1;
   return row.description && at > 0 ? row.description.slice(0, at) : row.title;
+}
+
+export function rememberFullNames(slots: Session["slots"], entries: ReadonlyArray<{ id: string; full: string }>): void {
+  slots[OFFERED_NAMES_SLOT] = JSON.stringify(Object.fromEntries(entries.map((entry) => [entry.id, entry.full])));
+}
+
+export function offeredFullName(slots: Session["slots"], row: OfferedRow): string {
+  const raw = slots[OFFERED_NAMES_SLOT];
+  if (typeof raw === "string") {
+    try {
+      const names = JSON.parse(raw) as Record<string, unknown>;
+      const full = names[row.id];
+      if (typeof full === "string" && full) return full;
+    } catch {
+      return fullNameFromRow(row);
+    }
+  }
+  return fullNameFromRow(row);
 }

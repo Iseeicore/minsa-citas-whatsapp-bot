@@ -25,6 +25,7 @@ const BOOKING_BOUND_SLOTS = [
   "citaHorasDia",
   "citaFechasDescartadas",
   "citaOffered",
+  "citaOfferedNames",
 ];
 
 const questionButtons = (text: string) =>

@@ -5,6 +5,8 @@ export type OfferedList = { text: string; rows: OfferedRow[] };
 
 export const OFFERED_SLOT = "citaOffered";
 
+export const OFFERED_NAMES_SLOT = "citaOfferedNames";
+
 export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
 }
@@ -85,6 +87,10 @@ const STOP_WORDS = new Set([
 
 type HayToken = { word: string; truncated: boolean };
 
+const QUOTA_WORDS = new Set(["cupo", "cupos"]);
+
+const isDescriptionNameWord = (word: string): boolean => word !== "" && !/^\d+$/.test(word) && !QUOTA_WORDS.has(word);
+
 function rowTokens(row: OfferedRow, includeDescription: boolean): HayToken[] {
   const titleWords = normalize(row.title).split(" ").filter(Boolean);
   const titleTruncated = row.title.endsWith("…");
@@ -95,7 +101,7 @@ function rowTokens(row: OfferedRow, includeDescription: boolean): HayToken[] {
   }));
 
   if (includeDescription && row.description) {
-    for (const word of normalize(row.description).split(" ").filter(Boolean)) {
+    for (const word of normalize(row.description).split(" ").filter(isDescriptionNameWord)) {
       tokens.push({ word, truncated: false });
     }
   }
