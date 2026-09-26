@@ -1,6 +1,6 @@
 import { logger } from "@/lib/observability/logger";
 import { normalizeText } from "@/lib/fsm/parsing/text";
-import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
+import { requestGeminiJson } from "@/lib/fsm/parsing/ai/providers/gemini";
 
 export type MainMenuIntentResult = {
   intent: "cita" | "unclear";

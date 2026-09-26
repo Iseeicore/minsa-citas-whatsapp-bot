@@ -1,4 +1,4 @@
-import { requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
+import { requestGeminiJson } from "@/lib/fsm/parsing/ai/providers/gemini";
 
 export type FechaAiOption = { id: string; label: string };
 export type FechaAiResult = { id?: string };

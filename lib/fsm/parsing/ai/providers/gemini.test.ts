@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { REQUEST_TIMEOUT_MS, requestGeminiJson } from "@/lib/fsm/parsing/ai/gemini";
+import { createGeminiClient, REQUEST_TIMEOUT_MS, requestGeminiJson, toGeminiSchema } from "@/lib/fsm/parsing/ai/providers/gemini";
 
 const REQUEST = {
   operation: "test_operation",
@@ -111,5 +111,75 @@ describe("requestGeminiJson", () => {
 
   it("keeps the 15 s request timeout", () => {
     expect(REQUEST_TIMEOUT_MS).toBe(15_000);
+  });
+});
+
+describe("toGeminiSchema", () => {
+  it("upper-cases scalar, object and array types", () => {
+    expect(
+      toGeminiSchema({
+        type: "object",
+        properties: { list: { type: "array", items: { type: "number" } }, flag: { type: "boolean" } },
+      }),
+    ).toEqual({
+      type: "OBJECT",
+      properties: { list: { type: "ARRAY", items: { type: "NUMBER" } }, flag: { type: "BOOLEAN" } },
+    });
+  });
+
+  it("turns a nullable JSON Schema type into Gemini's nullable flag", () => {
+    expect(toGeminiSchema({ type: ["string", "null"] })).toEqual({ type: "STRING", nullable: true });
+  });
+
+  it("keeps enum values and required fields, and adds no key the source did not have", () => {
+    const converted = toGeminiSchema({
+      type: "object",
+      properties: { intent: { type: "string", enum: ["cita", "unclear"] } },
+      required: ["intent"],
+    });
+
+    expect(converted).toEqual({
+      type: "OBJECT",
+      properties: { intent: { type: "STRING", enum: ["cita", "unclear"] } },
+      required: ["intent"],
+    });
+    expect(Object.keys((converted as { properties: { intent: object } }).properties.intent)).toEqual(["type", "enum"]);
+  });
+});
+
+describe("createGeminiClient", () => {
+  let fetchSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_AI_MODEL", "test-model");
+    vi.stubEnv("GOOGLE_CLIENT_API", "test-key");
+    fetchSpy = vi.fn(async () => envelope('{"answer":42}'));
+    vi.stubGlobal("fetch", fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("identifies itself as the gemini provider", () => {
+    expect(createGeminiClient().provider).toBe("gemini");
+  });
+
+  it("sends the standard schema translated to Gemini's dialect and returns the parsed JSON", async () => {
+    const outcome = await createGeminiClient().generateJson({
+      operation: "test_operation",
+      systemPrompt: "SYSTEM",
+      userText: "USER",
+      schema: { type: "object", properties: { id: { type: ["string", "null"] } }, required: ["id"] },
+    });
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body)).generationConfig.responseSchema).toEqual({
+      type: "OBJECT",
+      properties: { id: { type: "STRING", nullable: true } },
+      required: ["id"],
+    });
+    expect(outcome).toEqual({ ok: true, json: { answer: 42 } });
   });
 });
