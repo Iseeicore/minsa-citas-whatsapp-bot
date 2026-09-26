@@ -24,6 +24,7 @@ export const TERMINAL_STATES = new Set([
   "cita_national_redirect",
   "cita_no_coverage_closed",
   "cita_declined_closed",
+  "cita_abandoned",
   "emergency_closed",
 ]);
 

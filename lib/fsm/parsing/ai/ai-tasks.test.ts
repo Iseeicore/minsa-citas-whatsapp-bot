@@ -215,3 +215,55 @@ describe("resolveDistritoAiDetailed: tells a failure apart from 'no district fou
     });
   });
 });
+
+describe("AI tasks report a citizen's wish to leave (quiere_salir)", () => {
+  const answering = (json: unknown): LlmClient => ({
+    provider: "gemini",
+    generateJson: async (): Promise<LlmJsonOutcome> => ({ ok: true, json }),
+  });
+
+  it("resolveDistritoAiDetailed passes quiere_salir on as quiereSalir", async () => {
+    const result = await resolveDistritoAiDetailed("puff muchos pasos", undefined, answering({ candidates: [], detalle: "", quiere_salir: true }));
+
+    expect(result).toEqual({ outcome: "not_found", candidates: [], quiereSalir: true });
+  });
+
+  it("resolveFechaAi passes quiere_salir on as quiereSalir", async () => {
+    const result = await resolveFechaAi("ya me cansé", "2099-09-20", [{ id: "a", label: "22/09/2099" }], answering({ id: null, detalle: "", quiere_salir: true }));
+
+    expect(result).toEqual({ quiereSalir: true });
+  });
+
+  it("extractSelectionHints passes quiere_salir on as quiereSalir", async () => {
+    const result = await extractSelectionHints("especialidad", "mejor otro día", answering({ especialidad: null, establecimiento: null, detalle: "", quiere_salir: true }));
+
+    expect(result).toEqual({ quiereSalir: true });
+  });
+
+  it("quiere_salir false adds nothing to the result", async () => {
+    const result = await resolveFechaAi("el lunes", "2099-09-20", [{ id: "a", label: "22/09/2099" }], answering({ id: "a", detalle: "", quiere_salir: false }));
+
+    expect(result).toEqual({ id: "a" });
+  });
+
+  it.each([
+    ["distrito", () => import("@/lib/fsm/parsing/ai/distrito")],
+    ["fecha", () => import("@/lib/fsm/parsing/ai/fecha")],
+    ["selection-hints", () => import("@/lib/fsm/parsing/ai/selection-hints")],
+  ])("the %s prompt defines quiere_salir", async (_label, load) => {
+    const prompts: string[] = [];
+    const recording: LlmClient = {
+      provider: "gemini",
+      generateJson: async (request: LlmJsonRequest): Promise<LlmJsonOutcome> => {
+        prompts.push(request.systemPrompt);
+        return { ok: false, failure: "no_text" };
+      },
+    };
+    const mod = (await load()) as Record<string, unknown>;
+    if ("resolveDistritoAiDetailed" in mod) await (mod.resolveDistritoAiDetailed as typeof resolveDistritoAiDetailed)("x", undefined, recording);
+    if ("resolveFechaAi" in mod) await (mod.resolveFechaAi as typeof resolveFechaAi)("x", "2099-09-20", [{ id: "a", label: "l" }], recording);
+    if ("extractSelectionHints" in mod) await (mod.extractSelectionHints as typeof extractSelectionHints)("especialidad", "x", recording);
+
+    expect(prompts[0]).toContain("quiere_salir");
+  });
+});

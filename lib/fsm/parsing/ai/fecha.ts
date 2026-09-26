@@ -1,9 +1,9 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
+import { EXIT_INTENT_RULE, PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
 
 export type FechaAiOption = { id: string; label: string };
-export type FechaAiResult = { id?: string };
+export type FechaAiResult = { id?: string; quiereSalir?: true };
 
 const FECHA_AI_SYSTEM_PROMPT = `# SYSTEM PROMPT: Selector de fecha — Canal MINSA
 
@@ -18,17 +18,20 @@ Solo interpretas fechas. Tu valor "sin resultado" es id null.
 
 ${PROMPT_GUARDRAILS}
 
+${EXIT_INTENT_RULE}
+
 ## 3. FORMATO DE RESPUESTA
 Responde SIEMPRE únicamente con un objeto JSON, sin markdown ni texto adicional:
-{ "id": "<id de la lista o null>", "detalle": "Explicación breve de la decisión." }`;
+{ "id": "<id de la lista o null>", "detalle": "Explicación breve de la decisión.", "quiere_salir": false }`;
 
 export const FECHA_AI_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
   properties: {
     id: { type: ["string", "null"] },
     detalle: { type: "string" },
+    quiere_salir: { type: "boolean" },
   },
-  required: ["detalle"],
+  required: ["detalle", "quiere_salir"],
 };
 
 export async function resolveFechaAi(
@@ -56,9 +59,10 @@ export async function resolveFechaAi(
     if (!outcome.ok) return {};
 
     try {
-      const parsed = outcome.json as { id?: unknown };
+      const parsed = outcome.json as { id?: unknown; quiere_salir?: unknown };
       const offered = options.some((option) => option.id === parsed.id);
-      return typeof parsed.id === "string" && offered ? { id: parsed.id } : {};
+      const picked: FechaAiResult = typeof parsed.id === "string" && offered ? { id: parsed.id } : {};
+      return parsed.quiere_salir === true ? { ...picked, quiereSalir: true } : picked;
     } catch {
       return {};
     }

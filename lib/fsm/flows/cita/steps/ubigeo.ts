@@ -26,6 +26,7 @@ import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/c
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
 import type { DistritoAiOutcome } from "@/lib/fsm/parsing/ai/distrito";
+import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit";
 
 
 export function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
@@ -46,7 +47,11 @@ export function handleAwaitingDistritoAi(session: Session, event: InboundEvent):
 const MAX_DISTRITO_NOT_FOUND = 2;
 
 export function handleDistritoAiPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { outcome?: DistritoAiOutcome; candidates?: DistritoAiCandidateResult[] };
+  const result = event.result as { outcome?: DistritoAiOutcome; candidates?: DistritoAiCandidateResult[]; quiereSalir?: boolean };
+
+  if (result.quiereSalir === true) {
+    return askToLeave({ ...cloneSession(session), state: "cita_awaiting_distrito_ai" }, "ai");
+  }
 
   if (result.outcome === "failed") {
     return enterManualDistritoFlow(session, DISTRITO_MANUAL_FALLBACK_TEXT);

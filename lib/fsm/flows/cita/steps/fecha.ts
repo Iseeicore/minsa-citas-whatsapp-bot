@@ -18,6 +18,8 @@ import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } 
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { todayInLima } from "@/lib/time/lima-clock";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/other-establecimiento";
+import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -84,8 +86,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     return buildResult(next, offerPagedList(next, "Selecciona la fecha:", rows));
   }
 
-  next.state = "cita_booking_rejected";
-  return buildResult(next, [sendText("No hay fechas disponibles para ese establecimiento.")]);
+  return searchOtherEstablecimiento(next);
 }
 
 const TEMPORAL_PHRASE =
@@ -113,11 +114,13 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
 }
 
 export function handleFechaAiPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { id?: unknown };
+  const result = event.result as { id?: unknown; quiereSalir?: boolean };
   const offered = readOffered(session.slots);
 
   const restored = cloneSession(session);
   restored.state = "cita_awaiting_fecha_select";
+
+  if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
   if (typeof result.id === "string" && offered?.rows.some((row) => row.id === result.id)) {
     return handleAwaitingFechaSelect(restored, { from: event.from, type: "list", listId: result.id });

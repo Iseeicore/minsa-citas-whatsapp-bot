@@ -20,6 +20,8 @@ const DISTRICT_BOUND_SLOTS = [
   "citaUbigeo",
   "citaEspecialidadId",
   "citaCodEess",
+  "citaEstablecimientoNombre",
+  "citaEstablecimientosDescartados",
   "citaFecha",
   DISCARDED_DATES_SLOT,
   "citaDistritoHintText",
