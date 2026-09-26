@@ -58,11 +58,11 @@ describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
     const question = sent(result).find((e) => e.kind === "send_buttons") as
       | { text: string; buttons: Array<{ id: string; title: string }> }
       | undefined;
-    expect(question?.text).toContain("07:00");
-    expect(question?.text).toContain("13:00");
+    expect(question?.text).toContain("7:00 AM");
+    expect(question?.text).toContain("1:00 PM");
     expect(question?.buttons).toEqual([
-      { id: "hora_choice_a", title: "Opción 1: 07:00" },
-      { id: "hora_choice_b", title: "1:00 PM: 13:00" },
+      { id: "hora_choice_a", title: "Opción 1: 7:00 AM" },
+      { id: "hora_choice_b", title: "1:00 PM" },
     ]);
   });
 

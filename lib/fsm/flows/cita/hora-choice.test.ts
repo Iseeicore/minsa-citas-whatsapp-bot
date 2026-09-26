@@ -46,8 +46,8 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
     expect(sent(result)[0]).toMatchObject({
       kind: "send_buttons",
       buttons: [
-        { id: "hora_choice_a", title: "Opción 1: 07:00" },
-        { id: "hora_choice_b", title: "1:00 PM: 13:00" },
+        { id: "hora_choice_a", title: "Opción 1: 7:00 AM" },
+        { id: "hora_choice_b", title: "1:00 PM" },
       ],
     });
   });
@@ -77,7 +77,7 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
 
     expect(sent(asked)[0]).toMatchObject({
       buttons: [
-        { id: "hora_choice_a", title: "Opción 1: 07:00" },
+        { id: "hora_choice_a", title: "Opción 1: 7:00 AM" },
         { id: "hora_choice_b", title: "1 PM: ver horas" },
       ],
     });

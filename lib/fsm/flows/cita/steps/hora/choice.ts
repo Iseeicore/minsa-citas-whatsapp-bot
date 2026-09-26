@@ -44,10 +44,10 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
 
   return buildResult(session, [
     sendButtons("Elige una de las dos opciones:", [
-      { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción: ${startA}`, BUTTON_TITLE_MAX) },
+      { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción: ${formatHora12(startA)}`, BUTTON_TITLE_MAX) },
       {
         id: HORA_CHOICE_B_ID,
-        title: truncateForRow(slotsB.length === 1 ? `${formatHora12(first.start)}: ${first.start}` : "Ver horas", BUTTON_TITLE_MAX),
+        title: truncateForRow(slotsB.length === 1 ? formatHora12(first.start) : "Ver horas", BUTTON_TITLE_MAX),
       },
     ]),
   ]);

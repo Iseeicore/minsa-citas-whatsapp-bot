@@ -1,5 +1,6 @@
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
 import { searchDistrito } from "@/lib/fsm/flows/cita/ubigeo-data";
+import { isAllowedDepartamento } from "@/lib/fsm/flows/cita/pilot-scope";
 
 const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
   [/^odontolog/, "Odontología"],
@@ -15,7 +16,6 @@ const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
 
 const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);
 const MAX_PLACE_WORDS = 4;
-const PILOT_DEPARTAMENTO = "LIMA";
 
 export type CitaHints = { especialidad?: string; distrito?: string };
 
@@ -43,9 +43,7 @@ export function extractCitaHints(message: string): CitaHints {
 
     for (let length = Math.min(MAX_PLACE_WORDS, words.length - start); length >= 1; length--) {
       const phrase = words.slice(start, start + length).join(" ");
-      const inPilotArea = searchDistrito(phrase).some(
-        (candidate) => normalizeText(candidate.departamento) === PILOT_DEPARTAMENTO,
-      );
+      const inPilotArea = searchDistrito(phrase).some((candidate) => isAllowedDepartamento(candidate.departamento));
       if (inPilotArea) {
         hints.distrito = toDisplayPlace(phrase);
         break;

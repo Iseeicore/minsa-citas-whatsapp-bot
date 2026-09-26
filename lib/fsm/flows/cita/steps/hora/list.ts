@@ -3,7 +3,7 @@ import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/other-fecha";
 import { buildResult, cloneSession, offerList, sendText, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
 import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
 import type { HandlerResult, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
-import { type HoraResultItem, formatHora12, HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID, orderHorasFromNow } from "@/lib/fsm/flows/cita/steps/hora/format";
+import { type HoraResultItem, formatHoraRange, HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID, orderHorasFromNow } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 import { askHoraConfirmation } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 
@@ -19,7 +19,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
     next.state = "cita_awaiting_hora_select";
     const rows: ListRow[] = items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,
-      title: truncateForRow(`${formatHora12(item.horaInicio)} - ${formatHora12(item.horaFin)}`, WHATSAPP_ROW_TITLE_MAX),
+      title: truncateForRow(formatHoraRange(item.horaInicio, item.horaFin), WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(
         `${item.cantidadCupos} cupo(s) disponibles`,
         WHATSAPP_ROW_DESCRIPTION_MAX,

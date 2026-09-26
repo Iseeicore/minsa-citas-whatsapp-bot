@@ -1,4 +1,14 @@
-import { buildResult, cloneSession, offerList, sendText, sendList } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  LIST_PAGE_COUNTER,
+  LIST_PAGE_NEXT_ID,
+  LIST_PAGE_PREV_ID,
+  offerPagedList,
+  pageCount,
+  pageEffects,
+  sendText,
+} from "@/lib/fsm/core/handlers-shared";
 import {
   matchSelection,
   OFFERED_SLOT,
@@ -15,6 +25,7 @@ export const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona 
 export function clearOffered(session: Session): Session {
   const next = cloneSession(session);
   delete next.slots[OFFERED_SLOT];
+  delete next.counters[LIST_PAGE_COUNTER];
   return next;
 }
 
@@ -24,13 +35,23 @@ export function reshowOffered(
   message: string = SELECTION_REJECTION,
 ): HandlerResult {
   const effects: SendEffect[] = [sendText(message)];
-  if (offered) effects.push(sendList(offered.text, offered.rows));
+  if (offered) effects.push(...pageEffects(offered.text, offered.rows, session.counters[LIST_PAGE_COUNTER] ?? 0));
   return buildResult(session, effects);
 }
 
 function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
   const next = cloneSession(session);
-  return buildResult(next, [offerList(next, NARROWED_LIST_TEXT, rows)]);
+  return buildResult(next, offerPagedList(next, NARROWED_LIST_TEXT, rows));
+}
+
+function turnPage(session: Session, offered: OfferedList, id: string): HandlerResult {
+  const next = cloneSession(session);
+  const current = next.counters[LIST_PAGE_COUNTER] ?? 0;
+  const target = id === LIST_PAGE_NEXT_ID ? current + 1 : current - 1;
+  const page = Math.min(Math.max(target, 0), pageCount(offered.rows.length) - 1);
+  if (page === 0) delete next.counters[LIST_PAGE_COUNTER];
+  else next.counters[LIST_PAGE_COUNTER] = page;
+  return buildResult(next, pageEffects(offered.text, offered.rows, page));
 }
 
 export type CustomMatch =
@@ -57,6 +78,7 @@ export function resolveSelection(
   if (event.type === "list" || event.type === "button") {
     const id = event.listId;
     if (!id) return { result: reshowOffered(session, offered) };
+    if (offered && (id === LIST_PAGE_NEXT_ID || id === LIST_PAGE_PREV_ID)) return { result: turnPage(session, offered, id) };
 
     const valid =
       !offered || offered.rows.some((row) => row.id === id) || options.passthroughIds?.includes(id);

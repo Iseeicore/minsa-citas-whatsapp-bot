@@ -1,8 +1,9 @@
 import {
   buildResult,
   omitSlot,
+  LIST_PAGE_COUNTER,
+  pageEffects,
   sendButtons,
-  sendList,
   sendText,
   TERMINAL_STATES,
   withNote,
@@ -93,7 +94,7 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
     return withNote(
       buildResult(session, [
         sendText(RESPECT_REMINDER_TEXT),
-        ...(offered ? [sendList(offered.text, offered.rows)] : []),
+        ...(offered ? pageEffects(offered.text, offered.rows, session.counters[LIST_PAGE_COUNTER] ?? 0) : []),
       ]),
       verdict,
     );

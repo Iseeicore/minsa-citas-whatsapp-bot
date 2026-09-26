@@ -375,8 +375,8 @@ describe("hora pending — zero horarios for the picked date", () => {
   });
 });
 
-describe("booking pending — a duplicate booking offers another date instead of closing", () => {
-  it("offers another date with a clean message, never MINSA's raw wording", () => {
+describe("booking pending — a duplicate booking offers another especialidad instead of closing", () => {
+  it("offers another especialidad with a clean message, never MINSA's raw wording", () => {
     const session = at("cita_booking_pending", undefined, {
       citaCodEess: "0000123",
       citaEspecialidadId: "02",
@@ -391,12 +391,12 @@ describe("booking pending — a duplicate booking offers another date instead of
       }),
     );
 
-    expect(result.session.state).toBe("cita_awaiting_other_fecha");
+    expect(result.session.state).toBe("cita_awaiting_duplicate_choice");
     const shown = (sent(result)[0] as { text: string }).text;
-    expect(shown).toContain("Ya tienes una cita activa registrada");
+    expect(shown).toContain("Ya tienes una cita activa para");
     expect(shown).not.toContain("Error al generar la cita en el servicio externo");
     expect(result.session.slots.citaFecha).toBeUndefined();
-    expect(result.session.slots.citaFechasDescartadas).toBe("22/09/2026");
+    expect(result.session.slots.citaEspecialidadesDescartadas).toBe("02");
   });
 });
 
@@ -497,7 +497,7 @@ describe("hora select", () => {
         { id: "hora_confirm_no", title: "No, ver horarios" },
       ],
     });
-    expect((sent(result)[0] as { text: string }).text).toContain("8:00 AM - 8:30 AM");
+    expect((sent(result)[0] as { text: string }).text).toContain("8:00 - 8:30 AM");
   });
 
   it("unmatched text is rejected and the list re-shown", () => {

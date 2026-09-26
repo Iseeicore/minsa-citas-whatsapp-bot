@@ -1,7 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
+
+beforeEach(() => {
+  vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const action = (text: string) => evaluateLexicalGuard(text).action;
 

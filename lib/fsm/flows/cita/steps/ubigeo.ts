@@ -24,6 +24,7 @@ import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/cita/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
 import type { DistritoAiOutcome } from "@/lib/fsm/parsing/ai/distrito";
 
 
@@ -184,7 +185,12 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
     ]);
   }
 
-  const settled = result.status === "found" && result.items ? pickSettledUbigeo(next, result.items) : undefined;
+  const items = result.items?.filter((item) => isAllowedDepartamento(item.departamento));
+  if (result.status === "found" && result.items && result.items.length > 0 && items?.length === 0) {
+    return redirectToNationalSite(next);
+  }
+
+  const settled = result.status === "found" && items ? pickSettledUbigeo(next, items) : undefined;
   if (settled) {
     next.slots.citaUbigeo = settled.ubigeoInei;
     next.state = "cita_especialidad_pending";
@@ -194,14 +200,9 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
     ]);
   }
 
-  if (
-    result.status === "found" &&
-    result.items &&
-    result.items.length > 1 &&
-    result.items.length <= WHATSAPP_LIST_MAX_ROWS
-  ) {
+  if (result.status === "found" && items && items.length > 1 && items.length <= WHATSAPP_LIST_MAX_ROWS) {
     next.state = "cita_awaiting_ubigeo_select";
-    const rows: ListRow[] = result.items.map((item) => ({
+    const rows: ListRow[] = items.map((item) => ({
       id: item.ubigeoInei,
       title: truncateForRow(item.distrito, WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(

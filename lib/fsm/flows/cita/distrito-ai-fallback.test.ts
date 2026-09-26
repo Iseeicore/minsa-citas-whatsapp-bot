@@ -1,9 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleDistritoAiPending } from "@/lib/fsm/flows/cita/steps/ubigeo";
 import { UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/gibberish";
 import { DISTRITO_MANUAL_FALLBACK_TEXT } from "@/lib/fsm/flows/cita/distrito-resolver";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+
+beforeEach(() => {
+  vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const pending = (counters: Session["counters"] = {}): Session => ({
   state: "cita_distrito_ai_pending",

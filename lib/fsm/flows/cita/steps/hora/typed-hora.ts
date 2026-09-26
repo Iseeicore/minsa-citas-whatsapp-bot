@@ -38,10 +38,10 @@ function resolveBareHoraNumber(
 
   const first = otherHourSlots[0];
   const single = otherHourSlots.length === 1;
-  const hourLabel = single ? `${formatHora12(first.start)}: ${first.start}` : `${formatHourGroup(first.start)}: ver horas`;
+  const hourLabel = single ? formatHora12(first.start) : `${formatHourGroup(first.start)}: ver horas`;
   const hourDescription = single
-    ? `${formatHora12(first.start)} (${first.start})`
-    : `${formatHourGroup(first.start)} (${otherHourSlots.map((slot) => slot.start).join(", ")})`;
+    ? formatHora12(first.start)
+    : `${formatHourGroup(first.start)} (${otherHourSlots.map((slot) => formatHora12(slot.start)).join(", ")})`;
 
   const next = cloneSession(session);
   next.state = "cita_awaiting_hora_choice";
@@ -51,8 +51,8 @@ function resolveBareHoraNumber(
   return {
     kind: "handled",
     result: buildResult(next, [
-      sendButtons(`¿A qué te refieres con "${number}"? Opción ${number}: ${positionSlot.start}, o ${hourDescription}.`, [
-        { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción ${number}: ${positionSlot.start}`, BUTTON_TITLE_MAX) },
+      sendButtons(`¿A qué te refieres con "${number}"? Opción ${number}: ${formatHora12(positionSlot.start)}, o ${hourDescription}.`, [
+        { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción ${number}: ${formatHora12(positionSlot.start)}`, BUTTON_TITLE_MAX) },
         { id: HORA_CHOICE_B_ID, title: truncateForRow(hourLabel, BUTTON_TITLE_MAX) },
       ]),
     ]),

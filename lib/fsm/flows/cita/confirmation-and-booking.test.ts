@@ -148,11 +148,11 @@ describe("a booking that MINSA does not accept", () => {
     );
   });
 
-  it("a duplicate booking offers another date instead of a dead-end state", () => {
+  it("a duplicate booking asks for another especialidad instead of a dead-end state", () => {
     const step = handle(booking(), bookingResult({ status: "duplicate", message: "Ya tiene una cita activa" }));
 
-    expect(step.session.state).toBe("cita_awaiting_other_fecha");
-    expect(sent(step)[0]).toMatchObject({ text: expect.stringContaining("Ya tienes una cita activa registrada") });
+    expect(step.session.state).toBe("cita_awaiting_duplicate_choice");
+    expect(sent(step)[0]).toMatchObject({ text: expect.stringContaining("Ya tienes una cita activa para") });
   });
 });
 

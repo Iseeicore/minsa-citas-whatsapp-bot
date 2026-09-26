@@ -11,13 +11,12 @@ export const DISCARDED_DATES_SLOT = "citaFechasDescartadas";
 const OTHER_FECHA_YES_ID = "cita_otra_fecha_si";
 const OTHER_FECHA_NO_ID = "cita_otra_fecha_no";
 
-const FAREWELL = "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+export const FAREWELL = "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
 const DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${FAREWELL}`;
 const NO_OTHER_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${FAREWELL}`;
 
 const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
 const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
-const INTRO_DUPLICATE = "Ya tienes una cita activa registrada para ese mismo turno o servicio.";
 const QUESTION = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 
 const DATE_BOUND_SLOTS = ["citaFecha", "citaHoraConfirmId", "citaHoraConfirmOnly", "citaHorasDia", OFFERED_SLOT];
@@ -55,18 +54,16 @@ export function closeWithApology(reason: "declined" | "no_other_dates"): Handler
   );
 }
 
-export type OfferOtherFechaReason = "only_declined" | "no_horarios" | "duplicate";
+export type OfferOtherFechaReason = "only_declined" | "no_horarios";
 
 const INTRO_BY_REASON: Record<OfferOtherFechaReason, string> = {
   only_declined: INTRO_ONLY_DECLINED,
   no_horarios: INTRO_NO_HORARIOS,
-  duplicate: INTRO_DUPLICATE,
 };
 
 const STEP_BY_REASON: Record<OfferOtherFechaReason, string> = {
   only_declined: "hora_confirm",
   no_horarios: "hora_pending",
-  duplicate: "booking_pending",
 };
 
 export function offerOtherFecha(session: Session, reason: OfferOtherFechaReason = "only_declined"): HandlerResult {

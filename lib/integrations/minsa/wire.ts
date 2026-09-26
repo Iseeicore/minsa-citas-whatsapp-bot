@@ -1,5 +1,6 @@
 import { timedFetch } from "@/lib/observability/http";
 import { signMinsaRequest } from "@/lib/integrations/minsa/signature";
+import { nowInLima, todayInLima } from "@/lib/time/lima-clock";
 
 function minsaHost(): string {
   return process.env.MINSA_API_HOST ?? "";
@@ -39,17 +40,11 @@ export async function postWithBearer(
 }
 
 export function todayYYYYMMDD(): string {
-  return formatYYYYMMDD(new Date());
+  return nowInLima().fecha;
 }
 
 export function endOfMonthYYYYMMDD(): string {
-  const now = new Date();
-  return formatYYYYMMDD(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-}
-
-function formatYYYYMMDD(date: Date): string {
-  const year = date.getFullYear().toString();
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const day = date.getDate().toString().padStart(2, "0");
-  return `${year}${month}${day}`;
+  const { year, month } = todayInLima();
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}${String(month).padStart(2, "0")}${String(lastDay).padStart(2, "0")}`;
 }

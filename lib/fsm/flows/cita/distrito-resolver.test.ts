@@ -1,7 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { looksLikePlaceName, resolveDistritoCandidates, resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
+
+beforeEach(() => {
+  vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const session = (extra: Session["slots"] = {}): Session => ({
   state: "cita_awaiting_distrito_ai",

@@ -4,7 +4,7 @@ import { normalizeText } from "@/lib/fsm/parsing/text";
 import {
   buildResult,
   cloneSession,
-  offerList,
+  offerPagedList,
   query,
   sendText,
   truncateForRow,
@@ -16,7 +16,7 @@ import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } fro
 import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/selection";
-import { todayInLima } from "@/lib/fsm/flows/cita/lima-clock";
+import { todayInLima } from "@/lib/time/lima-clock";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
 
 type FechaResultItem = {
@@ -81,7 +81,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
     }));
-    return buildResult(next, [offerList(next, "Selecciona la fecha:", rows)]);
+    return buildResult(next, offerPagedList(next, "Selecciona la fecha:", rows));
   }
 
   next.state = "cita_booking_rejected";

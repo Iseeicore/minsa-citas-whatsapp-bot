@@ -2,7 +2,7 @@ import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } 
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import type { HoraSlot } from "@/lib/fsm/parsing/time-parser";
 import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
-import { nowInLima } from "@/lib/fsm/flows/cita/lima-clock";
+import { nowInLima } from "@/lib/time/lima-clock";
 
 export type HoraResultItem = {
   horaInicio: string;
@@ -27,7 +27,7 @@ export const ONLY_HORA_FLAG = "1";
 export function slotToRow(slot: HoraSlot): OfferedRow {
   return {
     id: `${slot.start}|${slot.end}`,
-    title: truncateForRow(`${slot.start} - ${slot.end}`, WHATSAPP_ROW_TITLE_MAX),
+    title: truncateForRow(formatHoraRange(slot.start, slot.end), WHATSAPP_ROW_TITLE_MAX),
     description: truncateForRow(`${slot.cupos} cupo(s) disponibles`, WHATSAPP_ROW_DESCRIPTION_MAX),
   };
 }
@@ -39,9 +39,22 @@ export function rowToSlot(row: OfferedRow): HoraSlot | undefined {
     : undefined;
 }
 
+function clock12(time: string): { clock: string; period: "AM" | "PM" } {
+  const [hour, minute] = time.split(":").map(Number);
+  return { clock: `${hour % 12 || 12}:${String(minute).padStart(2, "0")}`, period: hour >= 12 ? "PM" : "AM" };
+}
+
 export function formatHora12(start: string): string {
-  const [hour, minute] = start.split(":").map(Number);
-  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+  const { clock, period } = clock12(start);
+  return `${clock} ${period}`;
+}
+
+export function formatHoraRange(start: string, end: string): string {
+  const from = clock12(start);
+  const to = clock12(end);
+  return from.period === to.period
+    ? `${from.clock} - ${to.clock} ${to.period}`
+    : `${from.clock} ${from.period} - ${to.clock} ${to.period}`;
 }
 
 export function formatHourGroup(start: string): string {

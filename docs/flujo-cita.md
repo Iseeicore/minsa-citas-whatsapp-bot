@@ -6,7 +6,7 @@ Mapa de cada paso del flujo de cita: qué envía el bot (lista, botones o texto)
 
 | Símbolo | Qué envía el bot |
 |---|---|
-| 📋 **LISTA** | Lista interactiva de WhatsApp (hasta 10 filas: título ≤ 24, descripción ≤ 72) |
+| 📋 **LISTA** | Lista interactiva de WhatsApp (hasta 10 filas: título ≤ 24, descripción ≤ 72). Con más de 10 opciones se muestra por páginas de 10 con 🔘 [Ver más opciones] / [Anteriores] (*"Mostrando 1 a 10 de N opciones."*); escribir el nombre o el número de una fila de otra página también la elige |
 | 🔘 **BOTONES** | Botones de respuesta rápida (1 a 3) |
 | 🔗 **CTA** | Mensaje con un botón que abre una URL |
 | 💬 **TEXTO** | Mensaje de texto simple |
@@ -39,10 +39,10 @@ Documento (8 dígitos) 💬
 Distrito 💬 🤖
 ├─ búsqueda local (sin IA) ─┐
 ├─ si no, IA ───────────────┤
-│                           ├─ 1 en Lima ──────► busca ubigeo
+│                           ├─ 1 permitido ────► busca ubigeo
 │                           ├─ 2–10 ───────────► 📋 "¿Cuál es tu distrito?"
 │                           ├─ más de 10 ──────► 💬 modo manual (depto → prov → distrito)
-│                           └─ solo fuera de Lima ─► 🔗 MINSA Digital ⛔
+│                           └─ solo fuera de los departamentos permitidos ─► 🔗 MINSA Digital ⛔
 Ubigeo ── 1 ─► sigue │ 2–10 ─► 📋 "Selecciona tu ubigeo:"
 
 Especialidad 📋 🤖   (se salta si la pista de especialidad coincide con una sola)
@@ -69,10 +69,10 @@ Reserva 💬 "Agendando tu cita…"
 | Desambiguación de distrito | 📋 ≤ 10 | posición ("2", "segunda"), nombre, provincia o departamento; un lugar nuevo inicia otra búsqueda | 📋 reducida | solo si inicia otra búsqueda |
 | Modo manual (depto → prov → distrito) | 💬 | cualquier texto | — | no |
 | Ubigeo | 📋 2–10 | posición o nombre | 📋 reducida | no |
-| Especialidad | 📋 | posición, ordinal o nombre | 📋 reducida | 🤖 pistas (texto de 5+ letras) |
+| Especialidad | 📋 paginada | posición, ordinal o nombre | 📋 reducida | 🤖 pistas (texto de 5+ letras) |
 | Sin cobertura | 🔘 [Sí, otro distrito] [No, salir] | sí/no, "cambiar", "otro distrito", un nombre de lugar | — | solo si inicia otra búsqueda |
 | Establecimiento | 📋 ≤ 10 | posición, ordinal o nombre | 📋 reducida | 🤖 pistas |
-| Fecha | 📋 | "22/09", "22 de septiembre", "hoy", "mañana", "martes", "el 22", "lo más pronto", posición | 📋 reducida (varios martes, varios "22") | 🤖 fecha (frases temporales) |
+| Fecha | 📋 paginada | "22/09", "22 de septiembre", "hoy", "mañana", "martes", "el 22", "lo más pronto", posición | 📋 reducida (varios martes, varios "22") | 🤖 fecha (frases temporales) |
 | Hora | 📋 ≤ 10 por página + 🔘 [Ver más horarios] | "8:45", "8 y 45", "8 y media", "a las 3 de la tarde", "mediodía", "lo más temprano", posición | 📋 reducida; "1".."10" ambiguo → 🔘 2 opciones | no |
 | Elección de hora ambigua | 🔘 2 opciones | la hora escrita otra vez | 📋 reducida | no |
 | Confirmación de hora | 🔘 [Sí, confirmar] [No…] | "sí", "ok", "dale", "confirmo", "esa", "me sirve", la misma hora | — | no |
@@ -115,6 +115,8 @@ Todos los pasos con 📋 siguen el mismo orden (`lib/fsm/flows/cita/selection.ts
 | Confirmación del único horario | "no" | 🔘 *"…te recomiendo elegir otra fecha. ¿Deseas cambiar de fecha?"* |
 | Otra fecha | "sí" | busca otras fechas y excluye las ya rechazadas |
 | Otra fecha / otro distrito | "no", "salir" | ⛔ despedida |
+| Cita duplicada | "sí", "otra especialidad", "cambiar" | vuelve a listar especialidades sin la que ya tiene cita |
+| Cita duplicada | "no", "salir" | ⛔ despedida (`cita_booking_duplicate`) |
 | Sin cobertura | un nombre de distrito | nueva búsqueda de distrito |
 
 > **No hay comandos "menú", "salir" o "reiniciar" a mitad del flujo.** "salir" o "cancelar" solo funcionan como respuesta *No* en las preguntas de sí/no. Para volver al menú hay que llegar a un estado terminal o cancelar la reverificación.
@@ -157,7 +159,7 @@ Todos los pasos con 📋 siguen el mismo orden (`lib/fsm/flows/cita/selection.ts
 
 | Qué respondió el MINSA | Respuesta | Sigue en |
 |---|---|---|
-| Ya tiene una cita activa | 🔘 *"Ya tienes una cita activa registrada para ese mismo turno o servicio."* + ¿otra fecha? | Otra fecha |
+| Ya tiene una cita activa (una por especialidad) | 🔘 *"Ya tienes una cita activa para {especialidad}. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?"* [Sí, otra especialidad] [No, salir] | Especialidad (sin la ya reservada; si no queda ninguna, ¿otro distrito?) |
 | Error técnico (HTTP) | *"Tuvimos un problema técnico al intentar reservar tu cita. Vamos a intentarlo de nuevo — estos son los horarios disponibles de la misma fecha:"* | Hora (misma fecha) |
 | Horario tomado ("cupo", "agotado", "ocupado"…) | *"No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:"* | Hora (misma fecha) |
 | 3.ª falla seguida | el mensaje del MINSA, o *"No pudimos agendar tu cita. Intenta de nuevo más tarde."* | ⛔ |
@@ -187,9 +189,10 @@ Cuatro puntos, y en todos primero corre la lógica local; la IA solo entra cuand
 
 Mientras la IA responde, el ciudadano ve "escribiendo…"; si tarda más de 8 s, entra el respaldo de la tabla anterior.
 
+## Horas y alcance del piloto
+- **Horas en 12 h:** el ciudadano ve los rangos como *8:00 - 8:15 AM*, *1:00 - 1:15 PM* o *11:45 AM - 12:00 PM* (listas, lista reducida, horario único, confirmación y la elección entre posición y hora). Al MINSA se sigue enviando 24 h (`08:00|08:15`), y el bot entiende horas escritas en 12 h o 24 h.
+- **Departamentos permitidos:** los define `CITA_ALLOWED_DEPARTAMENTOS` (por ejemplo `LIMA`). Vacía o sin definir = sin filtro. El filtro aplica a la búsqueda por nombre, a las pistas del primer mensaje y al modo manual (departamento → provincia → distrito).
+- **Fechas del MINSA:** "hoy" y "fin de mes" se calculan con el reloj de Lima, no con el del servidor.
+
 ## Observaciones del código (pendientes de decidir)
-- **Listas sin tope de 10 filas en especialidad y fecha.** WhatsApp rechaza una lista de más de 10 filas; el envío solo registra `whatsapp.send_failed` y el ciudadano no recibe nada.
-- **El modo manual de distrito no aplica el filtro del piloto de Lima.**
-- **"Hoy" en la búsqueda de especialidades usa el reloj del servidor**, no el de Lima (`lib/integrations/minsa/wire.ts`).
 - **"No hay fechas disponibles para ese establecimiento." cierra el flujo** sin ofrecer otra fecha ni otro distrito.
-- **`cita_booking_duplicate` figura como estado terminal**, pero ningún paso lo asigna.
