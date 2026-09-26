@@ -469,11 +469,11 @@ Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (
 | `minsa.book_appointment.failed` (`error`) | MINSA no agendó: `endpoint`, `status`, `minsaMessage`, `response` (300 caracteres) y el payload sin DNI. Es la evidencia del caso 3.15g. |
 | `ai.fallback` (`warn`) | La IA falló y el mensaje volvió al menú; `reason` dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca lleva el texto del ciudadano. |
 | `perimeter.dropped` / `perimeter.muted` / `perimeter.rejected` / `perimeter.banned` | El perímetro descartó, rechazó (`too_long`, `link`, `media`) o sancionó a un número (sección 1). |
-| `[turn-lock] turn waited 312 ms behind an earlier turn of ...1234` | Un turno esperó a otro del mismo ciudadano. **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
-| `[turn-lock] database lock for ...1234 took 340 ms` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |
+| `turn_lock.waited` con `layer: "process"`, `waitedMs: 312` | Un turno esperó a otro del mismo ciudadano. **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
+| `turn_lock.waited` con `layer: "database"`, `waitedMs: 340` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |
 | `turn.lock_timeout` (`warn`) con `layer` / `webhook.message_failed` (`error`) | Un turno esperó demasiado el candado, o falló de forma inesperada (base de datos, MINSA, envío…). El ciudadano recibe `Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.`, como mucho una vez cada 30 s por número (una ráfaga que falla entera deja el resto de los logs sin ese texto, pero cada fallo se sigue registrando). **No deberían verse en estas pruebas**; si aparecen, anótalos. |
 
-Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por sí solo: significa que los turnos duraron menos de 150 ms. Lo que decide es 4.2a/4.2b.
+Si en 4.2a **no** aparece ningún `turn_lock.waited` con `layer: "process"`, no es un fallo por sí solo: significa que los turnos duraron menos de 150 ms. Lo que decide es 4.2a/4.2b.
 
 ### 4.5 Comprobación opcional del candado en la base real
 
@@ -486,7 +486,7 @@ Si en 4.2a **no** aparece ningún `[turn-lock] turn waited`, no es un fallo por 
 1. Número de caso (por ejemplo `2.3a`) y hora.
 2. Texto exacto que enviaste y respuesta exacta que recibiste (captura).
 3. En la consola: el `state` y los `slots` del panel Debug.
-4. Las líneas de log `perimeter.*` y `[turn-lock]` de ese minuto, y el `traceId` del turno que falló (ver 4.4).
+4. Las líneas de log `perimeter.*` y `turn_lock.waited` de ese minuto, y el `traceId` del turno que falló (ver 4.4).
 5. El modo: fake o real, y el canal (Sandbox o WhatsApp).
 
 ## 6. Hoja de resultados
