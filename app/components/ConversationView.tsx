@@ -118,7 +118,7 @@ export default function ConversationView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 bg-[var(--wa-header)] px-4 py-2.5 text-white">
+      <header className="flex items-center gap-3 bg-wa-header px-4 py-2.5 text-white">
         {onBack && (
           <button
             type="button"
@@ -155,7 +155,7 @@ export default function ConversationView({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-[var(--wa-panel-bg)] px-4 py-3">
+      <div className="flex-1 overflow-y-auto bg-wa-panel px-4 py-3">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -166,14 +166,14 @@ export default function ConversationView({
             <div
               className={`max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${
                 message.direction === "OUTBOUND"
-                  ? "rounded-tr-none bg-[var(--wa-bubble-out)] text-gray-900"
-                  : "rounded-tl-none bg-[var(--wa-bubble-in)] text-gray-900"
+                  ? "rounded-tr-none bg-wa-bubble-out text-gray-900"
+                  : "rounded-tl-none bg-wa-bubble-in text-gray-900"
               }`}
             >
               <div className="whitespace-pre-wrap break-words">
                 {message.content ?? `[${message.type}]`}
               </div>
-              <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-gray-500">
+              <div className="mt-0.5 flex items-center justify-end gap-1 text-xs text-gray-500">
                 {new Date(message.timestamp).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -221,7 +221,7 @@ export default function ConversationView({
         </div>
       )}
 
-      <div className="flex items-center gap-2 bg-[var(--wa-footer-bg)] px-3 py-2">
+      <div className="flex items-center gap-2 bg-wa-footer px-3 py-2">
         <EmojiIcon className="h-6 w-6 flex-shrink-0 text-gray-500" />
         <div className="flex flex-1 items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm">
           <input
@@ -248,7 +248,7 @@ export default function ConversationView({
           onClick={handleSend}
           disabled={status === "CLOSED" || !windowOpen || sending || !text.trim()}
           aria-label="Enviar mensaje"
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--wa-accent)] text-white transition-opacity disabled:opacity-40"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-wa-accent text-white transition-opacity disabled:opacity-40"
         >
           <SendIcon className="h-5 w-5" />
         </button>

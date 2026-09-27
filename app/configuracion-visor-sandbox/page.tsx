@@ -43,7 +43,7 @@ export default function Home() {
                 waId={selectedConversation.waId}
               />
             ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--wa-panel-bg)] text-sm text-gray-500">
+              <div className="flex h-full flex-col items-center justify-center gap-3 bg-wa-panel text-sm text-gray-500">
                 <ChatPlaceholderIcon />
                 <p>Selecciona una conversación para ver los mensajes.</p>
               </div>
@@ -86,7 +86,7 @@ export default function Home() {
                   onBack={() => setMobileShowingDetail(false)}
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--wa-panel-bg)] text-sm text-gray-500">
+                <div className="flex h-full flex-col items-center justify-center gap-3 bg-wa-panel text-sm text-gray-500">
                   <ChatPlaceholderIcon />
                   <p>Selecciona una conversación para ver los mensajes.</p>
                 </div>
@@ -111,7 +111,7 @@ function SandboxListRow({ onSelect }: { onSelect: () => void }) {
             onClick={onSelect}
             className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-50"
           >
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[var(--sb-header-from)] to-[var(--sb-header-to)] text-sm font-bold text-white">
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-sb-header-from to-sb-header-to text-sm font-bold text-white">
               MD
             </span>
             <span className="min-w-0 flex-1">
@@ -149,7 +149,7 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => 
         />
         <span
           className={`relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium ${
-            !isSandbox ? "text-[var(--wa-header)]" : "text-gray-500"
+            !isSandbox ? "text-wa-header" : "text-gray-500"
           }`}
         >
           <WhatsAppGlyph className="h-3.5 w-3.5" />
@@ -157,7 +157,7 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => 
         </span>
         <span
           className={`relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium ${
-            isSandbox ? "text-[var(--sb-accent)]" : "text-gray-500"
+            isSandbox ? "text-sb-accent" : "text-gray-500"
           }`}
         >
           <SandboxGlyph className="h-3.5 w-3.5" />

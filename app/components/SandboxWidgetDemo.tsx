@@ -32,7 +32,7 @@ export default function SandboxWidgetDemo() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Pregúntale a MINSA"
-        className={`fixed bottom-4 right-4 z-20 flex items-center gap-2 rounded-full bg-[#9c1c3f] py-2 pl-2 pr-3 text-white shadow-xl transition-opacity duration-200 hover:bg-[#82182f] sm:pr-4 ${
+        className={`fixed bottom-4 right-4 z-20 flex items-center gap-2 rounded-full bg-widget-maroon py-2 pl-2 pr-3 text-white shadow-xl transition-opacity duration-200 hover:bg-widget-maroon-dark sm:pr-4 ${
           open ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
         style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}

@@ -11,7 +11,7 @@ export function ChatBubble({
   if (entry.from === "user") {
     return (
       <div className="mb-3 flex justify-end">
-        <div className="max-w-[70%] rounded-2xl rounded-tr-none bg-[var(--sb-accent)] px-3 py-2 text-sm text-white">
+        <div className="max-w-[70%] rounded-2xl rounded-tr-none bg-sb-accent px-3 py-2 text-sm text-white">
           {entry.text}
         </div>
       </div>
@@ -22,10 +22,10 @@ export function ChatBubble({
 
   return (
     <div className="mb-3 flex items-start gap-2">
-      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
         MD
       </span>
-      <div className="max-w-[75%] rounded-2xl rounded-tl-none border border-gray-100 bg-[var(--sb-bubble-bot)] px-3 py-2 text-sm text-gray-800 shadow-sm">
+      <div className="max-w-[75%] rounded-2xl rounded-tl-none border border-gray-100 bg-sb-bubble-bot px-3 py-2 text-sm text-gray-800 shadow-sm">
         <div className="whitespace-pre-wrap">{effect.text}</div>
 
         {effect.kind === SendType.INTERACTIVE_LIST && (

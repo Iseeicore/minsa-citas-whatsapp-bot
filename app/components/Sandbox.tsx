@@ -172,7 +172,7 @@ export default function Sandbox({
   const showDniCard = session?.state === DNI_AWAITING_STATE;
 
   return (
-    <div className="grid h-full grid-rows-[1fr_auto] bg-[var(--sb-panel-bg)]">
+    <div className="grid h-full grid-rows-[1fr_auto] bg-sb-panel">
       <div
         className={
           showDebugPanel
@@ -185,7 +185,7 @@ export default function Sandbox({
 
           <div className="flex items-center gap-2 px-4 pt-3">
             <div className="h-px flex-1 bg-gray-200" />
-            <span className="text-[11px] text-gray-400">Hoy</span>
+            <span className="text-xs text-gray-400">Hoy</span>
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
