@@ -2,6 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@/app/components/types";
+import {
+  BackArrowIcon,
+  CameraIcon,
+  DotsMenuIcon,
+  EmojiIcon,
+  PaperclipIcon,
+  PersonIcon,
+  ReadTicksIcon,
+  SendIcon,
+} from "@/app/components/icons";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -272,119 +282,3 @@ function formatWindowCountdown(windowExpiresAt: string): { label: string; warnin
   };
 }
 
-function BackArrowIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
-function PersonIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 001 1h14a1 1 0 001-1v-1c0-2.76-3.58-5-8-5z" />
-    </svg>
-  );
-}
-
-function DotsMenuIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <circle cx="12" cy="5" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="12" cy="19" r="1.5" />
-    </svg>
-  );
-}
-
-function EmojiIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M8.5 14.5s1.5 2 3.5 2 3.5-2 3.5-2" />
-      <path d="M9 9h.01M15 9h.01" />
-    </svg>
-  );
-}
-
-function PaperclipIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.2 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.48" />
-    </svg>
-  );
-}
-
-function CameraIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  );
-}
-
-function SendIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M3 20l18-8L3 4v6l12 2-12 2z" />
-    </svg>
-  );
-}
-
-function ReadTicksIcon({ status }: { status: Message["status"] }) {
-  const colorClass = status === "READ" ? "text-sky-500" : "text-gray-400";
-  return (
-    <svg
-      viewBox="0 0 24 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`h-3 w-4 ${colorClass}`}
-      aria-hidden="true"
-    >
-      <path d="M1 8l4 4L14 3" />
-      <path d="M9 8l4 4L22 3" />
-    </svg>
-  );
-}

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ChevronDownIcon, EyeIcon, QrIcon, RefreshIcon, ShieldIcon } from "@/app/components/icons";
 
 export default function MinsaDigitalBackdrop() {
   return (
@@ -7,7 +8,9 @@ export default function MinsaDigitalBackdrop() {
         <div className="flex flex-col gap-8 bg-brand-tint px-6 py-10 sm:px-12 sm:py-14 lg:w-[38%] lg:px-16 lg:py-16">
           <div className="flex items-center gap-3">
             <div className="flex h-8 items-stretch overflow-hidden rounded-sm border border-gray-200 text-xs font-bold leading-none">
-              <span className="flex w-6 items-center justify-center bg-white text-red-600">🛡</span>
+              <span className="flex w-6 items-center justify-center bg-white text-red-600">
+                <ShieldIcon className="h-3.5 w-3.5" />
+              </span>
               <span className="flex items-center bg-red-600 px-1.5 text-white">PERÚ</span>
               <span className="flex items-center bg-gray-700 px-1.5 text-white">Ministerio<br />de Salud</span>
             </div>
@@ -146,40 +149,3 @@ function FakeCaptcha({ className }: { className?: string }) {
   );
 }
 
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
-
-function EyeIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function RefreshIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M23 4v6h-6" />
-      <path d="M1 20v-6h6" />
-      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-    </svg>
-  );
-}
-
-function QrIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <path d="M14 14h3v3h-3zM20 14h1v1h-1zM14 20h1v1h-1zM20 20h1v1h-1z" />
-    </svg>
-  );
-}

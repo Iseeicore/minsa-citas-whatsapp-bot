@@ -1,4 +1,4 @@
-import { LockIcon } from "@/app/components/sandbox-chat/icons";
+import { LockIcon } from "@/app/components/icons";
 
 export function DniCard({
   value,

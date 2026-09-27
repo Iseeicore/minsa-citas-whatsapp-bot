@@ -159,7 +159,7 @@ export default function Sandbox({
 
     setError(null);
     const dataUri = await readFileAsDataUri(file);
-    sendTurn({ type: "image", mediaDataUri: dataUri }, `📎 ${file.name}`);
+    sendTurn({ type: "image", mediaDataUri: dataUri }, `Imagen: ${file.name}`);
   }
 
   function handleDniSubmit() {

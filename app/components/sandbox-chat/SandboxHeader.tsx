@@ -1,4 +1,5 @@
-import { BackArrowIcon, ChevronDownIcon } from "@/app/components/sandbox-chat/icons";
+import Image from "next/image";
+import { BackArrowIcon, ChevronDownIcon } from "@/app/components/icons";
 
 export function SandboxHeader({ onBack }: { onBack?: () => void }) {
   return (
@@ -16,13 +17,8 @@ export function SandboxHeader({ onBack }: { onBack?: () => void }) {
           </button>
         )}
         <div className="relative flex-shrink-0">
-          <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white">
-            {/* eslint-disable-next-line @next/next/no-img-element -- avatar pequeño de tamaño fijo */}
-            <img
-              src="/minsa-logo.png"
-              alt="MINSA"
-              className="h-full w-full object-cover object-top"
-            />
+          <span className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white">
+            <Image src="/minsa-logo.png" alt="MINSA" fill className="object-cover object-top" />
           </span>
           <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-sb-header-to bg-emerald-400" />
         </div>

@@ -1,4 +1,4 @@
-import { PaperclipIcon, SendIcon } from "@/app/components/sandbox-chat/icons";
+import { PaperclipIcon, SendIcon } from "@/app/components/icons";
 
 export function Composer({
   from,
@@ -22,7 +22,7 @@ export function Composer({
           !from || loading ? "pointer-events-none opacity-50" : "cursor-pointer"
         }`}
       >
-        <PaperclipIcon className="h-5 w-5" />
+        <PaperclipIcon className="h-5 w-5" ariaLabel="Adjuntar imagen" />
         <input
           type="file"
           accept="image/*"
