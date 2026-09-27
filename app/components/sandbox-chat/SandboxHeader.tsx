@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { BackArrowIcon, ChevronDownIcon } from "@/app/components/icons";
+import { IconButton } from "@/app/components/ui/IconButton";
+import { Badge } from "@/app/components/ui/Badge";
 
 export function SandboxHeader({ onBack }: { onBack?: () => void }) {
   return (
@@ -7,14 +9,12 @@ export function SandboxHeader({ onBack }: { onBack?: () => void }) {
       <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/40" />
       <div className="flex items-center gap-3">
         {onBack && (
-          <button
-            type="button"
-            aria-label="Volver"
+          <IconButton
+            icon={<BackArrowIcon className="h-5 w-5" />}
             onClick={onBack}
-            className="-m-3 flex-shrink-0 p-3 text-white/80 hover:text-white"
-          >
-            <BackArrowIcon className="h-5 w-5" />
-          </button>
+            ariaLabel="Volver"
+            hitAreaClassName="-m-3 p-3"
+          />
         )}
         <div className="relative flex-shrink-0">
           <span className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white">
@@ -25,19 +25,11 @@ export function SandboxHeader({ onBack }: { onBack?: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-semibold">Asistente MINSA Digital</span>
-            <span className="flex-shrink-0 rounded-full bg-white/25 px-1.5 py-0.5 text-xs font-medium">
-              Oficial
-            </span>
+            <Badge className="bg-white/25">Oficial</Badge>
           </div>
           <div className="truncate text-xs text-white/80">En línea · Citas en línea</div>
         </div>
-        <button
-          type="button"
-          aria-label="Colapsar panel"
-          className="flex-shrink-0 text-white/80 hover:text-white"
-        >
-          <ChevronDownIcon className="h-5 w-5" />
-        </button>
+        <IconButton icon={<ChevronDownIcon className="h-5 w-5" />} ariaLabel="Colapsar panel" />
       </div>
     </header>
   );

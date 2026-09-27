@@ -17,6 +17,7 @@ import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
 import { TypingIndicator } from "@/app/components/sandbox-chat/TypingIndicator";
 import { DniCard } from "@/app/components/sandbox-chat/DniCard";
 import { DebugPanel } from "@/app/components/sandbox-chat/DebugPanel";
+import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
 
 const DNI_AWAITING_STATE = "cita_awaiting_dni";
 
@@ -214,11 +215,7 @@ export default function Sandbox({
             <div ref={bottomRef} />
           </div>
 
-          {error && (
-            <div className="border-t border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
-              {error}
-            </div>
-          )}
+          {error && <ErrorBanner>{error}</ErrorBanner>}
 
           <Composer
             from={from}

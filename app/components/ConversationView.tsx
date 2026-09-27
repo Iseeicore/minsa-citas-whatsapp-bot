@@ -12,6 +12,9 @@ import {
   ReadTicksIcon,
   SendIcon,
 } from "@/app/components/icons";
+import { IconButton } from "@/app/components/ui/IconButton";
+import { Badge } from "@/app/components/ui/Badge";
+import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -130,14 +133,12 @@ export default function ConversationView({
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 bg-wa-header px-4 py-2.5 text-white">
         {onBack && (
-          <button
-            type="button"
-            aria-label="Volver"
+          <IconButton
+            icon={<BackArrowIcon className="h-5 w-5" />}
             onClick={onBack}
-            className="flex-shrink-0 text-white/90 hover:text-white"
-          >
-            <BackArrowIcon className="h-5 w-5" />
-          </button>
+            ariaLabel="Volver"
+            toneClassName="text-white/90 hover:text-white"
+          />
         )}
         <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
           <PersonIcon className="h-6 w-6 text-white" />
@@ -157,9 +158,7 @@ export default function ConversationView({
               {closing ? "Cerrando…" : "Cerrar conversación"}
             </button>
           ) : (
-            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white/90">
-              Cerrada
-            </span>
+            <Badge size="md" className="bg-white/20 text-white/90">Cerrada</Badge>
           )}
           <DotsMenuIcon className="h-5 w-5 text-white/90" />
         </div>
@@ -219,17 +218,9 @@ export default function ConversationView({
         </div>
       )}
 
-      {sendError && (
-        <div className="border-t border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
-          {sendError}
-        </div>
-      )}
+      {sendError && <ErrorBanner>{sendError}</ErrorBanner>}
 
-      {closeError && (
-        <div className="border-t border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
-          {closeError}
-        </div>
-      )}
+      {closeError && <ErrorBanner>{closeError}</ErrorBanner>}
 
       <div className="flex items-center gap-2 bg-wa-footer px-3 py-2">
         <EmojiIcon className="h-6 w-6 flex-shrink-0 text-gray-500" />
@@ -254,14 +245,15 @@ export default function ConversationView({
           <PaperclipIcon className="h-5 w-5 flex-shrink-0 text-gray-500" />
           <CameraIcon className="h-5 w-5 flex-shrink-0 text-gray-500" />
         </div>
-        <button
+        <IconButton
+          variant="solid"
+          icon={<SendIcon className="h-5 w-5" />}
           onClick={handleSend}
           disabled={status === "CLOSED" || !windowOpen || sending || !text.trim()}
-          aria-label="Enviar mensaje"
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-wa-accent text-white transition-opacity disabled:opacity-40"
-        >
-          <SendIcon className="h-5 w-5" />
-        </button>
+          ariaLabel="Enviar mensaje"
+          size="h-10 w-10"
+          toneClassName="bg-wa-accent"
+        />
       </div>
     </div>
   );

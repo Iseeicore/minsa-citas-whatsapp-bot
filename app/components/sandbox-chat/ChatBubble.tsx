@@ -1,5 +1,6 @@
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
+import { OptionButton, OptionListRow } from "@/app/components/ui/OptionButton";
 
 export function ChatBubble({
   entry,
@@ -31,39 +32,28 @@ export function ChatBubble({
         {effect.kind === SendType.INTERACTIVE_LIST && (
           <div className="mt-2 flex flex-col gap-1">
             {effect.rows.map((row) => (
-              <button
+              <OptionListRow
                 key={row.id}
                 onClick={() => onOptionClick("list", row.id, row.title)}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-left text-xs text-blue-700 hover:bg-blue-100"
-              >
-                <div className="font-medium">{row.title}</div>
-                {row.description && <div className="text-blue-500">{row.description}</div>}
-              </button>
+                title={row.title}
+                description={row.description}
+              />
             ))}
           </div>
         )}
 
         {effect.kind === SendType.CTA_URL && (
-          <a
-            href={effect.url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-block rounded-full border border-green-500 bg-white px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50"
-          >
+          <OptionButton href={effect.url} tone="green" className="mt-2 inline-block">
             {effect.buttonText}
-          </a>
+          </OptionButton>
         )}
 
         {effect.kind === SendType.BUTTONS && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {effect.buttons.map((button) => (
-              <button
-                key={button.id}
-                onClick={() => onOptionClick("buttons", button.id, button.title)}
-                className="rounded-full border border-blue-500 bg-white px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
-              >
+              <OptionButton key={button.id} onClick={() => onOptionClick("buttons", button.id, button.title)}>
                 {button.title}
-              </button>
+              </OptionButton>
             ))}
           </div>
         )}
