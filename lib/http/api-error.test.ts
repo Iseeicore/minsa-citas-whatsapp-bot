@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { API_ERRORS, apiError } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
 describe("apiError", () => {
   it("answers every error with one shape: the code, a Spanish message and the code's status", async () => {
     for (const [code, { status, message }] of Object.entries(API_ERRORS)) {
-      const response = apiError(code as keyof typeof API_ERRORS);
+      const response = apiError(code as ApiErrorCode);
       expect(response.status).toBe(status);
       await expect(response.json()).resolves.toEqual({ error: code, message });
     }
@@ -19,7 +20,7 @@ describe("apiError", () => {
   });
 
   it("accepts a more specific message, a technical detail and extra headers", async () => {
-    const response = apiError("INVALID_BODY", {
+    const response = apiError(ApiErrorCode.INVALID_BODY, {
       message: "Falta el texto.",
       detail: "text: Required",
       headers: { "Access-Control-Allow-Origin": "https://front.example.org" },

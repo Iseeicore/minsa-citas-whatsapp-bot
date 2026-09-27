@@ -4,6 +4,7 @@ import type { WhatsAppWebhookPayload } from "@/lib/whatsapp/webhook/payload";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 import { logger } from "@/lib/observability/logger";
 import { apiError } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
 export const runtime = "nodejs";
 
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
   try {
     payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;
   } catch {
-    return apiError("INVALID_BODY");
+    return apiError(ApiErrorCode.INVALID_BODY);
   }
 
   after(async () => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import type { TurnHooks } from "@/lib/fsm/core/executor";
+import { SendType } from "@/lib/enums/send-type";
 
 const calls = vi.hoisted(() => ({ log: [] as string[] }));
 
@@ -35,7 +36,7 @@ const MESSAGE = {
   text: { body: "12345678" },
 } as unknown as Parameters<typeof answerMessage>[0];
 
-const effect = (text: string): SendEffect => ({ kind: "send_text", text });
+const effect = (text: string): SendEffect => ({ kind: SendType.TEXT, text });
 
 describe("answerMessage: the citizen never waits in silence", () => {
   beforeEach(() => {

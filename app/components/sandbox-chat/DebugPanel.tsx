@@ -14,13 +14,13 @@ export function DebugPanel({ from, session }: { from: string | null; session: Se
       </div>
       <div className="mb-2">
         <div className="font-medium text-gray-800">slots</div>
-        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-[10px] text-gray-600">
+        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-xs text-gray-600">
           {JSON.stringify(session?.slots ?? {}, null, 2)}
         </pre>
       </div>
       <div>
         <div className="font-medium text-gray-800">counters</div>
-        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-[10px] text-gray-600">
+        <pre className="whitespace-pre-wrap break-all rounded bg-white p-2 text-xs text-gray-600">
           {JSON.stringify(session?.counters ?? {}, null, 2)}
         </pre>
       </div>

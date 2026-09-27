@@ -1,4 +1,6 @@
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
+import { SendType } from "@/lib/enums/send-type";
+import { OptionButton, OptionListRow } from "@/app/components/ui/OptionButton";
 
 export function ChatBubble({
   entry,
@@ -10,7 +12,7 @@ export function ChatBubble({
   if (entry.from === "user") {
     return (
       <div className="mb-3 flex justify-end">
-        <div className="max-w-[70%] rounded-2xl rounded-tr-none bg-[var(--sb-accent)] px-3 py-2 text-sm text-white">
+        <div className="max-w-[70%] rounded-2xl rounded-tr-none bg-sb-accent px-3 py-2 text-sm text-white">
           {entry.text}
         </div>
       </div>
@@ -21,48 +23,37 @@ export function ChatBubble({
 
   return (
     <div className="mb-3 flex items-start gap-2">
-      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
         MD
       </span>
-      <div className="max-w-[75%] rounded-2xl rounded-tl-none border border-gray-100 bg-[var(--sb-bubble-bot)] px-3 py-2 text-sm text-gray-800 shadow-sm">
+      <div className="max-w-[75%] rounded-2xl rounded-tl-none border border-gray-100 bg-sb-bubble-bot px-3 py-2 text-sm text-gray-800 shadow-sm">
         <div className="whitespace-pre-wrap">{effect.text}</div>
 
-        {effect.kind === "send_interactive_list" && (
+        {effect.kind === SendType.INTERACTIVE_LIST && (
           <div className="mt-2 flex flex-col gap-1">
             {effect.rows.map((row) => (
-              <button
+              <OptionListRow
                 key={row.id}
                 onClick={() => onOptionClick("list", row.id, row.title)}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-left text-xs text-blue-700 hover:bg-blue-100"
-              >
-                <div className="font-medium">{row.title}</div>
-                {row.description && <div className="text-blue-500">{row.description}</div>}
-              </button>
+                title={row.title}
+                description={row.description}
+              />
             ))}
           </div>
         )}
 
-        {effect.kind === "send_cta_url" && (
-          <a
-            href={effect.url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-block rounded-full border border-green-500 bg-white px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50"
-          >
+        {effect.kind === SendType.CTA_URL && (
+          <OptionButton href={effect.url} tone="green" className="mt-2 inline-block">
             {effect.buttonText}
-          </a>
+          </OptionButton>
         )}
 
-        {effect.kind === "send_buttons" && (
+        {effect.kind === SendType.BUTTONS && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {effect.buttons.map((button) => (
-              <button
-                key={button.id}
-                onClick={() => onOptionClick("buttons", button.id, button.title)}
-                className="rounded-full border border-blue-500 bg-white px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
-              >
+              <OptionButton key={button.id} onClick={() => onOptionClick("buttons", button.id, button.title)}>
                 {button.title}
-              </button>
+              </OptionButton>
             ))}
           </div>
         )}

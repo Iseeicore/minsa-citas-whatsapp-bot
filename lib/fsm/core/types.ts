@@ -1,4 +1,5 @@
 import type { TurnNote } from "@/lib/observability/types";
+import { SendType } from "@/lib/enums/send-type";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -31,7 +32,7 @@ export type QueryResultEvent = {
 export type HandleEvent = InboundEvent | QueryResultEvent;
 
 export type SendTextEffect = {
-  kind: "send_text";
+  kind: SendType.TEXT;
   text: string;
 };
 
@@ -42,7 +43,7 @@ export type ListRow = {
 };
 
 export type SendInteractiveListEffect = {
-  kind: "send_interactive_list";
+  kind: SendType.INTERACTIVE_LIST;
   text: string;
   rows: ListRow[];
 };
@@ -53,13 +54,13 @@ export type ButtonOption = {
 };
 
 export type SendButtonsEffect = {
-  kind: "send_buttons";
+  kind: SendType.BUTTONS;
   text: string;
   buttons: ButtonOption[];
 };
 
 export type SendCtaUrlEffect = {
-  kind: "send_cta_url";
+  kind: SendType.CTA_URL;
   text: string;
   buttonText: string;
   url: string;

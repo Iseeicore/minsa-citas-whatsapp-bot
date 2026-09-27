@@ -1,20 +1,23 @@
 import type { ReactNode } from "react";
+import { ChevronDownIcon, EyeIcon, QrIcon, RefreshIcon, ShieldIcon } from "@/app/components/icons";
 
 export default function MinsaDigitalBackdrop() {
   return (
     <div aria-hidden="true" className="min-h-dvh w-full bg-white">
       <div className="flex min-h-dvh flex-col lg:flex-row">
-        <div className="flex flex-col gap-8 bg-[#EAF3FB] px-6 py-10 sm:px-12 sm:py-14 lg:w-[38%] lg:px-16 lg:py-16">
+        <div className="flex flex-col gap-8 bg-brand-tint px-6 py-10 sm:px-12 sm:py-14 lg:w-[38%] lg:px-16 lg:py-16">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 items-stretch overflow-hidden rounded-sm border border-gray-200 text-[10px] font-bold leading-none">
-              <span className="flex w-6 items-center justify-center bg-white text-red-600">🛡</span>
+            <div className="flex h-8 items-stretch overflow-hidden rounded-sm border border-gray-200 text-xs font-bold leading-none">
+              <span className="flex w-6 items-center justify-center bg-white text-red-600">
+                <ShieldIcon className="h-3.5 w-3.5" />
+              </span>
               <span className="flex items-center bg-red-600 px-1.5 text-white">PERÚ</span>
               <span className="flex items-center bg-gray-700 px-1.5 text-white">Ministerio<br />de Salud</span>
             </div>
             <span className="text-gray-300">|</span>
             <span className="text-xl font-extrabold">
-              <span className="text-[#1E88E5]">Minsa</span>
-              <span className="ml-0.5 text-[#00B894]">Digital</span>
+              <span className="text-brand-blue">Minsa</span>
+              <span className="ml-0.5 text-brand-green">Digital</span>
             </span>
           </div>
 
@@ -22,7 +25,7 @@ export default function MinsaDigitalBackdrop() {
             <p className="text-2xl font-bold whitespace-nowrap text-gray-700 sm:text-3xl">
               Te damos la bienvenida a
             </p>
-            <p className="text-2xl font-bold text-[#1E88E5] sm:text-3xl">Minsa Digital</p>
+            <p className="text-2xl font-bold text-brand-blue sm:text-3xl">Minsa Digital</p>
           </div>
 
           <div>
@@ -49,9 +52,9 @@ export default function MinsaDigitalBackdrop() {
               <br />
               de un código QR
             </p>
-            <div className="flex flex-shrink-0 flex-col items-center gap-1 rounded-lg bg-[#1E88E5] px-4 py-2.5 text-white">
+            <div className="flex flex-shrink-0 flex-col items-center gap-1 rounded-lg bg-brand-blue px-4 py-2.5 text-white">
               <QrIcon className="h-6 w-6" />
-              <span className="text-[10px] font-bold">LECTOR QR</span>
+              <span className="text-xs font-bold">LECTOR QR</span>
             </div>
           </div>
         </div>
@@ -82,9 +85,9 @@ export default function MinsaDigitalBackdrop() {
               </div>
             </FakeField>
 
-            <p className="mb-6 text-sm font-medium text-[#1E88E5]">¿Olvidaste tu contraseña?</p>
+            <p className="mb-6 text-sm font-medium text-brand-blue">¿Olvidaste tu contraseña?</p>
 
-            <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-[#1E88E5]">
+            <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-brand-blue">
               Recargar Captcha
               <RefreshIcon className="h-3.5 w-3.5" />
             </div>
@@ -96,14 +99,14 @@ export default function MinsaDigitalBackdrop() {
               </div>
             </FakeField>
 
-            <div className="mb-6 rounded-lg bg-[#4FA8E8] py-3 text-center text-sm font-bold text-white">
+            <div className="mb-6 rounded-lg bg-brand-blue-light py-3 text-center text-sm font-bold text-white">
               Ingresar de manera segura
             </div>
 
             <p className="mb-1 text-center text-xs text-gray-500">
               Si eres mayor de 18 años, podrás acceder a la plataforma
             </p>
-            <p className="text-center text-xs font-medium text-[#1E88E5]">¿Eres nuevo? Crea tu cuenta</p>
+            <p className="text-center text-xs font-medium text-brand-blue">¿Eres nuevo? Crea tu cuenta</p>
           </div>
         </div>
       </div>
@@ -146,40 +149,3 @@ function FakeCaptcha({ className }: { className?: string }) {
   );
 }
 
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
-
-function EyeIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function RefreshIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M23 4v6h-6" />
-      <path d="M1 20v-6h6" />
-      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-    </svg>
-  );
-}
-
-function QrIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <path d="M14 14h3v3h-3zM20 14h1v1h-1zM14 20h1v1h-1zM20 20h1v1h-1z" />
-    </svg>
-  );
-}

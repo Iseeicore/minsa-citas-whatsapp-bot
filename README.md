@@ -187,7 +187,11 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /webhook/whatsapp, páginas del Sandbox
   components/                UI de la bandeja y del Sandbox; Sandbox.tsx es el contenedor del chat
     sandbox-chat/            piezas de presentación del chat (cabecera, composer, burbujas, tarjeta de DNI, panel de depuración)
+    ui/                      componentes de UI compartidos (IconButton, OptionButton, Badge, ErrorBanner)
+    icons/                   todos los íconos SVG de la app, centralizados
 lib/
+  enums/                     enums reales para estados y tipos que antes eran texto suelto (SendType, ApiErrorCode)
+  utils/                     funciones puras que no dependen de React ni del render
   db/                        cliente Prisma (carga diferida) y el flag DATABASE_ENABLED
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
     webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
@@ -229,6 +233,11 @@ Convenciones (ESLint las hace cumplir donde se indica):
 | **Tests junto al archivo que prueban** | `x.ts` + `x.test.ts`; los tests de escenario van en la carpeta del área que ejercitan (por ejemplo, `flows/cita/hora-choice.test.ts`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
 | **Comentarios** | No se comentan líneas ni bloques. Solo un docstring breve, en español, en funciones o tipos complejos cuya razón no se puede expresar en el código. |
+| **Estados y tipos como enums** | Los textos fijos que representan un estado o un tipo (`SendType`, `ApiErrorCode`) son un `enum` en `lib/enums/`, nunca un string suelto comparado a mano. |
+| **Sin valores arbitrarios de Tailwind** | Nada de `bg-[var(--x)]`, `bg-[#hex]` ni `text-[10px]`. Los colores y tamaños se declaran como tokens en `@theme` (`app/globals.css`, Tailwind v4) y se usan con clases estándar. `tests/integration/ui-design-rules.test.ts` lo hace cumplir. |
+| **Sin emojis en las vistas** | Se reemplazan por un ícono de `app/components/icons/`. El mismo test de arriba los detecta. |
+| **UI repetida → componente** | Un bloque de clases de Tailwind que se repite en más de un lugar se extrae a `app/components/ui/`. |
+| **Lógica pura fuera de la vista** | Una función sin hooks de React (cálculo, formato, parseo) vive en `lib/utils/`, con su test. |
 
 ### Cambiar de proveedor de IA
 

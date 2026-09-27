@@ -1,4 +1,5 @@
-import { PaperclipIcon, SendIcon } from "@/app/components/sandbox-chat/icons";
+import { PaperclipIcon, SendIcon } from "@/app/components/icons";
+import { IconButton } from "@/app/components/ui/IconButton";
 
 export function Composer({
   from,
@@ -18,11 +19,11 @@ export function Composer({
   return (
     <div className="flex items-center gap-2 border-t border-gray-200 bg-white p-3">
       <label
-        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-[var(--sb-accent)] hover:bg-blue-50 ${
+        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sb-accent hover:bg-blue-50 ${
           !from || loading ? "pointer-events-none opacity-50" : "cursor-pointer"
         }`}
       >
-        <PaperclipIcon className="h-5 w-5" />
+        <PaperclipIcon className="h-5 w-5" ariaLabel="Adjuntar imagen" />
         <input
           type="file"
           accept="image/*"
@@ -47,14 +48,15 @@ export function Composer({
           className="flex-1 border-none bg-transparent text-sm outline-none disabled:cursor-not-allowed"
         />
       </div>
-      <button
+      <IconButton
+        variant="solid"
+        icon={<SendIcon className="h-4 w-4" />}
         onClick={handleSend}
         disabled={!from || loading || !inputText.trim()}
-        aria-label="Enviar mensaje"
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--sb-accent)] text-white transition-opacity disabled:opacity-40"
-      >
-        <SendIcon className="h-4 w-4" />
-      </button>
+        ariaLabel="Enviar mensaje"
+        size="h-9 w-9"
+        toneClassName="bg-sb-accent"
+      />
     </div>
   );
 }

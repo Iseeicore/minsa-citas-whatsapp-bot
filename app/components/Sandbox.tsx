@@ -17,6 +17,7 @@ import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
 import { TypingIndicator } from "@/app/components/sandbox-chat/TypingIndicator";
 import { DniCard } from "@/app/components/sandbox-chat/DniCard";
 import { DebugPanel } from "@/app/components/sandbox-chat/DebugPanel";
+import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
 
 const DNI_AWAITING_STATE = "cita_awaiting_dni";
 
@@ -159,7 +160,7 @@ export default function Sandbox({
 
     setError(null);
     const dataUri = await readFileAsDataUri(file);
-    sendTurn({ type: "image", mediaDataUri: dataUri }, `📎 ${file.name}`);
+    sendTurn({ type: "image", mediaDataUri: dataUri }, `Imagen: ${file.name}`);
   }
 
   function handleDniSubmit() {
@@ -172,7 +173,7 @@ export default function Sandbox({
   const showDniCard = session?.state === DNI_AWAITING_STATE;
 
   return (
-    <div className="grid h-full grid-rows-[1fr_auto] bg-[var(--sb-panel-bg)]">
+    <div className="grid h-full grid-rows-[1fr_auto] bg-sb-panel">
       <div
         className={
           showDebugPanel
@@ -185,7 +186,7 @@ export default function Sandbox({
 
           <div className="flex items-center gap-2 px-4 pt-3">
             <div className="h-px flex-1 bg-gray-200" />
-            <span className="text-[11px] text-gray-400">Hoy</span>
+            <span className="text-xs text-gray-400">Hoy</span>
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
@@ -214,11 +215,7 @@ export default function Sandbox({
             <div ref={bottomRef} />
           </div>
 
-          {error && (
-            <div className="border-t border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
-              {error}
-            </div>
-          )}
+          {error && <ErrorBanner>{error}</ErrorBanner>}
 
           <Composer
             from={from}

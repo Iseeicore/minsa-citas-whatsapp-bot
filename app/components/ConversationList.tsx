@@ -2,30 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { Conversation } from "@/app/components/types";
+import { Badge } from "@/app/components/ui/Badge";
+import { avatarColor, initials } from "@/lib/utils/avatar";
 
 const POLL_INTERVAL_MS = 4000;
-
-const AVATAR_COLORS = [
-  "bg-teal-500",
-  "bg-blue-500",
-  "bg-violet-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-emerald-500",
-];
-
-function avatarColor(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
 
 export default function ConversationList({
   selectedId,
@@ -87,7 +67,7 @@ export default function ConversationList({
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium text-gray-900">{label}</span>
-                    <span className="flex-shrink-0 text-[11px] text-gray-400">
+                    <span className="flex-shrink-0 text-xs text-gray-400">
                       {new Date(conversation.lastMessageAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -96,15 +76,15 @@ export default function ConversationList({
                   </span>
                   <span className="mt-0.5 flex items-center justify-between gap-2">
                     <span className="truncate text-xs text-gray-500">{conversation.waId}</span>
-                    <span
-                      className={`flex-shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    <Badge
+                      className={
                         conversation.status === "OPEN"
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-gray-100 text-gray-500"
-                      }`}
+                      }
                     >
                       {conversation.status === "OPEN" ? "Abierta" : "Cerrada"}
-                    </span>
+                    </Badge>
                   </span>
                 </span>
               </button>

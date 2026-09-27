@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { ConversationStatus } from "@prisma/client";
 import { apiError } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
 export async function POST(
   request: NextRequest,
@@ -15,7 +16,7 @@ export async function POST(
   const conversation = await prisma.conversation.findUnique({ where: { id } });
 
   if (!conversation) {
-    return apiError("NOT_FOUND", { message: "No se encontró la conversación." });
+    return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
   }
 
   const updated = await prisma.conversation.update({

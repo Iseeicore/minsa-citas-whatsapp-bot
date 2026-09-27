@@ -2,6 +2,7 @@ import { graphApiVersion } from "@/lib/whatsapp/graph-api";
 import { prisma } from "@/lib/db/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import type { SendEffect } from "@/lib/fsm/core/types";
+import { SendType } from "@/lib/enums/send-type";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 
@@ -19,10 +20,10 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
   };
 
   switch (effect.kind) {
-    case "send_text":
+    case SendType.TEXT:
       return { ...base, type: "text", text: { body: effect.text } };
 
-    case "send_buttons":
+    case SendType.BUTTONS:
       return {
         ...base,
         type: "interactive",
@@ -38,7 +39,7 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
         },
       };
 
-    case "send_interactive_list":
+    case SendType.INTERACTIVE_LIST:
       return {
         ...base,
         type: "interactive",
@@ -60,7 +61,7 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
         },
       };
 
-    case "send_cta_url":
+    case SendType.CTA_URL:
       return {
         ...base,
         type: "interactive",
