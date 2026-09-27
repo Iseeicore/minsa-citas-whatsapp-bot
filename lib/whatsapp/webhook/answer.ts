@@ -6,6 +6,7 @@ import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
 import { isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
+import { SendType } from "@/lib/enums/send-type";
 import { traceTurn } from "@/lib/observability/tracer";
 import { findSession, saveSession } from "@/lib/fsm/session/session-store";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -95,7 +96,7 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
 
 export async function sendFixedReply(waId: string, text: string): Promise<void> {
   try {
-    await sendWhatsAppEffect(waId, { kind: "send_text", text });
+    await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text });
   } catch (error) {
     logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
   }

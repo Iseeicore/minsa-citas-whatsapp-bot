@@ -13,6 +13,8 @@ import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { apiError } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { SendType } from "@/lib/enums/send-type";
 
 const warnedInvalidOrigins = new Set<string>();
 
@@ -69,15 +71,15 @@ export async function POST(request: NextRequest) {
   const cors = corsHeaders(request);
 
   if (process.env.SANDBOX_ENABLED !== "true") {
-    return apiError("NOT_FOUND", { message: "El Sandbox no está habilitado en este despliegue.", headers: cors });
+    return apiError(ApiErrorCode.NOT_FOUND, { message: "El Sandbox no está habilitado en este despliegue.", headers: cors });
   }
 
   const body = await request.json().catch(() => undefined);
-  if (body === undefined) return apiError("INVALID_BODY", { headers: cors });
+  if (body === undefined) return apiError(ApiErrorCode.INVALID_BODY, { headers: cors });
   const parsed = sandboxEventSchema.safeParse(body);
 
   if (!parsed.success) {
-    return apiError("INVALID_BODY", { detail: parsed.error.message, headers: cors });
+    return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message, headers: cors });
   }
 
   const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll } = parsed.data;
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
     if (payload.kind === "rejected") {
       return NextResponse.json(
         {
-          sent: [{ kind: "send_text", text: payload.reply }],
+          sent: [{ kind: SendType.TEXT, text: payload.reply }],
           session: { state: "main_menu", slots: {}, counters: {} },
         },
         { headers: cors },
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
         : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
   } catch (error) {
     if (error instanceof TurnLockTimeoutError) {
-      return apiError("BUSY", { headers: cors });
+      return apiError(ApiErrorCode.BUSY, { headers: cors });
     }
     throw error;
   }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { apiError } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
 const sendMessageSchema = z.object({
   conversationId: z.string().min(1),
@@ -17,11 +18,11 @@ export async function POST(request: NextRequest) {
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
   const body = await request.json().catch(() => undefined);
-  if (body === undefined) return apiError("INVALID_BODY");
+  if (body === undefined) return apiError(ApiErrorCode.INVALID_BODY);
   const parsed = sendMessageSchema.safeParse(body);
 
   if (!parsed.success) {
-    return apiError("INVALID_BODY", { detail: parsed.error.message });
+    return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message });
   }
 
   const { conversationId, text } = parsed.data;
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (!conversation) {
-    return apiError("NOT_FOUND", { message: "No se encontró la conversación." });
+    return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
   }
 
   const lastInbound = await prisma.message.findFirst({
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     !lastInbound || Date.now() - lastInbound.timestamp.getTime() > WINDOW_MS;
 
   if (windowExpired) {
-    return apiError("WINDOW_EXPIRED");
+    return apiError(ApiErrorCode.WINDOW_EXPIRED);
   }
 
   const version = graphApiVersion();

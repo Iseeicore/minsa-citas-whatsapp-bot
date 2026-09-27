@@ -1,4 +1,5 @@
 import type { TurnNote } from "@/lib/observability/types";
+import { SendType } from "@/lib/enums/send-type";
 import { OFFERED_SLOT, serializeOffered } from "@/lib/fsm/parsing/selection-matchers";
 import type {
   ButtonOption,
@@ -41,19 +42,19 @@ export function cloneSession(session: Session): Session {
 }
 
 export function sendText(text: string): SendEffect {
-  return { kind: "send_text", text };
+  return { kind: SendType.TEXT, text };
 }
 
 export function sendList(text: string, rows: ListRow[]): SendEffect {
-  return { kind: "send_interactive_list", text, rows };
+  return { kind: SendType.INTERACTIVE_LIST, text, rows };
 }
 
 export function sendButtons(text: string, buttons: ButtonOption[]): SendEffect {
-  return { kind: "send_buttons", text, buttons };
+  return { kind: SendType.BUTTONS, text, buttons };
 }
 
 export function sendCtaUrl(text: string, buttonText: string, url: string): SendEffect {
-  return { kind: "send_cta_url", text, buttonText, url };
+  return { kind: SendType.CTA_URL, text, buttonText, url };
 }
 
 export function query(kind: QueryEffectKind, payload: Record<string, unknown>): QueryEffect {

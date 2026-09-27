@@ -1,4 +1,5 @@
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
+import { SendType } from "@/lib/enums/send-type";
 
 export function ChatBubble({
   entry,
@@ -27,7 +28,7 @@ export function ChatBubble({
       <div className="max-w-[75%] rounded-2xl rounded-tl-none border border-gray-100 bg-[var(--sb-bubble-bot)] px-3 py-2 text-sm text-gray-800 shadow-sm">
         <div className="whitespace-pre-wrap">{effect.text}</div>
 
-        {effect.kind === "send_interactive_list" && (
+        {effect.kind === SendType.INTERACTIVE_LIST && (
           <div className="mt-2 flex flex-col gap-1">
             {effect.rows.map((row) => (
               <button
@@ -42,7 +43,7 @@ export function ChatBubble({
           </div>
         )}
 
-        {effect.kind === "send_cta_url" && (
+        {effect.kind === SendType.CTA_URL && (
           <a
             href={effect.url}
             target="_blank"
@@ -53,7 +54,7 @@ export function ChatBubble({
           </a>
         )}
 
-        {effect.kind === "send_buttons" && (
+        {effect.kind === SendType.BUTTONS && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {effect.buttons.map((button) => (
               <button

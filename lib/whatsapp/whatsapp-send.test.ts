@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { configureLogger } from "@/lib/observability/logger";
 import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator } from "@/lib/whatsapp/whatsapp-send";
+import { SendType } from "@/lib/enums/send-type";
 
 type Line = { level: string; event: string } & Record<string, unknown>;
 
@@ -25,7 +26,7 @@ describe("WhatsApp send failures reach the masked logger", () => {
     const body = `{"error":{"message":"Recipient 51987654321 is not a valid WhatsApp user","details":"${"x".repeat(400)}"}}`;
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 400 })));
 
-    await sendAndRecordEffect(null, "51987654321", { kind: "send_text", text: "hola" });
+    await sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" });
 
     const failure = lines.find((line) => line.event === "whatsapp.send_failed");
     expect(failure).toMatchObject({ level: "error", operation: "send_effect", status: 400 });
