@@ -6,15 +6,7 @@ import ConversationView from "@/app/components/ConversationView";
 import Sandbox from "@/app/components/Sandbox";
 import type { Conversation } from "@/app/components/types";
 import { ChatPlaceholderIcon, SandboxGlyph, WhatsAppGlyph } from "@/app/components/icons";
-
-type Mode = "real" | "sandbox";
-
-function initialModeFromQuery(): Mode {
-  if (typeof window === "undefined") return "real";
-  return new URLSearchParams(window.location.search).get("panel") === "sandbox"
-    ? "sandbox"
-    : "real";
-}
+import { type SandboxMode as Mode, initialModeFromQuery } from "@/lib/utils/sandbox-mode";
 
 export default function Home() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);

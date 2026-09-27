@@ -15,6 +15,7 @@ import {
 import { IconButton } from "@/app/components/ui/IconButton";
 import { Badge } from "@/app/components/ui/Badge";
 import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
+import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -257,20 +258,5 @@ export default function ConversationView({
       </div>
     </div>
   );
-}
-
-function formatWindowCountdown(windowExpiresAt: string): { label: string; warning: boolean } | null {
-  const remainingMs = new Date(windowExpiresAt).getTime() - Date.now();
-  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return null;
-
-  const totalMinutes = Math.floor(remainingMs / 60_000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const warning = remainingMs < 60 * 60 * 1000;
-
-  return {
-    label: `Ventana de 24h: quedan ${hours}h ${minutes}m para responder libremente`,
-    warning,
-  };
 }
 
