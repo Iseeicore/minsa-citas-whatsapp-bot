@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  DOCUMENT
+  LOCATION
+  TEMPLATE
+  UNKNOWN
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Conversation {
+  id            String             @id @default(cuid())
+  waId          String             @unique
+  phoneNumber   String?
+  profileName   String?
+  status        ConversationStatus @default(OPEN)
+  lastMessageAt DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+  messages      Message[]
+
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id])
+  direction      MessageDirection
+  type           MessageType
+  content        String?
+  mediaUrl       String?
+  waMessageId    String?          @unique
+  status         MessageStatus    @default(PENDING)
+  timestamp      DateTime
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, timestamp])
+}
+
+model SandboxSession {
+  id        String   @id
+  state     String
+  slots     Json
+  counters  Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
