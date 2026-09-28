@@ -1,0 +1,22 @@
+# Una sola réplica: sin base de datos, el estado de cada conversación vive en la memoria de este proceso.
+services:
+  minsa-citas-whatsapp-bot:
+    build: .
+    image: minsa-citas-whatsapp-bot:latest
+    container_name: minsa-citas-whatsapp-bot
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    env_file: .env
+    environment:
+      # Fijadas: ganan sobre env_file para que el .env no mueva el puerto del healthcheck.
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+
+      DATABASE_ENABLED: ${DATABASE_ENABLED:-false}
+
+      META_ACCESS_TOKEN: ${META_ACCESS_TOKEN:?set META_ACCESS_TOKEN}
+      META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:?set META_PHONE_NUMBER_ID}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:?set META_WEBHOOK_VERIFY_TOKEN}
+      META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET}
