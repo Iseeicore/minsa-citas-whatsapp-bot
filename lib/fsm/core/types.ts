@@ -3,11 +3,14 @@ import { SendType } from "@/lib/enums/send-type";
 
 export type SlotValue = string | number | boolean | null;
 
+export type SessionChannel = "whatsapp" | "web";
+
 export type Session = {
   state: string;
   slots: Record<string, SlotValue>;
   counters: Record<string, number>;
   updatedAt?: Date;
+  channel?: SessionChannel;
 };
 
 export type InboundEventType = "text" | "button" | "list" | "image";

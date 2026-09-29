@@ -21,7 +21,7 @@ describe("first contact: a greeting", () => {
   it.each(["Hola", "Buenos días", "Buenas tardes"])(
     "%j gets ONE welcome message with the link button, and nothing else",
     (message) => {
-      const result = handleFirstContact(message);
+      const result = handleFirstContact(message, "whatsapp");
 
       expect(sent(result)).toHaveLength(1);
       const [welcome] = sent(result);
@@ -35,20 +35,20 @@ describe("first contact: a greeting", () => {
   );
 
   it("waits in main_menu, keeping only a real message as the opening message", () => {
-    expect(handleFirstContact("Hola").session).toEqual({ state: "main_menu", slots: {}, counters: {} });
-    expect(handleFirstContact("ayuda por favor").session.slots).toEqual({ initialMessageText: "ayuda por favor" });
-    expect(handleFirstContact(undefined).session.state).toBe("main_menu");
+    expect(handleFirstContact("Hola", "whatsapp").session).toEqual({ state: "main_menu", slots: {}, counters: {} });
+    expect(handleFirstContact("ayuda por favor", "whatsapp").session.slots).toEqual({ initialMessageText: "ayuda por favor" });
+    expect(handleFirstContact(undefined, "whatsapp").session.state).toBe("main_menu");
   });
 
   it("shows the menu only when the citizen answers, in writing", () => {
-    const waiting = handleFirstContact("Hola").session;
+    const waiting = handleFirstContact("Hola", "whatsapp").session;
 
     const byText = handle(waiting, text("hola"));
     expect(sent(byText).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
   });
 
   it("goes straight to the flow when what they write after the welcome is a request", () => {
-    const waiting = handleFirstContact("Hola").session;
+    const waiting = handleFirstContact("Hola", "whatsapp").session;
 
     const step = handle(waiting, text("quiero una cita de odontología en Miraflores"));
 
@@ -57,7 +57,7 @@ describe("first contact: a greeting", () => {
   });
 
   it("still answers the old «Seguir aquí» button of a welcome already sitting in a chat", () => {
-    const waiting = handleFirstContact("Hola").session;
+    const waiting = handleFirstContact("Hola", "whatsapp").session;
 
     const byButton = handle(waiting, tap("seguir_aqui"));
     expect(sent(byButton).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
@@ -66,7 +66,7 @@ describe("first contact: a greeting", () => {
 
 describe("first contact: a clear request for a cita", () => {
   it("goes straight to the DNI with the specialty and district already loaded", () => {
-    const result = handleFirstContact(CITA_FIRST_MESSAGE);
+    const result = handleFirstContact(CITA_FIRST_MESSAGE, "whatsapp");
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(normalizeText(String(result.session.slots.citaDistritoHintText))).toBe("SAN JUAN DE LURIGANCHO");
@@ -82,30 +82,30 @@ describe("first contact: a clear request for a cita", () => {
   });
 
   it("names only what it understood", () => {
-    expect(sent(handleFirstContact("quiero una cita de odontología"))[0]).toMatchObject({
+    expect(sent(handleFirstContact("quiero una cita de odontología", "whatsapp"))[0]).toMatchObject({
       text: expect.stringContaining("tu cita de Odontología. Para comenzar"),
     });
-    expect(sent(handleFirstContact("necesito agendar en Miraflores"))[0]).toMatchObject({
+    expect(sent(handleFirstContact("necesito agendar en Miraflores", "whatsapp"))[0]).toMatchObject({
       text: expect.stringContaining("tu cita en Miraflores. Para comenzar"),
     });
   });
 
   it("understands a short request that only names the specialty", () => {
-    expect(sent(handleFirstContact("Quiero cita en SJL para medicina general"))[0]).toMatchObject({
+    expect(sent(handleFirstContact("Quiero cita en SJL para medicina general", "whatsapp"))[0]).toMatchObject({
       text: expect.stringContaining("tu cita de Medicina General. Para comenzar"),
     });
   });
 
   it("does not treat something that is not a new cita as one: it gets the menu", () => {
     for (const message of ["quiero cancelar mi cita de odontología en Miraflores", "quiero una cita"]) {
-      const result = handleFirstContact(message);
+      const result = handleFirstContact(message, "whatsapp");
       expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
       expect(result.session.state).toBe("main_menu");
     }
   });
 
   it("continues with the DNI as any Cita flow does", () => {
-    const started = handleFirstContact(CITA_FIRST_MESSAGE).session;
+    const started = handleFirstContact(CITA_FIRST_MESSAGE, "whatsapp").session;
 
     const next = handle(started, text("12345678"));
 
@@ -116,7 +116,7 @@ describe("first contact: a clear request for a cita", () => {
 
 describe("first contact: the welcome names the emergency line", () => {
   it("tells the citizen to call 106 in a medical emergency, in the same single message", () => {
-    const welcome = sent(handleFirstContact("Hola"))[0];
+    const welcome = sent(handleFirstContact("Hola", "whatsapp"))[0];
 
     expect(welcome.kind === "send_cta_url" && welcome.text).toContain("106");
     expect(welcome.kind === "send_cta_url" && welcome.text).toMatch(/emergencia/i);
@@ -125,7 +125,7 @@ describe("first contact: the welcome names the emergency line", () => {
 
 describe("first contact: answering the [1] / [2] the rejection text offers", () => {
   it("«1» opens the Cita flow and asks for the DNI", () => {
-    const result = handleFirstContact("1");
+    const result = handleFirstContact("1", "whatsapp");
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(sent(result)).toHaveLength(1);
@@ -134,7 +134,7 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
   });
 
   it("«2» opens the complaint flow", () => {
-    const result = handleFirstContact(" 2 ");
+    const result = handleFirstContact(" 2 ", "whatsapp");
 
     expect(result.session.state).toBe("reclamo_identity_choice");
     expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
@@ -142,7 +142,7 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
 
   it("any other number is just text: it gets the menu", () => {
     for (const message of ["3", "12", "10"]) {
-      expect(sent(handleFirstContact(message)).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
+      expect(sent(handleFirstContact(message, "whatsapp")).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
     }
   });
 
@@ -156,7 +156,7 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
 
 describe("first contact: a request to file a complaint", () => {
   it.each(["Quiero poner una queja", "quiero hacer un reclamo", "RECLAMO"])("%j goes straight to the complaint flow", (message) => {
-    const result = handleFirstContact(message);
+    const result = handleFirstContact(message, "whatsapp");
 
     expect(result.session.state).toBe("reclamo_identity_choice");
     expect(sent(result)).toHaveLength(1);
@@ -175,13 +175,24 @@ describe("first contact: text that says nothing structured", () => {
   it.each(["asdfg", "🔥🔥🔥", "ayuda por favor", "necesito hablar con alguien"])(
     "%j gets the menu, without the welcome",
     (message) => {
-      const result = handleFirstContact(message);
+      const result = handleFirstContact(message, "whatsapp");
 
       expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
       expect(firstListTitle(result)).toContain("Agendar una cita médica");
       expect(result.session).toEqual({ state: "main_menu", slots: { initialMessageText: message }, counters: {} });
     },
   );
+});
+
+describe("first contact: the web (sandbox/widget) channel", () => {
+  it("a greeting gets the web welcome as plain text, with no CTA button", () => {
+    const result = handleFirstContact("Hola", "web");
+
+    expect(sent(result)).toHaveLength(1);
+    const [welcome] = sent(result);
+    expect(welcome.kind).toBe("send_text");
+    expect(welcome.kind === "send_text" && welcome.text).toContain("asistente virtual de MINSA Digital");
+  });
 });
 
 describe("returning after a finished cita or reclamo", () => {

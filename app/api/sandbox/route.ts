@@ -133,10 +133,10 @@ export async function POST(request: NextRequest) {
 
 async function startConversation(from: string, text?: string): Promise<TurnResult> {
   return withTurnLock(from, async () => {
-    const fresh = { state: "main_menu", slots: {}, counters: {} };
+    const fresh = { state: "main_menu", slots: {}, counters: {}, channel: "web" as const };
 
     return traceTurn(from, { type: text === undefined ? "other" : "text", text }, fresh, async (trace) => {
-      const first = handleFirstContact(text);
+      const first = handleFirstContact(text, "web");
       for (const note of first.notes ?? []) trace.note(note);
       await saveSession(from, first.session);
 

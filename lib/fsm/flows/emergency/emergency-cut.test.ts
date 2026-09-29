@@ -49,7 +49,7 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it("as the very first message of a conversation", () => {
-    const result = handleFirstContact(EMERGENCY);
+    const result = handleFirstContact(EMERGENCY, "whatsapp");
 
     expect(sent(result)).toEqual([CUT]);
     expect(queries(result)).toHaveLength(0);
