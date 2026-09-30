@@ -151,7 +151,7 @@ describe("the words the messages ask the citizen to type", () => {
 
 describe("first contact", () => {
   it.each(STAYING)("%s as the very first message: the message, and the session waits in the menu", (category, message) => {
-    const result = handleFirstContact(message);
+    const result = handleFirstContact(message, "whatsapp");
 
     expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES[category] }]);
     expect(result.session).toEqual({ state: "main_menu", slots: {}, counters: {} });
@@ -159,11 +159,11 @@ describe("first contact", () => {
   });
 
   it("«CITAS» as the first message opens the Cita flow", () => {
-    expect(handleFirstContact("CITAS").session.state).toBe("cita_awaiting_dni");
+    expect(handleFirstContact("CITAS", "whatsapp").session.state).toBe("cita_awaiting_dni");
   });
 
   it("a greeting still gets the welcome, and a plain request its flow", () => {
-    expect(sent(handleFirstContact("Hola"))[0]).toMatchObject({ kind: "send_cta_url" });
-    expect(handleFirstContact("quiero una cita de odontología en Miraflores").session.state).toBe("cita_awaiting_dni");
+    expect(sent(handleFirstContact("Hola", "whatsapp"))[0]).toMatchObject({ kind: "send_cta_url" });
+    expect(handleFirstContact("quiero una cita de odontología en Miraflores", "whatsapp").session.state).toBe("cita_awaiting_dni");
   });
 });

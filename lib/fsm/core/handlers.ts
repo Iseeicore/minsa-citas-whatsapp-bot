@@ -52,7 +52,7 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
   if (guarded) return guarded;
 
   if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
-    return handleFirstContact(event.type === "text" ? event.text : undefined);
+    return handleFirstContact(event.type === "text" ? event.text : undefined, session.channel ?? "whatsapp");
   }
 
   if (session.state === "main_menu") {

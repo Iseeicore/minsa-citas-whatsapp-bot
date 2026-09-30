@@ -25,7 +25,7 @@ function sleep(ms: number): Promise<void> {
 async function answerFirstContact(message: WhatsAppMessage, conversationId: string | null): Promise<void> {
   const waId = message.from_user_id;
   const firstContactText = message.type === "text" ? message.text?.body : undefined;
-  const fresh = { state: "main_menu", slots: {}, counters: {} };
+  const fresh = { state: "main_menu", slots: {}, counters: {}, channel: "whatsapp" as const };
 
   await traceTurn(
     waId,
@@ -41,7 +41,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
               level: "warn",
               detail: { action: verdict.action, state: "first_contact" },
             })
-          : handleFirstContact(firstContactText);
+          : handleFirstContact(firstContactText, "whatsapp");
 
       for (const note of first.notes ?? []) trace.note(note);
       await saveSession(waId, first.session);

@@ -5,7 +5,7 @@ import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared"
 import { detectCitaRequest, isGreeting, isReclamoKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { buildWelcomeEffect } from "@/lib/fsm/routing/welcome";
-import type { HandlerResult } from "@/lib/fsm/core/types";
+import type { HandlerResult, SessionChannel } from "@/lib/fsm/core/types";
 
 const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?";
 
@@ -18,11 +18,11 @@ function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
 const routed = (route: "welcome" | "cita" | "reclamo" | "menu" | "out_of_scope", result: HandlerResult): HandlerResult =>
   withNote(result, { kind: "first_contact", detail: { route } });
 
-export function handleFirstContact(text?: string): HandlerResult {
+export function handleFirstContact(text: string | undefined, channel: SessionChannel): HandlerResult {
   const message = text?.trim();
 
   if (!message || isGreeting(message)) {
-    return routed("welcome", buildResult({ state: "main_menu", slots: {}, counters: {} }, [buildWelcomeEffect()]));
+    return routed("welcome", buildResult({ state: "main_menu", slots: {}, counters: {} }, [buildWelcomeEffect(channel)]));
   }
 
   const outOfScope = detectOutOfScope(message);
