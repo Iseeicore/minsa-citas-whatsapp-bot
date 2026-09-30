@@ -47,6 +47,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |
 | `config.invalid` | error / warn | `issue` (el código del catálogo), `value`, `message`. Problema de configuración detectado al arrancar el servidor (ver `lib/config/config-errors.ts`); el bot sigue funcionando con su respaldo y `/api/health` responde `degraded` |
+| `recetas.template_send_failed` | error | `celular` (últimos 4), `status` y `response`, o `error`. Falló el envío de la plantilla de WhatsApp desde `POST /api/recetas/doc-firmado/[token]` |
 
 ## Qué se oculta
 

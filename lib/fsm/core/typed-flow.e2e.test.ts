@@ -26,6 +26,7 @@ function describeEffect(effect: SendEffect): string {
   if (effect.kind === "send_interactive_list") return `[list] ${effect.text}`;
   if (effect.kind === "send_buttons") return `[buttons] ${effect.text}`;
   if (effect.kind === "send_cta_url") return `[cta] ${effect.text}`;
+  if (effect.kind === "send_template") return `[template] ${effect.templateName}`;
   return effect.text;
 }
 

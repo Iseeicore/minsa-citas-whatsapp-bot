@@ -3,4 +3,5 @@ export enum SendType {
   INTERACTIVE_LIST = "send_interactive_list",
   BUTTONS = "send_buttons",
   CTA_URL = "send_cta_url",
+  TEMPLATE = "send_template",
 }

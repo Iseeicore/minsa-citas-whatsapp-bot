@@ -22,6 +22,7 @@ export const LOG_EVENTS = [
   "whatsapp.media_failed",
   "sandbox.cors_invalid_origin",
   "config.invalid",
+  "recetas.template_send_failed",
 ] as const;
 
 export type LogEvent = (typeof LOG_EVENTS)[number];

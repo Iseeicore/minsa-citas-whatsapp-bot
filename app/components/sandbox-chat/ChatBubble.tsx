@@ -27,7 +27,7 @@ export function ChatBubble({
         MD
       </span>
       <div className="max-w-[75%] rounded-2xl rounded-tl-none border border-gray-100 bg-sb-bubble-bot px-3 py-2 text-sm text-gray-800 shadow-sm">
-        <div className="whitespace-pre-wrap">{effect.text}</div>
+        <div className="whitespace-pre-wrap">{effect.kind === SendType.TEMPLATE ? "" : effect.text}</div>
 
         {effect.kind === SendType.INTERACTIVE_LIST && (
           <div className="mt-2 flex flex-col gap-1">

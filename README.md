@@ -147,6 +147,14 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
+**Recetas electrónicas** (callback de firma de documento)
+
+| Variable | Uso |
+|---|---|
+| `RECETA_CALLBACK_SECRET` | Secreto del callback de recetas electrónicas: va como segmento de la URL en `POST /api/recetas/doc-firmado/[token]` y se compara contra el `token` recibido; si no coincide (o está vacía) responde `404` |
+| `RECETA_TEMPLATE_NAME` | Nombre de la plantilla de WhatsApp (Meta) aprobada para avisar que el documento quedó firmado |
+| `RECETA_TEMPLATE_LANGUAGE` | Código de idioma de esa plantilla (por defecto `es`) |
+
 **IA** (ver [Cambiar de proveedor de IA](#cambiar-de-proveedor-de-ia))
 
 | Variable | Uso |

@@ -74,6 +74,19 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
           },
         },
       };
+
+    case SendType.TEMPLATE:
+      return {
+        ...base,
+        type: "template",
+        template: {
+          name: effect.templateName,
+          language: { code: effect.languageCode },
+          components: [
+            { type: "body", parameters: effect.bodyParams.map((text) => ({ type: "text", text })) },
+          ],
+        },
+      };
   }
 }
 
@@ -110,6 +123,32 @@ export async function sendCtaUrlMessage(
           name: "cta_url",
           parameters: { display_text: params.buttonText, url: params.url },
         },
+      },
+    }),
+  });
+}
+
+export async function sendTemplateMessage(
+  waId: string,
+  params: { templateName: string; languageCode: string; bodyParams: string[] },
+): Promise<Response> {
+  return fetch(graphApiUrl(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      recipient: waId,
+      type: "template",
+      template: {
+        name: params.templateName,
+        language: { code: params.languageCode },
+        components: [
+          { type: "body", parameters: params.bodyParams.map((text) => ({ type: "text", text })) },
+        ],
       },
     }),
   });
@@ -183,6 +222,7 @@ export async function sendAndRecordEffect(
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
   if (conversationId === null) return;
+  if (effect.kind === SendType.TEMPLATE) return;
   await recordOutboundMessage(conversationId, effect.text, waMessageId);
 }
 

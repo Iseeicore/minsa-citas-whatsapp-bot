@@ -10,6 +10,7 @@ export const API_ERRORS: Record<ApiErrorCode, { status: number; message: string 
   },
   [ApiErrorCode.PERSISTENCE_DISABLED]: { status: 503, message: "La persistencia está desactivada en este despliegue." },
   [ApiErrorCode.BUSY]: { status: 503, message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." },
+  [ApiErrorCode.TEMPLATE_SEND_FAILED]: { status: 502, message: "No se pudo enviar la plantilla de WhatsApp." },
 };
 
 /** Única forma de error de la API: { error: CÓDIGO, message } con el status del catálogo; detail solo para datos técnicos. */

@@ -66,11 +66,19 @@ export type SendCtaUrlEffect = {
   url: string;
 };
 
+export type SendTemplateEffect = {
+  kind: SendType.TEMPLATE;
+  templateName: string;
+  languageCode: string;
+  bodyParams: string[];
+};
+
 export type SendEffect =
   | SendTextEffect
   | SendInteractiveListEffect
   | SendButtonsEffect
-  | SendCtaUrlEffect;
+  | SendCtaUrlEffect
+  | SendTemplateEffect;
 
 export type QueryEffectKind =
   | "reniec_lookup"
