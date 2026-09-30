@@ -11,6 +11,6 @@ export default defineConfig({
     environment: "node",
     include: ["lib/**/*.test.ts", "tests/**/*.test.ts"],
     exclude: ["tests/smoke/**", "tests/stress/performance.test.ts", "node_modules/**"],
-    env: { DATABASE_URL: "" },
+    env: { DATABASE_URL: "", DATABASE_ENABLED: "true" },
   },
 });
