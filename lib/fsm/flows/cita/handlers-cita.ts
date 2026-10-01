@@ -36,6 +36,7 @@ import { handleOtherEstablecimiento, OTHER_ESTABLECIMIENTO_STATE } from "@/lib/f
 import { EXIT_CONFIRM_STATE, handleExitConfirm } from "@/lib/fsm/flows/cita/steps/exit";
 import {
   handleDemoAwaitingConfirm,
+  handleDemoAwaitingHoraSelect,
   handleDemoAwaitingReferenciaSelect,
 } from "@/lib/fsm/flows/cita/steps/demo-booking";
 
@@ -107,6 +108,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleExitConfirm(session, event as InboundEvent);
     case "cita_demo_awaiting_referencia_select":
       return handleDemoAwaitingReferenciaSelect(session, event as InboundEvent);
+    case "cita_demo_awaiting_hora_select":
+      return handleDemoAwaitingHoraSelect(session, event as InboundEvent);
     case "cita_demo_awaiting_confirm":
       return handleDemoAwaitingConfirm(session, event as InboundEvent);
     default:

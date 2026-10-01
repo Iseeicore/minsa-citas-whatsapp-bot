@@ -14,9 +14,10 @@ import {
   DEMO_HORA_FIN,
   DEMO_HORA_INICIO,
   DEMO_REFERENCIAS,
-  DEMO_TURNO_ASIGNADO,
+  demoHoraSlots,
   demoReferenciasForDni,
 } from "@/lib/fsm/flows/cita/demo-referencia";
+import { formatHoraRange, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 
 const DEMO_ANALYZING_TEXT = "Un momento, estamos analizando tu cuenta… cuenta con referencias:";
@@ -37,19 +38,33 @@ function referenciaRows(dni: string): ListRow[] {
 export function offerDemoReferencias(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = "cita_demo_awaiting_referencia_select";
+  delete next.slots.citaDemoReferenciaCodigo;
+  delete next.slots.citaDemoHoraId;
   const dni = String(next.slots.citaDni ?? "");
   return buildResult(next, offerPagedList(next, DEMO_ANALYZING_TEXT, referenciaRows(dni)));
 }
 
-function askDemoConfirmation(session: Session, codigo: string): HandlerResult {
+function offerDemoHoras(session: Session, codigo: string): HandlerResult {
   const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
-  const hospital = referencia?.hospital ?? "";
-  const especialidad = referencia?.especialidad ?? "";
-  const resumen = `Listo, el establecimiento *${hospital}* cuenta con una referencia para ti.
+  const next = cloneSession(session);
+  next.slots.citaDemoReferenciaCodigo = codigo;
+  next.state = "cita_demo_awaiting_hora_select";
+  const intro = `Listo, el establecimiento *${referencia?.hospital ?? ""}* cuenta con una referencia para ti.
 
-Especialidad: ${especialidad}
+Especialidad: ${referencia?.especialidad ?? ""}
 Horario de atención: ${DEMO_HORA_INICIO} - ${DEMO_HORA_FIN} (turnos de 25 minutos)
-Turno asignado: ${DEMO_TURNO_ASIGNADO}
+
+¿A qué hora deseas tu cita? Elige un horario:`;
+  const rows = demoHoraSlots().map(slotToRow);
+  return buildResult(next, [sendText(intro), ...offerPagedList(next, "Horarios disponibles:", rows)]);
+}
+
+function askDemoConfirmation(session: Session, codigo: string, horaId: string): HandlerResult {
+  const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
+  const [start, end] = horaId.split("|");
+  const turno = /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "") ? formatHoraRange(start, end) : horaId;
+  const resumen = `Especialidad: ${referencia?.especialidad ?? ""}
+Turno seleccionado: ${turno}
 
 ¿Confirmas tu cita?`;
   return buildResult(session, [
@@ -66,18 +81,31 @@ export function handleDemoAwaitingReferenciaSelect(session: Session, event: Inbo
   if ("result" in outcome) return outcome.result;
 
   const next = clearOffered(session);
-  next.slots.citaDemoReferenciaCodigo = outcome.replyId;
+  return offerDemoHoras(next, outcome.replyId);
+}
+
+export function handleDemoAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
+  const outcome = resolveSelection(session, event);
+  if ("result" in outcome) return outcome.result;
+
+  const next = clearOffered(session);
+  const codigo = String(next.slots.citaDemoReferenciaCodigo ?? "");
+  next.slots.citaDemoHoraId = outcome.replyId;
   next.state = "cita_demo_awaiting_confirm";
-  return askDemoConfirmation(next, outcome.replyId);
+  return askDemoConfirmation(next, codigo, outcome.replyId);
 }
 
 export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent): HandlerResult {
   const codigo = String(session.slots.citaDemoReferenciaCodigo ?? "");
+  const horaId = String(session.slots.citaDemoHoraId ?? "");
   const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
   const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
 
   if (reply === DEMO_CONFIRM_YES_ID || typed === "YES") {
     const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
+    const [start, end] = horaId.split("|");
+    const turno =
+      /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "") ? formatHoraRange(start, end) : horaId;
     const next = cloneSession(session);
     next.state = "cita_booked";
     const constanciaText = `*MINISTERIO DE SALUD DEL PERÚ*
@@ -86,15 +114,17 @@ export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent)
 Estimado(a) usuario(a), su solicitud ha sido procesada con éxito:
 Establecimiento: ${referencia?.hospital ?? ""}
 Especialidad: ${referencia?.especialidad ?? ""}
-Turno: ${DEMO_TURNO_ASIGNADO}
+Turno: ${turno}
 
 Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico.`;
     return buildResult(next, [sendText(constanciaText), sendText(DESPEDIDA_TEXT)]);
   }
 
   if (reply === DEMO_CONFIRM_NO_ID || typed === "NO") {
-    return offerDemoReferencias(session);
+    const next = cloneSession(session);
+    delete next.slots.citaDemoHoraId;
+    return offerDemoHoras(next, codigo);
   }
 
-  return askDemoConfirmation(session, codigo);
+  return askDemoConfirmation(session, codigo, horaId);
 }
