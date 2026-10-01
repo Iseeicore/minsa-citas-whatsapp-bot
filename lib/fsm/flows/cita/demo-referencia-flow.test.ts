@@ -39,8 +39,8 @@ function verifyPending(dni: string, extraSlots: Session["slots"] = {}): Session 
   };
 }
 
-describe("verificación con los DNI demo (32028036 y 47391441)", () => {
-  it("32028036 ignora cualquier pista de ubicación y ve solo sus 3 referencias", () => {
+describe("verificación con los DNI demo (10308523 y 47391441)", () => {
+  it("10308523 ignora cualquier pista de ubicación y ve solo sus 3 referencias", () => {
     const result = handleVerifyPending(
       verifyPending(DEMO_REFERENCIA_DNI, {
         citaDistritoHintText: "Miraflores",
