@@ -1,4 +1,5 @@
 export const DEMO_REFERENCIA_DNI = "32028036";
+export const DEMO_PEDIATRIA_DNI = "47391441";
 
 export type DemoReferencia = {
   codigo: string;
@@ -6,6 +7,8 @@ export type DemoReferencia = {
   red: string;
   ris: string;
   distrito: string;
+  especialidad: string;
+  dni: string;
 };
 
 export const DEMO_REFERENCIAS: DemoReferencia[] = [
@@ -15,13 +18,8 @@ export const DEMO_REFERENCIAS: DemoReferencia[] = [
     red: "LIMA CENTRO",
     ris: "RIS 4",
     distrito: "Cercado de Lima",
-  },
-  {
-    codigo: "00006215",
-    hospital: "HOSPITAL NACIONAL DOCENTE MADRE NIÑO SAN BARTOLOME",
-    red: "LIMA CENTRO",
-    ris: "RIS 6",
-    distrito: "Cercado de Lima",
+    especialidad: "Odontología",
+    dni: DEMO_REFERENCIA_DNI,
   },
   {
     codigo: "00033381",
@@ -29,6 +27,8 @@ export const DEMO_REFERENCIAS: DemoReferencia[] = [
     red: "LIMA ESTE",
     ris: "RIS Ate",
     distrito: "Ate",
+    especialidad: "Cardiología",
+    dni: DEMO_REFERENCIA_DNI,
   },
   {
     codigo: "00005946",
@@ -36,10 +36,30 @@ export const DEMO_REFERENCIAS: DemoReferencia[] = [
     red: "LIMA ESTE",
     ris: "RIS Santa Anita - El Agustino",
     distrito: "El Agustino",
+    especialidad: "Consulta Externa",
+    dni: DEMO_REFERENCIA_DNI,
+  },
+  {
+    codigo: "00006215",
+    hospital: "HOSPITAL NACIONAL DOCENTE MADRE NIÑO SAN BARTOLOME",
+    red: "LIMA CENTRO",
+    ris: "RIS 6",
+    distrito: "Cercado de Lima",
+    especialidad: "Pediatría",
+    dni: DEMO_PEDIATRIA_DNI,
   },
 ];
 
-export const DEMO_ESPECIALIDAD = "Medicina General";
+export const DEMO_DNIS: readonly string[] = [DEMO_REFERENCIA_DNI, DEMO_PEDIATRIA_DNI];
+
+export function isDemoReferenciaDni(dni: string | null | undefined): boolean {
+  return typeof dni === "string" && DEMO_DNIS.includes(dni);
+}
+
+export function demoReferenciasForDni(dni: string): DemoReferencia[] {
+  return DEMO_REFERENCIAS.filter((referencia) => referencia.dni === dni);
+}
+
 export const DEMO_HORA_INICIO = "08:00 am";
 export const DEMO_HORA_FIN = "03:00 pm";
 export const DEMO_TURNO_MINUTOS = 25;

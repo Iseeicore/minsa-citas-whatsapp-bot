@@ -3,7 +3,11 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleVerifyPending } from "@/lib/fsm/flows/cita/steps/identity";
 import { serializeOffered } from "@/lib/fsm/parsing/selection-matchers";
-import { DEMO_REFERENCIAS, DEMO_REFERENCIA_DNI } from "@/lib/fsm/flows/cita/demo-referencia";
+import {
+  DEMO_PEDIATRIA_DNI,
+  DEMO_REFERENCIA_DNI,
+  demoReferenciasForDni,
+} from "@/lib/fsm/flows/cita/demo-referencia";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-demo";
@@ -20,11 +24,11 @@ const verifyResult = (result: unknown): QueryResultEvent => ({
 const sent = (result: HandlerResult): SendEffect[] =>
   result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
-function verifyPending(extraSlots: Session["slots"] = {}): Session {
+function verifyPending(dni: string, extraSlots: Session["slots"] = {}): Session {
   return {
     state: "cita_verify_pending",
     slots: {
-      citaDniPending: DEMO_REFERENCIA_DNI,
+      citaDniPending: dni,
       citaTwofaId: "fake-twofa",
       ...extraSlots,
     },
@@ -32,10 +36,13 @@ function verifyPending(extraSlots: Session["slots"] = {}): Session {
   };
 }
 
-describe("verificación con el DNI demo (32028036)", () => {
-  it("ignora cualquier pista de ubicación y ofrece las 4 referencias", () => {
+describe("verificación con los DNI demo (32028036 y 47391441)", () => {
+  it("32028036 ignora cualquier pista de ubicación y ve solo sus 3 referencias", () => {
     const result = handleVerifyPending(
-      verifyPending({ citaDistritoHintText: "Miraflores", initialMessageText: "quiero una cita en Miraflores" }),
+      verifyPending(DEMO_REFERENCIA_DNI, {
+        citaDistritoHintText: "Miraflores",
+        initialMessageText: "quiero una cita en Miraflores",
+      }),
       verifyResult({ status: "verified", token: "token-demo" }),
     );
 
@@ -43,14 +50,28 @@ describe("verificación con el DNI demo (32028036)", () => {
     const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
     expect(list?.kind).toBe("send_interactive_list");
     if (list?.kind === "send_interactive_list") {
-      expect(list.rows).toHaveLength(4);
-      expect(list.rows.map((row) => row.id)).toEqual(DEMO_REFERENCIAS.map((r) => r.codigo));
+      expect(list.rows).toHaveLength(3);
+      expect(list.rows.map((row) => row.id)).toEqual(demoReferenciasForDni(DEMO_REFERENCIA_DNI).map((r) => r.codigo));
+    }
+  });
+
+  it("47391441 ve solo la referencia de Pediatría en San Bartolomé", () => {
+    const result = handleVerifyPending(
+      verifyPending(DEMO_PEDIATRIA_DNI),
+      verifyResult({ status: "verified", token: "token-demo-pediatria" }),
+    );
+
+    expect(result.session.state).toBe("cita_demo_awaiting_referencia_select");
+    const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
+    if (list?.kind === "send_interactive_list") {
+      expect(list.rows).toHaveLength(1);
+      expect(list.rows[0].id).toBe("00006215");
     }
   });
 
   it("no afecta a otros DNIs: siguen preguntando el distrito como siempre", () => {
     const result = handleVerifyPending(
-      verifyPending({ citaDniPending: "12345678" }),
+      verifyPending("12345678"),
       verifyResult({ status: "verified", token: "token-real" }),
     );
 
@@ -58,15 +79,15 @@ describe("verificación con el DNI demo (32028036)", () => {
   });
 });
 
-function referenciaOffered(): Session {
+function referenciaOffered(dni: string): Session {
   return {
     state: "cita_demo_awaiting_referencia_select",
     slots: {
       citaBearer: "token-demo",
-      citaDni: DEMO_REFERENCIA_DNI,
+      citaDni: dni,
       citaOffered: serializeOffered({
         text: "Un momento, estamos analizando tu cuenta… cuenta con referencias:",
-        rows: DEMO_REFERENCIAS.map((r) => ({
+        rows: demoReferenciasForDni(dni).map((r) => ({
           id: r.codigo,
           title: r.hospital.slice(0, 24),
           description: `${r.red} · ${r.ris} · ${r.distrito}`,
@@ -78,31 +99,39 @@ function referenciaOffered(): Session {
 }
 
 describe("selección de referencia demo", () => {
-  it("por tap: guarda el código y pasa a confirmar con Medicina General y el turno fijo", () => {
-    const result = handle(referenciaOffered(), tap("00006206"));
+  it("por tap: guarda el código y pasa a confirmar con la especialidad del hospital y el turno fijo", () => {
+    const result = handle(referenciaOffered(DEMO_REFERENCIA_DNI), tap("00006206"));
 
     expect(result.session.state).toBe("cita_demo_awaiting_confirm");
     expect(result.session.slots.citaDemoReferenciaCodigo).toBe("00006206");
     const texts = sent(result).filter((e) => e.kind === "send_text").map((e) => (e as { text: string }).text);
-    expect(texts.join(" ")).toContain("Medicina General");
+    expect(texts.join(" ")).toContain("Odontología");
     expect(texts.join(" ")).toContain("08:00 am - 08:25 am");
     expect(sent(result).some((e) => e.kind === "send_buttons")).toBe(true);
   });
 
   it("por texto: reconoce el hospital escrito igual que por tap", () => {
-    const result = handle(referenciaOffered(), text("HOSPITAL NACIONAL DOS DE MAYO"));
+    const result = handle(referenciaOffered(DEMO_REFERENCIA_DNI), text("HOSPITAL NACIONAL DOS DE MAYO"));
     expect(result.session.state).toBe("cita_demo_awaiting_confirm");
     expect(result.session.slots.citaDemoReferenciaCodigo).toBe("00006206");
   });
+
+  it("la referencia de Pediatría (San Bartolomé) muestra esa especialidad al confirmar", () => {
+    const result = handle(referenciaOffered(DEMO_PEDIATRIA_DNI), tap("00006215"));
+
+    expect(result.session.state).toBe("cita_demo_awaiting_confirm");
+    const texts = sent(result).filter((e) => e.kind === "send_text").map((e) => (e as { text: string }).text);
+    expect(texts.join(" ")).toContain("Pediatría");
+  });
 });
 
-function confirmPending(): Session {
+function confirmPending(dni: string, codigo: string): Session {
   return {
     state: "cita_demo_awaiting_confirm",
     slots: {
       citaBearer: "token-demo",
-      citaDni: DEMO_REFERENCIA_DNI,
-      citaDemoReferenciaCodigo: "00006206",
+      citaDni: dni,
+      citaDemoReferenciaCodigo: codigo,
     },
     counters: {},
   };
@@ -110,25 +139,27 @@ function confirmPending(): Session {
 
 describe("confirmación de la cita demo", () => {
   it("al confirmar, envía SOLO 2 mensajes (constancia + despedida), sin link, y cierra en cita_booked", () => {
-    const result = handle(confirmPending(), text("si"));
+    const result = handle(confirmPending(DEMO_REFERENCIA_DNI, "00006206"), text("si"));
 
     expect(result.session.state).toBe("cita_booked");
     expect(result.effects.every((e) => !isQueryEffect(e))).toBe(true);
     expect(sent(result)).toHaveLength(2);
     expect(sent(result).every((e) => e.kind === "send_text")).toBe(true);
     expect(sent(result).some((e) => e.kind === "send_cta_url")).toBe(false);
+    const texts = sent(result).map((e) => (e as { text: string }).text);
+    expect(texts.join(" ")).toContain("Odontología");
   });
 
-  it("al rechazar, vuelve a ofrecer las 4 referencias", () => {
-    const result = handle(confirmPending(), text("no"));
+  it("al rechazar, vuelve a ofrecer solo las referencias del mismo DNI", () => {
+    const result = handle(confirmPending(DEMO_REFERENCIA_DNI, "00006206"), text("no"));
 
     expect(result.session.state).toBe("cita_demo_awaiting_referencia_select");
     const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
-    expect(list?.kind === "send_interactive_list" && list.rows).toHaveLength(4);
+    expect(list?.kind === "send_interactive_list" && list.rows).toHaveLength(3);
   });
 
   it("ante una respuesta ambigua, reintenta sin perder la referencia elegida", () => {
-    const result = handle(confirmPending(), text("mmm no se"));
+    const result = handle(confirmPending(DEMO_REFERENCIA_DNI, "00006206"), text("mmm no se"));
 
     expect(result.session.state).toBe("cita_demo_awaiting_confirm");
     expect(result.session.slots.citaDemoReferenciaCodigo).toBe("00006206");

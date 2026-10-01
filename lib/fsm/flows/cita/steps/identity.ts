@@ -2,7 +2,7 @@ import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/cita-hints";
 import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
-import { DEMO_REFERENCIA_DNI } from "@/lib/fsm/flows/cita/demo-referencia";
+import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo-booking";
 import {
   buildResult,
@@ -125,7 +125,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     next.slots.citaDni = dni ?? null;
     next.state = "cita_awaiting_distrito_ai";
 
-    if (dni === DEMO_REFERENCIA_DNI) {
+    if (isDemoReferenciaDni(typeof dni === "string" ? dni : undefined)) {
       delete next.slots.citaResumeState;
       delete next.slots.citaDistritoHintText;
       return offerDemoReferencias(next);

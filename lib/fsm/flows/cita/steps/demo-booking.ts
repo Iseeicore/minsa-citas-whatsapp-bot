@@ -11,11 +11,11 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/selection";
 import {
-  DEMO_ESPECIALIDAD,
   DEMO_HORA_FIN,
   DEMO_HORA_INICIO,
   DEMO_REFERENCIAS,
   DEMO_TURNO_ASIGNADO,
+  demoReferenciasForDni,
 } from "@/lib/fsm/flows/cita/demo-referencia";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 
@@ -26,8 +26,8 @@ const DEMO_CONFIRM_NO_ID = "cita_demo_confirm_no";
 const DESPEDIDA_TEXT =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita o realizar una consulta, escríbenos nuevamente cuando lo necesites. ¡Que tengas un buen día! 👋";
 
-function referenciaRows(): ListRow[] {
-  return DEMO_REFERENCIAS.map((referencia) => ({
+function referenciaRows(dni: string): ListRow[] {
+  return demoReferenciasForDni(dni).map((referencia) => ({
     id: referencia.codigo,
     title: truncateForRow(referencia.hospital, WHATSAPP_ROW_TITLE_MAX),
     description: truncateForRow(`${referencia.red} · ${referencia.ris} · ${referencia.distrito}`, WHATSAPP_ROW_DESCRIPTION_MAX),
@@ -37,15 +37,17 @@ function referenciaRows(): ListRow[] {
 export function offerDemoReferencias(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = "cita_demo_awaiting_referencia_select";
-  return buildResult(next, offerPagedList(next, DEMO_ANALYZING_TEXT, referenciaRows()));
+  const dni = String(next.slots.citaDni ?? "");
+  return buildResult(next, offerPagedList(next, DEMO_ANALYZING_TEXT, referenciaRows(dni)));
 }
 
 function askDemoConfirmation(session: Session, codigo: string): HandlerResult {
   const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
   const hospital = referencia?.hospital ?? "";
+  const especialidad = referencia?.especialidad ?? "";
   const resumen = `Listo, el establecimiento *${hospital}* cuenta con una referencia para ti.
 
-Especialidad: ${DEMO_ESPECIALIDAD}
+Especialidad: ${especialidad}
 Horario de atención: ${DEMO_HORA_INICIO} - ${DEMO_HORA_FIN} (turnos de 25 minutos)
 Turno asignado: ${DEMO_TURNO_ASIGNADO}
 
@@ -83,7 +85,7 @@ export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent)
 
 Estimado(a) usuario(a), su solicitud ha sido procesada con éxito:
 Establecimiento: ${referencia?.hospital ?? ""}
-Especialidad: ${DEMO_ESPECIALIDAD}
+Especialidad: ${referencia?.especialidad ?? ""}
 Turno: ${DEMO_TURNO_ASIGNADO}
 
 Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico.`;
