@@ -15,6 +15,7 @@ import {
 } from "@/lib/integrations/minsa/catalog";
 import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
+import { listReferences } from "@/lib/integrations/minsa/references";
 import { submitQueja, type SubmitQuejaPayload } from "@/lib/integrations/quejas";
 import { reniecLookup } from "@/lib/integrations/reniec";
 import { traceTurn } from "@/lib/observability/tracer";
@@ -198,6 +199,9 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
         },
         bearer,
       );
+
+    case "list_references":
+      return listReferences(String(effect.payload.numeroDocumento ?? ""), String(effect.payload.tipoDocumento ?? ""));
 
     default:
       throw new Error(`resolveQuery: unhandled query kind "${effect.kind}"`);

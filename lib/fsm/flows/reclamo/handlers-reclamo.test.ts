@@ -1,0 +1,94 @@
+import { describe, expect, it } from "vitest";
+import { handleReclamo } from "@/lib/fsm/flows/reclamo/handlers-reclamo";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+
+const FROM = "51999999999";
+
+const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+
+const sent = (result: HandlerResult): SendEffect[] =>
+  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
+
+const identityChoice = (): Session => ({ state: "reclamo_identity_choice", slots: {}, counters: {} });
+
+describe("reclamo_identity_choice: nombre o anónimo (reemplaza la pregunta por DNI)", () => {
+  it("ofrece los botones nombre/anónimo, no DNI", () => {
+    const result = handleReclamo(identityChoice(), text("cualquier cosa"));
+
+    expect(sent(result)[0]).toMatchObject({
+      kind: "send_buttons",
+      buttons: [
+        { id: "reclamo_con_nombre", title: "Sí, doy mi nombre" },
+        { id: "reclamo_anonimo", title: "Prefiero ser anónimo" },
+      ],
+    });
+  });
+
+  it("'reclamo_con_nombre' pasa a pedir el nombre (NO pide DNI)", () => {
+    const result = handleReclamo(identityChoice(), tap("reclamo_con_nombre"));
+
+    expect(result.session.state).toBe("reclamo_awaiting_nombre_libre");
+    expect((sent(result)[0] as { text: string }).text).toBe("Ingresa tu nombre.");
+  });
+
+  it("'reclamo_anonimo' salta directo a la descripción, sin pedir nombre", () => {
+    const result = handleReclamo(identityChoice(), tap("reclamo_anonimo"));
+
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.session.slots.nombreCompleto).toBeUndefined();
+  });
+
+  it("ya no reconoce los ids viejos (reclamo_con_dni/reclamo_sin_dni): la rama DNI queda dormida", () => {
+    const conDni = handleReclamo(identityChoice(), tap("reclamo_con_dni"));
+    expect(conDni.session.state).toBe("reclamo_identity_choice");
+
+    const sinDni = handleReclamo(identityChoice(), tap("reclamo_sin_dni"));
+    expect(sinDni.session.state).toBe("reclamo_identity_choice");
+  });
+});
+
+describe("reclamo_awaiting_nombre_libre: toma el nombre tal cual, sin RENIEC", () => {
+  const awaitingNombre = (): Session => ({ state: "reclamo_awaiting_nombre_libre", slots: {}, counters: {} });
+
+  it("guarda el nombre y pasa a descripción, sin disparar ninguna query (ni reniec_lookup)", () => {
+    const result = handleReclamo(awaitingNombre(), text("Juan Pérez"));
+
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.session.slots.nombreCompleto).toBe("Juan Pérez");
+    expect(queries(result)).toHaveLength(0);
+  });
+
+  it("nombre vacío, vuelve a pedirlo", () => {
+    const result = handleReclamo(awaitingNombre(), text("   "));
+
+    expect(result.session.state).toBe("reclamo_awaiting_nombre_libre");
+    expect((sent(result)[0] as { text: string }).text).toBe("Por favor, ingresa tu nombre.");
+  });
+});
+
+describe("el submit final nunca lleva DNI por este camino (lo mockea quejas.ts automáticamente)", () => {
+  it("camino con nombre: el submit llega con dni null", () => {
+    let step = handleReclamo(identityChoice(), tap("reclamo_con_nombre"));
+    step = handleReclamo(step.session, text("Juan Pérez"));
+    step = handleReclamo(step.session, text("El consultorio estaba cerrado."));
+    step = handleReclamo(step.session, text("OMITIR"));
+
+    const [submitQuery] = queries(step);
+    expect(submitQuery.kind).toBe("quejas_submit");
+    expect((submitQuery.payload.submission as { dni: string | null }).dni).toBeNull();
+    expect((submitQuery.payload.submission as { nombreCompleto: string | null }).nombreCompleto).toBe("Juan Pérez");
+  });
+
+  it("camino anónimo: el submit llega con dni y nombreCompleto null", () => {
+    let step = handleReclamo(identityChoice(), tap("reclamo_anonimo"));
+    step = handleReclamo(step.session, text("El consultorio estaba cerrado."));
+    step = handleReclamo(step.session, text("OMITIR"));
+
+    const [submitQuery] = queries(step);
+    expect((submitQuery.payload.submission as { dni: string | null }).dni).toBeNull();
+    expect((submitQuery.payload.submission as { nombreCompleto: string | null }).nombreCompleto).toBeNull();
+  });
+});

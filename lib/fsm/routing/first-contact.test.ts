@@ -162,10 +162,10 @@ describe("first contact: a request to file a complaint", () => {
     expect(sent(result)).toHaveLength(1);
     expect(sent(result)[0]).toMatchObject({
       kind: "send_buttons",
-      text: "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?",
+      text: "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?",
       buttons: [
-        { id: "reclamo_con_dni", title: "Sí, tengo documento" },
-        { id: "reclamo_sin_dni", title: "No tengo documento" },
+        { id: "reclamo_con_nombre", title: "Sí, doy mi nombre" },
+        { id: "reclamo_anonimo", title: "Prefiero ser anónimo" },
       ],
     });
   });

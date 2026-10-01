@@ -39,6 +39,12 @@ import {
   handleDemoAwaitingHoraSelect,
   handleDemoAwaitingReferenciaSelect,
 } from "@/lib/fsm/flows/cita/steps/demo-booking";
+import {
+  handleAwaitingReferenciaConfirm,
+  handleAwaitingReferenciaSelect,
+  handleAwaitingReferenciasOffer,
+  handleReferencesPending,
+} from "@/lib/fsm/flows/cita/steps/references";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -112,6 +118,14 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleDemoAwaitingHoraSelect(session, event as InboundEvent);
     case "cita_demo_awaiting_confirm":
       return handleDemoAwaitingConfirm(session, event as InboundEvent);
+    case "cita_references_pending":
+      return handleReferencesPending(session, event as QueryResultEvent);
+    case "cita_awaiting_references_offer":
+      return handleAwaitingReferenciasOffer(session, event as InboundEvent);
+    case "cita_awaiting_referencia_select":
+      return handleAwaitingReferenciaSelect(session, event as InboundEvent);
+    case "cita_awaiting_referencia_confirm":
+      return handleAwaitingReferenciaConfirm(session, event as InboundEvent);
     default:
       throw new Error(`handleCita: unknown state "${session.state}"`);
   }

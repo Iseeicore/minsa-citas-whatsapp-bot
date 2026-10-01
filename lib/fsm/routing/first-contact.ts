@@ -7,7 +7,7 @@ import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "@/lib/fsm/flows/o
 import { buildWelcomeEffect } from "@/lib/fsm/routing/welcome";
 import type { HandlerResult, SessionChannel } from "@/lib/fsm/core/types";
 
-const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?";
+const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?";
 
 function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
   const what = especialidad ? ` de ${especialidad}` : "";

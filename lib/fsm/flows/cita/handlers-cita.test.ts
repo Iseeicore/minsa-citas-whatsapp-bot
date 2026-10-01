@@ -103,31 +103,34 @@ function expectRejectedAndReshown(result: HandlerResult, state: string, offered:
 }
 
 describe("OTP verification — proactive district resolution from the opening message", () => {
-  it("tries to resolve the district from initialMessageText when the deterministic hint failed but a place preposition was used", () => {
+  function afterVerification(initialMessageText?: string): HandlerResult {
     const session = at("cita_verify_pending", undefined, {
       citaDniPending: "12345678",
-      initialMessageText: "quiero cita de odontología en sam borja",
+      ...(initialMessageText ? { initialMessageText } : {}),
     });
-    const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
+    const verified = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
+    expect(verified.session.state).toBe("cita_references_pending");
+    expect(queries(verified).some((effect) => effect.kind === "list_references")).toBe(true);
+
+    return handle(verified.session, queryResult("list_references", { status: "empty" }));
+  }
+
+  it("tries to resolve the district from initialMessageText when the deterministic hint failed but a place preposition was used", () => {
+    const result = afterVerification("quiero cita de odontología en sam borja");
 
     expect(queries(result).some((effect) => effect.kind === "resolve_distrito_ai")).toBe(true);
     expect(sent(result).some((effect) => "text" in effect && effect.text.includes("Cuéntanos en qué distrito"))).toBe(false);
   });
 
   it("still just asks plainly when the opening message never mentioned a place at all", () => {
-    const session = at("cita_verify_pending", undefined, {
-      citaDniPending: "12345678",
-      initialMessageText: "quiero una cita de odontología",
-    });
-    const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
+    const result = afterVerification("quiero una cita de odontología");
 
     expect(queries(result)).toHaveLength(0);
     expect((sent(result)[0] as { text: string }).text).toContain("Cuéntanos en qué distrito");
   });
 
   it("still just asks plainly when there is no initialMessageText at all", () => {
-    const session = at("cita_verify_pending", undefined, { citaDniPending: "12345678" });
-    const result = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
+    const result = afterVerification();
 
     expect(queries(result)).toHaveLength(0);
     expect((sent(result)[0] as { text: string }).text).toContain("Cuéntanos en qué distrito");

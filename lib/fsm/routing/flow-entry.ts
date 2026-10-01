@@ -7,9 +7,9 @@ export const MENU_ROWS = [
   { id: "registrar_reclamo", title: "Registrar un reclamo" },
 ];
 
-export const RECLAMO_IDENTITY_BUTTONS = [
-  { id: "reclamo_con_dni", title: "Sí, tengo documento" },
-  { id: "reclamo_sin_dni", title: "No tengo documento" },
+export const RECLAMO_NOMBRE_BUTTONS = [
+  { id: "reclamo_con_nombre", title: "Sí, doy mi nombre" },
+  { id: "reclamo_anonimo", title: "Prefiero ser anónimo" },
 ];
 
 export const buildMenuEffect = () => sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS);
@@ -29,5 +29,5 @@ export function beginCita(slots: Session["slots"], hints: CitaHints, intro: stri
 
 export function beginReclamo(slots: Session["slots"], intro: string): HandlerResult {
   const next: Session = { state: "reclamo_identity_choice", slots: { ...slots }, counters: {} };
-  return buildResult(next, [sendButtons(intro, RECLAMO_IDENTITY_BUTTONS)]);
+  return buildResult(next, [sendButtons(intro, RECLAMO_NOMBRE_BUTTONS)]);
 }

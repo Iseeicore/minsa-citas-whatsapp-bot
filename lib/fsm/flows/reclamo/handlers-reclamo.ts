@@ -10,6 +10,9 @@ export function handleReclamo(session: Session, event: HandleEvent): HandlerResu
   switch (session.state) {
     case "reclamo_identity_choice":
       return handleIdentityChoice(session, event as InboundEvent);
+    case "reclamo_awaiting_nombre_libre":
+      return handleAwaitingNombreLibre(session, event as InboundEvent);
+    // Dormido a propósito desde 2026-10-01: ya no se entra acá (ver nota en Obsidian para revertir).
     case "reclamo_awaiting_dni":
       return handleAwaitingDni(session, event as InboundEvent);
     case "reclamo_awaiting_nombre":
@@ -35,22 +38,36 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   const replyId = readReply(event);
   const next = cloneSession(session);
 
-  if (replyId === "reclamo_con_dni") {
-    next.state = "reclamo_awaiting_dni";
-    return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
+  if (replyId === "reclamo_con_nombre") {
+    next.state = "reclamo_awaiting_nombre_libre";
+    return buildResult(next, [sendText("Ingresa tu nombre.")]);
   }
 
-  if (replyId === "reclamo_sin_dni") {
+  if (replyId === "reclamo_anonimo") {
     next.state = "reclamo_awaiting_descripcion";
     return buildResult(next, [sendText(askDescripcion())]);
   }
 
   return buildResult(session, [
-    sendButtons("¿Tienes tu documento de identidad a la mano?", [
-      { id: "reclamo_con_dni", title: "Sí, tengo documento" },
-      { id: "reclamo_sin_dni", title: "No tengo documento" },
+    sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", [
+      { id: "reclamo_con_nombre", title: "Sí, doy mi nombre" },
+      { id: "reclamo_anonimo", title: "Prefiero ser anónimo" },
     ]),
   ]);
+}
+
+/** Nombre tal cual lo escribe el usuario, sin verificar contra RENIEC: ya no se pide DNI, no hay contra qué verificarlo. */
+function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
+  const nombre = (event.text ?? "").trim();
+
+  if (!nombre) {
+    return buildResult(session, [sendText("Por favor, ingresa tu nombre.")]);
+  }
+
+  const next = cloneSession(session);
+  next.slots.nombreCompleto = nombre;
+  next.state = "reclamo_awaiting_descripcion";
+  return buildResult(next, [sendText(askDescripcion())]);
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {

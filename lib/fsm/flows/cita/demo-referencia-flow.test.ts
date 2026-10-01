@@ -65,9 +65,9 @@ describe("verificación con los DNI demo (10308523 y 47391441)", () => {
     expect(listRows(result)?.[0].id).toBe("00006215");
   });
 
-  it("no afecta a otros DNIs: siguen preguntando el distrito como siempre", () => {
+  it("no afecta a otros DNIs: pasan por el paso normal de referencias, no por el demo", () => {
     const result = handleVerifyPending(verifyPending("12345678"), verifyResult({ status: "verified", token: "token-real" }));
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(result.session.state).toBe("cita_references_pending");
   });
 });
 

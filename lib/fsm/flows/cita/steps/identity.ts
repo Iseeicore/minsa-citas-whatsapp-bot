@@ -110,6 +110,31 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   ]);
 }
 
+/** Cola común tras el paso de referencias: usar la pista de distrito ya dicha o preguntarlo (el resume por reverificación ya se resolvió antes, en handleVerifyPending). */
+export function continueCitaAfterVerification(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  next.state = "cita_awaiting_distrito_ai";
+
+  const distritoHint = next.slots.citaDistritoHintText as string | undefined;
+  if (distritoHint) {
+    delete next.slots.citaDistritoHintText;
+    return resolveDistritoText(
+      next,
+      distritoHint,
+      next.slots.initialMessageText as string | undefined,
+    );
+  }
+
+  const initialMessageText = next.slots.initialMessageText as string | undefined;
+  if (initialMessageText && mentionsPlacePreposition(initialMessageText)) {
+    return resolveDistritoText(next, initialMessageText, undefined);
+  }
+
+  return buildResult(next, [
+    sendText('¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").'),
+  ]);
+}
+
 export function handleVerifyPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; token?: string };
   const next = cloneSession(session);
@@ -123,7 +148,6 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
 
     next.slots.citaBearer = result.token;
     next.slots.citaDni = dni ?? null;
-    next.state = "cita_awaiting_distrito_ai";
 
     if (isDemoReferenciaDni(typeof dni === "string" ? dni : undefined)) {
       delete next.slots.citaResumeState;
@@ -137,23 +161,10 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
       return resumeAfterReverification(next, resumeState);
     }
 
-    const distritoHint = next.slots.citaDistritoHintText as string | undefined;
-    if (distritoHint) {
-      delete next.slots.citaDistritoHintText;
-      return resolveDistritoText(
-        next,
-        distritoHint,
-        next.slots.initialMessageText as string | undefined,
-      );
-    }
-
-    const initialMessageText = next.slots.initialMessageText as string | undefined;
-    if (initialMessageText && mentionsPlacePreposition(initialMessageText)) {
-      return resolveDistritoText(next, initialMessageText, undefined);
-    }
-
+    next.state = "cita_references_pending";
     return buildResult(next, [
-      sendText('¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").'),
+      sendText("Un momento, estamos analizando tu cuenta…"),
+      query("list_references", { numeroDocumento: String(dni ?? ""), tipoDocumento: "01" }),
     ]);
   }
 

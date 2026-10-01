@@ -13,7 +13,7 @@ import {
   isGreeting,
   isReclamoKeyword,
 } from "@/lib/fsm/routing/menu-shortcuts";
-import { beginCita, buildMenuEffect, RECLAMO_IDENTITY_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { beginCita, buildMenuEffect, RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import {
   detectOutOfScope,
   isCitaKeyword,
@@ -45,7 +45,9 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
 
   if (next.slots.menuChoice === "registrar_reclamo") {
     next.state = "reclamo_identity_choice";
-    return buildResult(next, [sendButtons("¿Tienes tu documento de identidad a la mano?", RECLAMO_IDENTITY_BUTTONS)]);
+    return buildResult(next, [
+      sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
+    ]);
   }
 
   if (next.slots.menuChoice === "agendar_cita") {

@@ -61,8 +61,8 @@ describe("main_menu — lexical guard routing", () => {
     const [effect] = sentEffects(result);
     expect(effect.kind).toBe("send_buttons");
     expect((effect as { buttons: { id: string }[] }).buttons.map((button) => button.id)).toEqual([
-      "reclamo_con_dni",
-      "reclamo_sin_dni",
+      "reclamo_con_nombre",
+      "reclamo_anonimo",
     ]);
   });
 
