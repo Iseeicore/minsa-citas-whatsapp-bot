@@ -79,37 +79,33 @@ describe("when the AI is used and answers cita", () => {
   });
 });
 
-describe("noise-looking text that the AI couldn't classify: silence instead of the menu", () => {
-  const aiAnswer = (result: unknown): QueryResultEvent => ({
-    from: FROM,
-    type: "query_result",
-    queryKind: "analyze_main_menu_intent",
-    result,
-  });
+describe("noise-looking text: silenced before ever asking the AI", () => {
+  it.each([
+    ["symbols/digits only", '12213133123}231333!#"!#!#!"$#"!#%$%"$#'],
+    ["symbols plus emoji (including multi-codepoint ones)", "@(#(+7281(#))@//#982+#((@🦤🦤🫪🫪🦤😘🧑🏿‍🍳🧑🏿‍🍳🐁🥹"],
+  ])("%s: no AI query is dispatched, no reply is sent, stays in main_menu", (_why, message) => {
+    const result = handle(menu(), text(message));
 
-  it("marks a low-letter-ratio message as noise before asking the AI", () => {
-    const result = handle(menu(), text('12213133123}231333!#"!#!#!"$#"!#%$%"$#'));
-
-    expect(result.session.state).toBe("main_menu_intent_pending");
-    expect(result.session.slots.citaMenuNoiseHint).toBe(true);
-  });
-
-  it("unclear + noise hint: sends nothing at all, stays in main_menu", () => {
-    const pending: Session = {
-      state: "main_menu_intent_pending",
-      slots: { citaMenuNoiseHint: true },
-      counters: {},
-    };
-    const result = handle(pending, aiAnswer({ intent: "unclear" }));
-
+    expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("main_menu");
     expect(result.effects).toHaveLength(0);
-    expect(result.session.slots.citaMenuNoiseHint).toBeUndefined();
   });
 
-  it("unclear WITHOUT the noise hint keeps today's behavior: shows the menu", () => {
+  it("an ambiguous message that still has real words keeps going to the AI (no change)", () => {
+    const result = handle(menu(), text("mmm no se"));
+
+    expect(result.session.state).toBe("main_menu_intent_pending");
+    expect(queries(result).map((effect) => effect.kind)).toEqual(["analyze_main_menu_intent"]);
+  });
+
+  it("unclear from the AI (real ambiguous text, not noise) keeps today's behavior: shows the menu", () => {
     const pending: Session = { state: "main_menu_intent_pending", slots: {}, counters: {} };
-    const result = handle(pending, aiAnswer({ intent: "unclear" }));
+    const result = handle(pending, {
+      from: FROM,
+      type: "query_result",
+      queryKind: "analyze_main_menu_intent",
+      result: { intent: "unclear" },
+    });
 
     expect(result.session.state).toBe("main_menu");
     expect(sent(result)[0].kind).toBe("send_interactive_list");

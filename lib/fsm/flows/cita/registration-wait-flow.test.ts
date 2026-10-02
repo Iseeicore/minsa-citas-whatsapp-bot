@@ -47,7 +47,9 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
     const result = handle(validatePending(2), notValid());
 
     expect(result.session.state).toBe("cita_registration_rejected");
-    expect(texts(result)).toEqual(["No pudimos encontrar tu registro después de varios intentos. Por favor, acércate al establecimiento de salud más cercano."]);
+    expect(texts(result)).toEqual([
+      "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSADIGITAL.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.",
+    ]);
     expect(sent(result).some((e) => e.kind === "send_buttons")).toBe(false);
   });
 });

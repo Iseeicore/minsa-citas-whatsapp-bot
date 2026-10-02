@@ -68,7 +68,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
     next.state = "cita_registration_rejected";
     return buildResult(next, [
       sendText(
-        "No pudimos encontrar tu registro después de varios intentos. Por favor, acércate al establecimiento de salud más cercano.",
+        "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSADIGITAL.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.",
       ),
     ]);
   }
