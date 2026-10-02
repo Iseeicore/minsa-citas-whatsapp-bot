@@ -13,9 +13,9 @@ export type PayloadVerdict =
   | { kind: "ok" }
   | { kind: "rejected"; reason: RejectReason; reply: string };
 
-export type RejectReason = "too_long" | "link" | "media" | "repeat" | "noise";
+export type RejectReason = "too_long" | "link" | "media" | "repeat" | "noise" | "sticker";
 
-const MEDIA_TYPES = new Set(["image", "sticker", "audio", "video", "document"]);
+const MEDIA_TYPES = new Set(["image", "audio", "video", "document"]);
 
 const LINK_MARKERS = /(?:https?:\/\/|\bwww\.|\bwa\.me\b|\bt\.me\b|\bbit\.ly\b|\btinyurl\.com\b)/i;
 const BARE_DOMAIN = /\b[a-z0-9][a-z0-9-]*\.(?:com|net|org|info|xyz|io|me|co|pe|gob\.pe|edu\.pe)\b/i;
@@ -33,6 +33,10 @@ function isRepetitionSpam(body: string): boolean {
 }
 
 export function checkFirstMessagePayload(message: { type: string; text?: string }): PayloadVerdict {
+  if (message.type === "sticker") {
+    return { kind: "rejected", reason: "sticker", reply: "" };
+  }
+
   if (MEDIA_TYPES.has(message.type)) {
     return { kind: "rejected", reason: "media", reply: MEDIA_WITHOUT_SESSION_TEXT };
   }

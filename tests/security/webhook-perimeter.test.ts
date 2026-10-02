@@ -288,13 +288,25 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
     expect(mocks.saveSession).not.toHaveBeenCalled();
   });
 
-  it.each(["image", "sticker", "audio"])("a %s as the first message gets the text-only reminder and is never downloaded", async (type) => {
+  it.each(["image", "audio"])("a %s as the first message gets the text-only reminder and is never downloaded", async (type) => {
     const waId = freshWaId();
     const message: Message = { id: `wamid.${++messageCounter}`, from_user_id: waId, timestamp: "1780000000", type, image: { id: "media-1" } };
 
     await deliver([message]);
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: MEDIA_WITHOUT_SESSION_TEXT });
+    expect(mocks.downloadMedia).not.toHaveBeenCalled();
+    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.withTurnLock).not.toHaveBeenCalled();
+  });
+
+  it("a sticker as the first message is silenced completely: no reply, never downloaded", async () => {
+    const waId = freshWaId();
+    const message: Message = { id: `wamid.${++messageCounter}`, from_user_id: waId, timestamp: "1780000000", type: "sticker", image: { id: "media-1" } };
+
+    await deliver([message]);
+
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
     expect(mocks.downloadMedia).not.toHaveBeenCalled();
     expect(mocks.conversationUpsert).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();

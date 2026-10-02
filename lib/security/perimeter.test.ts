@@ -82,6 +82,21 @@ describe("screenInbound: noise (spam with no real language) is dropped in silenc
 
     expect(await screenInbound(text('12213133123}231333!#"!#!#!"$#"!#%$%"$#'), deps)).toEqual({ action: "continue" });
   });
+
+  it("a sticker without a session is silenced completely, not answered", async () => {
+    const { deps, hasSession } = setup({ hasSession: false });
+
+    const decision = await screenInbound({ waId: "wa-1", type: "sticker" }, deps);
+
+    expect(decision).toEqual({ action: "drop", reason: "sticker" });
+    expect(hasSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("a sticker WITH an open session goes through untouched", async () => {
+    const { deps } = setup({ hasSession: true });
+
+    expect(await screenInbound({ waId: "wa-1", type: "sticker" }, deps)).toEqual({ action: "continue" });
+  });
 });
 
 describe("screenInbound: payload rules apply only to a first message", () => {
@@ -92,7 +107,6 @@ describe("screenInbound: payload rules apply only to a first message", () => {
     ["a wall of one letter", text("a".repeat(48)), FIRST_MESSAGE_REJECTION_TEXT, "repeat"],
     ["a pile of emojis", text("🔥🔥🔥💰💰💰"), FIRST_MESSAGE_REJECTION_TEXT, "repeat"],
     ["a photo", { waId: "wa-1", type: "image" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
-    ["a sticker", { waId: "wa-1", type: "sticker" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
     ["a voice note", { waId: "wa-1", type: "audio" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
   ])("%s without a session is answered with the fixed text", async (_name, message, reply, reason) => {
     const { deps, hasSession } = setup({ hasSession: false });

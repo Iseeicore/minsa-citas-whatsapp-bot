@@ -104,8 +104,12 @@ describe("noise: mostly digits/symbols, no real language, no reply sent (it gets
 });
 
 describe("media without a session", () => {
-  it.each(["image", "sticker", "audio", "video", "document"])("a %s as the first message gets the text-only reminder", (type) => {
+  it.each(["image", "audio", "video", "document"])("a %s as the first message gets the text-only reminder", (type) => {
     expect(checkFirstMessagePayload({ type })).toMatchObject({ kind: "rejected", reason: "media", reply: MEDIA_WITHOUT_SESSION_TEXT });
+  });
+
+  it("a sticker as the first message is silenced completely, no reminder at all", () => {
+    expect(checkFirstMessagePayload({ type: "sticker" })).toMatchObject({ kind: "rejected", reason: "sticker", reply: "" });
   });
 
   it("interactive replies and locations are not media", () => {

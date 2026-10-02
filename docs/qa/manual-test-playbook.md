@@ -120,7 +120,7 @@ Requiere un número **sin sesión** (ver 0.4).
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 1.4a | **WhatsApp:** enviar una **foto** como primer mensaje. | Solo texto: `Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.` | **No** descarga la foto (sin llamadas a Graph para media). Sin IA, sin base de datos, sin candado. Log: `... rejected a first message from ...NNNN: media`. | ☐ ☐ |
-| 1.4b | **WhatsApp:** enviar un **sticker** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
+| 1.4b | **WhatsApp:** enviar un **sticker** como primer mensaje. | **Ninguna respuesta** (silencio total). | No descarga el sticker, no responde nada. Log: `... dropped a first message from ...NNNN: sticker`. | ☐ ☐ |
 | 1.4c | **WhatsApp:** enviar una **nota de voz** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4d | **WhatsApp:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4e | **Sandbox:** tras reiniciar, pulsar 📎 y adjuntar una imagen como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |

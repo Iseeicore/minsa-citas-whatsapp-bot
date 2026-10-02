@@ -5,7 +5,7 @@ import { checkFirstMessagePayload, type RejectReason } from "@/lib/security/payl
 import { DEFAULT_MUTE_MS, type RateLimiter } from "@/lib/security/rate-limiter";
 
 export type PerimeterDecision =
-  | { action: "drop"; reason: "throttled" | "banned" | "noise" }
+  | { action: "drop"; reason: "throttled" | "banned" | "noise" | "sticker" }
   | { action: "reject"; reason: RejectReason | "muted"; reply: string }
   | { action: "continue" };
 
@@ -53,15 +53,15 @@ export async function screenInbound(
 
   if (await deps.hasSession(message.waId)) return { action: "continue" };
 
-  if (payload.reason === "noise") {
+  if (payload.reason === "noise" || payload.reason === "sticker") {
     logger.info("perimeter.dropped", {
       traceId: traceOf(message),
       waId: tail(message.waId),
-      reason: "noise",
+      reason: payload.reason,
       messageType: message.type,
       inputLength: message.text?.length,
     });
-    return { action: "drop", reason: "noise" };
+    return { action: "drop", reason: payload.reason };
   }
 
   logger.info("perimeter.rejected", {
