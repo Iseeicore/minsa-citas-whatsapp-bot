@@ -34,7 +34,9 @@ describe("an explicit cita request typed in the main menu", () => {
     "quiero una cita de odontología",
     "necesito agendar en Miraflores",
     "quiero sacar un turno de pediatría en San Borja",
-  ])("also handles %j", (message) => {
+    "Si claro deseo una cita",
+    "quiero una cita",
+  ])("also handles %j (no especialidad/distrito needed to skip the AI)", (message) => {
     const result = handle(menu(), text(message));
 
     expect(queries(result)).toHaveLength(0);
@@ -42,7 +44,6 @@ describe("an explicit cita request typed in the main menu", () => {
   });
 
   it.each([
-    ["no hints to seed, so the AI decides", "quiero una cita"],
     ["an existing appointment", "quiero cancelar mi cita de odontología en Miraflores"],
     ["an existing appointment", "cuándo es mi cita de pediatría en San Borja"],
     ["a complaint", "quiero poner una queja de la cita en Miraflores"],
@@ -75,6 +76,43 @@ describe("when the AI is used and answers cita", () => {
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots.citaEspecialidadHintText).toBe("Medicina General");
     expect(result.session.slots.citaDistritoHintText).toBe("San Juan de Lurigancho");
+  });
+});
+
+describe("noise-looking text that the AI couldn't classify: silence instead of the menu", () => {
+  const aiAnswer = (result: unknown): QueryResultEvent => ({
+    from: FROM,
+    type: "query_result",
+    queryKind: "analyze_main_menu_intent",
+    result,
+  });
+
+  it("marks a low-letter-ratio message as noise before asking the AI", () => {
+    const result = handle(menu(), text('12213133123}231333!#"!#!#!"$#"!#%$%"$#'));
+
+    expect(result.session.state).toBe("main_menu_intent_pending");
+    expect(result.session.slots.citaMenuNoiseHint).toBe(true);
+  });
+
+  it("unclear + noise hint: sends nothing at all, stays in main_menu", () => {
+    const pending: Session = {
+      state: "main_menu_intent_pending",
+      slots: { citaMenuNoiseHint: true },
+      counters: {},
+    };
+    const result = handle(pending, aiAnswer({ intent: "unclear" }));
+
+    expect(result.session.state).toBe("main_menu");
+    expect(result.effects).toHaveLength(0);
+    expect(result.session.slots.citaMenuNoiseHint).toBeUndefined();
+  });
+
+  it("unclear WITHOUT the noise hint keeps today's behavior: shows the menu", () => {
+    const pending: Session = { state: "main_menu_intent_pending", slots: {}, counters: {} };
+    const result = handle(pending, aiAnswer({ intent: "unclear" }));
+
+    expect(result.session.state).toBe("main_menu");
+    expect(sent(result)[0].kind).toBe("send_interactive_list");
   });
 });
 

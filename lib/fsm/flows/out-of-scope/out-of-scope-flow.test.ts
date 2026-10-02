@@ -142,10 +142,11 @@ describe("the words the messages ask the citizen to type", () => {
     expect(second.session.state).toBe("cita_awaiting_dni");
   });
 
-  it("a phrase that only contains the word keeps its old path", () => {
+  it("a bare cita request now resolves deterministically, no AI needed", () => {
     const result = handle(menu(), text("quiero una cita"));
 
-    expect(queries(result).map((effect) => effect.kind)).toEqual(["analyze_main_menu_intent"]);
+    expect(queries(result)).toHaveLength(0);
+    expect(result.session.state).toBe("cita_awaiting_dni");
   });
 });
 

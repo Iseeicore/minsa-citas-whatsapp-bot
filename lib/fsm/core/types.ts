@@ -90,7 +90,8 @@ export type QueryEffectKind =
   | "list_fechas"
   | "list_horas"
   | "book_appointment"
-  | "list_references";
+  | "list_references"
+  | "analyze_reclamo_foto_intent";
 
 export type QueryEffect = {
   kind: QueryEffectKind;

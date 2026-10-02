@@ -114,7 +114,10 @@ describe("leaving the cita on purpose", () => {
     const result = handle(asked.session, text("no"));
 
     expect(result.session.state).toBe("cita_registration_wait");
-    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", text: "Toca el botón para que volvamos a intentarlo." });
+    expect(sent(result)[0]).toMatchObject({
+      kind: "send_buttons",
+      text: "Toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo.",
+    });
   });
 
   it("an unclear answer repeats the confirmation", () => {

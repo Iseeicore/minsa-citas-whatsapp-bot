@@ -100,12 +100,19 @@ describe("main_menu — deterministic greeting shortcut", () => {
     },
   );
 
-  it("still sends real content to the AI intent step", () => {
+  it("a clear cita word skips the AI entirely, even mixed with a greeting", () => {
     const result = handle(sessionAt("main_menu"), text("Buenas tarde, quiero agendar"));
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(hasQuery(result)).toBe(false);
+  });
+
+  it("still sends real content to the AI intent step when nothing deterministic matches", () => {
+    const result = handle(sessionAt("main_menu"), text("Buenas tarde, no sé qué hacer"));
 
     expect(result.session.state).toBe("main_menu_intent_pending");
     expect(result.effects.some((effect) => isQueryEffect(effect) && effect.kind === "analyze_main_menu_intent")).toBe(true);
-    expect(result.session.slots.initialMessageText).toBe("Buenas tarde, quiero agendar");
+    expect(result.session.slots.initialMessageText).toBe("Buenas tarde, no sé qué hacer");
   });
 });
 

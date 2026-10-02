@@ -4,6 +4,7 @@ import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-f
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
 import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo-booking";
+import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit-core";
 import {
   buildResult,
   cloneSession,
@@ -22,6 +23,15 @@ const MINSADIGITAL_REGISTRATION_URL = "https://dminsadigital.minsa.gob.pe/login"
 const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL";
 const REGISTRATION_RETRY_BUTTON_ID = "cita_registration_retry";
 const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
+const REGISTRATION_CANCEL_BUTTON_ID = "cita_registration_cancel";
+const REGISTRATION_CANCEL_BUTTON_TEXT = "No quiero continuar";
+
+function registrationRetryButtons(text: string) {
+  return sendButtons(text, [
+    { id: REGISTRATION_RETRY_BUTTON_ID, title: REGISTRATION_RETRY_BUTTON_TEXT },
+    { id: REGISTRATION_CANCEL_BUTTON_ID, title: REGISTRATION_CANCEL_BUTTON_TEXT },
+  ]);
+}
 
 export function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
   const dni = (event.text ?? "").trim();
@@ -64,26 +74,26 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
   }
 
   next.state = "cita_registration_wait";
+  const introText =
+    checks === 1
+      ? "Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos."
+      : "Qué raro, seguimos sin encontrar tu registro — esta ya es la segunda vez. Si aún no te registraste, hazlo en MINSADIGITAL; este será tu último intento antes de cerrar el proceso.";
   return buildResult(next, [
-    sendCtaUrl(
-      "Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos.",
-      MINSADIGITAL_BUTTON_TEXT,
-      MINSADIGITAL_REGISTRATION_URL,
-    ),
-    sendButtons("Cuando termines, toca el botón para que volvamos a intentarlo.", [
-      { id: REGISTRATION_RETRY_BUTTON_ID, title: REGISTRATION_RETRY_BUTTON_TEXT },
-    ]),
+    sendCtaUrl(introText, MINSADIGITAL_BUTTON_TEXT, MINSADIGITAL_REGISTRATION_URL),
+    registrationRetryButtons("Cuando termines, toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo."),
   ]);
 }
 
 export function handleRegistrationWait(session: Session, event: InboundEvent): HandlerResult {
-  const isRetry = readReply(event) === REGISTRATION_RETRY_BUTTON_ID;
+  const replyId = readReply(event);
+
+  if (replyId === REGISTRATION_CANCEL_BUTTON_ID) return askToLeave(session, "local");
+
+  const isRetry = replyId === REGISTRATION_RETRY_BUTTON_ID;
 
   if (!isRetry) {
     return buildResult(session, [
-      sendButtons("Toca el botón para que volvamos a intentarlo.", [
-        { id: REGISTRATION_RETRY_BUTTON_ID, title: REGISTRATION_RETRY_BUTTON_TEXT },
-      ]),
+      registrationRetryButtons("Toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo."),
     ]);
   }
 

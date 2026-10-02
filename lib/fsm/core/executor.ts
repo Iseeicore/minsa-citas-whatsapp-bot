@@ -2,6 +2,7 @@ import { resolveDistritoAiDetailed } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi, type FechaAiOption } from "@/lib/fsm/parsing/ai/fecha";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
+import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/reclamo-foto-intent";
 import { configuredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
@@ -114,6 +115,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case "resolve_distrito_ai":
     case "resolve_fecha_ai":
     case "extract_selection_hints":
+    case "analyze_reclamo_foto_intent":
       return configuredLlmProvider();
     default:
       return "minsa";
@@ -202,6 +204,9 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
 
     case "list_references":
       return listReferences(String(effect.payload.numeroDocumento ?? ""), String(effect.payload.tipoDocumento ?? ""));
+
+    case "analyze_reclamo_foto_intent":
+      return analyzeFotoIntent(String(effect.payload.text ?? ""));
 
     default:
       throw new Error(`resolveQuery: unhandled query kind "${effect.kind}"`);

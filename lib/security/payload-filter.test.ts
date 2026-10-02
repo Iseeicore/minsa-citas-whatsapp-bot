@@ -89,6 +89,20 @@ describe("repetition: spam made of one character or a pile of emojis", () => {
   });
 });
 
+describe("noise: mostly digits/symbols, no real language, no reply sent (it gets dropped, not replied to)", () => {
+  it("rejects the real spam example (digits and symbols, no letters at all)", () => {
+    expect(text('12213133123}231333!#"!#!#!"$#"!#%$%"$#')).toMatchObject({ kind: "rejected", reason: "noise" });
+  });
+
+  it.each([
+    ["a short DNI-sized number, too short to hard-block", "12345678"],
+    ["a few odd symbols mixed with real words", "hola!! quiero una cita??"],
+    ["a normal short greeting", "hola"],
+  ])("does not reject %s", (_name, body) => {
+    expect(text(body).kind).toBe("ok");
+  });
+});
+
 describe("media without a session", () => {
   it.each(["image", "sticker", "audio", "video", "document"])("a %s as the first message gets the text-only reminder", (type) => {
     expect(checkFirstMessagePayload({ type })).toMatchObject({ kind: "rejected", reason: "media", reply: MEDIA_WITHOUT_SESSION_TEXT });

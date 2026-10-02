@@ -1,10 +1,14 @@
 import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { isValidDniFormat } from "@/lib/fsm/parsing/identity-format";
 import { namesMatch } from "@/lib/fsm/parsing/text";
+import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 
 const MAX_DESCRIPCION_LENGTH = 1000;
+const FOTO_REQUEST_TEXT =
+  "Para poder registrar tu reclamo necesitamos una imagen. ¿Deseas compartírnosla? Envíala ahora, o cuéntanos si prefieres continuar sin foto (también podés escribir OMITIR).";
+const FOTO_INTENT_MAX_LENGTH = 200;
 
 export function handleReclamo(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -23,6 +27,8 @@ export function handleReclamo(session: Session, event: HandleEvent): HandlerResu
       return handleAwaitingDescripcion(session, event as InboundEvent);
     case "reclamo_awaiting_foto":
       return handleAwaitingFoto(session, event as InboundEvent);
+    case "reclamo_foto_intent_pending":
+      return handleFotoIntentPending(session, event as QueryResultEvent);
     case "reclamo_submit_pending":
       return handleSubmitPending(session, event as QueryResultEvent);
     default:
@@ -136,26 +142,16 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
   const next = cloneSession(session);
   next.slots.queja = queja;
   next.state = "reclamo_awaiting_foto";
-  return buildResult(next, [
-    sendText("¿Deseas adjuntar una foto como evidencia? Envíala ahora, o escribe OMITIR."),
-  ]);
+  return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
 }
 
-function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
-  const omitted = (event.text ?? "").trim().toUpperCase() === "OMITIR";
-
-  if (!event.mediaDataUri && !omitted) {
-    return buildResult(session, [
-      sendText("Envía una foto como evidencia, o escribe OMITIR para continuar sin foto."),
-    ]);
-  }
-
+function submitReclamo(session: Session, from: string, mediaDataUri?: string): HandlerResult {
   const next = cloneSession(session);
-  if (event.mediaDataUri) next.slots.mediaDataUri = event.mediaDataUri;
+  if (mediaDataUri) next.slots.mediaDataUri = mediaDataUri;
   next.state = "reclamo_submit_pending";
 
   const submission = {
-    celular: event.from,
+    celular: from,
     dni: (next.slots.dni as string | undefined) ?? null,
     nombreCompleto: (next.slots.nombreCompleto as string | undefined) ?? null,
     queja: next.slots.queja,
@@ -166,6 +162,35 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
     sendText("Enviando tu reclamo…"),
     query("quejas_submit", { submission }),
   ]);
+}
+
+function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
+  if (event.mediaDataUri) return submitReclamo(session, event.from, event.mediaDataUri);
+
+  const typed = (event.text ?? "").trim();
+  if (!typed) return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
+
+  if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === "NO") {
+    return submitReclamo(session, event.from);
+  }
+
+  if (resolveConfirmation(typed) === "YES" || typed.length > FOTO_INTENT_MAX_LENGTH) {
+    return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
+  }
+
+  const next = cloneSession(session);
+  next.state = "reclamo_foto_intent_pending";
+  return buildResult(next, [query("analyze_reclamo_foto_intent", { text: typed })]);
+}
+
+function handleFotoIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { quiereOmitir?: boolean };
+  const next = cloneSession(session);
+  next.state = "reclamo_awaiting_foto";
+
+  if (result.quiereOmitir === true) return submitReclamo(next, event.from);
+
+  return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
 }
 
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {

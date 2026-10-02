@@ -1,4 +1,7 @@
+import { looksLikeNoise } from "@/lib/security/text-noise";
+
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
+export const NOISE_MIN_LENGTH = 12;
 
 export const FIRST_MESSAGE_REJECTION_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.";
@@ -10,7 +13,7 @@ export type PayloadVerdict =
   | { kind: "ok" }
   | { kind: "rejected"; reason: RejectReason; reply: string };
 
-export type RejectReason = "too_long" | "link" | "media" | "repeat";
+export type RejectReason = "too_long" | "link" | "media" | "repeat" | "noise";
 
 const MEDIA_TYPES = new Set(["image", "sticker", "audio", "video", "document"]);
 
@@ -46,6 +49,10 @@ export function checkFirstMessagePayload(message: { type: string; text?: string 
 
   if (isRepetitionSpam(body)) {
     return { kind: "rejected", reason: "repeat", reply: FIRST_MESSAGE_REJECTION_TEXT };
+  }
+
+  if (body.length >= NOISE_MIN_LENGTH && looksLikeNoise(body)) {
+    return { kind: "rejected", reason: "noise", reply: "" };
   }
 
   return { kind: "ok" };

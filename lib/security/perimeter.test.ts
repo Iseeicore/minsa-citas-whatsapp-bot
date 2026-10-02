@@ -67,6 +67,23 @@ describe("screenInbound: the cheapest checks run first and touch no database", (
   });
 });
 
+describe("screenInbound: noise (spam with no real language) is dropped in silence, not replied to", () => {
+  it("a message that is mostly digits/symbols with no session is dropped, no reply, no echo", async () => {
+    const { deps, hasSession } = setup({ hasSession: false });
+
+    const decision = await screenInbound(text('12213133123}231333!#"!#!#!"$#"!#%$%"$#'), deps);
+
+    expect(decision).toEqual({ action: "drop", reason: "noise" });
+    expect(hasSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("the same noise WITH an open session goes through untouched", async () => {
+    const { deps } = setup({ hasSession: true });
+
+    expect(await screenInbound(text('12213133123}231333!#"!#!#!"$#"!#%$%"$#'), deps)).toEqual({ action: "continue" });
+  });
+});
+
 describe("screenInbound: payload rules apply only to a first message", () => {
   it.each([
     ["a very long first message", text("a".repeat(301)), FIRST_MESSAGE_REJECTION_TEXT, "too_long"],

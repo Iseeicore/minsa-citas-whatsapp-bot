@@ -24,6 +24,29 @@ describe("buildWelcomeEffect", () => {
     });
   });
 
+  it("whatsapp: si MINSA_DIGITAL_APP_URL falta (config rota en el deploy), muestra el menú en vez de romper el botón", () => {
+    delete process.env.MINSA_DIGITAL_APP_URL;
+
+    const effect = buildWelcomeEffect("whatsapp");
+
+    expect(effect).toEqual({
+      kind: "send_interactive_list",
+      text: "¿En qué podemos ayudarte hoy?",
+      rows: [
+        { id: "agendar_cita", title: "Agendar una cita médica" },
+        { id: "registrar_reclamo", title: "Registrar un reclamo" },
+      ],
+    });
+  });
+
+  it("whatsapp: si MINSA_DIGITAL_APP_URL está vacía, también cae al menú (no solo cuando falta)", () => {
+    process.env.MINSA_DIGITAL_APP_URL = "";
+
+    const effect = buildWelcomeEffect("whatsapp");
+
+    expect(effect.kind).toBe("send_interactive_list");
+  });
+
   it("web: plain text, no button, with the widget-specific copy", () => {
     const effect = buildWelcomeEffect("web");
 

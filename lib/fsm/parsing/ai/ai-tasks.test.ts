@@ -3,6 +3,7 @@ import { resolveDistritoAi, resolveDistritoAiDetailed } from "@/lib/fsm/parsing/
 import { resolveFechaAi } from "@/lib/fsm/parsing/ai/fecha";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
+import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/reclamo-foto-intent";
 import type { LlmClient, LlmJsonOutcome, LlmJsonRequest } from "@/lib/fsm/parsing/ai/llm";
 
 function modelSays(json: unknown): Response {
@@ -167,6 +168,22 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
       especialidad: "Pediatría",
       establecimiento: undefined,
     });
+  });
+
+  it("analyzeFotoIntent reads quiere_omitir from the injected client", async () => {
+    const { client } = clientAnswering({ ok: true, json: { quiere_omitir: true, detalle: "dijo que no" } });
+    await expect(analyzeFotoIntent("no deseo", client)).resolves.toEqual({ quiereOmitir: true });
+  });
+
+  it("analyzeFotoIntent falls back to false (sigue esperando la foto) cuando el cliente falla", async () => {
+    const { client } = clientAnswering({ ok: false, failure: "no_text" });
+    await expect(analyzeFotoIntent("no deseo", client)).resolves.toEqual({ quiereOmitir: false });
+  });
+
+  it("analyzeFotoIntent sin cliente (modo fake): reconoce frases de rechazo fijas", async () => {
+    await expect(analyzeFotoIntent("no deseo", null)).resolves.toEqual({ quiereOmitir: true });
+    await expect(analyzeFotoIntent("prefiero no", null)).resolves.toEqual({ quiereOmitir: true });
+    await expect(analyzeFotoIntent("hola, buen día", null)).resolves.toEqual({ quiereOmitir: false });
   });
 });
 

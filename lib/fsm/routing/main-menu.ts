@@ -21,7 +21,10 @@ import {
   OOS_MESSAGES,
   type OosCategory,
 } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { looksLikeNoise } from "@/lib/security/text-noise";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+
+const NOISE_HINT_SLOT = "citaMenuNoiseHint";
 
 export const CONTINUE_BUTTON_ID = "continuar_menu";
 
@@ -116,7 +119,11 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (cita) return withNote(beginCitaFromIntent(preservedSlots, cita), { kind: "shortcut", detail: { name: "cita_request" } });
 
     if (event.text) {
-      const next: Session = { state: "main_menu_intent_pending", slots: preservedSlots, counters: {} };
+      const next: Session = {
+        state: "main_menu_intent_pending",
+        slots: looksLikeNoise(event.text) ? { ...preservedSlots, [NOISE_HINT_SLOT]: true } : preservedSlots,
+        counters: {},
+      };
       return buildResult(next, [
         sendText("Un momento, estamos revisando tu mensaje…"),
         query("analyze_main_menu_intent", { text: event.text }),
@@ -150,6 +157,14 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
       ]),
       { kind: "out_of_scope", detail: { reason: "ai_request" } },
     );
+  }
+
+  if (session.slots[NOISE_HINT_SLOT] === true) {
+    return withNote(buildResult({ state: "main_menu", slots: omitSlot(session.slots, NOISE_HINT_SLOT), counters: {} }, []), {
+      kind: "menu_fallback",
+      level: "warn",
+      detail: { reason: "intent_unclear_noise_silenced" },
+    });
   }
 
   return withNote(enterMainMenu(session.slots), {

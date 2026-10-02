@@ -97,10 +97,17 @@ describe("first contact: a clear request for a cita", () => {
   });
 
   it("does not treat something that is not a new cita as one: it gets the menu", () => {
-    for (const message of ["quiero cancelar mi cita de odontología en Miraflores", "quiero una cita"]) {
+    for (const message of ["quiero cancelar mi cita de odontología en Miraflores"]) {
       const result = handleFirstContact(message, "whatsapp");
       expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
       expect(result.session.state).toBe("main_menu");
+    }
+  });
+
+  it("recognizes plain cita intent even without a specialty or district (no AI needed)", () => {
+    for (const message of ["quiero una cita", "Si claro deseo una cita"]) {
+      const result = handleFirstContact(message, "whatsapp");
+      expect(result.session.state).toBe("cita_awaiting_dni");
     }
   });
 

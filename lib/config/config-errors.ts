@@ -11,6 +11,10 @@ export const CONFIG_ERRORS = {
     severity: "warn",
     message: "Una entrada de SANDBOX_ALLOWED_ORIGINS no es una URL (falta https://) y se ignora.",
   },
+  MINSA_DIGITAL_APP_URL_MISSING: {
+    severity: "warn",
+    message: "MINSA_DIGITAL_APP_URL no está configurada: el botón «Continuar mi cita» del mensaje de bienvenida de WhatsApp se reemplaza por el menú principal.",
+  },
 } as const satisfies Record<string, { severity: "warn" | "error"; message: string }>;
 
 export type ConfigErrorCode = keyof typeof CONFIG_ERRORS;
@@ -29,6 +33,8 @@ export function checkConfig(env: Env = process.env): ConfigIssue[] {
   if (provider && !isRegisteredLlmProvider(provider)) issues.push(issue("AI_PROVIDER_UNKNOWN", provider));
 
   for (const entry of parseAllowedOrigins(env.SANDBOX_ALLOWED_ORIGINS).invalid) issues.push(issue("SANDBOX_ORIGIN_INVALID", entry));
+
+  if (!env.MINSA_DIGITAL_APP_URL) issues.push(issue("MINSA_DIGITAL_APP_URL_MISSING", env.MINSA_DIGITAL_APP_URL ?? ""));
 
   return issues;
 }
