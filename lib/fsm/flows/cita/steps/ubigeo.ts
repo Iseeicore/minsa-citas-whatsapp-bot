@@ -113,6 +113,10 @@ export function handleAwaitingDepartamento(session: Session, event: InboundEvent
     return buildResult(session, [sendText("Indícanos el departamento.")]);
   }
 
+  if (isGibberishPlaceText(departamento)) {
+    return buildResult(session, [sendText("No pudimos leer eso. Indícanos el departamento.")]);
+  }
+
   const next = cloneSession(session);
   next.slots.citaDepartamento = departamento;
   next.state = "cita_awaiting_provincia";
@@ -125,6 +129,10 @@ export function handleAwaitingProvincia(session: Session, event: InboundEvent): 
     return buildResult(session, [sendText("Indícanos la provincia.")]);
   }
 
+  if (isGibberishPlaceText(provincia)) {
+    return buildResult(session, [sendText("No pudimos leer eso. ¿En qué provincia?")]);
+  }
+
   const next = cloneSession(session);
   next.slots.citaProvincia = provincia;
   next.state = "cita_awaiting_distrito";
@@ -135,6 +143,10 @@ export function handleAwaitingDistrito(session: Session, event: InboundEvent): H
   const distrito = (event.text ?? "").trim();
   if (!distrito) {
     return buildResult(session, [sendText("Indícanos el distrito.")]);
+  }
+
+  if (isGibberishPlaceText(distrito)) {
+    return buildResult(session, [sendText("No pudimos leer eso. Indícanos el distrito.")]);
   }
 
   const next = cloneSession(session);

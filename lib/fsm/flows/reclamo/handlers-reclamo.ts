@@ -2,6 +2,7 @@ import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { isValidDniFormat } from "@/lib/fsm/parsing/identity-format";
 import { namesMatch } from "@/lib/fsm/parsing/text";
 import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
+import { looksLikeNoise } from "@/lib/security/text-noise";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 
@@ -9,6 +10,7 @@ const MAX_DESCRIPCION_LENGTH = 1000;
 const FOTO_REQUEST_TEXT =
   "Para poder registrar tu reclamo necesitamos una imagen. ¿Deseas compartírnosla? Envíala ahora, o cuéntanos si prefieres continuar sin foto (también podés escribir OMITIR).";
 const FOTO_INTENT_MAX_LENGTH = 200;
+const UNREADABLE_TEXT_RETRY = "No pudimos leer eso — ¿podrías escribirlo de nuevo?";
 
 export function handleReclamo(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -68,6 +70,10 @@ function handleAwaitingNombreLibre(session: Session, event: InboundEvent): Handl
 
   if (!nombre) {
     return buildResult(session, [sendText("Por favor, ingresa tu nombre.")]);
+  }
+
+  if (looksLikeNoise(nombre)) {
+    return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
   }
 
   const next = cloneSession(session);
@@ -139,6 +145,10 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
     ]);
   }
 
+  if (looksLikeNoise(queja)) {
+    return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
+  }
+
   const next = cloneSession(session);
   next.slots.queja = queja;
   next.state = "reclamo_awaiting_foto";
@@ -174,7 +184,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
     return submitReclamo(session, event.from);
   }
 
-  if (resolveConfirmation(typed) === "YES" || typed.length > FOTO_INTENT_MAX_LENGTH) {
+  if (resolveConfirmation(typed) === "YES" || typed.length > FOTO_INTENT_MAX_LENGTH || looksLikeNoise(typed)) {
     return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
   }
 

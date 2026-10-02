@@ -74,6 +74,33 @@ describe("reclamo_awaiting_nombre_libre: toma el nombre tal cual, sin RENIEC", (
     expect(result.session.state).toBe("reclamo_awaiting_nombre_libre");
     expect((sent(result)[0] as { text: string }).text).toBe("Por favor, ingresa tu nombre.");
   });
+
+  it("puro ruido (sin letras reales) no se guarda como nombre, pide reintentar", () => {
+    const result = handleReclamo(awaitingNombre(), text("🔥🔥💀💀#!@"));
+
+    expect(result.session.state).toBe("reclamo_awaiting_nombre_libre");
+    expect(result.session.slots.nombreCompleto).toBeUndefined();
+    expect((sent(result)[0] as { text: string }).text).toBe("No pudimos leer eso — ¿podrías escribirlo de nuevo?");
+  });
+});
+
+describe("reclamo_awaiting_descripcion: ruido no se registra como queja", () => {
+  const awaitingDescripcion = (): Session => ({ state: "reclamo_awaiting_descripcion", slots: {}, counters: {} });
+
+  it("puro ruido no se guarda como queja, pide reintentar", () => {
+    const result = handleReclamo(awaitingDescripcion(), text("888(((#!#!#@@@"));
+
+    expect(result.session.state).toBe("reclamo_awaiting_descripcion");
+    expect(result.session.slots.queja).toBeUndefined();
+    expect((sent(result)[0] as { text: string }).text).toBe("No pudimos leer eso — ¿podrías escribirlo de nuevo?");
+  });
+
+  it("una queja real con palabras sigue funcionando igual que hoy", () => {
+    const result = handleReclamo(awaitingDescripcion(), text("El consultorio estaba cerrado."));
+
+    expect(result.session.state).toBe("reclamo_awaiting_foto");
+    expect(result.session.slots.queja).toBe("El consultorio estaba cerrado.");
+  });
 });
 
 describe("el submit final nunca lleva DNI por este camino (lo mockea quejas.ts automáticamente)", () => {
@@ -155,6 +182,13 @@ describe("reclamo_awaiting_foto: ya no exige la palabra exacta OMITIR", () => {
 
   it("texto demasiado largo no se manda a analizar, solo se repite el pedido", () => {
     const result = handleReclamo(awaitingFoto(), text("a".repeat(500)));
+
+    expect(result.session.state).toBe("reclamo_awaiting_foto");
+    expect(queries(result)).toHaveLength(0);
+  });
+
+  it("puro ruido no se manda a la IA, solo se repite el pedido", () => {
+    const result = handleReclamo(awaitingFoto(), text("#!@#!@😵‍💫😵‍💫"));
 
     expect(result.session.state).toBe("reclamo_awaiting_foto");
     expect(queries(result)).toHaveLength(0);
