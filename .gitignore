@@ -31,6 +31,8 @@ yarn-error.log*
 
 .vercel
 
+docker-compose.override.yml
+
 *.tsbuildinfo
 next-env.d.ts
 
