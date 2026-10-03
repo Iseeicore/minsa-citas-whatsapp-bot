@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { handleMainMenuIntentPending, OUT_OF_SCOPE_REQUEST_TEXT } from "@/lib/fsm/routing/main-menu";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import type { QueryResultEvent, Session } from "@/lib/fsm/core/types";
-
-const pending: Session = { state: "main_menu_intent_pending", slots: { initialMessageText: "dame código" }, counters: {} };
+import { SlotKey } from "@/lib/enums/slot-key";
+
+const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "dame código" }, counters: {} };
 
 const aiSays = (result: unknown): QueryResultEvent => ({
   from: "wa-1",

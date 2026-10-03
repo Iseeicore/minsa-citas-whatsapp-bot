@@ -7,10 +7,11 @@ import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 export const DUPLICATE_CHOICE_STATE = "cita_awaiting_duplicate_choice";
 export const DUPLICATE_CLOSED_STATE = "cita_booking_duplicate";
-export const DISCARDED_ESPECIALIDADES_SLOT = "citaEspecialidadesDescartadas";
 
 const OTHER_ESPECIALIDAD_ID = DuplicateButtonId.OTHER_ESPECIALIDAD;
 const EXIT_ID = DuplicateButtonId.EXIT;
@@ -20,16 +21,16 @@ const OTHER_ESPECIALIDAD_ANSWERS = new Set(["OTRA ESPECIALIDAD", "OTRA", "CAMBIA
 const EXIT_ANSWERS = new Set(["SALIR", "NO SALIR"]);
 
 const BOOKING_BOUND_SLOTS = [
-  "citaEspecialidadId",
-  "citaEspecialidadNombre",
-  "citaCodEess",
-  "citaFecha",
-  "citaHoraConfirmId",
-  "citaHoraConfirmOnly",
-  "citaHorasDia",
-  "citaFechasDescartadas",
-  "citaOffered",
-  "citaOfferedNames",
+  SlotKey.CITA_ESPECIALIDAD_ID,
+  SlotKey.CITA_ESPECIALIDAD_NOMBRE,
+  SlotKey.CITA_COD_EESS,
+  SlotKey.CITA_FECHA,
+  SlotKey.CITA_HORA_CONFIRM_ID,
+  SlotKey.CITA_HORA_CONFIRM_ONLY,
+  SlotKey.CITA_HORAS_DIA,
+  SlotKey.CITA_FECHAS_DESCARTADAS,
+  SlotKey.CITA_OFFERED,
+  SlotKey.CITA_OFFERED_NAMES,
 ];
 
 const questionButtons = (text: string) =>
@@ -39,21 +40,21 @@ const questionButtons = (text: string) =>
   ]);
 
 export function discardedEspecialidades(slots: Session["slots"]): string[] {
-  return String(slots[DISCARDED_ESPECIALIDADES_SLOT] ?? "")
+  return String(slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS] ?? "")
     .split(",")
     .filter(Boolean);
 }
 
 export function offerOtherEspecialidad(session: Session): HandlerResult {
   const next = cloneSession(session);
-  const taken = String(next.slots.citaEspecialidadId ?? "");
-  const name = next.slots.citaEspecialidadNombre ? `*${String(next.slots.citaEspecialidadNombre)}*` : "esa especialidad";
+  const taken = String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? "");
+  const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : "esa especialidad";
 
   const discarded = taken ? [...new Set([...discardedEspecialidades(next.slots), taken])] : discardedEspecialidades(next.slots);
-  if (discarded.length > 0) next.slots[DISCARDED_ESPECIALIDADES_SLOT] = discarded.join(",");
+  if (discarded.length > 0) next.slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS] = discarded.join(",");
   for (const slot of BOOKING_BOUND_SLOTS) delete next.slots[slot];
-  delete next.counters.citaHoraPage;
-  delete next.counters.citaBookingFailures;
+  delete next.counters[CounterKey.CITA_HORA_PAGE];
+  delete next.counters[CounterKey.CITA_BOOKING_FAILURES];
   next.state = DUPLICATE_CHOICE_STATE;
 
   return withNote(buildResult(next, [questionButtons(`Ya tienes una cita activa para ${name}. ${QUESTION}`)]), {
@@ -77,7 +78,7 @@ export function handleDuplicateChoice(session: Session, event: InboundEvent): Ha
     next.state = "cita_especialidad_pending";
     return buildResult(next, [
       sendText("Buscando otras especialidades disponibles…"),
-      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots.citaUbigeo ?? "") }),
+      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? "") }),
     ]);
   }
 

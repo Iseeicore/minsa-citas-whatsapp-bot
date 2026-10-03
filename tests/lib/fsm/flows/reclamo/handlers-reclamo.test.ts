@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handleReclamo } from "@/lib/fsm/flows/reclamo/handlers-reclamo";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "51999999999";
 
@@ -45,7 +46,7 @@ describe("reclamo_identity_choice: nombre o anónimo (reemplaza la pregunta por 
     const result = handleReclamo(identityChoice(), tap("reclamo_anonimo"));
 
     expect(result.session.state).toBe("reclamo_awaiting_descripcion");
-    expect(result.session.slots.nombreCompleto).toBeUndefined();
+    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBeUndefined();
   });
 
   it("ya no reconoce los ids viejos (reclamo_con_dni/reclamo_sin_dni): la rama DNI queda dormida", () => {
@@ -64,7 +65,7 @@ describe("reclamo_awaiting_nombre_libre: toma el nombre tal cual, sin RENIEC", (
     const result = handleReclamo(awaitingNombre(), text("Juan Pérez"));
 
     expect(result.session.state).toBe("reclamo_awaiting_descripcion");
-    expect(result.session.slots.nombreCompleto).toBe("Juan Pérez");
+    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("Juan Pérez");
     expect(queries(result)).toHaveLength(0);
   });
 
@@ -79,7 +80,7 @@ describe("reclamo_awaiting_nombre_libre: toma el nombre tal cual, sin RENIEC", (
     const result = handleReclamo(awaitingNombre(), text("🔥🔥💀💀#!@"));
 
     expect(result.session.state).toBe("reclamo_awaiting_nombre_libre");
-    expect(result.session.slots.nombreCompleto).toBeUndefined();
+    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBeUndefined();
     expect((sent(result)[0] as { text: string }).text).toBe("No pudimos leer eso — ¿podrías escribirlo de nuevo?");
   });
 });
@@ -91,7 +92,7 @@ describe("reclamo_awaiting_descripcion: ruido no se registra como queja", () => 
     const result = handleReclamo(awaitingDescripcion(), text("888(((#!#!#@@@"));
 
     expect(result.session.state).toBe("reclamo_awaiting_descripcion");
-    expect(result.session.slots.queja).toBeUndefined();
+    expect(result.session.slots[SlotKey.QUEJA]).toBeUndefined();
     expect((sent(result)[0] as { text: string }).text).toBe("No pudimos leer eso — ¿podrías escribirlo de nuevo?");
   });
 
@@ -99,7 +100,7 @@ describe("reclamo_awaiting_descripcion: ruido no se registra como queja", () => 
     const result = handleReclamo(awaitingDescripcion(), text("El consultorio estaba cerrado."));
 
     expect(result.session.state).toBe("reclamo_awaiting_foto");
-    expect(result.session.slots.queja).toBe("El consultorio estaba cerrado.");
+    expect(result.session.slots[SlotKey.QUEJA]).toBe("El consultorio estaba cerrado.");
   });
 });
 

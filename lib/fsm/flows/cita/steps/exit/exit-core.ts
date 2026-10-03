@@ -1,6 +1,7 @@
 import { buildResult, cloneSession, sendButtons, withNote } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 /**
  * Separado de exit.ts a propósito: exit.ts importa handleRegistrationWait de identity.ts, así que
@@ -8,7 +9,6 @@ import { ExitButtonId } from "@/lib/enums/exit-button-id";
  * de identity.ts, así que ambos lo pueden usar.
  */
 export const EXIT_CONFIRM_STATE = "cita_awaiting_exit_confirm";
-export const RESUME_SLOT = "citaExitResumeState";
 
 export const EXIT_YES_ID = ExitButtonId.YES;
 export const EXIT_NO_ID = ExitButtonId.NO;
@@ -23,7 +23,7 @@ export const exitButtons = () =>
 
 export function askToLeave(session: Session, source: "local" | "ai" | "reauth"): HandlerResult {
   const next = cloneSession(session);
-  next.slots[RESUME_SLOT] = session.state;
+  next.slots[SlotKey.CITA_EXIT_RESUME_STATE] = session.state;
   next.state = EXIT_CONFIRM_STATE;
   return withNote(buildResult(next, [exitButtons()]), {
     kind: "exit_intent",

@@ -26,10 +26,10 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/l
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export const CONTINUE_BUTTON_ID = "continuar_menu";
 
-export const AWAITING_CONTINUE_SLOT = "awaitingContinue";
 
 const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
   "1": MenuChoice.AGENDAR_CITA,
@@ -47,14 +47,14 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
     counters: { ...session.counters },
   };
 
-  if (next.slots.menuChoice === MenuChoice.REGISTRAR_RECLAMO) {
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_RECLAMO) {
     next.state = "reclamo_identity_choice";
     return buildResult(next, [
       sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
     ]);
   }
 
-  if (next.slots.menuChoice === MenuChoice.AGENDAR_CITA) {
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) {
     next.state = "cita_awaiting_dni";
     return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
   }
@@ -63,8 +63,8 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
 }
 
 export function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
-  const awaitingContinue = pending.slots[AWAITING_CONTINUE_SLOT] === true;
-  const session: Session = { ...pending, slots: omitSlot(pending.slots, AWAITING_CONTINUE_SLOT) };
+  const awaitingContinue = pending.slots[SlotKey.AWAITING_CONTINUE] === true;
+  const session: Session = { ...pending, slots: omitSlot(pending.slots, SlotKey.AWAITING_CONTINUE) };
 
   if (awaitingContinue && event.text && isContinueReply(event.text)) {
     return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "continue_after_warning" } });
@@ -82,7 +82,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
       return withNote(
         handleAwaitingFlowStart({
           state: "awaiting_flow_start",
-          slots: { ...session.slots, menuChoice: MenuChoice.REGISTRAR_RECLAMO },
+          slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.REGISTRAR_RECLAMO },
           counters: {},
         }),
         { kind: "shortcut", detail: { name: "reclamo_keyword" } },
@@ -101,7 +101,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
       return withNote(
         handleAwaitingFlowStart({
           state: "awaiting_flow_start",
-          slots: { ...session.slots, menuChoice: MenuChoice.AGENDAR_CITA },
+          slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.AGENDAR_CITA },
           counters: {},
         }),
         { kind: "shortcut", detail: { name: "cita_keyword" } },
@@ -112,8 +112,8 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (outOfScope) return outOfScopeReply(outOfScope, session.slots);
 
     const preservedSlots =
-      !session.slots.initialMessageText && event.text
-        ? { initialMessageText: event.text }
+      !session.slots[SlotKey.INITIAL_MESSAGE_TEXT] && event.text
+        ? { [SlotKey.INITIAL_MESSAGE_TEXT]: event.text }
         : session.slots;
 
     const cita = event.text ? detectCitaRequest(event.text) : undefined;
@@ -140,7 +140,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
 
   const next: Session = {
     state: "awaiting_flow_start",
-    slots: { ...session.slots, menuChoice: replyId },
+    slots: { ...session.slots, [SlotKey.MENU_CHOICE]: replyId },
     counters: {},
   };
   return handleAwaitingFlowStart(next);

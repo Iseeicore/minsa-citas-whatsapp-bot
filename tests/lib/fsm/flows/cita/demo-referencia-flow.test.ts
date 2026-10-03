@@ -10,6 +10,7 @@ import {
   demoReferenciasForDni,
 } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-demo";
 
@@ -34,7 +35,7 @@ const listRows = (result: HandlerResult) => {
 function verifyPending(dni: string, extraSlots: Session["slots"] = {}): Session {
   return {
     state: "cita_verify_pending",
-    slots: { citaDniPending: dni, citaTwofaId: "fake-twofa", ...extraSlots },
+    slots: { [SlotKey.CITA_DNI_PENDING]: dni, [SlotKey.CITA_TWOFA_ID]: "fake-twofa", ...extraSlots },
     counters: {},
   };
 }
@@ -43,8 +44,8 @@ describe("verificación con los DNI demo (10308523 y 47391441)", () => {
   it("10308523 ignora cualquier pista de ubicación y ve solo sus 3 referencias", () => {
     const result = handleVerifyPending(
       verifyPending(DEMO_REFERENCIA_DNI, {
-        citaDistritoHintText: "Miraflores",
-        initialMessageText: "quiero una cita en Miraflores",
+        [SlotKey.CITA_DISTRITO_HINT_TEXT]: "Miraflores",
+        [SlotKey.INITIAL_MESSAGE_TEXT]: "quiero una cita en Miraflores",
       }),
       verifyResult({ status: "verified", token: "token-demo" }),
     );
@@ -75,9 +76,9 @@ function referenciaOffered(dni: string): Session {
   return {
     state: "cita_demo_awaiting_referencia_select",
     slots: {
-      citaBearer: "token-demo",
-      citaDni: dni,
-      citaOffered: serializeOffered({
+      [SlotKey.CITA_BEARER]: "token-demo",
+      [SlotKey.CITA_DNI]: dni,
+      [SlotKey.CITA_OFFERED]: serializeOffered({
         text: "Un momento, estamos analizando tu cuenta… cuenta con referencias:",
         rows: demoReferenciasForDni(dni).map((r) => ({
           id: r.codigo,
@@ -95,7 +96,7 @@ describe("selección de referencia demo", () => {
     const result = handle(referenciaOffered(DEMO_REFERENCIA_DNI), tap("00006206"));
 
     expect(result.session.state).toBe("cita_demo_awaiting_hora_select");
-    expect(result.session.slots.citaDemoReferenciaCodigo).toBe("00006206");
+    expect(result.session.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO]).toBe("00006206");
     expect(texts(result).join(" ")).toContain("Odontología");
     expect(texts(result).join(" ")).toContain("¿A qué hora deseas tu cita?");
     expect(listRows(result)).toHaveLength(Math.min(WHATSAPP_LIST_MAX_ROWS, demoHoraSlots().length));
@@ -105,7 +106,7 @@ describe("selección de referencia demo", () => {
   it("por texto: reconoce el hospital escrito igual que por tap", () => {
     const result = handle(referenciaOffered(DEMO_REFERENCIA_DNI), text("HOSPITAL NACIONAL DOS DE MAYO"));
     expect(result.session.state).toBe("cita_demo_awaiting_hora_select");
-    expect(result.session.slots.citaDemoReferenciaCodigo).toBe("00006206");
+    expect(result.session.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO]).toBe("00006206");
   });
 });
 
@@ -113,10 +114,10 @@ function horaOffered(codigo: string): Session {
   return {
     state: "cita_demo_awaiting_hora_select",
     slots: {
-      citaBearer: "token-demo",
-      citaDni: DEMO_REFERENCIA_DNI,
-      citaDemoReferenciaCodigo: codigo,
-      citaOffered: serializeOffered({
+      [SlotKey.CITA_BEARER]: "token-demo",
+      [SlotKey.CITA_DNI]: DEMO_REFERENCIA_DNI,
+      [SlotKey.CITA_DEMO_REFERENCIA_CODIGO]: codigo,
+      [SlotKey.CITA_OFFERED]: serializeOffered({
         text: "Horarios disponibles:",
         rows: demoHoraSlots().map((s) => ({ id: `${s.start}|${s.end}`, title: `${s.start} - ${s.end}` })),
       }),
@@ -130,7 +131,7 @@ describe("selección de hora demo", () => {
     const result = handle(horaOffered("00006206"), tap("09:40|10:05"));
 
     expect(result.session.state).toBe("cita_demo_awaiting_confirm");
-    expect(result.session.slots.citaDemoHoraId).toBe("09:40|10:05");
+    expect(result.session.slots[SlotKey.CITA_DEMO_HORA_ID]).toBe("09:40|10:05");
     expect(sent(result).some((e) => e.kind === "send_buttons")).toBe(true);
   });
 });
@@ -138,7 +139,7 @@ describe("selección de hora demo", () => {
 function confirmPending(dni: string, codigo: string, horaId: string): Session {
   return {
     state: "cita_demo_awaiting_confirm",
-    slots: { citaBearer: "token-demo", citaDni: dni, citaDemoReferenciaCodigo: codigo, citaDemoHoraId: horaId },
+    slots: { [SlotKey.CITA_BEARER]: "token-demo", [SlotKey.CITA_DNI]: dni, [SlotKey.CITA_DEMO_REFERENCIA_CODIGO]: codigo, [SlotKey.CITA_DEMO_HORA_ID]: horaId },
     counters: {},
   };
 }
@@ -167,7 +168,7 @@ describe("confirmación de la cita demo", () => {
     const result = handle(confirmPending(DEMO_REFERENCIA_DNI, "00006206", "09:40|10:05"), text("mmm no se"));
 
     expect(result.session.state).toBe("cita_demo_awaiting_confirm");
-    expect(result.session.slots.citaDemoHoraId).toBe("09:40|10:05");
+    expect(result.session.slots[SlotKey.CITA_DEMO_HORA_ID]).toBe("09:40|10:05");
     expect(sent(result).some((e) => e.kind === "send_buttons")).toBe(true);
   });
 });

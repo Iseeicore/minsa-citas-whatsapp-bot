@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-choice";
 
@@ -21,13 +22,13 @@ function horaSession(visible: OfferedList["rows"], day: string): Session {
   return {
     state: "cita_awaiting_hora_select",
     slots: {
-      citaBearer: "token",
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
-      citaDni: "12345678",
-      citaOffered: serializeOffered({ text: "Selecciona el horario:", rows: visible }),
-      citaHorasDia: day,
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_OFFERED]: serializeOffered({ text: "Selecciona el horario:", rows: visible }),
+      [SlotKey.CITA_HORAS_DIA]: day,
     },
     counters: {},
   };
@@ -42,7 +43,7 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
 
     expect(result.session.state).toBe("cita_awaiting_hora_choice");
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.slots.citaHoraChoiceA).toBe("07:00|07:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CHOICE_A]).toBe("07:00|07:30");
     expect(sent(result)[0]).toMatchObject({
       kind: "send_buttons",
       buttons: [
@@ -59,8 +60,8 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
 
     expect(result.session.state).toBe("cita_booking_pending");
     expect(queries(result)[0]).toMatchObject({ kind: "book_appointment", payload: { horaInicio: "07:00" } });
-    expect(result.session.slots.citaHoraChoiceA).toBeUndefined();
-    expect(result.session.slots.citaHoraChoiceB).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CHOICE_A]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CHOICE_B]).toBeUndefined();
   });
 
   it("'1:00 PM' books the 13:00 slot", () => {
@@ -95,8 +96,8 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
     const result = handle(asked.session, text("1 pm"));
 
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("13:00|13:30");
-    expect(result.session.slots.citaHoraChoiceA).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("13:00|13:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CHOICE_A]).toBeUndefined();
   });
 
   it("an unknown button just asks again and never books", () => {
@@ -125,7 +126,7 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
     const result = handle(horaSession(rows, day), text("8"));
 
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("08:00|08:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("08:00|08:30");
   });
 
   it("an out-of-range number with several slots in that hour lists them", () => {
@@ -141,14 +142,14 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
     const result = handle(horaSession(PAGE, DAY), text("13"));
 
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("13:00|13:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("13:00|13:30");
   });
 
   it("an explicit position ('la 1', 'el primero') is never ambiguous", () => {
     for (const phrase of ["la 1", "el primero", "opción 1"]) {
       const result = handle(horaSession(PAGE, DAY), text(phrase));
       expect(result.session.state, phrase).toBe("cita_awaiting_hora_confirm");
-      expect(result.session.slots.citaHoraConfirmId, phrase).toBe("07:00|07:30");
+      expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID], phrase).toBe("07:00|07:30");
     }
   });
 });

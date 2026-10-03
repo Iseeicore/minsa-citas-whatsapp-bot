@@ -1,17 +1,17 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { buildResult, cloneSession, query, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
-import { OFFERED_SLOT } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
 import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 export const OTHER_FECHA_STATE = "cita_awaiting_other_fecha";
 export const DECLINED_CLOSED_STATE = "cita_declined_closed";
-export const DISCARDED_DATES_SLOT = "citaFechasDescartadas";
 
 const OTHER_FECHA_YES_ID = OtherFechaButtonId.YES;
 const OTHER_FECHA_NO_ID = OtherFechaButtonId.NO;
@@ -24,7 +24,7 @@ const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el 
 const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
 const QUESTION = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 
-const DATE_BOUND_SLOTS = ["citaFecha", "citaHoraConfirmId", "citaHoraConfirmOnly", "citaHorasDia", OFFERED_SLOT];
+const DATE_BOUND_SLOTS = [SlotKey.CITA_FECHA, SlotKey.CITA_HORA_CONFIRM_ID, SlotKey.CITA_HORA_CONFIRM_ONLY, SlotKey.CITA_HORAS_DIA, SlotKey.CITA_OFFERED];
 
 const CHANGE_DATE_ANSWERS = new Set([
   "CAMBIAR",
@@ -45,7 +45,7 @@ const questionButtons = (text: string) =>
   ]);
 
 export function discardedDates(slots: Session["slots"]): string[] {
-  return String(slots[DISCARDED_DATES_SLOT] ?? "")
+  return String(slots[SlotKey.CITA_FECHAS_DESCARTADAS] ?? "")
     .split(",")
     .filter(Boolean);
 }
@@ -77,12 +77,12 @@ export function offerOtherFecha(
 ): HandlerResult {
   const next = cloneSession(session);
 
-  const declined = String(next.slots.citaFecha ?? "");
+  const declined = String(next.slots[SlotKey.CITA_FECHA] ?? "");
   const discarded = declined ? [...new Set([...discardedDates(next.slots), declined])] : discardedDates(next.slots);
-  if (discarded.length > 0) next.slots[DISCARDED_DATES_SLOT] = discarded.join(",");
+  if (discarded.length > 0) next.slots[SlotKey.CITA_FECHAS_DESCARTADAS] = discarded.join(",");
 
   for (const slot of DATE_BOUND_SLOTS) delete next.slots[slot];
-  delete next.counters.citaHoraPage;
+  delete next.counters[CounterKey.CITA_HORA_PAGE];
   next.state = OTHER_FECHA_STATE;
 
   return withNote(buildResult(next, [questionButtons(`${INTRO_BY_REASON[reason]}\n${QUESTION}`)]), {
@@ -107,8 +107,8 @@ export function handleOtherFecha(session: Session, event: InboundEvent): Handler
     return buildResult(next, [
       sendText("Buscando otras fechas disponibles…"),
       query(QueryKind.LIST_FECHAS, {
-        codEess: String(next.slots.citaCodEess ?? ""),
-        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
+        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
       }),
     ]);
   }

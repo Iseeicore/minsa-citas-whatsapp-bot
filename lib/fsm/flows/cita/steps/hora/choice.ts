@@ -8,16 +8,17 @@ import { HORA_CHOICE_A_ID, HORA_CHOICE_B_ID, BUTTON_TITLE_MAX } from "@/lib/fsm/
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
-  const slotA = String(session.slots.citaHoraChoiceA ?? "");
-  const slotsB = unpackHoraSlots(session.slots.citaHoraChoiceB);
+  const slotA = String(session.slots[SlotKey.CITA_HORA_CHOICE_A] ?? "");
+  const slotsB = unpackHoraSlots(session.slots[SlotKey.CITA_HORA_CHOICE_B]);
   const offered = readOffered(session.slots);
 
   const back = () => {
     const restored = cloneSession(session);
-    delete restored.slots.citaHoraChoiceA;
-    delete restored.slots.citaHoraChoiceB;
+    delete restored.slots[SlotKey.CITA_HORA_CHOICE_A];
+    delete restored.slots[SlotKey.CITA_HORA_CHOICE_B];
     restored.state = "cita_awaiting_hora_select";
     return restored;
   };

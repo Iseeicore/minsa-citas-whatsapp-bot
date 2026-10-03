@@ -9,6 +9,7 @@ import { resolveDistritoCandidates } from "@/lib/fsm/flows/cita/parsing/distrito
 import { handleUbigeoPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const LIMA_ONLY_TEXT =
   "Por el momento el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.";
@@ -16,7 +17,7 @@ const LIMA_ONLY_TEXT =
 const sent = (result: HandlerResult): SendEffect[] =>
   result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
-const session = (state: string): Session => ({ state, slots: { citaBearer: "token" }, counters: {} });
+const session = (state: string): Session => ({ state, slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} });
 
 const arequipa = { departamento: "AREQUIPA", provincia: "AREQUIPA", distrito: "MIRAFLORES" };
 const lima = { departamento: "LIMA", provincia: "LIMA", distrito: "MIRAFLORES" };
@@ -85,7 +86,7 @@ describe("the district search honors the configured scope", () => {
     const result = resolveDistritoCandidates(session("cita_distrito_ai_pending"), [arequipa, lima]);
 
     expect(result.session.state).toBe("cita_ubigeo_pending");
-    expect(result.session.slots.citaDepartamento).toBe("LIMA");
+    expect(result.session.slots[SlotKey.CITA_DEPARTAMENTO]).toBe("LIMA");
   });
 
   it("the first-message district hint follows the same scope", () => {
@@ -113,6 +114,6 @@ describe("the manual mode (departamento → provincia → distrito) also honors 
     const result = handleUbigeoPending(session("cita_ubigeo_pending"), ubigeoFound([arequipaUbigeo]));
 
     expect(result.session.state).toBe("cita_especialidad_pending");
-    expect(result.session.slots.citaUbigeo).toBe("040114");
+    expect(result.session.slots[SlotKey.CITA_UBIGEO]).toBe("040114");
   });
 });

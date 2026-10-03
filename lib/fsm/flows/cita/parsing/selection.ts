@@ -1,7 +1,6 @@
 import {
   buildResult,
   cloneSession,
-  LIST_PAGE_COUNTER,
   LIST_PAGE_NEXT_ID,
   LIST_PAGE_PREV_ID,
   offerPagedList,
@@ -11,8 +10,6 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import {
   matchSelection,
-  OFFERED_NAMES_SLOT,
-  OFFERED_SLOT,
   readOffered,
   type OfferedList,
   type OfferedRow,
@@ -20,15 +17,17 @@ import {
 } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 export const SELECTION_REJECTION = "Selecciona una opción de la lista.";
 export const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona una:";
 
 export function clearOffered(session: Session): Session {
   const next = cloneSession(session);
-  delete next.slots[OFFERED_SLOT];
-  delete next.slots[OFFERED_NAMES_SLOT];
-  delete next.counters[LIST_PAGE_COUNTER];
+  delete next.slots[SlotKey.CITA_OFFERED];
+  delete next.slots[SlotKey.CITA_OFFERED_NAMES];
+  delete next.counters[CounterKey.CITA_LIST_PAGE];
   return next;
 }
 
@@ -38,7 +37,7 @@ export function reshowOffered(
   message: string = SELECTION_REJECTION,
 ): HandlerResult {
   const effects: SendEffect[] = [sendText(message)];
-  if (offered) effects.push(...pageEffects(offered.text, offered.rows, session.counters[LIST_PAGE_COUNTER] ?? 0));
+  if (offered) effects.push(...pageEffects(offered.text, offered.rows, session.counters[CounterKey.CITA_LIST_PAGE] ?? 0));
   return buildResult(session, effects);
 }
 
@@ -49,11 +48,11 @@ function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
 
 function turnPage(session: Session, offered: OfferedList, id: string): HandlerResult {
   const next = cloneSession(session);
-  const current = next.counters[LIST_PAGE_COUNTER] ?? 0;
+  const current = next.counters[CounterKey.CITA_LIST_PAGE] ?? 0;
   const target = id === LIST_PAGE_NEXT_ID ? current + 1 : current - 1;
   const page = Math.min(Math.max(target, 0), pageCount(offered.rows.length) - 1);
-  if (page === 0) delete next.counters[LIST_PAGE_COUNTER];
-  else next.counters[LIST_PAGE_COUNTER] = page;
+  if (page === 0) delete next.counters[CounterKey.CITA_LIST_PAGE];
+  else next.counters[CounterKey.CITA_LIST_PAGE] = page;
   return buildResult(next, pageEffects(offered.text, offered.rows, page));
 }
 

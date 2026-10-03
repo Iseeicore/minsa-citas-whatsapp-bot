@@ -8,6 +8,8 @@ import type { HandlerResult, ListRow, QueryResultEvent, Session } from "@/lib/fs
 import { type HoraResultItem, formatHoraRange, HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID, orderHorasFromNow } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { askHoraConfirmation } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
@@ -40,7 +42,7 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
   const result = resolveHoraCandidates(session, pageItems);
   if (pageItems.length <= 1) return result;
 
-  result.session.slots.citaHorasDia = packHoraSlots(
+  result.session.slots[SlotKey.CITA_HORAS_DIA] = packHoraSlots(
     orderedItems.map((item) => ({ start: item.horaInicio, end: item.horaFin, cupos: item.cantidadCupos })),
   );
 
@@ -48,7 +50,7 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
   const hasPrev = page > 0;
   if (!hasNext && !hasPrev) return result;
 
-  result.session.counters.citaHoraPage = page;
+  result.session.counters[CounterKey.CITA_HORA_PAGE] = page;
   const navButtons = [
     ...(hasPrev ? [{ id: HORA_PAGE_PREV_ID, title: "Horarios anteriores" }] : []),
     ...(hasNext ? [{ id: HORA_PAGE_NEXT_ID, title: "Ver más horarios" }] : []),
@@ -74,7 +76,7 @@ export function handleHoraPending(session: Session, event: QueryResultEvent): Ha
     ]);
   }
 
-  const ordered = orderHorasFromNow(String(session.slots.citaFecha ?? ""), result.items ?? []);
+  const ordered = orderHorasFromNow(String(session.slots[SlotKey.CITA_FECHA] ?? ""), result.items ?? []);
   return buildHoraPage(session, ordered, 0);
 }
 
@@ -95,7 +97,7 @@ export function handleHoraPagePending(session: Session, event: QueryResultEvent)
     ]);
   }
 
-  const ordered = orderHorasFromNow(String(session.slots.citaFecha ?? ""), result.items ?? []);
-  const page = session.counters.citaHoraPage ?? 0;
+  const ordered = orderHorasFromNow(String(session.slots[SlotKey.CITA_FECHA] ?? ""), result.items ?? []);
+  const page = session.counters[CounterKey.CITA_HORA_PAGE] ?? 0;
   return buildHoraPage(session, ordered, page);
 }

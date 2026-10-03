@@ -7,6 +7,8 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { detectCitaRequest, isContinueReply } from "@/lib/fsm/routing/menu-shortcuts";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-main-menu";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -24,9 +26,9 @@ describe("an explicit cita request typed in the main menu", () => {
 
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(normalizeText(String(result.session.slots.citaDistritoHintText))).toBe("SAN JUAN DE LURIGANCHO");
-    expect(normalizeText(String(result.session.slots.citaEspecialidadHintText))).toBe("MEDICINA GENERAL");
-    expect(result.session.slots.initialMessageText).toBe(FIELD_TEST_MESSAGE);
+    expect(normalizeText(String(result.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]))).toBe("SAN JUAN DE LURIGANCHO");
+    expect(normalizeText(String(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]))).toBe("MEDICINA GENERAL");
+    expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBe(FIELD_TEST_MESSAGE);
     expect(sent(result)[0]).toMatchObject({ kind: "send_text", text: expect.stringContaining("ingresa tu número de documento") });
   });
 
@@ -70,12 +72,12 @@ describe("when the AI is used and answers cita", () => {
   });
 
   it("moves to the Cita flow with what the model extracted", () => {
-    const pending: Session = { state: "main_menu_intent_pending", slots: { initialMessageText: "x" }, counters: {} };
+    const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "x" }, counters: {} };
     const result = handle(pending, aiAnswer({ intent: "cita", especialidad: "Medicina General", distrito: "San Juan de Lurigancho" }));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(result.session.slots.citaEspecialidadHintText).toBe("Medicina General");
-    expect(result.session.slots.citaDistritoHintText).toBe("San Juan de Lurigancho");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Medicina General");
+    expect(result.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("San Juan de Lurigancho");
   });
 });
 
@@ -183,7 +185,7 @@ describe("«Continuar» after the institutional warning", () => {
       expect(queries(result)).toHaveLength(0);
       expect(result.session.state).toBe("main_menu");
       expect(sent(result)[0].kind).toBe("send_interactive_list");
-      expect(result.session.slots.awaitingContinue).toBeUndefined();
+      expect(result.session.slots[SlotKey.AWAITING_CONTINUE]).toBeUndefined();
     },
   );
 
@@ -207,7 +209,7 @@ describe("«Continuar» after the institutional warning", () => {
 
   it("is consumed by the next message", () => {
     const afterOther = handle(warned(), text("mmm no se"));
-    expect(afterOther.session.slots.awaitingContinue).toBeUndefined();
+    expect(afterOther.session.slots[SlotKey.AWAITING_CONTINUE]).toBeUndefined();
 
     const later = handle(afterOther.session.state === "main_menu" ? afterOther.session : menu(), text("ya dale"));
     expect(later.session.state).toBe("main_menu_intent_pending");
@@ -224,15 +226,15 @@ describe("«Continuar» after the institutional warning", () => {
 describe("a flow that ended in an error", () => {
   const rejected = (): Session => ({
     state: "cita_booking_pending",
-    slots: { citaBearer: "stale-token", citaDni: "12345678", citaCodEess: "1", citaEspecialidadId: "02", citaFecha: "31/12/2099" },
-    counters: { citaBookingFailures: 2 },
+    slots: { [SlotKey.CITA_BEARER]: "stale-token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02", [SlotKey.CITA_FECHA]: "31/12/2099" },
+    counters: { [CounterKey.CITA_BOOKING_FAILURES]: 2 },
   });
 
   it("does not keep MINSA's token once it is closed", () => {
     const closed = handle(rejected(), { from: FROM, type: "query_result", queryKind: "book_appointment", result: { status: "error" } });
 
     expect(closed.session.state).toBe("cita_booking_rejected");
-    expect(closed.session.slots.citaBearer).toBeUndefined();
+    expect(closed.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
   });
 
   it("starts the next message from a clean main_menu", () => {

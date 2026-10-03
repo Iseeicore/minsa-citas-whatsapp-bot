@@ -11,12 +11,12 @@ import {
   EXIT_NO_ID,
   EXIT_YES_ID,
   exitButtons,
-  RESUME_SLOT,
 } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import { REAUTH_STATE, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export { askToLeave, EXIT_CONFIRM_STATE };
 export const ABANDONED_STATE = "cita_abandoned";
@@ -56,8 +56,8 @@ export function offerExitIfRequested(session: Session, event: HandleEvent): Hand
 
 function resume(session: Session, event: InboundEvent): HandlerResult {
   const restored = cloneSession(session);
-  restored.state = String(session.slots[RESUME_SLOT] ?? "cita_awaiting_dni");
-  delete restored.slots[RESUME_SLOT];
+  restored.state = String(session.slots[SlotKey.CITA_EXIT_RESUME_STATE] ?? "cita_awaiting_dni");
+  delete restored.slots[SlotKey.CITA_EXIT_RESUME_STATE];
 
   if (restored.state === REAUTH_STATE) return buildResult(restored, [reauthPrompt()]);
   const prompt = TEXT_PROMPTS[restored.state];
@@ -82,7 +82,7 @@ export function handleExitConfirm(session: Session, event: InboundEvent): Handle
   if (tapped === EXIT_YES_ID || answer === Confirmation.YES) {
     return withNote(buildResult({ state: ABANDONED_STATE, slots: {}, counters: {} }, [sendText(GOODBYE)]), {
       kind: "cita_closed",
-      detail: { reason: "abandoned", from: String(session.slots[RESUME_SLOT] ?? "") },
+      detail: { reason: "abandoned", from: String(session.slots[SlotKey.CITA_EXIT_RESUME_STATE] ?? "") },
     });
   }
 

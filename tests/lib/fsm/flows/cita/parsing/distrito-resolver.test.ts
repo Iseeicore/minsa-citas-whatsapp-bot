@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { looksLikePlaceName, resolveDistritoCandidates, resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 beforeEach(() => {
   vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
@@ -13,7 +14,7 @@ afterEach(() => {
 
 const session = (extra: Session["slots"] = {}): Session => ({
   state: "cita_awaiting_distrito_ai",
-  slots: { citaBearer: "token", ...extra },
+  slots: { [SlotKey.CITA_BEARER]: "token", ...extra },
   counters: {},
 });
 
@@ -39,7 +40,7 @@ describe("resolveDistritoText: local dataset first, then gibberish, then AI", ()
     const result = resolveDistritoText(session(), "San Borja", undefined);
 
     expect(result.session.state).toBe("cita_ubigeo_pending");
-    expect(result.session.slots.citaDistrito).toBe("SAN BORJA");
+    expect(result.session.slots[SlotKey.CITA_DISTRITO]).toBe("SAN BORJA");
     expect(queries(result)).toEqual([
       { kind: "search_ubigeo", payload: { departamento: "LIMA", provincia: "LIMA", distrito: "SAN BORJA" } },
     ]);
@@ -56,7 +57,7 @@ describe("resolveDistritoText: local dataset first, then gibberish, then AI", ()
     const result = resolveDistritoText(session(), "Quiero una cita en San Borja", undefined);
 
     expect(result.session.state).toBe("cita_ubigeo_pending");
-    expect(result.session.slots.citaDistrito).toBe("SAN BORJA");
+    expect(result.session.slots[SlotKey.CITA_DISTRITO]).toBe("SAN BORJA");
   });
 
   it("gibberish never reaches the AI query", () => {
@@ -100,7 +101,7 @@ describe("resolveDistritoCandidates: what to do with N candidates (shared by the
     ]);
 
     expect(result.session.state).toBe("cita_ubigeo_pending");
-    expect(result.session.slots.citaDepartamento).toBe("LIMA");
+    expect(result.session.slots[SlotKey.CITA_DEPARTAMENTO]).toBe("LIMA");
   });
 
   it("more than one Lima candidate asks to disambiguate", () => {

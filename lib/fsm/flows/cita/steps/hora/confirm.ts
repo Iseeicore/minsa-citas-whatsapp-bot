@@ -10,6 +10,8 @@ import { ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/f
 import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const NEGATION_WORD = /\b(?:no|ni|nunca|tampoco)\b/;
 
@@ -23,20 +25,20 @@ function acceptsPendingHora(typed: string, slotId: string): boolean {
 }
 
 export function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const slotId = String(session.slots.citaHoraConfirmId ?? "");
+  const slotId = String(session.slots[SlotKey.CITA_HORA_CONFIRM_ID] ?? "");
   const [start] = slotId.split("|");
-  const only = session.slots.citaHoraConfirmOnly === ONLY_HORA_FLAG;
+  const only = session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY] === ONLY_HORA_FLAG;
   const offered = readOffered(session.slots);
 
   const backToList = () => {
     const restored = cloneSession(session);
-    delete restored.slots.citaHoraConfirmId;
-    delete restored.slots.citaHoraConfirmOnly;
+    delete restored.slots[SlotKey.CITA_HORA_CONFIRM_ID];
+    delete restored.slots[SlotKey.CITA_HORA_CONFIRM_ONLY];
 
     if (only) {
-      const page = restored.counters.citaHoraPage ?? 0;
+      const page = restored.counters[CounterKey.CITA_HORA_PAGE] ?? 0;
       if (!offered || page < 1) return offerOtherFecha(restored);
-      restored.counters.citaHoraPage = page - 1;
+      restored.counters[CounterKey.CITA_HORA_PAGE] = page - 1;
     }
 
     restored.state = "cita_awaiting_hora_select";

@@ -7,7 +7,8 @@ import {
   serializeOffered,
   type OfferedRow,
 } from "@/lib/fsm/parsing/selection/selection-matchers";
-
+import { SlotKey } from "@/lib/enums/slot-key";
+
 const ubigeoRows: OfferedRow[] = [
   { id: "150101", title: "San Juan de Lurigancho", description: "Lima — Lima" },
   { id: "150102", title: "San Juan de Miraflores", description: "Lima — Lima" },
@@ -126,12 +127,12 @@ describe("matchAllTokens — strict hint matching", () => {
 describe("offered options slot", () => {
   it("round-trips through a JSON string slot", () => {
     const offered = { text: "Selecciona la especialidad:", rows: especialidadRows };
-    expect(readOffered({ citaOffered: serializeOffered(offered) })).toEqual(offered);
+    expect(readOffered({ [SlotKey.CITA_OFFERED]: serializeOffered(offered) })).toEqual(offered);
   });
 
   it("returns undefined for a missing or corrupt slot", () => {
     expect(readOffered({})).toBeUndefined();
-    expect(readOffered({ citaOffered: "not json" })).toBeUndefined();
-    expect(readOffered({ citaOffered: JSON.stringify({ text: 1 }) })).toBeUndefined();
+    expect(readOffered({ [SlotKey.CITA_OFFERED]: "not json" })).toBeUndefined();
+    expect(readOffered({ [SlotKey.CITA_OFFERED]: JSON.stringify({ text: 1 }) })).toBeUndefined();
   });
 });

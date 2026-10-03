@@ -9,6 +9,7 @@ import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const MAX_DESCRIPCION_LENGTH = 1000;
 const FOTO_REQUEST_TEXT =
@@ -78,7 +79,7 @@ function handleAwaitingNombreLibre(session: Session, event: InboundEvent): Handl
   }
 
   const next = cloneSession(session);
-  next.slots.nombreCompleto = nombre;
+  next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
   next.state = "reclamo_awaiting_descripcion";
   return buildResult(next, [sendText(askDescripcion())]);
 }
@@ -93,7 +94,7 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
   }
 
   const next = cloneSession(session);
-  next.slots.dni = dni;
+  next.slots[SlotKey.DNI] = dni;
   next.state = "reclamo_awaiting_nombre";
   return buildResult(next, [sendText("Ingresa tu nombre (como aparece en tu documento de identidad).")]);
 }
@@ -106,11 +107,11 @@ function handleAwaitingNombre(session: Session, event: InboundEvent): HandlerRes
   }
 
   const next = cloneSession(session);
-  next.slots.nombre = nombre;
+  next.slots[SlotKey.NOMBRE] = nombre;
   next.state = "reclamo_reniec_pending";
   return buildResult(next, [
     sendText("Verificando tu identidad en RENIEC…"),
-    query(QueryKind.RENIEC_LOOKUP, { dni: next.slots.dni }),
+    query(QueryKind.RENIEC_LOOKUP, { dni: next.slots[SlotKey.DNI] }),
   ]);
 }
 
@@ -121,10 +122,10 @@ function handleReniecPending(session: Session, event: QueryResultEvent): Handler
   const matched =
     result.status === "found" &&
     typeof result.nombreCompleto === "string" &&
-    namesMatch(String(next.slots.nombre ?? ""), result.nombreCompleto);
+    namesMatch(String(next.slots[SlotKey.NOMBRE] ?? ""), result.nombreCompleto);
 
   if (matched) {
-    next.slots.nombreCompleto = result.nombreCompleto as string;
+    next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto as string;
     next.state = "reclamo_awaiting_descripcion";
     return buildResult(next, [sendText(askDescripcion())]);
   }
@@ -151,22 +152,22 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
   }
 
   const next = cloneSession(session);
-  next.slots.queja = queja;
+  next.slots[SlotKey.QUEJA] = queja;
   next.state = "reclamo_awaiting_foto";
   return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
 }
 
 function submitReclamo(session: Session, from: string, mediaDataUri?: string): HandlerResult {
   const next = cloneSession(session);
-  if (mediaDataUri) next.slots.mediaDataUri = mediaDataUri;
+  if (mediaDataUri) next.slots[SlotKey.MEDIA_DATA_URI] = mediaDataUri;
   next.state = "reclamo_submit_pending";
 
   const submission = {
     celular: from,
-    dni: (next.slots.dni as string | undefined) ?? null,
-    nombreCompleto: (next.slots.nombreCompleto as string | undefined) ?? null,
-    queja: next.slots.queja,
-    mediaDataUri: (next.slots.mediaDataUri as string | undefined) ?? undefined,
+    dni: next.slots[SlotKey.DNI] ?? null,
+    nombreCompleto: next.slots[SlotKey.NOMBRE_COMPLETO] ?? null,
+    queja: next.slots[SlotKey.QUEJA],
+    mediaDataUri: next.slots[SlotKey.MEDIA_DATA_URI] ?? undefined,
   };
 
   return buildResult(next, [

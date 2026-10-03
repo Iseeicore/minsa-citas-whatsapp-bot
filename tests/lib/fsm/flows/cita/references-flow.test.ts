@@ -3,7 +3,8 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
-
+import { SlotKey } from "@/lib/enums/slot-key";
+
 const FROM = "sandbox-references";
 
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -38,7 +39,7 @@ const REFERENCIA: ReferenciaItem = {
 function referencesPending(): Session {
   return {
     state: "cita_references_pending",
-    slots: { citaBearer: "token", citaDni: "12345678" },
+    slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" },
     counters: {},
   };
 }
@@ -69,9 +70,9 @@ function referencesOffered(): Session {
   return {
     state: "cita_awaiting_references_offer",
     slots: {
-      citaBearer: "token",
-      citaDni: "12345678",
-      citaReferenciasData: JSON.stringify([REFERENCIA]),
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCIA]),
     },
     counters: {},
   };
@@ -108,10 +109,10 @@ function referenciaOffered(): Session {
   return {
     state: "cita_awaiting_referencia_select",
     slots: {
-      citaBearer: "token",
-      citaDni: "12345678",
-      citaReferenciasData: JSON.stringify([REFERENCIA]),
-      citaOffered: JSON.stringify({
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCIA]),
+      [SlotKey.CITA_OFFERED]: JSON.stringify({
         text: "Estas son tus referencias:",
         rows: [{ id: "1364486", title: "HOSPITAL MARIA AUXILIADORA", description: "24/07/2024 11:03 pm · SAN FERNANDO" }],
       }),
@@ -139,10 +140,10 @@ function referenciaConfirmPending(): Session {
   return {
     state: "cita_awaiting_referencia_confirm",
     slots: {
-      citaBearer: "token",
-      citaDni: "12345678",
-      citaReferenciasData: JSON.stringify([REFERENCIA]),
-      citaReferenciaSeleccionadaId: "1364486",
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCIA]),
+      [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: "1364486",
     },
     counters: {},
   };

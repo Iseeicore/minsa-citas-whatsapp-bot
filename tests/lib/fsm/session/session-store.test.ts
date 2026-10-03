@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const db = vi.hoisted(() => ({
   findUnique: vi.fn(async (): Promise<unknown> => null),
@@ -18,7 +19,7 @@ import {
   saveSession,
   sessionRowExists,
 } from "@/lib/fsm/session/session-store";
-
+
 let counter = 0;
 const freshId = () => `51900${++counter}`;
 
@@ -36,7 +37,7 @@ describe("session store with DATABASE_ENABLED=false", () => {
     const id = freshId();
     await expect(sessionRowExists(id)).resolves.toBe(false);
 
-    await saveSession(id, { state: "cita_awaiting_dni", slots: { citaDistrito: "ATE" }, counters: {} });
+    await saveSession(id, { state: "cita_awaiting_dni", slots: { [SlotKey.CITA_DISTRITO]: "ATE" }, counters: {} });
 
     await expect(sessionRowExists(id)).resolves.toBe(true);
     await expect(findSession(id)).resolves.toEqual({ state: "cita_awaiting_dni" });

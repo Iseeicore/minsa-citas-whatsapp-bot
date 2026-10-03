@@ -5,6 +5,7 @@ import type { Session } from "@/lib/fsm/core/types";
 import type { CustomMatch } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow, rowToSlot, formatHourGroup } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;
 export const HORA_CHOICE_A_ID = HoraChoiceButtonId.A;
@@ -46,8 +47,8 @@ function resolveBareHoraNumber(
 
   const next = cloneSession(session);
   next.state = "cita_awaiting_hora_choice";
-  next.slots.citaHoraChoiceA = positionRow.id;
-  next.slots.citaHoraChoiceB = packHoraSlots(otherHourSlots);
+  next.slots[SlotKey.CITA_HORA_CHOICE_A] = positionRow.id;
+  next.slots[SlotKey.CITA_HORA_CHOICE_B] = packHoraSlots(otherHourSlots);
 
   return {
     kind: "handled",
@@ -62,7 +63,7 @@ function resolveBareHoraNumber(
 
 
 export function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): CustomMatch | undefined {
-  const day = unpackHoraSlots(session.slots.citaHorasDia);
+  const day = unpackHoraSlots(session.slots[SlotKey.CITA_HORAS_DIA]);
   const slots = day.length > 0 ? day : rows.flatMap((row) => rowToSlot(row) ?? []);
 
   if (BARE_SMALL_NUMBER.test(typed.trim())) {

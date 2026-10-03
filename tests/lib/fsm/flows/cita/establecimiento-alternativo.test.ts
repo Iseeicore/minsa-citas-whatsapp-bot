@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { AUTHENTICATED_WAITING_STATES, resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-establecimiento";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -24,13 +25,13 @@ const FAREWELL =
 const fechaPending = (extra: Session["slots"] = {}): Session => ({
   state: "cita_fecha_pending",
   slots: {
-    citaBearer: "token",
-    citaUbigeo: "150132",
-    citaDistrito: "SAN JUAN DE LURIGANCHO",
-    citaEspecialidadId: "02",
-    citaEspecialidadNombre: "Odontología",
-    citaCodEess: "0000123",
-    citaEstablecimientoNombre: "CS SAN BORJA",
+    [SlotKey.CITA_BEARER]: "token",
+    [SlotKey.CITA_UBIGEO]: "150132",
+    [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO",
+    [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+    [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: "Odontología",
+    [SlotKey.CITA_COD_EESS]: "0000123",
+    [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: "CS SAN BORJA",
     ...extra,
   },
   counters: {},
@@ -53,8 +54,8 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     const result = noDates();
 
     expect(result.session.state).toBe("cita_establecimiento_pending");
-    expect(result.session.slots.citaEstablecimientosDescartados).toBe("0000123");
-    expect(result.session.slots.citaCodEess).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS]).toBe("0000123");
+    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
     expect(queries(result)).toEqual([
       { kind: "list_establecimientos", payload: { especialidadId: "02", ubigeo: "150132" } },
     ]);
@@ -88,7 +89,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     const result = handle(asked.session, answer);
 
     expect(result.session.state).toBe("cita_fecha_pending");
-    expect(result.session.slots.citaCodEess).toBe("0000456");
+    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("0000456");
     expect(sent(result)).toEqual([{ kind: "send_text", text: "Buscando fechas disponibles…" }]);
     expect(queries(result)).toEqual([{ kind: "list_fechas", payload: { codEess: "0000456", especialidadId: "02" } }]);
   });
@@ -142,11 +143,11 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     const searching = handle(asked.session, text("sí"));
     const second = noDates(searching.session);
 
-    expect(second.session.slots.citaEstablecimientosDescartados).toBe("0000123,0000456");
+    expect(second.session.slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS]).toBe("0000123,0000456");
   });
 
   it("without a stored name it still asks, without inventing one", () => {
-    const result = establecimientos(noDates(fechaPending({ citaEstablecimientoNombre: undefined as unknown as string })).session, [
+    const result = establecimientos(noDates(fechaPending({ [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: undefined as unknown as string })).session, [
       { renipressCode: "0000456", establishmentName: "HOSPITAL LURIGANCHO" },
     ]);
 
@@ -156,7 +157,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
   });
 
   it("dates declined earlier still close with the apology, as before", () => {
-    const result = noDates(fechaPending({ citaFechasDescartadas: "31/12/2099" }));
+    const result = noDates(fechaPending({ [SlotKey.CITA_FECHAS_DESCARTADAS]: "31/12/2099" }));
 
     expect(result.session.state).toBe("cita_declined_closed");
   });
@@ -168,7 +169,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
 
   it("remembers the name of an establecimiento picked from the list", () => {
     const listed = establecimientos(
-      { state: "cita_establecimiento_pending", slots: { citaBearer: "token", citaEspecialidadId: "02", citaUbigeo: "150132" }, counters: {} },
+      { state: "cita_establecimiento_pending", slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_ESPECIALIDAD_ID]: "02", [SlotKey.CITA_UBIGEO]: "150132" }, counters: {} },
       [
         { renipressCode: "0000456", establishmentName: "HOSPITAL LURIGANCHO" },
         { renipressCode: "0000789", establishmentName: "CS SANTA ANITA" },
@@ -176,6 +177,6 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     );
     const picked = handle(listed.session, { from: FROM, type: "list", listId: "0000789" });
 
-    expect(picked.session.slots.citaEstablecimientoNombre).toBe("CS Santa Anita");
+    expect(picked.session.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]).toBe("CS Santa Anita");
   });
 });

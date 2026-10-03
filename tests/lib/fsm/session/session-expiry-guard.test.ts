@@ -9,6 +9,8 @@ import {
   TOKEN_EXPIRY_MARGIN_MS,
 } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-expiry";
 const NOW = Date.parse("2026-09-19T15:00:00Z");
@@ -29,12 +31,12 @@ function authenticated(
   return {
     state,
     slots: {
-      citaBearer: options.bearer ?? "opaque-token",
-      citaDni: "12345678",
-      citaUbigeo: "150101",
-      citaEspecialidadId: "02",
-      citaCodEess: "0000123",
-      citaFecha: "31/12/2099",
+      [SlotKey.CITA_BEARER]: options.bearer ?? "opaque-token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_UBIGEO]: "150101",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_FECHA]: "31/12/2099",
       ...options.slots,
     },
     counters: options.counters ?? {},
@@ -107,7 +109,7 @@ describe("detectSessionExpiry", () => {
 
   it("does nothing when there is no bearer to protect", () => {
     const session = authenticated("cita_awaiting_hora_select", { idleMs: minutes(60) });
-    delete session.slots.citaBearer;
+    delete session.slots[SlotKey.CITA_BEARER];
     expect(detectSessionExpiry(session, text("x"), NOW)).toBeNull();
   });
 });
@@ -116,21 +118,21 @@ describe("handle() with an expired session", () => {
   it("intercepts a typed hora after 15 idle minutes: purges the bearer, keeps the DNI, asks to re-verify", () => {
     const session = authenticated("cita_awaiting_hora_select", {
       idleMs: minutes(15),
-      slots: { citaHorasDia: "0800-0830", citaHoraConfirmId: "08:00|08:30", citaOffered: "{}" },
-      counters: { citaHoraPage: 2 },
+      slots: { [SlotKey.CITA_HORAS_DIA]: "0800-0830", [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30", [SlotKey.CITA_OFFERED]: "{}" },
+      counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
     });
 
     const result = handle(session, text("a las 8"), NOW);
 
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_reauth");
-    expect(result.session.slots.citaBearer).toBeUndefined();
-    expect(result.session.slots.citaDni).toBe("12345678");
-    expect(result.session.slots.citaHorasDia).toBeUndefined();
-    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
-    expect(result.session.slots.citaOffered).toBeUndefined();
-    expect(result.session.counters.citaHoraPage).toBeUndefined();
-    expect(result.session.slots.citaResumeState).toBe("cita_hora_pending");
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
+    expect(result.session.slots[SlotKey.CITA_HORAS_DIA]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_OFFERED]).toBeUndefined();
+    expect(result.session.counters[CounterKey.CITA_HORA_PAGE]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_RESUME_STATE]).toBe("cita_hora_pending");
 
     const prompt = sent(result)[0];
     expect(prompt.kind).toBe("send_buttons");
@@ -146,8 +148,8 @@ describe("handle() with an expired session", () => {
 
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_reauth");
-    expect(result.session.slots.citaBearer).toBeUndefined();
-    expect(result.session.slots.citaResumeState).toBe("cita_fecha_pending");
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_RESUME_STATE]).toBe("cita_fecha_pending");
   });
 
   it("lets an interaction within 10 minutes continue normally", () => {
@@ -156,21 +158,21 @@ describe("handle() with an expired session", () => {
     const result = handle(session, text("hola??"), NOW);
 
     expect(result.session.state).not.toBe("cita_awaiting_reauth");
-    expect(result.session.slots.citaBearer).toBe("opaque-token");
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("opaque-token");
   });
 
   it("does not resume anything for the district-gathering states", () => {
     const result = handle(authenticated("cita_awaiting_distrito_ai", { idleMs: minutes(20) }), text("Miraflores"), NOW);
 
     expect(result.session.state).toBe("cita_awaiting_reauth");
-    expect(result.session.slots.citaResumeState).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_RESUME_STATE]).toBeUndefined();
   });
 });
 
 describe("cita_awaiting_reauth", () => {
   const waiting = (): Session => ({
     state: "cita_awaiting_reauth",
-    slots: { citaDni: "12345678", citaResumeState: "cita_hora_pending", citaCodEess: "0000123" },
+    slots: { [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_RESUME_STATE]: "cita_hora_pending", [SlotKey.CITA_COD_EESS]: "0000123" },
     counters: {},
   });
 
@@ -182,8 +184,8 @@ describe("cita_awaiting_reauth", () => {
     const result = handle(waiting(), event, NOW);
 
     expect(result.session.state).toBe("cita_validate_pending");
-    expect(result.session.slots.citaDniPending).toBe("12345678");
-    expect(result.session.slots.citaResumeState).toBe("cita_hora_pending");
+    expect(result.session.slots[SlotKey.CITA_DNI_PENDING]).toBe("12345678");
+    expect(result.session.slots[SlotKey.CITA_RESUME_STATE]).toBe("cita_hora_pending");
     expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "12345678" } }]);
   });
 
@@ -195,7 +197,7 @@ describe("cita_awaiting_reauth", () => {
     const result = handle(waiting(), event, NOW);
 
     expect(result.session.state).toBe("cita_awaiting_exit_confirm");
-    expect(result.session.slots.citaExitResumeState).toBe("cita_awaiting_reauth");
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBe("cita_awaiting_reauth");
     expect(sent(result)[0].kind).toBe("send_buttons");
   });
 
@@ -209,7 +211,7 @@ describe("cita_awaiting_reauth", () => {
 
   it("asks for the DNI when there is none on file", () => {
     const session = waiting();
-    delete session.slots.citaDni;
+    delete session.slots[SlotKey.CITA_DNI];
 
     const result = handle(session, tap("cita_reauth_si"), NOW);
 
@@ -228,7 +230,7 @@ describe("after the citizen agrees to verify again", () => {
 
   it("goes through OTP and resumes at the hora step, with a fresh token and the same choices", () => {
     let step = handle(
-      authenticated("cita_awaiting_hora_confirm", { idleMs: minutes(30), slots: { citaHoraConfirmId: "08:00|08:30" } }),
+      authenticated("cita_awaiting_hora_confirm", { idleMs: minutes(30), slots: { [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30" } }),
       text("si"),
       NOW,
     );
@@ -241,9 +243,9 @@ describe("after the citizen agrees to verify again", () => {
     step = handle(step.session, text("123456"), NOW);
     step = handle(step.session, result("verify_code", { status: "verified", token: "new-token" }), NOW);
 
-    expect(step.session.slots.citaBearer).toBe("new-token");
-    expect(step.session.slots.citaDni).toBe("12345678");
-    expect(step.session.slots.citaResumeState).toBeUndefined();
+    expect(step.session.slots[SlotKey.CITA_BEARER]).toBe("new-token");
+    expect(step.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
+    expect(step.session.slots[SlotKey.CITA_RESUME_STATE]).toBeUndefined();
     expect(step.session.state).toBe("cita_hora_pending");
     expect(queries(step)).toEqual([
       { kind: "list_horas", payload: { codEess: "0000123", especialidadId: "02", fecha: "31/12/2099" } },
@@ -255,7 +257,7 @@ describe("after the citizen agrees to verify again", () => {
     const step = handle(pending, result("list_horas", { status: "unauthorized" }), NOW);
 
     expect(step.session.state).toBe("cita_awaiting_dni");
-    expect(step.session.slots.citaBearer).toBeUndefined();
-    expect(step.session.slots.citaResumeState).toBe("cita_hora_pending");
+    expect(step.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
+    expect(step.session.slots[SlotKey.CITA_RESUME_STATE]).toBe("cita_hora_pending");
   });
 });

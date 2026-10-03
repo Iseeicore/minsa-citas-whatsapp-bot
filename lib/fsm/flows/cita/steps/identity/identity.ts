@@ -19,6 +19,8 @@ import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/identity/r
 import { minsaDigitalAppUrl } from "@/lib/integrations/minsa/wire";
 import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const MAX_REGISTRATION_CHECKS = 3;
 const MAX_OTP_ATTEMPTS = 3;
@@ -43,7 +45,7 @@ export function handleAwaitingDni(session: Session, event: InboundEvent): Handle
   }
 
   const next = cloneSession(session);
-  next.slots.citaDniPending = dni;
+  next.slots[SlotKey.CITA_DNI_PENDING] = dni;
   next.state = "cita_validate_pending";
   return buildResult(next, [
     sendText("Validando tu documento…"),
@@ -56,15 +58,15 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
   const next = cloneSession(session);
 
   if (result.status === "valid" && typeof result.twofaId === "string") {
-    next.slots.citaTwofaId = result.twofaId;
+    next.slots[SlotKey.CITA_TWOFA_ID] = result.twofaId;
     next.state = "cita_awaiting_otp";
     return buildResult(next, [
       sendText("Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos)."),
     ]);
   }
 
-  const checks = (next.counters.citaRegistrationChecks ?? 0) + 1;
-  next.counters.citaRegistrationChecks = checks;
+  const checks = (next.counters[CounterKey.CITA_REGISTRATION_CHECKS] ?? 0) + 1;
+  next.counters[CounterKey.CITA_REGISTRATION_CHECKS] = checks;
 
   if (checks >= MAX_REGISTRATION_CHECKS) {
     next.state = "cita_registration_rejected";
@@ -103,7 +105,7 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   next.state = "cita_validate_pending";
   return buildResult(next, [
     sendText("Validando de nuevo…"),
-    query(QueryKind.VALIDATE_USER, { numeroDocumento: String(next.slots.citaDniPending ?? "") }),
+    query(QueryKind.VALIDATE_USER, { numeroDocumento: String(next.slots[SlotKey.CITA_DNI_PENDING] ?? "") }),
   ]);
 }
 
@@ -118,7 +120,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   next.state = "cita_verify_pending";
   return buildResult(next, [
     sendText("Verificando código…"),
-    query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots.citaTwofaId ?? ""), code }),
+    query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots[SlotKey.CITA_TWOFA_ID] ?? ""), code }),
   ]);
 }
 
@@ -127,17 +129,17 @@ export function continueCitaAfterVerification(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = "cita_awaiting_distrito_ai";
 
-  const distritoHint = next.slots.citaDistritoHintText as string | undefined;
+  const distritoHint = next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
   if (distritoHint) {
-    delete next.slots.citaDistritoHintText;
+    delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
     return resolveDistritoText(
       next,
       distritoHint,
-      next.slots.initialMessageText as string | undefined,
+      next.slots[SlotKey.INITIAL_MESSAGE_TEXT],
     );
   }
 
-  const initialMessageText = next.slots.initialMessageText as string | undefined;
+  const initialMessageText = next.slots[SlotKey.INITIAL_MESSAGE_TEXT];
   if (initialMessageText && mentionsPlacePreposition(initialMessageText)) {
     return resolveDistritoText(next, initialMessageText, undefined);
   }
@@ -152,24 +154,24 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
   const next = cloneSession(session);
 
   if (result.status === "verified" && typeof result.token === "string") {
-    const dni = next.slots.citaDniPending;
-    delete next.slots.citaDniPending;
-    delete next.slots.citaTwofaId;
-    delete next.counters.citaRegistrationChecks;
-    delete next.counters.citaOtpAttempts;
+    const dni = next.slots[SlotKey.CITA_DNI_PENDING];
+    delete next.slots[SlotKey.CITA_DNI_PENDING];
+    delete next.slots[SlotKey.CITA_TWOFA_ID];
+    delete next.counters[CounterKey.CITA_REGISTRATION_CHECKS];
+    delete next.counters[CounterKey.CITA_OTP_ATTEMPTS];
 
-    next.slots.citaBearer = result.token;
-    next.slots.citaDni = dni ?? null;
+    next.slots[SlotKey.CITA_BEARER] = result.token;
+    next.slots[SlotKey.CITA_DNI] = dni ?? null;
 
     if (isDemoReferenciaDni(typeof dni === "string" ? dni : undefined)) {
-      delete next.slots.citaResumeState;
-      delete next.slots.citaDistritoHintText;
+      delete next.slots[SlotKey.CITA_RESUME_STATE];
+      delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
       return offerDemoReferencias(next);
     }
 
-    const resumeState = next.slots.citaResumeState as string | undefined;
+    const resumeState = next.slots[SlotKey.CITA_RESUME_STATE];
     if (resumeState) {
-      delete next.slots.citaResumeState;
+      delete next.slots[SlotKey.CITA_RESUME_STATE];
       return resumeAfterReverification(next, resumeState);
     }
 
@@ -180,8 +182,8 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     ]);
   }
 
-  const attempts = (next.counters.citaOtpAttempts ?? 0) + 1;
-  next.counters.citaOtpAttempts = attempts;
+  const attempts = (next.counters[CounterKey.CITA_OTP_ATTEMPTS] ?? 0) + 1;
+  next.counters[CounterKey.CITA_OTP_ATTEMPTS] = attempts;
 
   if (attempts >= MAX_OTP_ATTEMPTS) {
     next.state = "cita_otp_locked";

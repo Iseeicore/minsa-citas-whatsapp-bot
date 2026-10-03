@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const store = vi.hoisted(() => ({ sessions: new Map<string, Session>() }));
 
@@ -14,7 +15,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 import { configureLogger } from "@/lib/observability/logger";
 import { deriveTraceId } from "@/lib/observability/tracer";
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
-
+
 type Line = Record<string, unknown> & { level: string; event: string; traceId?: string };
 
 let raw: string[] = [];
@@ -47,7 +48,7 @@ describe("what a turn leaves in the logs", () => {
       stateAfter: "cita_awaiting_dni",
       notes: ["shortcut"],
       externalCalls: 0,
-      slots: { citaEspecialidadHintText: "Medicina General", citaDistritoHintText: "San Juan de Lurigancho" },
+      slots: { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: "Medicina General", [SlotKey.CITA_DISTRITO_HINT_TEXT]: "San Juan de Lurigancho" },
     });
     expect(typeof event("turn.end")?.durationMs).toBe("number");
   });
@@ -68,7 +69,7 @@ describe("what a turn leaves in the logs", () => {
     expect(event("turn.end")).toMatchObject({
       stateAfter: "cita_awaiting_otp",
       externalCalls: 1,
-      slots: { citaDniPending: "****5678" },
+      slots: { [SlotKey.CITA_DNI_PENDING]: "****5678" },
     });
     expect(raw.join("\n")).not.toContain(DNI);
   });
@@ -77,7 +78,7 @@ describe("what a turn leaves in the logs", () => {
     const stale = new Date(Date.now() - 15 * 60_000);
     store.sessions.set(FROM, {
       state: "cita_awaiting_hora_select",
-      slots: { citaBearer: "header.payload.signature-of-a-real-token", citaDni: DNI },
+      slots: { [SlotKey.CITA_BEARER]: "header.payload.signature-of-a-real-token", [SlotKey.CITA_DNI]: DNI },
       counters: {},
       updatedAt: stale,
     });
@@ -87,7 +88,7 @@ describe("what a turn leaves in the logs", () => {
     const note = event("turn.note");
     expect(note).toMatchObject({ level: "warn", kind: "session_expired", reason: "IDLE_TIMEOUT", state: "cita_awaiting_hora_select" });
     expect(note?.idleMs as number).toBeGreaterThanOrEqual(15 * 60_000);
-    expect(event("turn.end")).toMatchObject({ stateAfter: "cita_awaiting_reauth", slots: { citaDni: "****5678" } });
+    expect(event("turn.end")).toMatchObject({ stateAfter: "cita_awaiting_reauth", slots: { [SlotKey.CITA_DNI]: "****5678" } });
     expect(raw.join("\n")).not.toContain("signature-of-a-real-token");
     expect(raw.join("\n")).not.toContain(DNI);
   });
@@ -95,7 +96,7 @@ describe("what a turn leaves in the logs", () => {
   it("a confirmation that reads UNKNOWN is a warning that says which step", async () => {
     store.sessions.set(FROM, {
       state: "cita_awaiting_hora_confirm",
-      slots: { citaBearer: "t", citaHoraConfirmId: "13:45|13:50" },
+      slots: { [SlotKey.CITA_BEARER]: "t", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:45|13:50" },
       counters: {},
     });
 

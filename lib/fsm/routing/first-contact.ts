@@ -7,6 +7,7 @@ import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "@/lib/fsm/flows/o
 import { OosCategory } from "@/lib/enums/oos-category";
 import { buildWelcomeEffect } from "@/lib/fsm/routing/welcome";
 import type { HandlerResult, SessionChannel } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?";
 
@@ -39,7 +40,7 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
   if (message === "2") return routed("reclamo", beginReclamo({}, RECLAMO_INTRO));
 
   const cita = detectCitaRequest(message);
-  if (cita) return routed("cita", beginCita({ initialMessageText: message }, cita, describeCitaRequest(cita)));
+  if (cita) return routed("cita", beginCita({ [SlotKey.INITIAL_MESSAGE_TEXT]: message }, cita, describeCitaRequest(cita)));
 
   if (isReclamoKeyword(message)) {
     return routed("reclamo", beginReclamo({}, RECLAMO_INTRO));
@@ -47,6 +48,6 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
 
   return routed(
     "menu",
-    buildResult({ state: "main_menu", slots: { initialMessageText: message }, counters: {} }, [buildMenuEffect()]),
+    buildResult({ state: "main_menu", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: message }, counters: {} }, [buildMenuEffect()]),
   );
 }

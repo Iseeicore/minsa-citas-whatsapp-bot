@@ -3,14 +3,15 @@ import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHoraRange, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {
   const [start, end] = slotId.split("|");
   const next = cloneSession(session);
   next.state = "cita_awaiting_hora_confirm";
-  next.slots.citaHoraConfirmId = slotId;
-  if (options.only) next.slots.citaHoraConfirmOnly = ONLY_HORA_FLAG;
-  else delete next.slots.citaHoraConfirmOnly;
+  next.slots[SlotKey.CITA_HORA_CONFIRM_ID] = slotId;
+  if (options.only) next.slots[SlotKey.CITA_HORA_CONFIRM_ONLY] = ONLY_HORA_FLAG;
+  else delete next.slots[SlotKey.CITA_HORA_CONFIRM_ONLY];
 
   const range = formatHoraRange(start, end);
   return buildResult(next, [
@@ -28,20 +29,20 @@ export function askHoraConfirmation(session: Session, slotId: string, options: {
 
 export function startBooking(session: Session, horaInicio: string): HandlerResult {
   const next = clearOffered(session);
-  delete next.slots.citaHorasDia;
-  delete next.slots.citaHoraConfirmId;
-  delete next.slots.citaHoraConfirmOnly;
-  delete next.slots.citaHoraChoiceA;
-  delete next.slots.citaHoraChoiceB;
+  delete next.slots[SlotKey.CITA_HORAS_DIA];
+  delete next.slots[SlotKey.CITA_HORA_CONFIRM_ID];
+  delete next.slots[SlotKey.CITA_HORA_CONFIRM_ONLY];
+  delete next.slots[SlotKey.CITA_HORA_CHOICE_A];
+  delete next.slots[SlotKey.CITA_HORA_CHOICE_B];
   next.state = "cita_booking_pending";
   return buildResult(next, [
     sendText("Agendando tu cita…"),
     query(QueryKind.BOOK_APPOINTMENT, {
-      codigoRenipress: String(next.slots.citaCodEess ?? ""),
-      codigoUps: String(next.slots.citaEspecialidadId ?? ""),
-      fechaCita: String(next.slots.citaFecha ?? ""),
+      codigoRenipress: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
+      codigoUps: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+      fechaCita: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
       horaInicio,
-      numeroDocumentoPaciente: String(next.slots.citaDni ?? ""),
+      numeroDocumentoPaciente: String(next.slots[SlotKey.CITA_DNI] ?? ""),
     }),
   ]);
 }

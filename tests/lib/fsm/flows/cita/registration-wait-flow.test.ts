@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { CounterKey } from "@/lib/enums/counter-key";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-registration";
 
@@ -19,7 +21,7 @@ const texts = (result: HandlerResult): string[] =>
   sent(result).filter((e) => e.kind === "send_text" || e.kind === "send_cta_url").map((e) => (e as { text: string }).text);
 
 function validatePending(checks = 0): Session {
-  return { state: "cita_validate_pending", slots: { citaDniPending: "12345678" }, counters: { citaRegistrationChecks: checks } };
+  return { state: "cita_validate_pending", slots: { [SlotKey.CITA_DNI_PENDING]: "12345678" }, counters: { [CounterKey.CITA_REGISTRATION_CHECKS]: checks } };
 }
 
 describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
@@ -27,7 +29,7 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
     const result = handle(validatePending(0), notValid());
 
     expect(result.session.state).toBe("cita_registration_wait");
-    expect(result.session.counters.citaRegistrationChecks).toBe(1);
+    expect(result.session.counters[CounterKey.CITA_REGISTRATION_CHECKS]).toBe(1);
     expect(texts(result).join(" ")).toContain("Todavía no encontramos tu registro");
     expect(buttonIds(result)).toEqual(["cita_registration_retry", "cita_registration_cancel"]);
   });
@@ -36,7 +38,7 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
     const result = handle(validatePending(1), notValid());
 
     expect(result.session.state).toBe("cita_registration_wait");
-    expect(result.session.counters.citaRegistrationChecks).toBe(2);
+    expect(result.session.counters[CounterKey.CITA_REGISTRATION_CHECKS]).toBe(2);
     const message = texts(result).join(" ");
     expect(message).not.toContain("Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos.");
     expect(message.toLowerCase()).toContain("segunda vez");
@@ -55,7 +57,7 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
 });
 
 function registrationWait(checks = 1): Session {
-  return { state: "cita_registration_wait", slots: { citaDniPending: "12345678" }, counters: { citaRegistrationChecks: checks } };
+  return { state: "cita_registration_wait", slots: { [SlotKey.CITA_DNI_PENDING]: "12345678" }, counters: { [CounterKey.CITA_REGISTRATION_CHECKS]: checks } };
 }
 
 describe("botón 'No quiero continuar' en cita_registration_wait", () => {

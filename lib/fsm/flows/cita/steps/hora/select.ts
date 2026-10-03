@@ -5,6 +5,8 @@ import { HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID } from "@/lib/fsm/flows/cita/steps
 import { matchHoraTyped } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
 import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 export function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event, {
@@ -16,15 +18,15 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
 
   if (replyId === HORA_PAGE_NEXT_ID || replyId === HORA_PAGE_PREV_ID) {
     const next = cloneSession(session);
-    const currentPage = next.counters.citaHoraPage ?? 0;
-    next.counters.citaHoraPage = Math.max(0, currentPage + (replyId === HORA_PAGE_NEXT_ID ? 1 : -1));
+    const currentPage = next.counters[CounterKey.CITA_HORA_PAGE] ?? 0;
+    next.counters[CounterKey.CITA_HORA_PAGE] = Math.max(0, currentPage + (replyId === HORA_PAGE_NEXT_ID ? 1 : -1));
     next.state = "cita_hora_page_pending";
     return buildResult(next, [
       sendText("Buscando más horarios…"),
       query(QueryKind.LIST_HORAS, {
-        codEess: String(next.slots.citaCodEess ?? ""),
-        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
-        fecha: String(next.slots.citaFecha ?? ""),
+        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
+        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+        fecha: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
       }),
     ]);
   }

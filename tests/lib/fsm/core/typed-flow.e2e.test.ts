@@ -10,8 +10,8 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
     store.set(from, structuredClone(session));
   },
 }));
-
 import { runTurn } from "@/lib/fsm/core/executor";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-e2e";
 
@@ -92,8 +92,8 @@ describe("typed Cita flow end to end (fake adapters)", () => {
   it("an insulting request that names specialty and district reaches the date list in the same OTP turn", async () => {
     const warning = await say("Apúrense cojudos quiero cita de odontología en Lurigancho");
     expect(warning.session.state).toBe("cita_awaiting_dni");
-    expect(warning.session.slots.citaEspecialidadHintText).toBe("Odontología");
-    expect(warning.session.slots.citaDistritoHintText).toBe("Lurigancho");
+    expect(warning.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Odontología");
+    expect(warning.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("Lurigancho");
 
     await say("12345678");
     const otp = await say("1234");

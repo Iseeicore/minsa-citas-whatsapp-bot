@@ -5,6 +5,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-oos";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -45,10 +46,10 @@ describe("in the main menu: the fixed message, no AI, and the citizen stays in t
   });
 
   it("keeps what the menu already knew, but never stores the consultation as the opening message", () => {
-    const result = handle(menu({ someSlot: "kept" }), text("¿Tienen vacunas?"));
+    const result = handle(menu({ [SlotKey.NOMBRE]: "kept" }), text("¿Tienen vacunas?"));
 
-    expect(result.session.slots).toEqual({ someSlot: "kept" });
-    expect(result.session.slots.initialMessageText).toBeUndefined();
+    expect(result.session.slots).toEqual({ [SlotKey.NOMBRE]: "kept" });
+    expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
   });
 });
 
@@ -79,7 +80,7 @@ describe("the order: emergency, then the lexical guard, then the rest", () => {
 
 describe("after a finished flow, the first message is read the same way", () => {
   it.each(["cita_booked", "cita_booking_rejected", "reclamo_confirmed"])("%s + a consultation gets the message, not the welcome", (state) => {
-    const result = handle(at(state, { citaDni: "12345678" }), text("¿Tienen vacunas para mi bebé?"));
+    const result = handle(at(state, { [SlotKey.CITA_DNI]: "12345678" }), text("¿Tienen vacunas para mi bebé?"));
 
     expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-06"] }]);
     expect(result.session).toEqual({ state: "main_menu", slots: {}, counters: {} });
@@ -101,7 +102,7 @@ describe("never inside a flow: each step reads what it asked for", () => {
   });
 
   it("the description of a complaint is evidence, whatever words it holds", () => {
-    const result = handle(at("reclamo_awaiting_descripcion", { reclamoDni: "12345678" }), text("No me entregaron mis medicamentos y nadie me explicó por qué"));
+    const result = handle(at("reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text("No me entregaron mis medicamentos y nadie me explicó por qué"));
 
     expect(JSON.stringify(result.effects)).not.toContain(OOS_MESSAGES["OOS-05"]);
     expect(oosNote(result)).toBeUndefined();

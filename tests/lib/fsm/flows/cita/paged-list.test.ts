@@ -3,6 +3,8 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, offerPagedList, pageEffects } from "@/lib/fsm/core/handlers-shared";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-paged";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -50,7 +52,7 @@ describe("a list longer than WhatsApp's 10 rows is paged", () => {
       buttons: [{ id: "lista_pagina_siguiente", title: "Ver más opciones" }],
     });
     expect(readOffered(session.slots)?.rows).toHaveLength(11);
-    expect(session.counters.citaListPage ?? 0).toBe(0);
+    expect(session.counters[CounterKey.CITA_LIST_PAGE] ?? 0).toBe(0);
   });
 
   it("25 rows: the middle page offers both directions and the last one only goes back", () => {
@@ -77,13 +79,13 @@ describe("a list longer than WhatsApp's 10 rows is paged", () => {
   });
 
   it("typing the name of a row on another page still selects it", () => {
-    const listed: Session = { ...blank(), slots: { citaUbigeo: "150132", citaBearer: "token" } };
+    const listed: Session = { ...blank(), slots: { [SlotKey.CITA_UBIGEO]: "150132", [SlotKey.CITA_BEARER]: "token" } };
     offerPagedList(listed, "Selecciona la especialidad:", rows(25));
 
     const result = handle(listed, text("opción número 23"));
 
     expect(result.session.state).toBe("cita_establecimiento_pending");
-    expect(result.session.slots.citaEspecialidadId).toBe("R23");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("R23");
   });
 
   it("an unrecognized answer shows the current page again, never all 25 rows", () => {
@@ -98,7 +100,7 @@ describe("a list longer than WhatsApp's 10 rows is paged", () => {
 
 describe("the catalog lists that MINSA can return without a cap are paged", () => {
   it("12 especialidades go out as a page of 10 plus the button", () => {
-    const pending: Session = { state: "cita_especialidad_pending", slots: { citaBearer: "token", citaUbigeo: "150132" }, counters: {} };
+    const pending: Session = { state: "cita_especialidad_pending", slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_UBIGEO]: "150132" }, counters: {} };
     const items = Array.from({ length: 12 }, (_, index) => ({
       codigoEspecialidad: `E${index + 1}`,
       nombreEspecialidad: `Especialidad ${index + 1}`,
@@ -115,7 +117,7 @@ describe("the catalog lists that MINSA can return without a cap are paged", () =
   it("12 fechas go out as a page of 10 plus the button", () => {
     const pending: Session = {
       state: "cita_fecha_pending",
-      slots: { citaBearer: "token", citaCodEess: "0000123", citaEspecialidadId: "E1" },
+      slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "E1" },
       counters: {},
     };
     const items = Array.from({ length: 12 }, (_, index) => ({

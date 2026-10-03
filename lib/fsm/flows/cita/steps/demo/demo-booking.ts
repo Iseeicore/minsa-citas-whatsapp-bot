@@ -23,6 +23,7 @@ import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/co
 import { DemoConfirmButtonId } from "@/lib/enums/demo-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const DEMO_ANALYZING_TEXT = "Un momento, estamos analizando tu cuenta… cuenta con referencias:";
 const DEMO_CONFIRM_YES_ID = DemoConfirmButtonId.YES;
@@ -42,16 +43,16 @@ function referenciaRows(dni: string): ListRow[] {
 export function offerDemoReferencias(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = "cita_demo_awaiting_referencia_select";
-  delete next.slots.citaDemoReferenciaCodigo;
-  delete next.slots.citaDemoHoraId;
-  const dni = String(next.slots.citaDni ?? "");
+  delete next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO];
+  delete next.slots[SlotKey.CITA_DEMO_HORA_ID];
+  const dni = String(next.slots[SlotKey.CITA_DNI] ?? "");
   return buildResult(next, offerPagedList(next, DEMO_ANALYZING_TEXT, referenciaRows(dni)));
 }
 
 function offerDemoHoras(session: Session, codigo: string): HandlerResult {
   const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
   const next = cloneSession(session);
-  next.slots.citaDemoReferenciaCodigo = codigo;
+  next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] = codigo;
   next.state = "cita_demo_awaiting_hora_select";
   const intro = `Listo, el establecimiento *${referencia?.hospital ?? ""}* cuenta con una referencia para ti.
 
@@ -93,15 +94,15 @@ export function handleDemoAwaitingHoraSelect(session: Session, event: InboundEve
   if ("result" in outcome) return outcome.result;
 
   const next = clearOffered(session);
-  const codigo = String(next.slots.citaDemoReferenciaCodigo ?? "");
-  next.slots.citaDemoHoraId = outcome.replyId;
+  const codigo = String(next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] ?? "");
+  next.slots[SlotKey.CITA_DEMO_HORA_ID] = outcome.replyId;
   next.state = "cita_demo_awaiting_confirm";
   return askDemoConfirmation(next, codigo, outcome.replyId);
 }
 
 export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const codigo = String(session.slots.citaDemoReferenciaCodigo ?? "");
-  const horaId = String(session.slots.citaDemoHoraId ?? "");
+  const codigo = String(session.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] ?? "");
+  const horaId = String(session.slots[SlotKey.CITA_DEMO_HORA_ID] ?? "");
   const reply =
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
@@ -127,7 +128,7 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
 
   if (reply === DEMO_CONFIRM_NO_ID || typed === Confirmation.NO) {
     const next = cloneSession(session);
-    delete next.slots.citaDemoHoraId;
+    delete next.slots[SlotKey.CITA_DEMO_HORA_ID];
     return offerDemoHoras(next, codigo);
   }
 

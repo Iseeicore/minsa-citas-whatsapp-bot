@@ -3,6 +3,8 @@ import { buildResult, cloneSession, query, sendText, sendCtaUrl, withNote } from
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const MAX_BOOKING_FAILURES = 3;
 const SLOT_TAKEN_MESSAGE = /cupo|horario|disponib|agotad|ocupad|tomad/i;
@@ -42,15 +44,15 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
     return offerOtherEspecialidad(next);
   }
 
-  const failures = (next.counters.citaBookingFailures ?? 0) + 1;
+  const failures = (next.counters[CounterKey.CITA_BOOKING_FAILURES] ?? 0) + 1;
   const isRawError = result.status === "error";
   const isAmbiguousRejection =
     result.status === "rejected" && (!result.message || SLOT_TAKEN_MESSAGE.test(result.message));
   const slotMayBeGone = isRawError || isAmbiguousRejection;
 
   if (slotMayBeGone && failures < MAX_BOOKING_FAILURES) {
-    next.counters.citaBookingFailures = failures;
-    delete next.counters.citaHoraPage;
+    next.counters[CounterKey.CITA_BOOKING_FAILURES] = failures;
+    delete next.counters[CounterKey.CITA_HORA_PAGE];
     next.state = "cita_hora_pending";
     const retryText = isRawError
       ? "Tuvimos un problema técnico al intentar reservar tu cita. Vamos a intentarlo de nuevo — estos son los horarios disponibles de la misma fecha:"
@@ -58,9 +60,9 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
     return withNote(buildResult(next, [
       sendText(retryText),
       query(QueryKind.LIST_HORAS, {
-        codEess: String(next.slots.citaCodEess ?? ""),
-        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
-        fecha: String(next.slots.citaFecha ?? ""),
+        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
+        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+        fecha: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
       }),
     ]), {
       kind: "booking_retry",

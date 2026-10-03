@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SESSION_IDLE_TIMEOUT_MS } from "@/lib/fsm/session/session-expiry-guard";
 import { createMemorySessionStore, MEMORY_SESSION_TTL_MS } from "@/lib/fsm/session/memory-session-store";
 import type { Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 function clock(start = Date.UTC(2026, 8, 25, 12)) {
   let now = start;
@@ -21,11 +22,11 @@ describe("createMemorySessionStore", () => {
   it("keeps what was saved, stamped with the save time as updatedAt", async () => {
     const time = clock();
     const store = createMemorySessionStore({ now: time.now });
-    await store.saveSession("51999", session("cita_awaiting_dni", { citaDistrito: "ATE" }));
+    await store.saveSession("51999", session("cita_awaiting_dni", { [SlotKey.CITA_DISTRITO]: "ATE" }));
 
     const read = await store.getSession("51999");
     expect(read.state).toBe("cita_awaiting_dni");
-    expect(read.slots).toEqual({ citaDistrito: "ATE" });
+    expect(read.slots).toEqual({ [SlotKey.CITA_DISTRITO]: "ATE" });
     expect(read.updatedAt).toEqual(new Date(time.now()));
     await expect(store.sessionRowExists("51999")).resolves.toBe(true);
     await expect(store.findSession("51999")).resolves.toEqual({ state: "cita_awaiting_dni" });
@@ -33,14 +34,14 @@ describe("createMemorySessionStore", () => {
 
   it("stores a copy: mutating the saved or the read object never changes the stored session", async () => {
     const store = createMemorySessionStore();
-    const saved = session("main_menu", { citaDistrito: "ATE" });
+    const saved = session("main_menu", { [SlotKey.CITA_DISTRITO]: "ATE" });
     await store.saveSession("51999", saved);
-    saved.slots.citaDistrito = "CHANGED";
+    saved.slots[SlotKey.CITA_DISTRITO] = "CHANGED";
 
     const read = await store.getSession("51999");
-    read.slots.citaDistrito = "ALSO CHANGED";
+    read.slots[SlotKey.CITA_DISTRITO] = "ALSO CHANGED";
 
-    expect((await store.getSession("51999")).slots.citaDistrito).toBe("ATE");
+    expect((await store.getSession("51999")).slots[SlotKey.CITA_DISTRITO]).toBe("ATE");
   });
 
   it("forgets one citizen on reset, and only the sandbox- sessions on reset-all", async () => {

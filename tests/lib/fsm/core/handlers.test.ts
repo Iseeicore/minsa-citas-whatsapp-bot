@@ -3,6 +3,7 @@ import { INSTITUTIONAL_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/securit
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-test";
 
@@ -31,7 +32,7 @@ describe("main_menu — lexical guard routing", () => {
     const result = handle(sessionAt("main_menu"), text("hdp"));
 
     expect(result.session.state).toBe("main_menu");
-    expect(result.session.slots.initialMessageText).toBeUndefined();
+    expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
     expect(hasQuery(result)).toBe(false);
 
     const [effect] = sentEffects(result);
@@ -94,7 +95,7 @@ describe("main_menu — deterministic greeting shortcut", () => {
       const result = handle(sessionAt("main_menu"), text(message));
 
       expect(result.session.state).toBe("main_menu");
-      expect(result.session.slots.initialMessageText).toBeUndefined();
+      expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
       expect(hasQuery(result)).toBe(false);
       expect(sentEffects(result)[0].kind).toBe("send_interactive_list");
     },
@@ -112,7 +113,7 @@ describe("main_menu — deterministic greeting shortcut", () => {
 
     expect(result.session.state).toBe("main_menu_intent_pending");
     expect(result.effects.some((effect) => isQueryEffect(effect) && effect.kind === "analyze_main_menu_intent")).toBe(true);
-    expect(result.session.slots.initialMessageText).toBe("Buenas tarde, no sé qué hacer");
+    expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBe("Buenas tarde, no sé qué hacer");
   });
 });
 
@@ -141,11 +142,11 @@ describe("terminal re-entry", () => {
 
 describe("mid-flow free-text district states", () => {
   it("an insult answers with a respect reminder, repeats the question and never queries", () => {
-    const before = sessionAt("cita_awaiting_distrito_ai", { citaBearer: "token" });
+    const before = sessionAt("cita_awaiting_distrito_ai", { [SlotKey.CITA_BEARER]: "token" });
     const result = handle(before, text("hdp"));
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(result.session.slots.citaBearer).toBe("token");
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(hasQuery(result)).toBe(false);
 
     const texts = sentEffects(result).map((effect) => (effect as { text: string }).text);
@@ -175,7 +176,7 @@ describe("bypass — states where the guard must never run", () => {
     );
 
     expect(result.session.state).toBe("reclamo_awaiting_foto");
-    expect(result.session.slots.queja).toBe("El doctor fue un idiota y me trató pésimo");
+    expect(result.session.slots[SlotKey.QUEJA]).toBe("El doctor fue un idiota y me trató pésimo");
   });
 
   it("a name that looks like an abbreviation is accepted in the name step", () => {
@@ -199,8 +200,8 @@ describe("main_menu — numeric shortcut", () => {
     expect(hasQuery(result)).toBe(false);
     expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text"]);
     expect((sentEffects(result)[0] as { text: string }).text).toContain("documento");
-    expect(result.session.slots.menuChoice).toBe("agendar_cita");
-    expect(result.session.slots.initialMessageText).toBeUndefined();
+    expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("agendar_cita");
+    expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
   });
 
   it.each(["2", " 2 "])("%j goes straight to the Reclamo flow without reprinting the menu", (message) => {
@@ -209,7 +210,7 @@ describe("main_menu — numeric shortcut", () => {
     expect(result.session.state).toBe("reclamo_identity_choice");
     expect(hasQuery(result)).toBe(false);
     expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_buttons"]);
-    expect(result.session.slots.menuChoice).toBe("registrar_reclamo");
+    expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("registrar_reclamo");
   });
 
   it.each(["3", "0", "11", "12", "1 2", "uno"])("%j is not a menu shortcut and follows the normal path", (message) => {

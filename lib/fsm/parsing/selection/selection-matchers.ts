@@ -1,11 +1,10 @@
 import type { Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export type OfferedRow = { id: string; title: string; description?: string };
 export type OfferedList = { text: string; rows: OfferedRow[] };
 
-export const OFFERED_SLOT = "citaOffered";
 
-export const OFFERED_NAMES_SLOT = "citaOfferedNames";
 
 export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
@@ -21,7 +20,7 @@ function isOfferedRow(value: unknown): value is OfferedRow {
 }
 
 export function readOffered(slots: Session["slots"]): OfferedList | undefined {
-  const raw = slots[OFFERED_SLOT];
+  const raw = slots[SlotKey.CITA_OFFERED];
   if (typeof raw !== "string") return undefined;
 
   try {

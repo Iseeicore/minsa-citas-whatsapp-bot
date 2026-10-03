@@ -32,6 +32,7 @@ import type {
   SendEffect,
   Session,
 } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export type TurnResult = {
   sent: SendEffect[];
@@ -124,7 +125,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
 }
 
 async function resolveQuery(effect: QueryEffect, session: Session): Promise<unknown> {
-  const bearer = String(session.slots.citaBearer ?? "");
+  const bearer = String(session.slots[SlotKey.CITA_BEARER] ?? "");
 
   switch (effect.kind) {
     case QueryKind.RENIEC_LOOKUP:

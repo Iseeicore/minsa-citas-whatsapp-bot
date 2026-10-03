@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-catalog-rows";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -23,7 +24,7 @@ const listOf = (result: HandlerResult) => {
 
 const pending = (state: string, slots: Session["slots"] = {}): Session => ({
   state,
-  slots: { citaBearer: "token", citaDni: "12345678", citaUbigeo: "150132", ...slots },
+  slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_UBIGEO]: "150132", ...slots },
   counters: {},
 });
 
@@ -59,25 +60,25 @@ describe("especialidad rows are readable", () => {
     const result = handle(listed.session, text("atención del adulto"));
 
     expect(result.session.state).toBe("cita_establecimiento_pending");
-    expect(result.session.slots.citaEspecialidadId).toBe("222400");
-    expect(result.session.slots.citaEspecialidadNombre).toBe("Medicina General / Atención del Adulto");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("222400");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("Medicina General / Atención del Adulto");
   });
 
   it("a hint-detected especialidad is announced with its clean name", () => {
     const result = handle(
-      pending("cita_especialidad_pending", { citaEspecialidadHintText: "odontologia" }),
+      pending("cita_especialidad_pending", { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: "odontologia" }),
       queryResult("list_especialidades", especialidades),
     );
 
     expect(sent(result)[0]).toEqual({ kind: "send_text", text: "Especialidad detectada: Odontología General. Buscando establecimientos…" });
-    expect(result.session.slots.citaEspecialidadNombre).toBe("Odontología General");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("Odontología General");
   });
 });
 
 describe("establecimiento rows are readable", () => {
   it("abbreviates the title and keeps the full name in the description", () => {
     const result = handle(
-      pending("cita_establecimiento_pending", { citaEspecialidadId: "222400" }),
+      pending("cita_establecimiento_pending", { [SlotKey.CITA_ESPECIALIDAD_ID]: "222400" }),
       queryResult("list_establecimientos", establecimientos),
     );
 
@@ -90,18 +91,18 @@ describe("establecimiento rows are readable", () => {
 
   it("stores the full name of the picked establecimiento", () => {
     const listed = handle(
-      pending("cita_establecimiento_pending", { citaEspecialidadId: "222400" }),
+      pending("cita_establecimiento_pending", { [SlotKey.CITA_ESPECIALIDAD_ID]: "222400" }),
       queryResult("list_establecimientos", establecimientos),
     );
     const result = handle(listed.session, tap("0002"));
 
     expect(result.session.state).toBe("cita_fecha_pending");
-    expect(result.session.slots.citaEstablecimientoNombre).toBe("Centro de Salud San Fernando");
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]).toBe("Centro de Salud San Fernando");
   });
 
   it("a single establecimiento is announced with its clean name", () => {
     const result = handle(
-      pending("cita_establecimiento_pending", { citaEspecialidadId: "222400" }),
+      pending("cita_establecimiento_pending", { [SlotKey.CITA_ESPECIALIDAD_ID]: "222400" }),
       queryResult("list_establecimientos", { status: "found", items: [establecimientos.items[1]] }),
     );
 

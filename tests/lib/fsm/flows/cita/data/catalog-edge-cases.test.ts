@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { formatEspecialidadName, formatEstablecimientoName } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { matchSelection, type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-catalog-edge";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -19,7 +20,7 @@ const sent = (result: HandlerResult): SendEffect[] =>
 
 const pending = (state: string, slots: Session["slots"] = {}): Session => ({
   state,
-  slots: { citaBearer: "token", citaDni: "12345678", citaUbigeo: "150132", ...slots },
+  slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_UBIGEO]: "150132", ...slots },
   counters: {},
 });
 
@@ -74,7 +75,7 @@ describe("typed numbers never match a row's quota count", () => {
     const result = handle(listed.session, text("27"));
 
     expect(result.session.state).toBe("cita_awaiting_especialidad_select");
-    expect(result.session.slots.citaEspecialidadId).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBeUndefined();
   });
 });
 
@@ -95,21 +96,21 @@ describe("the stored full name is never cut by the row description limit", () =>
     );
     const result = handle(listed.session, tap("300100"));
 
-    expect(result.session.slots.citaEspecialidadNombre).toBe(full);
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe(full);
   });
 
   it("a picked establecimiento longer than 70 characters is stored whole and named whole when it has no dates", () => {
     const full = formatEstablecimientoName(LONG_ESTABLECIMIENTO).full;
     expect(full.length).toBeGreaterThan(70);
 
-    const base = pending("cita_establecimiento_pending", { citaEspecialidadId: "222400", citaDistrito: "SAN JUAN DE LURIGANCHO" });
+    const base = pending("cita_establecimiento_pending", { [SlotKey.CITA_ESPECIALIDAD_ID]: "222400", [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO" });
     const items = [
       { renipressCode: "0009", establishmentName: LONG_ESTABLECIMIENTO, quotasOnline: 4 },
       { renipressCode: "0002", establishmentName: "CENTRO DE SALUD SAN FERNANDO", quotasOnline: 3 },
     ];
     const listed = handle(base, queryResult("list_establecimientos", { status: "found", items }));
     const picked = handle(listed.session, tap("0009"));
-    expect(picked.session.slots.citaEstablecimientoNombre).toBe(full);
+    expect(picked.session.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]).toBe(full);
 
     const noDates = handle(picked.session, queryResult("list_fechas", { status: "empty" }));
     const offered = handle(noDates.session, queryResult("list_establecimientos", { status: "found", items }));

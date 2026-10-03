@@ -23,6 +23,7 @@ import { todayInLima } from "@/lib/time/lima-clock";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -64,13 +65,13 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
 
   if (dates.length === 1) {
     const [item] = dates;
-    next.slots.citaFecha = item.fechaCupo;
+    next.slots[SlotKey.CITA_FECHA] = item.fechaCupo;
     next.state = "cita_hora_pending";
     return buildResult(next, [
       sendText(`Fecha encontrada: ${displayFechaLong(item.fechaCupo)}. Buscando horarios disponibles…`),
       query(QueryKind.LIST_HORAS, {
-        codEess: String(next.slots.citaCodEess ?? ""),
-        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
+        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
         fecha: item.fechaCupo,
       }),
     ]);
@@ -148,13 +149,13 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
   const replyId = outcome.replyId;
 
   const next = clearOffered(session);
-  next.slots.citaFecha = replyId;
+  next.slots[SlotKey.CITA_FECHA] = replyId;
   next.state = "cita_hora_pending";
   return buildResult(next, [
     sendText("Buscando horarios disponibles…"),
     query(QueryKind.LIST_HORAS, {
-      codEess: String(next.slots.citaCodEess ?? ""),
-      especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+      codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
+      especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
       fecha: replyId,
     }),
   ]);

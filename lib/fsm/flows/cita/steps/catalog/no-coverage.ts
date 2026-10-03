@@ -2,13 +2,12 @@ import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-pa
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { looksLikePlaceName, resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
-import { DISCARDED_DATES_SLOT } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
-import { OFFERED_NAMES_SLOT, OFFERED_SLOT } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SearchSubject } from "@/lib/enums/search-subject";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export const OTHER_DISTRITO_STATE = "cita_awaiting_other_distrito";
 const OTHER_DISTRITO_YES_ID = OtherDistritoButtonId.YES;
@@ -18,21 +17,21 @@ const FAREWELL_TEXT =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
 
 const DISTRICT_BOUND_SLOTS = [
-  "citaDistrito",
-  "citaProvincia",
-  "citaDepartamento",
-  "citaUbigeo",
-  "citaEspecialidadId",
-  "citaCodEess",
-  "citaEstablecimientoNombre",
-  "citaEstablecimientosDescartados",
-  "citaFecha",
-  DISCARDED_DATES_SLOT,
-  "citaDistritoHintText",
-  "citaEstablecimientoHintText",
-  "initialMessageText",
-  OFFERED_SLOT,
-  OFFERED_NAMES_SLOT,
+  SlotKey.CITA_DISTRITO,
+  SlotKey.CITA_PROVINCIA,
+  SlotKey.CITA_DEPARTAMENTO,
+  SlotKey.CITA_UBIGEO,
+  SlotKey.CITA_ESPECIALIDAD_ID,
+  SlotKey.CITA_COD_EESS,
+  SlotKey.CITA_ESTABLECIMIENTO_NOMBRE,
+  SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS,
+  SlotKey.CITA_FECHA,
+  SlotKey.CITA_FECHAS_DESCARTADAS,
+  SlotKey.CITA_DISTRITO_HINT_TEXT,
+  SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT,
+  SlotKey.INITIAL_MESSAGE_TEXT,
+  SlotKey.CITA_OFFERED,
+  SlotKey.CITA_OFFERED_NAMES,
 ];
 
 const CHANGE_DISTRICT_ANSWERS = new Set(["CAMBIAR", "CAMBIAR DE DISTRITO", "OTRO DISTRITO", "OTRO", "BUSCAR OTRO DISTRITO"]);
@@ -52,7 +51,7 @@ export function offerOtherDistrito(
   const next = cloneSession(session);
   next.state = OTHER_DISTRITO_STATE;
 
-  const distrito = typeof next.slots.citaDistrito === "string" ? next.slots.citaDistrito.trim() : "";
+  const distrito = typeof next.slots[SlotKey.CITA_DISTRITO] === "string" ? next.slots[SlotKey.CITA_DISTRITO].trim() : "";
   const where = distrito ? `en *${toDisplayPlace(distrito)}*` : "en tu zona";
   const what = missing === SearchSubject.ESPECIALIDADES ? "especialidades" : "establecimientos para esa especialidad";
 

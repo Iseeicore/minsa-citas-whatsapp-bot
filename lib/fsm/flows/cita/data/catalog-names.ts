@@ -1,7 +1,8 @@
 import { toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
-import { OFFERED_NAMES_SLOT, type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export type CatalogName = { title: string; full: string };
 
@@ -64,11 +65,11 @@ export function fullNameFromRow(row: OfferedRow): string {
 }
 
 export function rememberFullNames(slots: Session["slots"], entries: ReadonlyArray<{ id: string; full: string }>): void {
-  slots[OFFERED_NAMES_SLOT] = JSON.stringify(Object.fromEntries(entries.map((entry) => [entry.id, entry.full])));
+  slots[SlotKey.CITA_OFFERED_NAMES] = JSON.stringify(Object.fromEntries(entries.map((entry) => [entry.id, entry.full])));
 }
 
 export function offeredFullName(slots: Session["slots"], row: OfferedRow): string {
-  const raw = slots[OFFERED_NAMES_SLOT];
+  const raw = slots[SlotKey.CITA_OFFERED_NAMES];
   if (typeof raw === "string") {
     try {
       const names = JSON.parse(raw) as Record<string, unknown>;

@@ -5,6 +5,8 @@ import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { AUTHENTICATED_WAITING_STATES, resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-other-fecha";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -32,17 +34,17 @@ const DAY_2 = "01/01/2100";
 const DAY_3 = "02/01/2100";
 
 const BASE_SLOTS = {
-  citaBearer: "token",
-  citaCodEess: "0000123",
-  citaEspecialidadId: "02",
-  citaFecha: DAY_1,
-  citaDni: "12345678",
-  citaDistrito: "MIRAFLORES",
+  [SlotKey.CITA_BEARER]: "token",
+  [SlotKey.CITA_COD_EESS]: "0000123",
+  [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+  [SlotKey.CITA_FECHA]: DAY_1,
+  [SlotKey.CITA_DNI]: "12345678",
+  [SlotKey.CITA_DISTRITO]: "MIRAFLORES",
 };
 
 const confirmingLone = (extra: Session["slots"] = {}): Session => ({
   state: "cita_awaiting_hora_confirm",
-  slots: { ...BASE_SLOTS, citaHoraConfirmId: "13:00|13:30", citaHoraConfirmOnly: "1", ...extra },
+  slots: { ...BASE_SLOTS, [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1", ...extra },
   counters: {},
 });
 
@@ -81,14 +83,14 @@ describe("declining the only horario offers another date instead of closing", ()
   it("keeps the verification and the choices, forgets the date and the pending horario", () => {
     const { slots } = askedForAnotherDate();
 
-    expect(slots).toMatchObject({ citaBearer: "token", citaDni: "12345678", citaCodEess: "0000123", citaEspecialidadId: "02" });
-    expect(slots.citaFecha).toBeUndefined();
-    expect(slots.citaHoraConfirmId).toBeUndefined();
-    expect(slots.citaHoraConfirmOnly).toBeUndefined();
+    expect(slots).toMatchObject({ [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" });
+    expect(slots[SlotKey.CITA_FECHA]).toBeUndefined();
+    expect(slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
+    expect(slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
   });
 
   it("remembers the date that was declined", () => {
-    expect(askedForAnotherDate().slots.citaFechasDescartadas).toBe(DAY_1);
+    expect(askedForAnotherDate().slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(DAY_1);
   });
 
   it("logs it as hora_declined", () => {
@@ -98,8 +100,8 @@ describe("declining the only horario offers another date instead of closing", ()
   });
 
   it("with a previous page's list still there, the citizen goes back to it as before", () => {
-    const session = confirmingLone({ citaOffered: JSON.stringify({ text: "Selecciona el horario:", rows: [{ id: "07:00|07:30", title: "07:00 - 07:30" }] }) });
-    session.counters.citaHoraPage = 1;
+    const session = confirmingLone({ [SlotKey.CITA_OFFERED]: JSON.stringify({ text: "Selecciona el horario:", rows: [{ id: "07:00|07:30", title: "07:00 - 07:30" }] }) });
+    session.counters[CounterKey.CITA_HORA_PAGE] = 1;
 
     expect(handle(session, tap("hora_confirm_no")).session.state).toBe("cita_awaiting_hora_select");
   });
@@ -120,8 +122,8 @@ describe("«sí, cambiar de fecha»: the dates are listed again, with no new ver
 
     expect(result.session.state).toBe("cita_fecha_pending");
     expect(queries(result)).toEqual([{ kind: "list_fechas", payload: { codEess: "0000123", especialidadId: "02" } }]);
-    expect(result.session.slots.citaBearer).toBe("token");
-    expect(result.session.slots.citaFechasDescartadas).toBe(DAY_1);
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
+    expect(result.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(DAY_1);
     expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
   });
 });
@@ -129,7 +131,7 @@ describe("«sí, cambiar de fecha»: the dates are listed again, with no new ver
 describe("the dates that come back leave out the ones already declined", () => {
   const pendingWith = (discarded: string): Session => ({
     state: "cita_fecha_pending",
-    slots: { ...BASE_SLOTS, citaFecha: "", citaFechasDescartadas: discarded },
+    slots: { ...BASE_SLOTS, [SlotKey.CITA_FECHA]: "", [SlotKey.CITA_FECHAS_DESCARTADAS]: discarded },
     counters: {},
   });
 
@@ -145,7 +147,7 @@ describe("the dates that come back leave out the ones already declined", () => {
     const result = handle(pendingWith(DAY_1), fechasResult([DAY_1, DAY_2]));
 
     expect(result.session.state).toBe("cita_hora_pending");
-    expect(result.session.slots.citaFecha).toBe(DAY_2);
+    expect(result.session.slots[SlotKey.CITA_FECHA]).toBe(DAY_2);
     expect(queries(result)).toEqual([{ kind: "list_horas", payload: { codEess: "0000123", especialidadId: "02", fecha: DAY_2 } }]);
   });
 
@@ -174,25 +176,25 @@ describe("the dates that come back leave out the ones already declined", () => {
   it("declining a second lone horario adds its date: nothing declined ever comes back", () => {
     const second: Session = {
       state: "cita_awaiting_hora_confirm",
-      slots: { ...BASE_SLOTS, citaFecha: DAY_2, citaFechasDescartadas: DAY_1, citaHoraConfirmId: "08:00|08:30", citaHoraConfirmOnly: "1" },
+      slots: { ...BASE_SLOTS, [SlotKey.CITA_FECHA]: DAY_2, [SlotKey.CITA_FECHAS_DESCARTADAS]: DAY_1, [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" },
       counters: {},
     };
 
     const asked = handle(second, tap("hora_confirm_no")).session;
-    expect(asked.slots.citaFechasDescartadas).toBe(`${DAY_1},${DAY_2}`);
+    expect(asked.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(`${DAY_1},${DAY_2}`);
 
     const listed = handle({ ...asked, state: "cita_fecha_pending" }, fechasResult([DAY_1, DAY_2, DAY_3]));
-    expect(listed.session.slots.citaFecha).toBe(DAY_3);
+    expect(listed.session.slots[SlotKey.CITA_FECHA]).toBe(DAY_3);
   });
 
   it("declining the same date twice does not repeat it in the memory", () => {
     const again: Session = {
       state: "cita_awaiting_hora_confirm",
-      slots: { ...BASE_SLOTS, citaFecha: DAY_1, citaFechasDescartadas: DAY_1, citaHoraConfirmId: "13:00|13:30", citaHoraConfirmOnly: "1" },
+      slots: { ...BASE_SLOTS, [SlotKey.CITA_FECHA]: DAY_1, [SlotKey.CITA_FECHAS_DESCARTADAS]: DAY_1, [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" },
       counters: {},
     };
 
-    expect(handle(again, tap("hora_confirm_no")).session.slots.citaFechasDescartadas).toBe(DAY_1);
+    expect(handle(again, tap("hora_confirm_no")).session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(DAY_1);
   });
 
   it("MINSA failing or the token expiring while listing behaves as in any fecha step", () => {
@@ -202,7 +204,7 @@ describe("the dates that come back leave out the ones already declined", () => {
     const unauthorized = { from: FROM, type: "query_result", queryKind: "list_fechas", result: { status: "unauthorized" } } as const;
     const expired = handle(pendingWith(DAY_1), unauthorized);
     expect(expired.session.state).toBe(handle(pendingWith(""), unauthorized).session.state);
-    expect(expired.session.slots.citaFechasDescartadas).toBe(DAY_1);
+    expect(expired.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(DAY_1);
   });
 });
 
@@ -237,7 +239,7 @@ describe("«no, salir»: an apology and a goodbye, and the session is closed", (
     const next = handle(closed.session, text("Hola"));
 
     expect(sent(next)[0]).toMatchObject({ kind: "send_cta_url" });
-    expect(next.session.slots.citaBearer).toBeUndefined();
+    expect(next.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
   });
 });
 
@@ -250,7 +252,7 @@ describe("an answer that is neither: the question is asked again", () => {
     expect(queries(result)).toHaveLength(0);
     expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", text: expect.stringContaining("¿Deseas cambiar de fecha?") });
     expect(noteOf(result, "confirmation_unknown")).toMatchObject({ level: "warn", detail: { step: "other_fecha" } });
-    expect(result.session.slots.citaFechasDescartadas).toBe(DAY_1);
+    expect(result.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(DAY_1);
   });
 });
 
@@ -262,7 +264,7 @@ describe("the whole conversation", () => {
     const horas = handle(dates.session, horasResult([{ horaInicio: "09:00", horaFin: "09:30" }, { horaInicio: "10:00", horaFin: "10:30" }]));
 
     expect(horas.session.state).toBe("cita_awaiting_hora_select");
-    expect(horas.session.slots.citaFecha).toBe(DAY_2);
+    expect(horas.session.slots[SlotKey.CITA_FECHA]).toBe(DAY_2);
   });
 
   it("the other date also has one horario: it asks again, and now both dates are remembered", () => {
@@ -289,14 +291,14 @@ describe("it plays well with the rest of the flow", () => {
   it("changing the district forgets the declined dates: they belong to the old place", () => {
     const noCoverage: Session = {
       state: "cita_awaiting_other_distrito",
-      slots: { ...BASE_SLOTS, citaFechasDescartadas: DAY_1 },
+      slots: { ...BASE_SLOTS, [SlotKey.CITA_FECHAS_DESCARTADAS]: DAY_1 },
       counters: {},
     };
 
     const result = handle(noCoverage, text("sí"));
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(result.session.slots.citaFechasDescartadas).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBeUndefined();
   });
 });
 

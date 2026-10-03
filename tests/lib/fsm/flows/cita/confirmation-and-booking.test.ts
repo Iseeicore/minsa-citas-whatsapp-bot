@@ -4,6 +4,8 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-confirmation";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -28,13 +30,13 @@ function confirming(): Session {
   return {
     state: "cita_awaiting_hora_confirm",
     slots: {
-      citaBearer: "token",
-      citaDni: "12345678",
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "31/12/2099",
-      citaHoraConfirmId: "13:45|13:50",
-      citaOffered: serializeOffered({ text: "Selecciona el horario:", rows: HORA_ROWS }),
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "31/12/2099",
+      [SlotKey.CITA_HORA_CONFIRM_ID]: "13:45|13:50",
+      [SlotKey.CITA_OFFERED]: serializeOffered({ text: "Selecciona el horario:", rows: HORA_ROWS }),
     },
     counters: {},
   };
@@ -64,7 +66,7 @@ describe("typed yes/no in «¿Confirmas el horario 13:45 - 13:50?»", () => {
 
     expect(result.session.state).toBe("cita_awaiting_hora_select");
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
   });
 
   it("asks again, without booking, when the reply is neither", () => {
@@ -83,7 +85,7 @@ describe("typed yes/no in «¿Confirmas el horario 13:45 - 13:50?»", () => {
 describe("typed yes/no when the session expired", () => {
   const waiting = (): Session => ({
     state: "cita_awaiting_reauth",
-    slots: { citaDni: "12345678", citaResumeState: "cita_hora_pending" },
+    slots: { [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_RESUME_STATE]: "cita_hora_pending" },
     counters: {},
   });
 
@@ -103,11 +105,11 @@ describe("a booking that MINSA does not accept", () => {
   const booking = (counters: Session["counters"] = {}): Session => ({
     state: "cita_booking_pending",
     slots: {
-      citaBearer: "token",
-      citaDni: "12345678",
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "31/12/2099",
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "31/12/2099",
     },
     counters,
   });
@@ -122,13 +124,13 @@ describe("a booking that MINSA does not accept", () => {
     const step = handle(booking(), bookingResult(result));
 
     expect(step.session.state).toBe("cita_hora_pending");
-    expect(step.session.counters.citaBookingFailures).toBe(1);
+    expect(step.session.counters[CounterKey.CITA_BOOKING_FAILURES]).toBe(1);
     expect(queries(step)).toEqual(RELIST);
     expect(sent(step)[0]).toMatchObject({ kind: "send_text" });
   });
 
   it("gives up after three failures so a systematic error cannot loop", () => {
-    const step = handle(booking({ citaBookingFailures: 2 }), bookingResult({ status: "error" }));
+    const step = handle(booking({ [CounterKey.CITA_BOOKING_FAILURES]: 2 }), bookingResult({ status: "error" }));
 
     expect(step.session.state).toBe("cita_booking_rejected");
     expect(queries(step)).toHaveLength(0);

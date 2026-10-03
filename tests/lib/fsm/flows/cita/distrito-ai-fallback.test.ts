@@ -4,6 +4,8 @@ import { handleDistritoAiPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubige
 import { UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
 import { DISTRITO_MANUAL_FALLBACK_TEXT } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { CounterKey } from "@/lib/enums/counter-key";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 beforeEach(() => {
   vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
@@ -15,7 +17,7 @@ afterEach(() => {
 
 const pending = (counters: Session["counters"] = {}): Session => ({
   state: "cita_distrito_ai_pending",
-  slots: { citaBearer: "token" },
+  slots: { [SlotKey.CITA_BEARER]: "token" },
   counters,
 });
 
@@ -51,12 +53,12 @@ describe("handleDistritoAiPending: what the citizen gets when the AI finds nothi
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
     expect(sent(result)).toEqual([{ kind: "send_text", text: UNRECOGNIZED_DISTRITO_TEXT }]);
-    expect(result.session.counters.distritoNotFound).toBe(1);
+    expect(result.session.counters[CounterKey.DISTRITO_NOT_FOUND]).toBe(1);
   });
 
   it("a second 'not found' in a row moves to the manual departamento step", () => {
     const result = handleDistritoAiPending(
-      pending({ distritoNotFound: 1 }),
+      pending({ [CounterKey.DISTRITO_NOT_FOUND]: 1 }),
       aiResult({ outcome: "not_found", candidates: [] }),
     );
 
@@ -73,11 +75,11 @@ describe("handleDistritoAiPending: what the citizen gets when the AI finds nothi
 
   it("a district found in Lima continues to the ubigeo search and clears the not-found count", () => {
     const result = handleDistritoAiPending(
-      pending({ distritoNotFound: 1 }),
+      pending({ [CounterKey.DISTRITO_NOT_FOUND]: 1 }),
       aiResult({ outcome: "found", candidates: [lima] }),
     );
 
     expect(result.session.state).toBe("cita_ubigeo_pending");
-    expect(result.session.counters.distritoNotFound).toBeUndefined();
+    expect(result.session.counters[CounterKey.DISTRITO_NOT_FOUND]).toBeUndefined();
   });
 });

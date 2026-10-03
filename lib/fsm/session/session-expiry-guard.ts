@@ -1,5 +1,6 @@
 import type { HandleEvent, Session } from "@/lib/fsm/core/types";
 import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
@@ -31,7 +32,7 @@ const EXIT_CONFIRM_STATE = "cita_awaiting_exit_confirm";
 
 function guardedStateOf(state: string, slots: Session["slots"]): string | undefined {
   if (state !== EXIT_CONFIRM_STATE) return state in RESUME_STATE_BY_WAITING_STATE ? state : undefined;
-  const before = slots.citaExitResumeState;
+  const before = slots[SlotKey.CITA_EXIT_RESUME_STATE];
   return typeof before === "string" && before in RESUME_STATE_BY_WAITING_STATE ? before : undefined;
 }
 
@@ -64,7 +65,7 @@ export function detectSessionExpiry(
   if (event.type === "query_result") return null;
   if (!guardedStateOf(session.state, session.slots)) return null;
 
-  const bearer = session.slots.citaBearer;
+  const bearer = session.slots[SlotKey.CITA_BEARER];
   if (typeof bearer !== "string" || bearer === "") return null;
 
   if (session.updatedAt && now - session.updatedAt.getTime() > SESSION_IDLE_TIMEOUT_MS) {

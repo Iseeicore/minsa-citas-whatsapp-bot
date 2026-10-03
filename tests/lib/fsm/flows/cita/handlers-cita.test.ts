@@ -17,6 +17,8 @@ import type {
   SendEffect,
   Session,
 } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-test";
 
@@ -33,9 +35,9 @@ function at(state: string, offered?: OfferedList, slots: Session["slots"] = {}):
   return {
     state,
     slots: {
-      citaBearer: "token",
+      [SlotKey.CITA_BEARER]: "token",
       ...slots,
-      ...(offered ? { citaOffered: serializeOffered(offered) } : {}),
+      ...(offered ? { [SlotKey.CITA_OFFERED]: serializeOffered(offered) } : {}),
     },
     counters: {},
   };
@@ -105,7 +107,7 @@ function expectRejectedAndReshown(result: HandlerResult, state: string, offered:
 describe("OTP verification — proactive district resolution from the opening message", () => {
   function afterVerification(initialMessageText?: string): HandlerResult {
     const session = at("cita_verify_pending", undefined, {
-      citaDniPending: "12345678",
+      [SlotKey.CITA_DNI_PENDING]: "12345678",
       ...(initialMessageText ? { initialMessageText } : {}),
     });
     const verified = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
@@ -171,7 +173,7 @@ describe("offered options are remembered when a list is sent", () => {
 
   it("hora list", () => {
     const result = handle(
-      at("cita_hora_pending", undefined, { citaFecha: "31/12/2099" }),
+      at("cita_hora_pending", undefined, { [SlotKey.CITA_FECHA]: "31/12/2099" }),
       queryResult("list_horas", {
         status: "found",
         items: [
@@ -193,8 +195,8 @@ describe("ubigeo select (list MINSA returned for a resolved district)", () => {
     const result = handle(at(state, ubigeo), tap("150101"));
 
     expect(result.session.state).toBe("cita_especialidad_pending");
-    expect(result.session.slots.citaUbigeo).toBe("150101");
-    expect(result.session.slots.citaOffered).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_UBIGEO]).toBe("150101");
+    expect(result.session.slots[SlotKey.CITA_OFFERED]).toBeUndefined();
     expect(queries(result)[0]).toMatchObject({ kind: "list_especialidades", payload: { ubigeo: "150101" } });
   });
 
@@ -294,12 +296,12 @@ describe("district disambiguation (candidates from the dataset / AI chain)", () 
 describe("especialidad and establecimiento selects", () => {
   it("typed specialty name picks the offered specialty", () => {
     const result = handle(
-      at("cita_awaiting_especialidad_select", especialidades, { citaUbigeo: "150101" }),
+      at("cita_awaiting_especialidad_select", especialidades, { [SlotKey.CITA_UBIGEO]: "150101" }),
       text("odontología"),
     );
 
     expect(result.session.state).toBe("cita_establecimiento_pending");
-    expect(result.session.slots.citaEspecialidadId).toBe("02");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("02");
     expect(queries(result)[0]).toMatchObject({
       kind: "list_establecimientos",
       payload: { especialidadId: "02", ubigeo: "150101" },
@@ -316,7 +318,7 @@ describe("especialidad and establecimiento selects", () => {
 
   it("typed establishment name picks the offered establishment", () => {
     const result = handle(
-      at("cita_awaiting_establecimiento_select", establecimientos, { citaEspecialidadId: "02" }),
+      at("cita_awaiting_establecimiento_select", establecimientos, { [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }),
       text("el de San Borja"),
     );
 
@@ -332,14 +334,14 @@ describe("fecha select", () => {
   const state = "cita_awaiting_fecha_select";
 
   it("a tap proceeds to the horarios query", () => {
-    const result = handle(at(state, fechas, { citaCodEess: "0000123", citaEspecialidadId: "02" }), tap("22/09/2026"));
+    const result = handle(at(state, fechas, { [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }), tap("22/09/2026"));
 
     expect(result.session.state).toBe("cita_hora_pending");
     expect(queries(result)[0]).toMatchObject({ kind: "list_horas", payload: { fecha: "22/09/2026" } });
   });
 
   it("typed ordinal or full date picks an offered date", () => {
-    const base = at(state, fechas, { citaCodEess: "0000123", citaEspecialidadId: "02" });
+    const base = at(state, fechas, { [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" });
 
     expect(queries(handle(base, text("2")))[0]).toMatchObject({ payload: { fecha: "23/09/2026" } });
     expect(queries(handle(base, text("22/09/2026")))[0]).toMatchObject({ payload: { fecha: "22/09/2026" } });
@@ -354,23 +356,23 @@ describe("fecha select", () => {
 describe("hora pending — zero horarios for the picked date", () => {
   it("offers another date instead of a dead-end rejection", () => {
     const session = at("cita_hora_pending", undefined, {
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
     });
     const result = handle(session, queryResult("list_horas", { status: "empty" }));
 
     expect(result.session.state).toBe("cita_awaiting_other_fecha");
     expect((sent(result)[0] as { text: string }).text).toContain("No hay horarios disponibles para esa fecha.");
     expect((sent(result)[0] as { text: string }).text).toContain("¿Deseas cambiar de fecha?");
-    expect(result.session.slots.citaFechasDescartadas).toBe("22/09/2026");
+    expect(result.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe("22/09/2026");
   });
 
   it("an explicit empty items array behaves the same as status: empty", () => {
     const session = at("cita_hora_pending", undefined, {
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
     });
     const result = handle(session, queryResult("list_horas", { status: "found", items: [] }));
 
@@ -381,10 +383,10 @@ describe("hora pending — zero horarios for the picked date", () => {
 describe("booking pending — a duplicate booking offers another especialidad instead of closing", () => {
   it("offers another especialidad with a clean message, never MINSA's raw wording", () => {
     const session = at("cita_booking_pending", undefined, {
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
-      citaDni: "12345678",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
+      [SlotKey.CITA_DNI]: "12345678",
     });
     const result = handle(
       session,
@@ -398,18 +400,18 @@ describe("booking pending — a duplicate booking offers another especialidad in
     const shown = (sent(result)[0] as { text: string }).text;
     expect(shown).toContain("Ya tienes una cita activa para");
     expect(shown).not.toContain("Error al generar la cita en el servicio externo");
-    expect(result.session.slots.citaFecha).toBeUndefined();
-    expect(result.session.slots.citaEspecialidadesDescartadas).toBe("02");
+    expect(result.session.slots[SlotKey.CITA_FECHA]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]).toBe("02");
   });
 });
 
 describe("booking pending — raw HTTP errors are not the same as a real rejection", () => {
   const bookingState = () =>
     at("cita_booking_pending", undefined, {
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
-      citaDni: "12345678",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
+      [SlotKey.CITA_DNI]: "12345678",
     });
 
   it("a raw HTTP error retries WITHOUT inventing a 'someone else took it' reason", () => {
@@ -451,7 +453,7 @@ describe("booking pending — raw HTTP errors are not the same as a real rejecti
   });
 
   it("the 3rd straight raw error closes the flow with the honest generic fallback, not a fabricated reason", () => {
-    const session = { ...bookingState(), counters: { citaBookingFailures: 2 } };
+    const session = { ...bookingState(), counters: { [CounterKey.CITA_BOOKING_FAILURES]: 2 } };
     const result = handle(session, queryResult("book_appointment", { status: "error" }));
 
     expect(result.session.state).toBe("cita_booking_rejected");
@@ -464,10 +466,10 @@ describe("booking pending — raw HTTP errors are not the same as a real rejecti
 describe("hora select", () => {
   const state = "cita_awaiting_hora_select";
   const base = at(state, horas, {
-    citaCodEess: "0000123",
-    citaEspecialidadId: "02",
-    citaFecha: "22/09/2026",
-    citaDni: "12345678",
+    [SlotKey.CITA_COD_EESS]: "0000123",
+    [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+    [SlotKey.CITA_FECHA]: "22/09/2026",
+    [SlotKey.CITA_DNI]: "12345678",
   });
 
   it("a tap on an offered row books it", () => {
@@ -491,7 +493,7 @@ describe("hora select", () => {
     const result = handle(base, text("1"));
 
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("08:00|08:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("08:00|08:30");
     expect(queries(result)).toHaveLength(0);
     expect(sent(result)[0]).toMatchObject({
       kind: "send_buttons",
@@ -517,7 +519,7 @@ describe("hora select", () => {
 
 describe("fecha select — typed dates and AI fallback", () => {
   const state = "cita_awaiting_fecha_select";
-  const base = () => at(state, fechas, { citaCodEess: "0000123", citaEspecialidadId: "02" });
+  const base = () => at(state, fechas, { [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" });
 
   afterEach(() => {
     vi.useRealTimers();
@@ -570,7 +572,7 @@ describe("fecha select — typed dates and AI fallback", () => {
   });
 
   it("an AI answer that is one of the offered dates is treated like a tap", () => {
-    const pending = at("cita_fecha_ai_pending", fechas, { citaCodEess: "0000123", citaEspecialidadId: "02" });
+    const pending = at("cita_fecha_ai_pending", fechas, { [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" });
 
     const result = handle(pending, queryResult("resolve_fecha_ai", { id: "23/09/2026" }));
 
@@ -599,19 +601,19 @@ describe("especialidad/establecimiento — hints from a message that names more 
 
   it("keeps the establishment named while choosing the specialty as a hint", () => {
     const result = handle(
-      at(especialidadState, especialidades, { citaUbigeo: "150101" }),
+      at(especialidadState, especialidades, { [SlotKey.CITA_UBIGEO]: "150101" }),
       text("odontología en el hospital de Lurigancho"),
     );
 
     expect(result.session.state).toBe("cita_establecimiento_pending");
-    expect(result.session.slots.citaEspecialidadId).toBe("02");
-    expect(result.session.slots.citaEstablecimientoHintText).toBe("hospital lurigancho");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("02");
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT]).toBe("hospital lurigancho");
   });
 
   it("applies the hint when the establishment list arrives and matches exactly one row", () => {
     const pending = at("cita_establecimiento_pending", undefined, {
-      citaEspecialidadId: "02",
-      citaEstablecimientoHintText: "hospital lurigancho",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT]: "hospital lurigancho",
     });
 
     const result = handle(
@@ -626,15 +628,15 @@ describe("especialidad/establecimiento — hints from a message that names more 
     );
 
     expect(result.session.state).toBe("cita_fecha_pending");
-    expect(result.session.slots.citaCodEess).toBe("0000456");
-    expect(result.session.slots.citaEstablecimientoHintText).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("0000456");
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT]).toBeUndefined();
     expect(queries(result)[0]).toMatchObject({ kind: "list_fechas", payload: { codEess: "0000456" } });
   });
 
   it("an ambiguous or non-matching hint just shows the normal list (and is discarded)", () => {
     const pending = at("cita_establecimiento_pending", undefined, {
-      citaEspecialidadId: "02",
-      citaEstablecimientoHintText: "hospital",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT]: "hospital",
     });
 
     const result = handle(
@@ -650,14 +652,14 @@ describe("especialidad/establecimiento — hints from a message that names more 
 
     expect(result.session.state).toBe(establecimientoState);
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.slots.citaEstablecimientoHintText).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT]).toBeUndefined();
   });
 
   it("unmatched specialty text that looks like a word asks the AI for hints, once", () => {
     const result = handle(at(especialidadState, especialidades), text("cardiología"));
 
     expect(result.session.state).toBe("cita_selection_hints_pending");
-    expect(result.session.slots.citaSelectionStep).toBe("especialidad");
+    expect(result.session.slots[SlotKey.CITA_SELECTION_STEP]).toBe("especialidad");
     expect(queries(result)).toHaveLength(1);
     expect(queries(result)[0]).toMatchObject({
       kind: "extract_selection_hints",
@@ -672,8 +674,8 @@ describe("especialidad/establecimiento — hints from a message that names more 
 
   it("an AI hint that names an offered specialty is treated like a tap and keeps the establishment hint", () => {
     const pending = at("cita_selection_hints_pending", especialidades, {
-      citaSelectionStep: "especialidad",
-      citaUbigeo: "150101",
+      [SlotKey.CITA_SELECTION_STEP]: "especialidad",
+      [SlotKey.CITA_UBIGEO]: "150101",
     });
 
     const result = handle(
@@ -682,13 +684,13 @@ describe("especialidad/establecimiento — hints from a message that names more 
     );
 
     expect(result.session.state).toBe("cita_establecimiento_pending");
-    expect(result.session.slots.citaEspecialidadId).toBe("02");
-    expect(result.session.slots.citaEstablecimientoHintText).toBe("hospital lurigancho");
-    expect(result.session.slots.citaSelectionStep).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("02");
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT]).toBe("hospital lurigancho");
+    expect(result.session.slots[SlotKey.CITA_SELECTION_STEP]).toBeUndefined();
   });
 
   it("an AI hint that matches nothing offered goes back to the list", () => {
-    const pending = at("cita_selection_hints_pending", especialidades, { citaSelectionStep: "especialidad" });
+    const pending = at("cita_selection_hints_pending", especialidades, { [SlotKey.CITA_SELECTION_STEP]: "especialidad" });
 
     const result = handle(pending, queryResult("extract_selection_hints", { especialidad: "Cardiología" }));
 
@@ -700,8 +702,8 @@ describe("especialidad/establecimiento — hints from a message that names more 
 
   it("at the establishment step an AI hint picks the offered establishment", () => {
     const pending = at("cita_selection_hints_pending", establecimientos, {
-      citaSelectionStep: "establecimiento",
-      citaEspecialidadId: "02",
+      [SlotKey.CITA_SELECTION_STEP]: "establecimiento",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
     });
 
     const result = handle(pending, queryResult("extract_selection_hints", { establecimiento: "San Borja" }));
@@ -724,16 +726,16 @@ describe("hora select — typed times (12h/24h) resolved against the whole day",
   };
   const base = () =>
     at(state, page, {
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
-      citaDni: "12345678",
-      citaHorasDia: dayPacked,
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_HORAS_DIA]: dayPacked,
     });
 
   it("remembers the whole day's offer when a page of horarios is shown", () => {
     const result = handle(
-      at("cita_hora_pending", undefined, { citaFecha: "31/12/2099" }),
+      at("cita_hora_pending", undefined, { [SlotKey.CITA_FECHA]: "31/12/2099" }),
       queryResult("list_horas", {
         status: "found",
         items: [
@@ -743,14 +745,14 @@ describe("hora select — typed times (12h/24h) resolved against the whole day",
       }),
     );
 
-    expect(result.session.slots.citaHorasDia).toBe("08:00|08:30|2;08:45|09:15|1");
+    expect(result.session.slots[SlotKey.CITA_HORAS_DIA]).toBe("08:00|08:30|2;08:45|09:15|1");
   });
 
   it("an exact time on ANOTHER page still resolves, and asks for confirmation before booking", () => {
     const result = handle(base(), text("1:45 pm"));
 
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("13:45|14:15");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("13:45|14:15");
     expect(queries(result)).toHaveLength(0);
   });
 
@@ -793,12 +795,12 @@ describe("hora select — typed times (12h/24h) resolved against the whole day",
   });
 
   it("works with only the visible page when the day's offer was not stored", () => {
-    const legacy = at(state, page, { citaFecha: "22/09/2026", citaDni: "12345678" });
+    const legacy = at(state, page, { [SlotKey.CITA_FECHA]: "22/09/2026", [SlotKey.CITA_DNI]: "12345678" });
 
     const result = handle(legacy, text("8:00"));
 
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("08:00|08:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("08:00|08:30");
   });
 });
 
@@ -806,12 +808,12 @@ describe("hora confirmation", () => {
   const state = "cita_awaiting_hora_confirm";
   const confirming = () =>
     at(state, horas, {
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
-      citaDni: "12345678",
-      citaHoraConfirmId: "13:45|14:15",
-      citaHorasDia: "13:45|14:15|1",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_HORA_CONFIRM_ID]: "13:45|14:15",
+      [SlotKey.CITA_HORAS_DIA]: "13:45|14:15|1",
     });
   const button = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 
@@ -823,9 +825,9 @@ describe("hora confirmation", () => {
       kind: "book_appointment",
       payload: { horaInicio: "13:45", fechaCita: "22/09/2026", numeroDocumentoPaciente: "12345678" },
     });
-    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
-    expect(result.session.slots.citaHorasDia).toBeUndefined();
-    expect(result.session.slots.citaOffered).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORAS_DIA]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_OFFERED]).toBeUndefined();
   });
 
   it("typing 'sí' also confirms", () => {
@@ -837,7 +839,7 @@ describe("hora confirmation", () => {
 
     expect(result.session.state).toBe("cita_awaiting_hora_select");
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
     expect((sent(result)[0] as { text: string }).text).toContain("Sin problema");
     expect(listRowsOf(result)).toEqual(horas.rows);
   });

@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-district";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -30,11 +31,11 @@ function searchingUbigeo(slots: Session["slots"] = {}): Session {
   return {
     state: "cita_ubigeo_pending",
     slots: {
-      citaBearer: "token",
-      citaDni: "12345678",
-      citaDepartamento: "LIMA",
-      citaProvincia: "LIMA",
-      citaDistrito: "SAN JUAN DE LURIGANCHO",
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_DEPARTAMENTO]: "LIMA",
+      [SlotKey.CITA_PROVINCIA]: "LIMA",
+      [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO",
       ...slots,
     },
     counters: {},
@@ -49,7 +50,7 @@ describe("the district is acknowledged before the catalog is queried", () => {
 
     expect(firstText(step)).toBe(ACK);
     expect(queries(step)).toEqual([{ kind: "list_especialidades", payload: { ubigeo: "150132" } }]);
-    expect(step.session.slots.citaUbigeo).toBe("150132");
+    expect(step.session.slots[SlotKey.CITA_UBIGEO]).toBe("150132");
   });
 
   it("does not ask «Selecciona tu ubigeo» when the district is already known and one result is exactly it", () => {
@@ -63,7 +64,7 @@ describe("the district is acknowledged before the catalog is queried", () => {
 
   it("still asks when nothing is exactly the district that was resolved", () => {
     const step = handle(
-      searchingUbigeo({ citaDistrito: "SAN JUAN" }),
+      searchingUbigeo({ [SlotKey.CITA_DISTRITO]: "SAN JUAN" }),
       result("search_ubigeo", { status: "found", items: FUZZY_RESULT }),
     );
 
@@ -74,7 +75,7 @@ describe("the district is acknowledged before the catalog is queried", () => {
   it("still asks when the same name comes back twice and cannot be told apart", () => {
     const twin = { ...SJL, ubigeoInei: "999999", provincia: "OTRA" };
     const step = handle(
-      searchingUbigeo({ citaProvincia: "" }),
+      searchingUbigeo({ [SlotKey.CITA_PROVINCIA]: "" }),
       result("search_ubigeo", { status: "found", items: [SJL, twin] }),
     );
 
@@ -85,8 +86,8 @@ describe("the district is acknowledged before the catalog is queried", () => {
     const listed = (): Session => ({
       state: "cita_awaiting_ubigeo_select",
       slots: {
-        citaBearer: "token",
-        citaOffered: serializeOffered({
+        [SlotKey.CITA_BEARER]: "token",
+        [SlotKey.CITA_OFFERED]: serializeOffered({
           text: "Selecciona tu ubigeo:",
           rows: FUZZY_RESULT.map((item) => ({
             id: item.ubigeoInei,
@@ -119,13 +120,13 @@ describe("no specialties in the district", () => {
     const session: Session = {
       state: "cita_especialidad_pending",
       slots: {
-        citaBearer: "token",
-        citaDni: "12345678",
-        citaDepartamento: "LIMA",
-        citaProvincia: "LIMA",
-        citaDistrito: "SAN JUAN DE LURIGANCHO",
-        citaUbigeo: "150132",
-        initialMessageText: "quiero una cita en San Juan de Lurigancho",
+        [SlotKey.CITA_BEARER]: "token",
+        [SlotKey.CITA_DNI]: "12345678",
+        [SlotKey.CITA_DEPARTAMENTO]: "LIMA",
+        [SlotKey.CITA_PROVINCIA]: "LIMA",
+        [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO",
+        [SlotKey.CITA_UBIGEO]: "150132",
+        [SlotKey.INITIAL_MESSAGE_TEXT]: "quiero una cita en San Juan de Lurigancho",
       },
       counters: {},
     };
@@ -138,7 +139,7 @@ describe("no specialties in the district", () => {
     expect(step.session.state).toBe("cita_awaiting_other_distrito");
     expect(TERMINAL_STATES.has(step.session.state)).toBe(false);
     expect(step.outcome).toBe("continue");
-    expect(step.session.slots.citaBearer).toBe("token");
+    expect(step.session.slots[SlotKey.CITA_BEARER]).toBe("token");
 
     const prompt = sent(step)[0];
     expect(prompt.kind).toBe("send_buttons");
@@ -164,11 +165,11 @@ describe("no specialties in the district", () => {
 
     expect(step.session.state).toBe("cita_awaiting_distrito_ai");
     expect(sent(step)[0]).toMatchObject({ text: expect.stringContaining("otro distrito") });
-    expect(step.session.slots.citaDistrito).toBeUndefined();
-    expect(step.session.slots.citaUbigeo).toBeUndefined();
-    expect(step.session.slots.initialMessageText).toBeUndefined();
-    expect(step.session.slots.citaBearer).toBe("token");
-    expect(step.session.slots.citaDni).toBe("12345678");
+    expect(step.session.slots[SlotKey.CITA_DISTRITO]).toBeUndefined();
+    expect(step.session.slots[SlotKey.CITA_UBIGEO]).toBeUndefined();
+    expect(step.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
+    expect(step.session.slots[SlotKey.CITA_BEARER]).toBe("token");
+    expect(step.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
   });
 
   it("the new district is resolved on its own, not from the first message", () => {
@@ -221,7 +222,7 @@ describe("no specialties in the district", () => {
       const step = handle(offered.session, text("Si quiero en San Borja"));
 
       expect(step.session.state).toBe("cita_ubigeo_pending");
-      expect(step.session.slots.citaDistrito).toBe("SAN BORJA");
+      expect(step.session.slots[SlotKey.CITA_DISTRITO]).toBe("SAN BORJA");
       expect(queries(step)).toEqual([
         { kind: "search_ubigeo", payload: { departamento: "LIMA", provincia: "LIMA", distrito: "SAN BORJA" } },
       ]);
@@ -234,8 +235,8 @@ describe("no specialties in the district", () => {
 
       const step = handle(offered.session, text("Si quiero en San Borja"));
 
-      expect(step.session.slots.citaBearer).toBe("token");
-      expect(step.session.slots.citaDni).toBe("12345678");
+      expect(step.session.slots[SlotKey.CITA_BEARER]).toBe("token");
+      expect(step.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
       expect(JSON.stringify(step.effects)).not.toContain("LURIGANCHO");
     });
 
@@ -243,7 +244,7 @@ describe("no specialties in the district", () => {
       const step = handle(empty().step.session, text("San Borja"));
 
       expect(step.session.state).toBe("cita_ubigeo_pending");
-      expect(step.session.slots.citaDistrito).toBe("SAN BORJA");
+      expect(step.session.slots[SlotKey.CITA_DISTRITO]).toBe("SAN BORJA");
     });
 
     it("an ambiguous name asks to disambiguate, same as the initial district question", () => {
@@ -283,7 +284,7 @@ describe("no establishments for the specialty in the district", () => {
   it("offers another district too", () => {
     const session: Session = {
       state: "cita_establecimiento_pending",
-      slots: { citaBearer: "token", citaDistrito: "MIRAFLORES", citaEspecialidadId: "02" },
+      slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DISTRITO]: "MIRAFLORES", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" },
       counters: {},
     };
 

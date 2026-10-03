@@ -20,10 +20,10 @@ import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { discardedEspecialidades } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
 import {
   discardedEstablecimientos,
-  ESTABLECIMIENTO_NAME_SLOT,
   isSearchingOtherEstablecimiento,
   offerOtherEstablecimiento,
 } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -65,20 +65,20 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   const items = result.items?.filter((item) => !discarded.includes(item.codigoEspecialidad)) ?? [];
 
   if (result.status === "found" && items.length > 0) {
-    const hint = next.slots.citaEspecialidadHintText as string | undefined;
+    const hint = next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
     const matched = hint ? matchEspecialidadHint(hint, items) : undefined;
 
     if (matched) {
       const name = formatEspecialidadName(matched.nombreEspecialidad);
-      delete next.slots.citaEspecialidadHintText;
-      next.slots.citaEspecialidadId = matched.codigoEspecialidad;
-      next.slots.citaEspecialidadNombre = name.full;
+      delete next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
+      next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = matched.codigoEspecialidad;
+      next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = name.full;
       next.state = "cita_establecimiento_pending";
       return buildResult(next, [
         sendText(`Especialidad detectada: ${name.full}. Buscando establecimientos…`),
         query(QueryKind.LIST_ESTABLECIMIENTOS, {
           especialidadId: matched.codigoEspecialidad,
-          ubigeo: String(next.slots.citaUbigeo ?? ""),
+          ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
         }),
       ]);
     }
@@ -107,7 +107,7 @@ function askSelectionHints(
 
   const next = cloneSession(session);
   next.state = "cita_selection_hints_pending";
-  next.slots.citaSelectionStep = step;
+  next.slots[SlotKey.CITA_SELECTION_STEP] = step;
   return buildResult(next, [
     sendText("Un momento, estamos revisando tu respuesta…"),
     query(QueryKind.EXTRACT_SELECTION_HINTS, { step, text: typed }),
@@ -116,11 +116,11 @@ function askSelectionHints(
 
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { especialidad?: unknown; establecimiento?: unknown; quiereSalir?: boolean };
-  const step = session.slots.citaSelectionStep === "establecimiento" ? "establecimiento" : "especialidad";
+  const step = session.slots[SlotKey.CITA_SELECTION_STEP] === "establecimiento" ? "establecimiento" : "especialidad";
   const offered = readOffered(session.slots);
 
   const restored = cloneSession(session);
-  delete restored.slots.citaSelectionStep;
+  delete restored.slots[SlotKey.CITA_SELECTION_STEP];
   restored.state =
     step === "establecimiento" ? "cita_awaiting_establecimiento_select" : "cita_awaiting_especialidad_select";
 
@@ -135,7 +135,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
 
   if (step === "especialidad" && typeof result.establecimiento === "string") {
     const hint = hintText(result.establecimiento).slice(0, HINT_MAX_LENGTH);
-    if (hint) restored.slots.citaEstablecimientoHintText = hint;
+    if (hint) restored.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT] = hint;
   }
 
   const tap: InboundEvent = { from: event.from, type: InboundEventType.LIST, listId: matched.id };
@@ -157,16 +157,16 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
   const next = clearOffered(session);
   if (outcome.typed && chosen) {
     const hint = leftoverHint(outcome.typed, { ...chosen, title: offeredFullName(session.slots, chosen) }).slice(0, HINT_MAX_LENGTH);
-    if (hint) next.slots.citaEstablecimientoHintText = hint;
+    if (hint) next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT] = hint;
   }
-  next.slots.citaEspecialidadId = replyId;
-  if (chosen) next.slots.citaEspecialidadNombre = offeredFullName(session.slots, chosen);
+  next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = replyId;
+  if (chosen) next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = offeredFullName(session.slots, chosen);
   next.state = "cita_establecimiento_pending";
   return buildResult(next, [
     sendText("Buscando establecimientos…"),
     query(QueryKind.LIST_ESTABLECIMIENTOS, {
       especialidadId: replyId,
-      ubigeo: String(next.slots.citaUbigeo ?? ""),
+      ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
     }),
   ]);
 }
@@ -191,8 +191,8 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
 
-  const hint = next.slots.citaEstablecimientoHintText as string | undefined;
-  delete next.slots.citaEstablecimientoHintText;
+  const hint = next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
+  delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
 
   if (result.status === "unauthorized") {
     return beginReverification(next, "cita_establecimiento_pending");
@@ -224,14 +224,14 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
 
   if (items.length === 1) {
     const [item] = items;
-    next.slots.citaCodEess = item.renipressCode;
-    next.slots[ESTABLECIMIENTO_NAME_SLOT] = establecimientoFullName(item);
+    next.slots[SlotKey.CITA_COD_EESS] = item.renipressCode;
+    next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = establecimientoFullName(item);
     next.state = "cita_fecha_pending";
     return buildResult(next, [
       sendText(`Establecimiento encontrado: ${establecimientoFullName(item)}. Buscando fechas disponibles…`),
       query(QueryKind.LIST_FECHAS, {
         codEess: item.renipressCode,
-        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
       }),
     ]);
   }
@@ -248,14 +248,14 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
       : undefined;
 
     if (detected) {
-      next.slots.citaCodEess = detected.renipressCode;
-      next.slots[ESTABLECIMIENTO_NAME_SLOT] = establecimientoFullName(detected);
+      next.slots[SlotKey.CITA_COD_EESS] = detected.renipressCode;
+      next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = establecimientoFullName(detected);
       next.state = "cita_fecha_pending";
       return buildResult(next, [
         sendText(`Establecimiento detectado: ${establecimientoFullName(detected)}. Buscando fechas disponibles…`),
         query(QueryKind.LIST_FECHAS, {
           codEess: detected.renipressCode,
-          especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+          especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
         }),
       ]);
     }
@@ -277,14 +277,14 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
 
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);
-  next.slots.citaCodEess = replyId;
-  if (chosen) next.slots[ESTABLECIMIENTO_NAME_SLOT] = offeredFullName(session.slots, chosen);
+  next.slots[SlotKey.CITA_COD_EESS] = replyId;
+  if (chosen) next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = offeredFullName(session.slots, chosen);
   next.state = "cita_fecha_pending";
   return buildResult(next, [
     sendText("Buscando fechas disponibles…"),
     query(QueryKind.LIST_FECHAS, {
       codEess: replyId,
-      especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+      especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
     }),
   ]);
 }

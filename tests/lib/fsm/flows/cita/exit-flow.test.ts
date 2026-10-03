@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-exit";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -37,11 +38,11 @@ const especialidades: OfferedList = {
 
 const at = (state: string, slots: Session["slots"] = {}): Session => ({
   state,
-  slots: { citaBearer: "token", citaDni: "12345678", ...slots },
+  slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", ...slots },
   counters: {},
 });
 
-const listState = () => at("cita_awaiting_especialidad_select", { citaOffered: serializeOffered(especialidades) });
+const listState = () => at("cita_awaiting_especialidad_select", { [SlotKey.CITA_OFFERED]: serializeOffered(especialidades) });
 
 describe("leaving the cita on purpose", () => {
   it.each([
@@ -53,7 +54,7 @@ describe("leaving the cita on purpose", () => {
     const result = handle(session, text(message));
 
     expect(result.session.state).toBe("cita_awaiting_exit_confirm");
-    expect(result.session.slots.citaExitResumeState).toBe(session.state);
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBe(session.state);
     expect(sent(result)).toEqual([EXIT_QUESTION]);
   });
 
@@ -89,7 +90,7 @@ describe("leaving the cita on purpose", () => {
     const result = handle(asked.session, answer);
 
     expect(result.session.state).toBe("cita_awaiting_especialidad_select");
-    expect(result.session.slots.citaExitResumeState).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBeUndefined();
     expect(sent(result)[0]).toEqual({ kind: "send_text", text: "Selecciona una opción de la lista." });
     expect(sent(result)[1]).toMatchObject({ kind: "send_interactive_list", rows: especialidades.rows });
   });
@@ -129,7 +130,7 @@ describe("leaving the cita on purpose", () => {
   });
 
   it.each([
-    ["other date", at("cita_awaiting_other_fecha", { citaCodEess: "1", citaEspecialidadId: "02" }), "cita_declined_closed"],
+    ["other date", at("cita_awaiting_other_fecha", { [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }), "cita_declined_closed"],
     ["other district", at("cita_awaiting_other_distrito"), "cita_no_coverage_closed"],
   ])("in the yes/no step «%s», «no» keeps its own meaning", (_label, session, closedState) => {
     const result = handle(session, text("no"));
@@ -138,7 +139,7 @@ describe("leaving the cita on purpose", () => {
   });
 
   it("in a yes/no step even «quiero salir» is not intercepted", () => {
-    const result = handle(at("cita_awaiting_hora_confirm", { citaHoraConfirmId: "08:00|08:15" }), text("quiero salir"));
+    const result = handle(at("cita_awaiting_hora_confirm", { [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:15" }), text("quiero salir"));
 
     expect(result.session.state).not.toBe("cita_awaiting_exit_confirm");
   });
@@ -163,28 +164,28 @@ describe("the AI noticing a wish to leave", () => {
     const result = handle(pending, queryResult("resolve_distrito_ai", { outcome: "not_found", candidates: [], quiereSalir: true }));
 
     expect(result.session.state).toBe("cita_awaiting_exit_confirm");
-    expect(result.session.slots.citaExitResumeState).toBe("cita_awaiting_distrito_ai");
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBe("cita_awaiting_distrito_ai");
     expect(sent(result)).toEqual([EXIT_QUESTION]);
   });
 
   it("in the selection hints asks for confirmation and would come back to the list", () => {
     const pending = at("cita_selection_hints_pending", {
-      citaSelectionStep: "especialidad",
-      citaOffered: serializeOffered(especialidades),
+      [SlotKey.CITA_SELECTION_STEP]: "especialidad",
+      [SlotKey.CITA_OFFERED]: serializeOffered(especialidades),
     });
     const result = handle(pending, queryResult("extract_selection_hints", { quiereSalir: true }));
 
     expect(result.session.state).toBe("cita_awaiting_exit_confirm");
-    expect(result.session.slots.citaExitResumeState).toBe("cita_awaiting_especialidad_select");
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBe("cita_awaiting_especialidad_select");
   });
 
   it("in the date phrase asks for confirmation and would come back to the dates", () => {
     const pending = at("cita_fecha_ai_pending", {
-      citaOffered: serializeOffered({ text: "Selecciona la fecha:", rows: [{ id: "22/09/2099", title: "mar 22 sep" }] }),
+      [SlotKey.CITA_OFFERED]: serializeOffered({ text: "Selecciona la fecha:", rows: [{ id: "22/09/2099", title: "mar 22 sep" }] }),
     });
     const result = handle(pending, queryResult("resolve_fecha_ai", { quiereSalir: true }));
 
     expect(result.session.state).toBe("cita_awaiting_exit_confirm");
-    expect(result.session.slots.citaExitResumeState).toBe("cita_awaiting_fecha_select");
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBe("cita_awaiting_fecha_select");
   });
 });

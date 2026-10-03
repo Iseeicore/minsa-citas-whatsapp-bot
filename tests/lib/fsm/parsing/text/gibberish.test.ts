@@ -5,7 +5,8 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
-
+import { SlotKey } from "@/lib/enums/slot-key";
+
 type Row = { departamento: string; provincia: string; distrito: string };
 const names = [...new Set((distritos as Row[]).flatMap((row) => [row.departamento, row.provincia, row.distrito]))];
 
@@ -62,7 +63,7 @@ const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
 const texts = (r: HandlerResult) => sent(r).map((e) => (e as { text: string }).text);
 
 describe("free-text district step: gibberish never reaches the AI", () => {
-  const session = (): Session => ({ state: "cita_awaiting_distrito_ai", slots: { citaBearer: "token" }, counters: {} });
+  const session = (): Session => ({ state: "cita_awaiting_distrito_ai", slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} });
 
   it.each(["asdfghjk", "qwertyuiop", "asdf", "zxcvbnm", "aaaaaaaa"])("%s gets the fixed message and no query", (value) => {
     const result = handle(session(), text(value));
@@ -101,7 +102,7 @@ describe("district disambiguation list: gibberish never reaches the AI", () => {
   };
   const session = (): Session => ({
     state: "cita_awaiting_distrito_disambiguation",
-    slots: { citaBearer: "token", citaOffered: serializeOffered(offered) },
+    slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_OFFERED]: serializeOffered(offered) },
     counters: {},
   });
 

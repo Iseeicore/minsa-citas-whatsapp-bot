@@ -2,7 +2,7 @@ import type { TurnNote } from "@/lib/observability/types";
 import { SendType } from "@/lib/enums/send-type";
 import { HandlerOutcome } from "@/lib/enums/handler-outcome";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
-import { OFFERED_SLOT, serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type {
   ButtonOption,
   HandlerResult,
@@ -13,6 +13,8 @@ import type {
   SendEffect,
   Session,
 } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 export const TERMINAL_STATES = new Set([
   "reclamo_rejected",
@@ -84,12 +86,12 @@ export function buildResult(
 }
 
 function dropBearerWhenClosed(session: Session): Session {
-  if (!TERMINAL_STATES.has(session.state) || !("citaBearer" in session.slots)) return session;
+  if (!TERMINAL_STATES.has(session.state) || !(SlotKey.CITA_BEARER in session.slots)) return session;
 
-  return { ...session, slots: omitSlot(session.slots, "citaBearer") };
+  return { ...session, slots: omitSlot(session.slots, SlotKey.CITA_BEARER) };
 }
 
-export function omitSlot(slots: Session["slots"], name: string): Session["slots"] {
+export function omitSlot(slots: Session["slots"], name: SlotKey): Session["slots"] {
   return Object.fromEntries(Object.entries(slots).filter(([key]) => key !== name));
 }
 
@@ -103,13 +105,12 @@ export function truncateForRow(text: string, maxLength: number): string {
 
 /** WhatsApp rechaza la lista completa si una fila supera 24 caracteres de título, 72 de descripción o hay más de 10 filas. */
 export function offerList(next: Session, text: string, rows: ListRow[]): SendEffect {
-  next.slots[OFFERED_SLOT] = serializeOffered({ text, rows });
+  next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows });
   return sendList(text, rows);
 }
 
 export const LIST_PAGE_NEXT_ID = ListPageButtonId.NEXT;
 export const LIST_PAGE_PREV_ID = ListPageButtonId.PREV;
-export const LIST_PAGE_COUNTER = "citaListPage";
 
 export function pageCount(rowCount: number): number {
   return Math.max(1, Math.ceil(rowCount / WHATSAPP_LIST_MAX_ROWS));
@@ -133,8 +134,8 @@ export function pageEffects(text: string, rows: ListRow[], page: number): SendEf
 
 /** Guarda la lista completa (para reconocer cualquier fila escrita) y muestra solo la página actual de 10 filas. */
 export function offerPagedList(next: Session, text: string, rows: ListRow[]): SendEffect[] {
-  next.slots[OFFERED_SLOT] = serializeOffered({ text, rows });
-  delete next.counters[LIST_PAGE_COUNTER];
+  next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows });
+  delete next.counters[CounterKey.CITA_LIST_PAGE];
   return pageEffects(text, rows, 0);
 }
 

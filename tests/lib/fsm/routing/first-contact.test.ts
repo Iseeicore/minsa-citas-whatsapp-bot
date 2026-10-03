@@ -4,6 +4,7 @@ import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-first-contact";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -36,7 +37,7 @@ describe("first contact: a greeting", () => {
 
   it("waits in main_menu, keeping only a real message as the opening message", () => {
     expect(handleFirstContact("Hola", "whatsapp").session).toEqual({ state: "main_menu", slots: {}, counters: {} });
-    expect(handleFirstContact("ayuda por favor", "whatsapp").session.slots).toEqual({ initialMessageText: "ayuda por favor" });
+    expect(handleFirstContact("ayuda por favor", "whatsapp").session.slots).toEqual({ [SlotKey.INITIAL_MESSAGE_TEXT]: "ayuda por favor" });
     expect(handleFirstContact(undefined, "whatsapp").session.state).toBe("main_menu");
   });
 
@@ -69,9 +70,9 @@ describe("first contact: a clear request for a cita", () => {
     const result = handleFirstContact(CITA_FIRST_MESSAGE, "whatsapp");
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(normalizeText(String(result.session.slots.citaDistritoHintText))).toBe("SAN JUAN DE LURIGANCHO");
-    expect(normalizeText(String(result.session.slots.citaEspecialidadHintText))).toBe("MEDICINA GENERAL");
-    expect(result.session.slots.initialMessageText).toBe(CITA_FIRST_MESSAGE);
+    expect(normalizeText(String(result.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]))).toBe("SAN JUAN DE LURIGANCHO");
+    expect(normalizeText(String(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]))).toBe("MEDICINA GENERAL");
+    expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBe(CITA_FIRST_MESSAGE);
 
     expect(sent(result)).toEqual([
       {
@@ -117,7 +118,7 @@ describe("first contact: a clear request for a cita", () => {
     const next = handle(started, text("12345678"));
 
     expect(next.session.state).toBe("cita_validate_pending");
-    expect(next.session.slots.citaDistritoHintText).toBeDefined();
+    expect(next.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBeDefined();
   });
 });
 
@@ -186,7 +187,7 @@ describe("first contact: text that says nothing structured", () => {
 
       expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
       expect(firstListTitle(result)).toContain("Agendar una cita médica");
-      expect(result.session).toEqual({ state: "main_menu", slots: { initialMessageText: message }, counters: {} });
+      expect(result.session).toEqual({ state: "main_menu", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: message }, counters: {} });
     },
   );
 });
@@ -203,7 +204,7 @@ describe("first contact: the web (sandbox/widget) channel", () => {
 });
 
 describe("returning after a finished cita or reclamo", () => {
-  const finished = (state: string): Session => ({ state, slots: { citaDni: "12345678" }, counters: {} });
+  const finished = (state: string): Session => ({ state, slots: { [SlotKey.CITA_DNI]: "12345678" }, counters: {} });
 
   it.each(["cita_booking_rejected", "cita_booked", "reclamo_confirmed"])("%s + «hola»: the welcome alone, no menu chained", (state) => {
     const result = handle(finished(state), text("hola"));
@@ -216,7 +217,7 @@ describe("returning after a finished cita or reclamo", () => {
     const result = handle(finished("cita_booking_rejected"), text(CITA_FIRST_MESSAGE));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(result.session.slots.citaDni).toBeUndefined();
-    expect(normalizeText(String(result.session.slots.citaEspecialidadHintText))).toBe("MEDICINA GENERAL");
+    expect(result.session.slots[SlotKey.CITA_DNI]).toBeUndefined();
+    expect(normalizeText(String(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]))).toBe("MEDICINA GENERAL");
   });
 });

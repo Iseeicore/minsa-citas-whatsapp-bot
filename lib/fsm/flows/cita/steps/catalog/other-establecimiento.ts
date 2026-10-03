@@ -16,14 +16,10 @@ import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SearchSubject } from "@/lib/enums/search-subject";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 export const OTHER_ESTABLECIMIENTO_STATE = "cita_awaiting_other_establecimiento";
-export const DISCARDED_ESTABLECIMIENTOS_SLOT = "citaEstablecimientosDescartados";
-export const ESTABLECIMIENTO_NAME_SLOT = "citaEstablecimientoNombre";
 
-const WITHOUT_DATES_SLOT = "citaEstablecimientoSinFechas";
-const PROPOSED_ID_SLOT = "citaEstablecimientoPropuesto";
-const PROPOSED_NAME_SLOT = "citaEstablecimientoPropuestoNombre";
 
 const YES_ID = OtherEstablecimientoButtonId.YES;
 const NO_ID = OtherEstablecimientoButtonId.NO;
@@ -39,31 +35,31 @@ const questionButtons = (text: string) =>
   ]);
 
 export function discardedEstablecimientos(slots: Session["slots"]): string[] {
-  return String(slots[DISCARDED_ESTABLECIMIENTOS_SLOT] ?? "")
+  return String(slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS] ?? "")
     .split(",")
     .filter(Boolean);
 }
 
 export function isSearchingOtherEstablecimiento(slots: Session["slots"]): boolean {
-  return WITHOUT_DATES_SLOT in slots;
+  return SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS in slots;
 }
 
 export function searchOtherEstablecimiento(session: Session): HandlerResult {
   const next = cloneSession(session);
-  const empty = String(next.slots.citaCodEess ?? "");
+  const empty = String(next.slots[SlotKey.CITA_COD_EESS] ?? "");
   const discarded = empty ? [...new Set([...discardedEstablecimientos(next.slots), empty])] : discardedEstablecimientos(next.slots);
-  if (discarded.length > 0) next.slots[DISCARDED_ESTABLECIMIENTOS_SLOT] = discarded.join(",");
+  if (discarded.length > 0) next.slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS] = discarded.join(",");
 
-  next.slots[WITHOUT_DATES_SLOT] = String(next.slots[ESTABLECIMIENTO_NAME_SLOT] ?? "");
-  delete next.slots.citaCodEess;
-  delete next.slots[ESTABLECIMIENTO_NAME_SLOT];
+  next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS] = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] ?? "");
+  delete next.slots[SlotKey.CITA_COD_EESS];
+  delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE];
   next.state = "cita_establecimiento_pending";
 
   return withNote(
     buildResult(next, [
       query(QueryKind.LIST_ESTABLECIMIENTOS, {
-        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
-        ubigeo: String(next.slots.citaUbigeo ?? ""),
+        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+        ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
       }),
     ]),
     { kind: "no_coverage", level: "warn", detail: { missing: SearchSubject.FECHAS, discarded: discarded.length } },
@@ -76,21 +72,21 @@ export function offerOtherEstablecimiento(
   rows: ListRow[],
 ): HandlerResult {
   const next = cloneSession(session);
-  const emptyName = String(next.slots[WITHOUT_DATES_SLOT] ?? "");
-  delete next.slots[WITHOUT_DATES_SLOT];
+  const emptyName = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS] ?? "");
+  delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS];
   const where = emptyName ? `*${emptyName}*` : "ese establecimiento";
 
   if (remaining.length === 0) return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
 
   if (remaining.length === 1) {
     const [proposed] = remaining;
-    next.slots[PROPOSED_ID_SLOT] = proposed.id;
-    next.slots[PROPOSED_NAME_SLOT] = proposed.name;
+    next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO] = proposed.id;
+    next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] = proposed.name;
     next.state = OTHER_ESTABLECIMIENTO_STATE;
     return buildResult(next, [questionButtons(`No hay fechas disponibles en ${where}. ${question(proposed.name)}`)]);
   }
 
-  const especialidad = next.slots.citaEspecialidadNombre ? `*${String(next.slots.citaEspecialidadNombre)}*` : "esa especialidad";
+  const especialidad = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : "esa especialidad";
   next.state = "cita_awaiting_establecimiento_select";
   return buildResult(next, [
     sendText(`No hay fechas disponibles en ${where}. Estos establecimientos también atienden ${especialidad}:`),
@@ -105,17 +101,17 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
 
   if (tapped === YES_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
-    const proposed = String(next.slots[PROPOSED_ID_SLOT] ?? "");
-    next.slots.citaCodEess = proposed;
-    next.slots[ESTABLECIMIENTO_NAME_SLOT] = String(next.slots[PROPOSED_NAME_SLOT] ?? "");
-    delete next.slots[PROPOSED_ID_SLOT];
-    delete next.slots[PROPOSED_NAME_SLOT];
+    const proposed = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO] ?? "");
+    next.slots[SlotKey.CITA_COD_EESS] = proposed;
+    next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] ?? "");
+    delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO];
+    delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE];
     next.state = "cita_fecha_pending";
     return buildResult(next, [
       sendText("Buscando fechas disponibles…"),
       query(QueryKind.LIST_FECHAS, {
         codEess: proposed,
-        especialidadId: String(next.slots.citaEspecialidadId ?? ""),
+        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
       }),
     ]);
   }
@@ -127,7 +123,7 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     });
   }
 
-  return withNote(buildResult(session, [questionButtons(question(String(session.slots[PROPOSED_NAME_SLOT] ?? "")))]), {
+  return withNote(buildResult(session, [questionButtons(question(String(session.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] ?? "")))]), {
     kind: "confirmation_unknown",
     level: "warn",
     detail: { step: "other_establecimiento" },

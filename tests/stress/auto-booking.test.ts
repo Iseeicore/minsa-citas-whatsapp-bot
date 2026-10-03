@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-auto-booking";
 
@@ -16,11 +18,11 @@ function horaPending(state: string, extra: Session["counters"] = {}): Session {
   return {
     state,
     slots: {
-      citaBearer: "token",
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "31/12/2099",
-      citaDni: "12345678",
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "31/12/2099",
+      [SlotKey.CITA_DNI]: "12345678",
     },
     counters: extra,
   };
@@ -35,7 +37,7 @@ describe("a single horario is never booked without asking", () => {
 
     expect(booksDirectly(result)).toBe(false);
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("13:00|13:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("13:00|13:30");
   });
 
   it("a last page with ONE leftover horario asks too, when the citizen only asked for 'Ver más horarios'", () => {
@@ -44,7 +46,7 @@ describe("a single horario is never booked without asking", () => {
       return { horaInicio: start, horaFin: `${start.slice(0, 2)}:30` };
     });
 
-    const result = handle(horaPending("cita_hora_page_pending", { citaHoraPage: 1 }), horasResult(eleven));
+    const result = handle(horaPending("cita_hora_page_pending", { [CounterKey.CITA_HORA_PAGE]: 1 }), horasResult(eleven));
 
     expect(booksDirectly(result)).toBe(false);
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");

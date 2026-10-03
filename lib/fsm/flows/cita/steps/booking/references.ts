@@ -18,9 +18,7 @@ import { ReferencesOfferButtonId } from "@/lib/enums/references-offer-button-id"
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
-
-const REFERENCIAS_DATA_SLOT = "citaReferenciasData";
-const REFERENCIA_SELECTED_SLOT = "citaReferenciaSeleccionadaId";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const REFERENCES_OFFER_YES_ID = ReferencesOfferButtonId.YES;
 const REFERENCES_OFFER_NO_ID = ReferencesOfferButtonId.NO;
@@ -41,7 +39,7 @@ function formatFechaHora12(fechaHora: string): string {
 }
 
 function readReferencias(session: Session): ReferenciaItem[] {
-  const raw = session.slots[REFERENCIAS_DATA_SLOT];
+  const raw = session.slots[SlotKey.CITA_REFERENCIAS_DATA];
   if (typeof raw !== "string") return [];
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -94,7 +92,7 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
     return continueCitaAfterVerification(next);
   }
 
-  next.slots[REFERENCIAS_DATA_SLOT] = JSON.stringify(result.items);
+  next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.items);
   next.state = "cita_awaiting_references_offer";
   return buildResult(next, [
     sendText("Tienes una referencia médica registrada.\n¿Deseas revisar tus referencias?"),
@@ -132,7 +130,7 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
 
   const item = readReferencias(session).find((r) => r.idReferencia === outcome.replyId);
   const next = clearOffered(session);
-  next.slots[REFERENCIA_SELECTED_SLOT] = outcome.replyId;
+  next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = outcome.replyId;
   next.state = "cita_awaiting_referencia_confirm";
   return askReferenciaConfirmation(next, item);
 }
@@ -151,7 +149,7 @@ export function handleAwaitingReferenciaConfirm(session: Session, event: Inbound
     return continueCitaAfterVerification(session);
   }
 
-  const selectedId = String(session.slots[REFERENCIA_SELECTED_SLOT] ?? "");
+  const selectedId = String(session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] ?? "");
   const item = readReferencias(session).find((r) => r.idReferencia === selectedId);
   return askReferenciaConfirmation(session, item);
 }

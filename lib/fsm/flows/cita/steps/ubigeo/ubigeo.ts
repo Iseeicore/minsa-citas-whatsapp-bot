@@ -29,7 +29,8 @@ import type { DistritoAiOutcome } from "@/lib/fsm/parsing/ai/distrito";
 import { DistritoAiOutcome as DistritoAiOutcomeEnum } from "@/lib/enums/distrito-ai-outcome";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
-
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 export function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
   const rawText = (event.text ?? "").trim();
@@ -37,7 +38,7 @@ export function handleAwaitingDistritoAi(session: Session, event: InboundEvent):
     return buildResult(session, [sendText("Cuéntanos el nombre del distrito.")]);
   }
 
-  const initialMessageText = session.slots.initialMessageText as string | undefined;
+  const initialMessageText = session.slots[SlotKey.INITIAL_MESSAGE_TEXT];
 
   const distritoText =
     isAffirmativeReply(rawText) && initialMessageText ? initialMessageText : rawText;
@@ -60,18 +61,18 @@ export function handleDistritoAiPending(session: Session, event: QueryResultEven
   }
 
   if (result.outcome === DistritoAiOutcomeEnum.NOT_FOUND) {
-    const misses = (session.counters.distritoNotFound ?? 0) + 1;
+    const misses = (session.counters[CounterKey.DISTRITO_NOT_FOUND] ?? 0) + 1;
     if (misses >= MAX_DISTRITO_NOT_FOUND) {
       return enterManualDistritoFlow(session, DISTRITO_MANUAL_FALLBACK_TEXT);
     }
     const next = cloneSession(session);
-    next.counters.distritoNotFound = misses;
+    next.counters[CounterKey.DISTRITO_NOT_FOUND] = misses;
     next.state = "cita_awaiting_distrito_ai";
     return buildResult(next, [sendText(UNRECOGNIZED_DISTRITO_TEXT)]);
   }
 
   const next = cloneSession(session);
-  delete next.counters.distritoNotFound;
+  delete next.counters[CounterKey.DISTRITO_NOT_FOUND];
   return resolveDistritoCandidates(next, result.candidates ?? []);
 }
 
@@ -86,7 +87,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
       return resolveDistritoText(
         clearOffered(session),
         typed,
-        session.slots.initialMessageText as string | undefined,
+        session.slots[SlotKey.INITIAL_MESSAGE_TEXT],
       );
     },
   });
@@ -99,9 +100,9 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
 
   const [departamento, provincia, distrito] = parts;
   const next = clearOffered(session);
-  next.slots.citaDepartamento = departamento;
-  next.slots.citaProvincia = provincia;
-  next.slots.citaDistrito = distrito;
+  next.slots[SlotKey.CITA_DEPARTAMENTO] = departamento;
+  next.slots[SlotKey.CITA_PROVINCIA] = provincia;
+  next.slots[SlotKey.CITA_DISTRITO] = distrito;
   next.state = "cita_ubigeo_pending";
   return buildResult(next, [
     sendText("Buscando tu ubigeo…"),
@@ -120,7 +121,7 @@ export function handleAwaitingDepartamento(session: Session, event: InboundEvent
   }
 
   const next = cloneSession(session);
-  next.slots.citaDepartamento = departamento;
+  next.slots[SlotKey.CITA_DEPARTAMENTO] = departamento;
   next.state = "cita_awaiting_provincia";
   return buildResult(next, [sendText("¿En qué provincia?")]);
 }
@@ -136,7 +137,7 @@ export function handleAwaitingProvincia(session: Session, event: InboundEvent): 
   }
 
   const next = cloneSession(session);
-  next.slots.citaProvincia = provincia;
+  next.slots[SlotKey.CITA_PROVINCIA] = provincia;
   next.state = "cita_awaiting_distrito";
   return buildResult(next, [sendText("¿En qué distrito?")]);
 }
@@ -152,13 +153,13 @@ export function handleAwaitingDistrito(session: Session, event: InboundEvent): H
   }
 
   const next = cloneSession(session);
-  next.slots.citaDistrito = distrito;
+  next.slots[SlotKey.CITA_DISTRITO] = distrito;
   next.state = "cita_ubigeo_pending";
   return buildResult(next, [
     sendText("Buscando tu ubigeo…"),
     query(QueryKind.SEARCH_UBIGEO, {
-      departamento: String(next.slots.citaDepartamento ?? ""),
-      provincia: String(next.slots.citaProvincia ?? ""),
+      departamento: String(next.slots[SlotKey.CITA_DEPARTAMENTO] ?? ""),
+      provincia: String(next.slots[SlotKey.CITA_PROVINCIA] ?? ""),
       distrito,
     }),
   ]);
@@ -178,10 +179,10 @@ function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoR
     typeof known !== "string" || known === "" || normalizeText(found) === normalizeText(known);
   const exact = items.filter(
     (item) =>
-      typeof session.slots.citaDistrito === "string" &&
-      normalizeText(item.distrito) === normalizeText(session.slots.citaDistrito) &&
-      same(item.provincia, session.slots.citaProvincia) &&
-      same(item.departamento, session.slots.citaDepartamento),
+      typeof session.slots[SlotKey.CITA_DISTRITO] === "string" &&
+      normalizeText(item.distrito) === normalizeText(session.slots[SlotKey.CITA_DISTRITO]) &&
+      same(item.provincia, session.slots[SlotKey.CITA_PROVINCIA]) &&
+      same(item.departamento, session.slots[SlotKey.CITA_DEPARTAMENTO]),
   );
   return exact.length === 1 ? exact[0] : undefined;
 }
@@ -211,7 +212,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
 
   const settled = result.status === "found" && items ? pickSettledUbigeo(next, items) : undefined;
   if (settled) {
-    next.slots.citaUbigeo = settled.ubigeoInei;
+    next.slots[SlotKey.CITA_UBIGEO] = settled.ubigeoInei;
     next.state = "cita_especialidad_pending";
     return buildResult(next, [
       sendText(searchingCatalogText(settled.distrito)),
@@ -245,7 +246,7 @@ export function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent
 
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);
-  next.slots.citaUbigeo = replyId;
+  next.slots[SlotKey.CITA_UBIGEO] = replyId;
   next.state = "cita_especialidad_pending";
   return buildResult(next, [
     sendText(chosen ? searchingCatalogText(chosen.title) : "Buscando especialidades disponibles…"),

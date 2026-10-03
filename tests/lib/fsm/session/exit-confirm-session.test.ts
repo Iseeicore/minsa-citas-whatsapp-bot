@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-exit-session";
 const NOW = Date.parse("2026-09-19T15:00:00Z");
@@ -32,10 +33,10 @@ function askedToLeave(resumeState: string, options: { idleMs: number; bearer?: b
   return {
     state: "cita_awaiting_exit_confirm",
     slots: {
-      ...(options.bearer === false ? {} : { citaBearer: "opaque-token" }),
-      citaDni: "12345678",
-      citaExitResumeState: resumeState,
-      citaOffered: serializeOffered(fechas),
+      ...(options.bearer === false ? {} : { [SlotKey.CITA_BEARER]: "opaque-token" }),
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_EXIT_RESUME_STATE]: resumeState,
+      [SlotKey.CITA_OFFERED]: serializeOffered(fechas),
     },
     counters: {},
     updatedAt: new Date(NOW - options.idleMs),
@@ -44,20 +45,20 @@ function askedToLeave(resumeState: string, options: { idleMs: number; bearer?: b
 
 const reauthWaiting = (): Session => ({
   state: "cita_awaiting_reauth",
-  slots: { citaDni: "12345678", citaResumeState: "cita_fecha_pending" },
+  slots: { [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_RESUME_STATE]: "cita_fecha_pending" },
   counters: {},
 });
 
 describe("resumeStateFor on the exit question", () => {
   it("resumes the step the citizen was on before being asked to leave", () => {
-    expect(resumeStateFor("cita_awaiting_exit_confirm", { citaExitResumeState: "cita_awaiting_fecha_select" })).toBe(
+    expect(resumeStateFor("cita_awaiting_exit_confirm", { [SlotKey.CITA_EXIT_RESUME_STATE]: "cita_awaiting_fecha_select" })).toBe(
       "cita_fecha_pending",
     );
   });
 
   it("resumes nothing for a step that resumes nothing, and ignores steps before login", () => {
-    expect(resumeStateFor("cita_awaiting_exit_confirm", { citaExitResumeState: "cita_awaiting_distrito_ai" })).toBeUndefined();
-    expect(resumeStateFor("cita_awaiting_exit_confirm", { citaExitResumeState: "cita_awaiting_dni" })).toBeUndefined();
+    expect(resumeStateFor("cita_awaiting_exit_confirm", { [SlotKey.CITA_EXIT_RESUME_STATE]: "cita_awaiting_distrito_ai" })).toBeUndefined();
+    expect(resumeStateFor("cita_awaiting_exit_confirm", { [SlotKey.CITA_EXIT_RESUME_STATE]: "cita_awaiting_dni" })).toBeUndefined();
     expect(resumeStateFor("cita_awaiting_exit_confirm", {})).toBeUndefined();
   });
 });
@@ -71,9 +72,9 @@ describe("answering the exit question after the session expired", () => {
     const result = handle(askedToLeave("cita_awaiting_fecha_select", { idleMs: minutes(15) }), event, NOW);
 
     expect(result.session.state).toBe("cita_awaiting_reauth");
-    expect(result.session.slots.citaBearer).toBeUndefined();
-    expect(result.session.slots.citaResumeState).toBe("cita_fecha_pending");
-    expect(result.session.slots.citaExitResumeState).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_RESUME_STATE]).toBe("cita_fecha_pending");
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBeUndefined();
     const prompt = sent(result)[0];
     expect(prompt.kind === "send_buttons" && prompt.text).toBe(REAUTH_PROMPT);
   });
@@ -82,7 +83,7 @@ describe("answering the exit question after the session expired", () => {
     const result = handle(askedToLeave("cita_awaiting_fecha_select", { idleMs: minutes(3) }), tap("cita_salir_no"), NOW);
 
     expect(result.session.state).toBe("cita_awaiting_fecha_select");
-    expect(result.session.slots.citaBearer).toBe("opaque-token");
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("opaque-token");
     expect(sent(result).map((effect) => effect.kind)).toContain("send_interactive_list");
   });
 
@@ -107,8 +108,8 @@ describe("cancelling the expired-session alert", () => {
     const result = handle(reauthWaiting(), event, NOW);
 
     expect(result.session.state).toBe("cita_awaiting_exit_confirm");
-    expect(result.session.slots.citaExitResumeState).toBe("cita_awaiting_reauth");
-    expect(result.session.slots.citaDni).toBe("12345678");
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBe("cita_awaiting_reauth");
+    expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
     const question = sent(result)[0];
     expect(question.kind === "send_buttons" && question.text).toBe(EXIT_QUESTION);
   });
@@ -127,9 +128,9 @@ describe("cancelling the expired-session alert", () => {
     const result = handle(asking, tap("cita_salir_no"), NOW);
 
     expect(result.session.state).toBe("cita_awaiting_reauth");
-    expect(result.session.slots.citaDni).toBe("12345678");
-    expect(result.session.slots.citaResumeState).toBe("cita_fecha_pending");
-    expect(result.session.slots.citaExitResumeState).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
+    expect(result.session.slots[SlotKey.CITA_RESUME_STATE]).toBe("cita_fecha_pending");
+    expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBeUndefined();
     const prompt = sent(result)[0];
     expect(prompt.kind === "send_buttons" && prompt.text).toBe(REAUTH_PROMPT);
   });

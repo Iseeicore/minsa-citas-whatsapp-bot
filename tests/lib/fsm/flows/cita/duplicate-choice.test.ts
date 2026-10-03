@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-duplicate";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -25,13 +26,13 @@ function booking(extra: Session["slots"] = {}): Session {
   return {
     state: "cita_booking_pending",
     slots: {
-      citaBearer: "token",
-      citaDni: "12345678",
-      citaUbigeo: "150132",
-      citaEspecialidadId: "E1",
-      citaEspecialidadNombre: "Pediatría",
-      citaCodEess: "0000123",
-      citaFecha: "31/12/2099",
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_UBIGEO]: "150132",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "E1",
+      [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: "Pediatría",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_FECHA]: "31/12/2099",
       ...extra,
     },
     counters: {},
@@ -46,7 +47,7 @@ describe("a duplicate booking means one active cita per especialidad", () => {
     const result = duplicate();
 
     expect(result.session.state).toBe("cita_awaiting_duplicate_choice");
-    expect(result.session.slots.citaEspecialidadesDescartadas).toBe("E1");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]).toBe("E1");
     expect(sent(result)).toEqual([
       {
         kind: "send_buttons",
@@ -60,7 +61,7 @@ describe("a duplicate booking means one active cita per especialidad", () => {
   });
 
   it("without a stored name it still asks, without inventing one", () => {
-    const result = duplicate(booking({ citaEspecialidadNombre: undefined as unknown as string }));
+    const result = duplicate(booking({ [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: undefined as unknown as string }));
 
     expect(sent(result)[0]).toMatchObject({
       text: "Ya tienes una cita activa para esa especialidad. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?",
@@ -138,9 +139,9 @@ describe("the chosen especialidad keeps its name for later messages", () => {
     const session: Session = {
       state: "cita_awaiting_especialidad_select",
       slots: {
-        citaBearer: "token",
-        citaUbigeo: "150132",
-        citaOffered: serializeOffered({
+        [SlotKey.CITA_BEARER]: "token",
+        [SlotKey.CITA_UBIGEO]: "150132",
+        [SlotKey.CITA_OFFERED]: serializeOffered({
           text: "Selecciona la especialidad:",
           rows: [
             { id: "E1", title: "Pediatría" },
@@ -153,6 +154,6 @@ describe("the chosen especialidad keeps its name for later messages", () => {
 
     const result = handle(session, { from: FROM, type: "list", listId: "E2" });
 
-    expect(result.session.slots.citaEspecialidadNombre).toBe("Cardiología");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("Cardiología");
   });
 });

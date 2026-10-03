@@ -4,7 +4,8 @@ import { createLogger } from "@/lib/observability/logger";
 import { maskDni, previewInput, redactString, sanitizeSlots } from "@/lib/observability/mask";
 import { createTurnTrace, deriveTraceId, traceIdFor, traceTurn } from "@/lib/observability/tracer";
 import type { LogLevel } from "@/lib/observability/types";
-
+import { SlotKey } from "@/lib/enums/slot-key";
+
 type Line = Record<string, unknown> & { level: LogLevel; event: string };
 
 function capture(level: LogLevel | "silent" = "info") {
@@ -52,23 +53,23 @@ describe("masking", () => {
     const message = "quiero una cita, mi dni es 12345678";
     const offered = JSON.stringify({ rows: [1, 2, 3] });
     const clean = sanitizeSlots({
-      citaBearer: TOKEN,
-      citaDni: DNI,
-      citaDniPending: DNI,
-      citaTwofaId: "abc-123",
-      initialMessageText: message,
-      citaOffered: offered,
-      citaDistrito: "SAN JUAN DE LURIGANCHO",
+      [SlotKey.CITA_BEARER]: TOKEN,
+      [SlotKey.CITA_DNI]: DNI,
+      [SlotKey.CITA_DNI_PENDING]: DNI,
+      [SlotKey.CITA_TWOFA_ID]: "abc-123",
+      [SlotKey.INITIAL_MESSAGE_TEXT]: message,
+      [SlotKey.CITA_OFFERED]: offered,
+      [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO",
     });
 
     expect(clean).toEqual({
-      citaBearer: "[redacted]",
-      citaDni: "****5678",
-      citaDniPending: "****5678",
-      citaTwofaId: "[redacted]",
-      initialMessageText: { length: message.length },
-      citaOffered: { length: offered.length },
-      citaDistrito: "SAN JUAN DE LURIGANCHO",
+      [SlotKey.CITA_BEARER]: "[redacted]",
+      [SlotKey.CITA_DNI]: "****5678",
+      [SlotKey.CITA_DNI_PENDING]: "****5678",
+      [SlotKey.CITA_TWOFA_ID]: "[redacted]",
+      [SlotKey.INITIAL_MESSAGE_TEXT]: { length: message.length },
+      [SlotKey.CITA_OFFERED]: { length: offered.length },
+      [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO",
     });
     expect(JSON.stringify(clean)).not.toContain(DNI);
     expect(JSON.stringify(clean)).not.toContain(TOKEN);
@@ -109,7 +110,7 @@ describe("logger", () => {
     log.info("anything", {
       dni: DNI,
       numeroDocumentoPaciente: DNI,
-      citaBearer: TOKEN,
+      [SlotKey.CITA_BEARER]: TOKEN,
       note: `the citizen wrote ${DNI}`,
       header: `Bearer ${TOKEN}`,
       nested: { deep: { token: "secret-value", tail: "987654321" } },
@@ -120,7 +121,7 @@ describe("logger", () => {
     expect(line).not.toContain(TOKEN);
     expect(line).not.toContain("secret-value");
     expect(line).not.toContain("987654321");
-    expect(JSON.parse(line)).toMatchObject({ dni: "****5678", citaBearer: "[redacted]" });
+    expect(JSON.parse(line)).toMatchObject({ dni: "****5678", [SlotKey.CITA_BEARER]: "[redacted]" });
   });
 
   it("filters by level", () => {
@@ -181,14 +182,14 @@ describe("turn trace", () => {
     const trace = createTurnTrace(
       "51999000111",
       { type: "text", text: `mi dni es ${DNI}`, messageId: "wamid.A" },
-      { state: "main_menu", slots: { citaBearer: TOKEN } },
+      { state: "main_menu", slots: { [SlotKey.CITA_BEARER]: TOKEN } },
       { log, now: clock(1000, 1100, 1150, 1400) },
     );
 
     trace.note({ kind: "confirmation_unknown", level: "warn", detail: { step: "hora_confirm" } });
     const result = await trace.external("minsa", "validate_user", async () => ({ status: "valid" }));
     trace.complete({
-      session: { state: "cita_awaiting_otp", slots: { citaBearer: TOKEN, citaDniPending: DNI, citaTwofaId: "tf" } },
+      session: { state: "cita_awaiting_otp", slots: { [SlotKey.CITA_BEARER]: TOKEN, [SlotKey.CITA_DNI_PENDING]: DNI, [SlotKey.CITA_TWOFA_ID]: "tf" } },
       sentCount: 2,
     });
     trace.finish();
@@ -211,8 +212,8 @@ describe("turn trace", () => {
       externalMs: 50,
       sentCount: 2,
       notes: ["confirmation_unknown"],
-      slots: { citaBearer: "[redacted]", citaDniPending: "****5678", citaTwofaId: "[redacted]" },
-      slotsChanged: { added: ["citaDniPending", "citaTwofaId"], removed: [], changed: [] },
+      slots: { [SlotKey.CITA_BEARER]: "[redacted]", [SlotKey.CITA_DNI_PENDING]: "****5678", [SlotKey.CITA_TWOFA_ID]: "[redacted]" },
+      slotsChanged: { added: [SlotKey.CITA_DNI_PENDING, SlotKey.CITA_TWOFA_ID], removed: [], changed: [] },
     });
 
     const everything = raw.join("\n");

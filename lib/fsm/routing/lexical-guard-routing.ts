@@ -1,7 +1,6 @@
 import {
   buildResult,
   omitSlot,
-  LIST_PAGE_COUNTER,
   pageEffects,
   sendButtons,
   sendText,
@@ -19,7 +18,9 @@ import {
 } from "@/lib/security/lexical-guard";
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
-import { CONTINUE_BUTTON_ID, AWAITING_CONTINUE_SLOT } from "@/lib/fsm/routing/main-menu";
+import { CONTINUE_BUTTON_ID } from "@/lib/fsm/routing/main-menu";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FREE_TEXT_STATE_PROMPTS: Record<string, string> = {
   cita_awaiting_distrito_ai: 'Cuéntanos en qué distrito buscas atención (ej. "Miraflores").',
@@ -43,11 +44,11 @@ export function routeLexicalAction(
   action: Exclude<LexicalAction, "ALLOW">,
   message?: string,
 ): HandlerResult {
-  const slots = session.state === "main_menu" ? omitSlot(session.slots, AWAITING_CONTINUE_SLOT) : {};
+  const slots = session.state === "main_menu" ? omitSlot(session.slots, SlotKey.AWAITING_CONTINUE) : {};
 
   switch (action) {
     case "DROP_AND_WARN":
-      return buildResult({ state: "main_menu", slots: { ...slots, [AWAITING_CONTINUE_SLOT]: true }, counters: {} }, [
+      return buildResult({ state: "main_menu", slots: { ...slots, [SlotKey.AWAITING_CONTINUE]: true }, counters: {} }, [
         sendButtons(INSTITUTIONAL_WARNING_TEXT, [{ id: CONTINUE_BUTTON_ID, title: "Continuar" }]),
       ]);
 
@@ -55,8 +56,8 @@ export function routeLexicalAction(
       const hints = message ? extractCitaHints(message) : {};
       const withHints = {
         ...slots,
-        ...(hints.especialidad ? { citaEspecialidadHintText: hints.especialidad } : {}),
-        ...(hints.distrito ? { citaDistritoHintText: hints.distrito } : {}),
+        ...(hints.especialidad ? { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: hints.especialidad } : {}),
+        ...(hints.distrito ? { [SlotKey.CITA_DISTRITO_HINT_TEXT]: hints.distrito } : {}),
       };
 
       return buildResult({ state: "cita_awaiting_dni", slots: withHints, counters: {} }, [
@@ -94,7 +95,7 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
     return withNote(
       buildResult(session, [
         sendText(RESPECT_REMINDER_TEXT),
-        ...(offered ? pageEffects(offered.text, offered.rows, session.counters[LIST_PAGE_COUNTER] ?? 0) : []),
+        ...(offered ? pageEffects(offered.text, offered.rows, session.counters[CounterKey.CITA_LIST_PAGE] ?? 0) : []),
       ]),
       verdict,
     );

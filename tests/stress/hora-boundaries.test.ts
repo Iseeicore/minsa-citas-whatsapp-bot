@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { packHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-hora";
 
@@ -22,13 +23,13 @@ function horaSession(day: HoraSlot[], visible: HoraSlot[] = day.slice(0, 10)): S
   return {
     state: "cita_awaiting_hora_select",
     slots: {
-      citaBearer: "token",
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
-      citaDni: "12345678",
-      citaOffered: serializeOffered(offered),
-      citaHorasDia: packHoraSlots(day),
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_OFFERED]: serializeOffered(offered),
+      [SlotKey.CITA_HORAS_DIA]: packHoraSlots(day),
     },
     counters: {},
   };
@@ -40,7 +41,7 @@ const say = (session: Session, value: string): HandlerResult =>
 const sent = (r: HandlerResult) => r.effects.filter((e): e is SendEffect => !isQueryEffect(e));
 const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
 const confirmId = (r: HandlerResult) =>
-  r.session.state === "cita_awaiting_hora_confirm" ? r.session.slots.citaHoraConfirmId : undefined;
+  r.session.state === "cita_awaiting_hora_confirm" ? r.session.slots[SlotKey.CITA_HORA_CONFIRM_ID] : undefined;
 const listIds = (r: HandlerResult) => {
   const list = sent(r).find((e) => e.kind === "send_interactive_list");
   return list?.kind === "send_interactive_list" ? list.rows.map((row) => row.id) : undefined;

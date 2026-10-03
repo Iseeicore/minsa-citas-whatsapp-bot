@@ -4,6 +4,8 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const FROM = "sandbox-single-horario";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -20,11 +22,11 @@ const sent = (result: HandlerResult): SendEffect[] =>
   result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const BASE_SLOTS = {
-  citaBearer: "token",
-  citaCodEess: "0000123",
-  citaEspecialidadId: "02",
-  citaFecha: "31/12/2099",
-  citaDni: "12345678",
+  [SlotKey.CITA_BEARER]: "token",
+  [SlotKey.CITA_COD_EESS]: "0000123",
+  [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+  [SlotKey.CITA_FECHA]: "31/12/2099",
+  [SlotKey.CITA_DNI]: "12345678",
 };
 
 const LONE = [{ horaInicio: "13:00", horaFin: "13:30" }];
@@ -32,7 +34,7 @@ const LONE = [{ horaInicio: "13:00", horaFin: "13:30" }];
 function confirmingLone(extra: Session["slots"] = {}, counters: Session["counters"] = {}): Session {
   return {
     state: "cita_awaiting_hora_confirm",
-    slots: { ...BASE_SLOTS, citaHoraConfirmId: "13:00|13:30", citaHoraConfirmOnly: "1", ...extra },
+    slots: { ...BASE_SLOTS, [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1", ...extra },
     counters,
   };
 }
@@ -55,8 +57,8 @@ describe("a day with ONE horario asks before booking", () => {
 
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.slots.citaHoraConfirmId).toBe("13:00|13:30");
-    expect(result.session.slots.citaHoraConfirmOnly).toBe("1");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("13:00|13:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBe("1");
   });
 
   it("says it is the only one and asks with the two buttons", () => {
@@ -79,13 +81,13 @@ describe("a day with ONE horario asks before booking", () => {
     });
 
     const result = handle(
-      { state: "cita_hora_page_pending", slots: { ...BASE_SLOTS, citaOffered: previousPageList() }, counters: { citaHoraPage: 1 } },
+      { state: "cita_hora_page_pending", slots: { ...BASE_SLOTS, [SlotKey.CITA_OFFERED]: previousPageList() }, counters: { [CounterKey.CITA_HORA_PAGE]: 1 } },
       horasResult(eleven),
     );
 
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots.citaHoraConfirmId).toBe("17:00|17:30");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("17:00|17:30");
   });
 
   it("more than one horario still shows the list, and no 'only one' flag is left behind", () => {
@@ -95,7 +97,7 @@ describe("a day with ONE horario asks before booking", () => {
     );
 
     expect(result.session.state).toBe("cita_awaiting_hora_select");
-    expect(result.session.slots.citaHoraConfirmOnly).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
   });
 
   it("a booking retry that leaves one horario also asks instead of booking again", () => {
@@ -128,8 +130,8 @@ describe("yes: the button or any way of taking that hour", () => {
 
     expect(result.session.state).toBe("cita_booking_pending");
     expect(queries(result)).toEqual([BOOKING]);
-    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
-    expect(result.session.slots.citaHoraConfirmOnly).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
   });
 
   it.each([
@@ -165,7 +167,7 @@ describe("yes: the button or any way of taking that hour", () => {
 
       expect(queries(result), typed).toHaveLength(0);
       expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-      expect(result.session.slots.citaHoraConfirmId).toBe("13:00|13:30");
+      expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("13:00|13:30");
       expect(sent(result)[0]).toMatchObject({
         kind: "send_buttons",
         text: "Solo hay un horario disponible: 1:00 - 1:30 PM. ¿Lo confirmas?",
@@ -189,29 +191,29 @@ describe("no, with nothing to go back to: another date is offered (see other-fec
 
       expect(queries(result)).toHaveLength(0);
       expect(result.session.state).toBe("cita_awaiting_other_fecha");
-      expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
-      expect(result.session.slots.citaHoraConfirmOnly).toBeUndefined();
+      expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
+      expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
     },
   );
 });
 
 describe("no, with the previous page's list still there: back to that list", () => {
   it("shows the list again and steps the page back, so 'Ver más horarios' is not empty", () => {
-    const session = confirmingLone({ citaOffered: previousPageList() }, { citaHoraPage: 1 });
+    const session = confirmingLone({ [SlotKey.CITA_OFFERED]: previousPageList() }, { [CounterKey.CITA_HORA_PAGE]: 1 });
 
     const result = handle(session, tap("hora_confirm_no"));
 
     expect(result.session.state).toBe("cita_awaiting_hora_select");
     expect(sent(result).map((effect) => effect.kind)).toEqual(["send_text", "send_interactive_list"]);
-    expect(result.session.counters.citaHoraPage).toBe(0);
-    expect(result.session.slots.citaHoraConfirmId).toBeUndefined();
-    expect(result.session.slots.citaHoraConfirmOnly).toBeUndefined();
+    expect(result.session.counters[CounterKey.CITA_HORA_PAGE]).toBe(0);
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
   });
 
   it("two pages back: the page counter goes from 2 to 1", () => {
-    const session = confirmingLone({ citaOffered: previousPageList() }, { citaHoraPage: 2 });
+    const session = confirmingLone({ [SlotKey.CITA_OFFERED]: previousPageList() }, { [CounterKey.CITA_HORA_PAGE]: 2 });
 
-    expect(handle(session, text("no")).session.counters.citaHoraPage).toBe(1);
+    expect(handle(session, text("no")).session.counters[CounterKey.CITA_HORA_PAGE]).toBe(1);
   });
 });
 
@@ -219,7 +221,7 @@ describe("a confirmation the citizen picked from a list keeps its old behavior",
   it("«No, ver horarios» still goes back to the list", () => {
     const session: Session = {
       state: "cita_awaiting_hora_confirm",
-      slots: { ...BASE_SLOTS, citaHoraConfirmId: "08:00|08:30", citaOffered: previousPageList() },
+      slots: { ...BASE_SLOTS, [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30", [SlotKey.CITA_OFFERED]: previousPageList() },
       counters: {},
     };
 
@@ -232,7 +234,7 @@ describe("a confirmation the citizen picked from a list keeps its old behavior",
   it("asks with the usual sentence, not the «only one» one", () => {
     const session: Session = {
       state: "cita_awaiting_hora_confirm",
-      slots: { ...BASE_SLOTS, citaHoraConfirmId: "08:00|08:30", citaOffered: previousPageList() },
+      slots: { ...BASE_SLOTS, [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30", [SlotKey.CITA_OFFERED]: previousPageList() },
       counters: {},
     };
 
@@ -242,7 +244,7 @@ describe("a confirmation the citizen picked from a list keeps its old behavior",
   it("the pending hour typed back, or «esa hora», also confirms here; another hour does not", () => {
     const session: Session = {
       state: "cita_awaiting_hora_confirm",
-      slots: { ...BASE_SLOTS, citaHoraConfirmId: "08:00|08:30", citaOffered: previousPageList() },
+      slots: { ...BASE_SLOTS, [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30", [SlotKey.CITA_OFFERED]: previousPageList() },
       counters: {},
     };
 

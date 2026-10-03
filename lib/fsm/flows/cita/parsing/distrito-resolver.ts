@@ -15,6 +15,8 @@ import { searchDistrito, searchDistritoByPrefix } from "@/lib/fsm/flows/cita/dat
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 export function looksLikePlaceName(text: string): boolean {
   return /^[\p{L}][\p{L}\s.'-]{2,59}$/u.test(text);
@@ -31,7 +33,7 @@ export const DISTRITO_MANUAL_FALLBACK_TEXT =
 
 export function enterManualDistritoFlow(session: Session, text: string): HandlerResult {
   const next = cloneSession(session);
-  delete next.counters.distritoNotFound;
+  delete next.counters[CounterKey.DISTRITO_NOT_FOUND];
   next.state = "cita_awaiting_departamento";
   return buildResult(next, [sendText(text)]);
 }
@@ -85,9 +87,9 @@ export function resolveDistritoCandidates(
 
   if (candidates.length === 1) {
     const [candidate] = candidates;
-    next.slots.citaDepartamento = candidate.departamento;
-    next.slots.citaProvincia = candidate.provincia;
-    next.slots.citaDistrito = candidate.distrito;
+    next.slots[SlotKey.CITA_DEPARTAMENTO] = candidate.departamento;
+    next.slots[SlotKey.CITA_PROVINCIA] = candidate.provincia;
+    next.slots[SlotKey.CITA_DISTRITO] = candidate.distrito;
     next.state = "cita_ubigeo_pending";
     return buildResult(next, [
       sendText("Buscando tu ubigeo…"),

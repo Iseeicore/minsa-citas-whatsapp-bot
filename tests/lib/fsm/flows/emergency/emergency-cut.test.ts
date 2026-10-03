@@ -6,6 +6,7 @@ import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { IN_FLOW_MAX_CHARS, isEmergency, isEmergencyInFlow } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-emergency-cut";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -21,15 +22,15 @@ const EMERGENCY = "mi hijo no respira";
 
 const STATES: Array<[string, Session["slots"]]> = [
   ["main_menu", {}],
-  ["cita_booked", { citaDni: "12345678" }],
+  ["cita_booked", { [SlotKey.CITA_DNI]: "12345678" }],
   ["cita_awaiting_dni", {}],
-  ["cita_awaiting_otp", { citaTwofaId: "t", citaDni: "12345678" }],
-  ["cita_awaiting_distrito_ai", { citaBearer: "token", citaDni: "12345678" }],
-  ["cita_awaiting_hora_confirm", { citaBearer: "token", citaDni: "12345678", citaHoraConfirmId: "13:00|13:30", citaHoraConfirmOnly: "1" }],
-  ["cita_awaiting_other_fecha", { citaBearer: "token", citaDni: "12345678", citaCodEess: "1", citaEspecialidadId: "02" }],
-  ["cita_awaiting_reauth", { citaDni: "12345678" }],
+  ["cita_awaiting_otp", { [SlotKey.CITA_TWOFA_ID]: "t", [SlotKey.CITA_DNI]: "12345678" }],
+  ["cita_awaiting_distrito_ai", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }],
+  ["cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" }],
+  ["cita_awaiting_other_fecha", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }],
+  ["cita_awaiting_reauth", { [SlotKey.CITA_DNI]: "12345678" }],
   ["reclamo_awaiting_dni", {}],
-  ["reclamo_awaiting_descripcion", { reclamoDni: "12345678" }],
+  ["reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }],
 ];
 
 describe("a medical emergency ends the conversation cleanly, wherever it is typed", () => {
@@ -58,7 +59,7 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it("with an expired session the citizen still gets the numbers, not the re-verification question", () => {
-    const stale: Session = { ...at("cita_awaiting_hora_confirm", { citaBearer: "token", citaDni: "12345678" }), updatedAt: new Date(0) };
+    const stale: Session = { ...at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }), updatedAt: new Date(0) };
     const result = handle(stale, text(EMERGENCY), 60 * 60 * 1000);
 
     expect(sent(result)).toEqual([CUT]);
@@ -66,7 +67,7 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it("the verification the citizen had is gone with the session", () => {
-    const result = handle(at("cita_awaiting_hora_confirm", { citaBearer: "token", citaDni: "12345678" }), text(EMERGENCY));
+    const result = handle(at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }), text(EMERGENCY));
 
     expect(result.session.slots).toEqual({});
   });
@@ -189,12 +190,12 @@ describe("inside a flow only a short text is read as an emergency", () => {
       "El dia martes esperamos mas de tres horas una ambulancia que nunca llego al centro de salud, el personal no supo explicar por que y nadie se hizo responsable de la demora en la atencion de mi familiar";
     expect(narrative.length).toBeGreaterThan(IN_FLOW_MAX_CHARS);
 
-    const result = handle(at("reclamo_awaiting_descripcion", { reclamoDni: "12345678" }), text(narrative));
+    const result = handle(at("reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text(narrative));
 
     expect(sent(result)[0]).not.toEqual(CUT);
     expect(oosNote(result)).toBeUndefined();
     expect(result.session.state).toBe("reclamo_awaiting_foto");
-    expect(result.session.slots.queja).toBe(narrative);
+    expect(result.session.slots[SlotKey.QUEJA]).toBe(narrative);
   });
 
   it("at the menu there is no length limit: the citizen is not in the middle of anything", () => {
@@ -214,7 +215,7 @@ describe("inside a flow only a short text is read as an emergency", () => {
 
 describe("only typed text is read", () => {
   it("a tap is never taken for an emergency", () => {
-    const result = handle(at("cita_awaiting_hora_confirm", { citaBearer: "token", citaHoraConfirmId: "13:00|13:30" }), { from: FROM, type: "button", listId: "hora_confirm_no" });
+    const result = handle(at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30" }), { from: FROM, type: "button", listId: "hora_confirm_no" });
 
     expect(oosNote(result)).toBeUndefined();
   });
@@ -222,6 +223,6 @@ describe("only typed text is read", () => {
   it("neither is the result of a query", () => {
     const result: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "list_fechas", result: { status: "error" } };
 
-    expect(oosNote(handle(at("cita_fecha_pending", { citaBearer: "token" }), result))).toBeUndefined();
+    expect(oosNote(handle(at("cita_fecha_pending", { [SlotKey.CITA_BEARER]: "token" }), result))).toBeUndefined();
   });
 });
