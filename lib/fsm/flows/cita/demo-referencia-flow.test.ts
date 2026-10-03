@@ -8,7 +8,7 @@ import {
   DEMO_REFERENCIA_DNI,
   demoHoraSlots,
   demoReferenciasForDni,
-} from "@/lib/fsm/flows/cita/demo-referencia";
+} from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-demo";

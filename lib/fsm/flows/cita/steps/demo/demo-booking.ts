@@ -1,3 +1,4 @@
+/** DEMO PILOTO: borrar junto con su importador al cerrar la fase piloto. */
 import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
 import {
   buildResult,
@@ -16,7 +17,7 @@ import {
   DEMO_REFERENCIAS,
   demoHoraSlots,
   demoReferenciasForDni,
-} from "@/lib/fsm/flows/cita/demo-referencia";
+} from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { formatHoraRange, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 

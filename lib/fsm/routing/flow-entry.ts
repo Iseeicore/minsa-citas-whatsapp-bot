@@ -1,6 +1,7 @@
 import { buildResult, sendButtons, sendList, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
+import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
 
 export const MENU_ROWS = [
   { id: "agendar_cita", title: "Agendar una cita médica" },
@@ -8,8 +9,8 @@ export const MENU_ROWS = [
 ];
 
 export const RECLAMO_NOMBRE_BUTTONS = [
-  { id: "reclamo_con_nombre", title: "Sí, doy mi nombre" },
-  { id: "reclamo_anonimo", title: "Prefiero ser anónimo" },
+  { id: ReclamoButtonId.CON_NOMBRE, title: "Sí, doy mi nombre" },
+  { id: ReclamoButtonId.ANONIMO, title: "Prefiero ser anónimo" },
 ];
 
 export const buildMenuEffect = () => sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS);

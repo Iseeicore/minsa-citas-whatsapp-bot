@@ -38,7 +38,7 @@ import {
   handleDemoAwaitingConfirm,
   handleDemoAwaitingHoraSelect,
   handleDemoAwaitingReferenciaSelect,
-} from "@/lib/fsm/flows/cita/steps/demo-booking";
+} from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import {
   handleAwaitingReferenciaConfirm,
   handleAwaitingReferenciaSelect,

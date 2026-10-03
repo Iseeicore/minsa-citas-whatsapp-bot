@@ -5,6 +5,8 @@ import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
 
 const MAX_DESCRIPCION_LENGTH = 1000;
 const FOTO_REQUEST_TEXT =
@@ -46,21 +48,18 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   const replyId = readReply(event);
   const next = cloneSession(session);
 
-  if (replyId === "reclamo_con_nombre") {
+  if (replyId === ReclamoButtonId.CON_NOMBRE) {
     next.state = "reclamo_awaiting_nombre_libre";
     return buildResult(next, [sendText("Ingresa tu nombre.")]);
   }
 
-  if (replyId === "reclamo_anonimo") {
+  if (replyId === ReclamoButtonId.ANONIMO) {
     next.state = "reclamo_awaiting_descripcion";
     return buildResult(next, [sendText(askDescripcion())]);
   }
 
   return buildResult(session, [
-    sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", [
-      { id: "reclamo_con_nombre", title: "Sí, doy mi nombre" },
-      { id: "reclamo_anonimo", title: "Prefiero ser anónimo" },
-    ]),
+    sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
   ]);
 }
 

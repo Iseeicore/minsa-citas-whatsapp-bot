@@ -2,8 +2,8 @@ import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/cita-hints";
 import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
-import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/demo-referencia";
-import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo-booking";
+import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
+import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit-core";
 import {
   buildResult,
