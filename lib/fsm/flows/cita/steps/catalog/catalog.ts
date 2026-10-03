@@ -1,21 +1,12 @@
-import { searchFailureText } from "@/lib/fsm/core/failure-texts";
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
-import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { buildResult, cloneSession, offerPagedList, query, sendText } from "@/lib/fsm/core/handlers-shared";
-import {
-  catalogRowDescription,
-  formatEspecialidadName,
-  formatEstablecimientoName,
-  offeredFullName,
-  rememberFullNames,
-} from "@/lib/fsm/flows/cita/data/catalog-names";
+import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
+import { offeredFullName, rememberFullNames } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { hintText, leftoverHint, matchAllTokens, readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
-import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { discardedEspecialidades } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
 import {
@@ -23,78 +14,40 @@ import {
   isSearchingOtherEstablecimiento,
   offerOtherEstablecimiento,
 } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
+import {
+  acceptDetectedEspecialidad,
+  matchEspecialidadHint,
+  offerEspecialidades,
+  type EspecialidadResultItem,
+} from "@/lib/fsm/flows/cita/steps/catalog/especialidad-offer";
+import {
+  chooseEstablecimiento,
+  detectEstablecimiento,
+  establecimientoFullName,
+  establecimientoRows,
+  offerEstablecimientos,
+  type EstablecimientoResultItem,
+} from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
+import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-type EspecialidadResultItem = {
-  codigoEspecialidad: string;
-  nombreEspecialidad: string;
-  cantidadCupos: number;
-};
-
-function matchEspecialidadHint(
-  hint: string,
-  items: EspecialidadResultItem[],
-): EspecialidadResultItem | undefined {
-  const hintTokens = normalizeText(hint);
-  const matches = items.filter(
-    (item) =>
-      normalizeText(item.nombreEspecialidad).includes(hintTokens) ||
-      hintTokens.includes(normalizeText(item.nombreEspecialidad)),
-  );
-  return matches.length === 1 ? matches[0] : undefined;
-}
 
 export function handleEspecialidadPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EspecialidadResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "unauthorized") {
-    return beginReverification(next, SessionState.CITA_ESPECIALIDAD_PENDING);
-  }
-
-  if (result.status === "error") {
-    next.state = SessionState.CITA_BOOKING_REJECTED;
-    return buildResult(next, [
-      sendText(
-        searchFailureText(SearchSubject.ESPECIALIDADES),
-      ),
-    ]);
-  }
+  const failure = searchFailureGate(next, result.status, SessionState.CITA_ESPECIALIDAD_PENDING, SearchSubject.ESPECIALIDADES);
+  if (failure) return failure;
 
   const discarded = discardedEspecialidades(next.slots);
   const items = result.items?.filter((item) => !discarded.includes(item.codigoEspecialidad)) ?? [];
-
-  if (result.status === "found" && items.length > 0) {
-    const hint = next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
-    const matched = hint ? matchEspecialidadHint(hint, items) : undefined;
-
-    if (matched) {
-      const name = formatEspecialidadName(matched.nombreEspecialidad);
-      delete next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
-      next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = matched.codigoEspecialidad;
-      next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = name.full;
-      next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
-      return buildResult(next, [
-        sendText(`Especialidad detectada: ${name.full}. Buscando establecimientos…`),
-        query(QueryKind.LIST_ESTABLECIMIENTOS, {
-          especialidadId: matched.codigoEspecialidad,
-          ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
-        }),
-      ]);
-    }
-
-    next.state = SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
-    const names = items.map((item) => ({ id: item.codigoEspecialidad, name: formatEspecialidadName(item.nombreEspecialidad) }));
-    rememberFullNames(next.slots, names.map(({ id, name }) => ({ id, full: name.full })));
-    const rows: ListRow[] = items.map((item, index) => {
-      const { name } = names[index];
-      return { id: item.codigoEspecialidad, title: name.title, description: catalogRowDescription(name, item.cantidadCupos) };
-    });
-    return buildResult(next, offerPagedList(next, "Selecciona la especialidad:", rows));
+  if (result.status !== "found" || items.length === 0) {
+    return offerOtherDistrito(next, SearchSubject.ESPECIALIDADES);
   }
 
-  return offerOtherDistrito(next, SearchSubject.ESPECIALIDADES);
+  const hint = next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
+  const matched = hint ? matchEspecialidadHint(hint, items) : undefined;
+  return matched ? acceptDetectedEspecialidad(next, matched) : offerEspecialidades(next, items);
 }
 
 const HINT_MAX_LENGTH = 80;
@@ -172,22 +125,6 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
   ]);
 }
 
-type EstablecimientoResultItem = {
-  renipressCode: string;
-  establishmentName: string;
-  quotasOnline: number;
-};
-
-function establecimientoRows(items: EstablecimientoResultItem[]): ListRow[] {
-  return items.map((item) => {
-    const name = formatEstablecimientoName(item.establishmentName);
-    return { id: item.renipressCode, title: name.title, description: catalogRowDescription(name, item.quotasOnline) };
-  });
-}
-
-const establecimientoFullName = (item: EstablecimientoResultItem): string =>
-  formatEstablecimientoName(item.establishmentName).full;
-
 export function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
   const next = cloneSession(session);
@@ -195,18 +132,8 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   const hint = next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
   delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
 
-  if (result.status === "unauthorized") {
-    return beginReverification(next, SessionState.CITA_ESTABLECIMIENTO_PENDING);
-  }
-
-  if (result.status === "error") {
-    next.state = SessionState.CITA_BOOKING_REJECTED;
-    return buildResult(next, [
-      sendText(
-        searchFailureText(SearchSubject.ESTABLECIMIENTOS),
-      ),
-    ]);
-  }
+  const failure = searchFailureGate(next, result.status, SessionState.CITA_ESTABLECIMIENTO_PENDING, SearchSubject.ESTABLECIMIENTOS);
+  if (failure) return failure;
 
   const discarded = discardedEstablecimientos(next.slots);
   const items = result.status === "found" ? (result.items ?? []).filter((item) => !discarded.includes(item.renipressCode)) : [];
@@ -223,49 +150,11 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     );
   }
 
-  if (items.length === 1) {
-    const [item] = items;
-    next.slots[SlotKey.CITA_COD_EESS] = item.renipressCode;
-    next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = establecimientoFullName(item);
-    next.state = SessionState.CITA_FECHA_PENDING;
-    return buildResult(next, [
-      sendText(`Establecimiento encontrado: ${establecimientoFullName(item)}. Buscando fechas disponibles…`),
-      query(QueryKind.LIST_FECHAS, {
-        codEess: item.renipressCode,
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-      }),
-    ]);
-  }
+  if (items.length === 0) return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
+  if (items.length === 1) return chooseEstablecimiento(next, items[0], "encontrado");
 
-  if (items.length > 1) {
-    const matched = hint
-      ? matchAllTokens(
-          hint,
-          items.map((item) => ({ id: item.renipressCode, title: item.establishmentName })),
-        )
-      : undefined;
-    const detected = matched
-      ? items.find((item) => item.renipressCode === matched.id)
-      : undefined;
-
-    if (detected) {
-      next.slots[SlotKey.CITA_COD_EESS] = detected.renipressCode;
-      next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = establecimientoFullName(detected);
-      next.state = SessionState.CITA_FECHA_PENDING;
-      return buildResult(next, [
-        sendText(`Establecimiento detectado: ${establecimientoFullName(detected)}. Buscando fechas disponibles…`),
-        query(QueryKind.LIST_FECHAS, {
-          codEess: detected.renipressCode,
-          especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-        }),
-      ]);
-    }
-
-    next.state = SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT;
-    return buildResult(next, offerPagedList(next, "Selecciona el establecimiento:", establecimientoRows(items)));
-  }
-
-  return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
+  const detected = detectEstablecimiento(hint, items);
+  return detected ? chooseEstablecimiento(next, detected, "detectado") : offerEstablecimientos(next, items);
 }
 
 export function handleAwaitingEstablecimientoSelect(session: Session, event: InboundEvent): HandlerResult {

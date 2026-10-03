@@ -1,4 +1,3 @@
-import { searchFailureText } from "@/lib/fsm/core/failure-texts";
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -20,7 +19,7 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { todayInLima } from "@/lib/time/lima-clock";
-import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
+import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -45,18 +44,8 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
   const result = event.result as { status: string; items?: FechaResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "unauthorized") {
-    return beginReverification(next, SessionState.CITA_FECHA_PENDING);
-  }
-
-  if (result.status === "error") {
-    next.state = SessionState.CITA_BOOKING_REJECTED;
-    return buildResult(next, [
-      sendText(
-        searchFailureText(SearchSubject.FECHAS),
-      ),
-    ]);
-  }
+  const failure = searchFailureGate(next, result.status, SessionState.CITA_FECHA_PENDING, SearchSubject.FECHAS);
+  if (failure) return failure;
 
   const discarded = discardedDates(next.slots).map(formatFechaForApi);
   const dates = (result.status === "found" ? (result.items ?? []) : []).filter(

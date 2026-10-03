@@ -1,4 +1,3 @@
-import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import {
   DISTRITO_MANUAL_FALLBACK_TEXT,
   enterManualDistritoFlow,
@@ -11,22 +10,25 @@ import {
   buildResult,
   cloneSession,
   isAffirmativeReply,
-  offerList,
   query,
   sendText,
-  truncateForRow,
-  WHATSAPP_LIST_MAX_ROWS,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
 import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
 import type { DistritoAiOutcome } from "@/lib/fsm/parsing/ai/distrito";
 import { DistritoAiOutcome as DistritoAiOutcomeEnum } from "@/lib/enums/distrito-ai-outcome";
+import {
+  acceptSettledUbigeo,
+  isOfferableUbigeoList,
+  offerUbigeos,
+  pickSettledUbigeo,
+  searchingCatalogText,
+  type UbigeoResultItem,
+} from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo-offer";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -166,31 +168,6 @@ export function handleAwaitingDistrito(session: Session, event: InboundEvent): H
   ]);
 }
 
-type UbigeoResultItem = {
-  ubigeoInei: string;
-  distrito: string;
-  provincia: string;
-  departamento: string;
-};
-
-function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoResultItem | undefined {
-  if (items.length === 1) return items[0];
-
-  const same = (found: string, known: unknown) =>
-    typeof known !== "string" || known === "" || normalizeText(found) === normalizeText(known);
-  const exact = items.filter(
-    (item) =>
-      typeof session.slots[SlotKey.CITA_DISTRITO] === "string" &&
-      normalizeText(item.distrito) === normalizeText(session.slots[SlotKey.CITA_DISTRITO]) &&
-      same(item.provincia, session.slots[SlotKey.CITA_PROVINCIA]) &&
-      same(item.departamento, session.slots[SlotKey.CITA_DEPARTAMENTO]),
-  );
-  return exact.length === 1 ? exact[0] : undefined;
-}
-
-const searchingCatalogText = (distrito: string) =>
-  `Entendido. Buscando especialidades y citas disponibles en *${toDisplayPlace(distrito)}*…`;
-
 export function handleUbigeoPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: UbigeoResultItem[] };
   const next = cloneSession(session);
@@ -212,27 +189,9 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
   }
 
   const settled = result.status === "found" && items ? pickSettledUbigeo(next, items) : undefined;
-  if (settled) {
-    next.slots[SlotKey.CITA_UBIGEO] = settled.ubigeoInei;
-    next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
-    return buildResult(next, [
-      sendText(searchingCatalogText(settled.distrito)),
-      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: settled.ubigeoInei }),
-    ]);
-  }
+  if (settled) return acceptSettledUbigeo(next, settled);
 
-  if (result.status === "found" && items && items.length > 1 && items.length <= WHATSAPP_LIST_MAX_ROWS) {
-    next.state = SessionState.CITA_AWAITING_UBIGEO_SELECT;
-    const rows: ListRow[] = items.map((item) => ({
-      id: item.ubigeoInei,
-      title: truncateForRow(item.distrito, WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        `${item.provincia} — ${item.departamento}`,
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
-    }));
-    return buildResult(next, [offerList(next, "Selecciona tu ubigeo:", rows)]);
-  }
+  if (result.status === "found" && items && isOfferableUbigeoList(items)) return offerUbigeos(next, items);
 
   next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
   return buildResult(next, [
