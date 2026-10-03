@@ -33,6 +33,8 @@ npm run docker:up
 | `npm run docker:logs` | Muestra los logs del contenedor en vivo. |
 | `npm run docker:down` | Detiene y elimina el contenedor. |
 
+**Desarrollo local con hot-reload sobre el mismo compose.** Copia `docker-compose.override.yml.example` a `docker-compose.override.yml` (ignorado por git, nunca se versiona) y Docker Compose lo carga automáticamente junto al archivo base: monta el código fuente como volumen, corre `npm run dev` dentro del contenedor y excluye `node_modules`/`.next` del bind mount.
+
 Detalles de la imagen:
 
 - **Base:** `node:22-alpine` (la misma versión de Node que usa el CI), multi-stage, compilada con `npm run build:no-db` y la salida *standalone* de Next.
@@ -103,7 +105,7 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
-| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (5, incluye `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
+| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
 | `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC y quejas), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de reclamo, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
@@ -143,6 +145,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `MINSA_API_HOST` | Host de la API del MINSA |
 | `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (DNI y OTP) |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
+| `MINSA_DIGITAL_APP_URL` | URL pública del portal de MINSA Digital: destino del botón **Continuar mi cita** que ve el ciudadano de WhatsApp |
 | `QUEJAS_API_BASE_URL` | API que recibe los reclamos; se usa con `SANDBOX_USE_REAL_MINSA=true` |
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
@@ -207,18 +210,32 @@ lib/
     session/                 persistencia de sesión (base de datos o memoria), expiración, reverificación,
                              candado de turno por ciudadano
     routing/                 primer contacto, bienvenida, menú principal, enrutamiento de la guardia léxica, entrada a un flujo
-    parsing/                 lectura del texto del ciudadano: fechas, horas, selecciones, texto
+    parsing/                 lectura del texto del ciudadano, agrupada por tipo de dato
+      date/                  fechas y horas escritas en texto libre
+      text/                  normalización, detección de ruido/gibberish, formato de identidad
+      selection/             elección de opciones de lista, confirmaciones sí/no, intención de salida
       ai/                    interpretación asistida por IA, un módulo por tarea (distrito, intención del menú, fecha, pistas);
                              llm.ts es el puerto, llm-registry.ts elige el proveedor
         providers/           un adaptador por proveedor de IA (hoy gemini.ts)
     flows/
       cita/                  flujo de cita: handlers-cita.ts enruta cada estado a steps/
-        steps/               un módulo por paso de la conversación (identidad, ubigeo, catálogo, fecha, hora, reserva…)
+        data/                catálogos y datos estáticos propios del flujo (nombres de especialidad, ubigeo)
+        parsing/             resolución de texto libre propia del flujo (distrito, selección de opciones, pistas)
+        steps/               un módulo por paso de la conversación, agrupado por responsabilidad:
+          identity/          DNI, OTP, reverificación
+          catalog/           establecimientos y especialidades
+          fecha/             fecha de la cita
+          ubigeo/            departamento/provincia/distrito manual
+          booking/           reserva, duplicados, referencias médicas
+          exit/              salida/cancelación del flujo
           hora/              el paso de hora: lista, horas escritas, elección «1»..«10», confirmación
+          demo/              flujo hardcodeado para el piloto comercial; borrar junto con su importador al cerrarlo
       reclamo/               flujo de reclamo
       emergency/             corte por urgencia
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
-tests/                       suites transversales: security/, stress/, integration/, smoke/ (Neon real), support/
+tests/
+  lib/                       espejo exacto de lib/: cada x.ts de lib/ tiene su x.test.ts en la misma ruta bajo tests/lib/
+  security/, stress/, integration/, smoke/ (Neon real), support/   suites transversales, no colocalizadas
 data/                        datos estáticos (distritos del Perú)
 prisma/                      esquema y migraciones
 scripts/  docs/              herramientas y documentación del proyecto
@@ -230,7 +247,7 @@ Convenciones (ESLint las hace cumplir donde se indica):
 |---|---|
 | **Imports siempre con el alias `@/`** | Los imports relativos se rechazan (`no-restricted-imports`). |
 | **Sin ciclos de imports** | `import/no-cycle`; solo se permiten ciclos a través de un `import()` diferido. |
-| **Tests junto al archivo que prueban** | `x.ts` + `x.test.ts`; los tests de escenario van en la carpeta del área que ejercitan (por ejemplo, `flows/cita/hora-choice.test.ts`). |
+| **Tests en estructura espejo, no colocalizados** | `lib/<ruta>/x.ts` tiene su test en `tests/lib/<la-misma-ruta>/x.test.ts`. Los tests de escenario de un flujo van en la misma ruta espejo (por ejemplo, `tests/lib/fsm/flows/cita/hora-choice.test.ts`). El alias `@/` resuelve igual sin importar dónde viva el test, así que nunca hace falta un import relativo (`../../`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
 | **Comentarios** | No se comentan líneas ni bloques. Solo un docstring breve, en español, en funciones o tipos complejos cuya razón no se puede expresar en el código. |
 | **Estados y tipos como enums** | Los textos fijos que representan un estado o un tipo (`SendType`, `ApiErrorCode`) son un `enum` en `lib/enums/`, nunca un string suelto comparado a mano. |

@@ -1,11 +1,12 @@
-import { normalizeText } from "@/lib/fsm/parsing/text";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 
 export { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 
 const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
   [
-    "OOS-01",
+    OosCategoryEnum.OOS_01,
     [
       /\bNO (?:PUEDE|PUEDO|PUEDEN|PUEDES) RESPIRAR\b/,
       /\bNO RESPIRA(?:N)?\b/,
@@ -39,7 +40,7 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     ],
   ],
   [
-    "OOS-08",
+    OosCategoryEnum.OOS_08,
     [
       /\b(?:PUSE|PUSIMOS|PRESENTE|REGISTRE|HICE|INTERPUSE|ENVIE|DEJE)\b.{0,25}\b(?:RECLAMO|QUEJA)\b/,
       /\bMI (?:RECLAMO|QUEJA)\b.{0,60}\b(?:SIGUE|SIGUEN|CUANDO|RESPUESTA|RESPONDEN|RESPONDIERON|RESUELTO|RESUELTA|RESOLVER|ESTADO|PASO|SEGUIMIENTO|PLAZO)\b/,
@@ -49,9 +50,9 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
       /\bRECLAMO N\b/,
     ],
   ],
-  ["OOS-06", [/\bVACUN\w*/, /\bINFLUENZA\b/, /\bTETANOS\b/]],
+  [OosCategoryEnum.OOS_06, [/\bVACUN\w*/, /\bINFLUENZA\b/, /\bTETANOS\b/]],
   [
-    "OOS-04",
+    OosCategoryEnum.OOS_04,
     [
       /\bANALISIS\b/,
       /\bLABORATORIOS?\b/,
@@ -65,7 +66,7 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     ],
   ],
   [
-    "OOS-05",
+    OosCategoryEnum.OOS_05,
     [
       /\bPARACETAMOL\b/,
       /\bINSULINA\b/,
@@ -79,7 +80,7 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     ],
   ],
   [
-    "OOS-02",
+    OosCategoryEnum.OOS_02,
     [
       /\bSIS\b/,
       /\bSEGURO INTEGRAL\b/,
@@ -88,7 +89,7 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     ],
   ],
   [
-    "OOS-03",
+    OosCategoryEnum.OOS_03,
     [
       /\b(?<!PUNTO DE )REFERENCIAS?\b/,
       /\bCONTRARREFERENCIAS?\b/,
@@ -96,7 +97,7 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     ],
   ],
   [
-    "OOS-09",
+    OosCategoryEnum.OOS_09,
     [
       /\bDESCANSOS? MEDICOS?\b/,
       /\bCERTIFICADOS?\b/,
@@ -107,7 +108,7 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
     ],
   ],
   [
-    "OOS-07",
+    OosCategoryEnum.OOS_07,
     [
       /\bQUE (?:TOMO|LE DOY|PUEDO TOMAR|LE PUEDO DAR)\b/,
       /\bQUE DOSIS\b/,
@@ -134,7 +135,7 @@ export function detectOutOfScope(text: string): OosCategory | undefined {
   return undefined;
 }
 
-export const isEmergency = (text: string): boolean => detectOutOfScope(text) === "OOS-01";
+export const isEmergency = (text: string): boolean => detectOutOfScope(text) === OosCategoryEnum.OOS_01;
 
 export const IN_FLOW_MAX_CHARS = 120;
 export const isEmergencyInFlow = (text: string): boolean => text.length <= IN_FLOW_MAX_CHARS && isEmergency(text);

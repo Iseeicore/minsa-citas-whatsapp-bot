@@ -3,6 +3,7 @@ import { activeTrace, runWithTrace } from "@/lib/observability/context";
 import { logger as appLogger, type AppLogger } from "@/lib/observability/logger";
 import { previewInput, sanitizeSlots, tail } from "@/lib/observability/mask";
 import type { ExternalService, TurnNote } from "@/lib/observability/types";
+import { SessionState } from "@/lib/enums/session-state";
 
 export type TraceSession = { state: string; slots: Record<string, unknown> };
 export type TraceEvent = { type: string; text?: string; listId?: string; messageId?: string };
@@ -114,7 +115,7 @@ export function createTurnTrace(
       const stalled = stateAfter !== undefined && stateAfter === session.state && event.type === "text";
       const answeredByShortcut = notes.some((note) => note.kind === "shortcut" || note.kind === "first_contact");
       const friction =
-        stalled && !answeredByShortcut ? (stateAfter === "main_menu" ? "menu_loop" : "no_progress") : undefined;
+        stalled && !answeredByShortcut ? (stateAfter === SessionState.MAIN_MENU ? "menu_loop" : "no_progress") : undefined;
 
       log[friction === "menu_loop" ? "warn" : "info"]("turn.end", {
         traceId,

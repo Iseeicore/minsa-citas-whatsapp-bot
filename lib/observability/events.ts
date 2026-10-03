@@ -8,6 +8,7 @@ export const LOG_EVENTS = [
   "turn_lock.waited",
   "external.http",
   "minsa.book_appointment.failed",
+  "minsa.catalog.rows_discarded",
   "ai.fallback",
   "ai.provider_unknown",
   "perimeter.dropped",

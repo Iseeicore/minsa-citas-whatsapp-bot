@@ -15,6 +15,7 @@ import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { SendType } from "@/lib/enums/send-type";
+import { SessionState } from "@/lib/enums/session-state";
 
 const warnedInvalidOrigins = new Set<string>();
 
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           sent: [{ kind: SendType.TEXT, text: payload.reply }],
-          session: { state: "main_menu", slots: {}, counters: {} },
+          session: { state: SessionState.MAIN_MENU, slots: {}, counters: {} },
         },
         { headers: cors },
       );
@@ -133,10 +134,10 @@ export async function POST(request: NextRequest) {
 
 async function startConversation(from: string, text?: string): Promise<TurnResult> {
   return withTurnLock(from, async () => {
-    const fresh = { state: "main_menu", slots: {}, counters: {} };
+    const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "web" as const };
 
     return traceTurn(from, { type: text === undefined ? "other" : "text", text }, fresh, async (trace) => {
-      const first = handleFirstContact(text);
+      const first = handleFirstContact(text, "web");
       for (const note of first.notes ?? []) trace.note(note);
       await saveSession(from, first.session);
 

@@ -1,6 +1,14 @@
+import { SlotKey } from "@/lib/enums/slot-key";
+
 const SENSITIVE_KEY = /bearer|token|authorization|secret|password|api[_-]?key|twofa|otp|code$/i;
 const DNI_KEY = /dni|documento/i;
-const LENGTH_ONLY_KEYS = new Set(["citaOffered", "citaOfferedNames", "citaHorasDia", "citaHoraChoiceB", "initialMessageText"]);
+const LENGTH_ONLY_KEYS = new Set<string>([
+  SlotKey.CITA_OFFERED,
+  SlotKey.CITA_OFFERED_NAMES,
+  SlotKey.CITA_HORAS_DIA,
+  SlotKey.CITA_HORA_CHOICE_B,
+  SlotKey.INITIAL_MESSAGE_TEXT,
+]);
 
 const MAX_STRING = 200;
 const MAX_DEPTH = 4;

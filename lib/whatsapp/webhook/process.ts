@@ -5,6 +5,7 @@ import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { sessionRowExists } from "@/lib/fsm/session/session-store";
 import { screenInbound } from "@/lib/security/perimeter";
 import { inboundRateLimiter } from "@/lib/security/rate-limiter";
+import { PerimeterAction } from "@/lib/enums/perimeter-action";
 import {
   type WhatsAppContact,
   type WhatsAppMessage,
@@ -84,8 +85,8 @@ export async function processValue(value: WhatsAppValue) {
       { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
       { limiter: inboundRateLimiter, hasSession: sessionRowExists },
     );
-    if (decision.action === "drop") continue;
-    if (decision.action === "reject") {
+    if (decision.action === PerimeterAction.DROP) continue;
+    if (decision.action === PerimeterAction.REJECT) {
       await sendFixedReply(message.from_user_id, decision.reply);
       continue;
     }

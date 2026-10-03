@@ -1,6 +1,6 @@
 # Gaps técnicos
 
-Estado: G1, G3, G5 y G8 cerrados (Bloques 1, 2 y 4 del plan de acción de la auditoría). Siguen abiertos G2 (aceptado), G4 (sin medir), G6 y G7. Los gaps que tienen un test ejecutable están marcados con `gap()` (ver `tests/support/known-gap.ts`): en `npm test` cuentan como fallos esperados y `npm run test:gaps` los corre como tests normales para ver el fallo real. Cuando un gap se corrija, su test pasará a rojo en `npm test` y hay que quitarle el marcador `gap`.
+Estado: G1, G3, G5 y G8 cerrados (Bloques 1, 2 y 4 del plan de acción de la auditoría); G9 cerrado aparte (no forma parte de esa auditoría). Siguen abiertos G2 (aceptado), G4 (sin medir), G6 y G7. Los gaps que tienen un test ejecutable están marcados con `gap()` (ver `tests/support/known-gap.ts`): en `npm test` cuentan como fallos esperados y `npm run test:gaps` los corre como tests normales para ver el fallo real. Cuando un gap se corrija, su test pasará a rojo en `npm test` y hay que quitarle el marcador `gap`.
 
 ---
 
@@ -72,6 +72,22 @@ Desde una red lejana (159 ms por viaje a la base) el candado tarda **340 ms de m
 | G6 | Límite de ritmo por instancia | Los contadores viven en memoria de cada instancia serverless; no hay Redis. Una inundación repartida entre instancias se cuenta por separado. | `lib/security/rate-limiter.test.ts` |
 | G7 | Tope de 4 turnos con candado por instancia | Evita agotar el pool de 10 conexiones; el costo es que una instancia atiende como máximo 4 turnos a la vez y los demás esperan hasta 20 s. Ajustable con `TURN_LOCK_MAX_CONCURRENCY`. | `lib/fsm/session/turn-lock.test.ts` |
 | G8 | Comentario inexacto en `lib/db/prisma.ts` — **cerrado (Bloque 1)** | El comentario ya dice que el adaptador de Neon usa un pool por WebSocket (necesario para las transacciones del candado). | — |
+
+## G9. Comportamiento no determinista en los tests de persistencia según el entorno ambiental — **cerrado**
+
+**Estado:** cerrado. No forma parte de la auditoría del 2026-09-19; se encontró y se corrigió aparte. `vitest.config.ts` fijaba `DATABASE_URL` vacío pero no `DATABASE_ENABLED`, así que esa variable quedaba a merced de lo que hubiera puesto el entorno (un `.env` local, o cualquier variable ambiental del runner). `lib/whatsapp/webhook/process.ts` lee `isDatabaseEnabled()` en caliente para decidir si persiste la conversación (`conversation.upsert`, `message.create`) o corre solo en memoria; con la variable en `false`, 10 pruebas de `tests/security/webhook-perimeter.test.ts` escritas para el camino con base de datos dejaban de ver esas llamadas y fallaban, sin que el código de producción tuviera ningún defecto.
+
+### Qué hace ahora
+
+`vitest.config.ts` fija también `DATABASE_ENABLED: "true"` junto al `DATABASE_URL` vacío que ya existía, así la suite corre siempre con el mismo comportamiento sin importar desde qué entorno se la ejecute. El camino sin base de datos conserva su propia cobertura, independiente de este valor por defecto: `tests/integration/database-disabled.test.ts` fija `DATABASE_ENABLED=false` explícitamente antes de sus propios tests y comprueba que Prisma nunca llega a instanciarse.
+
+### Dónde está en el código
+
+`vitest.config.ts` (bloque `env`), con `tests/integration/vitest-env.test.ts` como guardia: falla si alguien vuelve a quitar el valor fijado. La lectura de la variable está en `lib/db/persistence.ts` (`isDatabaseEnabled`); el punto donde bifurca el comportamiento es `lib/whatsapp/webhook/process.ts`.
+
+### Pruebas y cómo verlo
+
+`npx vitest run` corre las 1700 pruebas en verde sin depender de ninguna variable de entorno externa.
 
 ## Fuera del alcance de esta rama (auditoría del 2026-09-19)
 

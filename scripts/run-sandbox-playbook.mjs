@@ -72,7 +72,7 @@ function ctxFor(id, section) {
 }
 
 async function welcome(ctx, text = "Hola") {
-  return ctx.send({ type: "text", text, reset: true }, { expect: "Continuar mi cita" });
+  return ctx.send({ type: "text", text, reset: true }, { expect: "asistente virtual de MINSA Digital" });
 }
 
 async function reachDniPrompt(ctx, welcomeText) {
@@ -113,7 +113,7 @@ async function section1() {
     const long383 =
       "Hola buenas tardes, quiero agendar una cita médica de odontología en el distrito de San Borja para mañana por la tarde porque tengo un dolor de muela muy fuerte desde hace tres días y no puedo dormir ni comer bien, ya intenté con pastillas pero no se me quita, además necesito que sea en un centro de salud cercano a mi casa, por favor ayúdenme lo más rápido posible, muchas gracias.";
     await ctx.send({ type: "text", text: long383, reset: true }, { expect: REJECT_TEXT });
-    await ctx.send({ type: "text", text: "Hola" }, { caseId: "1.1d", section: s, expect: "Continuar mi cita", note: "el rechazo no debe dejar sesión" });
+    await ctx.send({ type: "text", text: "Hola" }, { caseId: "1.1d", section: s, expect: "asistente virtual de MINSA Digital", note: "el rechazo no debe dejar sesión" });
   })();
 
   await ctxFor("1.1b", s).send({ type: "text", text: "a".repeat(301), reset: true }, { expect: REJECT_TEXT });
@@ -319,7 +319,7 @@ async function section2_5Stress() {
 async function section3HappyPath() {
   const s = "3. Camino feliz";
 
-  await ctxFor("3.1a", s).send({ type: "text", text: "Hola", reset: true }, { expect: "Continuar mi cita" });
+  await ctxFor("3.1a", s).send({ type: "text", text: "Hola", reset: true }, { expect: "asistente virtual de MINSA Digital" });
   await ctxFor("3.1b", s).send({ type: "text", text: "hola", reset: true }, { expect: MENU_TEXT });
   await ctxFor("3.1c", s).send(
     { type: "text", text: "Sabes quiero una cita para san Juan de Lurigancho para medicina general", reset: true },
@@ -342,7 +342,7 @@ async function section3HappyPath() {
   await ctx.send({ type: "text", text: "1" }, { caseId: "3.12", section: s, expect: "horario" });
   await ctx.send({ type: "text", text: "1 pm" }, { caseId: "3.13f", section: s, expect: "Confirmas el horario" });
   await ctx.send({ type: "text", text: "sí" }, { caseId: "3.14a", section: s, expect: "MINISTERIO DE SALUD DEL PERÚ" });
-  await ctx.send({ type: "text", text: "Hola" }, { caseId: "3.14c", section: s, expect: "Continuar mi cita", note: "reinicio tras estado terminal" });
+  await ctx.send({ type: "text", text: "Hola" }, { caseId: "3.14c", section: s, expect: "asistente virtual de MINSA Digital", note: "reinicio tras estado terminal" });
 }
 
 async function section3_13Variants() {

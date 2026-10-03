@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Conversation } from "@/app/components/types";
 import { Badge } from "@/app/components/ui/Badge";
 import { avatarColor, initials } from "@/lib/utils/avatar";
+import { ConversationStatus } from "@/lib/enums/conversation-status";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -78,12 +79,12 @@ export default function ConversationList({
                     <span className="truncate text-xs text-gray-500">{conversation.waId}</span>
                     <Badge
                       className={
-                        conversation.status === "OPEN"
+                        conversation.status === ConversationStatus.OPEN
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-gray-100 text-gray-500"
                       }
                     >
-                      {conversation.status === "OPEN" ? "Abierta" : "Cerrada"}
+                      {conversation.status === ConversationStatus.OPEN ? "Abierta" : "Cerrada"}
                     </Badge>
                   </span>
                 </span>
