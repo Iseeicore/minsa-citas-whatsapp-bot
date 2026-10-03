@@ -3,6 +3,7 @@ import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-oos";
@@ -15,18 +16,18 @@ const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const oosNote = (result: HandlerResult) => result.notes?.find((note) => note.kind === "out_of_scope");
 
 const SAMPLE: Array<[OosCategory, string]> = [
-  ["OOS-01", "Mi mamá no puede respirar"],
-  ["OOS-02", "¿Mi SIS está activo?"],
-  ["OOS-03", "¿Ya aceptaron mi referencia?"],
-  ["OOS-04", "¿Ya salieron mis análisis de sangre?"],
-  ["OOS-05", "¿Tienen Paracetamol o Insulina en la posta?"],
-  ["OOS-06", "¿Qué días vacunan contra la influenza?"],
-  ["OOS-07", "Quiero hablar con un doctor ahorita"],
-  ["OOS-08", "Mi reclamo N° 458-2026 sigue sin resolverse"],
-  ["OOS-09", "Necesito que me sellen mi descanso médico para mi trabajo"],
+  [OosCategoryEnum.OOS_01, "Mi mamá no puede respirar"],
+  [OosCategoryEnum.OOS_02, "¿Mi SIS está activo?"],
+  [OosCategoryEnum.OOS_03, "¿Ya aceptaron mi referencia?"],
+  [OosCategoryEnum.OOS_04, "¿Ya salieron mis análisis de sangre?"],
+  [OosCategoryEnum.OOS_05, "¿Tienen Paracetamol o Insulina en la posta?"],
+  [OosCategoryEnum.OOS_06, "¿Qué días vacunan contra la influenza?"],
+  [OosCategoryEnum.OOS_07, "Quiero hablar con un doctor ahorita"],
+  [OosCategoryEnum.OOS_08, "Mi reclamo N° 458-2026 sigue sin resolverse"],
+  [OosCategoryEnum.OOS_09, "Necesito que me sellen mi descanso médico para mi trabajo"],
 ];
 
-const STAYING = SAMPLE.filter(([category]) => category !== "OOS-01");
+const STAYING = SAMPLE.filter(([category]) => category !== OosCategoryEnum.OOS_01);
 
 describe("in the main menu: the fixed message, no AI, and the citizen stays in the menu", () => {
   it.each(STAYING)("%s: %j", (category, message) => {

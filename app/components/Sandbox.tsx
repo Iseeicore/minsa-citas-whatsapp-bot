@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { SendEffect } from "@/lib/fsm/core/types";
+import type { InboundEventType, SendEffect } from "@/lib/fsm/core/types";
 import type { ChatEntry, SessionSnapshot } from "@/app/components/sandbox-chat/types";
 import {
   ENTRIES_STORAGE_KEY,
@@ -78,7 +78,7 @@ export default function Sandbox({
 
   async function sendTurn(
     payload: {
-      type: "text" | "button" | "list" | "image";
+      type: InboundEventType;
       text?: string;
       listId?: string;
       mediaDataUri?: string;

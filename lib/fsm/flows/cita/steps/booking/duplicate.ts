@@ -3,13 +3,17 @@ import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { buildResult, cloneSession, query, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import { FAREWELL } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
+import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 export const DUPLICATE_CHOICE_STATE = "cita_awaiting_duplicate_choice";
 export const DUPLICATE_CLOSED_STATE = "cita_booking_duplicate";
 export const DISCARDED_ESPECIALIDADES_SLOT = "citaEspecialidadesDescartadas";
 
-const OTHER_ESPECIALIDAD_ID = "cita_duplicada_otra_especialidad";
-const EXIT_ID = "cita_duplicada_salir";
+const OTHER_ESPECIALIDAD_ID = DuplicateButtonId.OTHER_ESPECIALIDAD;
+const EXIT_ID = DuplicateButtonId.EXIT;
 
 const QUESTION = "El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?";
 const OTHER_ESPECIALIDAD_ANSWERS = new Set(["OTRA ESPECIALIDAD", "OTRA", "CAMBIAR", "CAMBIAR DE ESPECIALIDAD", "SI OTRA ESPECIALIDAD"]);
@@ -59,24 +63,25 @@ export function offerOtherEspecialidad(session: Session): HandlerResult {
 }
 
 export function handleDuplicateChoice(session: Session, event: InboundEvent): HandlerResult {
-  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? normalizeText(event.text ?? "") : "";
+  const tapped =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? normalizeText(event.text ?? "") : "";
   const answer = OTHER_ESPECIALIDAD_ANSWERS.has(typed)
-    ? "YES"
+    ? Confirmation.YES
     : EXIT_ANSWERS.has(typed)
-      ? "NO"
-      : resolveConfirmation(event.type === "text" ? (event.text ?? "") : "");
+      ? Confirmation.NO
+      : resolveConfirmation(event.type === InboundEventType.TEXT ? (event.text ?? "") : "");
 
-  if (tapped === OTHER_ESPECIALIDAD_ID || answer === "YES") {
+  if (tapped === OTHER_ESPECIALIDAD_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.state = "cita_especialidad_pending";
     return buildResult(next, [
       sendText("Buscando otras especialidades disponibles…"),
-      query("list_especialidades", { ubigeo: String(next.slots.citaUbigeo ?? "") }),
+      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots.citaUbigeo ?? "") }),
     ]);
   }
 
-  if (tapped === EXIT_ID || answer === "NO") {
+  if (tapped === EXIT_ID || answer === Confirmation.NO) {
     return withNote(buildResult({ state: DUPLICATE_CLOSED_STATE, slots: {}, counters: {} }, [sendText(FAREWELL)]), {
       kind: "cita_closed",
       detail: { reason: "duplicate" },

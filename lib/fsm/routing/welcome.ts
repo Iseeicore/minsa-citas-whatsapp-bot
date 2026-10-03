@@ -1,6 +1,7 @@
 import { sendCtaUrl, sendText } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import type { SendEffect, SessionChannel } from "@/lib/fsm/core/types";
+import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
 
 export const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (MINSA)* 🇵🇪.
 
@@ -28,7 +29,7 @@ export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
  * directamente, igual que si el ciudadano ya hubiera pasado el saludo (ver checkConfig para la alerta de arranque).
  */
 export function buildWelcomeEffect(channel: SessionChannel): SendEffect {
-  if (channel === "web") return sendText(WEB_WELCOME_MESSAGE_TEXT);
+  if (channel === SessionChannelEnum.WEB) return sendText(WEB_WELCOME_MESSAGE_TEXT);
 
   const appUrl = process.env.MINSA_DIGITAL_APP_URL;
   if (!appUrl) return buildMenuEffect();

@@ -2,6 +2,9 @@ import { handleCita } from "@/lib/fsm/flows/cita/handlers-cita";
 import { handleReclamo } from "@/lib/fsm/flows/reclamo/handlers-reclamo";
 import { TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
+import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
+import { SessionChannel } from "@/lib/enums/session-channel";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { emergencyCut, isEmergencyTurn } from "@/lib/fsm/flows/emergency/emergency";
 import type {
@@ -21,7 +24,7 @@ import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/sess
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
-  if (event.type === "text" && event.text && isEmergencyTurn(session.state, event.text)) {
+  if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, event.text)) {
     return emergencyCut(session.state);
   }
   return handleTurn(session, event, now);
@@ -38,7 +41,7 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
       kind: "session_expired",
       level: "warn",
       detail: {
-        reason: expiry === "idle" ? "IDLE_TIMEOUT" : "JWT_EXPIRED",
+        reason: expiry === SessionExpiryReason.IDLE ? "IDLE_TIMEOUT" : "JWT_EXPIRED",
         state: session.state,
         ...(session.updatedAt ? { idleMs: now - session.updatedAt.getTime() } : {}),
       },
@@ -52,7 +55,10 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
   if (guarded) return guarded;
 
   if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
-    return handleFirstContact(event.type === "text" ? event.text : undefined, session.channel ?? "whatsapp");
+    return handleFirstContact(
+      event.type === InboundEventType.TEXT ? event.text : undefined,
+      session.channel ?? SessionChannel.WHATSAPP,
+    );
   }
 
   if (session.state === "main_menu") {

@@ -5,6 +5,9 @@ import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-pa
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { REAUTH_NO_ID, REAUTH_STATE, REAUTH_YES_ID, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 const TRANSIENT_BOOKING_SLOTS = [
   "citaBearer",
@@ -34,12 +37,13 @@ export function beginSessionReauth(session: Session): HandlerResult {
 }
 
 export function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerResult {
-  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
+  const tapped =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (tapped === REAUTH_NO_ID || typed === "NO") return askToLeave(session, "reauth");
+  if (tapped === REAUTH_NO_ID || typed === Confirmation.NO) return askToLeave(session, "reauth");
 
-  if (tapped === REAUTH_YES_ID || typed === "YES") {
+  if (tapped === REAUTH_YES_ID || typed === Confirmation.YES) {
     const dni = session.slots.citaDni;
     const next: Session = { state: "cita_awaiting_dni", slots: { ...session.slots }, counters: { ...session.counters } };
 
@@ -51,7 +55,7 @@ export function handleAwaitingReauth(session: Session, event: InboundEvent): Han
     next.slots.citaDniPending = dni;
     return buildResult(next, [
       sendText("Enviándote un nuevo código de verificación…"),
-      query("validate_user", { numeroDocumento: dni }),
+      query(QueryKind.VALIDATE_USER, { numeroDocumento: dni }),
     ]);
   }
 

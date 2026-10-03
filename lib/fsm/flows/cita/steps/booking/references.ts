@@ -14,14 +14,18 @@ import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/sel
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
+import { ReferencesOfferButtonId } from "@/lib/enums/references-offer-button-id";
+import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 const REFERENCIAS_DATA_SLOT = "citaReferenciasData";
 const REFERENCIA_SELECTED_SLOT = "citaReferenciaSeleccionadaId";
 
-const REFERENCES_OFFER_YES_ID = "cita_references_offer_si";
-const REFERENCES_OFFER_NO_ID = "cita_references_offer_no";
-const REFERENCIA_CONFIRM_YES_ID = "cita_referencia_confirm_si";
-const REFERENCIA_CONFIRM_NO_ID = "cita_referencia_confirm_no";
+const REFERENCES_OFFER_YES_ID = ReferencesOfferButtonId.YES;
+const REFERENCES_OFFER_NO_ID = ReferencesOfferButtonId.NO;
+const REFERENCIA_CONFIRM_YES_ID = ReferenciaConfirmButtonId.YES;
+const REFERENCIA_CONFIRM_NO_ID = ReferenciaConfirmButtonId.NO;
 
 const ESTADO_LABEL: Record<number, string> = {
   3: "ACEPTADO",
@@ -102,14 +106,15 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
 }
 
 export function handleAwaitingReferenciasOffer(session: Session, event: InboundEvent): HandlerResult {
-  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
+  const reply =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (reply === REFERENCES_OFFER_YES_ID || typed === "YES") {
+  if (reply === REFERENCES_OFFER_YES_ID || typed === Confirmation.YES) {
     return offerReferenciasList(session);
   }
 
-  if (reply === REFERENCES_OFFER_NO_ID || typed === "NO") {
+  if (reply === REFERENCES_OFFER_NO_ID || typed === Confirmation.NO) {
     return withLeadingText(continueCitaAfterVerification(session), "Entendido, continuamos con tu cita médica.");
   }
 
@@ -133,14 +138,15 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
 }
 
 export function handleAwaitingReferenciaConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
+  const reply =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (reply === REFERENCIA_CONFIRM_NO_ID || typed === "NO") {
+  if (reply === REFERENCIA_CONFIRM_NO_ID || typed === Confirmation.NO) {
     return offerReferenciasList(session);
   }
 
-  if (reply === REFERENCIA_CONFIRM_YES_ID || typed === "YES") {
+  if (reply === REFERENCIA_CONFIRM_YES_ID || typed === Confirmation.YES) {
     /** Placeholder: qué hacer con la referencia confirmada queda para una iteración futura. */
     return continueCitaAfterVerification(session);
   }

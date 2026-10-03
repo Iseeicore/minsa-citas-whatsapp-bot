@@ -1,4 +1,6 @@
-export type Confirmation = "YES" | "NO" | "UNKNOWN";
+import { Confirmation } from "@/lib/enums/confirmation";
+
+export type { Confirmation };
 
 const YES_PHRASES = new Set([
   "1",
@@ -82,7 +84,7 @@ export function isSlotAcceptance(text: string): boolean {
 
 export function resolveConfirmation(text: string): Confirmation {
   const words = toWords(text);
-  if (words.length === 0) return "UNKNOWN";
+  if (words.length === 0) return Confirmation.UNKNOWN;
 
   let sawYes = false;
   let sawNo = false;
@@ -105,10 +107,10 @@ export function resolveConfirmation(text: string): Confirmation {
       }
     }
 
-    if (consumed === 0) return "UNKNOWN";
+    if (consumed === 0) return Confirmation.UNKNOWN;
     index += consumed;
   }
 
-  if (sawYes && sawNo) return "UNKNOWN";
-  return sawYes ? "YES" : "NO";
+  if (sawYes && sawNo) return Confirmation.UNKNOWN;
+  return sawYes ? Confirmation.YES : Confirmation.NO;
 }

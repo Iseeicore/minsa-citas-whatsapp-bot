@@ -17,13 +17,15 @@ import {
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { minsaDigitalAppUrl } from "@/lib/integrations/minsa/wire";
+import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 const MAX_REGISTRATION_CHECKS = 3;
 const MAX_OTP_ATTEMPTS = 3;
 const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL";
-const REGISTRATION_RETRY_BUTTON_ID = "cita_registration_retry";
+const REGISTRATION_RETRY_BUTTON_ID = RegistrationButtonId.RETRY;
 const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
-const REGISTRATION_CANCEL_BUTTON_ID = "cita_registration_cancel";
+const REGISTRATION_CANCEL_BUTTON_ID = RegistrationButtonId.CANCEL;
 const REGISTRATION_CANCEL_BUTTON_TEXT = "No quiero continuar";
 
 function registrationRetryButtons(text: string) {
@@ -45,7 +47,7 @@ export function handleAwaitingDni(session: Session, event: InboundEvent): Handle
   next.state = "cita_validate_pending";
   return buildResult(next, [
     sendText("Validando tu documento…"),
-    query("validate_user", { numeroDocumento: dni }),
+    query(QueryKind.VALIDATE_USER, { numeroDocumento: dni }),
   ]);
 }
 
@@ -101,7 +103,7 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   next.state = "cita_validate_pending";
   return buildResult(next, [
     sendText("Validando de nuevo…"),
-    query("validate_user", { numeroDocumento: String(next.slots.citaDniPending ?? "") }),
+    query(QueryKind.VALIDATE_USER, { numeroDocumento: String(next.slots.citaDniPending ?? "") }),
   ]);
 }
 
@@ -116,7 +118,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   next.state = "cita_verify_pending";
   return buildResult(next, [
     sendText("Verificando código…"),
-    query("verify_code", { twofaId: String(next.slots.citaTwofaId ?? ""), code }),
+    query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots.citaTwofaId ?? ""), code }),
   ]);
 }
 
@@ -174,7 +176,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     next.state = "cita_references_pending";
     return buildResult(next, [
       sendText("Un momento, estamos analizando tu cuenta…"),
-      query("list_references", { numeroDocumento: String(dni ?? ""), tipoDocumento: "01" }),
+      query(QueryKind.LIST_REFERENCES, { numeroDocumento: String(dni ?? ""), tipoDocumento: "01" }),
     ]);
   }
 

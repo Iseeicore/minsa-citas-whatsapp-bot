@@ -26,6 +26,8 @@ import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/c
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
 import type { DistritoAiOutcome } from "@/lib/fsm/parsing/ai/distrito";
+import { DistritoAiOutcome as DistritoAiOutcomeEnum } from "@/lib/enums/distrito-ai-outcome";
+import { QueryKind } from "@/lib/enums/query-kind";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 
 
@@ -53,11 +55,11 @@ export function handleDistritoAiPending(session: Session, event: QueryResultEven
     return askToLeave({ ...cloneSession(session), state: "cita_awaiting_distrito_ai" }, "ai");
   }
 
-  if (result.outcome === "failed") {
+  if (result.outcome === DistritoAiOutcomeEnum.FAILED) {
     return enterManualDistritoFlow(session, DISTRITO_MANUAL_FALLBACK_TEXT);
   }
 
-  if (result.outcome === "not_found") {
+  if (result.outcome === DistritoAiOutcomeEnum.NOT_FOUND) {
     const misses = (session.counters.distritoNotFound ?? 0) + 1;
     if (misses >= MAX_DISTRITO_NOT_FOUND) {
       return enterManualDistritoFlow(session, DISTRITO_MANUAL_FALLBACK_TEXT);
@@ -103,7 +105,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
   next.state = "cita_ubigeo_pending";
   return buildResult(next, [
     sendText("Buscando tu ubigeo…"),
-    query("search_ubigeo", { departamento, provincia, distrito }),
+    query(QueryKind.SEARCH_UBIGEO, { departamento, provincia, distrito }),
   ]);
 }
 
@@ -154,7 +156,7 @@ export function handleAwaitingDistrito(session: Session, event: InboundEvent): H
   next.state = "cita_ubigeo_pending";
   return buildResult(next, [
     sendText("Buscando tu ubigeo…"),
-    query("search_ubigeo", {
+    query(QueryKind.SEARCH_UBIGEO, {
       departamento: String(next.slots.citaDepartamento ?? ""),
       provincia: String(next.slots.citaProvincia ?? ""),
       distrito,
@@ -213,7 +215,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
     next.state = "cita_especialidad_pending";
     return buildResult(next, [
       sendText(searchingCatalogText(settled.distrito)),
-      query("list_especialidades", { ubigeo: settled.ubigeoInei }),
+      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: settled.ubigeoInei }),
     ]);
   }
 
@@ -247,6 +249,6 @@ export function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent
   next.state = "cita_especialidad_pending";
   return buildResult(next, [
     sendText(chosen ? searchingCatalogText(chosen.title) : "Buscando especialidades disponibles…"),
-    query("list_especialidades", { ubigeo: replyId }),
+    query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: replyId }),
   ]);
 }

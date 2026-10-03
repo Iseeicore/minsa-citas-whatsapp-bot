@@ -4,6 +4,7 @@ import { resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { matchHoraTyped } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
 import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 export function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event, {
@@ -20,7 +21,7 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
     next.state = "cita_hora_page_pending";
     return buildResult(next, [
       sendText("Buscando más horarios…"),
-      query("list_horas", {
+      query(QueryKind.LIST_HORAS, {
         codEess: String(next.slots.citaCodEess ?? ""),
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         fecha: String(next.slots.citaFecha ?? ""),

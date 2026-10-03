@@ -8,6 +8,8 @@ import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types"
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 const NEGATION_WORD = /\b(?:no|ni|nunca|tampoco)\b/;
 
@@ -43,13 +45,15 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
 
   if (!/^\d{2}:\d{2}$/.test(start ?? "")) return backToList();
 
-  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typedText = event.type === "text" ? (event.text ?? "") : "";
-  const typed = event.type === "text" ? resolveConfirmation(typedText) : "UNKNOWN";
-  const takesThatHora = typed === "UNKNOWN" && event.type === "text" && acceptsPendingHora(typedText, slotId);
+  const reply =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typedText = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+  const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(typedText) : Confirmation.UNKNOWN;
+  const takesThatHora =
+    typed === Confirmation.UNKNOWN && event.type === InboundEventType.TEXT && acceptsPendingHora(typedText, slotId);
 
-  if (reply === HORA_CONFIRM_YES_ID || typed === "YES" || takesThatHora) return startBooking(session, start);
-  if (reply === HORA_CONFIRM_NO_ID || typed === "NO") return backToList();
+  if (reply === HORA_CONFIRM_YES_ID || typed === Confirmation.YES || takesThatHora) return startBooking(session, start);
+  if (reply === HORA_CONFIRM_NO_ID || typed === Confirmation.NO) return backToList();
 
   return withNote(askHoraConfirmation(session, slotId, { only }), {
     kind: "confirmation_unknown",

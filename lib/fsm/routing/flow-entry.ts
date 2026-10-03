@@ -2,10 +2,11 @@ import { buildResult, sendButtons, sendList, sendText } from "@/lib/fsm/core/han
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 
 export const MENU_ROWS = [
-  { id: "agendar_cita", title: "Agendar una cita médica" },
-  { id: "registrar_reclamo", title: "Registrar un reclamo" },
+  { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" },
+  { id: MenuChoice.REGISTRAR_RECLAMO, title: "Registrar un reclamo" },
 ];
 
 export const RECLAMO_NOMBRE_BUTTONS = [

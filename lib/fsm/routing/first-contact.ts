@@ -4,6 +4,7 @@ import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
 import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import { detectCitaRequest, isGreeting, isReclamoKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { OosCategory } from "@/lib/enums/oos-category";
 import { buildWelcomeEffect } from "@/lib/fsm/routing/welcome";
 import type { HandlerResult, SessionChannel } from "@/lib/fsm/core/types";
 
@@ -26,7 +27,7 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
   }
 
   const outOfScope = detectOutOfScope(message);
-  if (outOfScope === "OOS-01") return routed("out_of_scope", emergencyCut("first_contact"));
+  if (outOfScope === OosCategory.OOS_01) return routed("out_of_scope", emergencyCut("first_contact"));
   if (outOfScope) {
     const reply = buildResult({ state: "main_menu", slots: {}, counters: {} }, [sendText(OOS_MESSAGES[outOfScope])]);
     return withNote(routed("out_of_scope", reply), { kind: "out_of_scope", detail: { category: outOfScope } });

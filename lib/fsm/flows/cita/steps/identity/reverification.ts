@@ -1,5 +1,6 @@
 import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 /** Ante un token del MINSA vencido (401) vuelve a pedir el documento sin perder los datos de la cita, y luego retoma el paso donde estaba. */
 export function beginReverification(session: Session, resumeState: string): HandlerResult {
@@ -22,7 +23,7 @@ export function resumeAfterReverification(session: Session, resumeState: string)
     case "cita_ubigeo_pending":
       return buildResult(next, [
         sendText("¡Listo! Continuemos con tu cita. Buscando tu ubigeo…"),
-        query("search_ubigeo", {
+        query(QueryKind.SEARCH_UBIGEO, {
           departamento: String(next.slots.citaDepartamento ?? ""),
           provincia: String(next.slots.citaProvincia ?? ""),
           distrito: String(next.slots.citaDistrito ?? ""),
@@ -32,13 +33,13 @@ export function resumeAfterReverification(session: Session, resumeState: string)
     case "cita_especialidad_pending":
       return buildResult(next, [
         sendText("¡Listo! Continuemos con tu cita. Buscando especialidades disponibles…"),
-        query("list_especialidades", { ubigeo: String(next.slots.citaUbigeo ?? "") }),
+        query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots.citaUbigeo ?? "") }),
       ]);
 
     case "cita_establecimiento_pending":
       return buildResult(next, [
         sendText("¡Listo! Continuemos con tu cita. Buscando establecimientos…"),
-        query("list_establecimientos", {
+        query(QueryKind.LIST_ESTABLECIMIENTOS, {
           especialidadId: String(next.slots.citaEspecialidadId ?? ""),
           ubigeo: String(next.slots.citaUbigeo ?? ""),
         }),
@@ -47,7 +48,7 @@ export function resumeAfterReverification(session: Session, resumeState: string)
     case "cita_fecha_pending":
       return buildResult(next, [
         sendText("¡Listo! Continuemos con tu cita. Buscando fechas disponibles…"),
-        query("list_fechas", {
+        query(QueryKind.LIST_FECHAS, {
           codEess: String(next.slots.citaCodEess ?? ""),
           especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         }),
@@ -57,7 +58,7 @@ export function resumeAfterReverification(session: Session, resumeState: string)
     default:
       return buildResult(next, [
         sendText("¡Listo! Continuemos con tu cita. Buscando horarios disponibles…"),
-        query("list_horas", {
+        query(QueryKind.LIST_HORAS, {
           codEess: String(next.slots.citaCodEess ?? ""),
           especialidadId: String(next.slots.citaEspecialidadId ?? ""),
           fecha: String(next.slots.citaFecha ?? ""),

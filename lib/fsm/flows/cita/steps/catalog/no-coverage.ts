@@ -5,10 +5,14 @@ import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } 
 import { DISCARDED_DATES_SLOT } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { OFFERED_NAMES_SLOT, OFFERED_SLOT } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
+import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SearchSubject } from "@/lib/enums/search-subject";
 
 export const OTHER_DISTRITO_STATE = "cita_awaiting_other_distrito";
-const OTHER_DISTRITO_YES_ID = "cita_otro_distrito_si";
-const OTHER_DISTRITO_NO_ID = "cita_otro_distrito_no";
+const OTHER_DISTRITO_YES_ID = OtherDistritoButtonId.YES;
+const OTHER_DISTRITO_NO_ID = OtherDistritoButtonId.NO;
 
 const FAREWELL_TEXT =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
@@ -41,13 +45,16 @@ const questionButtons = (text: string) =>
     { id: OTHER_DISTRITO_NO_ID, title: "No, salir" },
   ]);
 
-export function offerOtherDistrito(session: Session, missing: "especialidades" | "establecimientos"): HandlerResult {
+export function offerOtherDistrito(
+  session: Session,
+  missing: SearchSubject.ESPECIALIDADES | SearchSubject.ESTABLECIMIENTOS,
+): HandlerResult {
   const next = cloneSession(session);
   next.state = OTHER_DISTRITO_STATE;
 
   const distrito = typeof next.slots.citaDistrito === "string" ? next.slots.citaDistrito.trim() : "";
   const where = distrito ? `en *${toDisplayPlace(distrito)}*` : "en tu zona";
-  const what = missing === "especialidades" ? "especialidades" : "establecimientos para esa especialidad";
+  const what = missing === SearchSubject.ESPECIALIDADES ? "especialidades" : "establecimientos para esa especialidad";
 
   return withNote(
     buildResult(next, [questionButtons(`No encontramos ${what} disponibles ${where} en este momento.\n${QUESTION}`)]),
@@ -56,11 +63,13 @@ export function offerOtherDistrito(session: Session, missing: "especialidades" |
 }
 
 export function handleOtherDistrito(session: Session, event: InboundEvent): HandlerResult {
-  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? (event.text ?? "") : "";
-  const answer = typed && CHANGE_DISTRICT_ANSWERS.has(normalizeText(typed)) ? "YES" : resolveConfirmation(typed);
+  const tapped =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+  const answer =
+    typed && CHANGE_DISTRICT_ANSWERS.has(normalizeText(typed)) ? Confirmation.YES : resolveConfirmation(typed);
 
-  if (tapped === OTHER_DISTRITO_YES_ID || answer === "YES") {
+  if (tapped === OTHER_DISTRITO_YES_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.slots = DISTRICT_BOUND_SLOTS.reduce(omitSlot, next.slots);
     next.state = "cita_awaiting_distrito_ai";
@@ -69,7 +78,7 @@ export function handleOtherDistrito(session: Session, event: InboundEvent): Hand
     ]);
   }
 
-  if (tapped === OTHER_DISTRITO_NO_ID || answer === "NO") {
+  if (tapped === OTHER_DISTRITO_NO_ID || answer === Confirmation.NO) {
     return buildResult({ state: "cita_no_coverage_closed", slots: {}, counters: {} }, [sendText(FAREWELL_TEXT)]);
   }
 

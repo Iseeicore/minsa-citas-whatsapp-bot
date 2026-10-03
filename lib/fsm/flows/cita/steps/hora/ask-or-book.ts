@@ -2,6 +2,7 @@ import { buildResult, cloneSession, query, sendText, sendButtons } from "@/lib/f
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHoraRange, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 export function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {
   const [start, end] = slotId.split("|");
@@ -35,7 +36,7 @@ export function startBooking(session: Session, horaInicio: string): HandlerResul
   next.state = "cita_booking_pending";
   return buildResult(next, [
     sendText("Agendando tu cita…"),
-    query("book_appointment", {
+    query(QueryKind.BOOK_APPOINTMENT, {
       codigoRenipress: String(next.slots.citaCodEess ?? ""),
       codigoUps: String(next.slots.citaEspecialidadId ?? ""),
       fechaCita: String(next.slots.citaFecha ?? ""),

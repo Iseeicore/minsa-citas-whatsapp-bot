@@ -1,4 +1,7 @@
 import { searchFailureText } from "@/lib/fsm/core/failure-texts";
+import { SearchSubject } from "@/lib/enums/search-subject";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { closeWithApology, discardedDates } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import {
@@ -48,7 +51,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        searchFailureText("fechas"),
+        searchFailureText(SearchSubject.FECHAS),
       ),
     ]);
   }
@@ -65,7 +68,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     next.state = "cita_hora_pending";
     return buildResult(next, [
       sendText(`Fecha encontrada: ${displayFechaLong(item.fechaCupo)}. Buscando horarios disponibles…`),
-      query("list_horas", {
+      query(QueryKind.LIST_HORAS, {
         codEess: String(next.slots.citaCodEess ?? ""),
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         fecha: item.fechaCupo,
@@ -105,7 +108,7 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
   next.state = "cita_fecha_ai_pending";
   return buildResult(next, [
     sendText("Un momento, estamos revisando tu respuesta…"),
-    query("resolve_fecha_ai", {
+    query(QueryKind.RESOLVE_FECHA_AI, {
       text: typed,
       today: `${today.year}-${pad(today.month)}-${pad(today.day)}`,
       options: offered.rows.map((row) => ({ id: row.id, label: row.title })),
@@ -123,7 +126,7 @@ export function handleFechaAiPending(session: Session, event: QueryResultEvent):
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
   if (typeof result.id === "string" && offered?.rows.some((row) => row.id === result.id)) {
-    return handleAwaitingFechaSelect(restored, { from: event.from, type: "list", listId: result.id });
+    return handleAwaitingFechaSelect(restored, { from: event.from, type: InboundEventType.LIST, listId: result.id });
   }
 
   return reshowOffered(restored, offered, `No pudimos identificar esa fecha. ${SELECTION_REJECTION}`);
@@ -149,7 +152,7 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
   next.state = "cita_hora_pending";
   return buildResult(next, [
     sendText("Buscando horarios disponibles…"),
-    query("list_horas", {
+    query(QueryKind.LIST_HORAS, {
       codEess: String(next.slots.citaCodEess ?? ""),
       especialidadId: String(next.slots.citaEspecialidadId ?? ""),
       fecha: replyId,

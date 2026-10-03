@@ -4,6 +4,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { AUTHENTICATED_WAITING_STATES, resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
 
 const FROM = "sandbox-other-fecha";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -303,7 +304,7 @@ describe("offerOtherFecha reasons pick their own intro but the same question", (
   const session: Session = { state: "cita_booking_pending", slots: { ...BASE_SLOTS }, counters: {} };
 
   it("both reasons still ask the exact same question and offer the same buttons", () => {
-    for (const reason of ["only_declined", "no_horarios"] as const) {
+    for (const reason of [OfferOtherFechaReason.ONLY_DECLINED, OfferOtherFechaReason.NO_HORARIOS]) {
       const result = offerOtherFecha(session, reason);
       expect(sent(result)[0]).toMatchObject({
         kind: "send_buttons",

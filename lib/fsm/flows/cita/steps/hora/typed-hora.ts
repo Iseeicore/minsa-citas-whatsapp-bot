@@ -4,10 +4,11 @@ import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers"
 import type { Session } from "@/lib/fsm/core/types";
 import type { CustomMatch } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow, rowToSlot, formatHourGroup } from "@/lib/fsm/flows/cita/steps/hora/format";
+import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
 
 const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;
-export const HORA_CHOICE_A_ID = "hora_choice_a";
-export const HORA_CHOICE_B_ID = "hora_choice_b";
+export const HORA_CHOICE_A_ID = HoraChoiceButtonId.A;
+export const HORA_CHOICE_B_ID = HoraChoiceButtonId.B;
 export const BUTTON_TITLE_MAX = 20;
 
 function resolveBareHoraNumber(

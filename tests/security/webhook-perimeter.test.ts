@@ -56,6 +56,7 @@ vi.mock("@/lib/fsm/session/turn-lock", async (importOriginal) => ({
 import { POST } from "@/app/webhook/whatsapp/route";
 import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { configureLogger } from "@/lib/observability/logger";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";
@@ -411,7 +412,7 @@ describe("a message Meta delivers twice is answered once (DATA-01)", () => {
 describe("a failed turn or a lock timeout never leaves the citizen in silence (G3, C4.3)", () => {
   it("sends the fixed friendly text instead of leaving the message unanswered", async () => {
     const waId = freshWaId();
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, TurnLockLayer.PROCESS));
 
     const response = await deliver([textMessage(waId, "Hola")]);
 
@@ -429,7 +430,7 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
 
   it("the database layer timing out is answered the same way", async () => {
     const waId = freshWaId();
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "database"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, TurnLockLayer.DATABASE));
 
     await deliver([textMessage(waId, "Hola")]);
 
@@ -440,7 +441,7 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
     const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
     const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });
     const waId = freshWaId();
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "database"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, TurnLockLayer.DATABASE));
 
     await deliver([textMessage(waId, "Hola")]);
     restore();
@@ -452,7 +453,7 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
   });
 
   it("another citizen in the same payload is still answered", async () => {
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError("x", "process"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError("x", TurnLockLayer.PROCESS));
 
     await deliver([textMessage(freshWaId(), "Hola"), textMessage(freshWaId(), "Hola")]);
 
@@ -461,7 +462,7 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
 
   it("a burst that fails every message sends the friendly text only once, not one per message (C4.2)", async () => {
     const waId = freshWaId();
-    for (let i = 0; i < 5; i++) mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+    for (let i = 0; i < 5; i++) mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, TurnLockLayer.PROCESS));
 
     await deliver(Array.from({ length: 5 }, () => textMessage(waId, "hola")));
 
@@ -471,11 +472,11 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
 
   it("a second delivery shortly after is still within the 30 s window: no second text", async () => {
     const waId = freshWaId();
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, TurnLockLayer.PROCESS));
     await deliver([textMessage(waId, "Hola")]);
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
 
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, TurnLockLayer.PROCESS));
     await deliver([textMessage(waId, "¿Hay alguien?")]);
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
@@ -485,7 +486,7 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
     const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
     const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });
     const waId = freshWaId();
-    for (let i = 0; i < 3; i++) mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, "process"));
+    for (let i = 0; i < 3; i++) mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(waId, TurnLockLayer.PROCESS));
 
     await deliver(Array.from({ length: 3 }, () => textMessage(waId, "hola")));
     restore();
@@ -495,11 +496,11 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
 
   it("a different number is never held back by someone else's burst", async () => {
     const busy = freshWaId();
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(busy, "process"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(busy, TurnLockLayer.PROCESS));
     await deliver([textMessage(busy, "Hola")]);
 
     const other = freshWaId();
-    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(other, "process"));
+    mocks.withTurnLock.mockRejectedValueOnce(new TurnLockTimeoutError(other, TurnLockLayer.PROCESS));
     await deliver([textMessage(other, "Hola")]);
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(2);

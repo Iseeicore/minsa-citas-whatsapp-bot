@@ -1,4 +1,6 @@
 import { searchFailureText } from "@/lib/fsm/core/failure-texts";
+import { SearchSubject } from "@/lib/enums/search-subject";
+import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
 import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { buildResult, cloneSession, offerList, sendText, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
 import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
@@ -28,7 +30,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
     return buildResult(next, [offerList(next, "Selecciona el horario:", rows)]);
   }
 
-  return offerOtherFecha(next, "no_horarios");
+  return offerOtherFecha(next, OfferOtherFechaReason.NO_HORARIOS);
 }
 
 function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: number): HandlerResult {
@@ -67,7 +69,7 @@ export function handleHoraPending(session: Session, event: QueryResultEvent): Ha
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        searchFailureText("horarios"),
+        searchFailureText(SearchSubject.HORARIOS),
       ),
     ]);
   }
@@ -88,7 +90,7 @@ export function handleHoraPagePending(session: Session, event: QueryResultEvent)
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        searchFailureText("horarios"),
+        searchFailureText(SearchSubject.HORARIOS),
       ),
     ]);
   }

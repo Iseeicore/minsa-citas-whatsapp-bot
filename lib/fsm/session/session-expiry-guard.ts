@@ -1,9 +1,10 @@
 import type { HandleEvent, Session } from "@/lib/fsm/core/types";
+import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
 
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
 
-export type SessionExpiryReason = "idle" | "token_expired";
+export type { SessionExpiryReason };
 
 const RESUME_STATE_BY_WAITING_STATE: Readonly<Record<string, string | null>> = {
   cita_awaiting_distrito_ai: null,
@@ -67,11 +68,11 @@ export function detectSessionExpiry(
   if (typeof bearer !== "string" || bearer === "") return null;
 
   if (session.updatedAt && now - session.updatedAt.getTime() > SESSION_IDLE_TIMEOUT_MS) {
-    return "idle";
+    return SessionExpiryReason.IDLE;
   }
 
   const exp = decodeJwtExp(bearer);
-  if (exp !== null && exp * 1000 - now < TOKEN_EXPIRY_MARGIN_MS) return "token_expired";
+  if (exp !== null && exp * 1000 - now < TOKEN_EXPIRY_MARGIN_MS) return SessionExpiryReason.TOKEN_EXPIRED;
 
   return null;
 }

@@ -1,9 +1,10 @@
 import type { TurnNote } from "@/lib/observability/types";
 import { SendType } from "@/lib/enums/send-type";
+import { HandlerOutcome } from "@/lib/enums/handler-outcome";
+import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { OFFERED_SLOT, serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type {
   ButtonOption,
-  HandlerOutcome,
   HandlerResult,
   InboundEvent,
   ListRow,
@@ -74,10 +75,10 @@ export function buildResult(
   effects: (SendEffect | QueryEffect)[],
 ): HandlerResult {
   const outcome: HandlerOutcome = effects.some(isQueryEffect)
-    ? "awaiting_query"
+    ? HandlerOutcome.AWAITING_QUERY
     : TERMINAL_STATES.has(session.state)
-      ? "closed"
-      : "continue";
+      ? HandlerOutcome.CLOSED
+      : HandlerOutcome.CONTINUE;
 
   return { session: dropBearerWhenClosed(session), effects, outcome };
 }
@@ -106,8 +107,8 @@ export function offerList(next: Session, text: string, rows: ListRow[]): SendEff
   return sendList(text, rows);
 }
 
-export const LIST_PAGE_NEXT_ID = "lista_pagina_siguiente";
-export const LIST_PAGE_PREV_ID = "lista_pagina_anterior";
+export const LIST_PAGE_NEXT_ID = ListPageButtonId.NEXT;
+export const LIST_PAGE_PREV_ID = ListPageButtonId.PREV;
 export const LIST_PAGE_COUNTER = "citaListPage";
 
 export function pageCount(rowCount: number): number {

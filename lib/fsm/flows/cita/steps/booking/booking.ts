@@ -2,6 +2,7 @@ import { offerOtherEspecialidad } from "@/lib/fsm/flows/cita/steps/booking/dupli
 import { buildResult, cloneSession, query, sendText, sendCtaUrl, withNote } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 const MAX_BOOKING_FAILURES = 3;
 const SLOT_TAKEN_MESSAGE = /cupo|horario|disponib|agotad|ocupad|tomad/i;
@@ -56,7 +57,7 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
       : "No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:";
     return withNote(buildResult(next, [
       sendText(retryText),
-      query("list_horas", {
+      query(QueryKind.LIST_HORAS, {
         codEess: String(next.slots.citaCodEess ?? ""),
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         fecha: String(next.slots.citaFecha ?? ""),

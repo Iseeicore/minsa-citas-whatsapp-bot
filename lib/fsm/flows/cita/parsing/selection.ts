@@ -19,6 +19,7 @@ import {
   type SelectionMatch,
 } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 export const SELECTION_REJECTION = "Selecciona una opción de la lista.";
 export const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona una:";
@@ -77,7 +78,7 @@ export function resolveSelection(
 ): SelectionOutcome {
   const offered = readOffered(session.slots);
 
-  if (event.type === "list" || event.type === "button") {
+  if (event.type === InboundEventType.LIST || event.type === InboundEventType.BUTTON) {
     const id = event.listId;
     if (!id) return { result: reshowOffered(session, offered) };
     if (offered && (id === LIST_PAGE_NEXT_ID || id === LIST_PAGE_PREV_ID)) return { result: turnPage(session, offered, id) };
@@ -87,7 +88,7 @@ export function resolveSelection(
     return valid ? { replyId: id } : { result: reshowOffered(session, offered) };
   }
 
-  const typed = event.type === "text" ? (event.text ?? "").trim() : "";
+  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "").trim() : "";
   if (!typed || !offered) {
     return { result: reshowOffered(session, offered) };
   }

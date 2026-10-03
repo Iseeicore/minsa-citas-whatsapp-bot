@@ -7,6 +7,8 @@ import { buildResult, cloneSession, query, readReply, sendButtons, sendText } fr
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 const MAX_DESCRIPCION_LENGTH = 1000;
 const FOTO_REQUEST_TEXT =
@@ -108,7 +110,7 @@ function handleAwaitingNombre(session: Session, event: InboundEvent): HandlerRes
   next.state = "reclamo_reniec_pending";
   return buildResult(next, [
     sendText("Verificando tu identidad en RENIEC…"),
-    query("reniec_lookup", { dni: next.slots.dni }),
+    query(QueryKind.RENIEC_LOOKUP, { dni: next.slots.dni }),
   ]);
 }
 
@@ -169,7 +171,7 @@ function submitReclamo(session: Session, from: string, mediaDataUri?: string): H
 
   return buildResult(next, [
     sendText("Enviando tu reclamo…"),
-    query("quejas_submit", { submission }),
+    query(QueryKind.QUEJAS_SUBMIT, { submission }),
   ]);
 }
 
@@ -179,17 +181,21 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   const typed = (event.text ?? "").trim();
   if (!typed) return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
 
-  if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === "NO") {
+  if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === Confirmation.NO) {
     return submitReclamo(session, event.from);
   }
 
-  if (resolveConfirmation(typed) === "YES" || typed.length > FOTO_INTENT_MAX_LENGTH || looksLikeNoise(typed)) {
+  if (
+    resolveConfirmation(typed) === Confirmation.YES ||
+    typed.length > FOTO_INTENT_MAX_LENGTH ||
+    looksLikeNoise(typed)
+  ) {
     return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
   }
 
   const next = cloneSession(session);
   next.state = "reclamo_foto_intent_pending";
-  return buildResult(next, [query("analyze_reclamo_foto_intent", { text: typed })]);
+  return buildResult(next, [query(QueryKind.ANALYZE_RECLAMO_FOTO_INTENT, { text: typed })]);
 }
 
 function handleFotoIntentPending(session: Session, event: QueryResultEvent): HandlerResult {

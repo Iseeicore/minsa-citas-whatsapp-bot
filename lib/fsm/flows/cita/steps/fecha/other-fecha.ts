@@ -3,13 +3,18 @@ import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { buildResult, cloneSession, query, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import { OFFERED_SLOT } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
+import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
+import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 export const OTHER_FECHA_STATE = "cita_awaiting_other_fecha";
 export const DECLINED_CLOSED_STATE = "cita_declined_closed";
 export const DISCARDED_DATES_SLOT = "citaFechasDescartadas";
 
-const OTHER_FECHA_YES_ID = "cita_otra_fecha_si";
-const OTHER_FECHA_NO_ID = "cita_otra_fecha_no";
+const OTHER_FECHA_YES_ID = OtherFechaButtonId.YES;
+const OTHER_FECHA_NO_ID = OtherFechaButtonId.NO;
 
 export const FAREWELL = "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
 const DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${FAREWELL}`;
@@ -54,19 +59,22 @@ export function closeWithApology(reason: "declined" | "no_other_dates"): Handler
   );
 }
 
-export type OfferOtherFechaReason = "only_declined" | "no_horarios";
+export type { OfferOtherFechaReason };
 
 const INTRO_BY_REASON: Record<OfferOtherFechaReason, string> = {
-  only_declined: INTRO_ONLY_DECLINED,
-  no_horarios: INTRO_NO_HORARIOS,
+  [OfferOtherFechaReason.ONLY_DECLINED]: INTRO_ONLY_DECLINED,
+  [OfferOtherFechaReason.NO_HORARIOS]: INTRO_NO_HORARIOS,
 };
 
 const STEP_BY_REASON: Record<OfferOtherFechaReason, string> = {
-  only_declined: "hora_confirm",
-  no_horarios: "hora_pending",
+  [OfferOtherFechaReason.ONLY_DECLINED]: "hora_confirm",
+  [OfferOtherFechaReason.NO_HORARIOS]: "hora_pending",
 };
 
-export function offerOtherFecha(session: Session, reason: OfferOtherFechaReason = "only_declined"): HandlerResult {
+export function offerOtherFecha(
+  session: Session,
+  reason: OfferOtherFechaReason = OfferOtherFechaReason.ONLY_DECLINED,
+): HandlerResult {
   const next = cloneSession(session);
 
   const declined = String(next.slots.citaFecha ?? "");
@@ -79,28 +87,33 @@ export function offerOtherFecha(session: Session, reason: OfferOtherFechaReason 
 
   return withNote(buildResult(next, [questionButtons(`${INTRO_BY_REASON[reason]}\n${QUESTION}`)]), {
     kind: "hora_declined",
-    detail: { step: STEP_BY_REASON[reason], only: reason === "only_declined", declinedDates: discarded.length },
+    detail: {
+      step: STEP_BY_REASON[reason],
+      only: reason === OfferOtherFechaReason.ONLY_DECLINED,
+      declinedDates: discarded.length,
+    },
   });
 }
 
 export function handleOtherFecha(session: Session, event: InboundEvent): HandlerResult {
-  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? (event.text ?? "") : "";
-  const answer = typed && CHANGE_DATE_ANSWERS.has(normalizeText(typed)) ? "YES" : resolveConfirmation(typed);
+  const tapped =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+  const answer = typed && CHANGE_DATE_ANSWERS.has(normalizeText(typed)) ? Confirmation.YES : resolveConfirmation(typed);
 
-  if (tapped === OTHER_FECHA_YES_ID || answer === "YES") {
+  if (tapped === OTHER_FECHA_YES_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.state = "cita_fecha_pending";
     return buildResult(next, [
       sendText("Buscando otras fechas disponibles…"),
-      query("list_fechas", {
+      query(QueryKind.LIST_FECHAS, {
         codEess: String(next.slots.citaCodEess ?? ""),
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
       }),
     ]);
   }
 
-  if (tapped === OTHER_FECHA_NO_ID || answer === "NO") return closeWithApology("declined");
+  if (tapped === OTHER_FECHA_NO_ID || answer === Confirmation.NO) return closeWithApology("declined");
 
   return withNote(buildResult(session, [questionButtons(QUESTION)]), {
     kind: "confirmation_unknown",

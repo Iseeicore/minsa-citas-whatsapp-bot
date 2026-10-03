@@ -1,4 +1,5 @@
 import { looksLikeNoise } from "@/lib/security/text-noise";
+import { RejectReason } from "@/lib/enums/reject-reason";
 
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
 export const NOISE_MIN_LENGTH = 12;
@@ -13,7 +14,7 @@ export type PayloadVerdict =
   | { kind: "ok" }
   | { kind: "rejected"; reason: RejectReason; reply: string };
 
-export type RejectReason = "too_long" | "link" | "media" | "repeat" | "noise" | "sticker";
+export type { RejectReason };
 
 const MEDIA_TYPES = new Set(["image", "audio", "video", "document"]);
 
@@ -34,29 +35,29 @@ function isRepetitionSpam(body: string): boolean {
 
 export function checkFirstMessagePayload(message: { type: string; text?: string }): PayloadVerdict {
   if (message.type === "sticker") {
-    return { kind: "rejected", reason: "sticker", reply: "" };
+    return { kind: "rejected", reason: RejectReason.STICKER, reply: "" };
   }
 
   if (MEDIA_TYPES.has(message.type)) {
-    return { kind: "rejected", reason: "media", reply: MEDIA_WITHOUT_SESSION_TEXT };
+    return { kind: "rejected", reason: RejectReason.MEDIA, reply: MEDIA_WITHOUT_SESSION_TEXT };
   }
 
   const body = message.text ?? "";
 
   if ([...body].length > MAX_FIRST_MESSAGE_LENGTH) {
-    return { kind: "rejected", reason: "too_long", reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: "rejected", reason: RejectReason.TOO_LONG, reply: FIRST_MESSAGE_REJECTION_TEXT };
   }
 
   if (LINK_MARKERS.test(body) || BARE_DOMAIN.test(body)) {
-    return { kind: "rejected", reason: "link", reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: "rejected", reason: RejectReason.LINK, reply: FIRST_MESSAGE_REJECTION_TEXT };
   }
 
   if (isRepetitionSpam(body)) {
-    return { kind: "rejected", reason: "repeat", reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: "rejected", reason: RejectReason.REPEAT, reply: FIRST_MESSAGE_REJECTION_TEXT };
   }
 
   if (body.length >= NOISE_MIN_LENGTH && looksLikeNoise(body)) {
-    return { kind: "rejected", reason: "noise", reply: "" };
+    return { kind: "rejected", reason: RejectReason.NOISE, reply: "" };
   }
 
   return { kind: "ok" };

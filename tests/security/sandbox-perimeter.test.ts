@@ -22,6 +22,7 @@ vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { POST } from "@/app/api/sandbox/route";
 import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 
 async function send(body: Record<string, unknown>) {
@@ -120,7 +121,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 describe("turn lock timeout", () => {
   it("answers 503 BUSY instead of replying from a stale session", async () => {
     mocks.sessionRowExists.mockResolvedValue(true);
-    mocks.runTurn.mockRejectedValueOnce(new TurnLockTimeoutError("sandbox-qa", "process"));
+    mocks.runTurn.mockRejectedValueOnce(new TurnLockTimeoutError("sandbox-qa", TurnLockLayer.PROCESS));
 
     const request = new NextRequest("http://localhost/api/sandbox", {
       method: "POST",

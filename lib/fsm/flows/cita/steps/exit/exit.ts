@@ -15,6 +15,8 @@ import {
 } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import { REAUTH_STATE, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 export { askToLeave, EXIT_CONFIRM_STATE };
 export const ABANDONED_STATE = "cita_abandoned";
@@ -48,7 +50,7 @@ const canLeaveFrom = (state: string): boolean =>
   state in TEXT_PROMPTS || LIST_STATES.has(state) || state === REGISTRATION_WAIT_STATE;
 
 export function offerExitIfRequested(session: Session, event: HandleEvent): HandlerResult | undefined {
-  if (event.type !== "text" || !event.text || !canLeaveFrom(session.state)) return undefined;
+  if (event.type !== InboundEventType.TEXT || !event.text || !canLeaveFrom(session.state)) return undefined;
   return detectExitIntent(event.text) ? askToLeave(session, "local") : undefined;
 }
 
@@ -60,29 +62,31 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
   if (restored.state === REAUTH_STATE) return buildResult(restored, [reauthPrompt()]);
   const prompt = TEXT_PROMPTS[restored.state];
   if (prompt) return buildResult(restored, [sendText(prompt)]);
-  if (restored.state === REGISTRATION_WAIT_STATE) return handleRegistrationWait(restored, { ...event, type: "text", text: "" });
+  if (restored.state === REGISTRATION_WAIT_STATE)
+    return handleRegistrationWait(restored, { ...event, type: InboundEventType.TEXT, text: "" });
   return reshowOffered(restored, readOffered(restored.slots));
 }
 
 export function handleExitConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? (event.text ?? "") : "";
+  const tapped =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
   const normalized = normalizeText(typed);
   const answer =
     LEAVE_ANSWERS.has(normalized) || (typed && detectExitIntent(typed))
-      ? "YES"
+      ? Confirmation.YES
       : STAY_ANSWERS.has(normalized)
-        ? "NO"
+        ? Confirmation.NO
         : resolveConfirmation(typed);
 
-  if (tapped === EXIT_YES_ID || answer === "YES") {
+  if (tapped === EXIT_YES_ID || answer === Confirmation.YES) {
     return withNote(buildResult({ state: ABANDONED_STATE, slots: {}, counters: {} }, [sendText(GOODBYE)]), {
       kind: "cita_closed",
       detail: { reason: "abandoned", from: String(session.slots[RESUME_SLOT] ?? "") },
     });
   }
 
-  if (tapped === EXIT_NO_ID || answer === "NO") return resume(session, event);
+  if (tapped === EXIT_NO_ID || answer === Confirmation.NO) return resume(session, event);
 
   return withNote(buildResult(session, [exitButtons()]), {
     kind: "confirmation_unknown",

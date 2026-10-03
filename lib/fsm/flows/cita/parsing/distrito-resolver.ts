@@ -14,6 +14,7 @@ import {
 import { searchDistrito, searchDistritoByPrefix } from "@/lib/fsm/flows/cita/data/ubigeo-data";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 export function looksLikePlaceName(text: string): boolean {
   return /^[\p{L}][\p{L}\s.'-]{2,59}$/u.test(text);
@@ -90,7 +91,7 @@ export function resolveDistritoCandidates(
     next.state = "cita_ubigeo_pending";
     return buildResult(next, [
       sendText("Buscando tu ubigeo…"),
-      query("search_ubigeo", {
+      query(QueryKind.SEARCH_UBIGEO, {
         departamento: candidate.departamento,
         provincia: candidate.provincia,
         distrito: candidate.distrito,
@@ -142,6 +143,6 @@ export function resolveDistritoText(
   next.state = "cita_distrito_ai_pending";
   return buildResult(next, [
     sendText(`Buscando tu distrito: "${distritoText}"…`),
-    query("resolve_distrito_ai", { distritoText, contextText }),
+    query(QueryKind.RESOLVE_DISTRITO_AI, { distritoText, contextText }),
   ]);
 }

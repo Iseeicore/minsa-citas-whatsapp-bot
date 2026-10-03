@@ -23,6 +23,7 @@ import { traceTurn } from "@/lib/observability/tracer";
 import type { ExternalService } from "@/lib/observability/types";
 import { getSession, saveSession } from "@/lib/fsm/session/session-store";
 import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
+import { QueryKind } from "@/lib/enums/query-kind";
 import type {
   HandleEvent,
   InboundEvent,
@@ -107,15 +108,15 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
 
 function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   switch (kind) {
-    case "reniec_lookup":
+    case QueryKind.RENIEC_LOOKUP:
       return "reniec";
-    case "quejas_submit":
+    case QueryKind.QUEJAS_SUBMIT:
       return "quejas";
-    case "analyze_main_menu_intent":
-    case "resolve_distrito_ai":
-    case "resolve_fecha_ai":
-    case "extract_selection_hints":
-    case "analyze_reclamo_foto_intent":
+    case QueryKind.ANALYZE_MAIN_MENU_INTENT:
+    case QueryKind.RESOLVE_DISTRITO_AI:
+    case QueryKind.RESOLVE_FECHA_AI:
+    case QueryKind.EXTRACT_SELECTION_HINTS:
+    case QueryKind.ANALYZE_RECLAMO_FOTO_INTENT:
       return configuredLlmProvider();
     default:
       return "minsa";
@@ -126,38 +127,38 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
   const bearer = String(session.slots.citaBearer ?? "");
 
   switch (effect.kind) {
-    case "reniec_lookup":
+    case QueryKind.RENIEC_LOOKUP:
       return reniecLookup(String(effect.payload.dni ?? ""));
 
-    case "quejas_submit":
+    case QueryKind.QUEJAS_SUBMIT:
       return submitQueja(effect.payload.submission as SubmitQuejaPayload);
 
-    case "validate_user":
+    case QueryKind.VALIDATE_USER:
       return validateUser(String(effect.payload.numeroDocumento ?? ""));
 
-    case "verify_code":
+    case QueryKind.VERIFY_CODE:
       return verifyCode(String(effect.payload.twofaId ?? ""), String(effect.payload.code ?? ""));
 
-    case "analyze_main_menu_intent":
+    case QueryKind.ANALYZE_MAIN_MENU_INTENT:
       return analyzeMainMenuIntent(String(effect.payload.text ?? ""));
 
-    case "resolve_distrito_ai":
+    case QueryKind.RESOLVE_DISTRITO_AI:
       return resolveDistritoAiDetailed(
         String(effect.payload.distritoText ?? ""),
         effect.payload.contextText as string | undefined,
       );
 
-    case "resolve_fecha_ai":
+    case QueryKind.RESOLVE_FECHA_AI:
       return resolveFechaAi(
         String(effect.payload.text ?? ""),
         String(effect.payload.today ?? ""),
         (effect.payload.options as FechaAiOption[] | undefined) ?? [],
       );
 
-    case "extract_selection_hints":
+    case QueryKind.EXTRACT_SELECTION_HINTS:
       return extractSelectionHints(String(effect.payload.step ?? ""), String(effect.payload.text ?? ""));
 
-    case "search_ubigeo":
+    case QueryKind.SEARCH_UBIGEO:
       return searchUbigeo(
         String(effect.payload.departamento ?? ""),
         String(effect.payload.provincia ?? ""),
@@ -165,24 +166,24 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
         bearer,
       );
 
-    case "list_especialidades":
+    case QueryKind.LIST_ESPECIALIDADES:
       return listEspecialidades(String(effect.payload.ubigeo ?? ""), bearer);
 
-    case "list_establecimientos":
+    case QueryKind.LIST_ESTABLECIMIENTOS:
       return listEstablecimientos(
         String(effect.payload.especialidadId ?? ""),
         String(effect.payload.ubigeo ?? ""),
         bearer,
       );
 
-    case "list_fechas":
+    case QueryKind.LIST_FECHAS:
       return listFechas(
         String(effect.payload.codEess ?? ""),
         String(effect.payload.especialidadId ?? ""),
         bearer,
       );
 
-    case "list_horas":
+    case QueryKind.LIST_HORAS:
       return listHoras(
         String(effect.payload.codEess ?? ""),
         String(effect.payload.especialidadId ?? ""),
@@ -190,7 +191,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
         bearer,
       );
 
-    case "book_appointment":
+    case QueryKind.BOOK_APPOINTMENT:
       return bookAppointment(
         {
           codigoRenipress: String(effect.payload.codigoRenipress ?? ""),
@@ -202,10 +203,10 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
         bearer,
       );
 
-    case "list_references":
+    case QueryKind.LIST_REFERENCES:
       return listReferences(String(effect.payload.numeroDocumento ?? ""), String(effect.payload.tipoDocumento ?? ""));
 
-    case "analyze_reclamo_foto_intent":
+    case QueryKind.ANALYZE_RECLAMO_FOTO_INTENT:
       return analyzeFotoIntent(String(effect.payload.text ?? ""));
 
     default:

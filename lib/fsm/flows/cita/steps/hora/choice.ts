@@ -7,6 +7,7 @@ import { formatHora12, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format"
 import { HORA_CHOICE_A_ID, HORA_CHOICE_B_ID, BUTTON_TITLE_MAX } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 export function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
   const slotA = String(session.slots.citaHoraChoiceA ?? "");
@@ -21,9 +22,10 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
     return restored;
   };
 
-  if (event.type === "text") return handleAwaitingHoraSelect(back(), event);
+  if (event.type === InboundEventType.TEXT) return handleAwaitingHoraSelect(back(), event);
 
-  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
+  const reply =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
 
   if (reply === HORA_CHOICE_A_ID && /^\d{2}:\d{2}\|/.test(slotA)) {
     return startBooking(back(), slotA.split("|")[0]);

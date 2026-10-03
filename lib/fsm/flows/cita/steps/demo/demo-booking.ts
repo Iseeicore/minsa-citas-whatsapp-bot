@@ -20,10 +20,13 @@ import {
 } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { formatHoraRange, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
+import { DemoConfirmButtonId } from "@/lib/enums/demo-confirm-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 const DEMO_ANALYZING_TEXT = "Un momento, estamos analizando tu cuenta… cuenta con referencias:";
-const DEMO_CONFIRM_YES_ID = "cita_demo_confirm_si";
-const DEMO_CONFIRM_NO_ID = "cita_demo_confirm_no";
+const DEMO_CONFIRM_YES_ID = DemoConfirmButtonId.YES;
+const DEMO_CONFIRM_NO_ID = DemoConfirmButtonId.NO;
 
 const DESPEDIDA_TEXT =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita o realizar una consulta, escríbenos nuevamente cuando lo necesites. ¡Que tengas un buen día! 👋";
@@ -99,10 +102,11 @@ export function handleDemoAwaitingHoraSelect(session: Session, event: InboundEve
 export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent): HandlerResult {
   const codigo = String(session.slots.citaDemoReferenciaCodigo ?? "");
   const horaId = String(session.slots.citaDemoHoraId ?? "");
-  const reply = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
+  const reply =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (reply === DEMO_CONFIRM_YES_ID || typed === "YES") {
+  if (reply === DEMO_CONFIRM_YES_ID || typed === Confirmation.YES) {
     const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
     const [start, end] = horaId.split("|");
     const turno =
@@ -121,7 +125,7 @@ Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico
     return buildResult(next, [sendText(constanciaText), sendText(DESPEDIDA_TEXT)]);
   }
 
-  if (reply === DEMO_CONFIRM_NO_ID || typed === "NO") {
+  if (reply === DEMO_CONFIRM_NO_ID || typed === Confirmation.NO) {
     const next = cloneSession(session);
     delete next.slots.citaDemoHoraId;
     return offerDemoHoras(next, codigo);

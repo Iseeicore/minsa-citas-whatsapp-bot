@@ -11,6 +11,11 @@ import {
 import { DECLINED_CLOSED_STATE, FAREWELL } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
+import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { SearchSubject } from "@/lib/enums/search-subject";
 
 export const OTHER_ESTABLECIMIENTO_STATE = "cita_awaiting_other_establecimiento";
 export const DISCARDED_ESTABLECIMIENTOS_SLOT = "citaEstablecimientosDescartados";
@@ -20,8 +25,8 @@ const WITHOUT_DATES_SLOT = "citaEstablecimientoSinFechas";
 const PROPOSED_ID_SLOT = "citaEstablecimientoPropuesto";
 const PROPOSED_NAME_SLOT = "citaEstablecimientoPropuestoNombre";
 
-const YES_ID = "cita_otro_establecimiento_si";
-const NO_ID = "cita_otro_establecimiento_no";
+const YES_ID = OtherEstablecimientoButtonId.YES;
+const NO_ID = OtherEstablecimientoButtonId.NO;
 
 export type AlternativeEstablecimiento = { id: string; name: string };
 
@@ -56,12 +61,12 @@ export function searchOtherEstablecimiento(session: Session): HandlerResult {
 
   return withNote(
     buildResult(next, [
-      query("list_establecimientos", {
+      query(QueryKind.LIST_ESTABLECIMIENTOS, {
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         ubigeo: String(next.slots.citaUbigeo ?? ""),
       }),
     ]),
-    { kind: "no_coverage", level: "warn", detail: { missing: "fechas", discarded: discarded.length } },
+    { kind: "no_coverage", level: "warn", detail: { missing: SearchSubject.FECHAS, discarded: discarded.length } },
   );
 }
 
@@ -75,7 +80,7 @@ export function offerOtherEstablecimiento(
   delete next.slots[WITHOUT_DATES_SLOT];
   const where = emptyName ? `*${emptyName}*` : "ese establecimiento";
 
-  if (remaining.length === 0) return offerOtherDistrito(next, "establecimientos");
+  if (remaining.length === 0) return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
 
   if (remaining.length === 1) {
     const [proposed] = remaining;
@@ -94,10 +99,11 @@ export function offerOtherEstablecimiento(
 }
 
 export function handleOtherEstablecimiento(session: Session, event: InboundEvent): HandlerResult {
-  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const answer = resolveConfirmation(event.type === "text" ? (event.text ?? "") : "");
+  const tapped =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const answer = resolveConfirmation(event.type === InboundEventType.TEXT ? (event.text ?? "") : "");
 
-  if (tapped === YES_ID || answer === "YES") {
+  if (tapped === YES_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
     const proposed = String(next.slots[PROPOSED_ID_SLOT] ?? "");
     next.slots.citaCodEess = proposed;
@@ -107,14 +113,14 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     next.state = "cita_fecha_pending";
     return buildResult(next, [
       sendText("Buscando fechas disponibles…"),
-      query("list_fechas", {
+      query(QueryKind.LIST_FECHAS, {
         codEess: proposed,
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
       }),
     ]);
   }
 
-  if (tapped === NO_ID || answer === "NO") {
+  if (tapped === NO_ID || answer === Confirmation.NO) {
     return withNote(buildResult({ state: DECLINED_CLOSED_STATE, slots: {}, counters: {} }, [sendText(FAREWELL)]), {
       kind: "cita_closed",
       detail: { reason: "no_other_establecimiento" },

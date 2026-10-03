@@ -1,3 +1,5 @@
+import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
+
 export type HoraSlot = { start: string; end: string; cupos: number };
 
 export type HoraMatch =
@@ -45,18 +47,16 @@ function normalize(raw: string): string {
     .join(" ");
 }
 
-type Period = "AM" | "PM";
-
 type Parsed =
-  | { kind: "time"; hour: number; minute: number | null; period: Period | null }
-  | { kind: "period"; period: Period }
+  | { kind: "time"; hour: number; minute: number | null; period: MeridiemPeriod | null }
+  | { kind: "period"; period: MeridiemPeriod }
   | { kind: "earliest" }
   | { kind: "latest" }
   | { kind: "none" };
 
-function detectPeriod(text: string): Period | null {
-  if (/\b(?:am|manana|madrugada)\b/.test(text)) return "AM";
-  if (/\b(?:pm|tarde|noche)\b/.test(text)) return "PM";
+function detectPeriod(text: string): MeridiemPeriod | null {
+  if (/\b(?:am|manana|madrugada)\b/.test(text)) return MeridiemPeriod.AM;
+  if (/\b(?:pm|tarde|noche)\b/.test(text)) return MeridiemPeriod.PM;
   return null;
 }
 
@@ -112,15 +112,15 @@ function parse(text: string): Parsed {
   return { kind: "time", hour: hour % 24, minute, period };
 }
 
-function hourCandidates(hour: number, period: Period | null): number[] {
+function hourCandidates(hour: number, period: MeridiemPeriod | null): number[] {
   let candidates: number[];
   if (hour === 0) candidates = [0];
   else if (hour < 12) candidates = [hour, hour + 12];
   else if (hour === 12) candidates = [12, 0];
   else candidates = [hour];
 
-  if (period === "AM") candidates = candidates.filter((value) => value < 12);
-  if (period === "PM") candidates = candidates.filter((value) => value >= 12);
+  if (period === MeridiemPeriod.AM) candidates = candidates.filter((value) => value < 12);
+  if (period === MeridiemPeriod.PM) candidates = candidates.filter((value) => value >= 12);
   return candidates;
 }
 
@@ -154,7 +154,7 @@ export function matchHoraText(text: string, offered: HoraSlot[]): HoraMatch {
     case "period":
       return toMatch(
         chronological.filter((slot) =>
-          parsed.period === "AM" ? startOf(slot).hour < 12 : startOf(slot).hour >= 12,
+          parsed.period === MeridiemPeriod.AM ? startOf(slot).hour < 12 : startOf(slot).hour >= 12,
         ),
       );
 

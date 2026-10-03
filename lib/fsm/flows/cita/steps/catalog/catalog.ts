@@ -1,4 +1,7 @@
 import { searchFailureText } from "@/lib/fsm/core/failure-texts";
+import { SearchSubject } from "@/lib/enums/search-subject";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { buildResult, cloneSession, offerPagedList, query, sendText } from "@/lib/fsm/core/handlers-shared";
@@ -53,7 +56,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        searchFailureText("especialidades"),
+        searchFailureText(SearchSubject.ESPECIALIDADES),
       ),
     ]);
   }
@@ -73,7 +76,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
       next.state = "cita_establecimiento_pending";
       return buildResult(next, [
         sendText(`Especialidad detectada: ${name.full}. Buscando establecimientos…`),
-        query("list_establecimientos", {
+        query(QueryKind.LIST_ESTABLECIMIENTOS, {
           especialidadId: matched.codigoEspecialidad,
           ubigeo: String(next.slots.citaUbigeo ?? ""),
         }),
@@ -90,7 +93,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
     return buildResult(next, offerPagedList(next, "Selecciona la especialidad:", rows));
   }
 
-  return offerOtherDistrito(next, "especialidades");
+  return offerOtherDistrito(next, SearchSubject.ESPECIALIDADES);
 }
 
 const HINT_MAX_LENGTH = 80;
@@ -107,7 +110,7 @@ function askSelectionHints(
   next.slots.citaSelectionStep = step;
   return buildResult(next, [
     sendText("Un momento, estamos revisando tu respuesta…"),
-    query("extract_selection_hints", { step, text: typed }),
+    query(QueryKind.EXTRACT_SELECTION_HINTS, { step, text: typed }),
   ]);
 }
 
@@ -135,7 +138,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
     if (hint) restored.slots.citaEstablecimientoHintText = hint;
   }
 
-  const tap: InboundEvent = { from: event.from, type: "list", listId: matched.id };
+  const tap: InboundEvent = { from: event.from, type: InboundEventType.LIST, listId: matched.id };
   return step === "establecimiento"
     ? handleAwaitingEstablecimientoSelect(restored, tap)
     : handleAwaitingEspecialidadSelect(restored, tap);
@@ -161,7 +164,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
   next.state = "cita_establecimiento_pending";
   return buildResult(next, [
     sendText("Buscando establecimientos…"),
-    query("list_establecimientos", {
+    query(QueryKind.LIST_ESTABLECIMIENTOS, {
       especialidadId: replyId,
       ubigeo: String(next.slots.citaUbigeo ?? ""),
     }),
@@ -199,7 +202,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     next.state = "cita_booking_rejected";
     return buildResult(next, [
       sendText(
-        searchFailureText("establecimientos"),
+        searchFailureText(SearchSubject.ESTABLECIMIENTOS),
       ),
     ]);
   }
@@ -226,7 +229,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     next.state = "cita_fecha_pending";
     return buildResult(next, [
       sendText(`Establecimiento encontrado: ${establecimientoFullName(item)}. Buscando fechas disponibles…`),
-      query("list_fechas", {
+      query(QueryKind.LIST_FECHAS, {
         codEess: item.renipressCode,
         especialidadId: String(next.slots.citaEspecialidadId ?? ""),
       }),
@@ -250,7 +253,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
       next.state = "cita_fecha_pending";
       return buildResult(next, [
         sendText(`Establecimiento detectado: ${establecimientoFullName(detected)}. Buscando fechas disponibles…`),
-        query("list_fechas", {
+        query(QueryKind.LIST_FECHAS, {
           codEess: detected.renipressCode,
           especialidadId: String(next.slots.citaEspecialidadId ?? ""),
         }),
@@ -261,7 +264,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     return buildResult(next, offerPagedList(next, "Selecciona el establecimiento:", establecimientoRows(items)));
   }
 
-  return offerOtherDistrito(next, "establecimientos");
+  return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
 }
 
 export function handleAwaitingEstablecimientoSelect(session: Session, event: InboundEvent): HandlerResult {
@@ -279,7 +282,7 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
   next.state = "cita_fecha_pending";
   return buildResult(next, [
     sendText("Buscando fechas disponibles…"),
-    query("list_fechas", {
+    query(QueryKind.LIST_FECHAS, {
       codEess: replyId,
       especialidadId: String(next.slots.citaEspecialidadId ?? ""),
     }),

@@ -23,14 +23,17 @@ import {
 } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { MenuChoice } from "@/lib/enums/menu-choice";
+import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 export const CONTINUE_BUTTON_ID = "continuar_menu";
 
 export const AWAITING_CONTINUE_SLOT = "awaitingContinue";
 
-const NUMERIC_MENU_CHOICES: Record<string, string> = {
-  "1": "agendar_cita",
-  "2": "registrar_reclamo",
+const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
+  "1": MenuChoice.AGENDAR_CITA,
+  "2": MenuChoice.REGISTRAR_RECLAMO,
 };
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
@@ -44,14 +47,14 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
     counters: { ...session.counters },
   };
 
-  if (next.slots.menuChoice === "registrar_reclamo") {
+  if (next.slots.menuChoice === MenuChoice.REGISTRAR_RECLAMO) {
     next.state = "reclamo_identity_choice";
     return buildResult(next, [
       sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
     ]);
   }
 
-  if (next.slots.menuChoice === "agendar_cita") {
+  if (next.slots.menuChoice === MenuChoice.AGENDAR_CITA) {
     next.state = "cita_awaiting_dni";
     return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
   }
@@ -74,12 +77,12 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     return enterMainMenu(session.slots);
   }
 
-  if (replyId !== "agendar_cita" && replyId !== "registrar_reclamo") {
+  if (replyId !== MenuChoice.AGENDAR_CITA && replyId !== MenuChoice.REGISTRAR_RECLAMO) {
     if (event.text && isReclamoKeyword(event.text)) {
       return withNote(
         handleAwaitingFlowStart({
           state: "awaiting_flow_start",
-          slots: { ...session.slots, menuChoice: "registrar_reclamo" },
+          slots: { ...session.slots, menuChoice: MenuChoice.REGISTRAR_RECLAMO },
           counters: {},
         }),
         { kind: "shortcut", detail: { name: "reclamo_keyword" } },
@@ -98,7 +101,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
       return withNote(
         handleAwaitingFlowStart({
           state: "awaiting_flow_start",
-          slots: { ...session.slots, menuChoice: "agendar_cita" },
+          slots: { ...session.slots, menuChoice: MenuChoice.AGENDAR_CITA },
           counters: {},
         }),
         { kind: "shortcut", detail: { name: "cita_keyword" } },
@@ -128,7 +131,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
       const next: Session = { state: "main_menu_intent_pending", slots: preservedSlots, counters: {} };
       return buildResult(next, [
         sendText("Un momento, estamos revisando tu mensaje…"),
-        query("analyze_main_menu_intent", { text: event.text }),
+        query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text }),
       ]);
     }
 
@@ -149,9 +152,9 @@ export const OUT_OF_SCOPE_REQUEST_TEXT =
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
 
-  if (result.intent === "cita") return beginCitaFromIntent(session.slots, result);
+  if (result.intent === MainMenuIntent.CITA) return beginCitaFromIntent(session.slots, result);
 
-  if (result.intent === "fuera_de_alcance") {
+  if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
       buildResult({ state: "main_menu", slots: session.slots, counters: {} }, [
         sendText(OUT_OF_SCOPE_REQUEST_TEXT),

@@ -1,7 +1,8 @@
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
+import { RateVerdict } from "@/lib/enums/rate-verdict";
 
-export type RateVerdict = "allow" | "throttled" | "muted" | "banned";
+export type { RateVerdict };
 
 export const DEFAULT_MUTE_MS = 2 * 60 * 1000;
 
@@ -49,13 +50,13 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
 
   return {
     check(key: string): RateVerdict {
-      if (!enabled) return "allow";
+      if (!enabled) return RateVerdict.ALLOW;
 
       const current = now();
 
       const bannedUntil = bans.get(key);
       if (bannedUntil !== undefined) {
-        if (bannedUntil > current) return "banned";
+        if (bannedUntil > current) return RateVerdict.BANNED;
         bans.delete(key);
         mutes.delete(key);
         hits.delete(key);
@@ -72,24 +73,24 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
         mutes.delete(key);
         hits.delete(key);
         options.onBan?.(key);
-        return "banned";
+        return RateVerdict.BANNED;
       }
 
       const mutedUntil = mutes.get(key);
       if (mutedUntil !== undefined) {
-        if (mutedUntil > current) return "throttled";
+        if (mutedUntil > current) return RateVerdict.THROTTLED;
         mutes.delete(key);
       }
 
       const inBurst = recent.filter((time) => time > current - burstWindowMs).length;
-      if (inBurst <= burstLimit) return "allow";
+      if (inBurst <= burstLimit) return RateVerdict.ALLOW;
 
       if (muteMs > 0) {
         mutes.set(key, current + muteMs);
         options.onMute?.(key);
-        return "muted";
+        return RateVerdict.MUTED;
       }
-      return "throttled";
+      return RateVerdict.THROTTLED;
     },
 
     size(): number {
