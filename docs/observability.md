@@ -34,6 +34,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
 | `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
+| `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total` |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
 | `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el texto fijo «Ocurrió un inconveniente temporal…», **como mucho una vez cada 30 s por número** (C4.2: una ráfaga que falla entera no manda un aviso por mensaje) |
 | `webhook.message_failed` | error | `waId` (últimos 4), `error` (nombre y mensaje). Falló guardar la conversación, el turno o sus envíos; el ciudadano recibe el mismo texto fijo, con el mismo límite de una vez cada 30 s por número. El turno, si llegó a empezar, ya dejó su `turn.failed`. **El registro nunca se calla:** el límite de 30 s solo frena la respuesta al ciudadano |

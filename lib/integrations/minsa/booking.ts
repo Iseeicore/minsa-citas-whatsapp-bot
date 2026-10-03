@@ -1,8 +1,8 @@
 import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
 import { minsaDigitalAppUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
-const BOOKING_ENDPOINT = "/whatsapp/api/v1/appointments";
 const BOOKING_LOG_BODY_LIMIT = 300;
 
 function minsaMessageOf(body: string): string | undefined {
@@ -16,7 +16,7 @@ function minsaMessageOf(body: string): string | undefined {
 
 function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
   logger.error("minsa.book_appointment.failed", {
-    endpoint: BOOKING_ENDPOINT,
+    endpoint: MinsaEndpoint.CITAS,
     status: httpStatus,
     minsaMessage: minsaMessageOf(body),
     response: body.slice(0, BOOKING_LOG_BODY_LIMIT),
@@ -35,7 +35,7 @@ export async function bookAppointment(
 ): Promise<BookAppointmentResult> {
   if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
-      BOOKING_ENDPOINT,
+      MinsaEndpoint.CITAS,
       {
         codigo_renipress: params.codigoRenipress,
         codigo_ups: params.codigoUps,

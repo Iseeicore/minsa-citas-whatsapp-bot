@@ -1,6 +1,7 @@
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { FAKE_REFERENCIAS } from "@/lib/integrations/minsa/fake-data";
 import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
 const ESTADOS_VISIBLES = new Set([3, 5, 7]);
 
@@ -47,7 +48,7 @@ function parseReferencia(raw: Record<string, unknown>): ReferenciaItem | undefin
 
 export async function listReferences(numeroDocumento: string, tipoDocumento: string): Promise<ListReferencesResult> {
   if (isRealMinsaEnabled()) {
-    const response = await postSigned("/whatsapp/api/v1/references", {
+    const response = await postSigned(MinsaEndpoint.REFERENCIAS, {
       numero_documento: numeroDocumento,
       tipo_documento: tipoDocumento,
     });
