@@ -24,6 +24,7 @@ import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverif
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -45,11 +46,11 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
   const next = cloneSession(session);
 
   if (result.status === "unauthorized") {
-    return beginReverification(next, "cita_fecha_pending");
+    return beginReverification(next, SessionState.CITA_FECHA_PENDING);
   }
 
   if (result.status === "error") {
-    next.state = "cita_booking_rejected";
+    next.state = SessionState.CITA_BOOKING_REJECTED;
     return buildResult(next, [
       sendText(
         searchFailureText(SearchSubject.FECHAS),
@@ -66,7 +67,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
   if (dates.length === 1) {
     const [item] = dates;
     next.slots[SlotKey.CITA_FECHA] = item.fechaCupo;
-    next.state = "cita_hora_pending";
+    next.state = SessionState.CITA_HORA_PENDING;
     return buildResult(next, [
       sendText(`Fecha encontrada: ${displayFechaLong(item.fechaCupo)}. Buscando horarios disponibles…`),
       query(QueryKind.LIST_HORAS, {
@@ -78,7 +79,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
   }
 
   if (dates.length > 1) {
-    next.state = "cita_awaiting_fecha_select";
+    next.state = SessionState.CITA_AWAITING_FECHA_SELECT;
     const rows: ListRow[] = dates.map((item) => ({
       id: item.fechaCupo,
       title: truncateForRow(displayFechaShort(item.fechaCupo), WHATSAPP_ROW_TITLE_MAX),
@@ -106,7 +107,7 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
   const pad = (value: number) => String(value).padStart(2, "0");
 
   const next = cloneSession(session);
-  next.state = "cita_fecha_ai_pending";
+  next.state = SessionState.CITA_FECHA_AI_PENDING;
   return buildResult(next, [
     sendText("Un momento, estamos revisando tu respuesta…"),
     query(QueryKind.RESOLVE_FECHA_AI, {
@@ -122,7 +123,7 @@ export function handleFechaAiPending(session: Session, event: QueryResultEvent):
   const offered = readOffered(session.slots);
 
   const restored = cloneSession(session);
-  restored.state = "cita_awaiting_fecha_select";
+  restored.state = SessionState.CITA_AWAITING_FECHA_SELECT;
 
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
@@ -150,7 +151,7 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
 
   const next = clearOffered(session);
   next.slots[SlotKey.CITA_FECHA] = replyId;
-  next.state = "cita_hora_pending";
+  next.state = SessionState.CITA_HORA_PENDING;
   return buildResult(next, [
     sendText("Buscando horarios disponibles…"),
     query(QueryKind.LIST_HORAS, {

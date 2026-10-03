@@ -9,9 +9,10 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
-export const DUPLICATE_CHOICE_STATE = "cita_awaiting_duplicate_choice";
-export const DUPLICATE_CLOSED_STATE = "cita_booking_duplicate";
+export const DUPLICATE_CHOICE_STATE = SessionState.CITA_AWAITING_DUPLICATE_CHOICE;
+export const DUPLICATE_CLOSED_STATE = SessionState.CITA_BOOKING_DUPLICATE;
 
 const OTHER_ESPECIALIDAD_ID = DuplicateButtonId.OTHER_ESPECIALIDAD;
 const EXIT_ID = DuplicateButtonId.EXIT;
@@ -75,7 +76,7 @@ export function handleDuplicateChoice(session: Session, event: InboundEvent): Ha
 
   if (tapped === OTHER_ESPECIALIDAD_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
-    next.state = "cita_especialidad_pending";
+    next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
     return buildResult(next, [
       sendText("Buscando otras especialidades disponibles…"),
       query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? "") }),

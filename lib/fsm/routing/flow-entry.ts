@@ -4,6 +4,7 @@ import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export const MENU_ROWS = [
   { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" },
@@ -19,7 +20,7 @@ export const buildMenuEffect = () => sendList("¿En qué podemos ayudarte hoy?",
 
 export function beginCita(slots: Session["slots"], hints: CitaHints, intro: string): HandlerResult {
   const next: Session = {
-    state: "cita_awaiting_dni",
+    state: SessionState.CITA_AWAITING_DNI,
     slots: {
       ...slots,
       ...(hints.especialidad ? { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: hints.especialidad } : {}),
@@ -31,6 +32,6 @@ export function beginCita(slots: Session["slots"], hints: CitaHints, intro: stri
 }
 
 export function beginReclamo(slots: Session["slots"], intro: string): HandlerResult {
-  const next: Session = { state: "reclamo_identity_choice", slots: { ...slots }, counters: {} };
+  const next: Session = { state: SessionState.RECLAMO_IDENTITY_CHOICE, slots: { ...slots }, counters: {} };
   return buildResult(next, [sendButtons(intro, RECLAMO_NOMBRE_BUTTONS)]);
 }

@@ -21,6 +21,7 @@ import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const MAX_REGISTRATION_CHECKS = 3;
 const MAX_OTP_ATTEMPTS = 3;
@@ -46,7 +47,7 @@ export function handleAwaitingDni(session: Session, event: InboundEvent): Handle
 
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DNI_PENDING] = dni;
-  next.state = "cita_validate_pending";
+  next.state = SessionState.CITA_VALIDATE_PENDING;
   return buildResult(next, [
     sendText("Validando tu documento…"),
     query(QueryKind.VALIDATE_USER, { numeroDocumento: dni }),
@@ -59,7 +60,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
 
   if (result.status === "valid" && typeof result.twofaId === "string") {
     next.slots[SlotKey.CITA_TWOFA_ID] = result.twofaId;
-    next.state = "cita_awaiting_otp";
+    next.state = SessionState.CITA_AWAITING_OTP;
     return buildResult(next, [
       sendText("Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos)."),
     ]);
@@ -69,7 +70,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
   next.counters[CounterKey.CITA_REGISTRATION_CHECKS] = checks;
 
   if (checks >= MAX_REGISTRATION_CHECKS) {
-    next.state = "cita_registration_rejected";
+    next.state = SessionState.CITA_REGISTRATION_REJECTED;
     return buildResult(next, [
       sendText(
         "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSADIGITAL.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.",
@@ -77,7 +78,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
     ]);
   }
 
-  next.state = "cita_registration_wait";
+  next.state = SessionState.CITA_REGISTRATION_WAIT;
   const introText =
     checks === 1
       ? "Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos."
@@ -102,7 +103,7 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   }
 
   const next = cloneSession(session);
-  next.state = "cita_validate_pending";
+  next.state = SessionState.CITA_VALIDATE_PENDING;
   return buildResult(next, [
     sendText("Validando de nuevo…"),
     query(QueryKind.VALIDATE_USER, { numeroDocumento: String(next.slots[SlotKey.CITA_DNI_PENDING] ?? "") }),
@@ -117,7 +118,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   }
 
   const next = cloneSession(session);
-  next.state = "cita_verify_pending";
+  next.state = SessionState.CITA_VERIFY_PENDING;
   return buildResult(next, [
     sendText("Verificando código…"),
     query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots[SlotKey.CITA_TWOFA_ID] ?? ""), code }),
@@ -127,7 +128,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
 /** Cola común tras el paso de referencias: usar la pista de distrito ya dicha o preguntarlo (el resume por reverificación ya se resolvió antes, en handleVerifyPending). */
 export function continueCitaAfterVerification(session: Session): HandlerResult {
   const next = cloneSession(session);
-  next.state = "cita_awaiting_distrito_ai";
+  next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
 
   const distritoHint = next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
   if (distritoHint) {
@@ -175,7 +176,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
       return resumeAfterReverification(next, resumeState);
     }
 
-    next.state = "cita_references_pending";
+    next.state = SessionState.CITA_REFERENCES_PENDING;
     return buildResult(next, [
       sendText("Un momento, estamos analizando tu cuenta…"),
       query(QueryKind.LIST_REFERENCES, { numeroDocumento: String(dni ?? ""), tipoDocumento: "01" }),
@@ -186,13 +187,13 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
   next.counters[CounterKey.CITA_OTP_ATTEMPTS] = attempts;
 
   if (attempts >= MAX_OTP_ATTEMPTS) {
-    next.state = "cita_otp_locked";
+    next.state = SessionState.CITA_OTP_LOCKED;
     return buildResult(next, [
       sendText("Superaste el número de intentos permitidos. Por favor, inicia el proceso nuevamente más tarde."),
     ]);
   }
 
-  next.state = "cita_awaiting_otp";
+  next.state = SessionState.CITA_AWAITING_OTP;
   return buildResult(next, [
     sendText(`Código incorrecto. Te quedan ${MAX_OTP_ATTEMPTS - attempts} intento(s).`),
   ]);

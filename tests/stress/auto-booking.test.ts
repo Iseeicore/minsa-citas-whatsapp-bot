@@ -14,7 +14,7 @@ const horasResult = (items: Array<{ horaInicio: string; horaFin: string }>): Que
   result: { status: "found", items: items.map((item) => ({ ...item, cantidadCupos: 1 })) },
 });
 
-function horaPending(state: string, extra: Session["counters"] = {}): Session {
+function horaPending(state: Session["state"], extra: Session["counters"] = {}): Session {
   return {
     state,
     slots: {

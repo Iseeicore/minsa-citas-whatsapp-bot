@@ -10,7 +10,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 const FROM = "sandbox-oos";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const menu = (slots: Session["slots"] = {}): Session => ({ state: "main_menu", slots, counters: {} });
-const at = (state: string, slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
+const at = (state: Session["state"], slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
@@ -80,7 +80,7 @@ describe("the order: emergency, then the lexical guard, then the rest", () => {
 
 describe("after a finished flow, the first message is read the same way", () => {
   it.each(["cita_booked", "cita_booking_rejected", "reclamo_confirmed"])("%s + a consultation gets the message, not the welcome", (state) => {
-    const result = handle(at(state, { [SlotKey.CITA_DNI]: "12345678" }), text("¿Tienen vacunas para mi bebé?"));
+    const result = handle(at(state as Session["state"], { [SlotKey.CITA_DNI]: "12345678" }), text("¿Tienen vacunas para mi bebé?"));
 
     expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-06"] }]);
     expect(result.session).toEqual({ state: "main_menu", slots: {}, counters: {} });

@@ -24,6 +24,7 @@ import { DemoConfirmButtonId } from "@/lib/enums/demo-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const DEMO_ANALYZING_TEXT = "Un momento, estamos analizando tu cuenta… cuenta con referencias:";
 const DEMO_CONFIRM_YES_ID = DemoConfirmButtonId.YES;
@@ -42,7 +43,7 @@ function referenciaRows(dni: string): ListRow[] {
 
 export function offerDemoReferencias(session: Session): HandlerResult {
   const next = cloneSession(session);
-  next.state = "cita_demo_awaiting_referencia_select";
+  next.state = SessionState.CITA_DEMO_AWAITING_REFERENCIA_SELECT;
   delete next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO];
   delete next.slots[SlotKey.CITA_DEMO_HORA_ID];
   const dni = String(next.slots[SlotKey.CITA_DNI] ?? "");
@@ -53,7 +54,7 @@ function offerDemoHoras(session: Session, codigo: string): HandlerResult {
   const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] = codigo;
-  next.state = "cita_demo_awaiting_hora_select";
+  next.state = SessionState.CITA_DEMO_AWAITING_HORA_SELECT;
   const intro = `Listo, el establecimiento *${referencia?.hospital ?? ""}* cuenta con una referencia para ti.
 
 Especialidad: ${referencia?.especialidad ?? ""}
@@ -96,7 +97,7 @@ export function handleDemoAwaitingHoraSelect(session: Session, event: InboundEve
   const next = clearOffered(session);
   const codigo = String(next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] ?? "");
   next.slots[SlotKey.CITA_DEMO_HORA_ID] = outcome.replyId;
-  next.state = "cita_demo_awaiting_confirm";
+  next.state = SessionState.CITA_DEMO_AWAITING_CONFIRM;
   return askDemoConfirmation(next, codigo, outcome.replyId);
 }
 
@@ -113,7 +114,7 @@ export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent)
     const turno =
       /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "") ? formatHoraRange(start, end) : horaId;
     const next = cloneSession(session);
-    next.state = "cita_booked";
+    next.state = SessionState.CITA_BOOKED;
     const constanciaText = `*MINISTERIO DE SALUD DEL PERÚ*
 *Constancia de Registro de Cita*
 

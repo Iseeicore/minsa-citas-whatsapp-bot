@@ -25,7 +25,7 @@ function jwt(expSeconds: number | undefined): string {
 }
 
 function authenticated(
-  state: string,
+  state: Session["state"],
   options: { idleMs?: number; bearer?: string; slots?: Session["slots"]; counters?: Session["counters"] } = {},
 ): Session {
   return {
@@ -102,7 +102,7 @@ describe("detectSessionExpiry", () => {
 
   it("only applies to the authenticated waiting states", () => {
     for (const state of ["main_menu", "cita_awaiting_dni", "cita_awaiting_otp", "cita_awaiting_reauth", "reclamo_awaiting_descripcion"]) {
-      expect(detectSessionExpiry(authenticated(state, { idleMs: minutes(60) }), text("x"), NOW)).toBeNull();
+      expect(detectSessionExpiry(authenticated(state as Session["state"], { idleMs: minutes(60) }), text("x"), NOW)).toBeNull();
     }
     expect(AUTHENTICATED_WAITING_STATES).toContain("cita_awaiting_hora_confirm");
   });

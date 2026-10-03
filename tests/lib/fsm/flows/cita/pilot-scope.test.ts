@@ -17,7 +17,7 @@ const LIMA_ONLY_TEXT =
 const sent = (result: HandlerResult): SendEffect[] =>
   result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
-const session = (state: string): Session => ({ state, slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} });
+const session = (state: Session["state"]): Session => ({ state, slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} });
 
 const arequipa = { departamento: "AREQUIPA", provincia: "AREQUIPA", distrito: "MIRAFLORES" };
 const lima = { departamento: "LIMA", provincia: "LIMA", distrito: "MIRAFLORES" };

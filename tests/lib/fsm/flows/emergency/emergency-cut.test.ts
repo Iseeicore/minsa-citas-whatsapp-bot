@@ -10,7 +10,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-emergency-cut";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const at = (state: string, slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
+const at = (state: Session["state"], slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
@@ -35,7 +35,7 @@ const STATES: Array<[string, Session["slots"]]> = [
 
 describe("a medical emergency ends the conversation cleanly, wherever it is typed", () => {
   it.each(STATES)("%s: one message, the session is closed and nothing is left pending", (state, slots) => {
-    const result = handle(at(state, slots), text(EMERGENCY));
+    const result = handle(at(state as Session["state"], slots), text(EMERGENCY));
 
     expect(sent(result)).toEqual([CUT]);
     expect(queries(result)).toHaveLength(0);
@@ -43,7 +43,7 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it.each(STATES)("%s: it is logged as a warning that closed the session", (state, slots) => {
-    expect(oosNote(handle(at(state, slots), text(EMERGENCY)))).toMatchObject({
+    expect(oosNote(handle(at(state as Session["state"], slots), text(EMERGENCY)))).toMatchObject({
       level: "warn",
       detail: { category: "OOS-01", state, closed: true },
     });

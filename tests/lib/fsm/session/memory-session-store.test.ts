@@ -9,7 +9,7 @@ function clock(start = Date.UTC(2026, 8, 25, 12)) {
   return { now: () => now, advance: (ms: number) => (now += ms) };
 }
 
-const session = (state: string, slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
+const session = (state: Session["state"], slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
 
 describe("createMemorySessionStore", () => {
   it("returns a fresh main-menu session for an unknown citizen", async () => {

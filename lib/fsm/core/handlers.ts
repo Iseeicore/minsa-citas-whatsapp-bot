@@ -22,6 +22,7 @@ import {
 import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
+import { SessionState } from "@/lib/enums/session-state";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
   if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, event.text)) {
@@ -31,7 +32,7 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
-  if (session.state === "cita_awaiting_reauth" && event.type !== "query_result") {
+  if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== "query_result") {
     return handleAwaitingReauth(session, event as InboundEvent);
   }
 
@@ -61,15 +62,15 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
     );
   }
 
-  if (session.state === "main_menu") {
+  if (session.state === SessionState.MAIN_MENU) {
     return handleMainMenu(session, event as InboundEvent);
   }
 
-  if (session.state === "main_menu_intent_pending") {
+  if (session.state === SessionState.MAIN_MENU_INTENT_PENDING) {
     return handleMainMenuIntentPending(session, event as QueryResultEvent);
   }
 
-  if (session.state === "awaiting_flow_start") {
+  if (session.state === SessionState.AWAITING_FLOW_START) {
     return handleAwaitingFlowStart(session);
   }
 

@@ -19,6 +19,7 @@ import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const REFERENCES_OFFER_YES_ID = ReferencesOfferButtonId.YES;
 const REFERENCES_OFFER_NO_ID = ReferencesOfferButtonId.NO;
@@ -63,7 +64,7 @@ function withLeadingText(result: HandlerResult, text: string): HandlerResult {
 
 function offerReferenciasList(session: Session): HandlerResult {
   const next = cloneSession(session);
-  next.state = "cita_awaiting_referencia_select";
+  next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
   return buildResult(next, offerPagedList(next, "Estas son tus referencias:", referenciaRows(readReferencias(next))));
 }
 
@@ -93,7 +94,7 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
   }
 
   next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.items);
-  next.state = "cita_awaiting_references_offer";
+  next.state = SessionState.CITA_AWAITING_REFERENCES_OFFER;
   return buildResult(next, [
     sendText("Tienes una referencia médica registrada.\n¿Deseas revisar tus referencias?"),
     sendButtons("¿Deseas revisar tus referencias?", [
@@ -131,7 +132,7 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
   const item = readReferencias(session).find((r) => r.idReferencia === outcome.replyId);
   const next = clearOffered(session);
   next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = outcome.replyId;
-  next.state = "cita_awaiting_referencia_confirm";
+  next.state = SessionState.CITA_AWAITING_REFERENCIA_CONFIRM;
   return askReferenciaConfirmation(next, item);
 }
 

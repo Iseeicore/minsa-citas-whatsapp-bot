@@ -4,11 +4,12 @@ import { clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHoraRange, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {
   const [start, end] = slotId.split("|");
   const next = cloneSession(session);
-  next.state = "cita_awaiting_hora_confirm";
+  next.state = SessionState.CITA_AWAITING_HORA_CONFIRM;
   next.slots[SlotKey.CITA_HORA_CONFIRM_ID] = slotId;
   if (options.only) next.slots[SlotKey.CITA_HORA_CONFIRM_ONLY] = ONLY_HORA_FLAG;
   else delete next.slots[SlotKey.CITA_HORA_CONFIRM_ONLY];
@@ -34,7 +35,7 @@ export function startBooking(session: Session, horaInicio: string): HandlerResul
   delete next.slots[SlotKey.CITA_HORA_CONFIRM_ONLY];
   delete next.slots[SlotKey.CITA_HORA_CHOICE_A];
   delete next.slots[SlotKey.CITA_HORA_CHOICE_B];
-  next.state = "cita_booking_pending";
+  next.state = SessionState.CITA_BOOKING_PENDING;
   return buildResult(next, [
     sendText("Agendando tu cita…"),
     query(QueryKind.BOOK_APPOINTMENT, {

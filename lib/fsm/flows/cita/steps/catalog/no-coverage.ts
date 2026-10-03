@@ -8,8 +8,9 @@ import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
-export const OTHER_DISTRITO_STATE = "cita_awaiting_other_distrito";
+export const OTHER_DISTRITO_STATE = SessionState.CITA_AWAITING_OTHER_DISTRITO;
 const OTHER_DISTRITO_YES_ID = OtherDistritoButtonId.YES;
 const OTHER_DISTRITO_NO_ID = OtherDistritoButtonId.NO;
 
@@ -71,14 +72,14 @@ export function handleOtherDistrito(session: Session, event: InboundEvent): Hand
   if (tapped === OTHER_DISTRITO_YES_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.slots = DISTRICT_BOUND_SLOTS.reduce(omitSlot, next.slots);
-    next.state = "cita_awaiting_distrito_ai";
+    next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
     return buildResult(next, [
       sendText('Perfecto. Cuéntanos en qué otro distrito buscas atención (ej. "Miraflores").'),
     ]);
   }
 
   if (tapped === OTHER_DISTRITO_NO_ID || answer === Confirmation.NO) {
-    return buildResult({ state: "cita_no_coverage_closed", slots: {}, counters: {} }, [sendText(FAREWELL_TEXT)]);
+    return buildResult({ state: SessionState.CITA_NO_COVERAGE_CLOSED, slots: {}, counters: {} }, [sendText(FAREWELL_TEXT)]);
   }
 
   if (typed && looksLikePlaceName(typed)) {

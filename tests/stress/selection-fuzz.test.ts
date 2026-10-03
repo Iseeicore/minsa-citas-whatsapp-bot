@@ -40,7 +40,7 @@ const distritos = list("Encontramos varias opciones. ¿Cuál es tu distrito?", [
 ]);
 
 type StepSpec = {
-  state: string;
+  state: Session["state"];
   offered: OfferedList;
   idChecks: Record<string, string>;
 };

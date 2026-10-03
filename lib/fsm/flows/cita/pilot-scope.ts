@@ -2,6 +2,7 @@ import { buildResult, cloneSession, sendCtaUrl } from "@/lib/fsm/core/handlers-s
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { minsaDigitalAppUrl } from "@/lib/integrations/minsa/wire";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
+import { SessionState } from "@/lib/enums/session-state";
 
 const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global";
 
@@ -30,7 +31,7 @@ export function nationalRedirectText(): string {
 
 export function redirectToNationalSite(session: Session): HandlerResult {
   const next = cloneSession(session);
-  next.state = "cita_national_redirect";
+  next.state = SessionState.CITA_NATIONAL_REDIRECT;
   return buildResult(next, [
     sendCtaUrl(nationalRedirectText(), NATIONAL_REDIRECT_BUTTON_TEXT, `${minsaDigitalAppUrl()}/login`),
   ]);

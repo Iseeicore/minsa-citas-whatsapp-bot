@@ -21,22 +21,23 @@ import type { TurnNote } from "@/lib/observability/types";
 import { CONTINUE_BUTTON_ID } from "@/lib/fsm/routing/main-menu";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const FREE_TEXT_STATE_PROMPTS: Record<string, string> = {
-  cita_awaiting_distrito_ai: 'Cuéntanos en qué distrito buscas atención (ej. "Miraflores").',
-  cita_awaiting_departamento: "Indícanos el departamento.",
-  cita_awaiting_provincia: "¿En qué provincia?",
-  cita_awaiting_distrito: "¿En qué distrito?",
+  [SessionState.CITA_AWAITING_DISTRITO_AI]: 'Cuéntanos en qué distrito buscas atención (ej. "Miraflores").',
+  [SessionState.CITA_AWAITING_DEPARTAMENTO]: "Indícanos el departamento.",
+  [SessionState.CITA_AWAITING_PROVINCIA]: "¿En qué provincia?",
+  [SessionState.CITA_AWAITING_DISTRITO]: "¿En qué distrito?",
 };
 
-const SELECTION_STATES = new Set([
-  "cita_awaiting_distrito_disambiguation",
-  "cita_awaiting_ubigeo_select",
-  "cita_awaiting_especialidad_select",
-  "cita_awaiting_establecimiento_select",
-  "cita_awaiting_fecha_select",
-  "cita_awaiting_hora_select",
-  "cita_awaiting_hora_choice",
+const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
+  SessionState.CITA_AWAITING_DISTRITO_DISAMBIGUATION,
+  SessionState.CITA_AWAITING_UBIGEO_SELECT,
+  SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT,
+  SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT,
+  SessionState.CITA_AWAITING_FECHA_SELECT,
+  SessionState.CITA_AWAITING_HORA_SELECT,
+  SessionState.CITA_AWAITING_HORA_CHOICE,
 ]);
 
 export function routeLexicalAction(
@@ -44,11 +45,11 @@ export function routeLexicalAction(
   action: Exclude<LexicalAction, "ALLOW">,
   message?: string,
 ): HandlerResult {
-  const slots = session.state === "main_menu" ? omitSlot(session.slots, SlotKey.AWAITING_CONTINUE) : {};
+  const slots = session.state === SessionState.MAIN_MENU ? omitSlot(session.slots, SlotKey.AWAITING_CONTINUE) : {};
 
   switch (action) {
     case "DROP_AND_WARN":
-      return buildResult({ state: "main_menu", slots: { ...slots, [SlotKey.AWAITING_CONTINUE]: true }, counters: {} }, [
+      return buildResult({ state: SessionState.MAIN_MENU, slots: { ...slots, [SlotKey.AWAITING_CONTINUE]: true }, counters: {} }, [
         sendButtons(INSTITUTIONAL_WARNING_TEXT, [{ id: CONTINUE_BUTTON_ID, title: "Continuar" }]),
       ]);
 
@@ -60,13 +61,13 @@ export function routeLexicalAction(
         ...(hints.distrito ? { [SlotKey.CITA_DISTRITO_HINT_TEXT]: hints.distrito } : {}),
       };
 
-      return buildResult({ state: "cita_awaiting_dni", slots: withHints, counters: {} }, [
+      return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [
         sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu número de documento (8 dígitos).`),
       ]);
     }
 
     case "FORCE_RECLAMO":
-      return buildResult({ state: "reclamo_identity_choice", slots, counters: {} }, [
+      return buildResult({ state: SessionState.RECLAMO_IDENTITY_CHOICE, slots, counters: {} }, [
         sendButtons(
           "Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?",
           RECLAMO_NOMBRE_BUTTONS,
@@ -78,7 +79,7 @@ export function routeLexicalAction(
 export function applyLexicalGuard(session: Session, event: HandleEvent): HandlerResult | undefined {
   if (event.type !== "text" || !event.text) return undefined;
 
-  const isMenuLevel = session.state === "main_menu" || TERMINAL_STATES.has(session.state);
+  const isMenuLevel = session.state === SessionState.MAIN_MENU || TERMINAL_STATES.has(session.state);
   const midFlowPrompt = FREE_TEXT_STATE_PROMPTS[session.state];
   const isSelection = SELECTION_STATES.has(session.state);
   if (!isMenuLevel && midFlowPrompt === undefined && !isSelection) return undefined;

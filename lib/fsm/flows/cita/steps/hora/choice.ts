@@ -9,6 +9,7 @@ import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
   const slotA = String(session.slots[SlotKey.CITA_HORA_CHOICE_A] ?? "");
@@ -19,7 +20,7 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
     const restored = cloneSession(session);
     delete restored.slots[SlotKey.CITA_HORA_CHOICE_A];
     delete restored.slots[SlotKey.CITA_HORA_CHOICE_B];
-    restored.state = "cita_awaiting_hora_select";
+    restored.state = SessionState.CITA_AWAITING_HORA_SELECT;
     return restored;
   };
 

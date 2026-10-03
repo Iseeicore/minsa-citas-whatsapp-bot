@@ -9,6 +9,7 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const TRANSIENT_BOOKING_SLOTS = [
   SlotKey.CITA_BEARER,
@@ -46,13 +47,13 @@ export function handleAwaitingReauth(session: Session, event: InboundEvent): Han
 
   if (tapped === REAUTH_YES_ID || typed === Confirmation.YES) {
     const dni = session.slots[SlotKey.CITA_DNI];
-    const next: Session = { state: "cita_awaiting_dni", slots: { ...session.slots }, counters: { ...session.counters } };
+    const next: Session = { state: SessionState.CITA_AWAITING_DNI, slots: { ...session.slots }, counters: { ...session.counters } };
 
     if (typeof dni !== "string" || dni === "") {
       return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu número de documento (8 dígitos).")]);
     }
 
-    next.state = "cita_validate_pending";
+    next.state = SessionState.CITA_VALIDATE_PENDING;
     next.slots[SlotKey.CITA_DNI_PENDING] = dni;
     return buildResult(next, [
       sendText("Enviándote un nuevo código de verificación…"),

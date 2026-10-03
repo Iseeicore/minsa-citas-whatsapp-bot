@@ -2,6 +2,7 @@ import type { TurnNote } from "@/lib/observability/types";
 import { SendType } from "@/lib/enums/send-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import type { SessionState } from "@/lib/enums/session-state";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -59,7 +60,7 @@ export type Counters = Partial<Record<CounterKey, number>>;
 export type SessionChannel = "whatsapp" | "web";
 
 export type Session = {
-  state: string;
+  state: `${SessionState}`;
   slots: Slots;
   counters: Counters;
   updatedAt?: Date;

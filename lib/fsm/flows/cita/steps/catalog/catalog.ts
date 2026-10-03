@@ -24,6 +24,7 @@ import {
   offerOtherEstablecimiento,
 } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -49,11 +50,11 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   const next = cloneSession(session);
 
   if (result.status === "unauthorized") {
-    return beginReverification(next, "cita_especialidad_pending");
+    return beginReverification(next, SessionState.CITA_ESPECIALIDAD_PENDING);
   }
 
   if (result.status === "error") {
-    next.state = "cita_booking_rejected";
+    next.state = SessionState.CITA_BOOKING_REJECTED;
     return buildResult(next, [
       sendText(
         searchFailureText(SearchSubject.ESPECIALIDADES),
@@ -73,7 +74,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
       delete next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
       next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = matched.codigoEspecialidad;
       next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = name.full;
-      next.state = "cita_establecimiento_pending";
+      next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
       return buildResult(next, [
         sendText(`Especialidad detectada: ${name.full}. Buscando establecimientos…`),
         query(QueryKind.LIST_ESTABLECIMIENTOS, {
@@ -83,7 +84,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
       ]);
     }
 
-    next.state = "cita_awaiting_especialidad_select";
+    next.state = SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
     const names = items.map((item) => ({ id: item.codigoEspecialidad, name: formatEspecialidadName(item.nombreEspecialidad) }));
     rememberFullNames(next.slots, names.map(({ id, name }) => ({ id, full: name.full })));
     const rows: ListRow[] = items.map((item, index) => {
@@ -106,7 +107,7 @@ function askSelectionHints(
   if (!/\p{L}{5,}/u.test(typed) || !readOffered(session.slots)) return undefined;
 
   const next = cloneSession(session);
-  next.state = "cita_selection_hints_pending";
+  next.state = SessionState.CITA_SELECTION_HINTS_PENDING;
   next.slots[SlotKey.CITA_SELECTION_STEP] = step;
   return buildResult(next, [
     sendText("Un momento, estamos revisando tu respuesta…"),
@@ -122,7 +123,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
   const restored = cloneSession(session);
   delete restored.slots[SlotKey.CITA_SELECTION_STEP];
   restored.state =
-    step === "establecimiento" ? "cita_awaiting_establecimiento_select" : "cita_awaiting_especialidad_select";
+    step === "establecimiento" ? SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT : SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
 
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
@@ -161,7 +162,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
   }
   next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = replyId;
   if (chosen) next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = offeredFullName(session.slots, chosen);
-  next.state = "cita_establecimiento_pending";
+  next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
   return buildResult(next, [
     sendText("Buscando establecimientos…"),
     query(QueryKind.LIST_ESTABLECIMIENTOS, {
@@ -195,11 +196,11 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
 
   if (result.status === "unauthorized") {
-    return beginReverification(next, "cita_establecimiento_pending");
+    return beginReverification(next, SessionState.CITA_ESTABLECIMIENTO_PENDING);
   }
 
   if (result.status === "error") {
-    next.state = "cita_booking_rejected";
+    next.state = SessionState.CITA_BOOKING_REJECTED;
     return buildResult(next, [
       sendText(
         searchFailureText(SearchSubject.ESTABLECIMIENTOS),
@@ -226,7 +227,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     const [item] = items;
     next.slots[SlotKey.CITA_COD_EESS] = item.renipressCode;
     next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = establecimientoFullName(item);
-    next.state = "cita_fecha_pending";
+    next.state = SessionState.CITA_FECHA_PENDING;
     return buildResult(next, [
       sendText(`Establecimiento encontrado: ${establecimientoFullName(item)}. Buscando fechas disponibles…`),
       query(QueryKind.LIST_FECHAS, {
@@ -250,7 +251,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     if (detected) {
       next.slots[SlotKey.CITA_COD_EESS] = detected.renipressCode;
       next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = establecimientoFullName(detected);
-      next.state = "cita_fecha_pending";
+      next.state = SessionState.CITA_FECHA_PENDING;
       return buildResult(next, [
         sendText(`Establecimiento detectado: ${establecimientoFullName(detected)}. Buscando fechas disponibles…`),
         query(QueryKind.LIST_FECHAS, {
@@ -260,7 +261,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
       ]);
     }
 
-    next.state = "cita_awaiting_establecimiento_select";
+    next.state = SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT;
     return buildResult(next, offerPagedList(next, "Selecciona el establecimiento:", establecimientoRows(items)));
   }
 
@@ -279,7 +280,7 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
   const next = clearOffered(session);
   next.slots[SlotKey.CITA_COD_EESS] = replyId;
   if (chosen) next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = offeredFullName(session.slots, chosen);
-  next.state = "cita_fecha_pending";
+  next.state = SessionState.CITA_FECHA_PENDING;
   return buildResult(next, [
     sendText("Buscando fechas disponibles…"),
     query(QueryKind.LIST_FECHAS, {

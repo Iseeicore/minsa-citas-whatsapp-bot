@@ -18,7 +18,7 @@ const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown):
 const sent = (result: HandlerResult): SendEffect[] =>
   result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
-const pending = (state: string, slots: Session["slots"] = {}): Session => ({
+const pending = (state: Session["state"], slots: Session["slots"] = {}): Session => ({
   state,
   slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_UBIGEO]: "150132", ...slots },
   counters: {},

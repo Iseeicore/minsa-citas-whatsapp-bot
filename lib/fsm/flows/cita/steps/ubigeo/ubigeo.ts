@@ -31,6 +31,7 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
   const rawText = (event.text ?? "").trim();
@@ -53,7 +54,7 @@ export function handleDistritoAiPending(session: Session, event: QueryResultEven
   const result = event.result as { outcome?: DistritoAiOutcome; candidates?: DistritoAiCandidateResult[]; quiereSalir?: boolean };
 
   if (result.quiereSalir === true) {
-    return askToLeave({ ...cloneSession(session), state: "cita_awaiting_distrito_ai" }, "ai");
+    return askToLeave({ ...cloneSession(session), state: SessionState.CITA_AWAITING_DISTRITO_AI }, "ai");
   }
 
   if (result.outcome === DistritoAiOutcomeEnum.FAILED) {
@@ -67,7 +68,7 @@ export function handleDistritoAiPending(session: Session, event: QueryResultEven
     }
     const next = cloneSession(session);
     next.counters[CounterKey.DISTRITO_NOT_FOUND] = misses;
-    next.state = "cita_awaiting_distrito_ai";
+    next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
     return buildResult(next, [sendText(UNRECOGNIZED_DISTRITO_TEXT)]);
   }
 
@@ -103,7 +104,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
   next.slots[SlotKey.CITA_DEPARTAMENTO] = departamento;
   next.slots[SlotKey.CITA_PROVINCIA] = provincia;
   next.slots[SlotKey.CITA_DISTRITO] = distrito;
-  next.state = "cita_ubigeo_pending";
+  next.state = SessionState.CITA_UBIGEO_PENDING;
   return buildResult(next, [
     sendText("Buscando tu ubigeo…"),
     query(QueryKind.SEARCH_UBIGEO, { departamento, provincia, distrito }),
@@ -122,7 +123,7 @@ export function handleAwaitingDepartamento(session: Session, event: InboundEvent
 
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DEPARTAMENTO] = departamento;
-  next.state = "cita_awaiting_provincia";
+  next.state = SessionState.CITA_AWAITING_PROVINCIA;
   return buildResult(next, [sendText("¿En qué provincia?")]);
 }
 
@@ -138,7 +139,7 @@ export function handleAwaitingProvincia(session: Session, event: InboundEvent): 
 
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_PROVINCIA] = provincia;
-  next.state = "cita_awaiting_distrito";
+  next.state = SessionState.CITA_AWAITING_DISTRITO;
   return buildResult(next, [sendText("¿En qué distrito?")]);
 }
 
@@ -154,7 +155,7 @@ export function handleAwaitingDistrito(session: Session, event: InboundEvent): H
 
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DISTRITO] = distrito;
-  next.state = "cita_ubigeo_pending";
+  next.state = SessionState.CITA_UBIGEO_PENDING;
   return buildResult(next, [
     sendText("Buscando tu ubigeo…"),
     query(QueryKind.SEARCH_UBIGEO, {
@@ -195,11 +196,11 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
   const next = cloneSession(session);
 
   if (result.status === "unauthorized") {
-    return beginReverification(next, "cita_ubigeo_pending");
+    return beginReverification(next, SessionState.CITA_UBIGEO_PENDING);
   }
 
   if (result.status === "error") {
-    next.state = "cita_awaiting_departamento";
+    next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
     return buildResult(next, [
       sendText("Ocurrió un error al buscar tu ubigeo. Indícanos nuevamente el departamento."),
     ]);
@@ -213,7 +214,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
   const settled = result.status === "found" && items ? pickSettledUbigeo(next, items) : undefined;
   if (settled) {
     next.slots[SlotKey.CITA_UBIGEO] = settled.ubigeoInei;
-    next.state = "cita_especialidad_pending";
+    next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
     return buildResult(next, [
       sendText(searchingCatalogText(settled.distrito)),
       query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: settled.ubigeoInei }),
@@ -221,7 +222,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
   }
 
   if (result.status === "found" && items && items.length > 1 && items.length <= WHATSAPP_LIST_MAX_ROWS) {
-    next.state = "cita_awaiting_ubigeo_select";
+    next.state = SessionState.CITA_AWAITING_UBIGEO_SELECT;
     const rows: ListRow[] = items.map((item) => ({
       id: item.ubigeoInei,
       title: truncateForRow(item.distrito, WHATSAPP_ROW_TITLE_MAX),
@@ -233,7 +234,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
     return buildResult(next, [offerList(next, "Selecciona tu ubigeo:", rows)]);
   }
 
-  next.state = "cita_awaiting_departamento";
+  next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
   return buildResult(next, [
     sendText("No encontramos ese ubigeo. Indícanos nuevamente el departamento."),
   ]);
@@ -247,7 +248,7 @@ export function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);
   next.slots[SlotKey.CITA_UBIGEO] = replyId;
-  next.state = "cita_especialidad_pending";
+  next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
   return buildResult(next, [
     sendText(chosen ? searchingCatalogText(chosen.title) : "Buscando especialidades disponibles…"),
     query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: replyId }),

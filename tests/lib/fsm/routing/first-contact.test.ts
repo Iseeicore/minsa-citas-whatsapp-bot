@@ -204,10 +204,10 @@ describe("first contact: the web (sandbox/widget) channel", () => {
 });
 
 describe("returning after a finished cita or reclamo", () => {
-  const finished = (state: string): Session => ({ state, slots: { [SlotKey.CITA_DNI]: "12345678" }, counters: {} });
+  const finished = (state: Session["state"]): Session => ({ state, slots: { [SlotKey.CITA_DNI]: "12345678" }, counters: {} });
 
   it.each(["cita_booking_rejected", "cita_booked", "reclamo_confirmed"])("%s + «hola»: the welcome alone, no menu chained", (state) => {
-    const result = handle(finished(state), text("hola"));
+    const result = handle(finished(state as Session["state"]), text("hola"));
 
     expect(sent(result).map((effect) => effect.kind)).toEqual(["send_cta_url"]);
     expect(result.session).toEqual({ state: "main_menu", slots: {}, counters: {} });

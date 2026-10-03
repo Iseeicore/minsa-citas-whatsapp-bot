@@ -36,7 +36,7 @@ const especialidades: OfferedList = {
   ],
 };
 
-const at = (state: string, slots: Session["slots"] = {}): Session => ({
+const at = (state: Session["state"], slots: Session["slots"] = {}): Session => ({
   state,
   slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", ...slots },
   counters: {},
@@ -103,7 +103,7 @@ describe("leaving the cita on purpose", () => {
     ["cita_awaiting_distrito", "Indícanos el distrito."],
     ["cita_awaiting_otp", "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos)."],
   ])("declining in %s repeats that step's question", (state, prompt) => {
-    const asked = handle(at(state), text("quiero salir"));
+    const asked = handle(at(state as Session["state"]), text("quiero salir"));
     const result = handle(asked.session, text("no"));
 
     expect(result.session.state).toBe(state);

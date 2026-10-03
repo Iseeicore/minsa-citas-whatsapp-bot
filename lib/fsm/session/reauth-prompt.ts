@@ -1,7 +1,8 @@
 import { sendButtons } from "@/lib/fsm/core/handlers-shared";
 import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
+import { SessionState } from "@/lib/enums/session-state";
 
-export const REAUTH_STATE = "cita_awaiting_reauth";
+export const REAUTH_STATE = SessionState.CITA_AWAITING_REAUTH;
 export const REAUTH_YES_ID = ReauthButtonId.YES;
 export const REAUTH_NO_ID = ReauthButtonId.NO;
 

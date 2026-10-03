@@ -1,6 +1,7 @@
 import { MessageStatus, MessageType } from "@prisma/client";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
 import type { InboundEvent } from "@/lib/fsm/core/types";
+import { SessionState } from "@/lib/enums/session-state";
 
 export type WhatsAppContact = {
   user_id: string;
@@ -125,7 +126,7 @@ export async function toInboundEvent(
     }
   }
 
-  if (message.type === "image" && message.image?.id && sessionState === "reclamo_awaiting_foto") {
+  if (message.type === "image" && message.image?.id && sessionState === SessionState.RECLAMO_AWAITING_FOTO) {
     const mediaDataUri = await downloadWhatsAppMediaAsDataUri(message.image.id);
     return {
       from: waId,

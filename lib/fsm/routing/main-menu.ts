@@ -27,6 +27,7 @@ import { MenuChoice } from "@/lib/enums/menu-choice";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export const CONTINUE_BUTTON_ID = "continuar_menu";
 
@@ -37,7 +38,7 @@ const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
 };
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
-  return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
+  return buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
 }
 
 export function handleAwaitingFlowStart(session: Session): HandlerResult {
@@ -48,14 +49,14 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
   };
 
   if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_RECLAMO) {
-    next.state = "reclamo_identity_choice";
+    next.state = SessionState.RECLAMO_IDENTITY_CHOICE;
     return buildResult(next, [
       sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
     ]);
   }
 
   if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) {
-    next.state = "cita_awaiting_dni";
+    next.state = SessionState.CITA_AWAITING_DNI;
     return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
   }
 
@@ -81,7 +82,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (event.text && isReclamoKeyword(event.text)) {
       return withNote(
         handleAwaitingFlowStart({
-          state: "awaiting_flow_start",
+          state: SessionState.AWAITING_FLOW_START,
           slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.REGISTRAR_RECLAMO },
           counters: {},
         }),
@@ -100,7 +101,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (event.text && isCitaKeyword(event.text)) {
       return withNote(
         handleAwaitingFlowStart({
-          state: "awaiting_flow_start",
+          state: SessionState.AWAITING_FLOW_START,
           slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.AGENDAR_CITA },
           counters: {},
         }),
@@ -120,7 +121,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (cita) return withNote(beginCitaFromIntent(preservedSlots, cita), { kind: "shortcut", detail: { name: "cita_request" } });
 
     if (event.text && looksLikeNoise(event.text)) {
-      return withNote(buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, []), {
+      return withNote(buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, []), {
         kind: "menu_fallback",
         level: "warn",
         detail: { reason: "noise_silenced_before_ai" },
@@ -128,7 +129,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     }
 
     if (event.text) {
-      const next: Session = { state: "main_menu_intent_pending", slots: preservedSlots, counters: {} };
+      const next: Session = { state: SessionState.MAIN_MENU_INTENT_PENDING, slots: preservedSlots, counters: {} };
       return buildResult(next, [
         sendText("Un momento, estamos revisando tu mensaje…"),
         query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text }),
@@ -139,7 +140,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
   }
 
   const next: Session = {
-    state: "awaiting_flow_start",
+    state: SessionState.AWAITING_FLOW_START,
     slots: { ...session.slots, [SlotKey.MENU_CHOICE]: replyId },
     counters: {},
   };
@@ -156,7 +157,7 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
 
   if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
-      buildResult({ state: "main_menu", slots: session.slots, counters: {} }, [
+      buildResult({ state: SessionState.MAIN_MENU, slots: session.slots, counters: {} }, [
         sendText(OUT_OF_SCOPE_REQUEST_TEXT),
         buildMenuEffect(),
       ]),
@@ -183,7 +184,7 @@ function beginCitaFromIntent(
 }
 
 function outOfScopeReply(category: OosCategory, slots: Session["slots"] = {}): HandlerResult {
-  return withNote(buildResult({ state: "main_menu", slots, counters: {} }, [sendText(OOS_MESSAGES[category])]), {
+  return withNote(buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(OOS_MESSAGES[category])]), {
     kind: "out_of_scope",
     detail: { category },
   });

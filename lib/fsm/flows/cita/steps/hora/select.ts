@@ -7,6 +7,7 @@ import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/ho
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event, {
@@ -20,7 +21,7 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
     const next = cloneSession(session);
     const currentPage = next.counters[CounterKey.CITA_HORA_PAGE] ?? 0;
     next.counters[CounterKey.CITA_HORA_PAGE] = Math.max(0, currentPage + (replyId === HORA_PAGE_NEXT_ID ? 1 : -1));
-    next.state = "cita_hora_page_pending";
+    next.state = SessionState.CITA_HORA_PAGE_PENDING;
     return buildResult(next, [
       sendText("Buscando más horarios…"),
       query(QueryKind.LIST_HORAS, {

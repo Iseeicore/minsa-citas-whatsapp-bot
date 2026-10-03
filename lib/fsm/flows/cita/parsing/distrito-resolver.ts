@@ -17,6 +17,7 @@ import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/c
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export function looksLikePlaceName(text: string): boolean {
   return /^[\p{L}][\p{L}\s.'-]{2,59}$/u.test(text);
@@ -34,7 +35,7 @@ export const DISTRITO_MANUAL_FALLBACK_TEXT =
 export function enterManualDistritoFlow(session: Session, text: string): HandlerResult {
   const next = cloneSession(session);
   delete next.counters[CounterKey.DISTRITO_NOT_FOUND];
-  next.state = "cita_awaiting_departamento";
+  next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
   return buildResult(next, [sendText(text)]);
 }
 
@@ -90,7 +91,7 @@ export function resolveDistritoCandidates(
     next.slots[SlotKey.CITA_DEPARTAMENTO] = candidate.departamento;
     next.slots[SlotKey.CITA_PROVINCIA] = candidate.provincia;
     next.slots[SlotKey.CITA_DISTRITO] = candidate.distrito;
-    next.state = "cita_ubigeo_pending";
+    next.state = SessionState.CITA_UBIGEO_PENDING;
     return buildResult(next, [
       sendText("Buscando tu ubigeo…"),
       query(QueryKind.SEARCH_UBIGEO, {
@@ -102,7 +103,7 @@ export function resolveDistritoCandidates(
   }
 
   if (candidates.length > WHATSAPP_LIST_MAX_ROWS) {
-    next.state = "cita_awaiting_departamento";
+    next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
     return buildResult(next, [
       sendText(
         "Encontramos demasiadas coincidencias para mostrarlas en una lista, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.",
@@ -111,7 +112,7 @@ export function resolveDistritoCandidates(
   }
 
   if (candidates.length > 1) {
-    next.state = "cita_awaiting_distrito_disambiguation";
+    next.state = SessionState.CITA_AWAITING_DISTRITO_DISAMBIGUATION;
     const rows: ListRow[] = candidates.map((candidate) => ({
       id: `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`,
       title: truncateForRow(candidate.distrito, WHATSAPP_ROW_TITLE_MAX),
@@ -142,7 +143,7 @@ export function resolveDistritoText(
   }
 
   const next = cloneSession(session);
-  next.state = "cita_distrito_ai_pending";
+  next.state = SessionState.CITA_DISTRITO_AI_PENDING;
   return buildResult(next, [
     sendText(`Buscando tu distrito: "${distritoText}"…`),
     query(QueryKind.RESOLVE_DISTRITO_AI, { distritoText, contextText }),

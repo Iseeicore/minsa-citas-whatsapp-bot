@@ -12,6 +12,7 @@ import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const NEGATION_WORD = /\b(?:no|ni|nunca|tampoco)\b/;
 
@@ -41,7 +42,7 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
       restored.counters[CounterKey.CITA_HORA_PAGE] = page - 1;
     }
 
-    restored.state = "cita_awaiting_hora_select";
+    restored.state = SessionState.CITA_AWAITING_HORA_SELECT;
     return reshowOffered(restored, offered, "Sin problema. Elige otro horario:");
   };
 

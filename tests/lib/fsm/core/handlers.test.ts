@@ -15,7 +15,7 @@ function tap(kind: "button" | "list", id: string): InboundEvent {
   return { from: FROM, type: kind, listId: id };
 }
 
-function sessionAt(state: string, slots: Session["slots"] = {}): Session {
+function sessionAt(state: Session["state"], slots: Session["slots"] = {}): Session {
   return { state, slots, counters: {} };
 }
 

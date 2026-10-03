@@ -17,8 +17,9 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
-export const OTHER_ESTABLECIMIENTO_STATE = "cita_awaiting_other_establecimiento";
+export const OTHER_ESTABLECIMIENTO_STATE = SessionState.CITA_AWAITING_OTHER_ESTABLECIMIENTO;
 
 
 const YES_ID = OtherEstablecimientoButtonId.YES;
@@ -53,7 +54,7 @@ export function searchOtherEstablecimiento(session: Session): HandlerResult {
   next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS] = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] ?? "");
   delete next.slots[SlotKey.CITA_COD_EESS];
   delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE];
-  next.state = "cita_establecimiento_pending";
+  next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
 
   return withNote(
     buildResult(next, [
@@ -87,7 +88,7 @@ export function offerOtherEstablecimiento(
   }
 
   const especialidad = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : "esa especialidad";
-  next.state = "cita_awaiting_establecimiento_select";
+  next.state = SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT;
   return buildResult(next, [
     sendText(`No hay fechas disponibles en ${where}. Estos establecimientos también atienden ${especialidad}:`),
     ...offerPagedList(next, "Selecciona el establecimiento:", rows),
@@ -106,7 +107,7 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] ?? "");
     delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO];
     delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE];
-    next.state = "cita_fecha_pending";
+    next.state = SessionState.CITA_FECHA_PENDING;
     return buildResult(next, [
       sendText("Buscando fechas disponibles…"),
       query(QueryKind.LIST_FECHAS, {

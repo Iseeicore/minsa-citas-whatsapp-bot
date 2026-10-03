@@ -2,13 +2,14 @@ import { buildResult, cloneSession, sendButtons, withNote } from "@/lib/fsm/core
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 /**
  * Separado de exit.ts a propósito: exit.ts importa handleRegistrationWait de identity.ts, así que
  * identity.ts no puede importar askToLeave de exit.ts sin crear un ciclo. Este módulo no depende de nada
  * de identity.ts, así que ambos lo pueden usar.
  */
-export const EXIT_CONFIRM_STATE = "cita_awaiting_exit_confirm";
+export const EXIT_CONFIRM_STATE = SessionState.CITA_AWAITING_EXIT_CONFIRM;
 
 export const EXIT_YES_ID = ExitButtonId.YES;
 export const EXIT_NO_ID = ExitButtonId.NO;

@@ -15,21 +15,22 @@ import type {
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
-export const TERMINAL_STATES = new Set([
-  "reclamo_rejected",
-  "reclamo_confirmed",
-  "reclamo_failed",
-  "cita_registration_rejected",
-  "cita_otp_locked",
-  "cita_booked",
-  "cita_booking_duplicate",
-  "cita_booking_rejected",
-  "cita_national_redirect",
-  "cita_no_coverage_closed",
-  "cita_declined_closed",
-  "cita_abandoned",
-  "emergency_closed",
+export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
+  SessionState.RECLAMO_REJECTED,
+  SessionState.RECLAMO_CONFIRMED,
+  SessionState.RECLAMO_FAILED,
+  SessionState.CITA_REGISTRATION_REJECTED,
+  SessionState.CITA_OTP_LOCKED,
+  SessionState.CITA_BOOKED,
+  SessionState.CITA_BOOKING_DUPLICATE,
+  SessionState.CITA_BOOKING_REJECTED,
+  SessionState.CITA_NATIONAL_REDIRECT,
+  SessionState.CITA_NO_COVERAGE_CLOSED,
+  SessionState.CITA_DECLINED_CLOSED,
+  SessionState.CITA_ABANDONED,
+  SessionState.EMERGENCY_CLOSED,
 ]);
 
 export function readReply(event: InboundEvent): string | undefined {

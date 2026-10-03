@@ -31,7 +31,7 @@ const queryResult = (queryKind: QueryEffectKind, result: unknown): QueryResultEv
   result,
 });
 
-function at(state: string, offered?: OfferedList, slots: Session["slots"] = {}): Session {
+function at(state: Session["state"], offered?: OfferedList, slots: Session["slots"] = {}): Session {
   return {
     state,
     slots: {

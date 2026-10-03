@@ -10,6 +10,7 @@ import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const MAX_DESCRIPCION_LENGTH = 1000;
 const FOTO_REQUEST_TEXT =
@@ -19,24 +20,24 @@ const UNREADABLE_TEXT_RETRY = "No pudimos leer eso — ¿podrías escribirlo de 
 
 export function handleReclamo(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
-    case "reclamo_identity_choice":
+    case SessionState.RECLAMO_IDENTITY_CHOICE:
       return handleIdentityChoice(session, event as InboundEvent);
-    case "reclamo_awaiting_nombre_libre":
+    case SessionState.RECLAMO_AWAITING_NOMBRE_LIBRE:
       return handleAwaitingNombreLibre(session, event as InboundEvent);
     // Dormido a propósito desde 2026-10-01: ya no se entra acá (ver nota en Obsidian para revertir).
-    case "reclamo_awaiting_dni":
+    case SessionState.RECLAMO_AWAITING_DNI:
       return handleAwaitingDni(session, event as InboundEvent);
-    case "reclamo_awaiting_nombre":
+    case SessionState.RECLAMO_AWAITING_NOMBRE:
       return handleAwaitingNombre(session, event as InboundEvent);
-    case "reclamo_reniec_pending":
+    case SessionState.RECLAMO_RENIEC_PENDING:
       return handleReniecPending(session, event as QueryResultEvent);
-    case "reclamo_awaiting_descripcion":
+    case SessionState.RECLAMO_AWAITING_DESCRIPCION:
       return handleAwaitingDescripcion(session, event as InboundEvent);
-    case "reclamo_awaiting_foto":
+    case SessionState.RECLAMO_AWAITING_FOTO:
       return handleAwaitingFoto(session, event as InboundEvent);
-    case "reclamo_foto_intent_pending":
+    case SessionState.RECLAMO_FOTO_INTENT_PENDING:
       return handleFotoIntentPending(session, event as QueryResultEvent);
-    case "reclamo_submit_pending":
+    case SessionState.RECLAMO_SUBMIT_PENDING:
       return handleSubmitPending(session, event as QueryResultEvent);
     default:
       throw new Error(`handleReclamo: unknown state "${session.state}"`);
@@ -52,12 +53,12 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   const next = cloneSession(session);
 
   if (replyId === ReclamoButtonId.CON_NOMBRE) {
-    next.state = "reclamo_awaiting_nombre_libre";
+    next.state = SessionState.RECLAMO_AWAITING_NOMBRE_LIBRE;
     return buildResult(next, [sendText("Ingresa tu nombre.")]);
   }
 
   if (replyId === ReclamoButtonId.ANONIMO) {
-    next.state = "reclamo_awaiting_descripcion";
+    next.state = SessionState.RECLAMO_AWAITING_DESCRIPCION;
     return buildResult(next, [sendText(askDescripcion())]);
   }
 
@@ -80,7 +81,7 @@ function handleAwaitingNombreLibre(session: Session, event: InboundEvent): Handl
 
   const next = cloneSession(session);
   next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
-  next.state = "reclamo_awaiting_descripcion";
+  next.state = SessionState.RECLAMO_AWAITING_DESCRIPCION;
   return buildResult(next, [sendText(askDescripcion())]);
 }
 
@@ -95,7 +96,7 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 
   const next = cloneSession(session);
   next.slots[SlotKey.DNI] = dni;
-  next.state = "reclamo_awaiting_nombre";
+  next.state = SessionState.RECLAMO_AWAITING_NOMBRE;
   return buildResult(next, [sendText("Ingresa tu nombre (como aparece en tu documento de identidad).")]);
 }
 
@@ -108,7 +109,7 @@ function handleAwaitingNombre(session: Session, event: InboundEvent): HandlerRes
 
   const next = cloneSession(session);
   next.slots[SlotKey.NOMBRE] = nombre;
-  next.state = "reclamo_reniec_pending";
+  next.state = SessionState.RECLAMO_RENIEC_PENDING;
   return buildResult(next, [
     sendText("Verificando tu identidad en RENIEC…"),
     query(QueryKind.RENIEC_LOOKUP, { dni: next.slots[SlotKey.DNI] }),
@@ -126,11 +127,11 @@ function handleReniecPending(session: Session, event: QueryResultEvent): Handler
 
   if (matched) {
     next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto as string;
-    next.state = "reclamo_awaiting_descripcion";
+    next.state = SessionState.RECLAMO_AWAITING_DESCRIPCION;
     return buildResult(next, [sendText(askDescripcion())]);
   }
 
-  next.state = "reclamo_rejected";
+  next.state = SessionState.RECLAMO_REJECTED;
   return buildResult(next, [
     sendText(
       "No pudimos verificar tu identidad con los datos ingresados. Por favor, comunícate directamente con el establecimiento de salud.",
@@ -153,14 +154,14 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
 
   const next = cloneSession(session);
   next.slots[SlotKey.QUEJA] = queja;
-  next.state = "reclamo_awaiting_foto";
+  next.state = SessionState.RECLAMO_AWAITING_FOTO;
   return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
 }
 
 function submitReclamo(session: Session, from: string, mediaDataUri?: string): HandlerResult {
   const next = cloneSession(session);
   if (mediaDataUri) next.slots[SlotKey.MEDIA_DATA_URI] = mediaDataUri;
-  next.state = "reclamo_submit_pending";
+  next.state = SessionState.RECLAMO_SUBMIT_PENDING;
 
   const submission = {
     celular: from,
@@ -195,14 +196,14 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   }
 
   const next = cloneSession(session);
-  next.state = "reclamo_foto_intent_pending";
+  next.state = SessionState.RECLAMO_FOTO_INTENT_PENDING;
   return buildResult(next, [query(QueryKind.ANALYZE_RECLAMO_FOTO_INTENT, { text: typed })]);
 }
 
 function handleFotoIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { quiereOmitir?: boolean };
   const next = cloneSession(session);
-  next.state = "reclamo_awaiting_foto";
+  next.state = SessionState.RECLAMO_AWAITING_FOTO;
 
   if (result.quiereOmitir === true) return submitReclamo(next, event.from);
 
@@ -214,13 +215,13 @@ function handleSubmitPending(session: Session, event: QueryResultEvent): Handler
   const next = cloneSession(session);
 
   if (result.status === "accepted") {
-    next.state = "reclamo_confirmed";
+    next.state = SessionState.RECLAMO_CONFIRMED;
     return buildResult(next, [
       sendText("¡Listo! Tu reclamo fue registrado. Nos pondremos en contacto contigo pronto."),
     ]);
   }
 
-  next.state = "reclamo_failed";
+  next.state = SessionState.RECLAMO_FAILED;
   const message =
     result.reason === "media_too_large"
       ? "No pudimos registrar tu reclamo: la foto adjunta es demasiado pesada. Intenta de nuevo sin foto o con una imagen más liviana."

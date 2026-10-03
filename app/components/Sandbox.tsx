@@ -10,6 +10,7 @@ import {
   readStoredEntries,
   readStoredSession,
 } from "@/app/components/sandbox-chat/storage";
+import { SessionState } from "@/lib/enums/session-state";
 import { randomId, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
 import { SandboxHeader } from "@/app/components/sandbox-chat/SandboxHeader";
 import { Composer } from "@/app/components/sandbox-chat/Composer";
@@ -19,7 +20,7 @@ import { DniCard } from "@/app/components/sandbox-chat/DniCard";
 import { DebugPanel } from "@/app/components/sandbox-chat/DebugPanel";
 import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
 
-const DNI_AWAITING_STATE = "cita_awaiting_dni";
+const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const IMAGE_TOO_LARGE_MESSAGE =

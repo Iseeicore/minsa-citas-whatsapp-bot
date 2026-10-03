@@ -10,6 +10,7 @@ import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverif
 import { askHoraConfirmation } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
@@ -20,7 +21,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
   }
 
   if (items.length > 1) {
-    next.state = "cita_awaiting_hora_select";
+    next.state = SessionState.CITA_AWAITING_HORA_SELECT;
     const rows: ListRow[] = items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,
       title: truncateForRow(formatHoraRange(item.horaInicio, item.horaFin), WHATSAPP_ROW_TITLE_MAX),
@@ -63,12 +64,12 @@ export function handleHoraPending(session: Session, event: QueryResultEvent): Ha
   const result = event.result as { status: string; items?: HoraResultItem[] };
 
   if (result.status === "unauthorized") {
-    return beginReverification(session, "cita_hora_pending");
+    return beginReverification(session, SessionState.CITA_HORA_PENDING);
   }
 
   if (result.status === "error") {
     const next = cloneSession(session);
-    next.state = "cita_booking_rejected";
+    next.state = SessionState.CITA_BOOKING_REJECTED;
     return buildResult(next, [
       sendText(
         searchFailureText(SearchSubject.HORARIOS),
@@ -84,12 +85,12 @@ export function handleHoraPagePending(session: Session, event: QueryResultEvent)
   const result = event.result as { status: string; items?: HoraResultItem[] };
 
   if (result.status === "unauthorized") {
-    return beginReverification(session, "cita_hora_pending");
+    return beginReverification(session, SessionState.CITA_HORA_PENDING);
   }
 
   if (result.status === "error") {
     const next = cloneSession(session);
-    next.state = "cita_booking_rejected";
+    next.state = SessionState.CITA_BOOKING_REJECTED;
     return buildResult(next, [
       sendText(
         searchFailureText(SearchSubject.HORARIOS),

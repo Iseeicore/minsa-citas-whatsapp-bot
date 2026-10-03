@@ -17,9 +17,10 @@ import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fs
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export { askToLeave, EXIT_CONFIRM_STATE };
-export const ABANDONED_STATE = "cita_abandoned";
+export const ABANDONED_STATE = SessionState.CITA_ABANDONED;
 
 const GOODBYE = "Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋";
 
@@ -27,24 +28,24 @@ const LEAVE_ANSWERS = new Set(["SALIR", "SI SALIR", "QUIERO SALIR"]);
 const STAY_ANSWERS = new Set(["CONTINUAR", "SEGUIR", "NO CONTINUAR", "QUIERO CONTINUAR", "QUIERO SEGUIR"]);
 
 const TEXT_PROMPTS: Readonly<Record<string, string>> = {
-  cita_awaiting_dni: "Ingresa tu número de documento (8 dígitos).",
-  cita_awaiting_otp: "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).",
-  cita_awaiting_distrito_ai: "Cuéntanos el nombre del distrito.",
-  cita_awaiting_departamento: "Indícanos el departamento.",
-  cita_awaiting_provincia: "Indícanos la provincia.",
-  cita_awaiting_distrito: "Indícanos el distrito.",
+  [SessionState.CITA_AWAITING_DNI]: "Ingresa tu número de documento (8 dígitos).",
+  [SessionState.CITA_AWAITING_OTP]: "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).",
+  [SessionState.CITA_AWAITING_DISTRITO_AI]: "Cuéntanos el nombre del distrito.",
+  [SessionState.CITA_AWAITING_DEPARTAMENTO]: "Indícanos el departamento.",
+  [SessionState.CITA_AWAITING_PROVINCIA]: "Indícanos la provincia.",
+  [SessionState.CITA_AWAITING_DISTRITO]: "Indícanos el distrito.",
 };
 
-const LIST_STATES = new Set([
-  "cita_awaiting_distrito_disambiguation",
-  "cita_awaiting_ubigeo_select",
-  "cita_awaiting_especialidad_select",
-  "cita_awaiting_establecimiento_select",
-  "cita_awaiting_fecha_select",
-  "cita_awaiting_hora_select",
+const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
+  SessionState.CITA_AWAITING_DISTRITO_DISAMBIGUATION,
+  SessionState.CITA_AWAITING_UBIGEO_SELECT,
+  SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT,
+  SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT,
+  SessionState.CITA_AWAITING_FECHA_SELECT,
+  SessionState.CITA_AWAITING_HORA_SELECT,
 ]);
 
-const REGISTRATION_WAIT_STATE = "cita_registration_wait";
+const REGISTRATION_WAIT_STATE = SessionState.CITA_REGISTRATION_WAIT;
 
 const canLeaveFrom = (state: string): boolean =>
   state in TEXT_PROMPTS || LIST_STATES.has(state) || state === REGISTRATION_WAIT_STATE;
@@ -56,7 +57,7 @@ export function offerExitIfRequested(session: Session, event: HandleEvent): Hand
 
 function resume(session: Session, event: InboundEvent): HandlerResult {
   const restored = cloneSession(session);
-  restored.state = String(session.slots[SlotKey.CITA_EXIT_RESUME_STATE] ?? "cita_awaiting_dni");
+  restored.state = String(session.slots[SlotKey.CITA_EXIT_RESUME_STATE] ?? SessionState.CITA_AWAITING_DNI) as Session["state"];
   delete restored.slots[SlotKey.CITA_EXIT_RESUME_STATE];
 
   if (restored.state === REAUTH_STATE) return buildResult(restored, [reauthPrompt()]);

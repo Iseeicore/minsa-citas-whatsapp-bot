@@ -9,9 +9,10 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
-export const OTHER_FECHA_STATE = "cita_awaiting_other_fecha";
-export const DECLINED_CLOSED_STATE = "cita_declined_closed";
+export const OTHER_FECHA_STATE = SessionState.CITA_AWAITING_OTHER_FECHA;
+export const DECLINED_CLOSED_STATE = SessionState.CITA_DECLINED_CLOSED;
 
 const OTHER_FECHA_YES_ID = OtherFechaButtonId.YES;
 const OTHER_FECHA_NO_ID = OtherFechaButtonId.NO;
@@ -103,7 +104,7 @@ export function handleOtherFecha(session: Session, event: InboundEvent): Handler
 
   if (tapped === OTHER_FECHA_YES_ID || answer === Confirmation.YES) {
     const next = cloneSession(session);
-    next.state = "cita_fecha_pending";
+    next.state = SessionState.CITA_FECHA_PENDING;
     return buildResult(next, [
       sendText("Buscando otras fechas disponibles…"),
       query(QueryKind.LIST_FECHAS, {
