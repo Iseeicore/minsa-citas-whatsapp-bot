@@ -33,6 +33,8 @@ npm run docker:up
 | `npm run docker:logs` | Muestra los logs del contenedor en vivo. |
 | `npm run docker:down` | Detiene y elimina el contenedor. |
 
+**Desarrollo local con hot-reload sobre el mismo compose.** Copia `docker-compose.override.yml.example` a `docker-compose.override.yml` (ignorado por git, nunca se versiona) y Docker Compose lo carga automáticamente junto al archivo base: monta el código fuente como volumen, corre `npm run dev` dentro del contenedor y excluye `node_modules`/`.next` del bind mount.
+
 Detalles de la imagen:
 
 - **Base:** `node:22-alpine` (la misma versión de Node que usa el CI), multi-stage, compilada con `npm run build:no-db` y la salida *standalone* de Next.
@@ -219,7 +221,9 @@ lib/
       reclamo/               flujo de reclamo
       emergency/             corte por urgencia
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
-tests/                       suites transversales: security/, stress/, integration/, smoke/ (Neon real), support/
+tests/
+  lib/                       espejo exacto de lib/: cada x.ts de lib/ tiene su x.test.ts en la misma ruta bajo tests/lib/
+  security/, stress/, integration/, smoke/ (Neon real), support/   suites transversales, no colocalizadas
 data/                        datos estáticos (distritos del Perú)
 prisma/                      esquema y migraciones
 scripts/  docs/              herramientas y documentación del proyecto
@@ -231,7 +235,7 @@ Convenciones (ESLint las hace cumplir donde se indica):
 |---|---|
 | **Imports siempre con el alias `@/`** | Los imports relativos se rechazan (`no-restricted-imports`). |
 | **Sin ciclos de imports** | `import/no-cycle`; solo se permiten ciclos a través de un `import()` diferido. |
-| **Tests junto al archivo que prueban** | `x.ts` + `x.test.ts`; los tests de escenario van en la carpeta del área que ejercitan (por ejemplo, `flows/cita/hora-choice.test.ts`). |
+| **Tests en estructura espejo, no colocalizados** | `lib/<ruta>/x.ts` tiene su test en `tests/lib/<la-misma-ruta>/x.test.ts`. Los tests de escenario de un flujo van en la misma ruta espejo (por ejemplo, `tests/lib/fsm/flows/cita/hora-choice.test.ts`). El alias `@/` resuelve igual sin importar dónde viva el test, así que nunca hace falta un import relativo (`../../`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
 | **Comentarios** | No se comentan líneas ni bloques. Solo un docstring breve, en español, en funciones o tipos complejos cuya razón no se puede expresar en el código. |
 | **Estados y tipos como enums** | Los textos fijos que representan un estado o un tipo (`SendType`, `ApiErrorCode`) son un `enum` en `lib/enums/`, nunca un string suelto comparado a mano. |

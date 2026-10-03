@@ -1,0 +1,25 @@
+# Copiar a docker-compose.override.yml para desarrollo local con hot-reload.
+# `docker compose` lo carga automáticamente junto a docker-compose.yml si existe con ese nombre.
+#
+# Monta el código fuente dentro del contenedor y corre `next dev` en vez de la imagen
+# standalone de producción, para no tener que reconstruir la imagen en cada cambio.
+services:
+  minsa-citas-whatsapp-bot:
+    build:
+      target: deps
+    image: minsa-citas-whatsapp-bot:dev
+    command: ["npm", "run", "dev"]
+    environment:
+      NODE_ENV: development
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits:
+          memory: ${MEM_LIMIT:-1g}

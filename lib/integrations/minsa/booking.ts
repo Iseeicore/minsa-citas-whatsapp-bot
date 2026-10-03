@@ -1,6 +1,6 @@
 import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
-import { postWithBearer } from "@/lib/integrations/minsa/wire";
+import { minsaDigitalAppUrl, postWithBearer } from "@/lib/integrations/minsa/wire";
 
 const BOOKING_ENDPOINT = "/whatsapp/api/v1/appointments";
 const BOOKING_LOG_BODY_LIMIT = 300;
@@ -75,7 +75,7 @@ export async function bookAppointment(
 
   return {
     status: "booked",
-    url: "https://dminsadigital.minsa.gob.pe/citas/confirmacion/FAKE123",
+    url: `${minsaDigitalAppUrl()}/citas/confirmacion/FAKE123`,
     message: "Cita registrada correctamente",
   };
 }
