@@ -16,10 +16,10 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { minsaDigitalAppUrl } from "@/lib/integrations/minsa/wire";
 
 const MAX_REGISTRATION_CHECKS = 3;
 const MAX_OTP_ATTEMPTS = 3;
-const MINSADIGITAL_REGISTRATION_URL = "https://dminsadigital.minsa.gob.pe/login";
 const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL";
 const REGISTRATION_RETRY_BUTTON_ID = "cita_registration_retry";
 const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
@@ -79,7 +79,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
       ? "Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos."
       : "Qué raro, seguimos sin encontrar tu registro — esta ya es la segunda vez. Si aún no te registraste, hazlo en MINSADIGITAL; este será tu último intento antes de cerrar el proceso.";
   return buildResult(next, [
-    sendCtaUrl(introText, MINSADIGITAL_BUTTON_TEXT, MINSADIGITAL_REGISTRATION_URL),
+    sendCtaUrl(introText, MINSADIGITAL_BUTTON_TEXT, `${minsaDigitalAppUrl()}/login`),
     registrationRetryButtons("Cuando termines, toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo."),
   ]);
 }

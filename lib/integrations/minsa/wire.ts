@@ -6,6 +6,10 @@ function minsaHost(): string {
   return process.env.MINSA_API_HOST ?? "";
 }
 
+export function minsaDigitalAppUrl(): string {
+  return process.env.MINSA_DIGITAL_APP_URL ?? "https://dminsadigital.minsa.gob.pe";
+}
+
 export async function postSigned(path: string, body: Record<string, unknown>): Promise<Response> {
   const bodyJson = JSON.stringify(body);
   const signedHeaders = signMinsaRequest(bodyJson);

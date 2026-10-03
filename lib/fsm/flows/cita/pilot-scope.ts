@@ -1,9 +1,9 @@
 import { buildResult, cloneSession, sendCtaUrl } from "@/lib/fsm/core/handlers-shared";
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
+import { minsaDigitalAppUrl } from "@/lib/integrations/minsa/wire";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 
 const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global";
-const NATIONAL_REDIRECT_URL = "https://dminsadigital.minsa.gob.pe/login";
 
 /** Alcance del piloto: CITA_ALLOWED_DEPARTAMENTOS, separados por comas; vacía o sin definir desactiva el filtro (todo el Perú). */
 export function allowedDepartamentos(): string[] {
@@ -31,5 +31,7 @@ export function nationalRedirectText(): string {
 export function redirectToNationalSite(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = "cita_national_redirect";
-  return buildResult(next, [sendCtaUrl(nationalRedirectText(), NATIONAL_REDIRECT_BUTTON_TEXT, NATIONAL_REDIRECT_URL)]);
+  return buildResult(next, [
+    sendCtaUrl(nationalRedirectText(), NATIONAL_REDIRECT_BUTTON_TEXT, `${minsaDigitalAppUrl()}/login`),
+  ]);
 }
