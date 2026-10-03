@@ -210,14 +210,26 @@ lib/
     session/                 persistencia de sesión (base de datos o memoria), expiración, reverificación,
                              candado de turno por ciudadano
     routing/                 primer contacto, bienvenida, menú principal, enrutamiento de la guardia léxica, entrada a un flujo
-    parsing/                 lectura del texto del ciudadano: fechas, horas, selecciones, texto
+    parsing/                 lectura del texto del ciudadano, agrupada por tipo de dato
+      date/                  fechas y horas escritas en texto libre
+      text/                  normalización, detección de ruido/gibberish, formato de identidad
+      selection/             elección de opciones de lista, confirmaciones sí/no, intención de salida
       ai/                    interpretación asistida por IA, un módulo por tarea (distrito, intención del menú, fecha, pistas);
                              llm.ts es el puerto, llm-registry.ts elige el proveedor
         providers/           un adaptador por proveedor de IA (hoy gemini.ts)
     flows/
       cita/                  flujo de cita: handlers-cita.ts enruta cada estado a steps/
-        steps/               un módulo por paso de la conversación (identidad, ubigeo, catálogo, fecha, hora, reserva…)
+        data/                catálogos y datos estáticos propios del flujo (nombres de especialidad, ubigeo)
+        parsing/             resolución de texto libre propia del flujo (distrito, selección de opciones, pistas)
+        steps/               un módulo por paso de la conversación, agrupado por responsabilidad:
+          identity/          DNI, OTP, reverificación
+          catalog/           establecimientos y especialidades
+          fecha/             fecha de la cita
+          ubigeo/            departamento/provincia/distrito manual
+          booking/           reserva, duplicados, referencias médicas
+          exit/              salida/cancelación del flujo
           hora/              el paso de hora: lista, horas escritas, elección «1»..«10», confirmación
+          demo/              flujo hardcodeado para el piloto comercial; borrar junto con su importador al cerrarlo
       reclamo/               flujo de reclamo
       emergency/             corte por urgencia
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
