@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection-matchers";
-import { packHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/time-parser";
+import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { packHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-hora";

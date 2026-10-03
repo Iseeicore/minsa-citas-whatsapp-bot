@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection-matchers";
-import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
+import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { createRandom, pick } from "@/tests/support/prng";
 
