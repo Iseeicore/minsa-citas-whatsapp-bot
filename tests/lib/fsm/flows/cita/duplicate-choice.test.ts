@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { serializeOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-duplicate";

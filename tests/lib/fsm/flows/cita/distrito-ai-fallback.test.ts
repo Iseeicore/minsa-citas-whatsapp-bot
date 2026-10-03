@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { handleDistritoAiPending } from "@/lib/fsm/flows/cita/steps/ubigeo";
-import { UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/gibberish";
-import { DISTRITO_MANUAL_FALLBACK_TEXT } from "@/lib/fsm/flows/cita/distrito-resolver";
+import { handleDistritoAiPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
+import { UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
+import { DISTRITO_MANUAL_FALLBACK_TEXT } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 beforeEach(() => {

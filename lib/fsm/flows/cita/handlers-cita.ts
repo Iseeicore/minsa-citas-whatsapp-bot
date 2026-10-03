@@ -1,5 +1,5 @@
-import { handleOtherDistrito, OTHER_DISTRITO_STATE } from "@/lib/fsm/flows/cita/steps/no-coverage";
-import { handleOtherFecha, OTHER_FECHA_STATE } from "@/lib/fsm/flows/cita/steps/other-fecha";
+import { handleOtherDistrito, OTHER_DISTRITO_STATE } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
+import { handleOtherFecha, OTHER_FECHA_STATE } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import {
   handleAwaitingDni,
@@ -7,7 +7,7 @@ import {
   handleRegistrationWait,
   handleAwaitingOtp,
   handleVerifyPending,
-} from "@/lib/fsm/flows/cita/steps/identity";
+} from "@/lib/fsm/flows/cita/steps/identity/identity";
 import {
   handleAwaitingDistritoAi,
   handleDistritoAiPending,
@@ -17,23 +17,23 @@ import {
   handleAwaitingDistrito,
   handleUbigeoPending,
   handleAwaitingUbigeoSelect,
-} from "@/lib/fsm/flows/cita/steps/ubigeo";
+} from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
 import {
   handleEspecialidadPending,
   handleAwaitingEspecialidadSelect,
   handleEstablecimientoPending,
   handleAwaitingEstablecimientoSelect,
   handleSelectionHintsPending,
-} from "@/lib/fsm/flows/cita/steps/catalog";
-import { handleFechaPending, handleAwaitingFechaSelect, handleFechaAiPending } from "@/lib/fsm/flows/cita/steps/fecha";
+} from "@/lib/fsm/flows/cita/steps/catalog/catalog";
+import { handleFechaPending, handleAwaitingFechaSelect, handleFechaAiPending } from "@/lib/fsm/flows/cita/steps/fecha/fecha";
 import { handleHoraPending, handleHoraPagePending } from "@/lib/fsm/flows/cita/steps/hora/list";
 import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select";
 import { handleHoraConfirm } from "@/lib/fsm/flows/cita/steps/hora/confirm";
 import { handleHoraChoice } from "@/lib/fsm/flows/cita/steps/hora/choice";
-import { handleBookingPending } from "@/lib/fsm/flows/cita/steps/booking";
-import { DUPLICATE_CHOICE_STATE, handleDuplicateChoice } from "@/lib/fsm/flows/cita/steps/duplicate";
-import { handleOtherEstablecimiento, OTHER_ESTABLECIMIENTO_STATE } from "@/lib/fsm/flows/cita/steps/other-establecimiento";
-import { EXIT_CONFIRM_STATE, handleExitConfirm } from "@/lib/fsm/flows/cita/steps/exit";
+import { handleBookingPending } from "@/lib/fsm/flows/cita/steps/booking/booking";
+import { DUPLICATE_CHOICE_STATE, handleDuplicateChoice } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
+import { handleOtherEstablecimiento, OTHER_ESTABLECIMIENTO_STATE } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
+import { EXIT_CONFIRM_STATE, handleExitConfirm } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import {
   handleDemoAwaitingConfirm,
   handleDemoAwaitingHoraSelect,
@@ -44,7 +44,7 @@ import {
   handleAwaitingReferenciaSelect,
   handleAwaitingReferenciasOffer,
   handleReferencesPending,
-} from "@/lib/fsm/flows/cita/steps/references";
+} from "@/lib/fsm/flows/cita/steps/booking/references";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {

@@ -1,5 +1,5 @@
 import { buildResult, sendButtons, sendList, sendText } from "@/lib/fsm/core/handlers-shared";
-import type { CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
+import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
 

@@ -1,8 +1,8 @@
 import { buildResult, cloneSession, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
-import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/time-parser";
-import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
+import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
+import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
-import type { CustomMatch } from "@/lib/fsm/flows/cita/selection";
+import type { CustomMatch } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow, rowToSlot, formatHourGroup } from "@/lib/fsm/flows/cita/steps/hora/format";
 
 const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;

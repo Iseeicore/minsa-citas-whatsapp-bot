@@ -1,9 +1,9 @@
 import { buildResult, query, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
-import { OFFERED_NAMES_SLOT, OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
+import { OFFERED_NAMES_SLOT, OFFERED_SLOT } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
-import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
+import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit";
+import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { REAUTH_NO_ID, REAUTH_STATE, REAUTH_YES_ID, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 
 const TRANSIENT_BOOKING_SLOTS = [

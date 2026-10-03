@@ -1,7 +1,7 @@
 import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
-import { isValidDniFormat } from "@/lib/fsm/parsing/identity-format";
-import { namesMatch } from "@/lib/fsm/parsing/text";
-import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
+import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
+import { namesMatch } from "@/lib/fsm/parsing/text/text";
+import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";

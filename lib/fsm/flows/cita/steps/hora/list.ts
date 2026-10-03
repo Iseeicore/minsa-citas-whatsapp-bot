@@ -1,10 +1,10 @@
 import { searchFailureText } from "@/lib/fsm/core/failure-texts";
-import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/other-fecha";
+import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { buildResult, cloneSession, offerList, sendText, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
-import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
+import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { type HoraResultItem, formatHoraRange, HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID, orderHorasFromNow } from "@/lib/fsm/flows/cita/steps/hora/format";
-import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { askHoraConfirmation } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 
 function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {

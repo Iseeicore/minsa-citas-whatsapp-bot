@@ -1,4 +1,4 @@
-import type { DateParts } from "@/lib/fsm/parsing/date-parser";
+import type { DateParts } from "@/lib/fsm/parsing/date/date-parser";
 
 export const LIMA_TIME_ZONE = "America/Lima";
 

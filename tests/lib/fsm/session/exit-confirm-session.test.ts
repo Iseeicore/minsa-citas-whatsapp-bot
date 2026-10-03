@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection-matchers";
+import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 

@@ -1,11 +1,11 @@
-import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/other-fecha";
-import { isSlotAcceptance, resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
-import { normalizeText } from "@/lib/fsm/parsing/text";
+import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
+import { isSlotAcceptance, resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { cloneSession, withNote } from "@/lib/fsm/core/handlers-shared";
-import { matchHoraText } from "@/lib/fsm/parsing/time-parser";
-import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { matchHoraText } from "@/lib/fsm/parsing/date/time-parser";
+import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { reshowOffered } from "@/lib/fsm/flows/cita/selection";
+import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 

@@ -1,4 +1,4 @@
-import type { CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
+import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { beginCita, beginReclamo, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
 import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";

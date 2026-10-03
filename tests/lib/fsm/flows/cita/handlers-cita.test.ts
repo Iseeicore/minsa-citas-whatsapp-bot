@@ -7,7 +7,7 @@ import {
   serializeOffered,
   type OfferedList,
   type OfferedRow,
-} from "@/lib/fsm/parsing/selection-matchers";
+} from "@/lib/fsm/parsing/selection/selection-matchers";
 import type {
   HandlerResult,
   InboundEvent,

@@ -1,8 +1,8 @@
 import { buildResult, cloneSession, offerList, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
-import { unpackHoraSlots } from "@/lib/fsm/parsing/time-parser";
-import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { unpackHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
+import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { NARROWED_LIST_TEXT, reshowOffered } from "@/lib/fsm/flows/cita/selection";
+import { NARROWED_LIST_TEXT, reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { HORA_CHOICE_A_ID, HORA_CHOICE_B_ID, BUTTON_TITLE_MAX } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";

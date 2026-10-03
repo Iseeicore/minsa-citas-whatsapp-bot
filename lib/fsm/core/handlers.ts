@@ -18,7 +18,7 @@ import {
 } from "@/lib/fsm/routing/main-menu";
 import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
-import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit";
+import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
   if (event.type === "text" && event.text && isEmergencyTurn(session.state, event.text)) {

@@ -1,6 +1,6 @@
 import { buildResult, cloneSession, query, sendText, sendButtons } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
-import { clearOffered } from "@/lib/fsm/flows/cita/selection";
+import { clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHoraRange, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 
 export function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {

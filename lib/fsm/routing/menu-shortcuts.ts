@@ -1,5 +1,5 @@
-import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
-import { normalizeText } from "@/lib/fsm/parsing/text";
+import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
 
 function words(text: string): string[] {
   return normalizeText(text)

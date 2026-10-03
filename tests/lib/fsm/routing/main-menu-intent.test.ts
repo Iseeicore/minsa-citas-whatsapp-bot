@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
-import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
+import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { configureLogger } from "@/lib/observability/logger";
-import { normalizeText } from "@/lib/fsm/parsing/text";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { detectCitaRequest, isContinueReply } from "@/lib/fsm/routing/menu-shortcuts";

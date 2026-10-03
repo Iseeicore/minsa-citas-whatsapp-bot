@@ -5,9 +5,9 @@ import {
   isAllowedDepartamento,
   nationalRedirectText,
 } from "@/lib/fsm/flows/cita/pilot-scope";
-import { resolveDistritoCandidates } from "@/lib/fsm/flows/cita/distrito-resolver";
-import { handleUbigeoPending } from "@/lib/fsm/flows/cita/steps/ubigeo";
-import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
+import { resolveDistritoCandidates } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
+import { handleUbigeoPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
+import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const LIMA_ONLY_TEXT =

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { matchFechaText } from "@/lib/fsm/parsing/date-parser";
+import { matchFechaText } from "@/lib/fsm/parsing/date/date-parser";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { serializeOffered, type OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
+import { serializeOffered, type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-confirmation";

@@ -1,5 +1,5 @@
 import { buildResult, cloneSession, sendCtaUrl } from "@/lib/fsm/core/handlers-shared";
-import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text";
+import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { minsaDigitalAppUrl } from "@/lib/integrations/minsa/wire";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 

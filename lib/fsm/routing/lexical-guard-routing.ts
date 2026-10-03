@@ -8,8 +8,8 @@ import {
   TERMINAL_STATES,
   withNote,
 } from "@/lib/fsm/core/handlers-shared";
-import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
-import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
+import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import {
   evaluateLexicalGuard,

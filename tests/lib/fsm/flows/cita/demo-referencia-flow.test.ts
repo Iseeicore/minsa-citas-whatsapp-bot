@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
-import { handleVerifyPending } from "@/lib/fsm/flows/cita/steps/identity";
-import { serializeOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { handleVerifyPending } from "@/lib/fsm/flows/cita/steps/identity/identity";
+import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import {
   DEMO_PEDIATRIA_DNI,
   DEMO_REFERENCIA_DNI,

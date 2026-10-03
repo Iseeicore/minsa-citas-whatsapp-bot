@@ -1,5 +1,5 @@
 /** DEMO PILOTO: borrar junto con su importador al cerrar la fase piloto. */
-import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
+import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import {
   buildResult,
   cloneSession,
@@ -10,7 +10,7 @@ import {
   WHATSAPP_ROW_DESCRIPTION_MAX,
   WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
-import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/selection";
+import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import {
   DEMO_HORA_FIN,
   DEMO_HORA_INICIO,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, offerPagedList, pageEffects } from "@/lib/fsm/core/handlers-shared";
-import { readOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const FROM = "sandbox-paged";

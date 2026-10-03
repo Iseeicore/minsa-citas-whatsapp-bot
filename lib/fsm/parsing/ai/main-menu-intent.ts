@@ -1,5 +1,5 @@
 import { logger } from "@/lib/observability/logger";
-import { normalizeText } from "@/lib/fsm/parsing/text";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";

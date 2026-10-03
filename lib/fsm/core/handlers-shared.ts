@@ -1,6 +1,6 @@
 import type { TurnNote } from "@/lib/observability/types";
 import { SendType } from "@/lib/enums/send-type";
-import { OFFERED_SLOT, serializeOffered } from "@/lib/fsm/parsing/selection-matchers";
+import { OFFERED_SLOT, serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type {
   ButtonOption,
   HandlerOutcome,

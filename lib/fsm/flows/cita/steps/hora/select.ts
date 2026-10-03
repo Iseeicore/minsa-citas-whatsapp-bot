@@ -1,6 +1,6 @@
 import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { resolveSelection } from "@/lib/fsm/flows/cita/selection";
+import { resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { matchHoraTyped } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
 import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
