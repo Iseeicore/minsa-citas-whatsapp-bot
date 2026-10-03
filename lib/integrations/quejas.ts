@@ -1,4 +1,5 @@
 import { timedFetch } from "@/lib/observability/http";
+import { isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 
 export type SubmitQuejaPayload = {
   celular: string;
@@ -28,7 +29,7 @@ export async function submitQueja(payload: SubmitQuejaPayload): Promise<SubmitQu
     return { status: "accepted" };
   }
 
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
+  if (isRealMinsaEnabled()) {
     const response = await timedFetch("quejas", "submit", `${process.env.QUEJAS_API_BASE_URL}/api/v1/quejas/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

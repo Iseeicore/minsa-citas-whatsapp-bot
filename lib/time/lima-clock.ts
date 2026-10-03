@@ -1,5 +1,7 @@
 import type { DateParts } from "@/lib/fsm/parsing/date-parser";
 
+export const LIMA_TIME_ZONE = "America/Lima";
+
 export function todayInLima(): DateParts {
   const fecha = nowInLima().fecha;
   return {
@@ -12,7 +14,7 @@ export function todayInLima(): DateParts {
 /** Lee la hora de America/Lima con Intl (UTC-5, sin horario de verano): la zona horaria del servidor no es confiable. */
 export function nowInLima(): { fecha: string; hora: string } {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Lima",
+    timeZone: LIMA_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

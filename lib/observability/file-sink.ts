@@ -1,6 +1,7 @@
 import type { LogLevel, LogSink } from "@/lib/observability/types";
+import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
 
-export const LOG_TIME_ZONE = "America/Lima";
+export const LOG_TIME_ZONE = LIMA_TIME_ZONE;
 
 export function dateFolder(at: Date): string {
   return new Intl.DateTimeFormat("en-GB", {

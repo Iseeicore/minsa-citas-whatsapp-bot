@@ -19,7 +19,7 @@ import {
   fakeFechas,
   limaDatePlus,
 } from "@/lib/integrations/minsa/fake-data";
-import { endOfMonthYYYYMMDD, postWithBearer, todayYYYYMMDD } from "@/lib/integrations/minsa/wire";
+import { endOfMonthYYYYMMDD, postWithBearer, todayYYYYMMDD, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 
 export async function searchUbigeo(
   departamento: string,
@@ -27,7 +27,7 @@ export async function searchUbigeo(
   distrito: string,
   bearer: string,
 ): Promise<SearchUbigeoResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
+  if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
       "/api/v1/whatsapp/ubigeo",
       { departamento, provincia, distrito, limite: 5 },
@@ -55,7 +55,7 @@ export async function listEspecialidades(
   ubigeo: string,
   bearer: string,
 ): Promise<ListEspecialidadesResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
+  if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
       "/whatsapp/api/v1/specialties-quotas",
       { ubigeo, fecha_inicio: todayYYYYMMDD(), fecha_fin: endOfMonthYYYYMMDD() },
@@ -84,7 +84,7 @@ export async function listEstablecimientos(
   ubigeo: string,
   bearer: string,
 ): Promise<ListEstablecimientosResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
+  if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
       "/whatsapp/api/v1/establishments",
       { especialidad_id: especialidadId, ubigeo, page: 1, page_size: 10 },
@@ -113,7 +113,7 @@ export async function listFechas(
   especialidadId: string,
   bearer: string,
 ): Promise<ListFechasResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
+  if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
       "/whatsapp/api/v1/quotas/dates",
       { cod_eess: codEess, especialidad_id: especialidadId },
@@ -140,7 +140,7 @@ export async function listHoras(
   fecha: string,
   bearer: string,
 ): Promise<ListHorasResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
+  if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
       "/whatsapp/api/v1/quotas/times",
       { cod_eess: codEess, especialidad_id: especialidadId, fecha },

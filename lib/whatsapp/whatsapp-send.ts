@@ -1,4 +1,4 @@
-import { graphApiVersion } from "@/lib/whatsapp/graph-api";
+import { graphApiBaseUrl, graphAuthHeaders } from "@/lib/whatsapp/graph-api";
 import { prisma } from "@/lib/db/prisma";
 import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import type { SendEffect } from "@/lib/fsm/core/types";
@@ -7,8 +7,7 @@ import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 
 function graphApiUrl(): string {
-  const version = graphApiVersion();
-  return `https://graph.facebook.com/${version}/${process.env.META_PHONE_NUMBER_ID}/messages`;
+  return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
 }
 
 /** Esta cuenta usa BSUID: el destinatario va en `recipient`; con `to` Graph API acepta la petición pero no entrega el mensaje. */
@@ -80,10 +79,7 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
 export async function sendWhatsAppEffect(waId: string, effect: SendEffect): Promise<Response> {
   return fetch(graphApiUrl(), {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
+    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(buildGraphBody(waId, effect)),
   });
 }
@@ -94,10 +90,7 @@ export async function sendCtaUrlMessage(
 ): Promise<Response> {
   return fetch(graphApiUrl(), {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
+    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -119,10 +112,7 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   try {
     await fetch(graphApiUrl(), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
+      headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
         messaging_product: "whatsapp",
         status: "read",

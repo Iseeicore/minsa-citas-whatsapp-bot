@@ -6,6 +6,7 @@ import type {
   ReferenciaItem,
   UbigeoItem,
 } from "@/lib/integrations/minsa/types";
+import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
 
 export const FAKE_DNI = "12345678";
 export const FAKE_TWOFA_ID = "fake-twofa-12345678";
@@ -30,7 +31,7 @@ export const FAKE_ESTABLECIMIENTOS: EstablecimientoItem[] = [
 
 export function limaDatePlus(daysAhead: number): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Lima",
+    timeZone: LIMA_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

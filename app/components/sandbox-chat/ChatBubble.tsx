@@ -1,6 +1,7 @@
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
 import { OptionButton, OptionListRow } from "@/app/components/ui/OptionButton";
+import { BotAvatarBadge } from "@/app/components/ui/BotAvatarBadge";
 
 export function ChatBubble({
   entry,
@@ -23,9 +24,7 @@ export function ChatBubble({
 
   return (
     <div className="mb-3 flex items-start gap-2">
-      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
-        MD
-      </span>
+      <BotAvatarBadge />
       <div className="max-w-[75%] rounded-2xl rounded-tl-none border border-gray-100 bg-sb-bubble-bot px-3 py-2 text-sm text-gray-800 shadow-sm">
         <div className="whitespace-pre-wrap">{effect.text}</div>
 

@@ -10,6 +10,11 @@ export function minsaDigitalAppUrl(): string {
   return process.env.MINSA_DIGITAL_APP_URL ?? "https://dminsadigital.minsa.gob.pe";
 }
 
+/** Interruptor compartido: fuera del sandbox real, todas las integraciones MINSA usan datos simulados. */
+export function isRealMinsaEnabled(): boolean {
+  return process.env.SANDBOX_USE_REAL_MINSA === "true";
+}
+
 export async function postSigned(path: string, body: Record<string, unknown>): Promise<Response> {
   const bodyJson = JSON.stringify(body);
   const signedHeaders = signMinsaRequest(bodyJson);
