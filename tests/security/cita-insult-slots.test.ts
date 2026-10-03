@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-slots";
 const MESSAGE = "Apúrense cojudos quiero cita de odontología en San Borja";
@@ -27,14 +28,14 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
   it("the specialty and district hints are preserved", () => {
     const routed = handle(menu(), text(MESSAGE));
 
-    expect(routed.session.slots.citaEspecialidadHintText).toBe("Odontología");
-    expect(routed.session.slots.citaDistritoHintText).toBe("San Borja");
+    expect(routed.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Odontología");
+    expect(routed.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("San Borja");
   });
 
   it("the insulting text itself is never stored as context for later AI calls", () => {
     const routed = handle(menu(), text(MESSAGE));
 
-    expect(routed.session.slots.initialMessageText).toBeUndefined();
+    expect(routed.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
   });
 
   it("an insult with no specialty or district leaves no hints behind", () => {
@@ -50,11 +51,13 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
     step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw" }));
     step = handle(step.session, text("1234"));
     step = handle(step.session, result("verify_code", { status: "verified", token: "jwt" }));
+    expect(step.session.state).toBe("cita_references_pending");
+    step = handle(step.session, result("list_references", { status: "empty" }));
 
     expect(step.session.state).toBe("cita_ubigeo_pending");
     const [search] = queries(step);
     expect(search.kind).toBe("search_ubigeo");
     expect(String(search.payload.distrito).toUpperCase()).toBe("SAN BORJA");
-    expect(step.session.slots.citaEspecialidadHintText).toBe("Odontología");
+    expect(step.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Odontología");
   });
 });

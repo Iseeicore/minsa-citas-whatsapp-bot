@@ -1,6 +1,7 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { EXIT_INTENT_RULE, PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
+import { DistritoAiOutcome } from "@/lib/enums/distrito-ai-outcome";
 
 export type DistritoAiCandidate = {
   departamento: string;
@@ -12,14 +13,14 @@ export type ResolveDistritoAiResult = {
   candidates: DistritoAiCandidate[];
 };
 
-export type DistritoAiOutcome = "found" | "not_found" | "failed";
+export type { DistritoAiOutcome };
 
 export type ResolveDistritoAiDetailedResult = ResolveDistritoAiResult & { outcome: DistritoAiOutcome; quiereSalir?: true };
 
-const FAILED: ResolveDistritoAiDetailedResult = { outcome: "failed", candidates: [] };
+const FAILED: ResolveDistritoAiDetailedResult = { outcome: DistritoAiOutcome.FAILED, candidates: [] };
 
 const withOutcome = (candidates: DistritoAiCandidate[]): ResolveDistritoAiDetailedResult => ({
-  outcome: candidates.length > 0 ? "found" : "not_found",
+  outcome: candidates.length > 0 ? DistritoAiOutcome.FOUND : DistritoAiOutcome.NOT_FOUND,
   candidates,
 });
 

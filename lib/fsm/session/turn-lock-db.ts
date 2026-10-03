@@ -1,6 +1,7 @@
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { TurnLockTimeoutError, type DbTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 
 type Tx = { $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number> };
 
@@ -41,7 +42,7 @@ function createSemaphore(size: number) {
         const timer = setTimeout(() => {
           const index = queue.indexOf(grant);
           if (index >= 0) queue.splice(index, 1);
-          reject(new TurnLockTimeoutError(waId, "database"));
+          reject(new TurnLockTimeoutError(waId, TurnLockLayer.DATABASE));
         }, timeoutMs);
         queue.push(grant);
       });
@@ -75,7 +76,7 @@ export function createPrismaAdvisoryLock(
   const onAcquired =
     options.onAcquired ??
     ((waId: string, ms: number) => {
-      if (ms >= SLOW_ACQUIRE_MS) logger.info("turn_lock.waited", { waId: tail(waId), waitedMs: Math.round(ms), layer: "database" });
+      if (ms >= SLOW_ACQUIRE_MS) logger.info("turn_lock.waited", { waId: tail(waId), waitedMs: Math.round(ms), layer: TurnLockLayer.DATABASE });
     });
 
   return async function withAdvisoryLock<T>(waId: string, task: () => Promise<T>): Promise<T> {
@@ -92,7 +93,7 @@ export function createPrismaAdvisoryLock(
               `${lockTimeoutMs}ms`,
             );
           } catch (error) {
-            if (isLockTimeout(error)) throw new TurnLockTimeoutError(waId, "database");
+            if (isLockTimeout(error)) throw new TurnLockTimeoutError(waId, TurnLockLayer.DATABASE);
             throw error;
           }
 

@@ -15,6 +15,7 @@ import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
+import { SessionState } from "@/lib/enums/session-state";
 
 const TYPING_DELAY_MS = 1000;
 
@@ -25,7 +26,7 @@ function sleep(ms: number): Promise<void> {
 async function answerFirstContact(message: WhatsAppMessage, conversationId: string | null): Promise<void> {
   const waId = message.from_user_id;
   const firstContactText = message.type === "text" ? message.text?.body : undefined;
-  const fresh = { state: "main_menu", slots: {}, counters: {} };
+  const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "whatsapp" as const };
 
   await traceTurn(
     waId,
@@ -41,7 +42,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
               level: "warn",
               detail: { action: verdict.action, state: "first_contact" },
             })
-          : handleFirstContact(firstContactText);
+          : handleFirstContact(firstContactText, "whatsapp");
 
       for (const note of first.notes ?? []) trace.note(note);
       await saveSession(waId, first.session);

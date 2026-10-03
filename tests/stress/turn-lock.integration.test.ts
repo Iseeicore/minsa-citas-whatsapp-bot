@@ -30,10 +30,11 @@ vi.mock("@/lib/fsm/session/session-store", () => {
     },
   };
 });
-
 import { createRunTurn, runTurn, runTurnUnlocked } from "@/lib/fsm/core/executor";
 import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
 import { createPrismaAdvisoryLock, type AdvisoryLockClient } from "@/lib/fsm/session/turn-lock-db";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const text = (waId: string, value: string) => ({ from: waId, type: "text" as const, text: value });
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -174,14 +175,14 @@ describe("two server instances sharing one Postgres", () => {
     const b = instance(postgres);
     db.sessions.set("wa-otp", {
       state: "cita_awaiting_otp",
-      slots: { citaTwofaId: "fake-twofa-12345678", citaDniPending: "12345678" },
+      slots: { [SlotKey.CITA_TWOFA_ID]: "fake-twofa-12345678", [SlotKey.CITA_DNI_PENDING]: "12345678" },
       counters: {},
     });
 
     await Promise.all([a("wa-otp", text("wa-otp", "0000")), b("wa-otp", text("wa-otp", "1111"))]);
 
     const final = db.sessions.get("wa-otp") as Session;
-    expect(final.counters.citaOtpAttempts).toBe(2);
+    expect(final.counters[CounterKey.CITA_OTP_ATTEMPTS]).toBe(2);
     expect(final.state).toBe("cita_awaiting_otp");
   }, 30_000);
 
@@ -193,11 +194,11 @@ describe("two server instances sharing one Postgres", () => {
     for (let run = 0; run < 6; run++) {
       db.sessions.set("wa-otp-l1", {
         state: "cita_awaiting_otp",
-        slots: { citaTwofaId: "fake-twofa-12345678", citaDniPending: "12345678" },
+        slots: { [SlotKey.CITA_TWOFA_ID]: "fake-twofa-12345678", [SlotKey.CITA_DNI_PENDING]: "12345678" },
         counters: {},
       });
       await Promise.all([a("wa-otp-l1", text("wa-otp-l1", "0000")), b("wa-otp-l1", text("wa-otp-l1", "1111"))]);
-      if (((db.sessions.get("wa-otp-l1") as Session).counters.citaOtpAttempts ?? 0) < 2) lost++;
+      if (((db.sessions.get("wa-otp-l1") as Session).counters[CounterKey.CITA_OTP_ATTEMPTS] ?? 0) < 2) lost++;
     }
 
     expect(lost).toBeGreaterThan(0);
@@ -219,7 +220,7 @@ describe("two server instances sharing one Postgres", () => {
     await first;
 
     const final = db.sessions.get("wa-timeout") as Session;
-    expect(final.slots.citaDniPending).toBe("12345678");
+    expect(final.slots[SlotKey.CITA_DNI_PENDING]).toBe("12345678");
   }, 30_000);
 
   it("a turn that throws releases the lock, so the next one is not stuck", async () => {

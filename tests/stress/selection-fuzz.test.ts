@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection-matchers";
-import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
+import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { createRandom, pick } from "@/tests/support/prng";
-
+import { SlotKey } from "@/lib/enums/slot-key";
+
 const FROM = "sandbox-fuzz";
 
 const list = (text: string, rows: Array<[string, string, string?]>): OfferedList => ({
@@ -39,7 +40,7 @@ const distritos = list("Encontramos varias opciones. ¿Cuál es tu distrito?", [
 ]);
 
 type StepSpec = {
-  state: string;
+  state: Session["state"];
   offered: OfferedList;
   idChecks: Record<string, string>;
 };
@@ -59,14 +60,14 @@ function sessionFor(step: StepSpec): Session {
   return {
     state: step.state,
     slots: {
-      citaBearer: "token",
-      citaUbigeo: "150101",
-      citaCodEess: "0000123",
-      citaEspecialidadId: "02",
-      citaFecha: "22/09/2026",
-      citaDni: "12345678",
-      citaOffered: serializeOffered(step.offered),
-      citaHorasDia: packHoraSlots([
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_UBIGEO]: "150101",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "22/09/2026",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_OFFERED]: serializeOffered(step.offered),
+      [SlotKey.CITA_HORAS_DIA]: packHoraSlots([
         { start: "08:00", end: "08:30", cupos: 1 },
         { start: "13:00", end: "13:30", cupos: 1 },
       ]),

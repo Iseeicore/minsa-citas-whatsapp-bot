@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { extractCitaHints } from "@/lib/fsm/flows/cita/cita-hints";
+import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
 

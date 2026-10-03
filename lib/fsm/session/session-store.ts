@@ -2,11 +2,12 @@ import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import type { Session } from "@/lib/fsm/core/types";
 import { createMemorySessionStore } from "@/lib/fsm/session/memory-session-store";
+import { SessionState } from "@/lib/enums/session-state";
 
 const memory = createMemorySessionStore();
 
 function defaultSession(): Session {
-  return { state: "main_menu", slots: {}, counters: {} };
+  return { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
 }
 
 export async function getSession(from: string): Promise<Session> {
@@ -16,7 +17,8 @@ export async function getSession(from: string): Promise<Session> {
   if (!row) return defaultSession();
 
   return {
-    state: row.state,
+    // Frontera de persistencia: la BD guarda texto libre; un estado desconocido se trata igual que antes (handle lanza).
+    state: row.state as Session["state"],
     slots: row.slots as Session["slots"],
     counters: row.counters as Session["counters"],
     updatedAt: row.updatedAt,

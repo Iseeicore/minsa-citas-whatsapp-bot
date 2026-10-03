@@ -16,6 +16,8 @@ import { IconButton } from "@/app/components/ui/IconButton";
 import { Badge } from "@/app/components/ui/Badge";
 import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
+import { ConversationStatus } from "@/lib/enums/conversation-status";
+import { MessageDirection } from "@/lib/enums/message-direction";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -33,7 +35,7 @@ export default function ConversationView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [windowOpen, setWindowOpen] = useState(true);
   const [windowExpiresAt, setWindowExpiresAt] = useState<string | null>(null);
-  const [status, setStatus] = useState<"OPEN" | "CLOSED">("OPEN");
+  const [status, setStatus] = useState<ConversationStatus>(ConversationStatus.OPEN);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export default function ConversationView({
           messages: Message[];
           windowOpen: boolean;
           windowExpiresAt: string | null;
-          status: "OPEN" | "CLOSED";
+          status: ConversationStatus;
         };
         if (!cancelled) {
           setMessages(data.messages);
@@ -117,7 +119,7 @@ export default function ConversationView({
         return;
       }
 
-      setStatus("CLOSED");
+      setStatus(ConversationStatus.CLOSED);
     } catch {
       setCloseError("No se pudo cerrar la conversación.");
     } finally {
@@ -149,7 +151,7 @@ export default function ConversationView({
           <div className="truncate text-xs text-white/80">Cuenta oficial</div>
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
-          {status === "OPEN" ? (
+          {status === ConversationStatus.OPEN ? (
             <button
               type="button"
               onClick={handleClose}
@@ -170,12 +172,12 @@ export default function ConversationView({
           <div
             key={message.id}
             className={`mb-2 flex ${
-              message.direction === "OUTBOUND" ? "justify-end" : "justify-start"
+              message.direction === MessageDirection.OUTBOUND ? "justify-end" : "justify-start"
             }`}
           >
             <div
               className={`max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${
-                message.direction === "OUTBOUND"
+                message.direction === MessageDirection.OUTBOUND
                   ? "rounded-tr-none bg-wa-bubble-out text-gray-900"
                   : "rounded-tl-none bg-wa-bubble-in text-gray-900"
               }`}
@@ -188,7 +190,9 @@ export default function ConversationView({
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
-                {message.direction === "OUTBOUND" && <ReadTicksIcon status={message.status} />}
+                {message.direction === MessageDirection.OUTBOUND && (
+                  <ReadTicksIcon status={message.status} />
+                )}
               </div>
             </div>
           </div>
@@ -206,13 +210,13 @@ export default function ConversationView({
         </div>
       )}
 
-      {status === "CLOSED" && (
+      {status === ConversationStatus.CLOSED && (
         <div className="border-t border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
           Esta conversación está cerrada.
         </div>
       )}
 
-      {status === "OPEN" && !windowOpen && (
+      {status === ConversationStatus.OPEN && !windowOpen && (
         <div className="border-t border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
           La ventana de 24 horas está cerrada — envía un mensaje de plantilla aprobado en lugar de
           texto libre.
@@ -233,9 +237,9 @@ export default function ConversationView({
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSend();
             }}
-            disabled={status === "CLOSED" || !windowOpen || sending}
+            disabled={status === ConversationStatus.CLOSED || !windowOpen || sending}
             placeholder={
-              status === "CLOSED"
+              status === ConversationStatus.CLOSED
                 ? "Conversación cerrada"
                 : windowOpen
                   ? "Escribe un mensaje"
@@ -250,7 +254,7 @@ export default function ConversationView({
           variant="solid"
           icon={<SendIcon className="h-5 w-5" />}
           onClick={handleSend}
-          disabled={status === "CLOSED" || !windowOpen || sending || !text.trim()}
+          disabled={status === ConversationStatus.CLOSED || !windowOpen || sending || !text.trim()}
           ariaLabel="Enviar mensaje"
           size="h-10 w-10"
           toneClassName="bg-wa-accent"

@@ -1,18 +1,10 @@
 import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
+import { OosCategory } from "@/lib/enums/oos-category";
 
-export type OosCategory =
-  | "OOS-01"
-  | "OOS-02"
-  | "OOS-03"
-  | "OOS-04"
-  | "OOS-05"
-  | "OOS-06"
-  | "OOS-07"
-  | "OOS-08"
-  | "OOS-09";
+export type { OosCategory };
 
 export const OOS_MESSAGES: Record<OosCategory, string> = {
-  "OOS-01": `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS
+  [OosCategory.OOS_01]: `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS
 
 Si usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato (llamadas gratuitas):
 

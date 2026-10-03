@@ -1,8 +1,8 @@
 import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
-import { postWithBearer } from "@/lib/integrations/minsa/wire";
+import { minsaDigitalAppUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
-const BOOKING_ENDPOINT = "/whatsapp/api/v1/appointments";
 const BOOKING_LOG_BODY_LIMIT = 300;
 
 function minsaMessageOf(body: string): string | undefined {
@@ -16,7 +16,7 @@ function minsaMessageOf(body: string): string | undefined {
 
 function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
   logger.error("minsa.book_appointment.failed", {
-    endpoint: BOOKING_ENDPOINT,
+    endpoint: MinsaEndpoint.CITAS,
     status: httpStatus,
     minsaMessage: minsaMessageOf(body),
     response: body.slice(0, BOOKING_LOG_BODY_LIMIT),
@@ -33,9 +33,9 @@ export async function bookAppointment(
   params: BookAppointmentParams,
   bearer: string,
 ): Promise<BookAppointmentResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
+  if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
-      BOOKING_ENDPOINT,
+      MinsaEndpoint.CITAS,
       {
         codigo_renipress: params.codigoRenipress,
         codigo_ups: params.codigoUps,
@@ -75,7 +75,7 @@ export async function bookAppointment(
 
   return {
     status: "booked",
-    url: "https://dminsadigital.minsa.gob.pe/citas/confirmacion/FAKE123",
+    url: `${minsaDigitalAppUrl()}/citas/confirmacion/FAKE123`,
     message: "Cita registrada correctamente",
   };
 }

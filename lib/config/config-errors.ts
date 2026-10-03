@@ -1,19 +1,24 @@
 import { isRegisteredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { logger } from "@/lib/observability/logger";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
+import { ConfigErrorCode } from "@/lib/enums/config-error-code";
 
 export const CONFIG_ERRORS = {
-  AI_PROVIDER_UNKNOWN: {
+  [ConfigErrorCode.AI_PROVIDER_UNKNOWN]: {
     severity: "error",
     message: "AI_PROVIDER no corresponde a ningún proveedor registrado; la IA queda desactivada y se usan los respaldos fijos.",
   },
-  SANDBOX_ORIGIN_INVALID: {
+  [ConfigErrorCode.SANDBOX_ORIGIN_INVALID]: {
     severity: "warn",
     message: "Una entrada de SANDBOX_ALLOWED_ORIGINS no es una URL (falta https://) y se ignora.",
   },
-} as const satisfies Record<string, { severity: "warn" | "error"; message: string }>;
+  [ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING]: {
+    severity: "warn",
+    message: "MINSA_DIGITAL_APP_URL no está configurada: el botón «Continuar mi cita» del mensaje de bienvenida de WhatsApp se reemplaza por el menú principal.",
+  },
+} as const satisfies Record<ConfigErrorCode, { severity: "warn" | "error"; message: string }>;
 
-export type ConfigErrorCode = keyof typeof CONFIG_ERRORS;
+export type { ConfigErrorCode };
 
 export type ConfigIssue = { code: ConfigErrorCode; value: string; message: string };
 
@@ -26,9 +31,11 @@ export function checkConfig(env: Env = process.env): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
 
   const provider = env.AI_PROVIDER;
-  if (provider && !isRegisteredLlmProvider(provider)) issues.push(issue("AI_PROVIDER_UNKNOWN", provider));
+  if (provider && !isRegisteredLlmProvider(provider)) issues.push(issue(ConfigErrorCode.AI_PROVIDER_UNKNOWN, provider));
 
-  for (const entry of parseAllowedOrigins(env.SANDBOX_ALLOWED_ORIGINS).invalid) issues.push(issue("SANDBOX_ORIGIN_INVALID", entry));
+  for (const entry of parseAllowedOrigins(env.SANDBOX_ALLOWED_ORIGINS).invalid) issues.push(issue(ConfigErrorCode.SANDBOX_ORIGIN_INVALID, entry));
+
+  if (!env.MINSA_DIGITAL_APP_URL) issues.push(issue(ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING, env.MINSA_DIGITAL_APP_URL ?? ""));
 
   return issues;
 }

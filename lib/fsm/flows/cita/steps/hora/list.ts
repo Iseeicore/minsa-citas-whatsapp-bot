@@ -1,11 +1,16 @@
 import { searchFailureText } from "@/lib/fsm/core/failure-texts";
-import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/other-fecha";
+import { SearchSubject } from "@/lib/enums/search-subject";
+import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
+import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { buildResult, cloneSession, offerList, sendText, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
-import { packHoraSlots } from "@/lib/fsm/parsing/time-parser";
+import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { type HoraResultItem, formatHoraRange, HORA_PAGE_PREV_ID, HORA_PAGE_NEXT_ID, orderHorasFromNow } from "@/lib/fsm/flows/cita/steps/hora/format";
-import { beginReverification } from "@/lib/fsm/flows/cita/steps/reverification";
+import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { askHoraConfirmation } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
@@ -16,7 +21,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
   }
 
   if (items.length > 1) {
-    next.state = "cita_awaiting_hora_select";
+    next.state = SessionState.CITA_AWAITING_HORA_SELECT;
     const rows: ListRow[] = items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,
       title: truncateForRow(formatHoraRange(item.horaInicio, item.horaFin), WHATSAPP_ROW_TITLE_MAX),
@@ -28,7 +33,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
     return buildResult(next, [offerList(next, "Selecciona el horario:", rows)]);
   }
 
-  return offerOtherFecha(next, "no_horarios");
+  return offerOtherFecha(next, OfferOtherFechaReason.NO_HORARIOS);
 }
 
 function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: number): HandlerResult {
@@ -38,7 +43,7 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
   const result = resolveHoraCandidates(session, pageItems);
   if (pageItems.length <= 1) return result;
 
-  result.session.slots.citaHorasDia = packHoraSlots(
+  result.session.slots[SlotKey.CITA_HORAS_DIA] = packHoraSlots(
     orderedItems.map((item) => ({ start: item.horaInicio, end: item.horaFin, cupos: item.cantidadCupos })),
   );
 
@@ -46,7 +51,7 @@ function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: n
   const hasPrev = page > 0;
   if (!hasNext && !hasPrev) return result;
 
-  result.session.counters.citaHoraPage = page;
+  result.session.counters[CounterKey.CITA_HORA_PAGE] = page;
   const navButtons = [
     ...(hasPrev ? [{ id: HORA_PAGE_PREV_ID, title: "Horarios anteriores" }] : []),
     ...(hasNext ? [{ id: HORA_PAGE_NEXT_ID, title: "Ver más horarios" }] : []),
@@ -59,20 +64,20 @@ export function handleHoraPending(session: Session, event: QueryResultEvent): Ha
   const result = event.result as { status: string; items?: HoraResultItem[] };
 
   if (result.status === "unauthorized") {
-    return beginReverification(session, "cita_hora_pending");
+    return beginReverification(session, SessionState.CITA_HORA_PENDING);
   }
 
   if (result.status === "error") {
     const next = cloneSession(session);
-    next.state = "cita_booking_rejected";
+    next.state = SessionState.CITA_BOOKING_REJECTED;
     return buildResult(next, [
       sendText(
-        searchFailureText("horarios"),
+        searchFailureText(SearchSubject.HORARIOS),
       ),
     ]);
   }
 
-  const ordered = orderHorasFromNow(String(session.slots.citaFecha ?? ""), result.items ?? []);
+  const ordered = orderHorasFromNow(String(session.slots[SlotKey.CITA_FECHA] ?? ""), result.items ?? []);
   return buildHoraPage(session, ordered, 0);
 }
 
@@ -80,20 +85,20 @@ export function handleHoraPagePending(session: Session, event: QueryResultEvent)
   const result = event.result as { status: string; items?: HoraResultItem[] };
 
   if (result.status === "unauthorized") {
-    return beginReverification(session, "cita_hora_pending");
+    return beginReverification(session, SessionState.CITA_HORA_PENDING);
   }
 
   if (result.status === "error") {
     const next = cloneSession(session);
-    next.state = "cita_booking_rejected";
+    next.state = SessionState.CITA_BOOKING_REJECTED;
     return buildResult(next, [
       sendText(
-        searchFailureText("horarios"),
+        searchFailureText(SearchSubject.HORARIOS),
       ),
     ]);
   }
 
-  const ordered = orderHorasFromNow(String(session.slots.citaFecha ?? ""), result.items ?? []);
-  const page = session.counters.citaHoraPage ?? 0;
+  const ordered = orderHorasFromNow(String(session.slots[SlotKey.CITA_FECHA] ?? ""), result.items ?? []);
+  const page = session.counters[CounterKey.CITA_HORA_PAGE] ?? 0;
   return buildHoraPage(session, ordered, page);
 }

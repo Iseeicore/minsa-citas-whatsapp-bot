@@ -22,6 +22,7 @@ vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { POST } from "@/app/api/sandbox/route";
 import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 
 async function send(body: Record<string, unknown>) {
@@ -69,10 +70,11 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.runTurn).toHaveBeenCalledTimes(1);
   });
 
-  it("an ordinary first message is not filtered: it gets the welcome, and no menu on top of it", async () => {
+  it("an ordinary first message is not filtered: it gets the web welcome, and no menu on top of it", async () => {
     const { json } = await send({ type: "text", text: "Hola" });
 
-    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_cta_url"]);
+    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_text"]);
+    expect(json.sent[0].text).toContain("asistente virtual de MINSA Digital");
     expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
@@ -119,7 +121,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 describe("turn lock timeout", () => {
   it("answers 503 BUSY instead of replying from a stale session", async () => {
     mocks.sessionRowExists.mockResolvedValue(true);
-    mocks.runTurn.mockRejectedValueOnce(new TurnLockTimeoutError("sandbox-qa", "process"));
+    mocks.runTurn.mockRejectedValueOnce(new TurnLockTimeoutError("sandbox-qa", TurnLockLayer.PROCESS));
 
     const request = new NextRequest("http://localhost/api/sandbox", {
       method: "POST",
