@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "chatbot"]
+  schemas  = ["public", "catalogo", "chatbot"]
 }
 
 enum ConversationStatus {
@@ -97,5 +97,131 @@ model SesionConversacion {
 
   @@index([fechaModificacion], map: "ix_sesion_conversacion_fecha_modificacion")
   @@map("sesion_conversacion")
+  @@schema("chatbot")
+}
+
+model DireccionMensaje {
+  id                  Int      @id(map: "pk_direccion_mensaje") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_direccion_mensaje_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  mensajes Mensaje[]
+
+  @@map("direccion_mensaje")
+  @@schema("catalogo")
+}
+
+model TipoMensaje {
+  id                  Int      @id(map: "pk_tipo_mensaje") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_tipo_mensaje_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  mensajes Mensaje[]
+
+  @@map("tipo_mensaje")
+  @@schema("catalogo")
+}
+
+model EstadoMensaje {
+  id                  Int      @id(map: "pk_estado_mensaje") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_estado_mensaje_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  mensajes Mensaje[]
+
+  @@map("estado_mensaje")
+  @@schema("catalogo")
+}
+
+model EstadoConversacion {
+  id                  Int      @id(map: "pk_estado_conversacion") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_estado_conversacion_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  usuarios Usuario[]
+
+  @@map("estado_conversacion")
+  @@schema("catalogo")
+}
+
+model Usuario {
+  id                   String    @id(map: "pk_usuario") @default(dbgenerated("uuidv7()")) @db.Uuid
+  waId                 String    @unique(map: "uq_usuario_wa_id") @map("wa_id")
+  profileName          String?   @map("profile_name")
+  phoneNumber          String?   @map("phone_number")
+  dni                  String?
+  nombreCompleto       String?   @map("nombre_completo")
+  estadoConversacionId Int       @default(1) @map("estado_conversacion_id") @db.SmallInt
+  ultimoMensajeEn      DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(3)
+  activo               Boolean   @default(true)
+  eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor         String?   @map("eliminado_por")
+  versionFila          Int       @default(1) @map("version_fila")
+  fechaCreacion        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  estadoConversacion EstadoConversacion  @relation(fields: [estadoConversacionId], references: [id], map: "fk_usuario_estado_conversacion")
+  mensajes           Mensaje[]
+
+  @@index([dni], map: "ix_usuario_dni")
+  @@index([ultimoMensajeEn], map: "ix_usuario_ultimo_mensaje_en")
+  @@map("usuario")
+  @@schema("chatbot")
+}
+
+model Mensaje {
+  id                  String   @id(map: "pk_mensaje") @default(dbgenerated("uuidv7()")) @db.Uuid
+  usuarioId           String   @map("usuario_id") @db.Uuid
+  direccionMensajeId  Int      @map("direccion_mensaje_id") @db.SmallInt
+  tipoMensajeId       Int      @map("tipo_mensaje_id") @db.SmallInt
+  contenido           String?
+  mediaId             String?  @map("media_id")
+  waMessageId         String?  @unique(map: "uq_mensaje_wa_message_id") @map("wa_message_id")
+  estadoMensajeId     Int      @default(1) @map("estado_mensaje_id") @db.SmallInt
+  fechaHora           DateTime @map("fecha_hora") @db.Timestamptz(3)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  usuario          Usuario             @relation(fields: [usuarioId], references: [id], map: "fk_mensaje_usuario")
+  direccionMensaje DireccionMensaje    @relation(fields: [direccionMensajeId], references: [id], map: "fk_mensaje_direccion_mensaje")
+  tipoMensaje      TipoMensaje         @relation(fields: [tipoMensajeId], references: [id], map: "fk_mensaje_tipo_mensaje")
+  estadoMensaje    EstadoMensaje       @relation(fields: [estadoMensajeId], references: [id], map: "fk_mensaje_estado_mensaje")
+
+  @@index([usuarioId, fechaHora], map: "ix_mensaje_usuario_fecha_hora")
+  @@index([fechaHora], type: Brin, map: "ix_mensaje_fecha_hora_brin")
+  @@map("mensaje")
   @@schema("chatbot")
 }
