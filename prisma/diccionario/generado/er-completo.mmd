@@ -19,6 +19,8 @@ erDiagram
     incidencia_paciente ||--o{ solicitud_carga : "incidencia_paciente_id"
     usuario ||--o{ solicitud_carga : "usuario_id"
     estado_conversacion ||--o{ usuario : "estado_conversacion_id"
+    categoria_incidencia ||--o{ rol_categoria : "categoria_incidencia_id"
+    rol ||--o{ rol_categoria : "rol_id"
     rol ||--o{ usuario_rol : "rol_id"
     usuario_interno ||--o{ usuario_rol : "usuario_interno_id"
     categoria_incidencia ||--o{ entrenamiento_categoria : "categoria_final_id"
@@ -39,6 +41,7 @@ erDiagram
         text nombre
         text descripcion
         boolean activo
+        boolean es_sensible
         bloque auditoria
     }
     direccion_mensaje {
@@ -215,6 +218,11 @@ erDiagram
         text nombre
         text descripcion
         boolean activo
+        bloque auditoria
+    }
+    rol_categoria {
+        smallint rol_id PK, FK
+        smallint categoria_incidencia_id PK, FK
         bloque auditoria
     }
     usuario_interno {

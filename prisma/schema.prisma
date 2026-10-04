@@ -13,6 +13,7 @@ model CategoriaIncidencia {
   codigo              String   @unique(map: "uq_categoria_incidencia_codigo")
   nombre              String
   descripcion         String?
+  esSensible          Boolean  @default(false) @map("es_sensible")
   activo              Boolean  @default(true)
   versionFila         Int      @default(1) @map("version_fila")
   fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
@@ -20,6 +21,7 @@ model CategoriaIncidencia {
   fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
+  roles               RolCategoria[]
   incidencias         IncidenciaPaciente[]     @relation("IncidenciaCategoria")
   incidenciasIa       IncidenciaPaciente[]     @relation("IncidenciaCategoriaIa")
   entrenamientosIa    EntrenamientoCategoria[] @relation("EntrenamientoCategoriaIa")
@@ -374,7 +376,8 @@ model Rol {
   fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  usuarios UsuarioRol[]
+  usuarios   UsuarioRol[]
+  categorias RolCategoria[]
 
   @@map("rol")
   @@schema("gestion")
@@ -462,4 +465,18 @@ model ArchivoRecibido {
   @@index([solicitudCargaId, estadoArchivoId], map: "ix_archivo_recibido_solicitud_estado")
   @@map("archivo_recibido")
   @@schema("chatbot")
+}
+
+model RolCategoria {
+  rolId                Int      @map("rol_id") @db.SmallInt
+  categoriaIncidenciaId Int     @map("categoria_incidencia_id") @db.SmallInt
+  fechaCreacion        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+
+  rol                 Rol                 @relation(fields: [rolId], references: [id], map: "fk_rol_categoria_rol")
+  categoriaIncidencia CategoriaIncidencia @relation(fields: [categoriaIncidenciaId], references: [id], map: "fk_rol_categoria_categoria_incidencia")
+
+  @@id([rolId, categoriaIncidenciaId], map: "pk_rol_categoria")
+  @@map("rol_categoria")
+  @@schema("gestion")
 }

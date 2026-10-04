@@ -24,11 +24,13 @@
   },
   "tablas": {
     "catalogo.categoria_incidencia": {
-      "descripcion": "Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja o reclamo. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.",
-      "columnas": {}
+      "descripcion": "Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). Marca cuáles son sensibles. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.",
+      "columnas": {
+        "es_sensible": "Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por el área competente y siempre pasa por revisión humana."
+      }
     },
     "catalogo.estado_incidencia": {
-      "descripcion": "Estados por los que pasa una incidencia de paciente. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.",
+      "descripcion": "Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta). Anulado está retirado: anular es el borrado lógico. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.",
       "columnas": {}
     },
     "catalogo.canal_origen": {
@@ -91,7 +93,7 @@
         "dni_reclamante": "DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo.",
         "nombre_reclamante": "Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo.",
         "descripcion": "Relato del paciente. Es el texto que analiza la IA. No se puede modificar.",
-        "estado_incidencia_id": "Estado actual del reporte. Nace en REGISTRADO.",
+        "estado_incidencia_id": "Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas (por ejemplo, ARCHIVADO solo desde RESUELTO). Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría.",
         "trace_id": "Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte.",
         "categoria_id": "Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida.",
         "categoria_ia_id": "Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo.",
@@ -166,7 +168,7 @@
       }
     },
     "gestion.rol": {
-      "descripcion": "Rol que puede tener un usuario interno. Es la única plataforma con roles.",
+      "descripcion": "Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.",
       "columnas": {}
     },
     "gestion.usuario_rol": {
@@ -207,6 +209,13 @@
         "verificado_en": "Fecha y hora (UTC) en que el archivo llegó a un estado final (verificado o rechazado). La llena la base.",
         "evidencia_id": "Evidencia definitiva a la que se promovió el archivo verificado. Se enlaza una sola vez y es única."
       }
+    },
+    "gestion.rol_categoria": {
+      "descripcion": "Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su categoría (la de corrupción solo la ve su área, el administrador y el revisor); el gestor ve lo no sensible para derivarlo. Solo se inserta; la aplicación aplica la regla al listar.",
+      "columnas": {
+        "rol_id": "Rol al que se le permite ver la categoría.",
+        "categoria_incidencia_id": "Categoría de incidencia que el rol puede ver."
+      }
     }
   },
   "llaves_foraneas": {
@@ -234,14 +243,16 @@
     "fk_solicitud_carga_usuario": "Cada solicitud se emite a un usuario. Sirve para vincular el enlace con el ciudadano que escribió al bot.",
     "fk_archivo_recibido_solicitud_carga": "Cada archivo llegó por una solicitud de carga. Sirve para contar y listar los archivos de una solicitud.",
     "fk_archivo_recibido_estado_archivo": "Garantiza que el estado del archivo sea uno del catálogo. Sirve para distinguir lo recibido de lo verificado.",
-    "fk_archivo_recibido_evidencia": "Enlaza el archivo verificado con su evidencia definitiva. Sirve para rastrear de qué subida salió cada evidencia."
+    "fk_archivo_recibido_evidencia": "Enlaza el archivo verificado con su evidencia definitiva. Sirve para rastrear de qué subida salió cada evidencia.",
+    "fk_rol_categoria_rol": "Cada permiso pertenece a un rol. Sirve para saber qué categorías ve un rol.",
+    "fk_rol_categoria_categoria_incidencia": "Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría."
   },
   "disparadores_por_funcion": {
     "fn_auditoria_mutable": "Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.",
     "fn_auditoria_creacion": "Al insertar: llena la fecha y el usuario de creación.",
     "fn_fecha_modificacion": "Al modificar: actualiza la fecha de modificación.",
     "fn_bloquear_operacion": "Impide operaciones: en tablas de solo inserción bloquea modificar y borrar; en tablas con borrado lógico bloquea el borrado físico.",
-    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez.",
+    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez. Además lleva los estados: pasa a CLASIFICADO cuando la IA asigna la categoría, a RESUELTO cuando se registra la resolución, y rechaza transiciones no permitidas.",
     "fn_historial_incidencia": "Después de insertar o modificar, guarda el cambio en el historial.",
     "fn_replicar_categoria_entrenamiento": "Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.",
     "fn_reglas_solicitud_carga": "Hace cumplir las reglas de la solicitud de carga: los datos de emisión (incidencia, usuario, huella del token, vencimiento y límites) no cambian y la solicitud se cierra una sola vez, con la fecha de la base.",

@@ -23,7 +23,8 @@ COMMENT ON COLUMN catalogo.categoria_incidencia.fecha_creacion IS 'Fecha y hora 
 COMMENT ON COLUMN catalogo.categoria_incidencia.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN catalogo.categoria_incidencia.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.categoria_incidencia.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON TABLE catalogo.categoria_incidencia IS 'Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja o reclamo. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.';
+COMMENT ON COLUMN catalogo.categoria_incidencia.es_sensible IS 'Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por el área competente y siempre pasa por revisión humana.';
+COMMENT ON TABLE catalogo.categoria_incidencia IS 'Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). Marca cuáles son sensibles. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.';
 COMMENT ON COLUMN catalogo.direccion_mensaje.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.direccion_mensaje.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.direccion_mensaje.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -67,7 +68,7 @@ COMMENT ON COLUMN catalogo.estado_incidencia.fecha_creacion IS 'Fecha y hora (UT
 COMMENT ON COLUMN catalogo.estado_incidencia.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN catalogo.estado_incidencia.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.estado_incidencia.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON TABLE catalogo.estado_incidencia IS 'Estados por los que pasa una incidencia de paciente. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.';
+COMMENT ON TABLE catalogo.estado_incidencia IS 'Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta). Anulado está retirado: anular es el borrado lógico. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.';
 COMMENT ON COLUMN catalogo.estado_mensaje.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.estado_mensaje.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.estado_mensaje.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -152,7 +153,7 @@ COMMENT ON COLUMN chatbot.incidencia_paciente.es_anonimo IS 'Verdadero si el pac
 COMMENT ON COLUMN chatbot.incidencia_paciente.dni_reclamante IS 'DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.nombre_reclamante IS 'Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.descripcion IS 'Relato del paciente. Es el texto que analiza la IA. No se puede modificar.';
-COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual del reporte. Nace en REGISTRADO.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas (por ejemplo, ARCHIVADO solo desde RESUELTO). Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.trace_id IS 'Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.categoria_id IS 'Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.categoria_ia_id IS 'Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo.';
@@ -271,7 +272,16 @@ COMMENT ON COLUMN gestion.rol.fecha_creacion IS 'Fecha y hora (UTC) en que se in
 COMMENT ON COLUMN gestion.rol.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN gestion.rol.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN gestion.rol.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON TABLE gestion.rol IS 'Rol que puede tener un usuario interno. Es la única plataforma con roles.';
+COMMENT ON TABLE gestion.rol IS 'Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.';
+COMMENT ON COLUMN gestion.rol_categoria.rol_id IS 'Rol al que se le permite ver la categoría.';
+COMMENT ON COLUMN gestion.rol_categoria.categoria_incidencia_id IS 'Categoría de incidencia que el rol puede ver.';
+COMMENT ON COLUMN gestion.rol_categoria.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN gestion.rol_categoria.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON TABLE gestion.rol_categoria IS 'Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su categoría (la de corrupción solo la ve su área, el administrador y el revisor); el gestor ve lo no sensible para derivarlo. Solo se inserta; la aplicación aplica la regla al listar.
+
+Relaciones:
+- categoria_incidencia_id → catalogo.categoria_incidencia: Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría.
+- rol_id → gestion.rol: Cada permiso pertenece a un rol. Sirve para saber qué categorías ve un rol.';
 COMMENT ON COLUMN gestion.usuario_interno.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 COMMENT ON COLUMN gestion.usuario_interno.nombre_completo IS 'Nombre completo de la persona.';
 COMMENT ON COLUMN gestion.usuario_interno.correo IS 'Correo institucional. Es único.';

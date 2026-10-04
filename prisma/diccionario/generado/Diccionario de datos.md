@@ -17,11 +17,11 @@
 | Tabla | Descripción |
 |---|---|
 | `catalogo.canal_origen` | Canal por el que llegó la incidencia (WhatsApp o web). |
-| `catalogo.categoria_incidencia` | Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja o reclamo. |
+| `catalogo.categoria_incidencia` | Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). |
 | `catalogo.direccion_mensaje` | Sentido de un mensaje: entrante (del ciudadano al bot) o saliente (del bot al ciudadano). |
 | `catalogo.estado_archivo` | Estados por los que pasa un archivo subido por el ciudadano: recibido, verificando, verificado o rechazado. |
 | `catalogo.estado_conversacion` | Si la conversación con un usuario está abierta o cerrada. |
-| `catalogo.estado_incidencia` | Estados por los que pasa una incidencia de paciente. |
+| `catalogo.estado_incidencia` | Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta). |
 | `catalogo.estado_mensaje` | Estado de entrega de un mensaje enviado por WhatsApp (pendiente, enviado, entregado, leído, fallido). |
 | `catalogo.tipo_evidencia` | Tipo de archivo adjunto como evidencia (imagen, video, documento, audio). |
 | `catalogo.tipo_mensaje` | Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla). |
@@ -33,7 +33,8 @@
 | `chatbot.sesion_conversacion` | Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). |
 | `chatbot.solicitud_carga` | Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. |
 | `chatbot.usuario` | Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. |
-| `gestion.rol` | Rol que puede tener un usuario interno. |
+| `gestion.rol` | Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). |
+| `gestion.rol_categoria` | Qué categorías de incidencia puede ver cada rol. |
 | `gestion.usuario_interno` | Persona de la institución que gestiona los casos. |
 | `gestion.usuario_rol` | Relación entre usuarios internos y roles: un usuario puede tener varios roles y un rol lo tienen varios usuarios. |
 | `ia.entrenamiento_categoria` | Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. |
@@ -64,7 +65,7 @@ Canal por el que llegó la incidencia (WhatsApp o web). Permite unificar canales
 
 ### `catalogo.categoria_incidencia`
 
-Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja o reclamo. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.
+Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). Marca cuáles son sensibles. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.
 
 **Columnas**
 
@@ -80,6 +81,7 @@ Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupci
 | `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
 | `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
 | `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
+| `es_sensible` | boolean | No | `false` |  | Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por el área competente y siempre pasa por revisión humana. |
 
 **Reglas que aplica la base (disparadores)**
 
@@ -160,7 +162,7 @@ Si la conversación con un usuario está abierta o cerrada.
 
 ### `catalogo.estado_incidencia`
 
-Estados por los que pasa una incidencia de paciente. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.
+Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta). Anulado está retirado: anular es el borrado lógico. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.
 
 **Columnas**
 
@@ -367,7 +369,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `dni_reclamante` | text | Sí |  |  | DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo. |
 | `nombre_reclamante` | text | Sí |  |  | Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo. |
 | `descripcion` | text | No |  |  | Relato del paciente. Es el texto que analiza la IA. No se puede modificar. |
-| `estado_incidencia_id` | smallint | No | `1` | FK | Estado actual del reporte. Nace en REGISTRADO. |
+| `estado_incidencia_id` | smallint | No | `1` | FK | Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas (por ejemplo, ARCHIVADO solo desde RESUELTO). Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría. |
 | `trace_id` | text | No |  |  | Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte. |
 | `categoria_id` | smallint | Sí |  | FK | Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida. |
 | `categoria_ia_id` | smallint | Sí |  | FK | Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo. |
@@ -406,6 +408,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 - `ck_incidencia_paciente_anonimo`: `CHECK (((NOT es_anonimo) OR ((dni_reclamante IS NULL) AND (nombre_reclamante IS NULL))))`.
 - `ck_incidencia_paciente_confianza`: `CHECK (((categoria_confianza IS NULL) OR ((categoria_confianza >= (0)::numeric) AND (categoria_confianza <= (100)::numeric))))`.
 - `ck_incidencia_paciente_eliminacion`: `CHECK (((activo AND (eliminado_en IS NULL) AND (eliminado_por IS NULL)) OR ((NOT activo) AND (eliminado_en IS NOT NULL) AND (eliminado_por IS NOT NULL))))`.
+- `ck_incidencia_paciente_estado`: `CHECK (((estado_incidencia_id = ANY (ARRAY[1, 4, 5, 7])) OR (categoria_ia_id IS NOT NULL)))`.
 - `ck_incidencia_paciente_resolucion`: `CHECK ((((resolucion IS NULL) = (resuelto_en IS NULL)) AND ((resolucion IS NULL) = (resuelto_por IS NULL))))`.
 - `ck_incidencia_paciente_revision`: `CHECK ((((categoria_confirmada_en IS NULL) = (categoria_confirmada_por IS NULL)) AND ((categoria_confirmada_en IS NULL) OR (categoria_corregida_en IS NULL))))`.
 
@@ -419,7 +422,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 
 **Reglas que aplica la base (disparadores)**
 
-- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez.
+- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez. Además lleva los estados: pasa a CLASIFICADO cuando la IA asigna la categoría, a RESUELTO cuando se registra la resolución, y rechaza transiciones no permitidas.
 - `trg_incidencia_paciente_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
@@ -621,7 +624,7 @@ Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. R
 
 ### `gestion.rol`
 
-Rol que puede tener un usuario interno. Es la única plataforma con roles.
+Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
 
 **Columnas**
 
@@ -642,6 +645,30 @@ Rol que puede tener un usuario interno. Es la única plataforma con roles.
 
 - `trg_rol_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_rol_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+
+### `gestion.rol_categoria`
+
+Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su categoría (la de corrupción solo la ve su área, el administrador y el revisor); el gestor ve lo no sensible para derivarlo. Solo se inserta; la aplicación aplica la regla al listar.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `rol_id` | smallint | No |  | PK, FK | Rol al que se le permite ver la categoría. |
+| `categoria_incidencia_id` | smallint | No |  | PK, FK | Categoría de incidencia que el rol puede ver. |
+| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
+| `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_rol_categoria_categoria_incidencia` | `categoria_incidencia_id` | `catalogo.categoria_incidencia` | Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría. |
+| `fk_rol_categoria_rol` | `rol_id` | `gestion.rol` | Cada permiso pertenece a un rol. Sirve para saber qué categorías ve un rol. |
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_rol_categoria_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
 
 ### `gestion.usuario_interno`
 
