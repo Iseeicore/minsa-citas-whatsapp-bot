@@ -12,6 +12,8 @@
     "test:gaps": "vitest run --mode strict-gaps",
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "smoke:postgres": "vitest run --config vitest.smoke.config.ts",
+    "db:test": "node scripts/db-test.mjs",
+    "db:diccionario": "node prisma/diccionario/generar.mjs",
     "postinstall": "prisma generate",
     "docker:up": "docker compose up -d --build --wait --wait-timeout 180",
     "docker:logs": "docker compose logs -f",

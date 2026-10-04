@@ -77,7 +77,7 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    npx prisma migrate deploy
    ```
 
-   La migración inicial crea cuatro esquemas (`catalogo`, `chatbot`, `gestion` e `ia`), las reglas y disparadores de auditoría, las semillas de los catálogos y la descripción de cada tabla y columna. El diseño completo vive en la documentación de la base de datos del proyecto.
+   La migración inicial crea cuatro esquemas (`catalogo`, `chatbot`, `gestion` e `ia`), las reglas y disparadores de auditoría, las semillas de los catálogos y la descripción de cada tabla y columna. Las reglas para versionar cambios de la base (migraciones nuevas, pruebas SQL y diccionario) están en [`prisma/README.md`](prisma/README.md).
 
 4. Levanta el servidor de desarrollo:
 
@@ -300,6 +300,8 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usa
 | `npm run test:perf` | Pruebas de rendimiento (latencia P99, heap, ReDoS). Corren solas, porque en paralelo con la suite sus límites de tiempo fallan sin motivo real |
 | `npm run test:gaps` | La suite en modo estricto para las brechas conocidas (`tests/support/known-gap.ts`) |
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
+| `npm run db:test` | Arma una base desechable solo con las migraciones y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
+| `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas de la base desde una base ya migrada |
 
 El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
 

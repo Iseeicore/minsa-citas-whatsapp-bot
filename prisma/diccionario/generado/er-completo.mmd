@@ -1,0 +1,246 @@
+erDiagram
+    estado_archivo ||--o{ archivo_recibido : "estado_archivo_id"
+    evidencia |o--o{ archivo_recibido : "evidencia_id"
+    solicitud_carga ||--o{ archivo_recibido : "solicitud_carga_id"
+    incidencia_paciente ||--o{ evidencia : "incidencia_paciente_id"
+    mensaje |o--o{ evidencia : "mensaje_id"
+    tipo_evidencia ||--o{ evidencia : "tipo_evidencia_id"
+    canal_origen ||--o{ incidencia_paciente : "canal_origen_id"
+    categoria_incidencia |o--o{ incidencia_paciente : "categoria_id"
+    categoria_incidencia |o--o{ incidencia_paciente : "categoria_ia_id"
+    estado_incidencia ||--o{ incidencia_paciente : "estado_incidencia_id"
+    mensaje |o--o{ incidencia_paciente : "mensaje_id"
+    usuario ||--o{ incidencia_paciente : "usuario_id"
+    incidencia_paciente ||--o{ incidencia_paciente_auditoria : "incidencia_paciente_id"
+    direccion_mensaje ||--o{ mensaje : "direccion_mensaje_id"
+    estado_mensaje ||--o{ mensaje : "estado_mensaje_id"
+    tipo_mensaje ||--o{ mensaje : "tipo_mensaje_id"
+    usuario ||--o{ mensaje : "usuario_id"
+    incidencia_paciente ||--o{ solicitud_carga : "incidencia_paciente_id"
+    usuario ||--o{ solicitud_carga : "usuario_id"
+    estado_conversacion ||--o{ usuario : "estado_conversacion_id"
+    rol ||--o{ usuario_rol : "rol_id"
+    usuario_interno ||--o{ usuario_rol : "usuario_interno_id"
+    categoria_incidencia ||--o{ entrenamiento_categoria : "categoria_final_id"
+    categoria_incidencia ||--o{ entrenamiento_categoria : "categoria_ia_id"
+    incidencia_paciente ||--o{ entrenamiento_categoria : "incidencia_paciente_id"
+
+    canal_origen {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    categoria_incidencia {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    direccion_mensaje {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    estado_archivo {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    estado_conversacion {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    estado_incidencia {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    estado_mensaje {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    tipo_evidencia {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    tipo_mensaje {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    archivo_recibido {
+        uuid id PK
+        uuid solicitud_carga_id FK
+        text nombre_original
+        text mime_declarado
+        text mime_detectado
+        bigint tamano
+        text hash_archivo
+        text ruta_cuarentena
+        smallint estado_archivo_id FK
+        text motivo_rechazo
+        timestamptz verificado_en
+        uuid evidencia_id FK
+        bloque auditoria
+    }
+    evidencia {
+        uuid id PK
+        uuid incidencia_paciente_id FK
+        uuid mensaje_id FK
+        text media_id
+        smallint tipo_evidencia_id FK
+        text mime_type
+        text nombre_archivo
+        int tamano
+        text ruta
+        text hash_archivo
+        timestamptz fecha_recepcion
+        bloque auditoria
+    }
+    incidencia_paciente {
+        uuid id PK
+        smallint canal_origen_id FK
+        uuid usuario_id FK
+        uuid mensaje_id FK
+        text wa_id
+        boolean es_anonimo
+        text dni_reclamante
+        text nombre_reclamante
+        text descripcion
+        smallint estado_incidencia_id FK
+        text trace_id
+        smallint categoria_id FK
+        smallint categoria_ia_id FK
+        numeric categoria_confianza
+        text version_clasificador
+        timestamptz categoria_asignada_en
+        timestamptz categoria_corregida_en
+        text categoria_corregida_por
+        timestamptz categoria_confirmada_en
+        text categoria_confirmada_por
+        text resolucion
+        timestamptz resuelto_en
+        text resuelto_por
+        boolean activo
+        timestamptz eliminado_en
+        text eliminado_por
+        bloque auditoria
+    }
+    incidencia_paciente_auditoria {
+        bigint id PK
+        uuid incidencia_paciente_id FK
+        varchar operacion
+        jsonb cambios
+        text actor
+        timestamptz fecha_hora
+        bloque auditoria
+    }
+    mensaje {
+        uuid id PK
+        uuid usuario_id FK
+        smallint direccion_mensaje_id FK
+        smallint tipo_mensaje_id FK
+        text contenido
+        text media_id
+        text wa_message_id
+        smallint estado_mensaje_id FK
+        timestamptz fecha_hora
+        bloque auditoria
+    }
+    sesion_conversacion {
+        uuid id PK
+        text wa_id
+        text estado
+        jsonb slots
+        jsonb contadores
+        bloque auditoria
+    }
+    solicitud_carga {
+        uuid id PK
+        uuid incidencia_paciente_id FK
+        uuid usuario_id FK
+        text hash_token
+        timestamptz vence_en
+        timestamptz cerrada_en
+        smallint max_archivos
+        int max_bytes_archivo
+        bloque auditoria
+    }
+    usuario {
+        uuid id PK
+        text wa_id
+        text profile_name
+        text phone_number
+        text dni
+        text nombre_completo
+        smallint estado_conversacion_id FK
+        timestamptz ultimo_mensaje_en
+        boolean activo
+        timestamptz eliminado_en
+        text eliminado_por
+        bloque auditoria
+    }
+    rol {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    usuario_interno {
+        uuid id PK
+        text nombre_completo
+        text correo
+        boolean activo
+        timestamptz eliminado_en
+        text eliminado_por
+        bloque auditoria
+    }
+    usuario_rol {
+        uuid usuario_interno_id PK, FK
+        smallint rol_id PK, FK
+        bloque auditoria
+    }
+    entrenamiento_categoria {
+        uuid id PK
+        uuid incidencia_paciente_id FK
+        text texto_entrenamiento
+        smallint categoria_ia_id FK
+        smallint categoria_final_id FK
+        boolean fue_corregida
+        numeric categoria_confianza
+        text version_clasificador
+        text revisado_por
+        timestamptz fecha_revision
+        bloque auditoria
+    }
