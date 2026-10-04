@@ -1,6 +1,6 @@
 # Bot de citas MINSA por WhatsApp
 
-Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra reclamos, deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + Neon, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
+Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra reclamos, deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
 
 ## Inicio rápido
 
@@ -70,7 +70,7 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    npm install
    ```
 
-2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de Neon y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía:** el `false` del bloque mínimo es para el servidor en Docker.
+2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de PostgreSQL y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía:** el `false` del bloque mínimo es para el servidor en Docker.
 3. Aplica el esquema a tu base de datos de desarrollo:
 
    ```bash
@@ -89,7 +89,7 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 
 | Aspecto | Con base de datos (por defecto, Vercel) | Sin base de datos (`DATABASE_ENABLED=false`, Docker) |
 |---|---|---|
-| ORM (Prisma) | Conectado a Neon | Nunca se instancia ni abre conexión; `DATABASE_URL` puede faltar |
+| ORM (Prisma) | Conectado a PostgreSQL | Nunca se instancia ni abre conexión; `DATABASE_URL` puede faltar |
 | Estado de cada conversación | Tabla `SandboxSession` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
 | Reentregas de Meta (no responder dos veces) | Índice único `waMessageId` | Lista en memoria de ids de mensaje, conservada 24 h |
 | Historial de mensajes y estados de entrega | Tablas `Conversation` y `Message` | No se guarda nada |
@@ -133,7 +133,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `DATABASE_ENABLED` | `false` = sin base de datos (servidor MINSA). Vacía = con base de datos (Vercel). Ver [Modos de persistencia](#modos-de-persistencia) |
-| `DATABASE_URL` | Cadena del pooler de Neon. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy`. No hace falta con `DATABASE_ENABLED=false` |
+| `DATABASE_URL` | Cadena de conexión a PostgreSQL. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy`. No hace falta con `DATABASE_ENABLED=false` |
 | `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
 
 **MINSA, RENIEC y quejas** (en `false`, el bot usa datos de prueba fijos)
@@ -235,7 +235,7 @@ lib/
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
 tests/
   lib/                       espejo exacto de lib/: cada x.ts de lib/ tiene su x.test.ts en la misma ruta bajo tests/lib/
-  security/, stress/, integration/, smoke/ (Neon real), support/   suites transversales, no colocalizadas
+  security/, stress/, integration/, smoke/ (PostgreSQL real), support/   suites transversales, no colocalizadas
 data/                        datos estáticos (distritos del Perú)
 prisma/                      esquema y migraciones
 scripts/  docs/              herramientas y documentación del proyecto
@@ -289,7 +289,7 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usa
 | `npm test` | Suite completa (unitarias, escenarios, seguridad, estrés) con almacenes en memoria y fakes; no necesita secretos ni base de datos, y fija `DATABASE_URL` vacío aunque el runner exporte uno (GitLab Auto DevOps lo hace) |
 | `npm run test:perf` | Pruebas de rendimiento (latencia P99, heap, ReDoS). Corren solas, porque en paralelo con la suite sus límites de tiempo fallan sin motivo real |
 | `npm run test:gaps` | La suite en modo estricto para las brechas conocidas (`tests/support/known-gap.ts`) |
-| `npm run smoke:neon` | Pruebas de humo contra una base Neon real |
+| `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
 
 El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
 

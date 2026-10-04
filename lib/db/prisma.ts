@@ -1,10 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 
 function createPrismaClient() {
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
-  return new PrismaClient({ adapter });
+  return new PrismaClient();
 }
 
 const globalForPrisma = globalThis as unknown as {
@@ -24,7 +22,7 @@ function getPrismaClient(): PrismaClient {
   return instance;
 }
 
-/** Cliente creado solo al primer uso y nunca con DATABASE_ENABLED=false; el adaptador de Neon usa un pool por WebSocket. */
+/** Cliente creado solo al primer uso y nunca con DATABASE_ENABLED=false; usa el motor por defecto de Prisma y su pool de conexiones. */
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, property) {
     const client = getPrismaClient();

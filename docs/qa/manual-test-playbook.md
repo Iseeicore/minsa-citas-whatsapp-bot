@@ -477,7 +477,7 @@ Si en 4.2a **no** aparece ningún `turn_lock.waited` con `layer: "process"`, no 
 
 ### 4.5 Comprobación opcional del candado en la base real
 
-`npm run smoke:neon` ejecuta una prueba de humo contra Neon: 4 peticiones del mismo ciudadano, 12 ciudadanos a la vez, el error real de tiempo de espera y la liberación. Solo toma candados y lee; no escribe en ninguna tabla.
+`npm run smoke:postgres` ejecuta una prueba de humo contra PostgreSQL: 4 peticiones del mismo ciudadano, 12 ciudadanos a la vez, el error real de tiempo de espera y la liberación. Solo toma candados y lee; no escribe en ninguna tabla.
 
 ---
 
