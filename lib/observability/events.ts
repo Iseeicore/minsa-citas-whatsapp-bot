@@ -21,6 +21,11 @@ export const LOG_EVENTS = [
   "whatsapp.send_failed",
   "whatsapp.typing_failed",
   "whatsapp.media_failed",
+  "incidencia.invalid_submission",
+  "incidencia.not_persisted",
+  "incidencia.media_not_stored",
+  "incidencia.media_upload_failed",
+  "incidencia.persist_failed",
   "sandbox.cors_invalid_origin",
   "config.invalid",
 ] as const;

@@ -106,13 +106,13 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
 | `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
-| `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC y quejas), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de reclamo, ajustes finos |
+| `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de reclamo, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
 > **El bloque mínimo está pensado para Docker.** Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
 
-- **Sin el bloque completo, el reclamo no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL`, `SANDBOX_USE_REAL_RENIEC=true` y `QUEJAS_API_BASE_URL` solo acepta el DNI de prueba y el envío falla.
+- **Sin el bloque completo, el reclamo no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) el reclamo no se puede guardar**: el bot responde que no pudo registrarlo.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
@@ -136,19 +136,26 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `DATABASE_URL` | Cadena de conexión a PostgreSQL. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy`. No hace falta con `DATABASE_ENABLED=false` |
 | `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
 
-**MINSA, RENIEC y quejas** (en `false`, el bot usa datos de prueba fijos)
+**MINSA y RENIEC** (en `false`, el bot usa datos de prueba fijos)
 
 | Variable | Uso |
 |---|---|
-| `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento) y API de quejas real. **La lee también el webhook real, no solo el Sandbox** |
+| `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento). **La lee también el webhook real, no solo el Sandbox** |
 | `CITA_ALLOWED_DEPARTAMENTOS` | Departamentos donde se agenda por este canal (alcance del piloto), separados por comas: `LIMA`, `LIMA,CALLAO`… Un distrito fuera de la lista recibe el enlace a MINSA Digital; aplica también al modo manual (departamento → provincia → distrito). **Vacía o sin definir = sin filtro (todo el Perú).** ⚠️ Vercel hoy no la tiene: agrega `CITA_ALLOWED_DEPARTAMENTOS=LIMA` **antes** de desplegar este cambio, o allí se desactiva el filtro |
 | `MINSA_API_HOST` | Host de la API del MINSA |
 | `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (DNI y OTP) |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
 | `MINSA_DIGITAL_APP_URL` | URL pública del portal de MINSA Digital: destino del botón **Continuar mi cita** que ve el ciudadano de WhatsApp |
-| `QUEJAS_API_BASE_URL` | API que recibe los reclamos; se usa con `SANDBOX_USE_REAL_MINSA=true` |
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
+
+**Imágenes del reclamo** (opcional: sin `MEDIA_STORAGE_BASE_URL` el bot **no pide la foto** y el reclamo se guarda sin ella)
+
+| Variable | Uso |
+|---|---|
+| `MEDIA_STORAGE_BASE_URL` | URL del servicio de imágenes. El bot le hace `POST` con los bytes de la foto (cabecera `Content-Type` con su tipo) y espera `{ "ruta": "..." }`; esa ruta es lo que se guarda como evidencia. Contrato a confirmar con OGTI |
+| `MEDIA_STORAGE_TOKEN` | Credencial del servicio, si la pide: se envía como `Authorization: Bearer`. Vacía = sin cabecera |
+| `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de la subida, en milisegundos (por defecto `10000`). Si vence, el reclamo no se guarda y el ciudadano puede reintentar |
 
 **IA** (ver [Cambiar de proveedor de IA](#cambiar-de-proveedor-de-ia))
 
@@ -199,7 +206,7 @@ lib/
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
     webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
                              control de reentregas en memoria (modo sin base de datos)
-  integrations/              clientes HTTP de servicios externos: RENIEC, quejas
+  integrations/              clientes HTTP de servicios externos: RENIEC
     minsa/                   cliente del MINSA separado por endpoint: identidad, catálogo, reserva (+ wire, formato, fakes)
   config/                    catálogo de errores de configuración y su revisión al arrancar
   http/                      formato único de error de la API (apiError)

@@ -131,7 +131,7 @@ export type SendEffect =
 
 export type QueryEffectKind =
   | "reniec_lookup"
-  | "quejas_submit"
+  | "incidencia_register"
   | "validate_user"
   | "verify_code"
   | "analyze_main_menu_intent"

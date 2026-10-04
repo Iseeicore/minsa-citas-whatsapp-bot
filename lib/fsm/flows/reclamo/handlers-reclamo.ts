@@ -3,6 +3,8 @@ import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { namesMatch } from "@/lib/fsm/parsing/text/text";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
+import { MAX_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
+import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
@@ -12,7 +14,6 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 
-const MAX_DESCRIPCION_LENGTH = 1000;
 const FOTO_REQUEST_TEXT =
   "Para poder registrar tu reclamo necesitamos una imagen. ¿Deseas compartírnosla? Envíala ahora, o cuéntanos si prefieres continuar sin foto (también podés escribir OMITIR).";
 const FOTO_INTENT_MAX_LENGTH = 200;
@@ -154,6 +155,8 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
 
   const next = cloneSession(session);
   next.slots[SlotKey.QUEJA] = queja;
+  // Sin servicio de imágenes no hay dónde guardar la foto: no se pide.
+  if (!isMediaStorageConfigured()) return submitReclamo(next, event.from);
   next.state = SessionState.RECLAMO_AWAITING_FOTO;
   return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
 }
@@ -164,16 +167,16 @@ function submitReclamo(session: Session, from: string, mediaDataUri?: string): H
   next.state = SessionState.RECLAMO_SUBMIT_PENDING;
 
   const submission = {
-    celular: from,
+    waId: from,
     dni: next.slots[SlotKey.DNI] ?? null,
     nombreCompleto: next.slots[SlotKey.NOMBRE_COMPLETO] ?? null,
-    queja: next.slots[SlotKey.QUEJA],
+    descripcion: next.slots[SlotKey.QUEJA],
     mediaDataUri: next.slots[SlotKey.MEDIA_DATA_URI] ?? undefined,
   };
 
   return buildResult(next, [
     sendText("Enviando tu reclamo…"),
-    query(QueryKind.QUEJAS_SUBMIT, { submission }),
+    query(QueryKind.INCIDENCIA_REGISTER, { submission }),
   ]);
 }
 
@@ -213,6 +216,8 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; reason?: string };
   const next = cloneSession(session);
+  // La foto (base64) solo viaja dentro del turno: no se deja guardada en la sesión.
+  delete next.slots[SlotKey.MEDIA_DATA_URI];
 
   if (result.status === "accepted") {
     next.state = SessionState.RECLAMO_CONFIRMED;

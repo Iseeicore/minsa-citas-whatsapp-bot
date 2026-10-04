@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMERGENCY_CLOSED_STATE } from "@/lib/fsm/flows/emergency/emergency";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
@@ -9,6 +9,15 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-emergency-cut";
+
+// El paso de la foto del reclamo solo existe si hay servicio de imágenes configurado.
+beforeEach(() => {
+  vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const at = (state: Session["state"], slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
 
