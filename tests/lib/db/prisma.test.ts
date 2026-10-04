@@ -4,7 +4,7 @@ const constructed = vi.hoisted(() => ({ client: 0 }));
 
 vi.mock("@prisma/client", () => ({
   PrismaClient: class {
-    conversation = { findMany: async () => ["row"] };
+    usuario = { findMany: async () => ["row"] };
     constructor() {
       constructed.client++;
     }
@@ -32,7 +32,7 @@ describe("the lazy Prisma client", () => {
 
   it("is constructed once, on first use, when the database is enabled", async () => {
     const { prisma } = await import("@/lib/db/prisma");
-    await expect(prisma.conversation.findMany()).resolves.toEqual(["row"]);
+    await expect(prisma.usuario.findMany()).resolves.toEqual(["row"]);
     await prisma.$transaction([]);
     expect(constructed).toEqual({ client: 1 });
   });
@@ -41,7 +41,7 @@ describe("the lazy Prisma client", () => {
     vi.stubEnv("DATABASE_ENABLED", "false");
     const { prisma } = await import("@/lib/db/prisma");
 
-    expect(() => prisma.conversation).toThrow(/DATABASE_ENABLED=false/);
+    expect(() => prisma.usuario).toThrow(/DATABASE_ENABLED=false/);
     expect(constructed).toEqual({ client: 0 });
   });
 });
