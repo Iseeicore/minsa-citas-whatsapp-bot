@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
 
 const db = vi.hoisted(() => ({
@@ -8,7 +9,7 @@ const db = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
-  prisma: { sandboxSession: { findUnique: db.findUnique, upsert: db.upsert, deleteMany: db.deleteMany } },
+  prisma: { sesionConversacion: { findUnique: db.findUnique, upsert: db.upsert, deleteMany: db.deleteMany } },
 }));
 
 import {
@@ -19,7 +20,7 @@ import {
   saveSession,
   sessionRowExists,
 } from "@/lib/fsm/session/session-store";
-
+
 let counter = 0;
 const freshId = () => `51900${++counter}`;
 
@@ -60,10 +61,37 @@ describe("session store with the database (default)", () => {
     vi.clearAllMocks();
   });
 
-  it("reads the SandboxSession row by id, exactly as before", async () => {
-    db.findUnique.mockResolvedValueOnce({ id: "51999", state: "main_menu" });
-    await expect(findSession("51999")).resolves.toEqual({ id: "51999", state: "main_menu" });
-    expect(db.findUnique).toHaveBeenCalledWith({ where: { id: "51999" } });
+  it("reads the session row by waId and exposes its state", async () => {
+    db.findUnique.mockResolvedValueOnce({ waId: "51999", estado: "main_menu" });
+    await expect(findSession("51999")).resolves.toEqual({ state: "main_menu" });
+    expect(db.findUnique).toHaveBeenCalledWith({ where: { waId: "51999" } });
+  });
+
+  it("maps the stored row to a Session, using the modification date as updatedAt", async () => {
+    const fechaModificacion = new Date("2026-10-04T10:00:00Z");
+    db.findUnique.mockResolvedValueOnce({ waId: "51999", estado: "cita_awaiting_dni", slots: { [SlotKey.QUEJA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 }, fechaModificacion });
+    await expect(getSession("51999")).resolves.toEqual({
+      state: "cita_awaiting_dni",
+      slots: { [SlotKey.QUEJA]: "q" },
+      counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
+      updatedAt: fechaModificacion,
+    });
+  });
+
+  it("upserts by waId with the Spanish column names", async () => {
+    await saveSession("51999", { state: "main_menu", slots: { [SlotKey.QUEJA]: "q" }, counters: { [CounterKey.CITA_HORA_PAGE]: 2 } });
+    expect(db.upsert).toHaveBeenCalledWith({
+      where: { waId: "51999" },
+      create: { waId: "51999", estado: "main_menu", slots: { [SlotKey.QUEJA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 } },
+      update: { estado: "main_menu", slots: { [SlotKey.QUEJA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 } },
+    });
+  });
+
+  it("deletes by waId, and sandbox sessions by waId prefix", async () => {
+    await resetSession("51999");
+    expect(db.deleteMany).toHaveBeenCalledWith({ where: { waId: "51999" } });
+    await resetAllSandboxTestSessions();
+    expect(db.deleteMany).toHaveBeenCalledWith({ where: { waId: { startsWith: "sandbox-" } } });
   });
 
   it("writes through Prisma", async () => {

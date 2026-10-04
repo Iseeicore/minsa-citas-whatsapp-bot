@@ -90,7 +90,7 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 | Aspecto | Con base de datos (por defecto, Vercel) | Sin base de datos (`DATABASE_ENABLED=false`, Docker) |
 |---|---|---|
 | ORM (Prisma) | Conectado a PostgreSQL | Nunca se instancia ni abre conexión; `DATABASE_URL` puede faltar |
-| Estado de cada conversación | Tabla `SandboxSession` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
+| Estado de cada conversación | Tabla `chatbot.sesion_conversacion` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
 | Reentregas de Meta (no responder dos veces) | Índice único `waMessageId` | Lista en memoria de ids de mensaje, conservada 24 h |
 | Historial de mensajes y estados de entrega | Tablas `Conversation` y `Message` | No se guarda nada |
 | Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}` |

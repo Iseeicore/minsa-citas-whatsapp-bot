@@ -32,7 +32,7 @@ vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     conversation: { upsert: mocks.conversationUpsert },
     message: { create: mocks.messageCreate, updateMany: mocks.messageUpdateMany },
-    sandboxSession: { findUnique: mocks.sessionFindUnique },
+    sesionConversacion: { findUnique: mocks.sessionFindUnique },
   },
 }));
 vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
