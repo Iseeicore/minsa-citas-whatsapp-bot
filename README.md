@@ -71,11 +71,13 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    ```
 
 2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de PostgreSQL y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía:** el `false` del bloque mínimo es para el servidor en Docker.
-3. Aplica el esquema a tu base de datos de desarrollo:
+3. Aplica el esquema a tu base de datos de desarrollo (requiere PostgreSQL 18, que aporta `uuidv7()`; con PostgreSQL 17 hay que cambiar ese valor por defecto por `gen_random_uuid()`):
 
    ```bash
-   npx prisma migrate dev
+   npx prisma migrate deploy
    ```
+
+   La migración inicial crea cuatro esquemas (`catalogo`, `chatbot`, `gestion` e `ia`), las reglas y disparadores de auditoría, las semillas de los catálogos y la descripción de cada tabla y columna. El diseño completo vive en la documentación de la base de datos del proyecto.
 
 4. Levanta el servidor de desarrollo:
 
@@ -91,8 +93,9 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 |---|---|---|
 | ORM (Prisma) | Conectado a PostgreSQL | Nunca se instancia ni abre conexión; `DATABASE_URL` puede faltar |
 | Estado de cada conversación | Tabla `chatbot.sesion_conversacion` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
-| Reentregas de Meta (no responder dos veces) | Índice único `waMessageId` | Lista en memoria de ids de mensaje, conservada 24 h |
-| Historial de mensajes y estados de entrega | Tablas `Conversation` y `Message` | No se guarda nada |
+| Reentregas de Meta (no responder dos veces) | Índice único `wa_message_id` | Lista en memoria de ids de mensaje, conservada 24 h |
+| Usuarios, historial de mensajes y estados de entrega | Tablas `chatbot.usuario` y `chatbot.mensaje` | No se guarda nada |
+| Reclamos (incidencias) y sus fotos | Tablas `chatbot.incidencia_paciente` y `chatbot.evidencia`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar el reclamo |
 | Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
