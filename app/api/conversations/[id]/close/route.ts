@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { ACTOR_OPERADOR_BANDEJA } from "@/lib/db/actor";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
-import { ConversationStatus } from "@prisma/client";
+import { toConversationDto } from "@/lib/inbox/dto";
+import { closeUser, findUser } from "@/lib/inbox/repository";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
@@ -13,16 +14,13 @@ export async function POST(
 
   const { id } = await params;
 
-  const conversation = await prisma.conversation.findUnique({ where: { id } });
+  const usuario = await findUser(id);
 
-  if (!conversation) {
+  if (!usuario) {
     return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
   }
 
-  const updated = await prisma.conversation.update({
-    where: { id },
-    data: { status: ConversationStatus.CLOSED },
-  });
+  const updated = await closeUser(id, ACTOR_OPERADOR_BANDEJA);
 
-  return NextResponse.json(updated);
+  return NextResponse.json(toConversationDto(updated));
 }

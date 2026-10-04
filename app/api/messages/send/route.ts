@@ -1,9 +1,10 @@
 import { graphApiVersion } from "@/lib/whatsapp/graph-api";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/db/prisma";
+import { ACTOR_OPERADOR_BANDEJA } from "@/lib/db/actor";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
-import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
+import { toMessageDto } from "@/lib/inbox/dto";
+import { findLastInbound, findUser, recordOutboundMessage } from "@/lib/inbox/repository";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
@@ -27,21 +28,16 @@ export async function POST(request: NextRequest) {
 
   const { conversationId, text } = parsed.data;
 
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-  });
+  const usuario = await findUser(conversationId);
 
-  if (!conversation) {
+  if (!usuario) {
     return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
   }
 
-  const lastInbound = await prisma.message.findFirst({
-    where: { conversationId, direction: MessageDirection.INBOUND },
-    orderBy: { timestamp: "desc" },
-  });
+  const lastInbound = await findLastInbound(conversationId);
 
   const windowExpired =
-    !lastInbound || Date.now() - lastInbound.timestamp.getTime() > WINDOW_MS;
+    !lastInbound || Date.now() - lastInbound.fechaHora.getTime() > WINDOW_MS;
 
   if (windowExpired) {
     return apiError(ApiErrorCode.WINDOW_EXPIRED);
@@ -60,7 +56,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         messaging_product: "whatsapp",
         recipient_type: "individual",
-        recipient: conversation.waId,
+        recipient: usuario.waId,
         type: "text",
         text: { body: text },
       }),
@@ -74,25 +70,7 @@ export async function POST(request: NextRequest) {
   }
 
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
-  const now = new Date();
+  const message = await recordOutboundMessage(usuario.id, text, waMessageId ?? null, ACTOR_OPERADOR_BANDEJA);
 
-  const [message] = await prisma.$transaction([
-    prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        direction: MessageDirection.OUTBOUND,
-        type: MessageType.TEXT,
-        content: text,
-        waMessageId: waMessageId ?? null,
-        status: MessageStatus.SENT,
-        timestamp: now,
-      },
-    }),
-    prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { lastMessageAt: now },
-    }),
-  ]);
-
-  return NextResponse.json(message, { status: 201 });
+  return NextResponse.json(toMessageDto(message), { status: 201 });
 }

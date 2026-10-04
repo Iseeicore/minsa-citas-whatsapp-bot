@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import type { Session } from "@/lib/fsm/core/types";
 import {
   findSession,
   getSession,
@@ -29,16 +31,16 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
     await expect(sessionRowExists(id)).resolves.toBe(false);
 
     await saveSession(id, {
-      state: "cita_awaiting_dni",
+      state: SessionState.CITA_AWAITING_DNI,
       slots: { [SlotKey.QUEJA]: "texto" },
       counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
     });
 
     await expect(sessionRowExists(id)).resolves.toBe(true);
-    await expect(findSession(id)).resolves.toEqual({ state: "cita_awaiting_dni" });
+    await expect(findSession(id)).resolves.toEqual({ state: SessionState.CITA_AWAITING_DNI });
     const read = await getSession(id);
     expect(read).toMatchObject({
-      state: "cita_awaiting_dni",
+      state: SessionState.CITA_AWAITING_DNI,
       slots: { [SlotKey.QUEJA]: "texto" },
       counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
     });
@@ -48,7 +50,7 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
   it("renews the modification date on every save, even when nothing changed (the idle guard depends on it)", async () => {
     const id = waId();
     created.push(id);
-    const session = { state: "main_menu", slots: {}, counters: {} };
+    const session: Session = { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
 
     await saveSession(id, session);
     const first = (await getSession(id)).updatedAt as Date;
@@ -63,7 +65,7 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
     const real = waId();
     const sandbox = `sandbox-${randomUUID()}`;
     created.push(real, sandbox);
-    const session = { state: "main_menu", slots: {}, counters: {} };
+    const session: Session = { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
     await saveSession(real, session);
     await saveSession(sandbox, session);
 

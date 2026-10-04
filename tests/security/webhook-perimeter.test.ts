@@ -4,9 +4,10 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
   afterPromises: [] as Promise<unknown>[],
-  conversationUpsert: vi.fn(async () => ({ id: "conv-1" })),
-  messageCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
-  messageUpdateMany: vi.fn(async () => ({})),
+  usuarioUpsert: vi.fn(async () => ({ id: "conv-1" })),
+  mensajeCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
+  mensajeUpdateMany: vi.fn(async () => ({})),
+  executeRaw: vi.fn<(...args: unknown[]) => Promise<number>>(async () => 1),
   sessionFindUnique: vi.fn(async (): Promise<{ id: string; state: string } | null> => ({ id: "x", state: "main_menu" })),
   sessionRowExists: vi.fn(async () => false),
   saveSession: vi.fn(async () => undefined),
@@ -30,8 +31,10 @@ vi.mock("next/server", async (importOriginal) => {
 });
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
-    conversation: { upsert: mocks.conversationUpsert },
-    message: { create: mocks.messageCreate, updateMany: mocks.messageUpdateMany },
+    usuario: { upsert: mocks.usuarioUpsert },
+    mensaje: { create: mocks.mensajeCreate, updateMany: mocks.mensajeUpdateMany },
+    $executeRaw: mocks.executeRaw,
+    $transaction: async (steps: Promise<unknown>[]) => Promise.all(steps),
     sesionConversacion: { findUnique: mocks.sessionFindUnique },
   },
 }));
@@ -121,8 +124,8 @@ describe("transport security: HMAC-SHA256 signature (Paso 0)", () => {
     const response = await deliverWithSignature([textMessage(freshWaId(), "Hola")], signature);
 
     expect(response.status).toBe(403);
-    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
-    expect(mocks.messageCreate).not.toHaveBeenCalled();
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
+    expect(mocks.mensajeCreate).not.toHaveBeenCalled();
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
     expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
@@ -145,7 +148,7 @@ describe("rate limiting (drop the flood, tell the citizen once, still acknowledg
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ received: true });
-    expect(mocks.conversationUpsert).toHaveBeenCalledTimes(5);
+    expect(mocks.usuarioUpsert).toHaveBeenCalledTimes(5);
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(5);
     expect(mocks.sessionRowExists).not.toHaveBeenCalled();
   });
@@ -157,8 +160,8 @@ describe("rate limiting (drop the flood, tell the citizen once, still acknowledg
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: MUTE_NOTICE_TEXT });
-    expect(mocks.conversationUpsert).toHaveBeenCalledTimes(5);
-    expect(mocks.messageCreate).toHaveBeenCalledTimes(5);
+    expect(mocks.usuarioUpsert).toHaveBeenCalledTimes(5);
+    expect(mocks.mensajeCreate).toHaveBeenCalledTimes(5);
     expect(mocks.withTurnLock).toHaveBeenCalledTimes(5);
   });
 
@@ -170,7 +173,7 @@ describe("rate limiting (drop the flood, tell the citizen once, still acknowledg
     await deliver([textMessage(waId, "hola"), textMessage(waId, "¿hay alguien?")]);
 
     expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
-    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
   });
 
   it("a notice that fails to send does not break the webhook", async () => {
@@ -200,7 +203,7 @@ describe("rate limiting (drop the flood, tell the citizen once, still acknowledg
 
     await deliver([textMessage(waId, "Hola, quiero una cita")]);
 
-    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
   });
@@ -212,7 +215,7 @@ describe("rate limiting (drop the flood, tell the citizen once, still acknowledg
 
     await deliver([textMessage(waId, "Hola, quiero una cita")]);
 
-    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
     expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
   });
@@ -282,8 +285,8 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledTimes(1);
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: reply });
-    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
-    expect(mocks.messageCreate).not.toHaveBeenCalled();
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
+    expect(mocks.mensajeCreate).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
     expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
     expect(mocks.saveSession).not.toHaveBeenCalled();
@@ -297,7 +300,7 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: MEDIA_WITHOUT_SESSION_TEXT });
     expect(mocks.downloadMedia).not.toHaveBeenCalled();
-    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
   });
 
@@ -309,7 +312,7 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
     expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
     expect(mocks.downloadMedia).not.toHaveBeenCalled();
-    expect(mocks.conversationUpsert).not.toHaveBeenCalled();
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
   });
 
@@ -320,7 +323,7 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
     await deliver([textMessage(waId, "a".repeat(700))]);
 
     expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
-    expect(mocks.conversationUpsert).toHaveBeenCalledTimes(1);
+    expect(mocks.usuarioUpsert).toHaveBeenCalledTimes(1);
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
   });
 
@@ -334,7 +337,8 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
   it("delivery statuses are untouched by the perimeter", async () => {
     await deliver([], { statuses: [{ id: "wamid.status-1", status: "delivered" }] });
 
-    expect(mocks.messageUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.mensajeUpdateMany).toHaveBeenCalledWith({ where: { waMessageId: "wamid.status-1" }, data: { estadoMensajeId: 3 } });
+    expect(mocks.executeRaw.mock.calls.map((call) => call[1])).toEqual(["externo:meta"]);
   });
 
   it("a failing Graph API send does not break the webhook", async () => {
@@ -354,15 +358,30 @@ describe("a message Meta delivers twice is answered once (DATA-01)", () => {
 
     await deliver([message]);
 
-    expect(mocks.messageCreate).toHaveBeenCalledTimes(1);
-    expect(mocks.messageCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ waMessageId: message.id, conversationId: "conv-1", content: "Hola" }),
+    expect(mocks.mensajeCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.mensajeCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        waMessageId: message.id,
+        usuarioId: "conv-1",
+        contenido: "Hola",
+        direccionMensajeId: 1,
+        tipoMensajeId: 1,
+      }),
     });
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
   });
 
+  it("declares the citizen as the actor of the writes, so the database signs the audit columns", async () => {
+    const waId = freshWaId();
+
+    await deliver([textMessage(waId, "Hola")]);
+
+    const actors = mocks.executeRaw.mock.calls.map((call) => call[1]);
+    expect(actors).toEqual([`ciudadano:${waId}`, `ciudadano:${waId}`]);
+  });
+
   it("a redelivery (unique-constraint error) is skipped: no turn, no lock, no reply", async () => {
-    mocks.messageCreate.mockRejectedValueOnce(duplicate());
+    mocks.mensajeCreate.mockRejectedValueOnce(duplicate());
 
     const response = await deliver([textMessage(freshWaId(), "Hola")]);
 
@@ -374,12 +393,12 @@ describe("a message Meta delivers twice is answered once (DATA-01)", () => {
   });
 
   it("two copies of the same message racing in one payload: only the one that inserted is answered", async () => {
-    mocks.messageCreate.mockResolvedValueOnce({}).mockRejectedValueOnce(duplicate());
+    mocks.mensajeCreate.mockResolvedValueOnce({}).mockRejectedValueOnce(duplicate());
     const message = textMessage(freshWaId(), "Hola");
 
     await deliver([message, message]);
 
-    expect(mocks.messageCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.mensajeCreate).toHaveBeenCalledTimes(2);
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
   });
 
@@ -387,7 +406,7 @@ describe("a message Meta delivers twice is answered once (DATA-01)", () => {
     const lines: Array<{ level: string; record: Record<string, unknown> }> = [];
     const restore = configureLogger({ sink: (level, line) => lines.push({ level, record: JSON.parse(line) }), level: "info" });
     const waId = freshWaId();
-    mocks.messageCreate.mockRejectedValueOnce(new Error("connection reset"));
+    mocks.mensajeCreate.mockRejectedValueOnce(new Error("connection reset"));
 
     const response = await deliver([textMessage(waId, "Hola")]);
     restore();
@@ -401,7 +420,7 @@ describe("a message Meta delivers twice is answered once (DATA-01)", () => {
   });
 
   it("a redelivery does not stop the messages after it in the same payload", async () => {
-    mocks.messageCreate.mockRejectedValueOnce(duplicate());
+    mocks.mensajeCreate.mockRejectedValueOnce(duplicate());
 
     await deliver([textMessage(freshWaId(), "Hola"), textMessage(freshWaId(), "Hola")]);
 
@@ -527,7 +546,7 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
 
   it("a failure while storing the conversation is answered too, and the turn never runs", async () => {
     const waId = freshWaId();
-    mocks.conversationUpsert.mockRejectedValueOnce(new Error("database is down"));
+    mocks.usuarioUpsert.mockRejectedValueOnce(new Error("database is down"));
 
     await deliver([textMessage(waId, "Hola")]);
 
@@ -567,7 +586,7 @@ describe("a failed turn or a lock timeout never leaves the citizen in silence (G
 
   it("a redelivery (already received) is never answered with the failure text", async () => {
     const waId = freshWaId();
-    mocks.messageCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+    mocks.mensajeCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
 
     await deliver([textMessage(waId, "Hola")]);
 
