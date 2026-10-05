@@ -29,12 +29,18 @@ Todo lo que define la base vive aquí y se versiona con el código.
 | Comando | Qué hace |
 |---|---|
 | `npm run db:test` | Crea una base desechable, la arma **solo con las migraciones**, corre `tests/*.sql` y la borra |
-| `npm run db:seed:dev` | Siembra 18 incidencias **sintéticas** (de todos los estados y categorías, con evidencias) en una base de desarrollo. Se niega a correr si el nombre de la base no termina en `_desechable`, `_dev` o `_local`. `-- --reiniciar` borra **todas** las incidencias de esa base y vuelve a sembrar. No es una migración: nunca va a OGTI |
+| `npm run db:seed:dev` | Siembra 18 incidencias **sintéticas** (de todos los estados y categorías, con evidencias) en una base de desarrollo. Se niega a correr si el nombre de la base no termina en `_desechable`, `_dev` o `_local`. `-- --reiniciar` borra **todas** las incidencias de esa base (y reinicia el contador de códigos) y vuelve a sembrar. No es una migración: nunca va a OGTI |
 | `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas desde una base ya migrada |
 | `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base migrada |
 | `npx prisma migrate deploy` | Aplica las migraciones pendientes |
 
 `db:test` y `db:diccionario` necesitan `psql` (o la variable `PSQL_PATH`) y un `DATABASE_URL`. Para `db:test` basta cualquier base del servidor: nunca la toca, crea y borra la suya.
+
+## Código legible de la incidencia
+
+Cada incidencia lleva un `codigo` con el formato `MINSA-AAAA-NNNNNN` (por ejemplo `MINSA-2026-003241`): `AAAA` es el año de llegada en la zona `America/Lima` y `NNNNNN` el correlativo de ese año, que reinicia cada año y pasado el `999999` sigue creciendo. Lo asigna la base al insertar (lo que envíe quien inserta se descarta) y no se puede modificar; el contador vive en `chatbot.contador_codigo_incidencia` y se incrementa dentro de la transacción del `INSERT`, así que una transacción revertida no gasta número y dos simultáneas esperan su turno (el costo: las inserciones de incidencias se serializan, lo cual es aceptable con el volumen esperado). El `trace_id` sigue siendo el id del turno del chat; el código legible es el que se muestra en pantalla y se dice por teléfono.
+
+`tests/11_codigo_incidencia.sql` prueba la concurrencia con dos conexiones `dblink`: necesita un usuario que pueda crear la extensión (el de `db:test` y el del CI lo son) y que el servidor acepte conexiones locales por socket sin clave, como la imagen oficial de PostgreSQL.
 
 ## Lo que Prisma no vigila
 

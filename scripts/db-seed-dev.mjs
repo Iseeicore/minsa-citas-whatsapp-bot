@@ -55,7 +55,7 @@ try {
   if (reiniciar) {
     sql(
       "-c",
-      "TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria, ia.entrenamiento_categoria, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion",
+      "TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria, ia.entrenamiento_categoria, chatbot.incidencia_paciente, chatbot.contador_codigo_incidencia, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion",
     );
     console.log(`Incidencias de ${base} borradas.`);
   }
