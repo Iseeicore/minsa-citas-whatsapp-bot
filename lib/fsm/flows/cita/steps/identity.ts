@@ -1,6 +1,7 @@
 import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/cita-hints";
-import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
+import { isValidDocumentoFormat, isValidOtpFormat } from "@/lib/fsm/parsing/identity-format";
+import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/validate-user-query";
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/distrito-resolver";
 import {
   buildResult,
@@ -22,19 +23,16 @@ const REGISTRATION_RETRY_BUTTON_ID = "cita_registration_retry";
 const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
 
 export function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  const dni = (event.text ?? "").trim();
+  const documento = (event.text ?? "").trim();
 
-  if (!isValidDniFormat(dni)) {
+  if (!isValidDocumentoFormat(documento)) {
     return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
   }
 
   const next = cloneSession(session);
-  next.slots.citaDniPending = dni;
+  next.slots.citaDniPending = documento;
   next.state = "cita_validate_pending";
-  return buildResult(next, [
-    sendText("Validando tu documento…"),
-    query("validate_user", { numeroDocumento: dni }),
-  ]);
+  return buildResult(next, [sendText("Validando tu documento…"), validateUserQuery(documento)]);
 }
 
 export function handleValidatePending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -89,7 +87,7 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   next.state = "cita_validate_pending";
   return buildResult(next, [
     sendText("Validando de nuevo…"),
-    query("validate_user", { numeroDocumento: String(next.slots.citaDniPending ?? "") }),
+    validateUserQuery(String(next.slots.citaDniPending ?? "")),
   ]);
 }
 

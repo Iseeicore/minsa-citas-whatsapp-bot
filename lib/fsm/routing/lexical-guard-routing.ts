@@ -60,7 +60,7 @@ export function routeLexicalAction(
       };
 
       return buildResult({ state: "cita_awaiting_dni", slots: withHints, counters: {} }, [
-        sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu número de documento (8 dígitos).`),
+        sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu número de documento.`),
       ]);
     }
 

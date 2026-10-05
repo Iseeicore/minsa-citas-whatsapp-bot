@@ -1,4 +1,4 @@
-import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
+import { INVALID_DNI_TEXT } from "@/lib/fsm/core/failure-texts";
 import { isValidDniFormat } from "@/lib/fsm/parsing/identity-format";
 import { namesMatch } from "@/lib/fsm/parsing/text";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
@@ -58,7 +58,7 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 
   if (!isValidDniFormat(dni)) {
     return buildResult(session, [
-      sendText(INVALID_DOCUMENT_TEXT),
+      sendText(INVALID_DNI_TEXT),
     ]);
   }
 

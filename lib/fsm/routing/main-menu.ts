@@ -50,7 +50,7 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
 
   if (next.slots.menuChoice === "agendar_cita") {
     next.state = "cita_awaiting_dni";
-    return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
+    return buildResult(next, [sendText("Ingresa tu número de documento.")]);
   }
 
   return enterMainMenu();
@@ -164,7 +164,7 @@ function beginCitaFromIntent(
   return beginCita(
     slots,
     hints,
-    "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento (8 dígitos).",
+    "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento.",
   );
 }
 
