@@ -30,7 +30,7 @@ main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
                                                 ├─ fuera_de_alcance ─► 💬 texto fijo + 📋 menú
                                                 └─ no claro / IA caída ─► 📋 menú
 
-Documento (8 dígitos) 💬
+Documento (8 dígitos es DNI, 9 es carnet de extranjería) 💬
 └─ válido ─► MINSA valida
    ├─ registrado ─► 💬 "Te enviamos un código…" ─► OTP (4–8 dígitos)
    │                └─ correcto ─► 💬 "¡Verificado! ¿En qué distrito…?"
@@ -66,7 +66,7 @@ Reserva 💬 "Agendando tu cita…"
 |---|---|---|---|---|
 | Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
 | Menú principal | 📋 2 filas | "1"/"2", "cita", "reclamo", frases de cita | — | 🤖 intención |
-| Documento | 💬 | exactamente 8 dígitos | — | no |
+| Documento | 💬 | 8 dígitos (DNI, tipo `01`) o 9 dígitos (carnet de extranjería, tipo `03`); el largo decide el tipo y MINSA recibe `tipo_documento` | — | no |
 | Registro pendiente | 🔗 + 🔘 [Ya me registré] | nada (solo el botón) | — | no |
 | OTP | 💬 | 4 a 8 dígitos | — | no |
 | Distrito | 💬 | nombre del distrito; "sí"/"ese" reutiliza el primer mensaje | 📋 de desambiguación (2–10) | 🤖 distrito |
@@ -103,7 +103,7 @@ Todos los pasos con 📋 siguen el mismo orden (`lib/fsm/flows/cita/selection.ts
 
 | Dónde | Qué escribió | Respuesta | Sigue en |
 |---|---|---|---|
-| Documento | no son 8 dígitos | *"Documento inválido. Debe tener 8 dígitos. Intenta de nuevo."* (sin límite) | Documento |
+| Documento | no son 8 ni 9 dígitos | *"Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo."* (sin límite) | Documento |
 | OTP | no son 4–8 dígitos | *"Código inválido. Debe tener entre 4 y 8 dígitos."* (no cuenta como intento) | OTP |
 | OTP | código incorrecto | *"Código incorrecto. Te quedan {2\|1} intento(s)."* | OTP; al 3.º ⛔ *"Superaste el número de intentos permitidos…"* |
 | Distrito | texto sin sentido | *"No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:"* | Distrito |
@@ -168,7 +168,7 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
   - **Cancelar** → 🔘 *"Parece que prefieres no continuar con tu cita… ¿Deseas salir?"*: **Sí** cierra la cita (`cita_abandoned`); **No** vuelve a mostrar la alerta.
 
 **Por un 401 del MINSA a mitad del flujo:**
-- **Qué envía el bot:** 💬 *"Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu número de documento (8 dígitos) para continuar justo donde quedaste."*
+- **Qué envía el bot:** 💬 *"Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu número de documento para continuar justo donde quedaste."*
 - **Cómo retoma:** después del OTP, con *"¡Listo! Continuemos con tu cita. Buscando…"*.
 - **Excepción:** si el 401 llega durante la reserva, retoma en la lista de horarios, así que hay que elegir de nuevo.
 

@@ -7,6 +7,7 @@ import type {
 } from "@/lib/integrations/minsa/types";
 
 export const FAKE_DNI = "12345678";
+export const FAKE_CARNET_EXTRANJERIA = "123456789";
 export const FAKE_TWOFA_ID = "fake-twofa-12345678";
 export const FAKE_OTP = "1234";
 export const FAKE_BEARER = "fake-bearer-token";

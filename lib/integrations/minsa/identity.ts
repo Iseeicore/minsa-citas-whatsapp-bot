@@ -1,11 +1,21 @@
 import type { ValidateUserResult, VerifyCodeResult } from "@/lib/integrations/minsa/types";
-import { FAKE_BEARER, FAKE_DNI, FAKE_OTP, FAKE_TWOFA_ID } from "@/lib/integrations/minsa/fake-data";
+import {
+  FAKE_BEARER,
+  FAKE_CARNET_EXTRANJERIA,
+  FAKE_DNI,
+  FAKE_OTP,
+  FAKE_TWOFA_ID,
+} from "@/lib/integrations/minsa/fake-data";
 import { postSigned } from "@/lib/integrations/minsa/wire";
+import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 
-export async function validateUser(dni: string): Promise<ValidateUserResult> {
+const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
+
+export async function validateUser(numeroDocumento: string, tipoDocumento: TipoDocumento): Promise<ValidateUserResult> {
   if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
     const response = await postSigned("/api/v1/whatsapp/validate-user", {
-      numero_documento: dni,
+      numero_documento: numeroDocumento,
+      tipo_documento: tipoDocumento,
       conversation_id: process.env.MINSA_CONVERSATION_ID_PLACEHOLDER,
     });
 
@@ -31,7 +41,7 @@ export async function validateUser(dni: string): Promise<ValidateUserResult> {
     return { status: "valid", twofaId };
   }
 
-  if (dni === FAKE_DNI) {
+  if (FAKE_DOCUMENTS.includes(numeroDocumento)) {
     return { status: "valid", twofaId: FAKE_TWOFA_ID };
   }
   return { status: "not_valid" };

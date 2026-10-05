@@ -294,7 +294,7 @@ El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pul
 Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de reclamo, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
 - Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería.
-- Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678`, OTP `1234`, distrito `lurigancho`.
+- Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678`, carnet de extranjería `123456789`, OTP `1234`, distrito `lurigancho`.
 
 ## Notas técnicas
 

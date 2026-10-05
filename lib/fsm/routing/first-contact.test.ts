@@ -76,7 +76,7 @@ describe("first contact: a clear request for a cita", () => {
     expect(sent(result)).toEqual([
       {
         kind: "send_text",
-        text: "¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de documento (8 dígitos):",
+        text: "¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de documento:",
       },
     ]);
   });

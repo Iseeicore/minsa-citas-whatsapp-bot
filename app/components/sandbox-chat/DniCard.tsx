@@ -18,13 +18,14 @@ export function DniCard({
       <input
         type="text"
         inputMode="numeric"
-        maxLength={8}
+        maxLength={9}
+        aria-label="Número de documento"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") onSubmit();
         }}
-        placeholder="Ingresa los 8 dígitos de tu DNI"
+        placeholder="Ingresa tu número de documento"
         className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-sb-accent"
       />
       <button

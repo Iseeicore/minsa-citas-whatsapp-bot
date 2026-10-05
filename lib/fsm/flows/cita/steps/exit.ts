@@ -22,7 +22,7 @@ const LEAVE_ANSWERS = new Set(["SALIR", "SI SALIR", "QUIERO SALIR"]);
 const STAY_ANSWERS = new Set(["CONTINUAR", "SEGUIR", "NO CONTINUAR", "QUIERO CONTINUAR", "QUIERO SEGUIR"]);
 
 const TEXT_PROMPTS: Readonly<Record<string, string>> = {
-  cita_awaiting_dni: "Ingresa tu número de documento (8 dígitos).",
+  cita_awaiting_dni: "Ingresa tu número de documento.",
   cita_awaiting_otp: "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).",
   cita_awaiting_distrito_ai: "Cuéntanos el nombre del distrito.",
   cita_awaiting_departamento: "Indícanos el departamento.",

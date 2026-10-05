@@ -91,7 +91,7 @@ describe("typed yes/no when the session expired", () => {
     const result = handle(waiting(), text("si por favor"));
 
     expect(result.session.state).toBe("cita_validate_pending");
-    expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "12345678" } }]);
+    expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "12345678", tipoDocumento: "01" } }]);
   });
 
   it("«no, gracias» asks whether the citizen is sure to leave", () => {

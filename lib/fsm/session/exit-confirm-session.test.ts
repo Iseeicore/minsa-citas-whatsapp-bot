@@ -94,7 +94,7 @@ describe("answering the exit question after the session expired", () => {
     );
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(sent(result)).toEqual([{ kind: "send_text", text: "Ingresa tu número de documento (8 dígitos)." }]);
+    expect(sent(result)).toEqual([{ kind: "send_text", text: "Ingresa tu número de documento." }]);
   });
 });
 

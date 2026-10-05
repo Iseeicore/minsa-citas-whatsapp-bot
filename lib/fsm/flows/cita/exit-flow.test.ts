@@ -95,7 +95,7 @@ describe("leaving the cita on purpose", () => {
   });
 
   it.each([
-    ["cita_awaiting_dni", "Ingresa tu número de documento (8 dígitos)."],
+    ["cita_awaiting_dni", "Ingresa tu número de documento."],
     ["cita_awaiting_distrito_ai", "Cuéntanos el nombre del distrito."],
     ["cita_awaiting_departamento", "Indícanos el departamento."],
     ["cita_awaiting_provincia", "Indícanos la provincia."],
@@ -144,7 +144,9 @@ describe("leaving the cita on purpose", () => {
     const result = handle(at("cita_awaiting_dni"), text("no"));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(sent(result)).toEqual([{ kind: "send_text", text: "Documento inválido. Debe tener 8 dígitos. Intenta de nuevo." }]);
+    expect(sent(result)).toEqual([
+      { kind: "send_text", text: "Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo." },
+    ]);
   });
 
   it("a district name is never taken as a wish to leave", () => {
