@@ -28,6 +28,7 @@ Todo lo que define la base vive aquí y se versiona con el código.
 | Comando | Qué hace |
 |---|---|
 | `npm run db:test` | Crea una base desechable, la arma **solo con las migraciones**, corre `tests/*.sql` y la borra |
+| `npm run db:seed:dev` | Siembra 18 incidencias **sintéticas** (de todos los estados y categorías, con evidencias) en una base de desarrollo. Se niega a correr si el nombre de la base no termina en `_desechable`, `_dev` o `_local`. `-- --reiniciar` borra **todas** las incidencias de esa base y vuelve a sembrar. No es una migración: nunca va a OGTI |
 | `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas desde una base ya migrada |
 | `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base migrada |
 | `npx prisma migrate deploy` | Aplica las migraciones pendientes |
