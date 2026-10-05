@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleReclamo } from "@/lib/fsm/flows/reclamo/handlers-reclamo";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "51999999999";
+
+beforeEach(() => {
+  vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
@@ -104,7 +112,7 @@ describe("reclamo_awaiting_descripcion: ruido no se registra como queja", () => 
   });
 });
 
-describe("el submit final nunca lleva DNI por este camino (lo mockea quejas.ts automáticamente)", () => {
+describe("el submit final nunca lleva DNI por este camino (no se pide DNI en este flujo)", () => {
   it("camino con nombre: el submit llega con dni null", () => {
     let step = handleReclamo(identityChoice(), tap("reclamo_con_nombre"));
     step = handleReclamo(step.session, text("Juan Pérez"));
@@ -112,7 +120,7 @@ describe("el submit final nunca lleva DNI por este camino (lo mockea quejas.ts a
     step = handleReclamo(step.session, text("OMITIR"));
 
     const [submitQuery] = queries(step);
-    expect(submitQuery.kind).toBe("quejas_submit");
+    expect(submitQuery.kind).toBe("incidencia_register");
     expect((submitQuery.payload.submission as { dni: string | null }).dni).toBeNull();
     expect((submitQuery.payload.submission as { nombreCompleto: string | null }).nombreCompleto).toBe("Juan Pérez");
   });
@@ -137,21 +145,21 @@ describe("reclamo_awaiting_foto: ya no exige la palabra exacta OMITIR", () => {
     const result = handleReclamo(awaitingFoto(), photo());
 
     expect(result.session.state).toBe("reclamo_submit_pending");
-    expect(queries(result)[0].kind).toBe("quejas_submit");
+    expect(queries(result)[0].kind).toBe("incidencia_register");
   });
 
   it("'OMITIR' sigue funcionando como atajo determinístico (sin IA)", () => {
     const result = handleReclamo(awaitingFoto(), text("OMITIR"));
 
     expect(result.session.state).toBe("reclamo_submit_pending");
-    expect(queries(result)[0].kind).toBe("quejas_submit");
+    expect(queries(result)[0].kind).toBe("incidencia_register");
   });
 
   it("'no quiero' se reconoce determinísticamente (sin IA), ya está en el parser de confirmación", () => {
     const result = handleReclamo(awaitingFoto(), text("no quiero"));
 
     expect(result.session.state).toBe("reclamo_submit_pending");
-    expect(queries(result)[0].kind).toBe("quejas_submit");
+    expect(queries(result)[0].kind).toBe("incidencia_register");
   });
 
   it("texto ambiguo tipo 'no deseo' dispara la consulta a IA en vez de reinterpretar solo", () => {
@@ -202,7 +210,7 @@ describe("reclamo_foto_intent_pending: resuelve lo que dijo la IA", () => {
     const result = handleReclamo(pending, fotoIntentResult(true));
 
     expect(result.session.state).toBe("reclamo_submit_pending");
-    expect(queries(result)[0].kind).toBe("quejas_submit");
+    expect(queries(result)[0].kind).toBe("incidencia_register");
   });
 
   it("si la IA dice que no quiere omitir, vuelve a pedir la foto", () => {
@@ -211,5 +219,60 @@ describe("reclamo_foto_intent_pending: resuelve lo que dijo la IA", () => {
 
     expect(result.session.state).toBe("reclamo_awaiting_foto");
     expect(queries(result)).toHaveLength(0);
+  });
+});
+
+describe("sin servicio de imágenes configurado, no se pide la foto", () => {
+  const awaitingDescripcion = (): Session => ({ state: "reclamo_awaiting_descripcion", slots: {}, counters: {} });
+
+  it("tras la descripción registra directo, sin pedir foto", () => {
+    vi.stubEnv("MEDIA_STORAGE_BASE_URL", "");
+
+    const result = handleReclamo(awaitingDescripcion(), text("El consultorio estaba cerrado."));
+
+    expect(result.session.state).toBe("reclamo_submit_pending");
+    expect(queries(result)[0].kind).toBe("incidencia_register");
+    expect(sent(result).map((effect) => (effect as { text: string }).text).join(" ")).not.toContain("imagen");
+  });
+
+  it("con el servicio configurado, sigue pidiendo la foto", () => {
+    const result = handleReclamo(awaitingDescripcion(), text("El consultorio estaba cerrado."));
+
+    expect(result.session.state).toBe("reclamo_awaiting_foto");
+  });
+});
+
+describe("reclamo_submit_pending: el resultado del registro", () => {
+  const submitResult = (result: { status: string; reason?: string }): QueryResultEvent => ({
+    from: FROM,
+    type: "query_result",
+    queryKind: "incidencia_register",
+    result,
+  });
+  const pending = (): Session => ({
+    state: "reclamo_submit_pending",
+    slots: { queja: "Mala atención", [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,abc" },
+    counters: {},
+  });
+
+  it("aceptado: confirma y no deja la foto (base64) guardada en la sesión", () => {
+    const result = handleReclamo(pending(), submitResult({ status: "accepted" }));
+
+    expect(result.session.state).toBe("reclamo_confirmed");
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+  });
+
+  it("fallido: tampoco deja la foto en la sesión", () => {
+    const result = handleReclamo(pending(), submitResult({ status: "error" }));
+
+    expect(result.session.state).toBe("reclamo_failed");
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+  });
+
+  it("foto demasiado pesada: avisa el motivo", () => {
+    const result = handleReclamo(pending(), submitResult({ status: "rejected", reason: "media_too_large" }));
+
+    expect((sent(result)[0] as { text: string }).text).toContain("demasiado pesada");
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
   });
 });

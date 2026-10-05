@@ -17,7 +17,6 @@ import {
 import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 import { listReferences } from "@/lib/integrations/minsa/references";
-import { submitQueja, type SubmitQuejaPayload } from "@/lib/integrations/quejas";
 import { reniecLookup } from "@/lib/integrations/reniec";
 import { traceTurn } from "@/lib/observability/tracer";
 import type { ExternalService } from "@/lib/observability/types";
@@ -111,8 +110,8 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   switch (kind) {
     case QueryKind.RENIEC_LOOKUP:
       return "reniec";
-    case QueryKind.QUEJAS_SUBMIT:
-      return "quejas";
+    case QueryKind.INCIDENCIA_REGISTER:
+      return "database";
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
     case QueryKind.RESOLVE_DISTRITO_AI:
     case QueryKind.RESOLVE_FECHA_AI:
@@ -131,8 +130,11 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
     case QueryKind.RENIEC_LOOKUP:
       return reniecLookup(String(effect.payload.dni ?? ""));
 
-    case QueryKind.QUEJAS_SUBMIT:
-      return submitQueja(effect.payload.submission as SubmitQuejaPayload);
+    case QueryKind.INCIDENCIA_REGISTER: {
+      // Import diferido a propósito: @prisma/client lee el .env al cargarse, y no debe cargarse en los turnos que no tocan la base.
+      const { registrarIncidencia } = await import("@/lib/recepcion/servicio");
+      return registrarIncidencia(effect.payload.submission);
+    }
 
     case QueryKind.VALIDATE_USER:
       return validateUser(String(effect.payload.numeroDocumento ?? ""));

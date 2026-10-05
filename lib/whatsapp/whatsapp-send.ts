@@ -1,6 +1,6 @@
 import { graphApiBaseUrl, graphAuthHeaders } from "@/lib/whatsapp/graph-api";
-import { prisma } from "@/lib/db/prisma";
-import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
+import { ACTOR_SISTEMA_BOT } from "@/lib/db/actor";
+import { recordOutboundMessage } from "@/lib/inbox/repository";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { SendType } from "@/lib/enums/send-type";
 import { logger } from "@/lib/observability/logger";
@@ -125,32 +125,6 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   }
 }
 
-async function recordOutboundMessage(
-  conversationId: string,
-  text: string,
-  waMessageId: string | undefined,
-): Promise<void> {
-  const now = new Date();
-
-  await prisma.$transaction([
-    prisma.message.create({
-      data: {
-        conversationId,
-        direction: MessageDirection.OUTBOUND,
-        type: MessageType.TEXT,
-        content: text,
-        waMessageId: waMessageId ?? null,
-        status: MessageStatus.SENT,
-        timestamp: now,
-      },
-    }),
-    prisma.conversation.update({
-      where: { id: conversationId },
-      data: { lastMessageAt: now },
-    }),
-  ]);
-}
-
 export async function sendAndRecordEffect(
   conversationId: string | null,
   waId: string,
@@ -173,7 +147,7 @@ export async function sendAndRecordEffect(
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
   if (conversationId === null) return;
-  await recordOutboundMessage(conversationId, effect.text, waMessageId);
+  await recordOutboundMessage(conversationId, effect.text, waMessageId ?? null, ACTOR_SISTEMA_BOT);
 }
 
 export async function sendAndRecordCtaUrl(
@@ -198,5 +172,5 @@ export async function sendAndRecordCtaUrl(
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
   if (conversationId === null) return;
-  await recordOutboundMessage(conversationId, params.bodyText, waMessageId);
+  await recordOutboundMessage(conversationId, params.bodyText, waMessageId ?? null, ACTOR_SISTEMA_BOT);
 }

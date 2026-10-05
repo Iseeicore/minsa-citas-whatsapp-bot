@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { INSTITUTIONAL_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/security/lexical-guard";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
@@ -6,6 +6,15 @@ import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-test";
+
+// El paso de la foto del reclamo solo existe si hay servicio de imágenes configurado.
+beforeEach(() => {
+  vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function text(value: string): InboundEvent {
   return { from: FROM, type: "text", text: value };

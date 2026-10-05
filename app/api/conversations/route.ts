@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
+import { toConversationDto } from "@/lib/inbox/dto";
+import { listUsers } from "@/lib/inbox/repository";
 
 export async function GET() {
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
-  const conversations = await prisma.conversation.findMany({
-    orderBy: { lastMessageAt: "desc" },
-  });
+  const usuarios = await listUsers();
 
-  return NextResponse.json(conversations);
+  return NextResponse.json(usuarios.map(toConversationDto));
 }

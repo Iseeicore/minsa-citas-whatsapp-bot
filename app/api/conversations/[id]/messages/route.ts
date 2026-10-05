@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
-import { MessageDirection } from "@prisma/client";
+import { ConversationStatus } from "@/lib/enums/conversation-status";
+import { toConversationStatus, toMessageDto } from "@/lib/inbox/dto";
+import { findLastInbound, findUserState, listMessages } from "@/lib/inbox/repository";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -13,33 +14,22 @@ export async function GET(
 
   const { id } = await params;
 
-  const conversation = await prisma.conversation.findUnique({
-    where: { id },
-    select: { status: true },
-  });
-
-  const messages = await prisma.message.findMany({
-    where: { conversationId: id },
-    orderBy: { timestamp: "asc" },
-  });
-
-  const lastInbound = await prisma.message.findFirst({
-    where: { conversationId: id, direction: MessageDirection.INBOUND },
-    orderBy: { timestamp: "desc" },
-  });
+  const usuario = await findUserState(id);
+  const mensajes = await listMessages(id);
+  const lastInbound = await findLastInbound(id);
 
   const windowOpen = Boolean(
-    lastInbound && Date.now() - lastInbound.timestamp.getTime() <= WINDOW_MS,
+    lastInbound && Date.now() - lastInbound.fechaHora.getTime() <= WINDOW_MS,
   );
 
   const windowExpiresAt = lastInbound
-    ? new Date(lastInbound.timestamp.getTime() + WINDOW_MS).toISOString()
+    ? new Date(lastInbound.fechaHora.getTime() + WINDOW_MS).toISOString()
     : null;
 
   return NextResponse.json({
-    messages,
+    messages: mensajes.map(toMessageDto),
     windowOpen,
     windowExpiresAt,
-    status: conversation?.status ?? "OPEN",
+    status: usuario ? toConversationStatus(usuario.estadoConversacionId) : ConversationStatus.OPEN,
   });
 }

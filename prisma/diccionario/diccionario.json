@@ -1,0 +1,287 @@
+{
+  "esquemas": {
+    "catalogo": "Catálogos compartidos por todas las plataformas. Cada fila es un valor permitido; se usan con llave foránea en lugar de enumerados para poder agregar valores sin cambiar la estructura.",
+    "chatbot": "Plataforma 1: recepción de incidencias del paciente por WhatsApp o web. Registra al usuario, sus mensajes, lo que reporta y las evidencias.",
+    "gestion": "Plataforma 2: gestión de pacientes inconformes. Es la única que necesita usuarios internos y roles.",
+    "ia": "Plataforma 3: aprendizaje de la IA. Recibe una copia de cada categoría que una persona revisó, ya sea corrigiéndola o confirmándola."
+  },
+  "comunes": {
+    "id": "Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.",
+    "fecha_creacion": "Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.",
+    "usuario_creacion": "Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.",
+    "fecha_modificacion": "Fecha y hora (UTC) de la última modificación. La llena un disparador.",
+    "usuario_modificacion": "Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.",
+    "version_fila": "Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.",
+    "activo": "Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.",
+    "eliminado_en": "Fecha y hora (UTC) del borrado lógico. Nulo mientras la fila está activa.",
+    "eliminado_por": "Quién hizo el borrado lógico. Nulo mientras la fila está activa."
+  },
+  "catalogo_columnas": {
+    "id": "Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.",
+    "codigo": "Código estable y único del valor. Es el que usa el código de la aplicación.",
+    "nombre": "Nombre legible del valor, para mostrar en pantalla.",
+    "descripcion": "Explicación opcional de qué significa el valor."
+  },
+  "tablas": {
+    "catalogo.categoria_incidencia": {
+      "descripcion": "Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). Marca cuáles son sensibles. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.",
+      "columnas": {
+        "es_sensible": "Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por el área competente y siempre pasa por revisión humana."
+      }
+    },
+    "catalogo.estado_incidencia": {
+      "descripcion": "Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta, o cuando un caso abierto supera el plazo de atención). Anulado está retirado: anular es el borrado lógico. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.",
+      "columnas": {}
+    },
+    "catalogo.canal_origen": {
+      "descripcion": "Canal por el que llegó la incidencia (WhatsApp o web). Permite unificar canales en un mismo lugar.",
+      "columnas": {}
+    },
+    "catalogo.tipo_mensaje": {
+      "descripcion": "Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla).",
+      "columnas": {}
+    },
+    "catalogo.direccion_mensaje": {
+      "descripcion": "Sentido de un mensaje: entrante (del ciudadano al bot) o saliente (del bot al ciudadano).",
+      "columnas": {}
+    },
+    "catalogo.estado_mensaje": {
+      "descripcion": "Estado de entrega de un mensaje enviado por WhatsApp (pendiente, enviado, entregado, leído, fallido).",
+      "columnas": {}
+    },
+    "catalogo.tipo_evidencia": {
+      "descripcion": "Tipo de archivo adjunto como evidencia (imagen, video, documento, audio).",
+      "columnas": {}
+    },
+    "catalogo.estado_conversacion": {
+      "descripcion": "Si la conversación con un usuario está abierta o cerrada.",
+      "columnas": {}
+    },
+    "chatbot.usuario": {
+      "descripcion": "Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. Reúne sus datos de contacto y el estado de su conversación. Nunca se borra: se desactiva.",
+      "columnas": {
+        "wa_id": "Id del chat de WhatsApp (dato de Meta; es un identificador opaco, no un teléfono). Es la clave de negocio del usuario.",
+        "profile_name": "Nombre de perfil de WhatsApp (dato de Meta). Opcional.",
+        "phone_number": "Teléfono (dato de Meta). Casi siempre vacío porque la cuenta usa identificadores BSUID. Nunca se usa como clave.",
+        "dni": "DNI del usuario, cuando lo da y se valida. No es único: una misma persona puede escribir desde dos chats.",
+        "nombre_completo": "Nombre completo devuelto por RENIEC al validar el DNI.",
+        "estado_conversacion_id": "Estado de la conversación (abierta o cerrada).",
+        "ultimo_mensaje_en": "Fecha y hora (UTC) del último mensaje, entrante o saliente. Ordena la bandeja de conversaciones."
+      }
+    },
+    "chatbot.mensaje": {
+      "descripcion": "Mensaje de la conversación, entrante o saliente. Es la tabla de mayor volumen: se estiman decenas de millones de filas por mes.",
+      "columnas": {
+        "usuario_id": "Usuario dueño de la conversación a la que pertenece el mensaje.",
+        "direccion_mensaje_id": "Sentido del mensaje (entrante o saliente).",
+        "tipo_mensaje_id": "Tipo de contenido del mensaje.",
+        "contenido": "Texto del mensaje, cuando aplica.",
+        "media_id": "Id del archivo en Meta (dato de Meta). No es una URL.",
+        "wa_message_id": "Id del mensaje en WhatsApp (dato de Meta). Es único: evita procesar dos veces una reentrega de Meta.",
+        "estado_mensaje_id": "Estado de entrega del mensaje. Lo actualiza Meta con sus avisos de entrega.",
+        "fecha_hora": "Momento real del mensaje según WhatsApp. Es la fecha del evento y no se confunde con fecha_creacion, que es la de inserción."
+      }
+    },
+    "chatbot.incidencia_paciente": {
+      "descripcion": "Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Nunca se borra: se desactiva.",
+      "columnas": {
+        "canal_origen_id": "Canal por el que llegó (WhatsApp o web).",
+        "usuario_id": "Usuario que presentó el reporte.",
+        "mensaje_id": "Mensaje del chat del que nació el reporte. Opcional.",
+        "wa_id": "Id del chat (dato de Meta). Copia del usuario para filtrar sin unir tablas y para enlazar el reporte con el chat.",
+        "es_anonimo": "Verdadero si el paciente eligió no dar su DNI ni su nombre. El id del chat se guarda igual.",
+        "dni_reclamante": "DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo.",
+        "nombre_reclamante": "Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo.",
+        "descripcion": "Relato del paciente. Es el texto que analiza la IA. No se puede modificar.",
+        "estado_incidencia_id": "Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. ARCHIVADO se alcanza desde RESUELTO (pasó la vigencia de la resolución) o, solo por el sistema, desde un estado abierto cuyo plazo de atención venció. Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría.",
+        "trace_id": "Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte.",
+        "categoria_id": "Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida.",
+        "categoria_ia_id": "Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo.",
+        "categoria_confianza": "Puntaje de confianza (0 a 100) que dio la IA a su categoría. No es una probabilidad calibrada: sirve para ordenar la revisión y para medir al modelo. Se asigna una sola vez.",
+        "version_clasificador": "Versión del clasificador (modelo e instrucciones) que produjo la categoría y la confianza. Se asigna junto con ellas y no se modifica; sin ella, los puntajes de modelos distintos no se pueden comparar.",
+        "categoria_asignada_en": "Fecha y hora (UTC) en que la IA asignó la categoría. La llena la base.",
+        "categoria_corregida_en": "Fecha y hora (UTC) de la corrección humana. Nulo si nadie corrigió. La llena la base; solo se puede corregir una vez y no si ya se confirmó.",
+        "categoria_corregida_por": "Quién corrigió la categoría. La llena la base.",
+        "categoria_confirmada_en": "Fecha y hora (UTC) en que una persona confirmó la categoría de la IA. La aplicación solo indica la confirmación; la fecha la fija la base. Se confirma una sola vez y no si ya fue corregida.",
+        "categoria_confirmada_por": "Quién confirmó la categoría. La llena la base.",
+        "resolucion": "Resolución que se dio al asunto. Se registra una sola vez.",
+        "resuelto_en": "Fecha y hora (UTC) en que se registró la resolución. La llena la base.",
+        "resuelto_por": "Quién registró la resolución. La llena la base."
+      }
+    },
+    "chatbot.incidencia_paciente_auditoria": {
+      "descripcion": "Historial de cambios de cada incidencia de paciente: qué cambió, valor anterior y nuevo, quién y cuándo. Solo se agrega; nunca se modifica ni se borra. La llena un disparador.",
+      "columnas": {
+        "id": "Número secuencial del evento; da el orden de los cambios.",
+        "incidencia_paciente_id": "Incidencia a la que corresponde el cambio.",
+        "operacion": "CREACION (guarda la fila completa) o ACTUALIZACION (guarda solo lo que cambió).",
+        "cambios": "Detalle en JSON. En una actualización, cada campo con su valor anterior y el nuevo. Hereda la sensibilidad de la tabla de origen.",
+        "actor": "Quién hizo el cambio.",
+        "version_fila": "Versión que tenía la incidencia después del cambio.",
+        "fecha_hora": "Fecha y hora (UTC) del cambio, con el reloj de la base."
+      }
+    },
+    "chatbot.evidencia": {
+      "descripcion": "Archivo que el paciente adjunta a su reporte (imagen, video, documento o audio). El archivo vive en el servicio de imágenes; aquí solo queda su ruta. Solo se inserta: nunca se modifica ni se borra.",
+      "columnas": {
+        "incidencia_paciente_id": "Reporte al que pertenece la evidencia.",
+        "mensaje_id": "Mensaje de WhatsApp del que vino el archivo. Opcional.",
+        "media_id": "Id del archivo en Meta (dato de Meta).",
+        "tipo_evidencia_id": "Tipo de archivo.",
+        "mime_type": "Tipo MIME del archivo.",
+        "nombre_archivo": "Nombre original, si Meta lo entrega.",
+        "tamano": "Tamaño en bytes. Debe ser mayor que cero.",
+        "ruta": "Ruta que devolvió el servicio de imágenes. Nunca el archivo ni un data URI.",
+        "hash_archivo": "Huella SHA-256 del archivo, para integridad y detección de duplicados. Queda vacía en la primera etapa.",
+        "fecha_recepcion": "Fecha y hora (UTC) en que se recibió el archivo."
+      }
+    },
+    "chatbot.sesion_conversacion": {
+      "descripcion": "Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). Es efímera: se reescribe en cada turno y se purga cuando queda inactiva. No guarda imágenes.",
+      "columnas": {
+        "wa_id": "Id del chat. Único: hay una sesión por usuario. No tiene llave foránea hacia usuario porque la sesión puede existir antes que el usuario.",
+        "estado": "Estado actual del flujo conversacional (por ejemplo cita_awaiting_dni). Es texto y no catálogo porque lo define el código del bot y tiene más de 60 valores.",
+        "slots": "Datos recolectados durante el flujo, en JSON. La forma la garantiza el código del bot.",
+        "contadores": "Contadores internos del flujo (reintentos, intentos de código), en JSON.",
+        "fecha_modificacion": "Fecha y hora (UTC) de la última actividad. Sirve para purgar sesiones inactivas. La llena un disparador."
+      }
+    },
+    "ia.entrenamiento_categoria": {
+      "descripcion": "Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. Registrar también las confirmaciones permite medir cuánto acierta el modelo y calibrar su puntaje. La llena un disparador y solo se inserta.",
+      "columnas": {
+        "incidencia_paciente_id": "Incidencia cuya categoría se revisó.",
+        "texto_entrenamiento": "Copia del relato del paciente en el momento de la revisión. En la primera etapa va sin depurar; ver la lista de la segunda etapa.",
+        "categoria_ia_id": "Categoría que había asignado la IA.",
+        "categoria_final_id": "Categoría que quedó tras la revisión: la misma de la IA si se confirmó, otra si se corrigió.",
+        "fue_corregida": "Verdadero si la persona corrigió la categoría de la IA; falso si la confirmó.",
+        "categoria_confianza": "Puntaje de confianza que había dado la IA a su categoría.",
+        "version_clasificador": "Versión del clasificador que produjo la categoría de la IA.",
+        "revisado_por": "Quién revisó, con el formato tipo:detalle.",
+        "fecha_revision": "Fecha y hora (UTC) de la revisión."
+      }
+    },
+    "gestion.usuario_interno": {
+      "descripcion": "Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla se cierran todas sus sesiones.",
+      "columnas": {
+        "nombre_completo": "Nombre completo de la persona.",
+        "correo": "Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.",
+        "password_hash": "Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato."
+      }
+    },
+    "gestion.rol": {
+      "descripcion": "Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.",
+      "columnas": {}
+    },
+    "gestion.usuario_rol": {
+      "descripcion": "Relación entre usuarios internos y roles: un usuario puede tener varios roles y un rol lo tienen varios usuarios. Solo se inserta.",
+      "columnas": {
+        "usuario_interno_id": "Usuario interno que recibe el rol.",
+        "rol_id": "Rol que se le asigna."
+      }
+    },
+    "catalogo.estado_archivo": {
+      "descripcion": "Estados por los que pasa un archivo subido por el ciudadano: recibido, verificando, verificado o rechazado. Es un catálogo con llave foránea para distinguir lo que solo se recibió de lo que ya pasó las verificaciones.",
+      "columnas": {}
+    },
+    "chatbot.solicitud_carga": {
+      "descripcion": "Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. Cada fila corresponde a un enlace firmado emitido por el bot: guarda a qué incidencia pertenece, cuándo vence y cuántos archivos y bytes se permiten. Nunca guarda el token, solo su huella. No se borra: se cierra.",
+      "columnas": {
+        "incidencia_paciente_id": "Incidencia a la que se le agregarán los archivos.",
+        "usuario_id": "Usuario (ciudadano) al que se le emitió el enlace.",
+        "hash_token": "Huella SHA-256 del token del enlace. Es única y permite reconocer el enlace sin guardar el token.",
+        "vence_en": "Fecha y hora (UTC) en que el enlace deja de servir. Debe ser posterior a la creación y no se puede cambiar.",
+        "cerrada_en": "Fecha y hora (UTC) en que se cerró la solicitud (el ciudadano terminó o la dio por concluida). La fija la base y solo se cierra una vez.",
+        "max_archivos": "Cantidad máxima de archivos que se permiten subir con este enlace. Debe ser mayor que cero.",
+        "max_bytes_archivo": "Tamaño máximo en bytes de cada archivo. Debe ser mayor que cero."
+      }
+    },
+    "chatbot.archivo_recibido": {
+      "descripcion": "Cada archivo que el ciudadano sube a través de una solicitud de carga, con su estado de verificación. Un archivo nace RECIBIDO, pasa a VERIFICANDO y termina VERIFICADO o RECHAZADO; los estados finales no cambian. Los verificados se enlazan después a su evidencia definitiva. No se borra.",
+      "columnas": {
+        "solicitud_carga_id": "Solicitud de carga con la que se subió el archivo.",
+        "nombre_original": "Nombre que tenía el archivo en el dispositivo del ciudadano. Es un dato informativo y puede venir vacío.",
+        "mime_declarado": "Tipo de archivo que declaró el navegador al subirlo. No es de fiar: se contrasta con el tipo detectado.",
+        "mime_detectado": "Tipo real del archivo, según su firma interna (primeros bytes), que fija el proceso de verificación. Obligatorio para marcarlo verificado.",
+        "tamano": "Tamaño del archivo en bytes. Debe ser mayor que cero.",
+        "hash_archivo": "Huella SHA-256 del contenido, calculada por el proceso de verificación. Obligatoria para marcarlo verificado.",
+        "ruta_cuarentena": "Ruta donde quedó el archivo mientras se verifica. Nada se sirve desde la cuarentena.",
+        "estado_archivo_id": "Estado actual de verificación del archivo. Nace en RECIBIDO.",
+        "motivo_rechazo": "Por qué se rechazó el archivo. Es obligatorio si está rechazado y debe estar vacío en cualquier otro estado.",
+        "verificado_en": "Fecha y hora (UTC) en que el archivo llegó a un estado final (verificado o rechazado). La llena la base.",
+        "evidencia_id": "Evidencia definitiva a la que se promovió el archivo verificado. Se enlaza una sola vez y es única."
+      }
+    },
+    "gestion.rol_categoria": {
+      "descripcion": "Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su categoría (la de corrupción solo la ve su área, el administrador y el revisor); el gestor ve lo no sensible para derivarlo. Solo se inserta; la aplicación aplica la regla al listar.",
+      "columnas": {
+        "rol_id": "Rol al que se le permite ver la categoría.",
+        "categoria_incidencia_id": "Categoría de incidencia que el rol puede ver."
+      }
+    },
+    "gestion.modulo": {
+      "descripcion": "Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. El acceso se da por módulo: un rol abre los módulos que tiene asignados. Los valores son provisionales hasta que el área usuaria los confirme.",
+      "columnas": {}
+    },
+    "gestion.rol_modulo": {
+      "descripcion": "Qué módulos abre cada rol. Un usuario abre la unión de los módulos de todos sus roles. Solo se inserta; el backend consulta esta relación en cada petición a partir de la sesión, sin enviar roles ni módulos al navegador.",
+      "columnas": {
+        "rol_id": "Rol al que se le permite abrir el módulo.",
+        "modulo_id": "Módulo que el rol puede abrir."
+      }
+    },
+    "gestion.sesion_usuario": {
+      "descripcion": "Sesión abierta por un usuario interno. Su id es lo único que viaja en la cookie (firmada): ni roles ni datos de la persona salen de la base. La base impide crearla vencida o para un usuario desactivado, fija la fecha de revocación y cierra todas las sesiones de un usuario cuando se desactiva. No se borra: queda como historial de accesos.",
+      "columnas": {
+        "usuario_interno_id": "Usuario interno dueño de la sesión. No cambia.",
+        "ultima_actividad_en": "Fecha y hora (UTC) de la última petición con esta sesión. La aplicación la actualiza para calcular el vencimiento por inactividad; no puede retroceder.",
+        "vence_en": "Fecha y hora (UTC) en que la sesión vence de forma absoluta, aunque haya actividad. Se fija al crearla y no cambia.",
+        "revocada_en": "Fecha y hora (UTC) en que se cerró la sesión (cierre del usuario, cierre por un administrador o desactivación del usuario). La fija la base una sola vez; nulo mientras está abierta."
+      }
+    }
+  },
+  "llaves_foraneas": {
+    "fk_usuario_estado_conversacion": "Garantiza que el estado de la conversación sea uno del catálogo. Sirve para saber si el usuario tiene una conversación abierta.",
+    "fk_mensaje_usuario": "Cada mensaje pertenece a un usuario. Sirve para armar la conversación de un usuario en orden.",
+    "fk_mensaje_direccion_mensaje": "Garantiza que el sentido sea entrante o saliente. Sirve para distinguir lo que dijo el ciudadano de lo que respondió el bot.",
+    "fk_mensaje_tipo_mensaje": "Garantiza que el tipo de contenido sea uno conocido. Sirve para decidir cómo mostrar o procesar el mensaje.",
+    "fk_mensaje_estado_mensaje": "Garantiza que el estado de entrega sea uno del catálogo. Sirve para reintentar o reportar mensajes fallidos.",
+    "fk_incidencia_paciente_canal_origen": "Garantiza que el canal sea uno del catálogo. Sirve para unificar reportes de varios canales.",
+    "fk_incidencia_paciente_usuario": "Cada reporte lo presenta un usuario. Sirve para ver todo lo que reportó una persona.",
+    "fk_incidencia_paciente_mensaje": "Enlaza el reporte con el mensaje del chat del que nació. Sirve para reconstruir el contexto de la conversación.",
+    "fk_incidencia_paciente_estado_incidencia": "Garantiza que el estado sea uno del catálogo. Sirve para listar lo pendiente de cada etapa.",
+    "fk_incidencia_paciente_categoria": "Garantiza que la categoría vigente sea una del catálogo. Sirve para dirigir el caso según sea denuncia, queja o reclamo.",
+    "fk_incidencia_paciente_categoria_ia": "Garantiza que la categoría original de la IA sea una del catálogo. Sirve para medir cuánto se equivoca el modelo.",
+    "fk_incidencia_paciente_auditoria_incidencia_paciente": "Cada evento del historial pertenece a una incidencia. Sirve para reconstruir la vida completa de un reporte.",
+    "fk_evidencia_incidencia_paciente": "Cada evidencia pertenece a un reporte. Sirve para listar los archivos de un caso.",
+    "fk_evidencia_mensaje": "Enlaza la evidencia con el mensaje de WhatsApp del que vino. Sirve para rastrear su origen. Si el mensaje se depura, queda en nulo.",
+    "fk_evidencia_tipo_evidencia": "Garantiza que el tipo de archivo sea uno del catálogo. Sirve para decidir cómo mostrarlo.",
+    "fk_entrenamiento_categoria_incidencia_paciente": "Enlaza la copia de entrenamiento con el caso original. Sirve para volver al expediente completo.",
+    "fk_entrenamiento_categoria_categoria_ia": "Garantiza que la categoría de la IA sea una del catálogo. Sirve para medir errores del modelo.",
+    "fk_entrenamiento_categoria_categoria_final": "Garantiza que la categoría decidida sea una del catálogo. Es la respuesta correcta con la que se mejora el modelo.",
+    "fk_usuario_rol_usuario_interno": "Enlaza la asignación con el usuario interno. Sirve para saber qué roles tiene una persona.",
+    "fk_usuario_rol_rol": "Enlaza la asignación con el rol. Sirve para saber qué personas tienen un rol.",
+    "fk_solicitud_carga_incidencia_paciente": "Cada solicitud de carga pertenece a una incidencia. Sirve para saber qué archivos corresponden a qué reclamo.",
+    "fk_solicitud_carga_usuario": "Cada solicitud se emite a un usuario. Sirve para vincular el enlace con el ciudadano que escribió al bot.",
+    "fk_archivo_recibido_solicitud_carga": "Cada archivo llegó por una solicitud de carga. Sirve para contar y listar los archivos de una solicitud.",
+    "fk_archivo_recibido_estado_archivo": "Garantiza que el estado del archivo sea uno del catálogo. Sirve para distinguir lo recibido de lo verificado.",
+    "fk_archivo_recibido_evidencia": "Enlaza el archivo verificado con su evidencia definitiva. Sirve para rastrear de qué subida salió cada evidencia.",
+    "fk_rol_categoria_rol": "Cada permiso pertenece a un rol. Sirve para saber qué categorías ve un rol.",
+    "fk_rol_categoria_categoria_incidencia": "Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría.",
+    "fk_rol_modulo_rol": "Cada permiso de módulo pertenece a un rol. Sirve para saber qué módulos abre un rol.",
+    "fk_rol_modulo_modulo": "Garantiza que el módulo sea uno del catálogo. Sirve para saber qué roles abren un módulo.",
+    "fk_sesion_usuario_usuario_interno": "Cada sesión pertenece a un usuario interno. Sirve para listar o cerrar todas las sesiones de una persona."
+  },
+  "disparadores_por_funcion": {
+    "fn_auditoria_mutable": "Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.",
+    "fn_auditoria_creacion": "Al insertar: llena la fecha y el usuario de creación.",
+    "fn_fecha_modificacion": "Al modificar: actualiza la fecha de modificación.",
+    "fn_bloquear_operacion": "Impide operaciones: en tablas de solo inserción bloquea modificar y borrar; en tablas con borrado lógico bloquea el borrado físico.",
+    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez. Además lleva los estados: pasa a CLASIFICADO cuando la IA asigna la categoría, a RESUELTO cuando se registra la resolución, rechaza transiciones no permitidas y solo deja archivar un caso abierto al sistema, cuando vence su plazo de atención.",
+    "fn_historial_incidencia": "Después de insertar o modificar, guarda el cambio en el historial.",
+    "fn_replicar_categoria_entrenamiento": "Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.",
+    "fn_reglas_solicitud_carga": "Hace cumplir las reglas de la solicitud de carga: los datos de emisión (incidencia, usuario, huella del token, vencimiento y límites) no cambian y la solicitud se cierra una sola vez, con la fecha de la base.",
+    "fn_reglas_archivo_recibido": "Hace cumplir el recorrido del archivo: recibido, verificando y verificado o rechazado, sin saltos; los datos de lo recibido no cambian, los estados finales no se modifican y la fecha de verificación la fija la base.",
+    "fn_reglas_sesion_usuario": "Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.",
+    "fn_cerrar_sesiones_usuario": "Al desactivar un usuario interno, revoca todas sus sesiones abiertas."
+  }
+}

@@ -1,0 +1,6 @@
+# Prisma calcula el checksum de cada migracion sobre el contenido del archivo: con saltos de linea distintos entre
+# Windows y Linux, una migracion ya aplicada se vería como modificada. Estas rutas se guardan y se extraen siempre con LF.
+prisma/migrations/**/*.sql text eol=lf
+prisma/migrations/migration_lock.toml text eol=lf
+prisma/tests/*.sql text eol=lf
+prisma/seeds/**/*.sql text eol=lf

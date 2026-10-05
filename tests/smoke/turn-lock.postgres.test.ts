@@ -26,7 +26,7 @@ async function advisoryLocksNow(): Promise<number | null> {
   }
 }
 
-describe.skipIf(!process.env.DATABASE_URL)("turn lock against Neon (WebSocket pool)", () => {
+describe.skipIf(!process.env.DATABASE_URL)("turn lock against a real PostgreSQL (Prisma pool)", () => {
   let baselineLocks: number | null = null;
 
   beforeAll(async () => {
@@ -52,7 +52,7 @@ describe.skipIf(!process.env.DATABASE_URL)("turn lock against Neon (WebSocket po
 
   afterAll(async () => {
     report.advisoryLocksAfter = await advisoryLocksNow();
-    console.info(`[neon-smoke] ${JSON.stringify(report, null, 2)}`);
+    console.info(`[postgres-smoke] ${JSON.stringify(report, null, 2)}`);
     await prisma.$disconnect();
   });
 
