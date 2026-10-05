@@ -10,8 +10,6 @@ erDiagram
     incidencia_paciente ||--o{ solicitud_carga : "incidencia_paciente_id"
     usuario ||--o{ solicitud_carga : "usuario_id"
     rol ||--o{ rol_categoria : "rol_id"
-    modulo ||--o{ rol_modulo : "modulo_id"
-    rol ||--o{ rol_modulo : "rol_id"
     usuario_interno ||--o{ sesion_usuario : "usuario_interno_id"
     rol ||--o{ usuario_rol : "rol_id"
     usuario_interno ||--o{ usuario_rol : "usuario_interno_id"
@@ -129,14 +127,6 @@ erDiagram
         text eliminado_por
         bloque auditoria
     }
-    modulo {
-        smallint id PK
-        text codigo
-        text nombre
-        text descripcion
-        boolean activo
-        bloque auditoria
-    }
     rol {
         smallint id PK
         text codigo
@@ -148,11 +138,6 @@ erDiagram
     rol_categoria {
         smallint rol_id PK, FK
         smallint categoria_incidencia_id PK, FK "catalogo categoria_incidencia"
-        bloque auditoria
-    }
-    rol_modulo {
-        smallint rol_id PK, FK
-        smallint modulo_id PK, FK
         bloque auditoria
     }
     sesion_usuario {
