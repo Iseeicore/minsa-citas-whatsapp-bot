@@ -161,10 +161,11 @@
       }
     },
     "gestion.usuario_interno": {
-      "descripcion": "Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Nunca se borra: se desactiva.",
+      "descripcion": "Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla se cierran todas sus sesiones.",
       "columnas": {
         "nombre_completo": "Nombre completo de la persona.",
-        "correo": "Correo institucional. Es único."
+        "correo": "Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.",
+        "password_hash": "Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato."
       }
     },
     "gestion.rol": {
@@ -216,6 +217,26 @@
         "rol_id": "Rol al que se le permite ver la categoría.",
         "categoria_incidencia_id": "Categoría de incidencia que el rol puede ver."
       }
+    },
+    "gestion.modulo": {
+      "descripcion": "Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. El acceso se da por módulo: un rol abre los módulos que tiene asignados. Los valores son provisionales hasta que el área usuaria los confirme.",
+      "columnas": {}
+    },
+    "gestion.rol_modulo": {
+      "descripcion": "Qué módulos abre cada rol. Un usuario abre la unión de los módulos de todos sus roles. Solo se inserta; el backend consulta esta relación en cada petición a partir de la sesión, sin enviar roles ni módulos al navegador.",
+      "columnas": {
+        "rol_id": "Rol al que se le permite abrir el módulo.",
+        "modulo_id": "Módulo que el rol puede abrir."
+      }
+    },
+    "gestion.sesion_usuario": {
+      "descripcion": "Sesión abierta por un usuario interno. Su id es lo único que viaja en la cookie (firmada): ni roles ni datos de la persona salen de la base. La base impide crearla vencida o para un usuario desactivado, fija la fecha de revocación y cierra todas las sesiones de un usuario cuando se desactiva. No se borra: queda como historial de accesos.",
+      "columnas": {
+        "usuario_interno_id": "Usuario interno dueño de la sesión. No cambia.",
+        "ultima_actividad_en": "Fecha y hora (UTC) de la última petición con esta sesión. La aplicación la actualiza para calcular el vencimiento por inactividad; no puede retroceder.",
+        "vence_en": "Fecha y hora (UTC) en que la sesión vence de forma absoluta, aunque haya actividad. Se fija al crearla y no cambia.",
+        "revocada_en": "Fecha y hora (UTC) en que se cerró la sesión (cierre del usuario, cierre por un administrador o desactivación del usuario). La fija la base una sola vez; nulo mientras está abierta."
+      }
     }
   },
   "llaves_foraneas": {
@@ -245,7 +266,10 @@
     "fk_archivo_recibido_estado_archivo": "Garantiza que el estado del archivo sea uno del catálogo. Sirve para distinguir lo recibido de lo verificado.",
     "fk_archivo_recibido_evidencia": "Enlaza el archivo verificado con su evidencia definitiva. Sirve para rastrear de qué subida salió cada evidencia.",
     "fk_rol_categoria_rol": "Cada permiso pertenece a un rol. Sirve para saber qué categorías ve un rol.",
-    "fk_rol_categoria_categoria_incidencia": "Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría."
+    "fk_rol_categoria_categoria_incidencia": "Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría.",
+    "fk_rol_modulo_rol": "Cada permiso de módulo pertenece a un rol. Sirve para saber qué módulos abre un rol.",
+    "fk_rol_modulo_modulo": "Garantiza que el módulo sea uno del catálogo. Sirve para saber qué roles abren un módulo.",
+    "fk_sesion_usuario_usuario_interno": "Cada sesión pertenece a un usuario interno. Sirve para listar o cerrar todas las sesiones de una persona."
   },
   "disparadores_por_funcion": {
     "fn_auditoria_mutable": "Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.",
@@ -256,6 +280,8 @@
     "fn_historial_incidencia": "Después de insertar o modificar, guarda el cambio en el historial.",
     "fn_replicar_categoria_entrenamiento": "Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.",
     "fn_reglas_solicitud_carga": "Hace cumplir las reglas de la solicitud de carga: los datos de emisión (incidencia, usuario, huella del token, vencimiento y límites) no cambian y la solicitud se cierra una sola vez, con la fecha de la base.",
-    "fn_reglas_archivo_recibido": "Hace cumplir el recorrido del archivo: recibido, verificando y verificado o rechazado, sin saltos; los datos de lo recibido no cambian, los estados finales no se modifican y la fecha de verificación la fija la base."
+    "fn_reglas_archivo_recibido": "Hace cumplir el recorrido del archivo: recibido, verificando y verificado o rechazado, sin saltos; los datos de lo recibido no cambian, los estados finales no se modifican y la fecha de verificación la fija la base.",
+    "fn_reglas_sesion_usuario": "Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.",
+    "fn_cerrar_sesiones_usuario": "Al desactivar un usuario interno, revoca todas sus sesiones abiertas."
   }
 }

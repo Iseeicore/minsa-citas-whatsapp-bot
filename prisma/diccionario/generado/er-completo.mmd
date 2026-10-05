@@ -21,6 +21,9 @@ erDiagram
     estado_conversacion ||--o{ usuario : "estado_conversacion_id"
     categoria_incidencia ||--o{ rol_categoria : "categoria_incidencia_id"
     rol ||--o{ rol_categoria : "rol_id"
+    modulo ||--o{ rol_modulo : "modulo_id"
+    rol ||--o{ rol_modulo : "rol_id"
+    usuario_interno ||--o{ sesion_usuario : "usuario_interno_id"
     rol ||--o{ usuario_rol : "rol_id"
     usuario_interno ||--o{ usuario_rol : "usuario_interno_id"
     categoria_incidencia ||--o{ entrenamiento_categoria : "categoria_final_id"
@@ -212,6 +215,14 @@ erDiagram
         text eliminado_por
         bloque auditoria
     }
+    modulo {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
     rol {
         smallint id PK
         text codigo
@@ -225,6 +236,19 @@ erDiagram
         smallint categoria_incidencia_id PK, FK
         bloque auditoria
     }
+    rol_modulo {
+        smallint rol_id PK, FK
+        smallint modulo_id PK, FK
+        bloque auditoria
+    }
+    sesion_usuario {
+        uuid id PK
+        uuid usuario_interno_id FK
+        timestamptz ultima_actividad_en
+        timestamptz vence_en
+        timestamptz revocada_en
+        bloque auditoria
+    }
     usuario_interno {
         uuid id PK
         text nombre_completo
@@ -232,6 +256,7 @@ erDiagram
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
+        text password_hash
         bloque auditoria
     }
     usuario_rol {

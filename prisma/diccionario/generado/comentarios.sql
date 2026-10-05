@@ -262,6 +262,17 @@ COMMENT ON TABLE chatbot.usuario IS 'Persona que escribe al chatbot, identificad
 
 Relaciones:
 - estado_conversacion_id → catalogo.estado_conversacion: Garantiza que el estado de la conversación sea uno del catálogo. Sirve para saber si el usuario tiene una conversación abierta.';
+COMMENT ON COLUMN gestion.modulo.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
+COMMENT ON COLUMN gestion.modulo.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
+COMMENT ON COLUMN gestion.modulo.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
+COMMENT ON COLUMN gestion.modulo.descripcion IS 'Explicación opcional de qué significa el valor.';
+COMMENT ON COLUMN gestion.modulo.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
+COMMENT ON COLUMN gestion.modulo.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN gestion.modulo.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN gestion.modulo.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN gestion.modulo.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN gestion.modulo.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE gestion.modulo IS 'Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. El acceso se da por módulo: un rol abre los módulos que tiene asignados. Los valores son provisionales hasta que el área usuaria los confirme.';
 COMMENT ON COLUMN gestion.rol.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN gestion.rol.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN gestion.rol.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -282,9 +293,32 @@ COMMENT ON TABLE gestion.rol_categoria IS 'Qué categorías de incidencia puede 
 Relaciones:
 - categoria_incidencia_id → catalogo.categoria_incidencia: Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría.
 - rol_id → gestion.rol: Cada permiso pertenece a un rol. Sirve para saber qué categorías ve un rol.';
+COMMENT ON COLUMN gestion.rol_modulo.rol_id IS 'Rol al que se le permite abrir el módulo.';
+COMMENT ON COLUMN gestion.rol_modulo.modulo_id IS 'Módulo que el rol puede abrir.';
+COMMENT ON COLUMN gestion.rol_modulo.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN gestion.rol_modulo.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON TABLE gestion.rol_modulo IS 'Qué módulos abre cada rol. Un usuario abre la unión de los módulos de todos sus roles. Solo se inserta; el backend consulta esta relación en cada petición a partir de la sesión, sin enviar roles ni módulos al navegador.
+
+Relaciones:
+- modulo_id → gestion.modulo: Garantiza que el módulo sea uno del catálogo. Sirve para saber qué roles abren un módulo.
+- rol_id → gestion.rol: Cada permiso de módulo pertenece a un rol. Sirve para saber qué módulos abre un rol.';
+COMMENT ON COLUMN gestion.sesion_usuario.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN gestion.sesion_usuario.usuario_interno_id IS 'Usuario interno dueño de la sesión. No cambia.';
+COMMENT ON COLUMN gestion.sesion_usuario.ultima_actividad_en IS 'Fecha y hora (UTC) de la última petición con esta sesión. La aplicación la actualiza para calcular el vencimiento por inactividad; no puede retroceder.';
+COMMENT ON COLUMN gestion.sesion_usuario.vence_en IS 'Fecha y hora (UTC) en que la sesión vence de forma absoluta, aunque haya actividad. Se fija al crearla y no cambia.';
+COMMENT ON COLUMN gestion.sesion_usuario.revocada_en IS 'Fecha y hora (UTC) en que se cerró la sesión (cierre del usuario, cierre por un administrador o desactivación del usuario). La fija la base una sola vez; nulo mientras está abierta.';
+COMMENT ON COLUMN gestion.sesion_usuario.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN gestion.sesion_usuario.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN gestion.sesion_usuario.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN gestion.sesion_usuario.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN gestion.sesion_usuario.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE gestion.sesion_usuario IS 'Sesión abierta por un usuario interno. Su id es lo único que viaja en la cookie (firmada): ni roles ni datos de la persona salen de la base. La base impide crearla vencida o para un usuario desactivado, fija la fecha de revocación y cierra todas las sesiones de un usuario cuando se desactiva. No se borra: queda como historial de accesos.
+
+Relaciones:
+- usuario_interno_id → gestion.usuario_interno: Cada sesión pertenece a un usuario interno. Sirve para listar o cerrar todas las sesiones de una persona.';
 COMMENT ON COLUMN gestion.usuario_interno.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 COMMENT ON COLUMN gestion.usuario_interno.nombre_completo IS 'Nombre completo de la persona.';
-COMMENT ON COLUMN gestion.usuario_interno.correo IS 'Correo institucional. Es único.';
+COMMENT ON COLUMN gestion.usuario_interno.correo IS 'Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.';
 COMMENT ON COLUMN gestion.usuario_interno.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
 COMMENT ON COLUMN gestion.usuario_interno.eliminado_en IS 'Fecha y hora (UTC) del borrado lógico. Nulo mientras la fila está activa.';
 COMMENT ON COLUMN gestion.usuario_interno.eliminado_por IS 'Quién hizo el borrado lógico. Nulo mientras la fila está activa.';
@@ -293,7 +327,8 @@ COMMENT ON COLUMN gestion.usuario_interno.fecha_creacion IS 'Fecha y hora (UTC) 
 COMMENT ON COLUMN gestion.usuario_interno.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN gestion.usuario_interno.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN gestion.usuario_interno.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON TABLE gestion.usuario_interno IS 'Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Nunca se borra: se desactiva.';
+COMMENT ON COLUMN gestion.usuario_interno.password_hash IS 'Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato.';
+COMMENT ON TABLE gestion.usuario_interno IS 'Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla se cierran todas sus sesiones.';
 COMMENT ON COLUMN gestion.usuario_rol.usuario_interno_id IS 'Usuario interno que recibe el rol.';
 COMMENT ON COLUMN gestion.usuario_rol.rol_id IS 'Rol que se le asigna.';
 COMMENT ON COLUMN gestion.usuario_rol.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';

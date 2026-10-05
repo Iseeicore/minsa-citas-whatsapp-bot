@@ -349,6 +349,7 @@ model UsuarioInterno {
   id                  String    @id(map: "pk_usuario_interno") @default(dbgenerated("uuidv7()")) @db.Uuid
   nombreCompleto      String    @map("nombre_completo")
   correo              String    @unique(map: "uq_usuario_interno_correo")
+  passwordHash        String    @map("password_hash")
   activo              Boolean   @default(true)
   eliminadoEn         DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor        String?   @map("eliminado_por")
@@ -358,7 +359,8 @@ model UsuarioInterno {
   fechaModificacion   DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  roles UsuarioRol[]
+  roles    UsuarioRol[]
+  sesiones SesionUsuario[]
 
   @@map("usuario_interno")
   @@schema("gestion")
@@ -378,8 +380,60 @@ model Rol {
 
   usuarios   UsuarioRol[]
   categorias RolCategoria[]
+  modulos    RolModulo[]
 
   @@map("rol")
+  @@schema("gestion")
+}
+
+model Modulo {
+  id                  Int      @id(map: "pk_modulo") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_modulo_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  roles RolModulo[]
+
+  @@map("modulo")
+  @@schema("gestion")
+}
+
+model RolModulo {
+  rolId           Int      @map("rol_id") @db.SmallInt
+  moduloId        Int      @map("modulo_id") @db.SmallInt
+  fechaCreacion   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+
+  rol    Rol    @relation(fields: [rolId], references: [id], map: "fk_rol_modulo_rol")
+  modulo Modulo @relation(fields: [moduloId], references: [id], map: "fk_rol_modulo_modulo")
+
+  @@id([rolId, moduloId], map: "pk_rol_modulo")
+  @@map("rol_modulo")
+  @@schema("gestion")
+}
+
+model SesionUsuario {
+  id                  String    @id(map: "pk_sesion_usuario") @default(dbgenerated("uuidv7()")) @db.Uuid
+  usuarioInternoId    String    @map("usuario_interno_id") @db.Uuid
+  ultimaActividadEn   DateTime  @default(now()) @map("ultima_actividad_en") @db.Timestamptz(3)
+  venceEn             DateTime  @map("vence_en") @db.Timestamptz(3)
+  revocadaEn          DateTime? @map("revocada_en") @db.Timestamptz(3)
+  versionFila         Int       @default(1) @map("version_fila")
+  fechaCreacion       DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  usuarioInterno UsuarioInterno @relation(fields: [usuarioInternoId], references: [id], map: "fk_sesion_usuario_usuario_interno")
+
+  @@index([usuarioInternoId, revocadaEn], map: "ix_sesion_usuario_usuario_revocada")
+  @@map("sesion_usuario")
   @@schema("gestion")
 }
 

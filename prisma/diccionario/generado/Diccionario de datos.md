@@ -33,8 +33,11 @@
 | `chatbot.sesion_conversacion` | Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). |
 | `chatbot.solicitud_carga` | Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. |
 | `chatbot.usuario` | Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. |
+| `gestion.modulo` | Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. |
 | `gestion.rol` | Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). |
 | `gestion.rol_categoria` | Qué categorías de incidencia puede ver cada rol. |
+| `gestion.rol_modulo` | Qué módulos abre cada rol. |
+| `gestion.sesion_usuario` | Sesión abierta por un usuario interno. |
 | `gestion.usuario_interno` | Persona de la institución que gestiona los casos. |
 | `gestion.usuario_rol` | Relación entre usuarios internos y roles: un usuario puede tener varios roles y un rol lo tienen varios usuarios. |
 | `ia.entrenamiento_categoria` | Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. |
@@ -622,6 +625,30 @@ Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. R
 - `trg_usuario_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_usuario_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
 
+### `gestion.modulo`
+
+Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. El acceso se da por módulo: un rol abre los módulos que tiene asignados. Los valores son provisionales hasta que el área usuaria los confirme.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | smallint | No | `nextval('gestion.modulo_id_seq'::regclass)` | PK | Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas. |
+| `codigo` | text | No |  |  | Código estable y único del valor. Es el que usa el código de la aplicación. |
+| `nombre` | text | No |  |  | Nombre legible del valor, para mostrar en pantalla. |
+| `descripcion` | text | Sí |  |  | Explicación opcional de qué significa el valor. |
+| `activo` | boolean | No | `true` |  | Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica. |
+| `version_fila` | integer | No | `1` |  | Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos. |
+| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
+| `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
+| `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
+| `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_modulo_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+- `trg_modulo_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+
 ### `gestion.rol`
 
 Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
@@ -670,9 +697,70 @@ Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su catego
 
 - `trg_rol_categoria_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
 
+### `gestion.rol_modulo`
+
+Qué módulos abre cada rol. Un usuario abre la unión de los módulos de todos sus roles. Solo se inserta; el backend consulta esta relación en cada petición a partir de la sesión, sin enviar roles ni módulos al navegador.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `rol_id` | smallint | No |  | PK, FK | Rol al que se le permite abrir el módulo. |
+| `modulo_id` | smallint | No |  | PK, FK | Módulo que el rol puede abrir. |
+| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
+| `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_rol_modulo_modulo` | `modulo_id` | `gestion.modulo` | Garantiza que el módulo sea uno del catálogo. Sirve para saber qué roles abren un módulo. |
+| `fk_rol_modulo_rol` | `rol_id` | `gestion.rol` | Cada permiso de módulo pertenece a un rol. Sirve para saber qué módulos abre un rol. |
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_rol_modulo_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
+
+### `gestion.sesion_usuario`
+
+Sesión abierta por un usuario interno. Su id es lo único que viaja en la cookie (firmada): ni roles ni datos de la persona salen de la base. La base impide crearla vencida o para un usuario desactivado, fija la fecha de revocación y cierra todas las sesiones de un usuario cuando se desactiva. No se borra: queda como historial de accesos.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `usuario_interno_id` | uuid | No |  | FK | Usuario interno dueño de la sesión. No cambia. |
+| `ultima_actividad_en` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última petición con esta sesión. La aplicación la actualiza para calcular el vencimiento por inactividad; no puede retroceder. |
+| `vence_en` | timestamp(3) with time zone | No |  |  | Fecha y hora (UTC) en que la sesión vence de forma absoluta, aunque haya actividad. Se fija al crearla y no cambia. |
+| `revocada_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que se cerró la sesión (cierre del usuario, cierre por un administrador o desactivación del usuario). La fija la base una sola vez; nulo mientras está abierta. |
+| `version_fila` | integer | No | `1` |  | Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos. |
+| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
+| `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
+| `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
+| `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_sesion_usuario_usuario_interno` | `usuario_interno_id` | `gestion.usuario_interno` | Cada sesión pertenece a un usuario interno. Sirve para listar o cerrar todas las sesiones de una persona. |
+
+**Índices**
+
+- `ix_sesion_usuario_usuario_revocada`: `USING btree (usuario_interno_id, revocada_en)`.
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_sesion_usuario_a_reglas_ins` (Antes de insertar): Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.
+- `trg_sesion_usuario_a_reglas_upd` (Antes de modificar): Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.
+- `trg_sesion_usuario_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+- `trg_sesion_usuario_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+- `trg_sesion_usuario_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
+
 ### `gestion.usuario_interno`
 
-Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Nunca se borra: se desactiva.
+Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla se cierran todas sus sesiones.
 
 **Columnas**
 
@@ -680,7 +768,7 @@ Persona de la institución que gestiona los casos. Es distinta del usuario de Wh
 |---|---|---|---|---|---|
 | `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
 | `nombre_completo` | text | No |  |  | Nombre completo de la persona. |
-| `correo` | text | No |  |  | Correo institucional. Es único. |
+| `correo` | text | No |  |  | Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión. |
 | `activo` | boolean | No | `true` |  | Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica. |
 | `eliminado_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) del borrado lógico. Nulo mientras la fila está activa. |
 | `eliminado_por` | text | Sí |  |  | Quién hizo el borrado lógico. Nulo mientras la fila está activa. |
@@ -689,16 +777,20 @@ Persona de la institución que gestiona los casos. Es distinta del usuario de Wh
 | `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
 | `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
 | `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
+| `password_hash` | text | No |  |  | Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato. |
 
 **Restricciones**
 
+- `ck_usuario_interno_correo_minusculas`: `CHECK ((correo = lower(correo)))`.
 - `ck_usuario_interno_eliminacion`: `CHECK (((activo AND (eliminado_en IS NULL) AND (eliminado_por IS NULL)) OR ((NOT activo) AND (eliminado_en IS NOT NULL) AND (eliminado_por IS NOT NULL))))`.
+- `ck_usuario_interno_password_hash`: `CHECK (starts_with(password_hash, '$argon2id$'::text))`.
 
 **Reglas que aplica la base (disparadores)**
 
 - `trg_usuario_interno_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_usuario_interno_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_usuario_interno_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
+- `trg_usuario_interno_c_cerrar_sesiones` (Después de modificar): Al desactivar un usuario interno, revoca todas sus sesiones abiertas.
 
 ### `gestion.usuario_rol`
 
