@@ -60,7 +60,7 @@ END $$;
 
 -- Transiciones no permitidas.
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 2 WHERE trace_id = 'trace-estados-A'$q$, '23514', 'E07 no se retrocede de EN_GESTION a CLASIFICADO');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E08 ARCHIVADO solo desde RESUELTO');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E08 una persona no archiva a mano un caso abierto');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 4 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E09 RESUELTO exige registrar la resolucion');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 5 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E10 ANULADO ya no es un destino valido');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET resolucion = 'ok', estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E11 al resolver el estado solo puede ser RESUELTO');

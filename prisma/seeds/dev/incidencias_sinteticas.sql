@@ -126,8 +126,10 @@ UPDATE chatbot.incidencia_paciente i
  WHERE i.trace_id = e.traza;
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
--- El archivado automatico (3 dias de vigencia de la resolucion) pasa a ARCHIVADO lo que ya cumplio.
-SELECT chatbot.archivar_incidencias_resueltas(3, 1000) AS archivadas_por_vigencia;
+-- El archivado automatico pasa a ARCHIVADO lo que ya cumplio: lo resuelto hace mas de 3 dias (vigencia de la resolucion) y
+-- lo abierto que llego hace mas de 3 dias (plazo de atencion).
+SELECT chatbot.archivar_incidencias_resueltas(3, 1000) AS archivadas_por_vigencia,
+       chatbot.archivar_incidencias_vencidas(3, 1000) AS archivadas_por_vencimiento;
 
 \echo Datos de prueba sembrados:
 SELECT e.nombre AS estado, count(*) AS incidencias

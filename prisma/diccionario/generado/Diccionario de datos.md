@@ -21,7 +21,7 @@
 | `catalogo.direccion_mensaje` | Sentido de un mensaje: entrante (del ciudadano al bot) o saliente (del bot al ciudadano). |
 | `catalogo.estado_archivo` | Estados por los que pasa un archivo subido por el ciudadano: recibido, verificando, verificado o rechazado. |
 | `catalogo.estado_conversacion` | Si la conversación con un usuario está abierta o cerrada. |
-| `catalogo.estado_incidencia` | Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta). |
+| `catalogo.estado_incidencia` | Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta, o cuando un caso abierto supera el plazo de atención). |
 | `catalogo.estado_mensaje` | Estado de entrega de un mensaje enviado por WhatsApp (pendiente, enviado, entregado, leído, fallido). |
 | `catalogo.tipo_evidencia` | Tipo de archivo adjunto como evidencia (imagen, video, documento, audio). |
 | `catalogo.tipo_mensaje` | Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla). |
@@ -165,7 +165,7 @@ Si la conversación con un usuario está abierta o cerrada.
 
 ### `catalogo.estado_incidencia`
 
-Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta). Anulado está retirado: anular es el borrado lógico. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.
+Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta, o cuando un caso abierto supera el plazo de atención). Anulado está retirado: anular es el borrado lógico. Los valores son provisionales hasta que la unidad usuaria confirme su flujo.
 
 **Columnas**
 
@@ -372,7 +372,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `dni_reclamante` | text | Sí |  |  | DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo. |
 | `nombre_reclamante` | text | Sí |  |  | Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo. |
 | `descripcion` | text | No |  |  | Relato del paciente. Es el texto que analiza la IA. No se puede modificar. |
-| `estado_incidencia_id` | smallint | No | `1` | FK | Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas (por ejemplo, ARCHIVADO solo desde RESUELTO). Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría. |
+| `estado_incidencia_id` | smallint | No | `1` | FK | Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. ARCHIVADO se alcanza desde RESUELTO (pasó la vigencia de la resolución) o, solo por el sistema, desde un estado abierto cuyo plazo de atención venció. Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría. |
 | `trace_id` | text | No |  |  | Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte. |
 | `categoria_id` | smallint | Sí |  | FK | Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida. |
 | `categoria_ia_id` | smallint | Sí |  | FK | Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo. |
@@ -425,7 +425,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 
 **Reglas que aplica la base (disparadores)**
 
-- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez. Además lleva los estados: pasa a CLASIFICADO cuando la IA asigna la categoría, a RESUELTO cuando se registra la resolución, y rechaza transiciones no permitidas.
+- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez. Además lleva los estados: pasa a CLASIFICADO cuando la IA asigna la categoría, a RESUELTO cuando se registra la resolución, rechaza transiciones no permitidas y solo deja archivar un caso abierto al sistema, cuando vence su plazo de atención.
 - `trg_incidencia_paciente_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
