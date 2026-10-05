@@ -247,6 +247,7 @@ model IncidenciaPaciente {
   usuarioCreacion      String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
   fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+  codigo               String    @default("") @unique(map: "uq_incidencia_paciente_codigo")
 
   canalOrigen     CanalOrigen                  @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
   usuario         Usuario                      @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")
@@ -318,6 +319,16 @@ model SesionConversacion {
 
   @@index([fechaModificacion], map: "ix_sesion_conversacion_fecha_modificacion")
   @@map("sesion_conversacion")
+  @@schema("chatbot")
+}
+
+model ContadorCodigoIncidencia {
+  anio              Int      @id(map: "pk_contador_codigo_incidencia") @db.SmallInt
+  ultimo            Int      @default(0)
+  fechaCreacion     DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  fechaModificacion DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+
+  @@map("contador_codigo_incidencia")
   @@schema("chatbot")
 }
 

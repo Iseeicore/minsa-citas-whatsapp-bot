@@ -83,7 +83,7 @@
       }
     },
     "chatbot.incidencia_paciente": {
-      "descripcion": "Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Nunca se borra: se desactiva.",
+      "descripcion": "Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Nunca se borra: se desactiva.",
       "columnas": {
         "canal_origen_id": "Canal por el que llegó (WhatsApp o web).",
         "usuario_id": "Usuario que presentó el reporte.",
@@ -106,7 +106,17 @@
         "categoria_confirmada_por": "Quién confirmó la categoría. La llena la base.",
         "resolucion": "Resolución que se dio al asunto. Se registra una sola vez.",
         "resuelto_en": "Fecha y hora (UTC) en que se registró la resolución. La llena la base.",
-        "resuelto_por": "Quién registró la resolución. La llena la base."
+        "resuelto_por": "Quién registró la resolución. La llena la base.",
+        "codigo": "Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada."
+      }
+    },
+    "chatbot.contador_codigo_incidencia": {
+      "descripcion": "Último correlativo usado en cada año para el código de las incidencias. Una fila por año, que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.",
+      "columnas": {
+        "anio": "Año del código (zona America/Lima), de cuatro dígitos. Es la clave: hay una fila por año.",
+        "ultimo": "Último correlativo entregado ese año. El próximo código usa este valor más uno. Solo puede subir.",
+        "fecha_creacion": "Fecha y hora (UTC) en que se creó la fila del año, es decir, cuando llegó la primera incidencia de ese año.",
+        "fecha_modificacion": "Fecha y hora (UTC) del último código entregado ese año. La llena un disparador."
       }
     },
     "chatbot.incidencia_paciente_auditoria": {
@@ -263,13 +273,15 @@
     "fn_auditoria_creacion": "Al insertar: llena la fecha y el usuario de creación.",
     "fn_fecha_modificacion": "Al modificar: actualiza la fecha de modificación.",
     "fn_bloquear_operacion": "Impide operaciones: en tablas de solo inserción bloquea modificar y borrar; en tablas con borrado lógico bloquea el borrado físico.",
-    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: los datos de origen no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez. Además lleva los estados: pasa a CLASIFICADO cuando la IA asigna la categoría, a RESUELTO cuando se registra la resolución, rechaza transiciones no permitidas y solo deja archivar un caso abierto al sistema, cuando vence su plazo de atención.",
+    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: los datos de origen y el código no cambian, la IA asigna la categoría y su versión una sola vez, una persona la corrige o la confirma una sola vez (nunca las dos) y la resolución se registra una sola vez. Además lleva los estados: pasa a CLASIFICADO cuando la IA asigna la categoría, a RESUELTO cuando se registra la resolución, rechaza transiciones no permitidas y solo deja archivar un caso abierto al sistema, cuando vence su plazo de atención.",
     "fn_historial_incidencia": "Después de insertar o modificar, guarda el cambio en el historial.",
     "fn_replicar_categoria_entrenamiento": "Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.",
     "fn_reglas_solicitud_carga": "Hace cumplir las reglas de la solicitud de carga: los datos de emisión (incidencia, usuario, huella del token, vencimiento y límites) no cambian y la solicitud se cierra una sola vez, con la fecha de la base.",
     "fn_reglas_archivo_recibido": "Hace cumplir el recorrido del archivo: recibido, verificando y verificado o rechazado, sin saltos; los datos de lo recibido no cambian, los estados finales no se modifican y la fecha de verificación la fija la base.",
     "fn_reglas_sesion_usuario": "Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.",
     "fn_cerrar_sesiones_usuario": "Al desactivar un usuario interno, revoca todas sus sesiones abiertas.",
-    "fn_reglas_usuario_rol": "Impide asignar un rol desactivado a un usuario interno."
+    "fn_reglas_usuario_rol": "Impide asignar un rol desactivado a un usuario interno.",
+    "fn_asignar_codigo_incidencia": "Al insertar una incidencia: le pone su código MINSA-AAAA-NNNNNN y descarta el que haya enviado quien inserta.",
+    "fn_reglas_contador_codigo": "En el contador de códigos: impide borrar filas, cambiar el año o bajar el último correlativo."
   }
 }

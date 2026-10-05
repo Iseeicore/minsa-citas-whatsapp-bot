@@ -125,6 +125,11 @@ Relaciones:
 - estado_archivo_id → catalogo.estado_archivo: Garantiza que el estado del archivo sea uno del catálogo. Sirve para distinguir lo recibido de lo verificado.
 - evidencia_id → chatbot.evidencia: Enlaza el archivo verificado con su evidencia definitiva. Sirve para rastrear de qué subida salió cada evidencia.
 - solicitud_carga_id → chatbot.solicitud_carga: Cada archivo llegó por una solicitud de carga. Sirve para contar y listar los archivos de una solicitud.';
+COMMENT ON COLUMN chatbot.contador_codigo_incidencia.anio IS 'Año del código (zona America/Lima), de cuatro dígitos. Es la clave: hay una fila por año.';
+COMMENT ON COLUMN chatbot.contador_codigo_incidencia.ultimo IS 'Último correlativo entregado ese año. El próximo código usa este valor más uno. Solo puede subir.';
+COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_creacion IS 'Fecha y hora (UTC) en que se creó la fila del año, es decir, cuando llegó la primera incidencia de ese año.';
+COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_modificacion IS 'Fecha y hora (UTC) del último código entregado ese año. La llena un disparador.';
+COMMENT ON TABLE chatbot.contador_codigo_incidencia IS 'Último correlativo usado en cada año para el código de las incidencias. Una fila por año, que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.';
 COMMENT ON COLUMN chatbot.evidencia.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 COMMENT ON COLUMN chatbot.evidencia.incidencia_paciente_id IS 'Reporte al que pertenece la evidencia.';
 COMMENT ON COLUMN chatbot.evidencia.mensaje_id IS 'Mensaje de WhatsApp del que vino el archivo. Opcional.';
@@ -175,7 +180,8 @@ COMMENT ON COLUMN chatbot.incidencia_paciente.fecha_creacion IS 'Fecha y hora (U
 COMMENT ON COLUMN chatbot.incidencia_paciente.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON TABLE chatbot.incidencia_paciente IS 'Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Nunca se borra: se desactiva.
+COMMENT ON COLUMN chatbot.incidencia_paciente.codigo IS 'Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada.';
+COMMENT ON TABLE chatbot.incidencia_paciente IS 'Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Nunca se borra: se desactiva.
 
 Relaciones:
 - canal_origen_id → catalogo.canal_origen: Garantiza que el canal sea uno del catálogo. Sirve para unificar reportes de varios canales.

@@ -32,6 +32,9 @@ BEGIN
   ASSERT obj_description('chatbot.archivar_incidencias_resueltas(integer, integer)'::regprocedure, 'pg_proc') IS NOT NULL
      AND obj_description('chatbot.archivar_incidencias_vencidas(integer, integer)'::regprocedure, 'pg_proc') IS NOT NULL,
     'K04 las dos funciones de archivado tienen descripcion';
+  ASSERT obj_description('chatbot.generar_codigo_incidencia(timestamp with time zone)'::regprocedure, 'pg_proc') IS NOT NULL
+     AND obj_description('chatbot.rellenar_codigos_incidencia()'::regprocedure, 'pg_proc') IS NOT NULL,
+    'K05 las dos funciones del codigo de la incidencia tienen descripcion';
 END $$;
 
 \echo TODAS LAS PRUEBAS DE COMENTARIOS PASARON

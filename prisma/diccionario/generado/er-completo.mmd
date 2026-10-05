@@ -116,6 +116,11 @@ erDiagram
         uuid evidencia_id FK
         bloque auditoria
     }
+    contador_codigo_incidencia {
+        smallint anio PK
+        int ultimo
+        bloque auditoria
+    }
     evidencia {
         uuid id PK
         uuid incidencia_paciente_id FK
@@ -157,6 +162,7 @@ erDiagram
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
+        text codigo
         bloque auditoria
     }
     incidencia_paciente_auditoria {
