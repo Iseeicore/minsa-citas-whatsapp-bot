@@ -38,7 +38,7 @@ const versionPg = psql(["-c", "select split_part(version(), ' ', 2)"]);
 
 const errores = [];
 const clave = (esquema, tabla) => `${esquema}.${tabla}`;
-const esCatalogo = (k) => k.startsWith("catalogo.") || k === "gestion.rol" || k === "gestion.modulo";
+const esCatalogo = (k) => k.startsWith("catalogo.") || k === "gestion.rol";
 const escapar = (s) => String(s).replaceAll("|", "\\|").replaceAll("\n", " ");
 const sql = (s) => `'${String(s).replaceAll("'", "''")}'`;
 

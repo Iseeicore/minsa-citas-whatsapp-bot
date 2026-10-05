@@ -33,10 +33,8 @@
 | `chatbot.sesion_conversacion` | Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). |
 | `chatbot.solicitud_carga` | Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. |
 | `chatbot.usuario` | Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. |
-| `gestion.modulo` | Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. |
-| `gestion.rol` | Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). |
+| `gestion.rol` | Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva) y una por cada área competente (denuncias por corrupción, quejas y reclamos). |
 | `gestion.rol_categoria` | Qué categorías de incidencia puede ver cada rol. |
-| `gestion.rol_modulo` | Qué módulos abre cada rol. |
 | `gestion.sesion_usuario` | Sesión abierta por un usuario interno. |
 | `gestion.usuario_interno` | Persona de la institución que gestiona los casos. |
 | `gestion.usuario_rol` | Relación entre usuarios internos y roles: un usuario puede tener varios roles y un rol lo tienen varios usuarios. |
@@ -625,33 +623,9 @@ Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. R
 - `trg_usuario_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_usuario_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
 
-### `gestion.modulo`
-
-Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. El acceso se da por módulo: un rol abre los módulos que tiene asignados. Los valores son provisionales hasta que el área usuaria los confirme.
-
-**Columnas**
-
-| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
-|---|---|---|---|---|---|
-| `id` | smallint | No | `nextval('gestion.modulo_id_seq'::regclass)` | PK | Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas. |
-| `codigo` | text | No |  |  | Código estable y único del valor. Es el que usa el código de la aplicación. |
-| `nombre` | text | No |  |  | Nombre legible del valor, para mostrar en pantalla. |
-| `descripcion` | text | Sí |  |  | Explicación opcional de qué significa el valor. |
-| `activo` | boolean | No | `true` |  | Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica. |
-| `version_fila` | integer | No | `1` |  | Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos. |
-| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
-| `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
-| `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
-| `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
-
-**Reglas que aplica la base (disparadores)**
-
-- `trg_modulo_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
-- `trg_modulo_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
-
 ### `gestion.rol`
 
-Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor, revisor y una por cada área competente (denuncias por corrupción, quejas y reclamos). Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
+Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva) y una por cada área competente (denuncias por corrupción, quejas y reclamos). El revisor está retirado (activo = false) y no se asigna a nadie. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
 
 **Columnas**
 
@@ -675,7 +649,7 @@ Rol que puede tener un usuario interno de la plataforma de gestión: administrad
 
 ### `gestion.rol_categoria`
 
-Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su categoría (la de corrupción solo la ve su área, el administrador y el revisor); el gestor ve lo no sensible para derivarlo. Solo se inserta; la aplicación aplica la regla al listar.
+Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su categoría (la de corrupción solo la ven su área y el administrador); el gestor ve lo no sensible para revisarlo y derivarlo. Las filas del rol retirado (revisor) se conservan y no cuentan: solo valen las de roles activos. Solo se inserta; la aplicación aplica la regla al listar.
 
 **Columnas**
 
@@ -696,30 +670,6 @@ Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su catego
 **Reglas que aplica la base (disparadores)**
 
 - `trg_rol_categoria_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
-
-### `gestion.rol_modulo`
-
-Qué módulos abre cada rol. Un usuario abre la unión de los módulos de todos sus roles. Solo se inserta; el backend consulta esta relación en cada petición a partir de la sesión, sin enviar roles ni módulos al navegador.
-
-**Columnas**
-
-| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
-|---|---|---|---|---|---|
-| `rol_id` | smallint | No |  | PK, FK | Rol al que se le permite abrir el módulo. |
-| `modulo_id` | smallint | No |  | PK, FK | Módulo que el rol puede abrir. |
-| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
-| `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
-
-**Llaves foráneas** (qué relaciona y para qué)
-
-| Restricción | Columna | Apunta a | Por qué y para qué |
-|---|---|---|---|
-| `fk_rol_modulo_modulo` | `modulo_id` | `gestion.modulo` | Garantiza que el módulo sea uno del catálogo. Sirve para saber qué roles abren un módulo. |
-| `fk_rol_modulo_rol` | `rol_id` | `gestion.rol` | Cada permiso de módulo pertenece a un rol. Sirve para saber qué módulos abre un rol. |
-
-**Reglas que aplica la base (disparadores)**
-
-- `trg_rol_modulo_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
 
 ### `gestion.sesion_usuario`
 
@@ -814,6 +764,7 @@ Relación entre usuarios internos y roles: un usuario puede tener varios roles y
 
 **Reglas que aplica la base (disparadores)**
 
+- `trg_usuario_rol_a_reglas_ins` (Antes de insertar): Impide asignar un rol desactivado a un usuario interno.
 - `trg_usuario_rol_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
 
 ### `ia.entrenamiento_categoria`

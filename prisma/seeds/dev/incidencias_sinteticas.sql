@@ -49,10 +49,10 @@ BEGIN
   END IF;
 
   IF p_revision = 'confirmada' THEN
-    PERFORM set_config('app.actor', 'operador:revisor', false);
+    PERFORM set_config('app.actor', 'operador:gestor', false);
     UPDATE chatbot.incidencia_paciente SET categoria_confirmada_en = now() WHERE id = v_id;
   ELSIF p_revision = 'corregida' THEN
-    PERFORM set_config('app.actor', 'operador:revisor', false);
+    PERFORM set_config('app.actor', 'operador:gestor', false);
     UPDATE chatbot.incidencia_paciente SET categoria_id = p_categoria_final WHERE id = v_id;
   END IF;
 

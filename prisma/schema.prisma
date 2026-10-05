@@ -380,41 +380,8 @@ model Rol {
 
   usuarios   UsuarioRol[]
   categorias RolCategoria[]
-  modulos    RolModulo[]
 
   @@map("rol")
-  @@schema("gestion")
-}
-
-model Modulo {
-  id                  Int      @id(map: "pk_modulo") @default(autoincrement()) @db.SmallInt
-  codigo              String   @unique(map: "uq_modulo_codigo")
-  nombre              String
-  descripcion         String?
-  activo              Boolean  @default(true)
-  versionFila         Int      @default(1) @map("version_fila")
-  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
-  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
-  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
-
-  roles RolModulo[]
-
-  @@map("modulo")
-  @@schema("gestion")
-}
-
-model RolModulo {
-  rolId           Int      @map("rol_id") @db.SmallInt
-  moduloId        Int      @map("modulo_id") @db.SmallInt
-  fechaCreacion   DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  usuarioCreacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
-
-  rol    Rol    @relation(fields: [rolId], references: [id], map: "fk_rol_modulo_rol")
-  modulo Modulo @relation(fields: [moduloId], references: [id], map: "fk_rol_modulo_modulo")
-
-  @@id([rolId, moduloId], map: "pk_rol_modulo")
-  @@map("rol_modulo")
   @@schema("gestion")
 }
 

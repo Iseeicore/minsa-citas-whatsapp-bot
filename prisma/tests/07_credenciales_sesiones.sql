@@ -112,43 +112,4 @@ BEGIN
              AND revocada_en IS NULL) = 0, 'S26 reactivar al usuario no reabre sesiones: hay que iniciar una nueva';
 END $$;
 
--- Modulos y que modulos abre cada rol.
-DO $$
-BEGIN
-  ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM gestion.modulo)
-         = '1:INCIDENCIAS,2:REVISION,3:INDICADORES,4:ENTRENAMIENTO_IA,5:USUARIOS', 'S30 modulos';
-  ASSERT (SELECT string_agg(m.codigo, ',' ORDER BY m.id) FROM gestion.rol_modulo rm JOIN gestion.rol r ON r.id = rm.rol_id JOIN gestion.modulo m ON m.id = rm.modulo_id
-           WHERE r.codigo = 'ADMINISTRADOR') = 'INCIDENCIAS,REVISION,INDICADORES,ENTRENAMIENTO_IA,USUARIOS', 'S31 el administrador abre todos los modulos';
-  ASSERT (SELECT string_agg(m.codigo, ',' ORDER BY m.id) FROM gestion.rol_modulo rm JOIN gestion.rol r ON r.id = rm.rol_id JOIN gestion.modulo m ON m.id = rm.modulo_id
-           WHERE r.codigo = 'GESTOR') = 'INCIDENCIAS,REVISION', 'S32 el gestor abre incidencias y revision';
-  ASSERT (SELECT string_agg(m.codigo, ',' ORDER BY m.id) FROM gestion.rol_modulo rm JOIN gestion.rol r ON r.id = rm.rol_id JOIN gestion.modulo m ON m.id = rm.modulo_id
-           WHERE r.codigo = 'REVISOR') = 'INCIDENCIAS,REVISION,ENTRENAMIENTO_IA', 'S33 el revisor abre ademas el entrenamiento de la IA';
-  ASSERT (SELECT count(*) FROM gestion.rol_modulo rm JOIN gestion.rol r ON r.id = rm.rol_id
-           WHERE r.codigo LIKE 'AREA_%' AND rm.modulo_id IN (1, 2)) = 6, 'S34 cada area abre incidencias y revision';
-  ASSERT (SELECT count(*) FROM gestion.rol_modulo rm JOIN gestion.rol r ON r.id = rm.rol_id
-           WHERE rm.modulo_id IN (3, 5) AND r.codigo <> 'ADMINISTRADOR') = 0, 'S35 solo el administrador abre indicadores y usuarios';
-  ASSERT (SELECT count(*) FROM gestion.rol_modulo) = 16, 'S36 total de permisos de modulo';
-  ASSERT (SELECT usuario_creacion FROM gestion.rol_modulo LIMIT 1) = 'sistema:migracion', 'S36 la migracion firma lo que carga';
-END $$;
-
-SELECT pg_temp.espera_error($q$INSERT INTO gestion.rol_modulo (rol_id, modulo_id) VALUES (1, 1)$q$, '23505', 'S37 un rol no repite un modulo');
-SELECT pg_temp.espera_error($q$INSERT INTO gestion.rol_modulo (rol_id, modulo_id) VALUES (1, 99)$q$, '23503', 'S38 el modulo debe existir');
-SELECT pg_temp.espera_error($q$INSERT INTO gestion.modulo (codigo, nombre) VALUES ('INCIDENCIAS', 'Repetido')$q$, '23505', 'S39 el codigo del modulo es unico');
-
--- Lo que consulta el backend en cada peticion: los modulos de un usuario son la union de los de sus roles.
-INSERT INTO gestion.usuario_rol (usuario_interno_id, rol_id)
-SELECT id, 2 FROM gestion.usuario_interno WHERE correo = 'ana@minsa.gob.pe';
-INSERT INTO gestion.usuario_rol (usuario_interno_id, rol_id)
-SELECT id, 3 FROM gestion.usuario_interno WHERE correo = 'ana@minsa.gob.pe';
-
-DO $$
-BEGIN
-  ASSERT (SELECT string_agg(DISTINCT m.codigo, ',' ORDER BY m.codigo)
-            FROM gestion.usuario_interno u
-            JOIN gestion.usuario_rol ur ON ur.usuario_interno_id = u.id
-            JOIN gestion.rol_modulo rm ON rm.rol_id = ur.rol_id
-            JOIN gestion.modulo m ON m.id = rm.modulo_id
-           WHERE u.correo = 'ana@minsa.gob.pe') = 'ENTRENAMIENTO_IA,INCIDENCIAS,REVISION', 'S40 los modulos de un usuario son la union de los de sus roles';
-END $$;
-
-\echo TODAS LAS PRUEBAS DE CREDENCIALES, SESIONES Y MODULOS PASARON
+\echo TODAS LAS PRUEBAS DE CREDENCIALES Y SESIONES PASARON

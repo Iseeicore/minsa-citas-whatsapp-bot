@@ -45,9 +45,9 @@ BEGIN
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
            WHERE r.codigo = 'AREA_RECLAMO') = 'RECLAMO', 'D16 el area de reclamos ve solo reclamos';
   ASSERT (SELECT string_agg(r.codigo, ',' ORDER BY r.id) FROM gestion.rol_categoria rc
-            JOIN gestion.rol r ON r.id = rc.rol_id
-           WHERE rc.categoria_incidencia_id = 1) = 'ADMINISTRADOR,REVISOR,AREA_DENUNCIA_CORRUPCION',
-    'D17 la denuncia por corrupcion la ven solo el administrador, el revisor y su area (no el gestor)';
+            JOIN gestion.rol r ON r.id = rc.rol_id AND r.activo
+           WHERE rc.categoria_incidencia_id = 1) = 'ADMINISTRADOR,AREA_DENUNCIA_CORRUPCION',
+    'D17 la denuncia por corrupcion la ven solo el administrador y su area (no el gestor ni el revisor retirado)';
   ASSERT (SELECT count(*) FROM gestion.rol_categoria rc JOIN gestion.rol r ON r.id = rc.rol_id
            WHERE r.codigo = 'GESTOR' AND rc.categoria_incidencia_id = 4) = 1, 'D18 el gestor ve lo no clasificable para derivarlo';
   ASSERT (SELECT count(*) FROM gestion.rol_categoria rc JOIN gestion.rol r ON r.id = rc.rol_id WHERE r.codigo = 'ADMINISTRADOR') = 4,

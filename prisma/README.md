@@ -22,6 +22,7 @@ Todo lo que define la base vive aquí y se versiona con el código.
 4. Catálogos: los valores nuevos van en una migración con `INSERT ... ON CONFLICT (id) DO NOTHING`.
 5. **Toda tabla y columna lleva su descripción** (`COMMENT ON`). Se agrega a `diccionario/diccionario.json`, se corre `npm run db:diccionario` y se copian a la migración los `COMMENT` nuevos de `diccionario/generado/comentarios.sql`. La prueba `tests/04_comentarios.sql` falla si falta alguna.
 6. Cada regla nueva lleva su prueba en `tests/` y se verifica que **falle** cuando la regla se apaga.
+7. **Un rol o un valor de catálogo no se borra: se retira con `activo = false`.** Las filas de `rol_categoria` y `usuario_rol` no se tocan, y las consultas cuentan solo los roles activos (así se retiró el revisor en `ajuste_roles`; los permisos son por rol, sin tablas de módulos).
 
 ## Comandos
 
