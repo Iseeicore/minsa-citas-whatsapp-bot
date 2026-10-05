@@ -1,7 +1,10 @@
 export const TURN_FAILURE_TEXT =
   "Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes.";
 
-export const INVALID_DOCUMENT_TEXT = "Documento inválido. Debe tener 8 dígitos. Intenta de nuevo.";
+export const INVALID_DOCUMENT_TEXT =
+  "Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.";
+
+export const INVALID_DNI_TEXT = "Documento inválido. Debe tener 8 dígitos. Intenta de nuevo.";
 
 export type SearchSubject = "especialidades" | "establecimientos" | "fechas" | "horarios";
 

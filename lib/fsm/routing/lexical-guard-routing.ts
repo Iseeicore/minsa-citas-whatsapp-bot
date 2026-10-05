@@ -62,7 +62,7 @@ export function routeLexicalAction(
       };
 
       return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [
-        sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu número de documento (8 dígitos).`),
+        sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu número de documento.`),
       ]);
     }
 

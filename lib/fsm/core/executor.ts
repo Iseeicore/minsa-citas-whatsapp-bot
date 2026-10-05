@@ -16,6 +16,7 @@ import {
 } from "@/lib/integrations/minsa/catalog";
 import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
+import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { listReferences } from "@/lib/integrations/minsa/references";
 import { reniecLookup } from "@/lib/integrations/reniec";
 import { traceTurn } from "@/lib/observability/tracer";
@@ -137,7 +138,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
     }
 
     case QueryKind.VALIDATE_USER:
-      return validateUser(String(effect.payload.numeroDocumento ?? ""));
+      return validateUser(String(effect.payload.numeroDocumento ?? ""), effect.payload.tipoDocumento as TipoDocumento);
 
     case QueryKind.VERIFY_CODE:
       return verifyCode(String(effect.payload.twofaId ?? ""), String(effect.payload.code ?? ""));

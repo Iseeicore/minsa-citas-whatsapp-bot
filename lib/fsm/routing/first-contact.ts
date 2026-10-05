@@ -15,7 +15,7 @@ const RECLAMO_INTRO = "¡Hola! Vamos a registrar tu reclamo en el Libro de Recla
 function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
   const what = especialidad ? ` de ${especialidad}` : "";
   const where = distrito ? ` en ${distrito}` : "";
-  return `¡Hola! Te ayudaremos a agendar tu cita${what}${where}. Para comenzar, por favor indícanos tu número de documento (8 dígitos):`;
+  return `¡Hola! Te ayudaremos a agendar tu cita${what}${where}. Para comenzar, por favor indícanos tu número de documento:`;
 }
 
 const routed = (route: "welcome" | "cita" | "reclamo" | "menu" | "out_of_scope", result: HandlerResult): HandlerResult =>
@@ -36,7 +36,7 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
   }
 
   if (message === "1" || isCitaKeyword(message)) {
-    return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento (8 dígitos):"));
+    return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:"));
   }
   if (message === "2") return routed("reclamo", beginReclamo({}, RECLAMO_INTRO));
 

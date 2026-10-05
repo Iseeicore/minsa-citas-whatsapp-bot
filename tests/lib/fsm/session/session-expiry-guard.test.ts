@@ -186,7 +186,16 @@ describe("cita_awaiting_reauth", () => {
     expect(result.session.state).toBe("cita_validate_pending");
     expect(result.session.slots[SlotKey.CITA_DNI_PENDING]).toBe("12345678");
     expect(result.session.slots[SlotKey.CITA_RESUME_STATE]).toBe("cita_hora_pending");
-    expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "12345678" } }]);
+    expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "12345678", tipoDocumento: "01" } }]);
+  });
+
+  it("with a carnet de extranjería on file the new code is requested with tipo 03", () => {
+    const session = waiting();
+    session.slots[SlotKey.CITA_DNI] = "123456789";
+    const result = handle(session, tap("cita_reauth_si"), NOW);
+
+    expect(result.session.slots[SlotKey.CITA_DNI_PENDING]).toBe("123456789");
+    expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "123456789", tipoDocumento: "03" } }]);
   });
 
   it.each([

@@ -1,4 +1,5 @@
-import { buildResult, query, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
 import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
@@ -6,7 +7,6 @@ import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { REAUTH_NO_ID, REAUTH_STATE, REAUTH_YES_ID, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
-import { QueryKind } from "@/lib/enums/query-kind";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -50,15 +50,12 @@ export function handleAwaitingReauth(session: Session, event: InboundEvent): Han
     const next: Session = { state: SessionState.CITA_AWAITING_DNI, slots: { ...session.slots }, counters: { ...session.counters } };
 
     if (typeof dni !== "string" || dni === "") {
-      return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu número de documento (8 dígitos).")]);
+      return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu número de documento.")]);
     }
 
     next.state = SessionState.CITA_VALIDATE_PENDING;
     next.slots[SlotKey.CITA_DNI_PENDING] = dni;
-    return buildResult(next, [
-      sendText("Enviándote un nuevo código de verificación…"),
-      query(QueryKind.VALIDATE_USER, { numeroDocumento: dni }),
-    ]);
+    return buildResult(next, [sendText("Enviándote un nuevo código de verificación…"), validateUserQuery(dni)]);
   }
 
   return withNote(buildResult(session, [reauthPrompt()]), {
