@@ -28,7 +28,7 @@ const LEAVE_ANSWERS = new Set(["SALIR", "SI SALIR", "QUIERO SALIR"]);
 const STAY_ANSWERS = new Set(["CONTINUAR", "SEGUIR", "NO CONTINUAR", "QUIERO CONTINUAR", "QUIERO SEGUIR"]);
 
 const TEXT_PROMPTS: Readonly<Record<string, string>> = {
-  [SessionState.CITA_AWAITING_DNI]: "Ingresa tu número de documento (8 dígitos).",
+  [SessionState.CITA_AWAITING_DNI]: "Ingresa tu número de documento.",
   [SessionState.CITA_AWAITING_OTP]: "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).",
   [SessionState.CITA_AWAITING_DISTRITO_AI]: "Cuéntanos el nombre del distrito.",
   [SessionState.CITA_AWAITING_DEPARTAMENTO]: "Indícanos el departamento.",

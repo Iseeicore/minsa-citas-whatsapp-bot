@@ -146,7 +146,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento). **La lee también el webhook real, no solo el Sandbox** |
 | `CITA_ALLOWED_DEPARTAMENTOS` | Departamentos donde se agenda por este canal (alcance del piloto), separados por comas: `LIMA`, `LIMA,CALLAO`… Un distrito fuera de la lista recibe el enlace a MINSA Digital; aplica también al modo manual (departamento → provincia → distrito). **Vacía o sin definir = sin filtro (todo el Perú).** ⚠️ Vercel hoy no la tiene: agrega `CITA_ALLOWED_DEPARTAMENTOS=LIMA` **antes** de desplegar este cambio, o allí se desactiva el filtro |
 | `MINSA_API_HOST` | Host de la API del MINSA |
-| `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (DNI y OTP) |
+| `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (documento y OTP) |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
 | `MINSA_DIGITAL_APP_URL` | URL pública del portal de MINSA Digital: destino del botón **Continuar mi cita** que ve el ciudadano de WhatsApp |
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
@@ -322,7 +322,7 @@ El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pul
 Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de reclamo, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
 - Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería.
-- Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678`, OTP `1234`, distrito `lurigancho`.
+- Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.
 
 ## Notas técnicas
 

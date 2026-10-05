@@ -12,7 +12,7 @@ export function beginReverification(session: Session, resumeState: string): Hand
   next.state = SessionState.CITA_AWAITING_DNI;
   return buildResult(next, [
     sendText(
-      "Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu número de documento (8 dígitos) para continuar justo donde quedaste.",
+      "Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu número de documento para continuar justo donde quedaste.",
     ),
   ]);
 }

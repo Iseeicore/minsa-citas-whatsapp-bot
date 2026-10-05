@@ -1,6 +1,7 @@
 import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/parsing/cita-hints";
-import { isValidDniFormat, isValidOtpFormat } from "@/lib/fsm/parsing/text/identity-format";
+import { isValidDocumentoFormat, isValidOtpFormat, tipoDocumentoDe } from "@/lib/fsm/parsing/text/identity-format";
+import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
@@ -39,19 +40,16 @@ function registrationRetryButtons(text: string) {
 }
 
 export function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  const dni = (event.text ?? "").trim();
+  const documento = (event.text ?? "").trim();
 
-  if (!isValidDniFormat(dni)) {
+  if (!isValidDocumentoFormat(documento)) {
     return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
   }
 
   const next = cloneSession(session);
-  next.slots[SlotKey.CITA_DNI_PENDING] = dni;
+  next.slots[SlotKey.CITA_DNI_PENDING] = documento;
   next.state = SessionState.CITA_VALIDATE_PENDING;
-  return buildResult(next, [
-    sendText("Validando tu documento…"),
-    query(QueryKind.VALIDATE_USER, { numeroDocumento: dni }),
-  ]);
+  return buildResult(next, [sendText("Validando tu documento…"), validateUserQuery(documento)]);
 }
 
 export function handleValidatePending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -106,7 +104,7 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   next.state = SessionState.CITA_VALIDATE_PENDING;
   return buildResult(next, [
     sendText("Validando de nuevo…"),
-    query(QueryKind.VALIDATE_USER, { numeroDocumento: String(next.slots[SlotKey.CITA_DNI_PENDING] ?? "") }),
+    validateUserQuery(String(next.slots[SlotKey.CITA_DNI_PENDING] ?? "")),
   ]);
 }
 
@@ -177,9 +175,10 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     }
 
     next.state = SessionState.CITA_REFERENCES_PENDING;
+    const numeroDocumento = String(dni ?? "");
     return buildResult(next, [
       sendText("Un momento, estamos analizando tu cuenta…"),
-      query(QueryKind.LIST_REFERENCES, { numeroDocumento: String(dni ?? ""), tipoDocumento: "01" }),
+      query(QueryKind.LIST_REFERENCES, { numeroDocumento, tipoDocumento: tipoDocumentoDe(numeroDocumento) }),
     ]);
   }
 
