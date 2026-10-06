@@ -1,11 +1,3 @@
-// Siembra incidencias SINTETICAS (prisma/seeds/dev/incidencias_sinteticas.sql) en una base de desarrollo para poder probar
-// las pantallas de gestion con datos que respetan las reglas reales de la base. Necesita `psql` (o PSQL_PATH).
-//
-// Seguridad: se NIEGA a correr si el nombre de la base no termina en _desechable, _dev o _local, para que nunca toque
-// una base real. No es una migracion y nunca debe aplicarse en el entorno de OGTI.
-//
-//   DATABASE_URL=postgresql://usuario:clave@host:5432/gestion_desechable npm run db:seed:dev
-//   ... npm run db:seed:dev -- --reiniciar   (borra TODAS las incidencias de esa base y vuelve a sembrar)
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 

@@ -10,7 +10,6 @@ const VERIFICANDO = 2;
 const VERIFICADO = 3;
 const RECHAZADO = 4;
 
-// Estas tablas no se borran: las filas quedan en la base de prueba, con identificadores únicos por corrida.
 describe.skipIf(!process.env.DATABASE_URL)("upload requests and received files against a real PostgreSQL", () => {
   afterAll(async () => {
     await prisma.$disconnect();

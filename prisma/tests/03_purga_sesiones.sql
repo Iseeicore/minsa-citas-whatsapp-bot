@@ -16,8 +16,6 @@ BEGIN
 END;
 $$;
 
--- 5 sesiones de hace 2 horas, 1 de hace 90 minutos y 2 de hace 30 minutos. La fecha la renueva un disparador al
--- modificar, asi que se apaga solo para fabricar sesiones antiguas.
 INSERT INTO chatbot.sesion_conversacion (wa_id, estado, slots, contadores)
 SELECT 'purga-vieja-' || g, 'main_menu', '{}', '{}' FROM generate_series(1, 5) AS g;
 INSERT INTO chatbot.sesion_conversacion (wa_id, estado, slots, contadores) VALUES
@@ -31,21 +29,18 @@ UPDATE chatbot.sesion_conversacion SET fecha_modificacion = now() - interval '90
 UPDATE chatbot.sesion_conversacion SET fecha_modificacion = now() - interval '30 minutes' WHERE wa_id LIKE 'purga-reciente-%';
 ALTER TABLE chatbot.sesion_conversacion ENABLE TRIGGER trg_sesion_conversacion_b_fecha;
 
--- Con 2 horas de umbral solo cuentan las de hace 2 horas o mas (las de 90 minutos no).
 DO $$
 BEGIN
   ASSERT chatbot.purgar_sesiones_inactivas(3, 100) = 0, 'P01 con un umbral mayor a la antiguedad no borra nada';
   ASSERT (SELECT count(*) FROM chatbot.sesion_conversacion WHERE wa_id LIKE 'purga-%') = 8, 'P01 las 8 siguen';
 END $$;
 
--- Un lote borra como maximo lo pedido y devuelve cuantas borro.
 DO $$
 BEGIN
   ASSERT chatbot.purgar_sesiones_inactivas(1, 2) = 2, 'P02 borra solo el lote pedido';
   ASSERT (SELECT count(*) FROM chatbot.sesion_conversacion WHERE wa_id LIKE 'purga-vieja-%') = 3, 'P02 quedan las demas vencidas';
 END $$;
 
--- Quien la programa repite hasta que devuelva 0; quedan solo las vigentes.
 DO $$
 DECLARE n integer; total integer := 0;
 BEGIN
@@ -59,7 +54,6 @@ BEGIN
   ASSERT chatbot.purgar_sesiones_inactivas() = 0, 'P03 sin vencidas devuelve 0 (valores por defecto)';
 END $$;
 
--- Solo toca sesiones: un usuario y su historial no se ven afectados.
 INSERT INTO chatbot.usuario (wa_id) VALUES ('purga-usuario');
 DO $$
 BEGIN

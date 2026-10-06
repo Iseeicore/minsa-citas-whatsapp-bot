@@ -25,7 +25,6 @@ export function handleReclamo(session: Session, event: HandleEvent): HandlerResu
       return handleIdentityChoice(session, event as InboundEvent);
     case SessionState.RECLAMO_AWAITING_NOMBRE_LIBRE:
       return handleAwaitingNombreLibre(session, event as InboundEvent);
-    // Dormido a propósito desde 2026-10-01: ya no se entra acá (ver nota en Obsidian para revertir).
     case SessionState.RECLAMO_AWAITING_DNI:
       return handleAwaitingDni(session, event as InboundEvent);
     case SessionState.RECLAMO_AWAITING_NOMBRE:
@@ -155,7 +154,6 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
 
   const next = cloneSession(session);
   next.slots[SlotKey.QUEJA] = queja;
-  // Sin servicio de imágenes no hay dónde guardar la foto: no se pide.
   if (!isMediaStorageConfigured()) return submitReclamo(next, event.from);
   next.state = SessionState.RECLAMO_AWAITING_FOTO;
   return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
@@ -216,7 +214,6 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; reason?: string };
   const next = cloneSession(session);
-  // La foto (base64) solo viaja dentro del turno: no se deja guardada en la sesión.
   delete next.slots[SlotKey.MEDIA_DATA_URI];
 
   if (result.status === "accepted") {

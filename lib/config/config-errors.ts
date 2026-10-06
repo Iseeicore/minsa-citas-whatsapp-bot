@@ -3,6 +3,10 @@ import { logger } from "@/lib/observability/logger";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { ConfigErrorCode } from "@/lib/enums/config-error-code";
 
+type Severity = "warn" | "error";
+
+type ConfigErrorEntry = { severity: Severity; severityWithRealMinsa?: Severity; message: string };
+
 export const CONFIG_ERRORS = {
   [ConfigErrorCode.AI_PROVIDER_UNKNOWN]: {
     severity: "error",
@@ -14,15 +18,21 @@ export const CONFIG_ERRORS = {
   },
   [ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING]: {
     severity: "warn",
-    message: "MINSA_DIGITAL_APP_URL no está configurada: el botón «Continuar mi cita» del mensaje de bienvenida de WhatsApp se reemplaza por el menú principal.",
+    severityWithRealMinsa: "error",
+    message: "MINSA_DIGITAL_APP_URL no está configurada: la bienvenida de WhatsApp muestra el menú principal, los avisos que llevaban botón hacia MINSA Digital salen como texto sin enlace y, con el MINSA real, las llamadas autenticadas se cortan con un 503 porque no se puede armar Origin ni Referer.",
   },
-} as const satisfies Record<ConfigErrorCode, { severity: "warn" | "error"; message: string }>;
+} as const satisfies Record<ConfigErrorCode, ConfigErrorEntry>;
 
 export type { ConfigErrorCode };
 
 export type ConfigIssue = { code: ConfigErrorCode; value: string; message: string };
 
 type Env = Record<string, string | undefined>;
+
+function severityOf(code: ConfigErrorCode, env: Env): Severity {
+  const entry: ConfigErrorEntry = CONFIG_ERRORS[code];
+  return env.SANDBOX_USE_REAL_MINSA === "true" && entry.severityWithRealMinsa ? entry.severityWithRealMinsa : entry.severity;
+}
 
 const issue = (code: ConfigErrorCode, value: string): ConfigIssue => ({ code, value, message: CONFIG_ERRORS[code].message });
 
@@ -42,6 +52,6 @@ export function checkConfig(env: Env = process.env): ConfigIssue[] {
 
 export function reportConfigIssues(env: Env = process.env): ConfigIssue[] {
   const issues = checkConfig(env);
-  for (const found of issues) logger[CONFIG_ERRORS[found.code].severity]("config.invalid", { issue: found.code, value: found.value, message: found.message });
+  for (const found of issues) logger[severityOf(found.code, env)]("config.invalid", { issue: found.code, value: found.value, message: found.message });
   return issues;
 }

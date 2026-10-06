@@ -1,8 +1,6 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
--- Toda tabla y columna de los cuatro esquemas debe traer su descripcion (el diccionario de datos vive dentro de la base).
--- Si una migracion agrega una tabla o columna sin su COMMENT, esta prueba falla y dice cual.
 DO $$
 DECLARE faltantes text;
 BEGIN

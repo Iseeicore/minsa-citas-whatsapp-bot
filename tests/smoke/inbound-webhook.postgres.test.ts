@@ -24,7 +24,6 @@ const textMessage = (waId: string, wamid: string, body: string) => ({
   text: { body },
 });
 
-// Los usuarios no se pueden borrar (borrado lógico): estas filas quedan en la base de prueba, con un waId único por corrida.
 describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real PostgreSQL", () => {
   afterAll(async () => {
     await prisma.$disconnect();

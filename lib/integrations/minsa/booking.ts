@@ -1,6 +1,6 @@
 import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
-import { minsaDigitalAppUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { minsaDigitalUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
 const BOOKING_LOG_BODY_LIMIT = 300;
@@ -75,7 +75,7 @@ export async function bookAppointment(
 
   return {
     status: "booked",
-    url: `${minsaDigitalAppUrl()}/citas/confirmacion/FAKE123`,
+    url: minsaDigitalUrl("/citas/confirmacion/FAKE123") ?? "",
     message: "Cita registrada correctamente",
   };
 }

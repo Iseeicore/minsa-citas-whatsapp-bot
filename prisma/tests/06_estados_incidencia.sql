@@ -28,7 +28,6 @@ BEGIN
     'E01 toda incidencia nace REGISTRADA';
 END $$;
 
--- La IA clasifica: la base pasa la incidencia a CLASIFICADO sin que la aplicacion lo pida.
 SELECT set_config('app.actor', 'sistema:ia', false);
 UPDATE chatbot.incidencia_paciente SET categoria_ia_id = 2, categoria_confianza = 80, version_clasificador = 'v1'
  WHERE trace_id IN ('trace-estados-A', 'trace-estados-C');
@@ -38,11 +37,9 @@ BEGIN
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-B') = 1, 'E02 sin categoria sigue REGISTRADA';
 END $$;
 
--- Sin categoria de la IA no se puede estar clasificada, derivada ni en gestion.
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 2 WHERE trace_id = 'trace-estados-B'$q$, '23514', 'E03 CLASIFICADO exige categoria de la IA');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 'trace-estados-B'$q$, '23514', 'E04 no se salta a EN_GESTION desde REGISTRADO');
 
--- Recorrido: CLASIFICADO -> DERIVADO -> EN_GESTION.
 SELECT set_config('app.actor', 'operador:gestor', false);
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-A';
 DO $$
@@ -51,21 +48,18 @@ BEGIN
 END $$;
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 'trace-estados-A';
 
--- Corregir la categoria despues de derivar no cambia el estado.
 UPDATE chatbot.incidencia_paciente SET categoria_id = 3 WHERE trace_id = 'trace-estados-C';
 DO $$
 BEGIN
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-C') = 2, 'E06 corregir la categoria no cambia el estado';
 END $$;
 
--- Transiciones no permitidas.
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 2 WHERE trace_id = 'trace-estados-A'$q$, '23514', 'E07 no se retrocede de EN_GESTION a CLASIFICADO');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E08 una persona no archiva a mano un caso abierto');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 4 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E09 RESUELTO exige registrar la resolucion');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 5 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E10 ANULADO ya no es un destino valido');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET resolucion = 'ok', estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E11 al resolver el estado solo puede ser RESUELTO');
 
--- Registrar la resolucion la pasa a RESUELTO; tambien se puede resolver sin haber pasado por la IA.
 UPDATE chatbot.incidencia_paciente SET resolucion = 'Se atendio el reclamo' WHERE trace_id = 'trace-estados-A';
 UPDATE chatbot.incidencia_paciente SET resolucion = 'Resuelta sin IA' WHERE trace_id = 'trace-estados-B';
 DO $$
@@ -76,7 +70,6 @@ BEGIN
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-B') = 4, 'E13 se puede resolver sin categoria de la IA';
 END $$;
 
--- Archivado automatico a los 3 dias.
 DO $$
 BEGIN
   ASSERT chatbot.purgar_sesiones_inactivas() = 0, 'E14 la purga de sesiones no toca incidencias';
@@ -104,7 +97,6 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_inc
 SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_resueltas(0, 10)$q$, '23514', 'E20 los dias deben ser al menos 1');
 SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_resueltas(3, 0)$q$, '23514', 'E21 el lote debe ser al menos 1');
 
--- Anular es el borrado logico: la incidencia queda inactiva y el archivado la ignora.
 UPDATE chatbot.incidencia_paciente SET activo = false, eliminado_en = now(), eliminado_por = 'operador:gestor' WHERE trace_id = 'trace-estados-D';
 DO $$
 BEGIN

@@ -7,7 +7,6 @@ import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-test";
 
-// El paso de la foto del reclamo solo existe si hay servicio de imágenes configurado.
 beforeEach(() => {
   vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test");
 });

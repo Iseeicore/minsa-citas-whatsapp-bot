@@ -28,10 +28,7 @@ function rowsAt(body: unknown, path: readonly string[]): unknown {
   return node;
 }
 
-/**
- * Esqueleto común de los catálogos con bearer. Las filas inválidas se descartan; si MINSA devolvió
- * filas pero ninguna es válida el contrato está roto y es "error", no "empty".
- */
+/** Esqueleto común de los catálogos con bearer: descarta filas inválidas y, si ninguna es válida, responde "error" y no "empty". */
 export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promise<CatalogFetchResult<T>> {
   const response = await postWithBearer(params.endpoint, params.body, params.bearer);
   if (response.status === HTTP_UNAUTHORIZED) return { status: "unauthorized" };

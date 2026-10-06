@@ -1,5 +1,6 @@
 import { sendCtaUrl, sendText } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { minsaDigitalUrl } from "@/lib/integrations/minsa/wire";
 import type { SendEffect, SessionChannel } from "@/lib/fsm/core/types";
 import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
 
@@ -31,7 +32,7 @@ export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
 export function buildWelcomeEffect(channel: SessionChannel): SendEffect {
   if (channel === SessionChannelEnum.WEB) return sendText(WEB_WELCOME_MESSAGE_TEXT);
 
-  const appUrl = process.env.MINSA_DIGITAL_APP_URL;
+  const appUrl = minsaDigitalUrl();
   if (!appUrl) return buildMenuEffect();
 
   return sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, appUrl);

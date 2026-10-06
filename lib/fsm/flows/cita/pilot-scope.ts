@@ -1,6 +1,7 @@
-import { buildResult, cloneSession, sendCtaUrl } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession } from "@/lib/fsm/core/handlers-shared";
+import { sendMinsaDigitalCta } from "@/lib/fsm/core/minsa-digital-cta";
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
-import { minsaDigitalAppUrl } from "@/lib/integrations/minsa/wire";
+import { MINSA_DIGITAL_LOGIN_PATH } from "@/lib/integrations/minsa/wire";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { SessionState } from "@/lib/enums/session-state";
 
@@ -33,6 +34,6 @@ export function redirectToNationalSite(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CITA_NATIONAL_REDIRECT;
   return buildResult(next, [
-    sendCtaUrl(nationalRedirectText(), NATIONAL_REDIRECT_BUTTON_TEXT, `${minsaDigitalAppUrl()}/login`),
+    sendMinsaDigitalCta(nationalRedirectText(), NATIONAL_REDIRECT_BUTTON_TEXT, MINSA_DIGITAL_LOGIN_PATH),
   ]);
 }

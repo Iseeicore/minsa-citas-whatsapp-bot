@@ -7,10 +7,7 @@ export const ACTOR_OPERADOR_BANDEJA = "operador:bandeja";
 
 export const actorCiudadano = (waId: string) => `ciudadano:${waId}`;
 
-/**
- * Declara quién escribe para las columnas de auditoría que llena la base. Va como primer paso de un
- * `prisma.$transaction([...])`: el valor es local a la transacción, así que funciona detrás de un pooler.
- */
+/** Declara quién escribe para la auditoría de la base; va primero en `prisma.$transaction([...])` y es local a la transacción. */
 export function declararActor(actor: string) {
   return prisma.$executeRaw`SELECT set_config('app.actor', ${actor}, true)`;
 }

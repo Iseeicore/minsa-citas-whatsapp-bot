@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- El revisor se retira sin borrarse y los modulos desaparecen.
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM gestion.rol) = 6, 'R01 el revisor no se borra: la tabla conserva los 6 roles';
@@ -40,7 +39,6 @@ BEGIN
   ASSERT obj_description('gestion.rol_categoria'::regclass, 'pg_class') NOT LIKE '%el administrador y el revisor%', 'R08 el comentario de rol_categoria ya no da corrupcion al revisor';
 END $$;
 
--- Quien ve que, contando solo los roles vigentes.
 DO $$
 BEGIN
   ASSERT (SELECT string_agg(r.codigo, ',' ORDER BY r.id) FROM gestion.rol_categoria rc JOIN gestion.rol r ON r.id = rc.rol_id AND r.activo
@@ -50,7 +48,6 @@ BEGIN
            WHERE r.codigo = 'GESTOR') = 'QUEJA,RECLAMO,OTRO', 'R10 el gestor ve queja, reclamo y otro';
 END $$;
 
--- Un rol desactivado no se asigna; uno vigente si, y la union de categorias de varios roles funciona.
 SELECT set_config('app.actor', 'usuario:admin-prueba', false);
 INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash) VALUES
   ('Rosa Roles', 'rosa.roles@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA');
@@ -72,7 +69,6 @@ BEGIN
            WHERE u.correo = 'rosa.roles@minsa.gob.pe') = 'DENUNCIA_CORRUPCION,OTRO,QUEJA,RECLAMO', 'R12 un usuario con varios roles ve la union de sus categorias';
 END $$;
 
--- El area de corrupcion confirma y toma directo; el gestor corrige. Las dos revisiones recalibran, sin importar el rol.
 SELECT set_config('app.actor', 'ciudadano:wa-roles', false);
 INSERT INTO chatbot.usuario (wa_id) VALUES ('wa-roles');
 INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, descripcion, trace_id)

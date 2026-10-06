@@ -29,12 +29,21 @@ Todo lo que define la base vive aquí y se versiona con el código.
 | Comando | Qué hace |
 |---|---|
 | `npm run db:test` | Crea una base desechable, la arma **solo con las migraciones**, corre `tests/*.sql` y la borra |
-| `npm run db:seed:dev` | Siembra 18 incidencias **sintéticas** (de todos los estados y categorías, con evidencias) en una base de desarrollo. Se niega a correr si el nombre de la base no termina en `_desechable`, `_dev` o `_local`. `-- --reiniciar` borra **todas** las incidencias de esa base (y reinicia el contador de códigos) y vuelve a sembrar. No es una migración: nunca va a OGTI |
-| `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas desde una base ya migrada |
+| `npm run db:seed:dev` | Siembra 18 incidencias **sintéticas** (de todos los estados y categorías, con evidencias) en una base de desarrollo. Se niega a correr si el nombre de la base no termina en `_desechable`, `_dev` o `_local`. `-- --reiniciar` borra **todas** las incidencias de esa base (y reinicia el contador de códigos) y vuelve a sembrar. Los nombres y los DNI son inventados (los DNI empiezan con `0000`) y los archivos de evidencia no existen. Usa las mismas operaciones que la aplicación y solo apaga un momento los disparadores de usuario para dar edad a los casos. No es una migración: nunca va a OGTI |
+| `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas desde una base ya migrada. Falla si en `diccionario.json` falta la descripción de alguna tabla, columna, llave foránea o función de disparador |
 | `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base migrada |
 | `npx prisma migrate deploy` | Aplica las migraciones pendientes |
 
 `db:test` y `db:diccionario` necesitan `psql` (o la variable `PSQL_PATH`) y un `DATABASE_URL`. Para `db:test` basta cualquier base del servidor: nunca la toca, crea y borra la suya.
+
+## Enums de ids y pruebas de humo
+
+- Los enums de `lib/enums/*-id.ts` espejan los ids fijos de las tablas `catalogo.*` (los fija la migración o la semilla) y hay que mantenerlos sincronizados: lo comprueba `tests/smoke/catalogos-contrato.postgres.test.ts`. Los enums `conversation-status`, `message-direction`, `message-status` y `message-type` son el contrato de la bandeja web y `lib/inbox/dto.ts` los traduce desde esos ids.
+- Las pruebas de humo (`tests/smoke`) no pueden borrar lo que crean: los usuarios y las incidencias son borrado lógico, y el historial y las tablas de carga son de solo inserción. Sus filas quedan en la base de prueba, con identificadores únicos por corrida.
+
+## Saltos de línea y checksum
+
+Prisma calcula el checksum de cada migración sobre el contenido del archivo: con saltos de línea distintos entre Windows y Linux, una migración ya aplicada se vería como modificada. Por eso `.gitattributes` guarda siempre con LF las migraciones, `migration_lock.toml`, `tests/*.sql` y las semillas.
 
 ## Código legible de la incidencia
 

@@ -1,4 +1,3 @@
-// Ids fijos de catalogo.tipo_mensaje (los fija la semilla de la base). Mantener sincronizado.
 export enum TipoMensajeId {
   TEXTO = 1,
   IMAGEN = 2,

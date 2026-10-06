@@ -1,4 +1,3 @@
-// Ids fijos de catalogo.estado_incidencia (los fija la migracion). Mantener sincronizado: lo comprueba una prueba de contrato.
 export enum EstadoIncidenciaId {
   REGISTRADO = 1,
   CLASIFICADO = 2,

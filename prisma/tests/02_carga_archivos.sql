@@ -40,7 +40,6 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET vence_en = now
 SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET max_archivos = 99 WHERE hash_token = 'hash-1'$q$, '23514', 'C06 los limites no cambian');
 SELECT pg_temp.espera_error($q$DELETE FROM chatbot.solicitud_carga WHERE hash_token = 'hash-1'$q$, '23001', 'C07 la solicitud no se borra');
 
--- Archivos de la solicitud.
 INSERT INTO chatbot.archivo_recibido (solicitud_carga_id, nombre_original, mime_declarado, tamano, ruta_cuarentena)
 SELECT id, 'foto.png', 'image/png', 1024, 'cuarentena/a.png' FROM chatbot.solicitud_carga WHERE hash_token = 'hash-1';
 INSERT INTO chatbot.archivo_recibido (solicitud_carga_id, nombre_original, mime_declarado, tamano, ruta_cuarentena)
@@ -59,7 +58,6 @@ END $$;
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.archivo_recibido (solicitud_carga_id, mime_declarado, tamano, ruta_cuarentena) SELECT id, 'image/png', 0, 'x' FROM chatbot.solicitud_carga LIMIT 1$q$, '23514', 'C09 el tamano debe ser positivo');
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.archivo_recibido (solicitud_carga_id, mime_declarado, tamano, ruta_cuarentena, estado_archivo_id) SELECT id, 'image/png', 5, 'x', 9 FROM chatbot.solicitud_carga LIMIT 1$q$, '23503', 'C10 el estado debe existir en el catalogo');
 
--- Recorrido normal: RECIBIDO -> VERIFICANDO -> VERIFICADO.
 SELECT set_config('app.actor', 'sistema:broker', false);
 UPDATE chatbot.archivo_recibido SET estado_archivo_id = 2 WHERE nombre_original = 'foto.png';
 
@@ -79,12 +77,10 @@ END $$;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET estado_archivo_id = 4, motivo_rechazo = 'x' WHERE nombre_original = 'foto.png'$q$, '23514', 'C14 un archivo verificado ya no cambia');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET mime_detectado = 'image/jpeg' WHERE nombre_original = 'foto.png'$q$, '23514', 'C15 el tipo detectado final no cambia');
 
--- Rechazo: exige motivo y es final.
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET estado_archivo_id = 4 WHERE nombre_original = 'malo.zip'$q$, '23514', 'C16 rechazar exige un motivo');
 UPDATE chatbot.archivo_recibido SET estado_archivo_id = 4, motivo_rechazo = 'Tipo de archivo no permitido' WHERE nombre_original = 'malo.zip';
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET estado_archivo_id = 2 WHERE nombre_original = 'malo.zip'$q$, '23514', 'C17 un rechazado no vuelve a analizarse');
 
--- Transiciones y datos de recepcion.
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET estado_archivo_id = 3, mime_detectado = 'application/pdf', hash_archivo = 'h' WHERE nombre_original = 'informe.pdf'$q$, '23514', 'C18 no se salta VERIFICANDO');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET ruta_cuarentena = 'otra' WHERE nombre_original = 'informe.pdf'$q$, '23514', 'C19 lo recibido no se reescribe');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET mime_declarado = 'application/zip' WHERE nombre_original = 'informe.pdf'$q$, '23514', 'C20 el tipo declarado no cambia');
@@ -96,7 +92,6 @@ BEGIN
 END $$;
 SELECT pg_temp.espera_error($q$DELETE FROM chatbot.archivo_recibido WHERE nombre_original = 'informe.pdf'$q$, '23001', 'C22 el archivo no se borra');
 
--- Promocion a evidencia: el verificado se enlaza una sola vez.
 INSERT INTO chatbot.evidencia (incidencia_paciente_id, tipo_evidencia_id, mime_type, tamano, ruta)
 SELECT i.id, 1, 'image/png', 1024, 'definitivo/a.png' FROM chatbot.incidencia_paciente i WHERE i.trace_id = 'trace-carga-1';
 UPDATE chatbot.archivo_recibido SET evidencia_id = (SELECT id FROM chatbot.evidencia LIMIT 1) WHERE nombre_original = 'foto.png';
@@ -106,7 +101,6 @@ BEGIN
 END $$;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.archivo_recibido SET evidencia_id = NULL WHERE nombre_original = 'foto.png'$q$, '23514', 'C24 el enlace a la evidencia no se quita');
 
--- Conteo que usara el bot: formatos recibidos por incidencia.
 DO $$
 DECLARE r record; verificados int; rechazados int; pendientes int;
 BEGIN
@@ -121,7 +115,6 @@ BEGIN
   ASSERT verificados = 1 AND rechazados = 1 AND pendientes = 1, 'C25 el conteo por estado de una incidencia';
 END $$;
 
--- Cierre de la solicitud: una sola vez, con la fecha de la base.
 UPDATE chatbot.solicitud_carga SET cerrada_en = now() WHERE hash_token = 'hash-1';
 DO $$
 BEGIN

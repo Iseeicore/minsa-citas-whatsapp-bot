@@ -8,6 +8,9 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 
 const MAX_BOOKING_FAILURES = 3;
+const APPOINTMENT_DETAILS_TEXT =
+  "Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):";
+const APPOINTMENT_BUTTON_TEXT = "Ver mi cita";
 const SLOT_TAKEN_MESSAGE = /cupo|horario|disponib|agotad|ocupad|tomad/i;
 
 /** Un error del MINSA no se presenta como «horario tomado»: no se inventa una causa que el MINSA no dio. */
@@ -30,11 +33,7 @@ ${result.message ?? "Cita creada correctamente"}
 Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico.`;
     return buildResult(next, [
       sendText(constanciaText),
-      sendCtaUrl(
-        "Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):",
-        "Ver mi cita",
-        result.url ?? "",
-      ),
+      result.url ? sendCtaUrl(APPOINTMENT_DETAILS_TEXT, APPOINTMENT_BUTTON_TEXT, result.url) : sendText(APPOINTMENT_DETAILS_TEXT),
       sendText(
         "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita o realizar una consulta, escríbenos nuevamente cuando lo necesites. ¡Que tengas un buen día! 👋",
       ),

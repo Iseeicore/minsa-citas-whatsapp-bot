@@ -1,8 +1,6 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
--- Datos de referencia que trae la base desde el primer dia (migraciones). Si alguien cambia un id o un codigo, esta
--- prueba falla: el codigo de la aplicacion (lib/enums/*-id.ts) depende de ellos.
 DO $$
 BEGIN
   ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM catalogo.categoria_incidencia)
@@ -28,7 +26,6 @@ BEGIN
          = '1:TEXTO,2:IMAGEN,3:AUDIO,4:DOCUMENTO,5:UBICACION,6:PLANTILLA,7:DESCONOCIDO', 'D11 tipos de mensaje';
 END $$;
 
--- Roles de la plataforma de gestion y que categoria ve cada uno.
 DO $$
 BEGIN
   ASSERT (SELECT string_agg(codigo, ',' ORDER BY id) FROM gestion.rol)
@@ -55,7 +52,6 @@ BEGIN
   ASSERT (SELECT usuario_creacion FROM gestion.rol_categoria LIMIT 1) = 'sistema:migracion', 'D20 la migracion firma lo que carga';
 END $$;
 
--- Repetir la carga no duplica nada (las migraciones usan ON CONFLICT).
 SELECT set_config('app.actor', 'sistema:migracion', false);
 INSERT INTO gestion.rol (id, codigo, nombre, descripcion) VALUES (1, 'ADMINISTRADOR', 'Administrador', 'x')
 ON CONFLICT (id) DO UPDATE SET descripcion = EXCLUDED.descripcion;

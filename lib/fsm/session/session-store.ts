@@ -17,7 +17,6 @@ export async function getSession(from: string): Promise<Session> {
   if (!row) return defaultSession();
 
   return {
-    // Frontera de persistencia: la BD guarda texto libre; un estado desconocido se trata igual que antes (handle lanza).
     state: row.estado as Session["state"],
     slots: row.slots as Session["slots"],
     counters: row.contadores as Session["counters"],

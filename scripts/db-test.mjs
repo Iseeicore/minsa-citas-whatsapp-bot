@@ -1,6 +1,3 @@
-// Corre las pruebas de comportamiento SQL de la base (prisma/tests/*.sql) sobre una base desechable armada solo con las
-// migraciones de Prisma. Necesita `psql` (o PSQL_PATH) y un DATABASE_URL de un servidor donde se pueda crear una base.
-// Crea una base con nombre aleatorio y la borra al terminar; nunca toca la base del DATABASE_URL.
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { readdirSync } from "node:fs";

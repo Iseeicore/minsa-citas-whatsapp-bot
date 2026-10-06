@@ -29,10 +29,7 @@ async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | Re
 
 const isEvidencia = (value: DatosEvidencia | RegistrarIncidenciaResult): value is DatosEvidencia => "ruta" in value;
 
-/**
- * Registra la incidencia directo en la base. Nunca simula un éxito: sin base o ante un fallo responde error.
- * El trace id del turno es único; si se repite, la incidencia ya estaba guardada y se responde como aceptada.
- */
+/** Registra la incidencia directo en la base. Nunca simula un éxito; si el trace id ya existía, responde aceptada. */
 export async function registrarIncidencia(input: unknown): Promise<RegistrarIncidenciaResult> {
   const parsed = registrarIncidenciaSchema.safeParse(input);
   if (!parsed.success) {

@@ -1,4 +1,3 @@
-/** DEMO PILOTO: borrar junto con su importador al cerrar la fase piloto. */
 import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 
 export const DEMO_REFERENCIA_DNI = "10308523";

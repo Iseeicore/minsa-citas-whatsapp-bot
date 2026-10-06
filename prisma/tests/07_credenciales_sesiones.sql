@@ -18,7 +18,6 @@ $$;
 
 SELECT set_config('app.actor', 'usuario:admin-prueba', false);
 
--- Credenciales: correo y huella Argon2id.
 INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash) VALUES
   ('Ana Prueba', 'ana@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA'),
   ('Luis Prueba', 'luis@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA');
@@ -37,7 +36,6 @@ SELECT pg_temp.espera_error($q$INSERT INTO gestion.usuario_interno (nombre_compl
 SELECT pg_temp.espera_error($q$INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash) VALUES ('X', 'ana@minsa.gob.pe', '$argon2id$v=19$m=1,t=1,p=1$a$b')$q$, '23505', 'S08 el correo es unico');
 SELECT pg_temp.espera_error($q$INSERT INTO gestion.usuario_interno (nombre_completo, correo) VALUES ('X', 'x9@minsa.gob.pe')$q$, '23502', 'S09 la huella de la clave es obligatoria');
 
--- Sesion: nace abierta, firmada por la base.
 INSERT INTO gestion.sesion_usuario (usuario_interno_id, vence_en)
 SELECT id, now() + interval '8 hours' FROM gestion.usuario_interno WHERE correo = 'ana@minsa.gob.pe';
 
@@ -66,7 +64,6 @@ BEGIN
     'S17 renovar la actividad sube la version y firma quien lo hizo';
 END $$;
 
--- Revocar: la fecha la pone la base, una sola vez, y una sesion revocada no se toca.
 UPDATE gestion.sesion_usuario SET revocada_en = now() - interval '1 year';
 DO $$
 BEGIN
@@ -75,7 +72,6 @@ END $$;
 SELECT pg_temp.espera_error($q$UPDATE gestion.sesion_usuario SET revocada_en = NULL$q$, '23514', 'S19 una sesion revocada no se reabre');
 SELECT pg_temp.espera_error($q$UPDATE gestion.sesion_usuario SET ultima_actividad_en = now() + interval '2 minutes'$q$, '23514', 'S20 una sesion revocada no se modifica');
 
--- Desactivar a un usuario cierra todas sus sesiones abiertas y no toca las ya cerradas.
 SELECT set_config('app.actor', 'usuario:admin-prueba', false);
 INSERT INTO gestion.sesion_usuario (usuario_interno_id, vence_en)
 SELECT id, now() + interval '8 hours' FROM gestion.usuario_interno WHERE correo = 'luis@minsa.gob.pe';

@@ -23,7 +23,6 @@ const request = (body?: unknown) =>
     headers: { "content-type": "application/json" },
   });
 
-// Los usuarios no se pueden borrar (borrado lógico): estas filas quedan en la base de prueba, con un waId único por corrida.
 describe.skipIf(!process.env.DATABASE_URL)("inbox API against a real PostgreSQL", () => {
   const waId = `smoke-${randomUUID()}`;
   let usuarioId = "";

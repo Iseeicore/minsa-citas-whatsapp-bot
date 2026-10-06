@@ -1,6 +1,3 @@
-// Genera el diccionario de datos (Markdown), los diagramas ER (Mermaid) y comentarios.sql a partir de una base REAL ya
-// migrada y de diccionario.json. Falla si falta la descripcion de cualquier tabla, columna, llave foranea o funcion de
-// disparador. Uso: DATABASE_URL=postgresql://... [PSQL_PATH=...] npm run db:diccionario
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

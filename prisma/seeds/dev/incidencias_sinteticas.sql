@@ -1,13 +1,3 @@
--- Datos de prueba SINTETICOS para desarrollo y demostracion. NUNCA va en una migracion ni en una base real:
--- lo corre scripts/db-seed-dev.mjs solo contra una base desechable o local. No hay personas reales: los nombres y los DNI
--- son inventados (DNI que empiezan con 0000) y los archivos no existen (solo hay filas de evidencia).
---
--- Usa las MISMAS operaciones que la aplicacion (la IA clasifica, una persona confirma o corrige, el gestor deriva, el area
--- atiende y resuelve), asi que la base aplica sus reglas de verdad. Solo para dar edad a los casos apaga los disparadores
--- de usuario un momento y despues los vuelve a encender.
---
--- Ids de catalogo: categoria 1 DENUNCIA_CORRUPCION, 2 QUEJA, 3 RECLAMO, 4 OTRO; estado 6 DERIVADO, 3 EN_GESTION;
--- tipo de evidencia 1 IMAGEN, 3 DOCUMENTO, 4 AUDIO.
 \set ON_ERROR_STOP on
 \set QUIET on
 
@@ -83,8 +73,6 @@ BEGIN
 END;
 $$;
 
--- sembrar(n, horas desde la llegada, descripcion, nombre, dni, categoria IA, confianza, revision, categoria final, estado,
---         resolucion, horas desde la resolucion)
 DO $$
 BEGIN
   PERFORM pg_temp.sembrar(1, 50, 'Me cobraron 40 soles por un medicamento que según el afiche de la farmacia debía ser gratuito para mi seguro.', 'María Q.', '00004821', 3, 92, 'confirmada', NULL, 'EN_GESTION', NULL, NULL);
@@ -117,7 +105,6 @@ BEGIN
   PERFORM pg_temp.evidencia(14, 1, 'image/jpeg', 'foto-bano.jpg');
 END $$;
 
--- Dar edad a los casos: la base fija la llegada y la resolucion en "ahora", asi que se corrigen con los disparadores apagados.
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
 UPDATE chatbot.incidencia_paciente i
    SET fecha_creacion = now() - make_interval(hours => e.horas_llegada),
@@ -126,8 +113,6 @@ UPDATE chatbot.incidencia_paciente i
  WHERE i.trace_id = e.traza;
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
--- El archivado automatico pasa a ARCHIVADO lo que ya cumplio: lo resuelto hace mas de 3 dias (vigencia de la resolucion) y
--- lo abierto que llego hace mas de 3 dias (plazo de atencion).
 SELECT chatbot.archivar_incidencias_resueltas(3, 1000) AS archivadas_por_vigencia,
        chatbot.archivar_incidencias_vencidas(3, 1000) AS archivadas_por_vencimiento;
 
