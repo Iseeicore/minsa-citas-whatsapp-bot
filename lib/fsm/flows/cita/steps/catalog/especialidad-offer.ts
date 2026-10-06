@@ -12,18 +12,25 @@ export type EspecialidadResultItem = {
   cantidadCupos: number;
 };
 
-/** Devuelve la única especialidad que coincide con el texto sugerido, o undefined si hay cero o varias. */
-export function matchEspecialidadHint(
-  hint: string,
-  items: EspecialidadResultItem[],
-): EspecialidadResultItem | undefined {
+export function especialidadHintMatches(hint: string, items: EspecialidadResultItem[]): EspecialidadResultItem[] {
   const hintTokens = normalizeText(hint);
-  const matches = items.filter(
+  return items.filter(
     (item) =>
       normalizeText(item.nombreEspecialidad).includes(hintTokens) ||
       hintTokens.includes(normalizeText(item.nombreEspecialidad)),
   );
-  return matches.length === 1 ? matches[0] : undefined;
+}
+
+export function offerEspecialidadesWithoutHint(next: Session, items: EspecialidadResultItem[], hint: string): HandlerResult {
+  delete next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
+  const offered = offerEspecialidades(next, items);
+  return {
+    ...offered,
+    effects: [
+      sendText(`La especialidad que mencionaste (${hint}) no está disponible por ahora, pero puedes elegir entre estas:`),
+      ...offered.effects,
+    ],
+  };
 }
 
 export function acceptDetectedEspecialidad(next: Session, matched: EspecialidadResultItem): HandlerResult {

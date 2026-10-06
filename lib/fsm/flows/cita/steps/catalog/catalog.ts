@@ -16,8 +16,9 @@ import {
 } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import {
   acceptDetectedEspecialidad,
-  matchEspecialidadHint,
+  especialidadHintMatches,
   offerEspecialidades,
+  offerEspecialidadesWithoutHint,
   type EspecialidadResultItem,
 } from "@/lib/fsm/flows/cita/steps/catalog/especialidad-offer";
 import {
@@ -46,8 +47,10 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   }
 
   const hint = next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
-  const matched = hint ? matchEspecialidadHint(hint, items) : undefined;
-  return matched ? acceptDetectedEspecialidad(next, matched) : offerEspecialidades(next, items);
+  const matches = hint ? especialidadHintMatches(hint, items) : [];
+  if (matches.length === 1) return acceptDetectedEspecialidad(next, matches[0]);
+  if (hint && matches.length === 0) return offerEspecialidadesWithoutHint(next, items, hint);
+  return offerEspecialidades(next, items);
 }
 
 const HINT_MAX_LENGTH = 80;

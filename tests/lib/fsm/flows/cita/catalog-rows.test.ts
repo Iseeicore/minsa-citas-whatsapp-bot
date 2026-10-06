@@ -73,6 +73,31 @@ describe("especialidad rows are readable", () => {
     expect(sent(result)[0]).toEqual({ kind: "send_text", text: "Especialidad detectada: Odontología General. Buscando establecimientos…" });
     expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("Odontología General");
   });
+
+  it("tells the citizen a requested especialidad is not available and lists the others", () => {
+    const result = handle(
+      pending("cita_especialidad_pending", { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: "Cardiología" }),
+      queryResult("list_especialidades", especialidades),
+    );
+
+    expect(sent(result)[0]).toEqual({
+      kind: "send_text",
+      text: "La especialidad que mencionaste (Cardiología) no está disponible por ahora, pero puedes elegir entre estas:",
+    });
+    expect(listOf(result).rows).toHaveLength(2);
+    expect(result.session.state).toBe("cita_awaiting_especialidad_select");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBeUndefined();
+  });
+
+  it("offers the plain list when the hint matches several especialidades", () => {
+    const result = handle(
+      pending("cita_especialidad_pending", { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: "consulta externa" }),
+      queryResult("list_especialidades", especialidades),
+    );
+
+    expect(sent(result)[0].kind).not.toBe("send_text");
+    expect(listOf(result).rows).toHaveLength(2);
+  });
 });
 
 describe("establecimiento rows are readable", () => {
