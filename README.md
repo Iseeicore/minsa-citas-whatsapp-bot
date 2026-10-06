@@ -42,8 +42,33 @@ Detalles de la imagen:
 - **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos. Responde `200` con `status: "ok"`, o `status: "degraded"` y los códigos en `config` si hay una variable mal configurada (ver [Manejo de errores](#manejo-de-errores)); el contenedor no se reinicia por eso.
 - **Puerto:** 3000 dentro del contenedor; `HOST_PORT` cambia el puerto publicado en el servidor (por defecto 3000).
 - **Variables:** `docker-compose.yml` pasa al contenedor **todas** las variables del `.env` (`env_file`). Solo fija tres, que ganan sobre `env_file`: `NODE_ENV=production`, `PORT=3000` y `HOSTNAME=0.0.0.0`, para que un valor olvidado en el `.env` no saque al servidor del puerto que usan el mapeo y el healthcheck. Las 4 credenciales de Meta son obligatorias.
-- **Base de datos:** `DATABASE_ENABLED` vale `false` si no se define. La imagen se compila sin migraciones, así que `true` solo funciona contra un `DATABASE_URL` ya migrado (`npx prisma migrate deploy` ejecutado aparte) y deja de exigir una sola instancia. El compose no define un servicio de base de datos: con `DATABASE_ENABLED=true`, Prisma usa el PostgreSQL de `DATABASE_URL`.
+- **Base de datos:** `DATABASE_ENABLED` vale `false` si no se define. La imagen se compila sin base, pero **al arrancar el contenedor aplica solo las migraciones pendientes** (ver [Arranque con base de datos](#arranque-con-base-de-datos)): no hay un paso aparte para infraestructura.
+- **Salud:** el `start_period` del healthcheck es de 60 s para dar tiempo a la primera migración. El compose no define un servicio de base de datos: con `DATABASE_ENABLED=true`, Prisma usa el PostgreSQL de `DATABASE_URL`.
 - **Webhook de Meta:** configura la URL de callback como `https://<servidor>/webhook/whatsapp`. El HTTPS lo termina el proxy inverso del servidor, no el contenedor.
+
+### Arranque con base de datos
+
+El contenedor arranca con `scripts/docker-entrypoint.sh`, que decide según `DATABASE_ENABLED` y `DATABASE_URL`:
+
+| `DATABASE_ENABLED` | `DATABASE_URL` | Qué pasa |
+|---|---|---|
+| distinta de `false` (por ejemplo `true`) | con valor | Ejecuta `prisma migrate deploy` y, si termina bien, inicia el servicio. Si las migraciones fallan, el contenedor se detiene con un mensaje |
+| distinta de `false` | vacía | **Se detiene** con un error: la base está activa pero no hay a dónde conectarse |
+| `false` | vacía | Inicia **sin base** y deja una advertencia en el log |
+| `false` | con valor | Inicia **sin base**, no migra y deja una advertencia en el log (un `DATABASE_URL` sobrante no apaga el servicio, pero queda a la vista) |
+
+Para usar la base en Docker, en el `.env`:
+
+```bash
+DATABASE_URL=postgresql://<usuario>:<clave>@<host>:5432/<base>
+DATABASE_ENABLED=true
+```
+
+- **Pon `true` de forma explícita.** El compose convierte una `DATABASE_ENABLED` vacía en `false` (`${DATABASE_ENABLED:-false}`); vacía solo activa la base en Vercel, que no pasa por el compose.
+- La base debe existir (vacía está bien) y el usuario debe poder crear esquemas, tablas, funciones y disparadores. Las migraciones se aplican en cada arranque; si no hay pendientes, no hace nada.
+- Con varias réplicas, Prisma toma un candado en la base, así que dos arranques simultáneos no migran a la vez. Aun así el proyecto corre con una sola.
+- Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL (`%40`, `%3A`...).
+- La imagen trae el CLI de Prisma en `/opt/prisma` (versión fijada por `PRISMA_VERSION` en el `Dockerfile`, igual a la de `package.json`).
 
 ### Conectar un frontend externo (widget del Sandbox)
 
@@ -113,7 +138,7 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
-> **El bloque mínimo está pensado para Docker.** Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
+> **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
 
 - **Sin el bloque completo, el reclamo no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) el reclamo no se puede guardar**: el bot responde que no pudo registrarlo.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
