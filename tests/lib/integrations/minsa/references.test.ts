@@ -25,8 +25,6 @@ describe("real MINSA — listReferences", () => {
     vi.restoreAllMocks();
   });
 
-  // Respuesta real capturada de /whatsapp/api/v1/references (DNI 40488601) — el array va suelto, sin envolver en {data:...},
-  // y `estado` es un objeto {codigo, descripcion} con `codigo` en texto, no un número.
   const RESPUESTA_REAL = [
     {
       id_referencia: "1364486",

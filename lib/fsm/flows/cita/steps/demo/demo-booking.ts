@@ -1,4 +1,3 @@
-/** DEMO PILOTO: borrar junto con su importador al cerrar la fase piloto. */
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import {
   buildResult,

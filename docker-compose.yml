@@ -1,6 +1,3 @@
-# Una sola réplica: sin base de datos local, el estado de cada conversación vive en la memoria de
-# este proceso. Cuando DATABASE_ENABLED=true, Prisma habla con el PostgreSQL de DATABASE_URL,
-# no con un contenedor local, por eso este compose no define un servicio de base de datos.
 services:
   minsa-citas-whatsapp-bot:
     build: .
@@ -11,7 +8,6 @@ services:
       - "${HOST_PORT:-3000}:3000"
     env_file: .env
     environment:
-      # Fijadas: ganan sobre env_file para que el .env no mueva el puerto del healthcheck.
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0

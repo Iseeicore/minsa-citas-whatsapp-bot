@@ -146,7 +146,6 @@ export function handleAwaitingReferenciaConfirm(session: Session, event: Inbound
   }
 
   if (reply === REFERENCIA_CONFIRM_YES_ID || typed === Confirmation.YES) {
-    /** Placeholder: qué hacer con la referencia confirmada queda para una iteración futura. */
     return continueCitaAfterVerification(session);
   }
 

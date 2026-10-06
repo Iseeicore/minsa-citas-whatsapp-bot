@@ -132,7 +132,6 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
       return reniecLookup(String(effect.payload.dni ?? ""));
 
     case QueryKind.INCIDENCIA_REGISTER: {
-      // Import diferido a propósito: @prisma/client lee el .env al cargarse, y no debe cargarse en los turnos que no tocan la base.
       const { registrarIncidencia } = await import("@/lib/recepcion/servicio");
       return registrarIncidencia(effect.payload.submission);
     }

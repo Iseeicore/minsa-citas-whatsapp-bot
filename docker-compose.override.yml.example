@@ -1,8 +1,3 @@
-# Copiar a docker-compose.override.yml para desarrollo local con hot-reload.
-# `docker compose` lo carga automáticamente junto a docker-compose.yml si existe con ese nombre.
-#
-# Monta el código fuente dentro del contenedor y corre `next dev` en vez de la imagen
-# standalone de producción, para no tener que reconstruir la imagen en cada cambio.
 services:
   minsa-citas-whatsapp-bot:
     build:

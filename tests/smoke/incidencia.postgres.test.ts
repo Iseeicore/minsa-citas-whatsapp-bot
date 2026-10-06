@@ -5,7 +5,6 @@ import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { runWithTrace } from "@/lib/observability/context";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
 
-// Las incidencias no se borran (borrado lógico) y su historial es de solo inserción: estas filas quedan en la base de prueba.
 describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a real PostgreSQL", () => {
   afterAll(async () => {
     await prisma.$disconnect();

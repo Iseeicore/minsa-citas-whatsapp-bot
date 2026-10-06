@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- Las incidencias nuevas reciben su codigo: MINSA, el anio de llegada en America/Lima y el correlativo del anio con 6 digitos.
 SELECT set_config('app.actor', 'ciudadano:wa-codigo', false);
 INSERT INTO chatbot.usuario (wa_id) VALUES ('wa-codigo');
 
@@ -45,7 +44,6 @@ BEGIN
     'C05 el historial de creacion ya trae el codigo';
 END $$;
 
--- Quien inserta no elige el codigo: lo que mande se descarta.
 INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, descripcion, trace_id, codigo)
 SELECT 1, id, 'wa-codigo', true, 'Caso con codigo falso', 'trace-codigo-falso', 'MINSA-1999-000001' FROM chatbot.usuario WHERE wa_id = 'wa-codigo';
 
@@ -58,11 +56,9 @@ BEGIN
     'C06 el codigo que envia quien inserta se descarta';
 END $$;
 
--- El codigo no se modifica una vez asignado.
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET codigo = 'MINSA-2026-999999' WHERE trace_id = 'trace-codigo-A'$q$, '23514', 'C07 el codigo no se cambia');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET codigo = '' WHERE trace_id = 'trace-codigo-A'$q$, '23514', 'C08 el codigo no se vacia');
 
--- Aunque se apaguen los disparadores, el formato y la unicidad los exige la tabla.
 SELECT pg_temp.espera_error($q$DO $d$ BEGIN
   ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
   UPDATE chatbot.incidencia_paciente SET codigo = 'MINSA-26-1' WHERE trace_id = 'trace-codigo-A';
@@ -72,7 +68,6 @@ SELECT pg_temp.espera_error($q$DO $d$ BEGIN
   UPDATE chatbot.incidencia_paciente SET codigo = (SELECT codigo FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-codigo-B') WHERE trace_id = 'trace-codigo-A';
 END $d$$q$, '23505', 'C10 el codigo es unico');
 
--- El correlativo reinicia cada anio y el anio es el de America/Lima (UTC-5), no el de UTC.
 DO $$
 BEGIN
   ASSERT chatbot.generar_codigo_incidencia('2031-06-01 12:00:00-05') = 'MINSA-2031-000001', 'C11 el primer codigo de un anio es el 000001';
@@ -86,7 +81,6 @@ END $$;
 
 SELECT pg_temp.espera_error($q$SELECT chatbot.generar_codigo_incidencia(NULL)$q$, '23514', 'C18 la fecha es obligatoria');
 
--- Si la transaccion se revierte, el numero no se gasta: no quedan huecos.
 BEGIN;
 SELECT chatbot.generar_codigo_incidencia('2033-05-05 10:00:00-05');
 ROLLBACK;
@@ -96,7 +90,6 @@ BEGIN
   ASSERT chatbot.generar_codigo_incidencia('2033-05-05 10:00:00-05') = 'MINSA-2033-000001', 'C19 un numero de una transaccion revertida no se gasta';
 END $$;
 
--- Pasado el 999999 el correlativo sigue creciendo y el codigo sigue siendo valido.
 INSERT INTO chatbot.contador_codigo_incidencia (anio, ultimo) VALUES (2034, 999999);
 
 DO $$
@@ -105,15 +98,12 @@ BEGIN
   ASSERT 'MINSA-2034-1000000' ~ '^MINSA-[0-9]{4}-[0-9]{6,}$', 'C21 el formato admite mas de 6 digitos';
 END $$;
 
--- El contador solo avanza, no cambia de anio y no se borra.
 SELECT pg_temp.espera_error($q$UPDATE chatbot.contador_codigo_incidencia SET ultimo = 0 WHERE anio = 2031$q$, '23514', 'C22 el contador no retrocede');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.contador_codigo_incidencia SET anio = 2999 WHERE anio = 2031$q$, '23514', 'C23 el contador no cambia de anio');
 SELECT pg_temp.espera_error($q$DELETE FROM chatbot.contador_codigo_incidencia WHERE anio = 2031$q$, '23001', 'C24 el contador no se borra');
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.contador_codigo_incidencia (anio, ultimo) VALUES (99, 0)$q$, '23514', 'C25 el anio tiene cuatro digitos');
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.contador_codigo_incidencia (anio, ultimo) VALUES (2040, -1)$q$, '23514', 'C26 el ultimo no es negativo');
 
--- Las filas anteriores a la migracion reciben su codigo en el orden en que llegaron, firmado como sistema:migracion.
--- Se simulan apagando los disparadores y las restricciones dentro de una transaccion que se revierte.
 BEGIN;
 SELECT set_config('app.actor', 'ciudadano:wa-relleno', true);
 INSERT INTO chatbot.usuario (wa_id) VALUES ('wa-relleno');
@@ -152,7 +142,6 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- Dos transacciones simultaneas no repiten el codigo: la segunda espera a que la primera termine y toma el numero siguiente.
 CREATE EXTENSION IF NOT EXISTS dblink;
 SELECT dblink_connect('c_a', format('dbname=%s user=%s', current_database(), current_user));
 SELECT dblink_connect('c_b', format('dbname=%s user=%s', current_database(), current_user));
