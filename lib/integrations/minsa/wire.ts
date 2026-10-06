@@ -1,6 +1,9 @@
 import { timedFetch } from "@/lib/observability/http";
+import { logger } from "@/lib/observability/logger";
 import { signMinsaRequest } from "@/lib/integrations/minsa/signature";
 import { nowInLima, todayInLima } from "@/lib/time/lima-clock";
+
+const HTTP_SERVICE_UNAVAILABLE = 503;
 
 function minsaHost(): string {
   return process.env.MINSA_API_HOST ?? "";
@@ -56,6 +59,11 @@ export async function postWithBearer(
   body: Record<string, unknown>,
   bearer: string,
 ): Promise<Response> {
+  if (isRealMinsaEnabled() && minsaDigitalOrigin() === null) {
+    logger.error("minsa.request_blocked", { path, reason: "MINSA_DIGITAL_APP_URL_MISSING" });
+    return new Response(null, { status: HTTP_SERVICE_UNAVAILABLE });
+  }
+
   return timedFetch("minsa", path, `${minsaHost()}${path}`, {
     method: "POST",
     headers: {
