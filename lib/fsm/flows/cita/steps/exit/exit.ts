@@ -1,4 +1,6 @@
 import { detectExitIntent } from "@/lib/fsm/parsing/selection/exit-intent";
+import { detectChangeDistritoIntent } from "@/lib/fsm/parsing/selection/change-distrito-intent";
+import { offerChangeDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -45,6 +47,11 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_HORA_SELECT,
 ]);
 
+const CHANGE_DISTRITO_STATES: ReadonlySet<string> = new Set<Session["state"]>([
+  SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT,
+  SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT,
+]);
+
 const REGISTRATION_WAIT_STATE = SessionState.CITA_REGISTRATION_WAIT;
 
 const canLeaveFrom = (state: string): boolean =>
@@ -52,7 +59,11 @@ const canLeaveFrom = (state: string): boolean =>
 
 export function offerExitIfRequested(session: Session, event: HandleEvent): HandlerResult | undefined {
   if (event.type !== InboundEventType.TEXT || !event.text || !canLeaveFrom(session.state)) return undefined;
-  return detectExitIntent(event.text) ? askToLeave(session, "local") : undefined;
+  if (detectExitIntent(event.text)) return askToLeave(session, "local");
+  if (CHANGE_DISTRITO_STATES.has(session.state) && detectChangeDistritoIntent(event.text)) {
+    return offerChangeDistrito(session, "local");
+  }
+  return undefined;
 }
 
 function resume(session: Session, event: InboundEvent): HandlerResult {

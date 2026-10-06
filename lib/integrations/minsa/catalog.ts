@@ -20,7 +20,7 @@ import {
   limaDatePlus,
 } from "@/lib/integrations/minsa/fake-data";
 import { fetchCatalogItems } from "@/lib/integrations/minsa/catalog-pipeline";
-import { readNumber, readString, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import { isRawRow, readNumber, readString, type RawRow } from "@/lib/integrations/minsa/row-readers";
 import { endOfMonthYYYYMMDD, todayYYYYMMDD, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
@@ -64,6 +64,16 @@ function parseHora(row: RawRow): HoraItem | undefined {
   return { horaInicio, horaFin, cantidadCupos };
 }
 
+export const ESTABLECIMIENTOS_PAGE_SIZE = 5;
+
+function establecimientosPageInfo(body: unknown): { page: number; totalPages: number } | undefined {
+  const data = isRawRow(body) ? body.data : undefined;
+  if (!isRawRow(data)) return undefined;
+  const page = readNumber(data, "page");
+  const totalPages = readNumber(data, "total_pages");
+  return page === undefined || totalPages === undefined ? undefined : { page, totalPages };
+}
+
 export async function searchUbigeo(
   departamento: string,
   provincia: string,
@@ -105,14 +115,16 @@ export async function listEstablecimientos(
   especialidadId: string,
   ubigeo: string,
   bearer: string,
+  page = 1,
 ): Promise<ListEstablecimientosResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.ESTABLECIMIENTOS,
-      body: { especialidad_id: especialidadId, ubigeo, page: 1, page_size: 10 },
+      body: { especialidad_id: especialidadId, ubigeo, page, page_size: ESTABLECIMIENTOS_PAGE_SIZE },
       bearer,
       rowsPath: ["data", "items"],
       parseRow: parseEstablecimiento,
+      pageInfo: establecimientosPageInfo,
     });
   }
 

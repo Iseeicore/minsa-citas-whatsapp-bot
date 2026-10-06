@@ -47,6 +47,7 @@ export const TURN_NOTE_KINDS = [
   "hora_declined",
   "cita_closed",
   "exit_intent",
+  "change_distrito",
 ] as const;
 
 export type TurnNoteKind = (typeof TURN_NOTE_KINDS)[number];

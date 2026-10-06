@@ -57,7 +57,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS]).toBe("0000123");
     expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
     expect(queries(result)).toEqual([
-      { kind: "list_establecimientos", payload: { especialidadId: "02", ubigeo: "150132" } },
+      { kind: "list_establecimientos", payload: { especialidadId: "02", ubigeo: "150132", page: 1 } },
     ]);
   });
 

@@ -191,3 +191,59 @@ describe("the AI noticing a wish to leave", () => {
     expect(result.session.slots[SlotKey.CITA_EXIT_RESUME_STATE]).toBe("cita_awaiting_fecha_select");
   });
 });
+
+describe("changing the district in the middle of a list", () => {
+  it.each([
+    ["the especialidad list", listState()],
+    [
+      "the establecimiento list",
+      at("cita_awaiting_establecimiento_select", { [SlotKey.CITA_OFFERED]: serializeOffered(especialidades) }),
+    ],
+  ])("in %s a wish to change location asks whether to search another district or leave", (_label, session) => {
+    const result = handle(session, text("ya no quiero esta ubicación"));
+
+    expect(result.session.state).toBe("cita_awaiting_other_distrito");
+    const [question] = sent(result);
+    expect(question.kind).toBe("send_buttons");
+    expect(question).toMatchObject({
+      buttons: [
+        { id: "cita_otro_distrito_si", title: "Sí, otro distrito" },
+        { id: "cita_otro_distrito_no", title: "No, salir" },
+      ],
+    });
+  });
+
+  it("accepting clears the district-bound data and asks for the new district", () => {
+    const asked = handle(
+      at("cita_awaiting_especialidad_select", {
+        [SlotKey.CITA_OFFERED]: serializeOffered(especialidades),
+        [SlotKey.CITA_DISTRITO]: "SAN BORJA",
+        [SlotKey.CITA_UBIGEO]: "150130",
+      }),
+      text("quiero otro distrito"),
+    );
+    const result = handle(asked.session, tap("cita_otro_distrito_si"));
+
+    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(result.session.slots[SlotKey.CITA_DISTRITO]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_UBIGEO]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
+  });
+
+  it("declining ends the conversation", () => {
+    const asked = handle(listState(), text("cambiar de distrito"));
+    const result = handle(asked.session, tap("cita_otro_distrito_no"));
+
+    expect(result.session.state).toBe("cita_no_coverage_closed");
+  });
+
+  it("the AI flag quiereCambiarDistrito asks the same question", () => {
+    const pendingHints = at("cita_selection_hints_pending", {
+      [SlotKey.CITA_OFFERED]: serializeOffered(especialidades),
+      [SlotKey.CITA_SELECTION_STEP]: "especialidad",
+    });
+    const result = handle(pendingHints, queryResult("extract_selection_hints", { quiereCambiarDistrito: true }));
+
+    expect(result.session.state).toBe("cita_awaiting_other_distrito");
+  });
+});

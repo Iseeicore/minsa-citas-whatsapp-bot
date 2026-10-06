@@ -1,7 +1,7 @@
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
-import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
+import { offerChangeDistrito, offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
 import { offeredFullName, rememberFullNames } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { hintText, leftoverHint, matchAllTokens, readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -16,20 +16,25 @@ import {
 } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import {
   acceptDetectedEspecialidad,
-  matchEspecialidadHint,
+  especialidadHintMatches,
   offerEspecialidades,
+  offerEspecialidadesWithoutHint,
   type EspecialidadResultItem,
 } from "@/lib/fsm/flows/cita/steps/catalog/especialidad-offer";
 import {
   chooseEstablecimiento,
   detectEstablecimiento,
   establecimientoFullName,
-  establecimientoRows,
+  establecimientoPageRows,
+  establecimientoPaging,
   offerEstablecimientos,
+  searchEstablecimientosPage,
   type EstablecimientoResultItem,
 } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
+import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
 import { SessionState } from "@/lib/enums/session-state";
 
 export function handleEspecialidadPending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -46,8 +51,10 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   }
 
   const hint = next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
-  const matched = hint ? matchEspecialidadHint(hint, items) : undefined;
-  return matched ? acceptDetectedEspecialidad(next, matched) : offerEspecialidades(next, items);
+  const matches = hint ? especialidadHintMatches(hint, items) : [];
+  if (matches.length === 1) return acceptDetectedEspecialidad(next, matches[0]);
+  if (hint && matches.length === 0) return offerEspecialidadesWithoutHint(next, items, hint);
+  return offerEspecialidades(next, items);
 }
 
 const HINT_MAX_LENGTH = 80;
@@ -69,7 +76,7 @@ function askSelectionHints(
 }
 
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { especialidad?: unknown; establecimiento?: unknown; quiereSalir?: boolean };
+  const result = event.result as { especialidad?: unknown; establecimiento?: unknown; quiereSalir?: boolean; quiereCambiarDistrito?: boolean };
   const step = session.slots[SlotKey.CITA_SELECTION_STEP] === "establecimiento" ? "establecimiento" : "especialidad";
   const offered = readOffered(session.slots);
 
@@ -79,6 +86,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
     step === "establecimiento" ? SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT : SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
 
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
+  if (result.quiereCambiarDistrito === true) return offerChangeDistrito(restored, "ai");
 
   const own = step === "establecimiento" ? result.establecimiento : result.especialidad;
   const matched = typeof own === "string" && offered ? matchAllTokens(own, offered.rows) : undefined;
@@ -126,7 +134,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
 }
 
 export function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
+  const result = event.result as { status: string; items?: EstablecimientoResultItem[]; page?: number; totalPages?: number };
   const next = cloneSession(session);
 
   const hint = next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
@@ -135,8 +143,19 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   const failure = searchFailureGate(next, result.status, SessionState.CITA_ESTABLECIMIENTO_PENDING, SearchSubject.ESTABLECIMIENTOS);
   if (failure) return failure;
 
+  if (result.page !== undefined && result.totalPages !== undefined) {
+    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] = result.page;
+    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES] = result.totalPages;
+  } else {
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE];
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES];
+  }
+  const { page, totalPages } = establecimientoPaging(next.counters);
+
   const discarded = discardedEstablecimientos(next.slots);
   const items = result.status === "found" ? (result.items ?? []).filter((item) => !discarded.includes(item.renipressCode)) : [];
+
+  if (result.status === "found" && items.length === 0 && page < totalPages) return searchEstablecimientosPage(next, page + 1);
 
   if (items.length > 0) {
     rememberFullNames(next.slots, items.map((item) => ({ id: item.renipressCode, full: establecimientoFullName(item) })));
@@ -146,12 +165,12 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     return offerOtherEstablecimiento(
       next,
       items.map((item) => ({ id: item.renipressCode, name: establecimientoFullName(item) })),
-      establecimientoRows(items),
+      establecimientoPageRows(items, next.counters),
     );
   }
 
   if (items.length === 0) return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
-  if (items.length === 1) return chooseEstablecimiento(next, items[0], "encontrado");
+  if (items.length === 1 && totalPages <= 1) return chooseEstablecimiento(next, items[0], "encontrado");
 
   const detected = detectEstablecimiento(hint, items);
   return detected ? chooseEstablecimiento(next, detected, "detectado") : offerEstablecimientos(next, items);
@@ -164,6 +183,12 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
   });
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
+
+  if (replyId === EstablecimientoPageRowId.NEXT || replyId === EstablecimientoPageRowId.PREV) {
+    const current = establecimientoPaging(session.counters).page;
+    const target = replyId === EstablecimientoPageRowId.NEXT ? current + 1 : Math.max(1, current - 1);
+    return searchEstablecimientosPage(clearOffered(session), target, "Buscando más establecimientos…");
+  }
 
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);

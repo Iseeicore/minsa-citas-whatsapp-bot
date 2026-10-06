@@ -6,7 +6,7 @@ import type { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 const HTTP_UNAUTHORIZED = 401;
 
 export type CatalogFetchResult<T> =
-  | { status: "found"; items: T[] }
+  | { status: "found"; items: T[]; page?: number; totalPages?: number }
   | { status: "empty" }
   | { status: "error" }
   | { status: "unauthorized" };
@@ -17,6 +17,7 @@ type CatalogFetchParams<T> = {
   bearer: string;
   rowsPath: readonly string[];
   parseRow: (row: RawRow) => T | undefined;
+  pageInfo?: (body: unknown) => { page: number; totalPages: number } | undefined;
 };
 
 function rowsAt(body: unknown, path: readonly string[]): unknown {
@@ -53,5 +54,6 @@ export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promi
     });
   }
 
-  return items.length === 0 ? { status: "error" } : { status: "found", items };
+  if (items.length === 0) return { status: "error" };
+  return { status: "found", items, ...params.pageInfo?.(body) };
 }

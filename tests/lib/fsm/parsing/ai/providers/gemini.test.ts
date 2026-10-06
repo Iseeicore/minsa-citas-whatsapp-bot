@@ -237,6 +237,7 @@ describe("each AI task's standard schema, translated for Gemini", () => {
         establecimiento: { type: "STRING", nullable: true },
         detalle: { type: "STRING" },
         quiere_salir: { type: "BOOLEAN" },
+        quiere_cambiar_distrito: { type: "BOOLEAN" },
       },
       required: ["detalle", "quiere_salir"],
     });
