@@ -1,7 +1,7 @@
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
-import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
+import { offerChangeDistrito, offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
 import { offeredFullName, rememberFullNames } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { hintText, leftoverHint, matchAllTokens, readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -72,7 +72,7 @@ function askSelectionHints(
 }
 
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { especialidad?: unknown; establecimiento?: unknown; quiereSalir?: boolean };
+  const result = event.result as { especialidad?: unknown; establecimiento?: unknown; quiereSalir?: boolean; quiereCambiarDistrito?: boolean };
   const step = session.slots[SlotKey.CITA_SELECTION_STEP] === "establecimiento" ? "establecimiento" : "especialidad";
   const offered = readOffered(session.slots);
 
@@ -82,6 +82,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
     step === "establecimiento" ? SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT : SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
 
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
+  if (result.quiereCambiarDistrito === true) return offerChangeDistrito(restored, "ai");
 
   const own = step === "establecimiento" ? result.establecimiento : result.especialidad;
   const matched = typeof own === "string" && offered ? matchAllTokens(own, offered.rows) : undefined;

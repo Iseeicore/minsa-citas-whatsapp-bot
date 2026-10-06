@@ -62,6 +62,18 @@ export function offerOtherDistrito(
   );
 }
 
+export function offerChangeDistrito(session: Session, source: "local" | "ai"): HandlerResult {
+  const next = cloneSession(session);
+  next.state = OTHER_DISTRITO_STATE;
+  return withNote(
+    buildResult(next, [
+      questionButtons(`Entiendo que esa ubicación no te sirve, a veces las cosas no salen como esperamos.
+${QUESTION}`),
+    ]),
+    { kind: "change_distrito", detail: { state: session.state, source } },
+  );
+}
+
 export function handleOtherDistrito(session: Session, event: InboundEvent): HandlerResult {
   const tapped =
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;

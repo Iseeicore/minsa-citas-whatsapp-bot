@@ -14,7 +14,7 @@ const EXIT_PATTERNS: readonly RegExp[] = [
   /\bme (canse|harte|rindo)\b/,
 ];
 
-function normalize(text: string): string {
+export function normalizeIntentPhrase(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
@@ -26,7 +26,7 @@ function normalize(text: string): string {
 
 /** Frases claras de abandono ("quiero salir", "me aburrí", "ya no quiero nada"); "no" o "cancelar" solos no cuentan. */
 export function detectExitIntent(text: string): boolean {
-  const phrase = normalize(text);
+  const phrase = normalizeIntentPhrase(text);
   if (!phrase) return false;
   return EXIT_PATTERNS.some((pattern) => pattern.test(phrase));
 }

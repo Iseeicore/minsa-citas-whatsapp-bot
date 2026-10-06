@@ -6,6 +6,7 @@ export type SelectionHintsResult = {
   especialidad?: string;
   establecimiento?: string;
   quiereSalir?: true;
+  quiereCambiarDistrito?: true;
 };
 
 const SELECTION_HINTS_SYSTEM_PROMPT = `# SYSTEM PROMPT: Extractor de pistas — Canal MINSA
@@ -23,9 +24,12 @@ ${PROMPT_GUARDRAILS}
 
 ${EXIT_INTENT_RULE}
 
+## INTENCIÓN DE CAMBIAR DE DISTRITO
+Indica en "quiere_cambiar_distrito" si el ciudadano expresa que ya no quiere esa ubicación y desea buscar en otro distrito (ej. "mejor en otro lado", "esa zona me queda lejos", "me equivoqué de distrito"). En cualquier otro caso devuelve false.
+
 ## 3. FORMATO DE RESPUESTA
 Responde SIEMPRE únicamente con un objeto JSON, sin markdown ni texto adicional:
-{ "especialidad": "<texto o null>", "establecimiento": "<texto o null>", "detalle": "Explicación breve.", "quiere_salir": false }`;
+{ "especialidad": "<texto o null>", "establecimiento": "<texto o null>", "detalle": "Explicación breve.", "quiere_salir": false, "quiere_cambiar_distrito": false }`;
 
 export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
@@ -34,6 +38,7 @@ export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
     establecimiento: { type: ["string", "null"] },
     detalle: { type: "string" },
     quiere_salir: { type: "boolean" },
+    quiere_cambiar_distrito: { type: "boolean" },
   },
   required: ["detalle", "quiere_salir"],
 };
@@ -55,12 +60,18 @@ export async function extractSelectionHints(
     if (!outcome.ok) return {};
 
     try {
-      const parsed = outcome.json as { especialidad?: unknown; establecimiento?: unknown; quiere_salir?: unknown };
+      const parsed = outcome.json as {
+        especialidad?: unknown;
+        establecimiento?: unknown;
+        quiere_salir?: unknown;
+        quiere_cambiar_distrito?: unknown;
+      };
       const hints: SelectionHintsResult = {
         especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
         establecimiento: typeof parsed.establecimiento === "string" ? parsed.establecimiento : undefined,
       };
-      return parsed.quiere_salir === true ? { ...hints, quiereSalir: true } : hints;
+      if (parsed.quiere_salir === true) return { ...hints, quiereSalir: true };
+      return parsed.quiere_cambiar_distrito === true ? { ...hints, quiereCambiarDistrito: true } : hints;
     } catch {
       return {};
     }
