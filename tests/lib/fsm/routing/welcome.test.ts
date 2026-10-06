@@ -24,6 +24,14 @@ describe("buildWelcomeEffect", () => {
     });
   });
 
+  it("whatsapp: el botón sigue a la variable aunque cambie el dominio y no deja barra final", () => {
+    process.env.MINSA_DIGITAL_APP_URL = " https://portal-prueba.example.test/ ";
+
+    const effect = buildWelcomeEffect("whatsapp");
+
+    expect(effect).toMatchObject({ kind: "send_cta_url", url: "https://portal-prueba.example.test" });
+  });
+
   it("whatsapp: si MINSA_DIGITAL_APP_URL falta (config rota en el deploy), muestra el menú en vez de romper el botón", () => {
     delete process.env.MINSA_DIGITAL_APP_URL;
 

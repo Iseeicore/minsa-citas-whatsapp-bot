@@ -148,7 +148,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `MINSA_API_HOST` | Host de la API del MINSA |
 | `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (documento y OTP) |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
-| `MINSA_DIGITAL_APP_URL` | URL pública del portal de MINSA Digital: destino del botón **Continuar mi cita** que ve el ciudadano de WhatsApp |
+| `MINSA_DIGITAL_APP_URL` | **Obligatoria en el servidor real.** URL pública del portal de MINSA Digital, sin valor por defecto en el código: de ella salen los botones hacia el portal (**Continuar mi cita**, **Ir a MINSADIGITAL**, **Cita Nivel Global** y **Ver mi cita**) y las cabeceras `Origin` y `Referer` de las llamadas autenticadas al MINSA (se toma el origen: esquema, dominio y puerto). Si cambia el dominio, solo se cambia esta variable. Si falta, la bienvenida de WhatsApp muestra el menú, los demás avisos salen como texto sin enlace, esas llamadas no envían `Origin` ni `Referer` y `/api/health` responde `degraded` con el código `MINSA_DIGITAL_APP_URL_MISSING` |
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 

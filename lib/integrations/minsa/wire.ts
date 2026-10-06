@@ -6,8 +6,30 @@ function minsaHost(): string {
   return process.env.MINSA_API_HOST ?? "";
 }
 
+export const MINSA_DIGITAL_LOGIN_PATH = "/login";
+
 export function minsaDigitalAppUrl(): string {
-  return process.env.MINSA_DIGITAL_APP_URL ?? "https://dminsadigital.minsa.gob.pe";
+  return (process.env.MINSA_DIGITAL_APP_URL ?? "").trim().replace(/\/+$/, "");
+}
+
+export function minsaDigitalUrl(path = ""): string | null {
+  const base = minsaDigitalAppUrl();
+  return base ? `${base}${path}` : null;
+}
+
+export function minsaDigitalOrigin(): string | null {
+  const base = minsaDigitalAppUrl();
+  if (!base) return null;
+  try {
+    return new URL(base).origin;
+  } catch {
+    return null;
+  }
+}
+
+function minsaDigitalBrowserHeaders(): Record<string, string> {
+  const origin = minsaDigitalOrigin();
+  return origin ? { Origin: origin, Referer: `${origin}/` } : {};
 }
 
 /** Interruptor compartido: fuera del sandbox real, todas las integraciones MINSA usan datos simulados. */
@@ -41,8 +63,7 @@ export async function postWithBearer(
       Authorization: `Bearer ${bearer}`,
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      Origin: "https://dminsadigital.minsa.gob.pe",
-      Referer: "https://dminsadigital.minsa.gob.pe/",
+      ...minsaDigitalBrowserHeaders(),
     },
     body: JSON.stringify(body),
   });

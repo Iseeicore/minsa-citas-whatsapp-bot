@@ -14,7 +14,7 @@ export const CONFIG_ERRORS = {
   },
   [ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING]: {
     severity: "warn",
-    message: "MINSA_DIGITAL_APP_URL no está configurada: el botón «Continuar mi cita» del mensaje de bienvenida de WhatsApp se reemplaza por el menú principal.",
+    message: "MINSA_DIGITAL_APP_URL no está configurada: la bienvenida de WhatsApp muestra el menú principal, los avisos que llevaban botón hacia MINSA Digital salen como texto sin enlace y las llamadas autenticadas al MINSA no envían Origin ni Referer.",
   },
 } as const satisfies Record<ConfigErrorCode, { severity: "warn" | "error"; message: string }>;
 
