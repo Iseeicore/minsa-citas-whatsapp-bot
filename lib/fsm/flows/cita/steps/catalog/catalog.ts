@@ -25,12 +25,16 @@ import {
   chooseEstablecimiento,
   detectEstablecimiento,
   establecimientoFullName,
-  establecimientoRows,
+  establecimientoPageRows,
+  establecimientoPaging,
   offerEstablecimientos,
+  searchEstablecimientosPage,
   type EstablecimientoResultItem,
 } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
+import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
 import { SessionState } from "@/lib/enums/session-state";
 
 export function handleEspecialidadPending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -130,7 +134,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
 }
 
 export function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; items?: EstablecimientoResultItem[] };
+  const result = event.result as { status: string; items?: EstablecimientoResultItem[]; page?: number; totalPages?: number };
   const next = cloneSession(session);
 
   const hint = next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
@@ -139,8 +143,19 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   const failure = searchFailureGate(next, result.status, SessionState.CITA_ESTABLECIMIENTO_PENDING, SearchSubject.ESTABLECIMIENTOS);
   if (failure) return failure;
 
+  if (result.page !== undefined && result.totalPages !== undefined) {
+    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] = result.page;
+    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES] = result.totalPages;
+  } else {
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE];
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES];
+  }
+  const { page, totalPages } = establecimientoPaging(next.counters);
+
   const discarded = discardedEstablecimientos(next.slots);
   const items = result.status === "found" ? (result.items ?? []).filter((item) => !discarded.includes(item.renipressCode)) : [];
+
+  if (result.status === "found" && items.length === 0 && page < totalPages) return searchEstablecimientosPage(next, page + 1);
 
   if (items.length > 0) {
     rememberFullNames(next.slots, items.map((item) => ({ id: item.renipressCode, full: establecimientoFullName(item) })));
@@ -150,12 +165,12 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
     return offerOtherEstablecimiento(
       next,
       items.map((item) => ({ id: item.renipressCode, name: establecimientoFullName(item) })),
-      establecimientoRows(items),
+      establecimientoPageRows(items, next.counters),
     );
   }
 
   if (items.length === 0) return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
-  if (items.length === 1) return chooseEstablecimiento(next, items[0], "encontrado");
+  if (items.length === 1 && totalPages <= 1) return chooseEstablecimiento(next, items[0], "encontrado");
 
   const detected = detectEstablecimiento(hint, items);
   return detected ? chooseEstablecimiento(next, detected, "detectado") : offerEstablecimientos(next, items);
@@ -168,6 +183,12 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
   });
   if ("result" in outcome) return outcome.result;
   const replyId = outcome.replyId;
+
+  if (replyId === EstablecimientoPageRowId.NEXT || replyId === EstablecimientoPageRowId.PREV) {
+    const current = establecimientoPaging(session.counters).page;
+    const target = replyId === EstablecimientoPageRowId.NEXT ? current + 1 : Math.max(1, current - 1);
+    return searchEstablecimientosPage(clearOffered(session), target, "Buscando más establecimientos…");
+  }
 
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);

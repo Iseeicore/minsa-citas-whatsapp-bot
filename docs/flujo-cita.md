@@ -193,6 +193,9 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 
 ### Sin cobertura
 - **Sin especialidades o establecimientos:** 🔘 *"No encontramos … disponibles … ¿Deseas buscar en otro distrito cercano?"* con [Sí, otro distrito] [No, salir].
+- **Establecimientos paginados por el MINSA:** se piden de 5 en 5 (`page_size: 5`). Si hay más páginas, la lista termina con las filas «Ver más establecimientos» y «Ver anteriores», que vuelven a consultar la página siguiente o anterior. Un único resultado solo se elige solo cuando es el único de todas las páginas, y al descartar los de una página por falta de fechas el bot sigue con la siguiente antes de ofrecer otro distrito.
+- **Cambio de ubicación a mitad de la lista:** en las listas de especialidad y de establecimiento, frases como «ya no quiero esta ubicación» u «otro distrito» (o la IA) preguntan [Sí, otro distrito] [No, salir]; el sí borra los datos ligados al distrito y pide el nuevo.
+- **Especialidad pedida no disponible:** si la especialidad dicha al inicio no está en la lista del MINSA, el bot avisa «La especialidad que mencionaste (X) no está disponible por ahora, pero puedes elegir entre estas:» y muestra las demás.
 - **Sin fechas en el establecimiento elegido** (sin fechas rechazadas antes): se descarta y se vuelven a pedir los establecimientos sin él.
   - **Queda uno:** 🔘 *"No hay fechas disponibles en {X}. ¿Quieres buscar en {Y}?"* [Sí, buscar ahí] [No, salir].
   - **Quedan varios:** 💬 *"No hay fechas disponibles en {X}. Estos establecimientos también atienden {especialidad}:"* + 📋 lista.

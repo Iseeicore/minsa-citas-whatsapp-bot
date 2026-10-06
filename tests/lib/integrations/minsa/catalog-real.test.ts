@@ -97,6 +97,38 @@ describe("real MINSA — catalog pipeline", () => {
     });
   });
 
+  it("asks for the requested page of establecimientos, 5 at a time, and reports the paging info", async () => {
+    const fetchMock = minsaResponding({
+      success: true,
+      data: {
+        total: 25,
+        page: 2,
+        page_size: 5,
+        total_pages: 5,
+        items: [{ establishment_name: "C", renipress_code: "5990", address: "AV X", quotas_online: 0, categoria_codigo: "" }],
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listEstablecimientos("222400", "150108", "b", 2)).resolves.toEqual({
+      status: "found",
+      items: [{ renipressCode: "5990", establishmentName: "C", quotasOnline: 0 }],
+      page: 2,
+      totalPages: 5,
+    });
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(sent).toEqual({ especialidad_id: "222400", ubigeo: "150108", page: 2, page_size: 5 });
+  });
+
+  it("defaults to the first page", async () => {
+    const fetchMock = minsaResponding({ data: { items: [] } });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listEstablecimientos("222400", "150108", "b");
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ page: 1, page_size: 5 });
+  });
+
   it("ends in 'error' when MINSA returned rows but none is valid (broken contract, not 'no availability')", async () => {
     vi.stubGlobal("fetch", minsaResponding({ data: { fechas: [{ fecha_cupo: "20260920" }, { cantidad_cupos: 2 }, "x"] } }));
 

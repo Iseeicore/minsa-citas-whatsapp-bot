@@ -2,6 +2,7 @@ import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handl
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 
 /** Ante un token del MINSA vencido (401) vuelve a pedir el documento sin perder los datos de la cita, y luego retoma el paso donde estaba. */
@@ -44,6 +45,7 @@ export function resumeAfterReverification(session: Session, resumeState: string)
         query(QueryKind.LIST_ESTABLECIMIENTOS, {
           especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
           ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+          page: next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] ?? 1,
         }),
       ]);
 

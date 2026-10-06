@@ -14,6 +14,7 @@ import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/co
 import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { CounterKey } from "@/lib/enums/counter-key";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -61,6 +62,7 @@ export function searchOtherEstablecimiento(session: Session): HandlerResult {
       query(QueryKind.LIST_ESTABLECIMIENTOS, {
         especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
         ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+        page: next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] ?? 1,
       }),
     ]),
     { kind: "no_coverage", level: "warn", detail: { missing: SearchSubject.FECHAS, discarded: discarded.length } },

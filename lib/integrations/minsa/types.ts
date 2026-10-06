@@ -40,7 +40,7 @@ export type EstablecimientoItem = {
 };
 
 export type ListEstablecimientosResult =
-  | { status: "found"; items: EstablecimientoItem[] }
+  | { status: "found"; items: EstablecimientoItem[]; page?: number; totalPages?: number }
   | { status: "empty" }
   | { status: "error" }
   | { status: "unauthorized" };

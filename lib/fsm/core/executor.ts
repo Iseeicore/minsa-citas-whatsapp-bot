@@ -177,6 +177,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
         String(effect.payload.especialidadId ?? ""),
         String(effect.payload.ubigeo ?? ""),
         bearer,
+        Number(effect.payload.page ?? 1),
       );
 
     case QueryKind.LIST_FECHAS:
