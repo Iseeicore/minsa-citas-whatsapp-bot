@@ -1,4 +1,3 @@
-# Una sola réplica: sin base de datos, el estado de cada conversación vive en la memoria de este proceso.
 services:
   minsa-citas-whatsapp-bot:
     build: .
@@ -9,7 +8,6 @@ services:
       - "${HOST_PORT:-3000}:3000"
     env_file: .env
     environment:
-      # Fijadas: ganan sobre env_file para que el .env no mueva el puerto del healthcheck.
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0
@@ -20,3 +18,21 @@ services:
       META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:?set META_PHONE_NUMBER_ID}
       META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:?set META_WEBHOOK_VERIFY_TOKEN}
       META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET}
+
+      MINSA_DIGITAL_APP_URL: ${MINSA_DIGITAL_APP_URL:?set MINSA_DIGITAL_APP_URL}
+    volumes:
+      - app-logs:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+volumes:
+  app-logs:
