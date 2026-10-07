@@ -19,7 +19,60 @@ import {
   fakeFechas,
   limaDatePlus,
 } from "@/lib/integrations/minsa/fake-data";
-import { endOfMonthYYYYMMDD, postWithBearer, todayYYYYMMDD } from "@/lib/integrations/minsa/wire";
+import { fetchCatalogItems } from "@/lib/integrations/minsa/catalog-pipeline";
+import { isRawRow, readNumber, readString, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import { endOfMonthYYYYMMDD, todayYYYYMMDD, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+
+function parseUbigeo(row: RawRow): UbigeoItem | undefined {
+  const ubigeoInei = readString(row, "ubigeo_inei");
+  const distrito = readString(row, "distrito");
+  const provincia = readString(row, "provincia");
+  const departamento = readString(row, "departamento");
+  if (!ubigeoInei || !distrito || !provincia || !departamento) return undefined;
+  return { ubigeoInei, distrito, provincia, departamento };
+}
+
+function parseEspecialidad(row: RawRow): EspecialidadItem | undefined {
+  const codigoEspecialidad = readString(row, "codigo_especialidad");
+  const nombreEspecialidad = readString(row, "nombre_especialidad");
+  const cantidadCupos = readNumber(row, "cantidad_cupos");
+  if (!codigoEspecialidad || !nombreEspecialidad || cantidadCupos === undefined) return undefined;
+  return { codigoEspecialidad, nombreEspecialidad, cantidadCupos };
+}
+
+function parseEstablecimiento(row: RawRow): EstablecimientoItem | undefined {
+  const renipressCode = readString(row, "renipress_code");
+  const establishmentName = readString(row, "establishment_name");
+  const quotasOnline = readNumber(row, "quotas_online");
+  if (!renipressCode || !establishmentName || quotasOnline === undefined) return undefined;
+  return { renipressCode, establishmentName, quotasOnline };
+}
+
+function parseFecha(row: RawRow): FechaItem | undefined {
+  const fechaCupo = readString(row, "fecha_cupo");
+  const cantidadCupos = readNumber(row, "cantidad_cupos");
+  if (!fechaCupo || cantidadCupos === undefined) return undefined;
+  return { fechaCupo, cantidadCupos };
+}
+
+function parseHora(row: RawRow): HoraItem | undefined {
+  const horaInicio = readString(row, "hora_inicio");
+  const horaFin = readString(row, "hora_fin");
+  const cantidadCupos = readNumber(row, "cantidad_cupos");
+  if (!horaInicio || !horaFin || cantidadCupos === undefined) return undefined;
+  return { horaInicio, horaFin, cantidadCupos };
+}
+
+export const ESTABLECIMIENTOS_PAGE_SIZE = 5;
+
+function establecimientosPageInfo(body: unknown): { page: number; totalPages: number } | undefined {
+  const data = isRawRow(body) ? body.data : undefined;
+  if (!isRawRow(data)) return undefined;
+  const page = readNumber(data, "page");
+  const totalPages = readNumber(data, "total_pages");
+  return page === undefined || totalPages === undefined ? undefined : { page, totalPages };
+}
 
 export async function searchUbigeo(
   departamento: string,
@@ -27,24 +80,14 @@ export async function searchUbigeo(
   distrito: string,
   bearer: string,
 ): Promise<SearchUbigeoResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await postWithBearer(
-      "/api/v1/whatsapp/ubigeo",
-      { departamento, provincia, distrito, limite: 5 },
+  if (isRealMinsaEnabled()) {
+    return fetchCatalogItems({
+      endpoint: MinsaEndpoint.UBIGEO,
+      body: { departamento, provincia, distrito, limite: 5 },
       bearer,
-    );
-    if (response.status === 401) return { status: "unauthorized" };
-    if (!response.ok) return { status: "error" };
-
-    const body = await response.json();
-    const items: UbigeoItem[] = (body?.data ?? []).map((row: Record<string, unknown>) => ({
-      ubigeoInei: String(row.ubigeo_inei),
-      distrito: String(row.distrito),
-      provincia: String(row.provincia),
-      departamento: String(row.departamento),
-    }));
-
-    return items.length === 0 ? { status: "empty" } : { status: "found", items };
+      rowsPath: ["data"],
+      parseRow: parseUbigeo,
+    });
   }
 
   const matches = distrito.trim().toUpperCase() === FAKE_UBIGEO.distrito;
@@ -55,25 +98,14 @@ export async function listEspecialidades(
   ubigeo: string,
   bearer: string,
 ): Promise<ListEspecialidadesResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await postWithBearer(
-      "/whatsapp/api/v1/specialties-quotas",
-      { ubigeo, fecha_inicio: todayYYYYMMDD(), fecha_fin: endOfMonthYYYYMMDD() },
+  if (isRealMinsaEnabled()) {
+    return fetchCatalogItems({
+      endpoint: MinsaEndpoint.ESPECIALIDADES,
+      body: { ubigeo, fecha_inicio: todayYYYYMMDD(), fecha_fin: endOfMonthYYYYMMDD() },
       bearer,
-    );
-    if (response.status === 401) return { status: "unauthorized" };
-    if (!response.ok) return { status: "error" };
-
-    const body = await response.json();
-    const items: EspecialidadItem[] = (body?.data?.especialidades ?? []).map(
-      (row: Record<string, unknown>) => ({
-        codigoEspecialidad: String(row.codigo_especialidad),
-        nombreEspecialidad: String(row.nombre_especialidad),
-        cantidadCupos: Number(row.cantidad_cupos),
-      }),
-    );
-
-    return items.length === 0 ? { status: "empty" } : { status: "found", items };
+      rowsPath: ["data", "especialidades"],
+      parseRow: parseEspecialidad,
+    });
   }
 
   return { status: "found", items: FAKE_ESPECIALIDADES };
@@ -83,26 +115,17 @@ export async function listEstablecimientos(
   especialidadId: string,
   ubigeo: string,
   bearer: string,
+  page = 1,
 ): Promise<ListEstablecimientosResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await postWithBearer(
-      "/whatsapp/api/v1/establishments",
-      { especialidad_id: especialidadId, ubigeo, page: 1, page_size: 10 },
+  if (isRealMinsaEnabled()) {
+    return fetchCatalogItems({
+      endpoint: MinsaEndpoint.ESTABLECIMIENTOS,
+      body: { especialidad_id: especialidadId, ubigeo, page, page_size: ESTABLECIMIENTOS_PAGE_SIZE },
       bearer,
-    );
-    if (response.status === 401) return { status: "unauthorized" };
-    if (!response.ok) return { status: "error" };
-
-    const body = await response.json();
-    const items: EstablecimientoItem[] = (body?.data?.items ?? []).map(
-      (row: Record<string, unknown>) => ({
-        renipressCode: String(row.renipress_code),
-        establishmentName: String(row.establishment_name),
-        quotasOnline: Number(row.quotas_online),
-      }),
-    );
-
-    return items.length === 0 ? { status: "empty" } : { status: "found", items };
+      rowsPath: ["data", "items"],
+      parseRow: parseEstablecimiento,
+      pageInfo: establecimientosPageInfo,
+    });
   }
 
   return { status: "found", items: FAKE_ESTABLECIMIENTOS };
@@ -113,22 +136,14 @@ export async function listFechas(
   especialidadId: string,
   bearer: string,
 ): Promise<ListFechasResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await postWithBearer(
-      "/whatsapp/api/v1/quotas/dates",
-      { cod_eess: codEess, especialidad_id: especialidadId },
+  if (isRealMinsaEnabled()) {
+    return fetchCatalogItems({
+      endpoint: MinsaEndpoint.FECHAS,
+      body: { cod_eess: codEess, especialidad_id: especialidadId },
       bearer,
-    );
-    if (response.status === 401) return { status: "unauthorized" };
-    if (!response.ok) return { status: "error" };
-
-    const body = await response.json();
-    const items: FechaItem[] = (body?.data?.fechas ?? []).map((row: Record<string, unknown>) => ({
-      fechaCupo: String(row.fecha_cupo),
-      cantidadCupos: Number(row.cantidad_cupos),
-    }));
-
-    return items.length === 0 ? { status: "empty" } : { status: "found", items };
+      rowsPath: ["data", "fechas"],
+      parseRow: parseFecha,
+    });
   }
 
   return { status: "found", items: fakeFechas() };
@@ -140,23 +155,14 @@ export async function listHoras(
   fecha: string,
   bearer: string,
 ): Promise<ListHorasResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await postWithBearer(
-      "/whatsapp/api/v1/quotas/times",
-      { cod_eess: codEess, especialidad_id: especialidadId, fecha },
+  if (isRealMinsaEnabled()) {
+    return fetchCatalogItems({
+      endpoint: MinsaEndpoint.HORAS,
+      body: { cod_eess: codEess, especialidad_id: especialidadId, fecha },
       bearer,
-    );
-    if (response.status === 401) return { status: "unauthorized" };
-    if (!response.ok) return { status: "error" };
-
-    const body = await response.json();
-    const items: HoraItem[] = (body?.data?.horarios ?? []).map((row: Record<string, unknown>) => ({
-      horaInicio: String(row.hora_inicio),
-      horaFin: String(row.hora_fin),
-      cantidadCupos: Number(row.cantidad_cupos),
-    }));
-
-    return items.length === 0 ? { status: "empty" } : { status: "found", items };
+      rowsPath: ["data", "horarios"],
+      parseRow: parseHora,
+    });
   }
 
   if (fecha === limaDatePlus(SINGLE_HORARIO_DAYS_AHEAD)) return { status: "found", items: [FAKE_HORAS[2]] };

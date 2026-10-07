@@ -1,14 +1,13 @@
-import { graphApiVersion } from "@/lib/whatsapp/graph-api";
-import { prisma } from "@/lib/db/prisma";
-import { MessageDirection, MessageStatus, MessageType } from "@prisma/client";
+import { graphApiBaseUrl, graphAuthHeaders } from "@/lib/whatsapp/graph-api";
+import { ACTOR_SISTEMA_BOT } from "@/lib/db/actor";
+import { recordOutboundMessage } from "@/lib/inbox/repository";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { SendType } from "@/lib/enums/send-type";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 
 function graphApiUrl(): string {
-  const version = graphApiVersion();
-  return `https://graph.facebook.com/${version}/${process.env.META_PHONE_NUMBER_ID}/messages`;
+  return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
 }
 
 /** Esta cuenta usa BSUID: el destinatario va en `recipient`; con `to` Graph API acepta la petición pero no entrega el mensaje. */
@@ -80,10 +79,7 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
 export async function sendWhatsAppEffect(waId: string, effect: SendEffect): Promise<Response> {
   return fetch(graphApiUrl(), {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
+    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(buildGraphBody(waId, effect)),
   });
 }
@@ -94,10 +90,7 @@ export async function sendCtaUrlMessage(
 ): Promise<Response> {
   return fetch(graphApiUrl(), {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
+    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -119,10 +112,7 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   try {
     await fetch(graphApiUrl(), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
+      headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
         messaging_product: "whatsapp",
         status: "read",
@@ -133,32 +123,6 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   } catch (error) {
     logger.warn("whatsapp.typing_failed", { error });
   }
-}
-
-async function recordOutboundMessage(
-  conversationId: string,
-  text: string,
-  waMessageId: string | undefined,
-): Promise<void> {
-  const now = new Date();
-
-  await prisma.$transaction([
-    prisma.message.create({
-      data: {
-        conversationId,
-        direction: MessageDirection.OUTBOUND,
-        type: MessageType.TEXT,
-        content: text,
-        waMessageId: waMessageId ?? null,
-        status: MessageStatus.SENT,
-        timestamp: now,
-      },
-    }),
-    prisma.conversation.update({
-      where: { id: conversationId },
-      data: { lastMessageAt: now },
-    }),
-  ]);
 }
 
 export async function sendAndRecordEffect(
@@ -183,7 +147,7 @@ export async function sendAndRecordEffect(
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
   if (conversationId === null) return;
-  await recordOutboundMessage(conversationId, effect.text, waMessageId);
+  await recordOutboundMessage(conversationId, effect.text, waMessageId ?? null, ACTOR_SISTEMA_BOT);
 }
 
 export async function sendAndRecordCtaUrl(
@@ -208,5 +172,5 @@ export async function sendAndRecordCtaUrl(
   const graphBody = await response.json().catch(() => ({}));
   const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
   if (conversationId === null) return;
-  await recordOutboundMessage(conversationId, params.bodyText, waMessageId);
+  await recordOutboundMessage(conversationId, params.bodyText, waMessageId ?? null, ACTOR_SISTEMA_BOT);
 }

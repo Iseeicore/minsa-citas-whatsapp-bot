@@ -1,13 +1,16 @@
 import { buildResult, cloneSession, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
-import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/time-parser";
-import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
+import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
+import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
-import type { CustomMatch } from "@/lib/fsm/flows/cita/selection";
+import type { CustomMatch } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow, rowToSlot, formatHourGroup } from "@/lib/fsm/flows/cita/steps/hora/format";
+import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;
-export const HORA_CHOICE_A_ID = "hora_choice_a";
-export const HORA_CHOICE_B_ID = "hora_choice_b";
+export const HORA_CHOICE_A_ID = HoraChoiceButtonId.A;
+export const HORA_CHOICE_B_ID = HoraChoiceButtonId.B;
 export const BUTTON_TITLE_MAX = 20;
 
 function resolveBareHoraNumber(
@@ -44,9 +47,9 @@ function resolveBareHoraNumber(
     : `${formatHourGroup(first.start)} (${otherHourSlots.map((slot) => formatHora12(slot.start)).join(", ")})`;
 
   const next = cloneSession(session);
-  next.state = "cita_awaiting_hora_choice";
-  next.slots.citaHoraChoiceA = positionRow.id;
-  next.slots.citaHoraChoiceB = packHoraSlots(otherHourSlots);
+  next.state = SessionState.CITA_AWAITING_HORA_CHOICE;
+  next.slots[SlotKey.CITA_HORA_CHOICE_A] = positionRow.id;
+  next.slots[SlotKey.CITA_HORA_CHOICE_B] = packHoraSlots(otherHourSlots);
 
   return {
     kind: "handled",
@@ -61,7 +64,7 @@ function resolveBareHoraNumber(
 
 
 export function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): CustomMatch | undefined {
-  const day = unpackHoraSlots(session.slots.citaHorasDia);
+  const day = unpackHoraSlots(session.slots[SlotKey.CITA_HORAS_DIA]);
   const slots = day.length > 0 ? day : rows.flatMap((row) => rowToSlot(row) ?? []);
 
   if (BARE_SMALL_NUMBER.test(typed.trim())) {

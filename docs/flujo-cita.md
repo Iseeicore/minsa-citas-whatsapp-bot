@@ -30,8 +30,8 @@ main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
                                                 ├─ fuera_de_alcance ─► 💬 texto fijo + 📋 menú
                                                 └─ no claro / IA caída ─► 📋 menú
 
-Documento (8 dígitos es DNI, 9 es carnet de extranjería) 💬
-└─ válido ─► MINSA valida
+Documento 💬  (8 dígitos: DNI "01" · 9 dígitos: carnet de extranjería "03")
+└─ válido ─► MINSA valida  (envía numero_documento, tipo_documento y conversation_id)
    ├─ registrado ─► 💬 "Te enviamos un código…" ─► OTP (4–8 dígitos)
    │                └─ correcto ─► 💬 "¡Verificado! ¿En qué distrito…?"
    └─ no registrado ─► 🔗 MINSADIGITAL + 🔘 [Ya me registré]  (máx. 3 intentos ⛔)
@@ -66,7 +66,7 @@ Reserva 💬 "Agendando tu cita…"
 |---|---|---|---|---|
 | Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
 | Menú principal | 📋 2 filas | "1"/"2", "cita", "reclamo", frases de cita | — | 🤖 intención |
-| Documento | 💬 | 8 dígitos (DNI, tipo `01`) o 9 dígitos (carnet de extranjería, tipo `03`); el largo decide el tipo y MINSA recibe `tipo_documento` | — | no |
+| Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |
 | Registro pendiente | 🔗 + 🔘 [Ya me registré] | nada (solo el botón) | — | no |
 | OTP | 💬 | 4 a 8 dígitos | — | no |
 | Distrito | 💬 | nombre del distrito; "sí"/"ese" reutiliza el primer mensaje | 📋 de desambiguación (2–10) | 🤖 distrito |
@@ -193,6 +193,9 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 
 ### Sin cobertura
 - **Sin especialidades o establecimientos:** 🔘 *"No encontramos … disponibles … ¿Deseas buscar en otro distrito cercano?"* con [Sí, otro distrito] [No, salir].
+- **Establecimientos paginados por el MINSA:** se piden de 5 en 5 (`page_size: 5`). Si hay más páginas, la lista termina con las filas «Ver más establecimientos» y «Ver anteriores», que vuelven a consultar la página siguiente o anterior. Un único resultado solo se elige solo cuando es el único de todas las páginas, y al descartar los de una página por falta de fechas el bot sigue con la siguiente antes de ofrecer otro distrito.
+- **Cambio de ubicación a mitad de la lista:** en las listas de especialidad y de establecimiento, frases como «ya no quiero esta ubicación» u «otro distrito» (o la IA) preguntan [Sí, otro distrito] [No, salir]; el sí borra los datos ligados al distrito y pide el nuevo.
+- **Especialidad pedida no disponible:** si la especialidad dicha al inicio no está en la lista del MINSA, el bot avisa «La especialidad que mencionaste (X) no está disponible por ahora, pero puedes elegir entre estas:» y muestra las demás.
 - **Sin fechas en el establecimiento elegido** (sin fechas rechazadas antes): se descarta y se vuelven a pedir los establecimientos sin él.
   - **Queda uno:** 🔘 *"No hay fechas disponibles en {X}. ¿Quieres buscar en {Y}?"* [Sí, buscar ahí] [No, salir].
   - **Quedan varios:** 💬 *"No hay fechas disponibles en {X}. Estos establecimientos también atienden {especialidad}:"* + 📋 lista.

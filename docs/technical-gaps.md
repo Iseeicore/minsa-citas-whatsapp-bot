@@ -62,7 +62,7 @@ Los límites son los mismos: 30 s en la cola en memoria (`TURN_PROCESS_LOCK_TIME
 Desde una red lejana (159 ms por viaje a la base) el candado tarda **340 ms de mediana** en adquirirse: son 2 viajes (`BEGIN` y la sentencia del candado) y 134 ms en liberarse (`COMMIT`). Es distancia de red, no código, pero el presupuesto de 200 ms **no está certificado**. Falta medirlo desde una función de Vercel en la región de la base (Neon está en `us-east-1`; se espera `iad1`, confirmar la región de la función del proyecto).
 
 - **Cómo medirlo:** durante la sección 4 del playbook, buscar en los logs el evento `turn_lock.waited` con `layer: "database"` (el campo `waitedMs` da la duración). Esa línea solo se escribe si tarda **200 ms o más**: si no aparece ninguna, la adquisición está por debajo del presupuesto.
-- **Referencia:** `npm run smoke:neon` (mide el candado real; ejecutado desde red local).
+- **Referencia:** `npm run smoke:postgres` (mide el candado real; ejecutado desde red local).
 
 ## G5 a G8. Otros gaps abiertos (ya comunicados; sin cambios)
 
@@ -71,7 +71,7 @@ Desde una red lejana (159 ms por viaje a la base) el candado tarda **340 ms de m
 | G5 | Spam corto sin palabras — **cerrado (Bloque 2)** | Un primer mensaje con el mismo carácter 10 o más veces seguidas, o solo emojis (6 o más), se rechaza con la razón `repeat`. Un spam corto con palabras variadas sigue pasando: no hay regla segura contra eso. | `lib/security/payload-filter.test.ts`, playbook 1.3b-c |
 | G6 | Límite de ritmo por instancia | Los contadores viven en memoria de cada instancia serverless; no hay Redis. Una inundación repartida entre instancias se cuenta por separado. | `lib/security/rate-limiter.test.ts` |
 | G7 | Tope de 4 turnos con candado por instancia | Evita agotar el pool de 10 conexiones; el costo es que una instancia atiende como máximo 4 turnos a la vez y los demás esperan hasta 20 s. Ajustable con `TURN_LOCK_MAX_CONCURRENCY`. | `lib/fsm/session/turn-lock.test.ts` |
-| G8 | Comentario inexacto en `lib/db/prisma.ts` — **cerrado (Bloque 1)** | El comentario ya dice que el adaptador de Neon usa un pool por WebSocket (necesario para las transacciones del candado). | — |
+| G8 | Comentario inexacto en `lib/db/prisma.ts` — **cerrado (Bloque 1)** | El cliente ya no usa el adaptador de Neon: usa el motor por defecto de Prisma y su pool de conexiones, y el candado se verificó contra PostgreSQL 18. | — |
 
 ## G9. Comportamiento no determinista en los tests de persistencia según el entorno ambiental — **cerrado**
 

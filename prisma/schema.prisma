@@ -5,70 +5,510 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["catalogo", "chatbot", "gestion", "ia"]
 }
 
-enum ConversationStatus {
-  OPEN
-  CLOSED
+model CategoriaIncidencia {
+  id                  Int      @id(map: "pk_categoria_incidencia") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_categoria_incidencia_codigo")
+  nombre              String
+  descripcion         String?
+  esSensible          Boolean  @default(false) @map("es_sensible")
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  roles               RolCategoria[]
+  incidencias         IncidenciaPaciente[]     @relation("IncidenciaCategoria")
+  incidenciasIa       IncidenciaPaciente[]     @relation("IncidenciaCategoriaIa")
+  entrenamientosIa    EntrenamientoCategoria[] @relation("EntrenamientoCategoriaIa")
+  entrenamientosFinal EntrenamientoCategoria[] @relation("EntrenamientoCategoriaFinal")
+
+  @@map("categoria_incidencia")
+  @@schema("catalogo")
 }
 
-enum MessageDirection {
-  INBOUND
-  OUTBOUND
+model EstadoIncidencia {
+  id                  Int      @id(map: "pk_estado_incidencia") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_estado_incidencia_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidencias IncidenciaPaciente[]
+
+  @@map("estado_incidencia")
+  @@schema("catalogo")
 }
 
-enum MessageType {
-  TEXT
-  IMAGE
-  AUDIO
-  DOCUMENT
-  LOCATION
-  TEMPLATE
-  UNKNOWN
+model CanalOrigen {
+  id                  Int      @id(map: "pk_canal_origen") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_canal_origen_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidencias IncidenciaPaciente[]
+
+  @@map("canal_origen")
+  @@schema("catalogo")
 }
 
-enum MessageStatus {
-  PENDING
-  SENT
-  DELIVERED
-  READ
-  FAILED
+model TipoMensaje {
+  id                  Int      @id(map: "pk_tipo_mensaje") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_tipo_mensaje_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  mensajes Mensaje[]
+
+  @@map("tipo_mensaje")
+  @@schema("catalogo")
 }
 
-model Conversation {
-  id            String             @id @default(cuid())
-  waId          String             @unique
-  phoneNumber   String?
-  profileName   String?
-  status        ConversationStatus @default(OPEN)
-  lastMessageAt DateTime           @default(now())
-  createdAt     DateTime           @default(now())
-  messages      Message[]
+model DireccionMensaje {
+  id                  Int      @id(map: "pk_direccion_mensaje") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_direccion_mensaje_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  @@index([lastMessageAt])
+  mensajes Mensaje[]
+
+  @@map("direccion_mensaje")
+  @@schema("catalogo")
 }
 
-model Message {
-  id             String           @id @default(cuid())
-  conversationId String
-  conversation   Conversation     @relation(fields: [conversationId], references: [id])
-  direction      MessageDirection
-  type           MessageType
-  content        String?
-  mediaUrl       String?
-  waMessageId    String?          @unique
-  status         MessageStatus    @default(PENDING)
-  timestamp      DateTime
-  createdAt      DateTime         @default(now())
+model EstadoMensaje {
+  id                  Int      @id(map: "pk_estado_mensaje") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_estado_mensaje_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  @@index([conversationId, timestamp])
+  mensajes Mensaje[]
+
+  @@map("estado_mensaje")
+  @@schema("catalogo")
 }
 
-model SandboxSession {
-  id        String   @id
-  state     String
-  slots     Json
-  counters  Json
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+model TipoEvidencia {
+  id                  Int      @id(map: "pk_tipo_evidencia") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_tipo_evidencia_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  evidencias Evidencia[]
+
+  @@map("tipo_evidencia")
+  @@schema("catalogo")
+}
+
+model EstadoConversacion {
+  id                  Int      @id(map: "pk_estado_conversacion") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_estado_conversacion_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  usuarios Usuario[]
+
+  @@map("estado_conversacion")
+  @@schema("catalogo")
+}
+
+model Usuario {
+  id                   String    @id(map: "pk_usuario") @default(dbgenerated("uuidv7()")) @db.Uuid
+  waId                 String    @unique(map: "uq_usuario_wa_id") @map("wa_id")
+  profileName          String?   @map("profile_name")
+  phoneNumber          String?   @map("phone_number")
+  dni                  String?
+  nombreCompleto       String?   @map("nombre_completo")
+  estadoConversacionId Int       @default(1) @map("estado_conversacion_id") @db.SmallInt
+  ultimoMensajeEn      DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(3)
+  activo               Boolean   @default(true)
+  eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor         String?   @map("eliminado_por")
+  versionFila          Int       @default(1) @map("version_fila")
+  fechaCreacion        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  estadoConversacion EstadoConversacion  @relation(fields: [estadoConversacionId], references: [id], map: "fk_usuario_estado_conversacion")
+  mensajes           Mensaje[]
+  incidencias        IncidenciaPaciente[]
+  solicitudesCarga   SolicitudCarga[]
+
+  @@index([dni], map: "ix_usuario_dni")
+  @@index([ultimoMensajeEn], map: "ix_usuario_ultimo_mensaje_en")
+  @@map("usuario")
+  @@schema("chatbot")
+}
+
+model Mensaje {
+  id                  String   @id(map: "pk_mensaje") @default(dbgenerated("uuidv7()")) @db.Uuid
+  usuarioId           String   @map("usuario_id") @db.Uuid
+  direccionMensajeId  Int      @map("direccion_mensaje_id") @db.SmallInt
+  tipoMensajeId       Int      @map("tipo_mensaje_id") @db.SmallInt
+  contenido           String?
+  mediaId             String?  @map("media_id")
+  waMessageId         String?  @unique(map: "uq_mensaje_wa_message_id") @map("wa_message_id")
+  estadoMensajeId     Int      @default(1) @map("estado_mensaje_id") @db.SmallInt
+  fechaHora           DateTime @map("fecha_hora") @db.Timestamptz(3)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  usuario          Usuario             @relation(fields: [usuarioId], references: [id], map: "fk_mensaje_usuario")
+  direccionMensaje DireccionMensaje    @relation(fields: [direccionMensajeId], references: [id], map: "fk_mensaje_direccion_mensaje")
+  tipoMensaje      TipoMensaje         @relation(fields: [tipoMensajeId], references: [id], map: "fk_mensaje_tipo_mensaje")
+  estadoMensaje    EstadoMensaje       @relation(fields: [estadoMensajeId], references: [id], map: "fk_mensaje_estado_mensaje")
+  incidencias      IncidenciaPaciente[]
+  evidencias       Evidencia[]
+
+  @@index([usuarioId, fechaHora], map: "ix_mensaje_usuario_fecha_hora")
+  @@index([fechaHora], type: Brin, map: "ix_mensaje_fecha_hora_brin")
+  @@map("mensaje")
+  @@schema("chatbot")
+}
+
+model IncidenciaPaciente {
+  id                   String    @id(map: "pk_incidencia_paciente") @default(dbgenerated("uuidv7()")) @db.Uuid
+  canalOrigenId        Int       @map("canal_origen_id") @db.SmallInt
+  usuarioId            String    @map("usuario_id") @db.Uuid
+  mensajeId            String?   @map("mensaje_id") @db.Uuid
+  waId                 String    @map("wa_id")
+  esAnonimo            Boolean   @map("es_anonimo")
+  dniReclamante        String?   @map("dni_reclamante")
+  nombreReclamante     String?   @map("nombre_reclamante")
+  descripcion          String
+  estadoIncidenciaId    Int       @default(1) @map("estado_incidencia_id") @db.SmallInt
+  traceId              String    @unique(map: "uq_incidencia_paciente_trace_id") @map("trace_id")
+  categoriaId           Int?      @map("categoria_id") @db.SmallInt
+  categoriaIaId         Int?      @map("categoria_ia_id") @db.SmallInt
+  categoriaConfianza    Decimal?  @map("categoria_confianza") @db.Decimal(5, 2)
+  versionClasificador   String?   @map("version_clasificador")
+  categoriaAsignadaEn   DateTime? @map("categoria_asignada_en") @db.Timestamptz(3)
+  categoriaCorregidaEn  DateTime? @map("categoria_corregida_en") @db.Timestamptz(3)
+  categoriaCorregidaPor String?   @map("categoria_corregida_por")
+  categoriaConfirmadaEn DateTime? @map("categoria_confirmada_en") @db.Timestamptz(3)
+  categoriaConfirmadaPor String?  @map("categoria_confirmada_por")
+  resolucion           String?
+  resueltoEn           DateTime? @map("resuelto_en") @db.Timestamptz(3)
+  resueltoPor          String?   @map("resuelto_por")
+  activo               Boolean   @default(true)
+  eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor         String?   @map("eliminado_por")
+  versionFila          Int       @default(1) @map("version_fila")
+  fechaCreacion        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+  codigo               String    @default("") @unique(map: "uq_incidencia_paciente_codigo")
+
+  canalOrigen     CanalOrigen                  @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
+  usuario         Usuario                      @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")
+  mensaje         Mensaje?                     @relation(fields: [mensajeId], references: [id], map: "fk_incidencia_paciente_mensaje")
+  estadoIncidencia EstadoIncidencia              @relation(fields: [estadoIncidenciaId], references: [id], map: "fk_incidencia_paciente_estado_incidencia")
+  categoria        CategoriaIncidencia?                    @relation("IncidenciaCategoria", fields: [categoriaId], references: [id], map: "fk_incidencia_paciente_categoria")
+  categoriaIa      CategoriaIncidencia?                    @relation("IncidenciaCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_incidencia_paciente_categoria_ia")
+  evidencias      Evidencia[]
+  auditoria       IncidenciaPacienteAuditoria[]
+  entrenamientos  EntrenamientoCategoria[]
+  solicitudesCarga SolicitudCarga[]
+
+  @@index([estadoIncidenciaId, fechaCreacion], map: "ix_incidencia_paciente_estado_fecha")
+  @@index([usuarioId, fechaCreacion], map: "ix_incidencia_paciente_usuario_fecha")
+  @@index([categoriaId], map: "ix_incidencia_paciente_categoria")
+  @@map("incidencia_paciente")
+  @@schema("chatbot")
+}
+
+model IncidenciaPacienteAuditoria {
+  id                  BigInt   @id(map: "pk_incidencia_paciente_auditoria") @default(autoincrement())
+  incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
+  operacion           String   @db.VarChar(16)
+  cambios             Json     @db.JsonB
+  actor               String
+  versionFila         Int      @map("version_fila")
+  fechaHora           DateTime @default(now()) @map("fecha_hora") @db.Timestamptz(3)
+
+  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_incidencia_paciente_auditoria_incidencia_paciente")
+
+  @@index([incidenciaPacienteId, fechaHora], map: "ix_incidencia_paciente_auditoria_incidencia_fecha")
+  @@map("incidencia_paciente_auditoria")
+  @@schema("chatbot")
+}
+
+model Evidencia {
+  id                  String   @id(map: "pk_evidencia") @default(dbgenerated("uuidv7()")) @db.Uuid
+  incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
+  mensajeId           String?  @map("mensaje_id") @db.Uuid
+  mediaId             String?  @map("media_id")
+  tipoEvidenciaId     Int      @map("tipo_evidencia_id") @db.SmallInt
+  mimeType            String   @map("mime_type")
+  nombreArchivo       String?  @map("nombre_archivo")
+  tamano              Int
+  ruta                String
+  hashArchivo         String?  @map("hash_archivo")
+  fechaRecepcion      DateTime @default(now()) @map("fecha_recepcion") @db.Timestamptz(3)
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+
+  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_evidencia_incidencia_paciente")
+  mensaje           Mensaje?          @relation(fields: [mensajeId], references: [id], map: "fk_evidencia_mensaje")
+  tipoEvidencia     TipoEvidencia     @relation(fields: [tipoEvidenciaId], references: [id], map: "fk_evidencia_tipo_evidencia")
+  archivoRecibido   ArchivoRecibido?
+
+  @@index([incidenciaPacienteId], map: "ix_evidencia_incidencia_paciente")
+  @@map("evidencia")
+  @@schema("chatbot")
+}
+
+model SesionConversacion {
+  id                String   @id(map: "pk_sesion_conversacion") @default(dbgenerated("uuidv7()")) @db.Uuid
+  waId              String   @unique(map: "uq_sesion_conversacion_wa_id") @map("wa_id")
+  estado            String
+  slots             Json
+  contadores        Json
+  fechaCreacion     DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  fechaModificacion DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+
+  @@index([fechaModificacion], map: "ix_sesion_conversacion_fecha_modificacion")
+  @@map("sesion_conversacion")
+  @@schema("chatbot")
+}
+
+model ContadorCodigoIncidencia {
+  anio              Int      @id(map: "pk_contador_codigo_incidencia") @db.SmallInt
+  ultimo            Int      @default(0)
+  fechaCreacion     DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  fechaModificacion DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+
+  @@map("contador_codigo_incidencia")
+  @@schema("chatbot")
+}
+
+model EntrenamientoCategoria {
+  id                  String   @id(map: "pk_entrenamiento_categoria") @default(dbgenerated("uuidv7()")) @db.Uuid
+  incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
+  textoEntrenamiento  String   @map("texto_entrenamiento")
+  categoriaIaId        Int      @map("categoria_ia_id") @db.SmallInt
+  categoriaFinalId     Int      @map("categoria_final_id") @db.SmallInt
+  fueCorregida        Boolean  @map("fue_corregida")
+  categoriaConfianza   Decimal? @map("categoria_confianza") @db.Decimal(5, 2)
+  versionClasificador String?  @map("version_clasificador")
+  revisadoPor        String   @map("revisado_por")
+  fechaRevision     DateTime @map("fecha_revision") @db.Timestamptz(3)
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+
+  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_entrenamiento_categoria_incidencia_paciente")
+  categoriaIa        CategoriaIncidencia          @relation("EntrenamientoCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_entrenamiento_categoria_categoria_ia")
+  categoriaFinal     CategoriaIncidencia          @relation("EntrenamientoCategoriaFinal", fields: [categoriaFinalId], references: [id], map: "fk_entrenamiento_categoria_categoria_final")
+
+  @@index([incidenciaPacienteId], map: "ix_entrenamiento_categoria_incidencia_paciente")
+  @@index([fechaRevision], map: "ix_entrenamiento_categoria_fecha_revision")
+  @@map("entrenamiento_categoria")
+  @@schema("ia")
+}
+
+model UsuarioInterno {
+  id                  String    @id(map: "pk_usuario_interno") @default(dbgenerated("uuidv7()")) @db.Uuid
+  nombreCompleto      String    @map("nombre_completo")
+  correo              String    @unique(map: "uq_usuario_interno_correo")
+  passwordHash        String    @map("password_hash")
+  activo              Boolean   @default(true)
+  eliminadoEn         DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor        String?   @map("eliminado_por")
+  versionFila         Int       @default(1) @map("version_fila")
+  fechaCreacion       DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  roles    UsuarioRol[]
+  sesiones SesionUsuario[]
+
+  @@map("usuario_interno")
+  @@schema("gestion")
+}
+
+model Rol {
+  id                  Int      @id(map: "pk_rol") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_rol_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  usuarios   UsuarioRol[]
+  categorias RolCategoria[]
+
+  @@map("rol")
+  @@schema("gestion")
+}
+
+model SesionUsuario {
+  id                  String    @id(map: "pk_sesion_usuario") @default(dbgenerated("uuidv7()")) @db.Uuid
+  usuarioInternoId    String    @map("usuario_interno_id") @db.Uuid
+  ultimaActividadEn   DateTime  @default(now()) @map("ultima_actividad_en") @db.Timestamptz(3)
+  venceEn             DateTime  @map("vence_en") @db.Timestamptz(3)
+  revocadaEn          DateTime? @map("revocada_en") @db.Timestamptz(3)
+  versionFila         Int       @default(1) @map("version_fila")
+  fechaCreacion       DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  usuarioInterno UsuarioInterno @relation(fields: [usuarioInternoId], references: [id], map: "fk_sesion_usuario_usuario_interno")
+
+  @@index([usuarioInternoId, revocadaEn], map: "ix_sesion_usuario_usuario_revocada")
+  @@map("sesion_usuario")
+  @@schema("gestion")
+}
+
+model UsuarioRol {
+  usuarioInternoId String   @map("usuario_interno_id") @db.Uuid
+  rolId            Int      @map("rol_id") @db.SmallInt
+  fechaCreacion    DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion  String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+
+  usuarioInterno UsuarioInterno @relation(fields: [usuarioInternoId], references: [id], map: "fk_usuario_rol_usuario_interno")
+  rol            Rol            @relation(fields: [rolId], references: [id], map: "fk_usuario_rol_rol")
+
+  @@id([usuarioInternoId, rolId], map: "pk_usuario_rol")
+  @@map("usuario_rol")
+  @@schema("gestion")
+}
+
+model EstadoArchivo {
+  id                  Int      @id(map: "pk_estado_archivo") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_estado_archivo_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  archivosRecibidos ArchivoRecibido[]
+
+  @@map("estado_archivo")
+  @@schema("catalogo")
+}
+
+model SolicitudCarga {
+  id                   String    @id(map: "pk_solicitud_carga") @default(dbgenerated("uuidv7()")) @db.Uuid
+  incidenciaPacienteId String    @map("incidencia_paciente_id") @db.Uuid
+  usuarioId            String    @map("usuario_id") @db.Uuid
+  hashToken            String    @unique(map: "uq_solicitud_carga_hash_token") @map("hash_token")
+  venceEn              DateTime  @map("vence_en") @db.Timestamptz(3)
+  cerradaEn            DateTime? @map("cerrada_en") @db.Timestamptz(3)
+  maxArchivos          Int       @map("max_archivos") @db.SmallInt
+  maxBytesArchivo      Int       @map("max_bytes_archivo")
+  versionFila          Int       @default(1) @map("version_fila")
+  fechaCreacion        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_solicitud_carga_incidencia_paciente")
+  usuario            Usuario            @relation(fields: [usuarioId], references: [id], map: "fk_solicitud_carga_usuario")
+  archivosRecibidos  ArchivoRecibido[]
+
+  @@index([incidenciaPacienteId], map: "ix_solicitud_carga_incidencia_paciente")
+  @@map("solicitud_carga")
+  @@schema("chatbot")
+}
+
+model ArchivoRecibido {
+  id                  String    @id(map: "pk_archivo_recibido") @default(dbgenerated("uuidv7()")) @db.Uuid
+  solicitudCargaId    String    @map("solicitud_carga_id") @db.Uuid
+  nombreOriginal      String?   @map("nombre_original")
+  mimeDeclarado       String    @map("mime_declarado")
+  mimeDetectado       String?   @map("mime_detectado")
+  tamano              BigInt
+  hashArchivo         String?   @map("hash_archivo")
+  rutaCuarentena      String    @map("ruta_cuarentena")
+  estadoArchivoId     Int       @default(1) @map("estado_archivo_id") @db.SmallInt
+  motivoRechazo       String?   @map("motivo_rechazo")
+  verificadoEn        DateTime? @map("verificado_en") @db.Timestamptz(3)
+  evidenciaId         String?   @unique(map: "uq_archivo_recibido_evidencia") @map("evidencia_id") @db.Uuid
+  versionFila         Int       @default(1) @map("version_fila")
+  fechaCreacion       DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  solicitudCarga SolicitudCarga @relation(fields: [solicitudCargaId], references: [id], map: "fk_archivo_recibido_solicitud_carga")
+  estadoArchivo  EstadoArchivo  @relation(fields: [estadoArchivoId], references: [id], map: "fk_archivo_recibido_estado_archivo")
+  evidencia      Evidencia?     @relation(fields: [evidenciaId], references: [id], map: "fk_archivo_recibido_evidencia")
+
+  @@index([solicitudCargaId, estadoArchivoId], map: "ix_archivo_recibido_solicitud_estado")
+  @@map("archivo_recibido")
+  @@schema("chatbot")
+}
+
+model RolCategoria {
+  rolId                Int      @map("rol_id") @db.SmallInt
+  categoriaIncidenciaId Int     @map("categoria_incidencia_id") @db.SmallInt
+  fechaCreacion        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+
+  rol                 Rol                 @relation(fields: [rolId], references: [id], map: "fk_rol_categoria_rol")
+  categoriaIncidencia CategoriaIncidencia @relation(fields: [categoriaIncidenciaId], references: [id], map: "fk_rol_categoria_categoria_incidencia")
+
+  @@id([rolId, categoriaIncidenciaId], map: "pk_rol_categoria")
+  @@map("rol_categoria")
+  @@schema("gestion")
 }

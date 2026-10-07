@@ -1,8 +1,11 @@
 import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
-import type { HoraSlot } from "@/lib/fsm/parsing/time-parser";
-import type { OfferedRow } from "@/lib/fsm/parsing/selection-matchers";
+import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
+import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { nowInLima } from "@/lib/time/lima-clock";
+import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
+import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
 
 export type HoraResultItem = {
   horaInicio: string;
@@ -10,8 +13,8 @@ export type HoraResultItem = {
   cantidadCupos: number;
 };
 
-export const HORA_PAGE_NEXT_ID = "hora_pagina_siguiente";
-export const HORA_PAGE_PREV_ID = "hora_pagina_anterior";
+export const HORA_PAGE_NEXT_ID = HoraPageButtonId.NEXT;
+export const HORA_PAGE_PREV_ID = HoraPageButtonId.PREV;
 
 export function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): HoraResultItem[] {
   const sorted = [...items].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
@@ -20,8 +23,8 @@ export function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): H
   return sorted.filter((item) => item.horaInicio > now.hora);
 }
 
-export const HORA_CONFIRM_YES_ID = "hora_confirm_si";
-export const HORA_CONFIRM_NO_ID = "hora_confirm_no";
+export const HORA_CONFIRM_YES_ID = HoraConfirmButtonId.YES;
+export const HORA_CONFIRM_NO_ID = HoraConfirmButtonId.NO;
 export const ONLY_HORA_FLAG = "1";
 
 export function slotToRow(slot: HoraSlot): OfferedRow {
@@ -39,9 +42,12 @@ export function rowToSlot(row: OfferedRow): HoraSlot | undefined {
     : undefined;
 }
 
-function clock12(time: string): { clock: string; period: "AM" | "PM" } {
+function clock12(time: string): { clock: string; period: MeridiemPeriod } {
   const [hour, minute] = time.split(":").map(Number);
-  return { clock: `${hour % 12 || 12}:${String(minute).padStart(2, "0")}`, period: hour >= 12 ? "PM" : "AM" };
+  return {
+    clock: `${hour % 12 || 12}:${String(minute).padStart(2, "0")}`,
+    period: hour >= 12 ? MeridiemPeriod.PM : MeridiemPeriod.AM,
+  };
 }
 
 export function formatHora12(start: string): string {
@@ -59,5 +65,5 @@ export function formatHoraRange(start: string, end: string): string {
 
 export function formatHourGroup(start: string): string {
   const hour = Number(start.slice(0, 2));
-  return `${hour % 12 || 12} ${hour >= 12 ? "PM" : "AM"}`;
+  return `${hour % 12 || 12} ${hour >= 12 ? MeridiemPeriod.PM : MeridiemPeriod.AM}`;
 }

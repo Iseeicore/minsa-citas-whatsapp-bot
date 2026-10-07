@@ -1,5 +1,8 @@
 import { sendCtaUrl, sendText } from "@/lib/fsm/core/handlers-shared";
+import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { minsaDigitalUrl } from "@/lib/integrations/minsa/wire";
 import type { SendEffect, SessionChannel } from "@/lib/fsm/core/types";
+import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
 
 export const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (MINSA)* 🇵🇪.
 
@@ -21,9 +24,16 @@ Escríbeme lo que necesitas y te ayudo.`;
 
 export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
 
-/** El botón «Continuar mi cita» solo aplica a WhatsApp: en el widget web el ciudadano ya está dentro de MINSA Digital. */
+/**
+ * El botón «Continuar mi cita» solo aplica a WhatsApp: en el widget web el ciudadano ya está dentro de MINSA Digital.
+ * Si falta MINSA_DIGITAL_APP_URL (config del deploy incompleta), no armamos un botón roto: mostramos el menú
+ * directamente, igual que si el ciudadano ya hubiera pasado el saludo (ver checkConfig para la alerta de arranque).
+ */
 export function buildWelcomeEffect(channel: SessionChannel): SendEffect {
-  if (channel === "web") return sendText(WEB_WELCOME_MESSAGE_TEXT);
+  if (channel === SessionChannelEnum.WEB) return sendText(WEB_WELCOME_MESSAGE_TEXT);
 
-  return sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, process.env.MINSA_DIGITAL_APP_URL as string);
+  const appUrl = minsaDigitalUrl();
+  if (!appUrl) return buildMenuEffect();
+
+  return sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, appUrl);
 }

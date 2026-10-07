@@ -23,7 +23,8 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 
 | Dato | Valor |
 |---|---|
-| DNI válido | `12345678` |
+| DNI válido (8 dígitos, tipo `01`) | `12345678` |
+| Carnet de extranjería válido (9 dígitos, tipo `03`) | `123456789` |
 | Código OTP | `1234` |
 | Distrito que resuelve | `Lurigancho` (es el único con ubigeo de prueba) |
 | Especialidades | `MEDICINA GENERAL`, `ODONTOLOGIA` |
@@ -120,7 +121,7 @@ Requiere un número **sin sesión** (ver 0.4).
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 1.4a | **WhatsApp:** enviar una **foto** como primer mensaje. | Solo texto: `Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.` | **No** descarga la foto (sin llamadas a Graph para media). Sin IA, sin base de datos, sin candado. Log: `... rejected a first message from ...NNNN: media`. | ☐ ☐ |
-| 1.4b | **WhatsApp:** enviar un **sticker** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
+| 1.4b | **WhatsApp:** enviar un **sticker** como primer mensaje. | **Ninguna respuesta** (silencio total). | No descarga el sticker, no responde nada. Log: `... dropped a first message from ...NNNN: sticker`. | ☐ ☐ |
 | 1.4c | **WhatsApp:** enviar una **nota de voz** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4d | **WhatsApp:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4e | **Sandbox:** tras reiniciar, pulsar 📎 y adjuntar una imagen como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
@@ -297,9 +298,9 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?` con **[Sí, tengo documento]** y **[No tengo documento]**. Sin bienvenida ni menú. | Sin IA. Estado `reclamo_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
 | 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica** y **Registrar un reclamo**. **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
 | 3.2 | `1` | `Ingresa tu número de documento.` **Sin** volver a mostrar el menú. | Atajo numérico: `2` haría lo mismo con el reclamo. Sin IA. | ☐ ☐ |
-| 3.3 | `1234567` (7 dígitos) | `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` | Validación de formato, sin IA. | ☐ ☐ |
-| 3.4 | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake). | ☐ ☐ |
-| 3.4b | `123456789` (9 dígitos, carnet de extranjería de prueba) | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | El largo decide el tipo: MINSA recibe `tipo_documento` `03`. | Sandbox con datos de prueba. |
+| 3.3 | `1234567` (7 dígitos) | `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` | Validación de formato, sin IA. Lo mismo con 10 dígitos o con letras. | ☐ ☐ |
+| 3.4 | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake) con `tipo_documento` `01`. | ☐ ☐ |
+| 3.4b | Reiniciar, `1` y `123456789` (9 dígitos) | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Carnet de extranjería: llamada a MINSA (fake) con `tipo_documento` `03`; luego el código `1234` y las referencias se piden con tipo `03`. | ☐ ☐ |
 | 3.5 | `0000` | `Código incorrecto. Te quedan 2 intento(s).` | Cuenta el intento. | ☐ ☐ |
 | 3.6 | `1234` | `Verificando código…` y `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` | Guarda el token. | ☐ ☐ |
 | 3.7 | `asdfghjk` | `No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:` | **Sin IA:** el filtro de basura lo corta antes de Gemini. Sigue en el mismo paso. | ☐ ☐ |
@@ -465,7 +466,7 @@ Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (
 | `turn.note` (`warn`) con `kind: session_expired` | La sesión caducó: `reason` es `IDLE_TIMEOUT` o `JWT_EXPIRED`, y `idleMs` cuánto llevaba inactiva (3.15a). |
 | `turn.note` (`warn`) con `kind: lexical_guard` / `menu_fallback` / `no_coverage` / `booking_retry` / `out_of_scope` (la emergencia OOS-01 sale como aviso; las demás como información) | El filtro léxico actuó, la IA no entendió y volvió al menú, MINSA no tiene cobertura en el distrito, o falló una reserva y se reintentó. |
 | `turn.end` (`warn`) con `friction: menu_loop` | Un texto escrito dejó al ciudadano otra vez en el menú sin ninguna respuesta determinística (1.3d). |
-| `turn.external` | Una consulta a MINSA, RENIEC, Gemini o quejas, con `durationMs` y `resultStatus`. |
+| `turn.external` | Una consulta a MINSA, RENIEC, Gemini o la base de datos, con `durationMs` y `resultStatus`. |
 | `external.http` | La llamada HTTP misma: `status` real y `durationMs`. Solo la ruta, nunca la clave ni el cuerpo. |
 | `minsa.book_appointment.failed` (`error`) | MINSA no agendó: `endpoint`, `status`, `minsaMessage`, `response` (300 caracteres) y el payload sin DNI. Es la evidencia del caso 3.15g. |
 | `ai.fallback` (`warn`) | La IA falló y el mensaje volvió al menú; `reason` dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca lleva el texto del ciudadano. |
@@ -478,7 +479,7 @@ Si en 4.2a **no** aparece ningún `turn_lock.waited` con `layer: "process"`, no 
 
 ### 4.5 Comprobación opcional del candado en la base real
 
-`npm run smoke:neon` ejecuta una prueba de humo contra Neon: 4 peticiones del mismo ciudadano, 12 ciudadanos a la vez, el error real de tiempo de espera y la liberación. Solo toma candados y lee; no escribe en ninguna tabla.
+`npm run smoke:postgres` ejecuta una prueba de humo contra PostgreSQL: 4 peticiones del mismo ciudadano, 12 ciudadanos a la vez, el error real de tiempo de espera y la liberación. Solo toma candados y lee; no escribe en ninguna tabla.
 
 ---
 

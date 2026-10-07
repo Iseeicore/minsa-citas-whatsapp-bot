@@ -1,6 +1,8 @@
-import { MessageStatus, MessageType } from "@prisma/client";
+import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
+import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
 import type { InboundEvent } from "@/lib/fsm/core/types";
+import { SessionState } from "@/lib/enums/session-state";
 
 export type WhatsAppContact = {
   user_id: string;
@@ -44,35 +46,35 @@ export type WhatsAppWebhookPayload = {
   entry?: WhatsAppEntry[];
 };
 
-export function mapMessageType(type: string): MessageType {
+export function mapMessageType(type: string): TipoMensajeId {
   switch (type) {
     case "text":
-      return MessageType.TEXT;
+      return TipoMensajeId.TEXTO;
     case "image":
-      return MessageType.IMAGE;
+      return TipoMensajeId.IMAGEN;
     case "audio":
-      return MessageType.AUDIO;
+      return TipoMensajeId.AUDIO;
     case "document":
-      return MessageType.DOCUMENT;
+      return TipoMensajeId.DOCUMENTO;
     case "location":
-      return MessageType.LOCATION;
+      return TipoMensajeId.UBICACION;
     case "template":
-      return MessageType.TEMPLATE;
+      return TipoMensajeId.PLANTILLA;
     default:
-      return MessageType.UNKNOWN;
+      return TipoMensajeId.DESCONOCIDO;
   }
 }
 
-export function mapStatus(status: string): MessageStatus | null {
+export function mapStatus(status: string): EstadoMensajeId | null {
   switch (status) {
     case "sent":
-      return MessageStatus.SENT;
+      return EstadoMensajeId.ENVIADO;
     case "delivered":
-      return MessageStatus.DELIVERED;
+      return EstadoMensajeId.ENTREGADO;
     case "read":
-      return MessageStatus.READ;
+      return EstadoMensajeId.LEIDO;
     case "failed":
-      return MessageStatus.FAILED;
+      return EstadoMensajeId.FALLIDO;
     default:
       return null;
   }
@@ -80,19 +82,19 @@ export function mapStatus(status: string): MessageStatus | null {
 
 export function extractContentAndMedia(message: WhatsAppMessage): {
   content: string | null;
-  mediaUrl: string | null;
+  mediaId: string | null;
 } {
   switch (message.type) {
     case "text":
-      return { content: message.text?.body ?? null, mediaUrl: null };
+      return { content: message.text?.body ?? null, mediaId: null };
     case "image":
-      return { content: message.image?.caption ?? null, mediaUrl: message.image?.id ?? null };
+      return { content: message.image?.caption ?? null, mediaId: message.image?.id ?? null };
     case "audio":
-      return { content: null, mediaUrl: message.audio?.id ?? null };
+      return { content: null, mediaId: message.audio?.id ?? null };
     case "document":
       return {
         content: message.document?.filename ?? null,
-        mediaUrl: message.document?.id ?? null,
+        mediaId: message.document?.id ?? null,
       };
     case "location":
       return {
@@ -100,10 +102,10 @@ export function extractContentAndMedia(message: WhatsAppMessage): {
           message.location?.latitude !== undefined && message.location?.longitude !== undefined
             ? `${message.location.latitude},${message.location.longitude}`
             : null,
-        mediaUrl: null,
+        mediaId: null,
       };
     default:
-      return { content: null, mediaUrl: null };
+      return { content: null, mediaId: null };
   }
 }
 
@@ -125,7 +127,7 @@ export async function toInboundEvent(
     }
   }
 
-  if (message.type === "image" && message.image?.id && sessionState === "reclamo_awaiting_foto") {
+  if (message.type === "image" && message.image?.id && sessionState === SessionState.RECLAMO_AWAITING_FOTO) {
     const mediaDataUri = await downloadWhatsAppMediaAsDataUri(message.image.id);
     return {
       from: waId,

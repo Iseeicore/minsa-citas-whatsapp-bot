@@ -1,21 +1,25 @@
 import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
-import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/validate-user-query";
-import { OFFERED_NAMES_SLOT, OFFERED_SLOT } from "@/lib/fsm/parsing/selection-matchers";
+import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
 import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
-import { resolveConfirmation } from "@/lib/fsm/parsing/confirmation-parser";
+import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit";
+import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { REAUTH_NO_ID, REAUTH_STATE, REAUTH_YES_ID, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { CounterKey } from "@/lib/enums/counter-key";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 const TRANSIENT_BOOKING_SLOTS = [
-  "citaBearer",
-  "citaHorasDia",
-  "citaHoraConfirmId",
-  "citaHoraConfirmOnly",
-  "citaHoraChoiceA",
-  "citaHoraChoiceB",
-  OFFERED_SLOT,
-  OFFERED_NAMES_SLOT,
+  SlotKey.CITA_BEARER,
+  SlotKey.CITA_HORAS_DIA,
+  SlotKey.CITA_HORA_CONFIRM_ID,
+  SlotKey.CITA_HORA_CONFIRM_ONLY,
+  SlotKey.CITA_HORA_CHOICE_A,
+  SlotKey.CITA_HORA_CHOICE_B,
+  SlotKey.CITA_OFFERED,
+  SlotKey.CITA_OFFERED_NAMES,
 ];
 
 export function beginSessionReauth(session: Session): HandlerResult {
@@ -25,31 +29,32 @@ export function beginSessionReauth(session: Session): HandlerResult {
     counters: { ...session.counters },
   };
   for (const slot of TRANSIENT_BOOKING_SLOTS) delete next.slots[slot];
-  delete next.counters.citaHoraPage;
-  delete next.slots.citaExitResumeState;
+  delete next.counters[CounterKey.CITA_HORA_PAGE];
+  delete next.slots[SlotKey.CITA_EXIT_RESUME_STATE];
 
   const resumeState = resumeStateFor(session.state, session.slots);
-  if (resumeState) next.slots.citaResumeState = resumeState;
+  if (resumeState) next.slots[SlotKey.CITA_RESUME_STATE] = resumeState;
 
   return buildResult(next, [reauthPrompt()]);
 }
 
 export function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerResult {
-  const tapped = event.type === "button" || event.type === "list" ? event.listId : undefined;
-  const typed = event.type === "text" ? resolveConfirmation(event.text ?? "") : "UNKNOWN";
+  const tapped =
+    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (tapped === REAUTH_NO_ID || typed === "NO") return askToLeave(session, "reauth");
+  if (tapped === REAUTH_NO_ID || typed === Confirmation.NO) return askToLeave(session, "reauth");
 
-  if (tapped === REAUTH_YES_ID || typed === "YES") {
-    const dni = session.slots.citaDni;
-    const next: Session = { state: "cita_awaiting_dni", slots: { ...session.slots }, counters: { ...session.counters } };
+  if (tapped === REAUTH_YES_ID || typed === Confirmation.YES) {
+    const dni = session.slots[SlotKey.CITA_DNI];
+    const next: Session = { state: SessionState.CITA_AWAITING_DNI, slots: { ...session.slots }, counters: { ...session.counters } };
 
     if (typeof dni !== "string" || dni === "") {
       return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu número de documento.")]);
     }
 
-    next.state = "cita_validate_pending";
-    next.slots.citaDniPending = dni;
+    next.state = SessionState.CITA_VALIDATE_PENDING;
+    next.slots[SlotKey.CITA_DNI_PENDING] = dni;
     return buildResult(next, [sendText("Enviándote un nuevo código de verificación…"), validateUserQuery(dni)]);
   }
 

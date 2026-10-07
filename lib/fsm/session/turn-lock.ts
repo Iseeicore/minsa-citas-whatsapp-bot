@@ -1,8 +1,9 @@
 import { logger } from "@/lib/observability/logger";
 import { tail as maskWaId } from "@/lib/observability/mask";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
+import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 
-export type TurnLockLayer = "process" | "database";
+export type { TurnLockLayer };
 
 export class TurnLockTimeoutError extends Error {
   constructor(
@@ -65,12 +66,12 @@ export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
 
     try {
       const queuedAt = Date.now();
-      await waitFor(previous, timeoutMs, () => new TurnLockTimeoutError(waId, "process"));
+      await waitFor(previous, timeoutMs, () => new TurnLockTimeoutError(waId, TurnLockLayer.PROCESS));
 
       const waited = Date.now() - queuedAt;
       if (waited >= slowWaitMs) {
         if (options.log) options.log(`[turn-lock] turn waited ${waited} ms behind an earlier turn of ...${waId.slice(-4)}`);
-        else logger.info("turn_lock.waited", { waId: maskWaId(waId), waitedMs: waited, layer: "process" });
+        else logger.info("turn_lock.waited", { waId: maskWaId(waId), waitedMs: waited, layer: TurnLockLayer.PROCESS });
       }
 
       return await (options.dbLock ? options.dbLock(waId, task) : task());

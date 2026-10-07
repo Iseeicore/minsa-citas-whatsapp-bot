@@ -6,14 +6,15 @@ import {
   FAKE_OTP,
   FAKE_TWOFA_ID,
 } from "@/lib/integrations/minsa/fake-data";
-import { postSigned } from "@/lib/integrations/minsa/wire";
+import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 
 const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
 
 export async function validateUser(numeroDocumento: string, tipoDocumento: TipoDocumento): Promise<ValidateUserResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await postSigned("/api/v1/whatsapp/validate-user", {
+  if (isRealMinsaEnabled()) {
+    const response = await postSigned(MinsaEndpoint.VALIDAR_USUARIO, {
       numero_documento: numeroDocumento,
       tipo_documento: tipoDocumento,
       conversation_id: process.env.MINSA_CONVERSATION_ID_PLACEHOLDER,
@@ -48,8 +49,8 @@ export async function validateUser(numeroDocumento: string, tipoDocumento: TipoD
 }
 
 export async function verifyCode(twofaId: string, code: string): Promise<VerifyCodeResult> {
-  if (process.env.SANDBOX_USE_REAL_MINSA === "true") {
-    const response = await postSigned("/api/v1/whatsapp/verify-code", {
+  if (isRealMinsaEnabled()) {
+    const response = await postSigned(MinsaEndpoint.VERIFICAR_CODIGO, {
       conversation_id: process.env.MINSA_CONVERSATION_ID_PLACEHOLDER,
       twofa_id: twofaId,
       code,

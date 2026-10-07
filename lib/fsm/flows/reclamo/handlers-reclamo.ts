@@ -1,26 +1,43 @@
 import { INVALID_DNI_TEXT } from "@/lib/fsm/core/failure-texts";
-import { isValidDniFormat } from "@/lib/fsm/parsing/identity-format";
-import { namesMatch } from "@/lib/fsm/parsing/text";
+import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
+import { namesMatch } from "@/lib/fsm/parsing/text/text";
+import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
+import { looksLikeNoise } from "@/lib/security/text-noise";
+import { MAX_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
+import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
+import { Confirmation } from "@/lib/enums/confirmation";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
-const MAX_DESCRIPCION_LENGTH = 1000;
+const FOTO_REQUEST_TEXT =
+  "Para poder registrar tu reclamo necesitamos una imagen. ¿Deseas compartírnosla? Envíala ahora, o cuéntanos si prefieres continuar sin foto (también podés escribir OMITIR).";
+const FOTO_INTENT_MAX_LENGTH = 200;
+const UNREADABLE_TEXT_RETRY = "No pudimos leer eso — ¿podrías escribirlo de nuevo?";
 
 export function handleReclamo(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
-    case "reclamo_identity_choice":
+    case SessionState.RECLAMO_IDENTITY_CHOICE:
       return handleIdentityChoice(session, event as InboundEvent);
-    case "reclamo_awaiting_dni":
+    case SessionState.RECLAMO_AWAITING_NOMBRE_LIBRE:
+      return handleAwaitingNombreLibre(session, event as InboundEvent);
+    case SessionState.RECLAMO_AWAITING_DNI:
       return handleAwaitingDni(session, event as InboundEvent);
-    case "reclamo_awaiting_nombre":
+    case SessionState.RECLAMO_AWAITING_NOMBRE:
       return handleAwaitingNombre(session, event as InboundEvent);
-    case "reclamo_reniec_pending":
+    case SessionState.RECLAMO_RENIEC_PENDING:
       return handleReniecPending(session, event as QueryResultEvent);
-    case "reclamo_awaiting_descripcion":
+    case SessionState.RECLAMO_AWAITING_DESCRIPCION:
       return handleAwaitingDescripcion(session, event as InboundEvent);
-    case "reclamo_awaiting_foto":
+    case SessionState.RECLAMO_AWAITING_FOTO:
       return handleAwaitingFoto(session, event as InboundEvent);
-    case "reclamo_submit_pending":
+    case SessionState.RECLAMO_FOTO_INTENT_PENDING:
+      return handleFotoIntentPending(session, event as QueryResultEvent);
+    case SessionState.RECLAMO_SUBMIT_PENDING:
       return handleSubmitPending(session, event as QueryResultEvent);
     default:
       throw new Error(`handleReclamo: unknown state "${session.state}"`);
@@ -35,22 +52,37 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   const replyId = readReply(event);
   const next = cloneSession(session);
 
-  if (replyId === "reclamo_con_dni") {
-    next.state = "reclamo_awaiting_dni";
-    return buildResult(next, [sendText("Ingresa tu número de documento (8 dígitos).")]);
+  if (replyId === ReclamoButtonId.CON_NOMBRE) {
+    next.state = SessionState.RECLAMO_AWAITING_NOMBRE_LIBRE;
+    return buildResult(next, [sendText("Ingresa tu nombre.")]);
   }
 
-  if (replyId === "reclamo_sin_dni") {
-    next.state = "reclamo_awaiting_descripcion";
+  if (replyId === ReclamoButtonId.ANONIMO) {
+    next.state = SessionState.RECLAMO_AWAITING_DESCRIPCION;
     return buildResult(next, [sendText(askDescripcion())]);
   }
 
   return buildResult(session, [
-    sendButtons("¿Tienes tu documento de identidad a la mano?", [
-      { id: "reclamo_con_dni", title: "Sí, tengo documento" },
-      { id: "reclamo_sin_dni", title: "No tengo documento" },
-    ]),
+    sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
   ]);
+}
+
+/** Nombre tal cual lo escribe el usuario, sin verificar contra RENIEC: ya no se pide DNI, no hay contra qué verificarlo. */
+function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
+  const nombre = (event.text ?? "").trim();
+
+  if (!nombre) {
+    return buildResult(session, [sendText("Por favor, ingresa tu nombre.")]);
+  }
+
+  if (looksLikeNoise(nombre)) {
+    return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
+  }
+
+  const next = cloneSession(session);
+  next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
+  next.state = SessionState.RECLAMO_AWAITING_DESCRIPCION;
+  return buildResult(next, [sendText(askDescripcion())]);
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
@@ -63,8 +95,8 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
   }
 
   const next = cloneSession(session);
-  next.slots.dni = dni;
-  next.state = "reclamo_awaiting_nombre";
+  next.slots[SlotKey.DNI] = dni;
+  next.state = SessionState.RECLAMO_AWAITING_NOMBRE;
   return buildResult(next, [sendText("Ingresa tu nombre (como aparece en tu documento de identidad).")]);
 }
 
@@ -76,11 +108,11 @@ function handleAwaitingNombre(session: Session, event: InboundEvent): HandlerRes
   }
 
   const next = cloneSession(session);
-  next.slots.nombre = nombre;
-  next.state = "reclamo_reniec_pending";
+  next.slots[SlotKey.NOMBRE] = nombre;
+  next.state = SessionState.RECLAMO_RENIEC_PENDING;
   return buildResult(next, [
     sendText("Verificando tu identidad en RENIEC…"),
-    query("reniec_lookup", { dni: next.slots.dni }),
+    query(QueryKind.RENIEC_LOOKUP, { dni: next.slots[SlotKey.DNI] }),
   ]);
 }
 
@@ -91,15 +123,15 @@ function handleReniecPending(session: Session, event: QueryResultEvent): Handler
   const matched =
     result.status === "found" &&
     typeof result.nombreCompleto === "string" &&
-    namesMatch(String(next.slots.nombre ?? ""), result.nombreCompleto);
+    namesMatch(String(next.slots[SlotKey.NOMBRE] ?? ""), result.nombreCompleto);
 
   if (matched) {
-    next.slots.nombreCompleto = result.nombreCompleto as string;
-    next.state = "reclamo_awaiting_descripcion";
+    next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto as string;
+    next.state = SessionState.RECLAMO_AWAITING_DESCRIPCION;
     return buildResult(next, [sendText(askDescripcion())]);
   }
 
-  next.state = "reclamo_rejected";
+  next.state = SessionState.RECLAMO_REJECTED;
   return buildResult(next, [
     sendText(
       "No pudimos verificar tu identidad con los datos ingresados. Por favor, comunícate directamente con el establecimiento de salud.",
@@ -116,53 +148,82 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
     ]);
   }
 
-  const next = cloneSession(session);
-  next.slots.queja = queja;
-  next.state = "reclamo_awaiting_foto";
-  return buildResult(next, [
-    sendText("¿Deseas adjuntar una foto como evidencia? Envíala ahora, o escribe OMITIR."),
-  ]);
-}
-
-function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
-  const omitted = (event.text ?? "").trim().toUpperCase() === "OMITIR";
-
-  if (!event.mediaDataUri && !omitted) {
-    return buildResult(session, [
-      sendText("Envía una foto como evidencia, o escribe OMITIR para continuar sin foto."),
-    ]);
+  if (looksLikeNoise(queja)) {
+    return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
   }
 
   const next = cloneSession(session);
-  if (event.mediaDataUri) next.slots.mediaDataUri = event.mediaDataUri;
-  next.state = "reclamo_submit_pending";
+  next.slots[SlotKey.QUEJA] = queja;
+  if (!isMediaStorageConfigured()) return submitReclamo(next, event.from);
+  next.state = SessionState.RECLAMO_AWAITING_FOTO;
+  return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
+}
+
+function submitReclamo(session: Session, from: string, mediaDataUri?: string): HandlerResult {
+  const next = cloneSession(session);
+  if (mediaDataUri) next.slots[SlotKey.MEDIA_DATA_URI] = mediaDataUri;
+  next.state = SessionState.RECLAMO_SUBMIT_PENDING;
 
   const submission = {
-    celular: event.from,
-    dni: (next.slots.dni as string | undefined) ?? null,
-    nombreCompleto: (next.slots.nombreCompleto as string | undefined) ?? null,
-    queja: next.slots.queja,
-    mediaDataUri: (next.slots.mediaDataUri as string | undefined) ?? undefined,
+    waId: from,
+    dni: next.slots[SlotKey.DNI] ?? null,
+    nombreCompleto: next.slots[SlotKey.NOMBRE_COMPLETO] ?? null,
+    descripcion: next.slots[SlotKey.QUEJA],
+    mediaDataUri: next.slots[SlotKey.MEDIA_DATA_URI] ?? undefined,
   };
 
   return buildResult(next, [
     sendText("Enviando tu reclamo…"),
-    query("quejas_submit", { submission }),
+    query(QueryKind.INCIDENCIA_REGISTER, { submission }),
   ]);
+}
+
+function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
+  if (event.mediaDataUri) return submitReclamo(session, event.from, event.mediaDataUri);
+
+  const typed = (event.text ?? "").trim();
+  if (!typed) return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
+
+  if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === Confirmation.NO) {
+    return submitReclamo(session, event.from);
+  }
+
+  if (
+    resolveConfirmation(typed) === Confirmation.YES ||
+    typed.length > FOTO_INTENT_MAX_LENGTH ||
+    looksLikeNoise(typed)
+  ) {
+    return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
+  }
+
+  const next = cloneSession(session);
+  next.state = SessionState.RECLAMO_FOTO_INTENT_PENDING;
+  return buildResult(next, [query(QueryKind.ANALYZE_RECLAMO_FOTO_INTENT, { text: typed })]);
+}
+
+function handleFotoIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { quiereOmitir?: boolean };
+  const next = cloneSession(session);
+  next.state = SessionState.RECLAMO_AWAITING_FOTO;
+
+  if (result.quiereOmitir === true) return submitReclamo(next, event.from);
+
+  return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
 }
 
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; reason?: string };
   const next = cloneSession(session);
+  delete next.slots[SlotKey.MEDIA_DATA_URI];
 
   if (result.status === "accepted") {
-    next.state = "reclamo_confirmed";
+    next.state = SessionState.RECLAMO_CONFIRMED;
     return buildResult(next, [
       sendText("¡Listo! Tu reclamo fue registrado. Nos pondremos en contacto contigo pronto."),
     ]);
   }
 
-  next.state = "reclamo_failed";
+  next.state = SessionState.RECLAMO_FAILED;
   const message =
     result.reason === "media_too_large"
       ? "No pudimos registrar tu reclamo: la foto adjunta es demasiado pesada. Intenta de nuevo sin foto o con una imagen más liviana."

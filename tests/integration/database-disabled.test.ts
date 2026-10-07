@@ -7,7 +7,6 @@ const state = vi.hoisted(() => {
   process.env.DATABASE_URL = "postgresql://unused:unused@localhost:5432/unused";
   return {
     prismaConstructed: 0,
-    adapterConstructed: 0,
     afterPromises: [] as Promise<unknown>[],
     sent: [] as Array<{ conversationId: unknown; waId: string; text: string }>,
   };
@@ -19,13 +18,6 @@ vi.mock("@prisma/client", async (importOriginal) => ({
     constructor() {
       state.prismaConstructed++;
       throw new Error("PrismaClient must not be constructed with DATABASE_ENABLED=false");
-    }
-  },
-}));
-vi.mock("@prisma/adapter-neon", () => ({
-  PrismaNeon: class {
-    constructor() {
-      state.adapterConstructed++;
     }
   },
 }));
@@ -107,6 +99,5 @@ describe("webhook with DATABASE_ENABLED=false", () => {
 
     expect(state.sent.every((send) => send.conversationId === null)).toBe(true);
     expect(state.prismaConstructed).toBe(0);
-    expect(state.adapterConstructed).toBe(0);
   }, 30_000);
 });

@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
-import { MessageDirection } from "@prisma/client";
+import { ACTOR_EXTERNO_META, actorCiudadano, declararActor } from "@/lib/db/actor";
+import { DireccionMensajeId } from "@/lib/enums/direccion-mensaje-id";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { sessionRowExists } from "@/lib/fsm/session/session-store";
 import { screenInbound } from "@/lib/security/perimeter";
 import { inboundRateLimiter } from "@/lib/security/rate-limiter";
+import { PerimeterAction } from "@/lib/enums/perimeter-action";
 import {
   type WhatsAppContact,
   type WhatsAppMessage,
@@ -19,21 +21,24 @@ import { inboundDedupe } from "@/lib/whatsapp/webhook/inbound-dedupe";
 /** Un solo INSERT decide quién responde: el índice único de waMessageId (P2002) descarta la reentrega concurrente de Meta. */
 async function claimInboundMessage(
   message: WhatsAppMessage,
-  conversationId: string,
-  stored: { content: string | null; mediaUrl: string | null; timestamp: Date },
+  usuarioId: string,
+  stored: { content: string | null; mediaId: string | null; timestamp: Date },
 ): Promise<boolean> {
   try {
-    await prisma.message.create({
-      data: {
-        conversationId,
-        direction: MessageDirection.INBOUND,
-        type: mapMessageType(message.type),
-        content: stored.content,
-        mediaUrl: stored.mediaUrl,
-        waMessageId: message.id,
-        timestamp: stored.timestamp,
-      },
-    });
+    await prisma.$transaction([
+      declararActor(actorCiudadano(message.from_user_id)),
+      prisma.mensaje.create({
+        data: {
+          usuarioId,
+          direccionMensajeId: DireccionMensajeId.ENTRANTE,
+          tipoMensajeId: mapMessageType(message.type),
+          contenido: stored.content,
+          mediaId: stored.mediaId,
+          waMessageId: message.id,
+          fechaHora: stored.timestamp,
+        },
+      }),
+    ]);
     return true;
   } catch (error) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") return false;
@@ -51,26 +56,29 @@ async function processInboundMessage(message: WhatsAppMessage, contact: WhatsApp
   const profileName = contact?.profile?.name;
   const phoneNumber = message.from ?? contact?.wa_id;
   const timestamp = new Date(Number(message.timestamp) * 1000);
-  const { content, mediaUrl } = extractContentAndMedia(message);
+  const { content, mediaId } = extractContentAndMedia(message);
 
-  const conversation = await prisma.conversation.upsert({
-    where: { waId: message.from_user_id },
-    create: {
-      waId: message.from_user_id,
-      phoneNumber: phoneNumber ?? null,
-      profileName: profileName ?? null,
-      lastMessageAt: timestamp,
-    },
-    update: {
-      ...(phoneNumber ? { phoneNumber } : {}),
-      ...(profileName ? { profileName } : {}),
-      lastMessageAt: timestamp,
-    },
-  });
+  const [, usuario] = await prisma.$transaction([
+    declararActor(actorCiudadano(message.from_user_id)),
+    prisma.usuario.upsert({
+      where: { waId: message.from_user_id },
+      create: {
+        waId: message.from_user_id,
+        phoneNumber: phoneNumber ?? null,
+        profileName: profileName ?? null,
+        ultimoMensajeEn: timestamp,
+      },
+      update: {
+        ...(phoneNumber ? { phoneNumber } : {}),
+        ...(profileName ? { profileName } : {}),
+        ultimoMensajeEn: timestamp,
+      },
+    }),
+  ]);
 
-  if (!(await claimInboundMessage(message, conversation.id, { content, mediaUrl, timestamp }))) return;
+  if (!(await claimInboundMessage(message, usuario.id, { content, mediaId, timestamp }))) return;
 
-  await withTurnLock(message.from_user_id, () => answerMessage(message, conversation.id));
+  await withTurnLock(message.from_user_id, () => answerMessage(message, usuario.id));
 }
 
 export async function processValue(value: WhatsAppValue) {
@@ -84,8 +92,8 @@ export async function processValue(value: WhatsAppValue) {
       { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
       { limiter: inboundRateLimiter, hasSession: sessionRowExists },
     );
-    if (decision.action === "drop") continue;
-    if (decision.action === "reject") {
+    if (decision.action === PerimeterAction.DROP) continue;
+    if (decision.action === PerimeterAction.REJECT) {
       await sendFixedReply(message.from_user_id, decision.reply);
       continue;
     }
@@ -100,12 +108,15 @@ export async function processValue(value: WhatsAppValue) {
   if (!isDatabaseEnabled()) return;
 
   for (const status of value.statuses ?? []) {
-    const mappedStatus = mapStatus(status.status);
-    if (!mappedStatus) continue;
+    const estadoMensajeId = mapStatus(status.status);
+    if (!estadoMensajeId) continue;
 
-    await prisma.message.updateMany({
-      where: { waMessageId: status.id },
-      data: { status: mappedStatus },
-    });
+    await prisma.$transaction([
+      declararActor(ACTOR_EXTERNO_META),
+      prisma.mensaje.updateMany({
+        where: { waMessageId: status.id },
+        data: { estadoMensajeId },
+      }),
+    ]);
   }
 }
