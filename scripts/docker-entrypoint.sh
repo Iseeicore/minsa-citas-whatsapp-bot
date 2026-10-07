@@ -24,7 +24,7 @@ fi
 
 log "Aplicando migraciones pendientes."
 if ! node "$PRISMA_CLI" migrate deploy --schema "$PRISMA_SCHEMA"; then
-  log "ERROR: las migraciones fallaron y el servicio no se inicia. Revisa que DATABASE_URL apunte a una base alcanzable, que el usuario sea dueño de la base y que su historial de migraciones coincida con el de este código."
+  log "ERROR: las migraciones fallaron y el servicio no se inicia. Revisa que DATABASE_URL apunte a una base alcanzable, que la base exista (o que el usuario tenga CREATEDB para crearla), que el usuario sea su dueño y que su historial de migraciones coincida con el de este código."
   exit 1
 fi
 
