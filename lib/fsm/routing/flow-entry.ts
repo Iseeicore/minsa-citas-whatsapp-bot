@@ -1,26 +1,30 @@
 import { buildResult, sendButtons, sendList, sendText } from "@/lib/fsm/core/handlers-shared";
-import type { CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
+import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
+import { ReclamoButtonId } from "@/lib/enums/reclamo-button-id";
+import { MenuChoice } from "@/lib/enums/menu-choice";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export const MENU_ROWS = [
-  { id: "agendar_cita", title: "Agendar una cita médica" },
-  { id: "registrar_reclamo", title: "Registrar un reclamo" },
+  { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" },
+  { id: MenuChoice.REGISTRAR_RECLAMO, title: "Registrar un reclamo" },
 ];
 
-export const RECLAMO_IDENTITY_BUTTONS = [
-  { id: "reclamo_con_dni", title: "Sí, tengo documento" },
-  { id: "reclamo_sin_dni", title: "No tengo documento" },
+export const RECLAMO_NOMBRE_BUTTONS = [
+  { id: ReclamoButtonId.CON_NOMBRE, title: "Sí, doy mi nombre" },
+  { id: ReclamoButtonId.ANONIMO, title: "Prefiero ser anónimo" },
 ];
 
 export const buildMenuEffect = () => sendList("¿En qué podemos ayudarte hoy?", MENU_ROWS);
 
 export function beginCita(slots: Session["slots"], hints: CitaHints, intro: string): HandlerResult {
   const next: Session = {
-    state: "cita_awaiting_dni",
+    state: SessionState.CITA_AWAITING_DNI,
     slots: {
       ...slots,
-      ...(hints.especialidad ? { citaEspecialidadHintText: hints.especialidad } : {}),
-      ...(hints.distrito ? { citaDistritoHintText: hints.distrito } : {}),
+      ...(hints.especialidad ? { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: hints.especialidad } : {}),
+      ...(hints.distrito ? { [SlotKey.CITA_DISTRITO_HINT_TEXT]: hints.distrito } : {}),
     },
     counters: {},
   };
@@ -28,6 +32,6 @@ export function beginCita(slots: Session["slots"], hints: CitaHints, intro: stri
 }
 
 export function beginReclamo(slots: Session["slots"], intro: string): HandlerResult {
-  const next: Session = { state: "reclamo_identity_choice", slots: { ...slots }, counters: {} };
-  return buildResult(next, [sendButtons(intro, RECLAMO_IDENTITY_BUTTONS)]);
+  const next: Session = { state: SessionState.RECLAMO_IDENTITY_CHOICE, slots: { ...slots }, counters: {} };
+  return buildResult(next, [sendButtons(intro, RECLAMO_NOMBRE_BUTTONS)]);
 }

@@ -1,4 +1,4 @@
-/** Reglas comunes a los cuatro prompts: solo la tarea asignada; nunca SQL, código, datos internos, ideas ajenas al canal ni consejo médico. */
+/** Reglas comunes a los cuatro prompts: solo la tarea asignada; nunca SQL, código, datos internos, temas ajenos al canal ni consejo médico. */
 export const PROMPT_GUARDRAILS = `## REGLAS DE SEGURIDAD (COMUNES A TODAS LAS TAREAS)
 Solo realizas la tarea descrita en este prompt. No conversas, no respondes preguntas y no generas contenido propio.
 

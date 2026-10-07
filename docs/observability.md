@@ -28,12 +28,14 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | Evento | Nivel | Campos principales |
 |---|---|---|
 | `turn.start` | info | `waId` (últimos 4), `stateBefore`, `eventType`, `inputLength`, `inputPreview` (40 caracteres, solo donde es seguro) |
-| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact`, `out_of_scope` (la urgencia va como aviso y lleva `closed: true`: cerró la conversación), `hora_declined`, `cita_closed` (con `reason`: `declined`, `no_other_dates`, `no_other_establecimiento` o `abandoned`), `exit_intent` (el ciudadano pidió salir; `source`: `local` o `ai`) |
-| `turn.external` | info / warn / error | `service` (minsa, reniec, gemini, quejas), `operation`, `durationMs`, `outcome`, `resultStatus` |
+| `turn.note` | info / **warn** | `kind` y su detalle: `shortcut`, `lexical_guard`, `session_expired`, `confirmation_unknown`, `menu_fallback`, `no_coverage`, `booking_retry`, `booking_rejected`, `first_contact`, `out_of_scope` (la urgencia va como aviso y lleva `closed: true`: cerró la conversación), `hora_declined`, `cita_closed` (con `reason`: `declined`, `no_other_dates`, `no_other_establecimiento` o `abandoned`), `exit_intent` (el ciudadano pidió salir; `source`: `local` o `ai`), `change_distrito` (el ciudadano dijo que ya no quiere esa ubicación y se le ofreció otro distrito; `source`: `local` o `ai`) |
+| `turn.external` | info / warn / error | `service` (minsa, reniec, gemini, database, media), `operation`, `durationMs`, `outcome`, `resultStatus` |
 | `external.http` | info / warn / error | `service`, `operation`, `method`, `path`, `status`, `durationMs` |
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
 | `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
+| `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total` |
+| `minsa.request_blocked` | error | `path`, `reason`. Una llamada autenticada al MINSA real no se envió porque falta `MINSA_DIGITAL_APP_URL` y no se puede armar `Origin` ni `Referer`; quien llamó recibe un 503 sin cuerpo y lo trata como error del MINSA |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
 | `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el texto fijo «Ocurrió un inconveniente temporal…», **como mucho una vez cada 30 s por número** (C4.2: una ráfaga que falla entera no manda un aviso por mensaje) |
 | `webhook.message_failed` | error | `waId` (últimos 4), `error` (nombre y mensaje). Falló guardar la conversación, el turno o sus envíos; el ciudadano recibe el mismo texto fijo, con el mismo límite de una vez cada 30 s por número. El turno, si llegó a empezar, ya dejó su `turn.failed`. **El registro nunca se calla:** el límite de 30 s solo frena la respuesta al ciudadano |
@@ -44,6 +46,11 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `whatsapp.send_failed` | error | `operation` (`send_effect` o `send_cta_url`), `waId` (últimos 4), `status` y `response` (cuerpo de Meta enmascarado y truncado) o `error` |
 | `whatsapp.typing_failed` | warn | `error`. Falló el indicador de «escribiendo»; la respuesta sigue su curso |
 | `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; el reclamo sigue sin imagen |
+| `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). El reclamo llegó al servicio con datos que no pasan la validación; no se guarda |
+| `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): el reclamo no se puede guardar y se le responde error al ciudadano |
+| `incidencia.media_not_stored` | warn | `reason`. El ciudadano adjuntó una foto y todavía no hay servicio de imágenes: el reclamo se guarda sin ella |
+| `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
+| `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |
 | `config.invalid` | error / warn | `issue` (el código del catálogo), `value`, `message`. Problema de configuración detectado al arrancar el servidor (ver `lib/config/config-errors.ts`); el bot sigue funcionando con su respaldo y `/api/health` responde `degraded` |

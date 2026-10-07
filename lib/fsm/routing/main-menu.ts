@@ -13,7 +13,7 @@ import {
   isGreeting,
   isReclamoKeyword,
 } from "@/lib/fsm/routing/menu-shortcuts";
-import { beginCita, buildMenuEffect, RECLAMO_IDENTITY_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { beginCita, buildMenuEffect, RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import {
   detectOutOfScope,
   isCitaKeyword,
@@ -21,19 +21,24 @@ import {
   OOS_MESSAGES,
   type OosCategory,
 } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { looksLikeNoise } from "@/lib/security/text-noise";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { MenuChoice } from "@/lib/enums/menu-choice";
+import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export const CONTINUE_BUTTON_ID = "continuar_menu";
 
-export const AWAITING_CONTINUE_SLOT = "awaitingContinue";
 
-const NUMERIC_MENU_CHOICES: Record<string, string> = {
-  "1": "agendar_cita",
-  "2": "registrar_reclamo",
+const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
+  "1": MenuChoice.AGENDAR_CITA,
+  "2": MenuChoice.REGISTRAR_RECLAMO,
 };
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
-  return buildResult({ state: "main_menu", slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
+  return buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
 }
 
 export function handleAwaitingFlowStart(session: Session): HandlerResult {
@@ -43,13 +48,15 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
     counters: { ...session.counters },
   };
 
-  if (next.slots.menuChoice === "registrar_reclamo") {
-    next.state = "reclamo_identity_choice";
-    return buildResult(next, [sendButtons("¿Tienes tu documento de identidad a la mano?", RECLAMO_IDENTITY_BUTTONS)]);
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_RECLAMO) {
+    next.state = SessionState.RECLAMO_IDENTITY_CHOICE;
+    return buildResult(next, [
+      sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
+    ]);
   }
 
-  if (next.slots.menuChoice === "agendar_cita") {
-    next.state = "cita_awaiting_dni";
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) {
+    next.state = SessionState.CITA_AWAITING_DNI;
     return buildResult(next, [sendText("Ingresa tu número de documento.")]);
   }
 
@@ -57,8 +64,8 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
 }
 
 export function handleMainMenu(pending: Session, event: InboundEvent): HandlerResult {
-  const awaitingContinue = pending.slots[AWAITING_CONTINUE_SLOT] === true;
-  const session: Session = { ...pending, slots: omitSlot(pending.slots, AWAITING_CONTINUE_SLOT) };
+  const awaitingContinue = pending.slots[SlotKey.AWAITING_CONTINUE] === true;
+  const session: Session = { ...pending, slots: omitSlot(pending.slots, SlotKey.AWAITING_CONTINUE) };
 
   if (awaitingContinue && event.text && isContinueReply(event.text)) {
     return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "continue_after_warning" } });
@@ -71,12 +78,12 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     return enterMainMenu(session.slots);
   }
 
-  if (replyId !== "agendar_cita" && replyId !== "registrar_reclamo") {
+  if (replyId !== MenuChoice.AGENDAR_CITA && replyId !== MenuChoice.REGISTRAR_RECLAMO) {
     if (event.text && isReclamoKeyword(event.text)) {
       return withNote(
         handleAwaitingFlowStart({
-          state: "awaiting_flow_start",
-          slots: { ...session.slots, menuChoice: "registrar_reclamo" },
+          state: SessionState.AWAITING_FLOW_START,
+          slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.REGISTRAR_RECLAMO },
           counters: {},
         }),
         { kind: "shortcut", detail: { name: "reclamo_keyword" } },
@@ -94,8 +101,8 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (event.text && isCitaKeyword(event.text)) {
       return withNote(
         handleAwaitingFlowStart({
-          state: "awaiting_flow_start",
-          slots: { ...session.slots, menuChoice: "agendar_cita" },
+          state: SessionState.AWAITING_FLOW_START,
+          slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.AGENDAR_CITA },
           counters: {},
         }),
         { kind: "shortcut", detail: { name: "cita_keyword" } },
@@ -106,18 +113,26 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (outOfScope) return outOfScopeReply(outOfScope, session.slots);
 
     const preservedSlots =
-      !session.slots.initialMessageText && event.text
-        ? { initialMessageText: event.text }
+      !session.slots[SlotKey.INITIAL_MESSAGE_TEXT] && event.text
+        ? { [SlotKey.INITIAL_MESSAGE_TEXT]: event.text }
         : session.slots;
 
     const cita = event.text ? detectCitaRequest(event.text) : undefined;
     if (cita) return withNote(beginCitaFromIntent(preservedSlots, cita), { kind: "shortcut", detail: { name: "cita_request" } });
 
+    if (event.text && looksLikeNoise(event.text)) {
+      return withNote(buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, []), {
+        kind: "menu_fallback",
+        level: "warn",
+        detail: { reason: "noise_silenced_before_ai" },
+      });
+    }
+
     if (event.text) {
-      const next: Session = { state: "main_menu_intent_pending", slots: preservedSlots, counters: {} };
+      const next: Session = { state: SessionState.MAIN_MENU_INTENT_PENDING, slots: preservedSlots, counters: {} };
       return buildResult(next, [
         sendText("Un momento, estamos revisando tu mensaje…"),
-        query("analyze_main_menu_intent", { text: event.text }),
+        query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text }),
       ]);
     }
 
@@ -125,8 +140,8 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
   }
 
   const next: Session = {
-    state: "awaiting_flow_start",
-    slots: { ...session.slots, menuChoice: replyId },
+    state: SessionState.AWAITING_FLOW_START,
+    slots: { ...session.slots, [SlotKey.MENU_CHOICE]: replyId },
     counters: {},
   };
   return handleAwaitingFlowStart(next);
@@ -138,11 +153,11 @@ export const OUT_OF_SCOPE_REQUEST_TEXT =
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
 
-  if (result.intent === "cita") return beginCitaFromIntent(session.slots, result);
+  if (result.intent === MainMenuIntent.CITA) return beginCitaFromIntent(session.slots, result);
 
-  if (result.intent === "fuera_de_alcance") {
+  if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
-      buildResult({ state: "main_menu", slots: session.slots, counters: {} }, [
+      buildResult({ state: SessionState.MAIN_MENU, slots: session.slots, counters: {} }, [
         sendText(OUT_OF_SCOPE_REQUEST_TEXT),
         buildMenuEffect(),
       ]),
@@ -169,7 +184,7 @@ function beginCitaFromIntent(
 }
 
 function outOfScopeReply(category: OosCategory, slots: Session["slots"] = {}): HandlerResult {
-  return withNote(buildResult({ state: "main_menu", slots, counters: {} }, [sendText(OOS_MESSAGES[category])]), {
+  return withNote(buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(OOS_MESSAGES[category])]), {
     kind: "out_of_scope",
     detail: { category },
   });

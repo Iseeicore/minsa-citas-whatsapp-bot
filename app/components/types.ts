@@ -1,8 +1,13 @@
+import type { ConversationStatus } from "@/lib/enums/conversation-status";
+import type { MessageDirection } from "@/lib/enums/message-direction";
+import type { MessageStatus } from "@/lib/enums/message-status";
+import type { MessageType } from "@/lib/enums/message-type";
+
 export type Conversation = {
   id: string;
   waId: string;
   profileName: string | null;
-  status: "OPEN" | "CLOSED";
+  status: ConversationStatus;
   lastMessageAt: string;
   createdAt: string;
 };
@@ -10,12 +15,12 @@ export type Conversation = {
 export type Message = {
   id: string;
   conversationId: string;
-  direction: "INBOUND" | "OUTBOUND";
-  type: "TEXT" | "IMAGE" | "AUDIO" | "DOCUMENT" | "LOCATION" | "TEMPLATE" | "UNKNOWN";
+  direction: MessageDirection;
+  type: MessageType;
   content: string | null;
   mediaUrl: string | null;
   waMessageId: string | null;
-  status: "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  status: MessageStatus;
   timestamp: string;
   createdAt: string;
 };

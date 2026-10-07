@@ -8,6 +8,8 @@ export const LOG_EVENTS = [
   "turn_lock.waited",
   "external.http",
   "minsa.book_appointment.failed",
+  "minsa.catalog.rows_discarded",
+  "minsa.request_blocked",
   "ai.fallback",
   "ai.provider_unknown",
   "perimeter.dropped",
@@ -20,6 +22,11 @@ export const LOG_EVENTS = [
   "whatsapp.send_failed",
   "whatsapp.typing_failed",
   "whatsapp.media_failed",
+  "incidencia.invalid_submission",
+  "incidencia.not_persisted",
+  "incidencia.media_not_stored",
+  "incidencia.media_upload_failed",
+  "incidencia.persist_failed",
   "sandbox.cors_invalid_origin",
   "config.invalid",
 ] as const;
@@ -40,6 +47,7 @@ export const TURN_NOTE_KINDS = [
   "hora_declined",
   "cita_closed",
   "exit_intent",
+  "change_distrito",
 ] as const;
 
 export type TurnNoteKind = (typeof TURN_NOTE_KINDS)[number];

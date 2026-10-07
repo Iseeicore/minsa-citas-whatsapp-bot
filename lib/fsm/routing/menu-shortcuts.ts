@@ -1,5 +1,5 @@
-import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/cita-hints";
-import { normalizeText } from "@/lib/fsm/parsing/text";
+import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
 
 function words(text: string): string[] {
   return normalizeText(text)
@@ -60,8 +60,7 @@ export function detectCitaRequest(text: string): CitaHints | undefined {
   if (tokens.some((token) => NOT_A_NEW_CITA_WORDS.has(token))) return undefined;
   if (tokens.some((token, index) => token === "MI" && tokens[index + 1] === "CITA")) return undefined;
 
-  const hints = extractCitaHints(text);
-  return hints.especialidad || hints.distrito ? hints : undefined;
+  return extractCitaHints(text);
 }
 
 const CONTINUE_WORDS = new Set([

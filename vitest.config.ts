@@ -9,8 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts", "tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts"],
     exclude: ["tests/smoke/**", "tests/stress/performance.test.ts", "node_modules/**"],
-    env: { DATABASE_URL: "", DATABASE_ENABLED: "true" },
+    env: { DATABASE_URL: "", DATABASE_ENABLED: "true", MINSA_DIGITAL_APP_URL: "https://fake-minsa-digital.test" },
   },
 });

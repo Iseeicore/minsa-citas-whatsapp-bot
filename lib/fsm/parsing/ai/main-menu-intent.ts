@@ -1,11 +1,12 @@
 import { logger } from "@/lib/observability/logger";
-import { normalizeText } from "@/lib/fsm/parsing/text";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
+import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 
 export type MainMenuIntentResult = {
-  intent: "cita" | "fuera_de_alcance" | "unclear";
+  intent: MainMenuIntent;
   especialidad?: string;
   distrito?: string;
 };
@@ -68,7 +69,7 @@ const FAKE_CITA_INTENT_KEYWORDS = ["CITA", "ATENCION", "CONSULTA", "TURNO", "MED
 
 function unclearIntent(reason: string): MainMenuIntentResult {
   logger.warn("ai.fallback", { operation: "analyze_main_menu_intent", fellBackTo: "menu", reason });
-  return { intent: "unclear" };
+  return { intent: MainMenuIntent.UNCLEAR };
 }
 
 export async function analyzeMainMenuIntent(
@@ -98,11 +99,11 @@ export async function analyzeMainMenuIntent(
     try {
       const parsed = outcome.json as MainMenuIntentJsonShape;
       const intent = typeof parsed.intent === "string" ? parsed.intent.trim().toLowerCase() : "";
-      if (intent === "fuera_de_alcance") return { intent: "fuera_de_alcance" };
-      if (intent !== "cita") return { intent: "unclear" };
+      if (intent === MainMenuIntent.FUERA_DE_ALCANCE) return { intent: MainMenuIntent.FUERA_DE_ALCANCE };
+      if (intent !== MainMenuIntent.CITA) return { intent: MainMenuIntent.UNCLEAR };
 
       return {
-        intent: "cita",
+        intent: MainMenuIntent.CITA,
         especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
         distrito: typeof parsed.distrito === "string" ? parsed.distrito : undefined,
       };
@@ -113,13 +114,13 @@ export async function analyzeMainMenuIntent(
 
   const normalized = normalizeText(text);
   const looksLikeCita = FAKE_CITA_INTENT_KEYWORDS.some((keyword) => normalized.includes(keyword));
-  if (!looksLikeCita) return { intent: "unclear" };
+  if (!looksLikeCita) return { intent: MainMenuIntent.UNCLEAR };
 
   for (const [keyword, especialidad] of Object.entries(FAKE_ESPECIALIDAD_KEYWORDS)) {
     if (normalized.includes(keyword)) {
-      return { intent: "cita", especialidad };
+      return { intent: MainMenuIntent.CITA, especialidad };
     }
   }
 
-  return { intent: "cita" };
+  return { intent: MainMenuIntent.CITA };
 }

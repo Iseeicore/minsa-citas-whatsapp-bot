@@ -40,7 +40,7 @@ export type EstablecimientoItem = {
 };
 
 export type ListEstablecimientosResult =
-  | { status: "found"; items: EstablecimientoItem[] }
+  | { status: "found"; items: EstablecimientoItem[]; page?: number; totalPages?: number }
   | { status: "empty" }
   | { status: "error" }
   | { status: "unauthorized" };
@@ -82,3 +82,20 @@ export type BookAppointmentResult =
   | { status: "rejected"; message: string }
   | { status: "error" }
   | { status: "unauthorized" };
+
+/** Solo 3/5/7 llegan hasta acá: el filtro de estado ya se aplicó en listReferences. */
+export type ReferenciaItem = {
+  idReferencia: string;
+  numero: string;
+  fechaInicio: string;
+  ipressOrigen: string;
+  ipressDestino: string;
+  upsOrigen: string;
+  upsDestino: string;
+  estado: 3 | 5 | 7;
+};
+
+export type ListReferencesResult =
+  | { status: "found"; items: ReferenciaItem[] }
+  | { status: "empty" }
+  | { status: "error" };
