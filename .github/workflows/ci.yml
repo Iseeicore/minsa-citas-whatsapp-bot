@@ -46,3 +46,49 @@ jobs:
 
       - name: Performance
         run: npx vitest run --config vitest.perf.config.ts
+
+  database:
+    name: database (migrations, SQL rules and smoke)
+    if: github.event.action != 'edited' || github.event.changes.base != null
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: SQL rules on a throwaway database built only from the migrations
+        run: npm run db:test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+      - name: Smoke tests against PostgreSQL
+        run: npm run smoke:postgres
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          DATABASE_ENABLED: "true"
