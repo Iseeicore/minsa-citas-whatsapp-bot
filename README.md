@@ -65,7 +65,7 @@ DATABASE_ENABLED=true
 ```
 
 - **Pon `true` de forma explícita.** El compose convierte una `DATABASE_ENABLED` vacía en `false` (`${DATABASE_ENABLED:-false}`); vacía solo activa la base en Vercel, que no pasa por el compose.
-- La base debe existir (vacía está bien) y el usuario debe poder crear esquemas, tablas, funciones y disparadores. Las migraciones se aplican en cada arranque; si no hay pendientes, no hace nada.
+- El usuario debe ser dueño de la base y poder crear esquemas, tablas, funciones y disparadores. **Si la base no existe, el contenedor la crea** al migrar, siempre que el usuario tenga el permiso `CREATEDB`; sin ese permiso falla con `permission denied to create database` y el DBA debe crearla vacía antes, con el usuario como dueño (`CREATE DATABASE <base> OWNER <usuario>`). Las migraciones se aplican en cada arranque; si no hay pendientes, no hace nada.
 - Con varias réplicas, Prisma toma un candado en la base, así que dos arranques simultáneos no migran a la vez. Aun así el proyecto corre con una sola.
 - Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL (`%40`, `%3A`...).
 - La imagen trae el CLI de Prisma en `/opt/prisma` (versión fijada por `PRISMA_VERSION` en el `Dockerfile`, igual a la de `package.json`).
