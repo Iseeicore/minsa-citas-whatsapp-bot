@@ -1,0 +1,9 @@
+export enum MessageType {
+  TEXT = "TEXT",
+  IMAGE = "IMAGE",
+  AUDIO = "AUDIO",
+  DOCUMENT = "DOCUMENT",
+  LOCATION = "LOCATION",
+  TEMPLATE = "TEMPLATE",
+  UNKNOWN = "UNKNOWN",
+}
