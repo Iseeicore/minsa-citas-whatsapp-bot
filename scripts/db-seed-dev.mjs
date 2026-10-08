@@ -40,20 +40,29 @@ try {
   );
 
   if (existentes > 0 && !reiniciar) {
-    console.log(`Ya hay ${existentes} incidencias de prueba en ${base}. Usa --reiniciar para volver a sembrar.`);
+    console.log(`Ya hay ${existentes} incidencias de prueba en ${base}. Usa --reiniciar para volver a sembrar (los usuarios de ejemplo se conservan).`);
     process.exit(0);
   }
 
   if (reiniciar) {
     sql(
       "-c",
-      "TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria, ia.entrenamiento_categoria, chatbot.incidencia_paciente, chatbot.contador_codigo_incidencia, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion",
+      "TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria, ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.contador_codigo_incidencia, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion",
     );
     console.log(`Incidencias de ${base} borradas.`);
   }
 
+  // Los usuarios de ejemplo no llevan clave en ningún archivo. Si se quiere poder iniciar sesión con ellos, se pasa una huella
+  // Argon2id ya calculada (nunca la clave) en SEED_DEV_PASSWORD_HASH; si no, la base les pone una huella al azar que nadie conoce.
+  const huella = process.env.SEED_DEV_PASSWORD_HASH;
+  if (huella !== undefined && !huella.startsWith("$argon2id$")) {
+    console.error("SEED_DEV_PASSWORD_HASH debe ser una huella Argon2id en formato PHC (empieza con $argon2id$), no la clave.");
+    process.exit(2);
+  }
+  const variables = huella ? ["-v", `hash_clave=${huella}`] : [];
+
   const archivo = join(import.meta.dirname, "..", "prisma", "seeds", "dev", "incidencias_sinteticas.sql");
-  console.log(sql("-f", archivo).trim());
+  console.log(sql(...variables, "-f", archivo).trim());
 } catch (error) {
   console.error(String(error.stderr || error.message).split("\n").filter((linea) => linea.trim() !== "").slice(0, 6).join("\n"));
   process.exit(1);

@@ -2,6 +2,22 @@ COMMENT ON SCHEMA catalogo IS 'Catálogos compartidos por todas las plataformas.
 COMMENT ON SCHEMA chatbot IS 'Plataforma 1: recepción de incidencias del paciente por WhatsApp o web. Registra al usuario, sus mensajes, lo que reporta y las evidencias.';
 COMMENT ON SCHEMA gestion IS 'Plataforma 2: gestión de pacientes inconformes. Es la única que necesita usuarios internos y roles.';
 COMMENT ON SCHEMA ia IS 'Plataforma 3: aprendizaje de la IA. Recibe una copia de cada categoría que una persona revisó, ya sea corrigiéndola o confirmándola.';
+COMMENT ON COLUMN catalogo.area.id IS 'Identificador numérico de la fila, generado por la base.';
+COMMENT ON COLUMN catalogo.area.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
+COMMENT ON COLUMN catalogo.area.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
+COMMENT ON COLUMN catalogo.area.tipo_area_id IS 'Tipo del área.';
+COMMENT ON COLUMN catalogo.area.padre_id IS 'Área de la que depende, si tiene una (por ejemplo la DIRIS de un establecimiento). Nulo en la cima. No puede ser la misma área.';
+COMMENT ON COLUMN catalogo.area.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
+COMMENT ON COLUMN catalogo.area.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN catalogo.area.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN catalogo.area.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN catalogo.area.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN catalogo.area.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE catalogo.area IS 'Área que atiende incidencias: cada establecimiento de salud tiene la suya, y existen además áreas como OTRANS o la sede central. A una incidencia se la deriva a un área y los usuarios internos pertenecen a una. Las áreas pueden depender de otra (padre).
+
+Relaciones:
+- padre_id → catalogo.area: Enlaza el área con la que depende. Sirve para recorrer la jerarquía.
+- tipo_area_id → catalogo.tipo_area: Garantiza que el tipo sea uno del catálogo. Sirve para saber si el área recibe denuncias sensibles.';
 COMMENT ON COLUMN catalogo.canal_origen.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.canal_origen.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.canal_origen.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -23,7 +39,7 @@ COMMENT ON COLUMN catalogo.categoria_incidencia.fecha_creacion IS 'Fecha y hora 
 COMMENT ON COLUMN catalogo.categoria_incidencia.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN catalogo.categoria_incidencia.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.categoria_incidencia.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON COLUMN catalogo.categoria_incidencia.es_sensible IS 'Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por el área competente y siempre pasa por revisión humana.';
+COMMENT ON COLUMN catalogo.categoria_incidencia.es_sensible IS 'Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por un área que reciba casos sensibles (OTRANS) y siempre pasa por revisión humana. La base impide derivarla a un establecimiento.';
 COMMENT ON TABLE catalogo.categoria_incidencia IS 'Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). Marca cuáles son sensibles. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.';
 COMMENT ON COLUMN catalogo.direccion_mensaje.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.direccion_mensaje.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
@@ -36,6 +52,28 @@ COMMENT ON COLUMN catalogo.direccion_mensaje.usuario_creacion IS 'Quién creó l
 COMMENT ON COLUMN catalogo.direccion_mensaje.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.direccion_mensaje.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON TABLE catalogo.direccion_mensaje IS 'Sentido de un mensaje: entrante (del ciudadano al bot) o saliente (del bot al ciudadano).';
+COMMENT ON COLUMN catalogo.establecimiento_salud.id IS 'Identificador numérico de la fila, generado por la base.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.codigo_renipress IS 'Código RENIPRESS del establecimiento: de uno a ocho dígitos, SIN ceros a la izquierda (forma canónica: 6206, no 00006206, igual que el catálogo de citas del bot). Es único. Quien cargue o lea el código debe quitar los ceros iniciales antes de guardar o comparar.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.nombre_busqueda IS 'Nombre sin tildes y en minúscula, que calcula la base. Es el que usa la búsqueda por similitud (índice de trigramas); no se escribe.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.nivel_atencion_id IS 'Nivel de atención del establecimiento (I, II o III). Si la fuente no lo trae: los hospitales son de nivel II o III y los demás establecimientos de nivel I.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.categoria IS 'Categoría oficial del establecimiento (por ejemplo I-1, I-4, II-2, III-1, III-E). Texto libre porque la fuente es el MINSA y puede cambiar; el nivel de atención va aparte para filtrar.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.departamento IS 'Departamento donde queda el establecimiento.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.provincia IS 'Provincia donde queda el establecimiento.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.distrito IS 'Distrito donde queda el establecimiento.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.red IS 'Red de salud a la que pertenece el establecimiento.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.area_id IS 'Área propia del establecimiento, a la que se le derivan sus incidencias. Cada establecimiento tiene una sola área y cada área sirve a un solo establecimiento.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN catalogo.establecimiento_salud.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE catalogo.establecimiento_salud IS 'Establecimiento de salud del padrón RENIPRESS. Es el origen de una incidencia (donde ocurrió el hecho) y se carga desde el padrón, no con la migración. Se busca por nombre sin tildes con un índice de similitud.
+
+Relaciones:
+- area_id → catalogo.area: Enlaza el establecimiento con su área. Sirve para derivarle sus incidencias.
+- nivel_atencion_id → catalogo.nivel_atencion: Garantiza que el nivel sea uno del catálogo. Sirve para filtrar por complejidad.';
 COMMENT ON COLUMN catalogo.estado_archivo.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.estado_archivo.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.estado_archivo.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -80,6 +118,40 @@ COMMENT ON COLUMN catalogo.estado_mensaje.usuario_creacion IS 'Quién creó la f
 COMMENT ON COLUMN catalogo.estado_mensaje.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.estado_mensaje.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON TABLE catalogo.estado_mensaje IS 'Estado de entrega de un mensaje enviado por WhatsApp (pendiente, enviado, entregado, leído, fallido).';
+COMMENT ON COLUMN catalogo.motivo_archivo.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
+COMMENT ON COLUMN catalogo.motivo_archivo.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
+COMMENT ON COLUMN catalogo.motivo_archivo.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
+COMMENT ON COLUMN catalogo.motivo_archivo.descripcion IS 'Explicación opcional de qué significa el valor.';
+COMMENT ON COLUMN catalogo.motivo_archivo.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
+COMMENT ON COLUMN catalogo.motivo_archivo.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN catalogo.motivo_archivo.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN catalogo.motivo_archivo.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN catalogo.motivo_archivo.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN catalogo.motivo_archivo.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE catalogo.motivo_archivo IS 'Por qué se archivó una incidencia: resuelta con la vigencia cumplida, vencida sin atender o con datos insuficientes para gestionarla.';
+COMMENT ON COLUMN catalogo.nivel_atencion.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
+COMMENT ON COLUMN catalogo.nivel_atencion.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
+COMMENT ON COLUMN catalogo.nivel_atencion.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
+COMMENT ON COLUMN catalogo.nivel_atencion.descripcion IS 'Explicación opcional de qué significa el valor.';
+COMMENT ON COLUMN catalogo.nivel_atencion.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
+COMMENT ON COLUMN catalogo.nivel_atencion.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN catalogo.nivel_atencion.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN catalogo.nivel_atencion.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN catalogo.nivel_atencion.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN catalogo.nivel_atencion.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE catalogo.nivel_atencion IS 'Nivel de atención de un establecimiento de salud (I, II o III).';
+COMMENT ON COLUMN catalogo.tipo_area.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
+COMMENT ON COLUMN catalogo.tipo_area.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
+COMMENT ON COLUMN catalogo.tipo_area.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
+COMMENT ON COLUMN catalogo.tipo_area.descripcion IS 'Explicación opcional de qué significa el valor.';
+COMMENT ON COLUMN catalogo.tipo_area.recibe_sensibles IS 'Verdadero si las áreas de este tipo pueden recibir incidencias de categorías sensibles (hoy, solo OTRANS). La base impide derivar un caso sensible a un área cuyo tipo no lo reciba.';
+COMMENT ON COLUMN catalogo.tipo_area.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
+COMMENT ON COLUMN catalogo.tipo_area.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN catalogo.tipo_area.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN catalogo.tipo_area.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN catalogo.tipo_area.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN catalogo.tipo_area.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE catalogo.tipo_area IS 'Tipo de área a la que se puede derivar una incidencia: establecimiento, OTRANS, DIRIS, instituto o sede central. Define además qué tipos reciben denuncias sensibles y a qué tipo pertenece cada rol de gestión.';
 COMMENT ON COLUMN catalogo.tipo_evidencia.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.tipo_evidencia.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.tipo_evidencia.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -149,6 +221,20 @@ Relaciones:
 - incidencia_paciente_id → chatbot.incidencia_paciente: Cada evidencia pertenece a un reporte. Sirve para listar los archivos de un caso.
 - mensaje_id → chatbot.mensaje: Enlaza la evidencia con el mensaje de WhatsApp del que vino. Sirve para rastrear su origen. Si el mensaje se depura, queda en nulo.
 - tipo_evidencia_id → catalogo.tipo_evidencia: Garantiza que el tipo de archivo sea uno del catálogo. Sirve para decidir cómo mostrarlo.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.incidencia_paciente_id IS 'Incidencia analizada. Es la llave de la tabla: hay un análisis por incidencia.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.version_reglas IS 'Versión del conjunto de reglas que produjo el análisis. Sin ella, los puntajes de versiones distintas no se pueden comparar.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.puntaje IS 'Puntaje que dieron las reglas al caso. Sirve para ordenar la revisión.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.senales IS 'Señales que detectaron las reglas, en JSON. No lleva índice: solo se lee junto con el caso.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.cargo_mencionado IS 'Cargo de la persona señalada en el relato, si el texto lo menciona.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.area_mencionada_id IS 'Área que el relato menciona, si se pudo reconocer.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.nombre_mencionado IS 'Nombre de la persona señalada en el relato, si el texto lo menciona. Está aquí y no en la incidencia a propósito, para que no pase al historial de cambios.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN chatbot.incidencia_analisis.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON TABLE chatbot.incidencia_analisis IS 'Análisis automático de una incidencia (puntaje y señales de las reglas, y lo que el relato menciona: cargo, área y nombre). Uno por incidencia; solo se inserta. El nombre mencionado vive aquí y no en la incidencia para que no se copie al historial de cambios.
+
+Relaciones:
+- area_mencionada_id → catalogo.area: Garantiza que el área mencionada sea una del catálogo. Sirve para ubicar el área señalada.
+- incidencia_paciente_id → chatbot.incidencia_paciente: Cada análisis pertenece a una incidencia. Sirve para unir el análisis con el caso.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.canal_origen_id IS 'Canal por el que llegó (WhatsApp o web).';
 COMMENT ON COLUMN chatbot.incidencia_paciente.usuario_id IS 'Usuario que presentó el reporte.';
@@ -158,7 +244,7 @@ COMMENT ON COLUMN chatbot.incidencia_paciente.es_anonimo IS 'Verdadero si el pac
 COMMENT ON COLUMN chatbot.incidencia_paciente.dni_reclamante IS 'DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.nombre_reclamante IS 'Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.descripcion IS 'Relato del paciente. Es el texto que analiza la IA. No se puede modificar.';
-COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. ARCHIVADO se alcanza desde RESUELTO (pasó la vigencia de la resolución) o, solo por el sistema, desde un estado abierto cuyo plazo de atención venció. Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde REGISTRADO o CLASIFICADO, por datos insuficientes, que archiva el filtro del sistema o una persona.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.trace_id IS 'Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.categoria_id IS 'Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.categoria_ia_id IS 'Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo.';
@@ -172,6 +258,14 @@ COMMENT ON COLUMN chatbot.incidencia_paciente.categoria_confirmada_por IS 'Quié
 COMMENT ON COLUMN chatbot.incidencia_paciente.resolucion IS 'Resolución que se dio al asunto. Se registra una sola vez.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.resuelto_en IS 'Fecha y hora (UTC) en que se registró la resolución. La llena la base.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.resuelto_por IS 'Quién registró la resolución. La llena la base.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.establecimiento_id IS 'Establecimiento de salud donde ocurrió el hecho (dato de origen). Opcional. Una vez asignado no se puede cambiar; solo la carga de datos de la migración puede completarlo cuando estaba vacío.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.area_destino_id IS 'Área a la que se derivó o se asignó el caso. La base la asigna sola cuando la categoría es sensible y existe una única área que las recibe; solo se reasigna mientras el caso está CLASIFICADO o DERIVADO, y un caso sensible solo puede estar en un área que reciba casos sensibles.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.derivado_en IS 'Fecha y hora (UTC) en que el caso pasó a DERIVADO (o se reasignó su área). La llena la base.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.derivado_por IS 'Quién derivó el caso. La llena la base con el actor declarado.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.tomado_en IS 'Fecha y hora (UTC) en que el caso pasó a EN_GESTION. La llena la base.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.tomado_por IS 'Quién tomó el caso en gestión. La llena la base con el actor declarado.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.motivo_archivo_id IS 'Por qué se archivó el caso. Nulo mientras no esté archivado. La base lo deduce (resuelto: vigencia cumplida; vencido sin resolución: sin atender); solo el archivado por datos insuficientes lo indica quien archiva.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.archivado_en IS 'Fecha y hora (UTC) en que el caso pasó a ARCHIVADO. La llena la base.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.eliminado_en IS 'Fecha y hora (UTC) del borrado lógico. Nulo mientras la fila está activa.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.eliminado_por IS 'Quién hizo el borrado lógico. Nulo mientras la fila está activa.';
@@ -181,14 +275,17 @@ COMMENT ON COLUMN chatbot.incidencia_paciente.usuario_creacion IS 'Quién creó 
 COMMENT ON COLUMN chatbot.incidencia_paciente.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.codigo IS 'Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada.';
-COMMENT ON TABLE chatbot.incidencia_paciente IS 'Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Nunca se borra: se desactiva.
+COMMENT ON TABLE chatbot.incidencia_paciente IS 'Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión y el archivado registran con quién y cuándo, y lo llena la base. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.
 
 Relaciones:
+- area_destino_id → catalogo.area: Garantiza que el área de destino sea una del catálogo. Sirve para listar lo que debe atender cada área.
 - canal_origen_id → catalogo.canal_origen: Garantiza que el canal sea uno del catálogo. Sirve para unificar reportes de varios canales.
 - categoria_id → catalogo.categoria_incidencia: Garantiza que la categoría vigente sea una del catálogo. Sirve para dirigir el caso según sea denuncia, queja o reclamo.
 - categoria_ia_id → catalogo.categoria_incidencia: Garantiza que la categoría original de la IA sea una del catálogo. Sirve para medir cuánto se equivoca el modelo.
+- establecimiento_id → catalogo.establecimiento_salud: Garantiza que el establecimiento de origen sea uno del padrón. Sirve para listar los casos por establecimiento.
 - estado_incidencia_id → catalogo.estado_incidencia: Garantiza que el estado sea uno del catálogo. Sirve para listar lo pendiente de cada etapa.
 - mensaje_id → chatbot.mensaje: Enlaza el reporte con el mensaje del chat del que nació. Sirve para reconstruir el contexto de la conversación.
+- motivo_archivo_id → catalogo.motivo_archivo: Garantiza que el motivo sea uno del catálogo. Sirve para saber por qué se archivó un caso.
 - usuario_id → chatbot.usuario: Cada reporte lo presenta un usuario. Sirve para ver todo lo que reportó una persona.';
 COMMENT ON COLUMN chatbot.incidencia_paciente_auditoria.id IS 'Número secuencial del evento; da el orden de los cambios.';
 COMMENT ON COLUMN chatbot.incidencia_paciente_auditoria.incidencia_paciente_id IS 'Incidencia a la que corresponde el cambio.';
@@ -231,7 +328,8 @@ COMMENT ON COLUMN chatbot.sesion_conversacion.fecha_creacion IS 'Fecha y hora (U
 COMMENT ON COLUMN chatbot.sesion_conversacion.fecha_modificacion IS 'Fecha y hora (UTC) de la última actividad. Sirve para purgar sesiones inactivas. La llena un disparador.';
 COMMENT ON TABLE chatbot.sesion_conversacion IS 'Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). Es efímera: se reescribe en cada turno y se purga cuando queda inactiva. No guarda imágenes.';
 COMMENT ON COLUMN chatbot.solicitud_carga.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
-COMMENT ON COLUMN chatbot.solicitud_carga.incidencia_paciente_id IS 'Incidencia a la que se le agregarán los archivos.';
+COMMENT ON COLUMN chatbot.solicitud_carga.incidencia_paciente_id IS 'Incidencia a la que se le agregarán los archivos. Nulo mientras el ciudadano aún está armando el reporte en el chat; se enlaza una sola vez cuando la incidencia se crea.';
+COMMENT ON COLUMN chatbot.solicitud_carga.sesion_id IS 'Sesión de conversación (borrador del reporte) para la que se emitió el enlace antes de que existiera la incidencia. Sin llave foránea a propósito: la purga de sesiones inactivas borra la sesión. Obligatoria mientras no haya incidencia.';
 COMMENT ON COLUMN chatbot.solicitud_carga.usuario_id IS 'Usuario (ciudadano) al que se le emitió el enlace.';
 COMMENT ON COLUMN chatbot.solicitud_carga.hash_token IS 'Huella SHA-256 del token del enlace. Es única y permite reconocer el enlace sin guardar el token.';
 COMMENT ON COLUMN chatbot.solicitud_carga.vence_en IS 'Fecha y hora (UTC) en que el enlace deja de servir. Debe ser posterior a la creación y no se puede cambiar.';
@@ -246,7 +344,7 @@ COMMENT ON COLUMN chatbot.solicitud_carga.usuario_modificacion IS 'Quién hizo l
 COMMENT ON TABLE chatbot.solicitud_carga IS 'Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. Cada fila corresponde a un enlace firmado emitido por el bot: guarda a qué incidencia pertenece, cuándo vence y cuántos archivos y bytes se permiten. Nunca guarda el token, solo su huella. No se borra: se cierra.
 
 Relaciones:
-- incidencia_paciente_id → chatbot.incidencia_paciente: Cada solicitud de carga pertenece a una incidencia. Sirve para saber qué archivos corresponden a qué reclamo.
+- incidencia_paciente_id → chatbot.incidencia_paciente: Cada solicitud de carga termina perteneciendo a una incidencia (hasta entonces queda nula y se identifica por la sesión). Sirve para saber qué archivos corresponden a qué reclamo.
 - usuario_id → chatbot.usuario: Cada solicitud se emite a un usuario. Sirve para vincular el enlace con el ciudadano que escribió al bot.';
 COMMENT ON COLUMN chatbot.usuario.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 COMMENT ON COLUMN chatbot.usuario.wa_id IS 'Id del chat de WhatsApp (dato de Meta; es un identificador opaco, no un teléfono). Es la clave de negocio del usuario.';
@@ -272,18 +370,22 @@ COMMENT ON COLUMN gestion.rol.id IS 'Identificador numérico pequeño y fijo del
 COMMENT ON COLUMN gestion.rol.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN gestion.rol.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
 COMMENT ON COLUMN gestion.rol.descripcion IS 'Explicación opcional de qué significa el valor.';
+COMMENT ON COLUMN gestion.rol.tipo_area_id IS 'Tipo de área a la que pertenece el rol. Nulo para los roles que valen en cualquier área (administrador y gestor). Si el usuario tiene área, el tipo del rol debe coincidir con el de su área.';
 COMMENT ON COLUMN gestion.rol.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
 COMMENT ON COLUMN gestion.rol.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
 COMMENT ON COLUMN gestion.rol.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
 COMMENT ON COLUMN gestion.rol.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN gestion.rol.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN gestion.rol.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON TABLE gestion.rol IS 'Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva) y una por cada área competente (denuncias por corrupción, quejas y reclamos). El revisor está retirado (activo = false) y no se asigna a nadie. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.';
+COMMENT ON TABLE gestion.rol IS 'Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área, solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
+
+Relaciones:
+- tipo_area_id → catalogo.tipo_area: Garantiza que el tipo de área del rol sea uno del catálogo. Sirve para exigir que el área del usuario sea de ese tipo.';
 COMMENT ON COLUMN gestion.rol_categoria.rol_id IS 'Rol al que se le permite ver la categoría.';
 COMMENT ON COLUMN gestion.rol_categoria.categoria_incidencia_id IS 'Categoría de incidencia que el rol puede ver.';
 COMMENT ON COLUMN gestion.rol_categoria.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
 COMMENT ON COLUMN gestion.rol_categoria.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
-COMMENT ON TABLE gestion.rol_categoria IS 'Qué categorías de incidencia puede ver cada rol. Las áreas ven solo su categoría (la de corrupción solo la ven su área y el administrador); el gestor ve lo no sensible para revisarlo y derivarlo. Las filas del rol retirado (revisor) se conservan y no cuentan: solo valen las de roles activos. Solo se inserta; la aplicación aplica la regla al listar.
+COMMENT ON TABLE gestion.rol_categoria IS 'Qué categorías de incidencia puede ver cada rol. OTRANS ve solo las denuncias por corrupción (que además solo ve el administrador); el gestor ve lo no sensible para revisarlo y derivarlo; establecimiento y DIRIS ven quejas y reclamos. La base rechaza dar una categoría sensible a un rol de establecimiento o de DIRIS. Solo se inserta (no se modifica ni se borra); la aplicación aplica la regla al listar.
 
 Relaciones:
 - categoria_incidencia_id → catalogo.categoria_incidencia: Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría.
@@ -305,6 +407,7 @@ Relaciones:
 COMMENT ON COLUMN gestion.usuario_interno.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 COMMENT ON COLUMN gestion.usuario_interno.nombre_completo IS 'Nombre completo de la persona.';
 COMMENT ON COLUMN gestion.usuario_interno.correo IS 'Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.';
+COMMENT ON COLUMN gestion.usuario_interno.area_id IS 'Área a la que pertenece el usuario. Opcional. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área.';
 COMMENT ON COLUMN gestion.usuario_interno.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
 COMMENT ON COLUMN gestion.usuario_interno.eliminado_en IS 'Fecha y hora (UTC) del borrado lógico. Nulo mientras la fila está activa.';
 COMMENT ON COLUMN gestion.usuario_interno.eliminado_por IS 'Quién hizo el borrado lógico. Nulo mientras la fila está activa.';
@@ -314,7 +417,10 @@ COMMENT ON COLUMN gestion.usuario_interno.usuario_creacion IS 'Quién creó la f
 COMMENT ON COLUMN gestion.usuario_interno.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN gestion.usuario_interno.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON COLUMN gestion.usuario_interno.password_hash IS 'Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato.';
-COMMENT ON TABLE gestion.usuario_interno IS 'Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla se cierran todas sus sesiones.';
+COMMENT ON TABLE gestion.usuario_interno IS 'Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla o cambiarle el área se cierran todas sus sesiones.
+
+Relaciones:
+- area_id → catalogo.area: Ubica al usuario interno en un área del catálogo. Sirve para dirigirle los casos de su área.';
 COMMENT ON COLUMN gestion.usuario_rol.usuario_interno_id IS 'Usuario interno que recibe el rol.';
 COMMENT ON COLUMN gestion.usuario_rol.rol_id IS 'Rol que se le asigna.';
 COMMENT ON COLUMN gestion.usuario_rol.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';

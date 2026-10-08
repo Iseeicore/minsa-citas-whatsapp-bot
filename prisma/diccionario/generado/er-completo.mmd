@@ -1,33 +1,53 @@
 erDiagram
+    area |o--o{ area : "padre_id"
+    tipo_area ||--o{ area : "tipo_area_id"
+    area ||--o{ establecimiento_salud : "area_id"
+    nivel_atencion |o--o{ establecimiento_salud : "nivel_atencion_id"
     estado_archivo ||--o{ archivo_recibido : "estado_archivo_id"
     evidencia |o--o{ archivo_recibido : "evidencia_id"
     solicitud_carga ||--o{ archivo_recibido : "solicitud_carga_id"
     incidencia_paciente ||--o{ evidencia : "incidencia_paciente_id"
     mensaje |o--o{ evidencia : "mensaje_id"
     tipo_evidencia ||--o{ evidencia : "tipo_evidencia_id"
+    area |o--o{ incidencia_analisis : "area_mencionada_id"
+    incidencia_paciente ||--o{ incidencia_analisis : "incidencia_paciente_id"
+    area |o--o{ incidencia_paciente : "area_destino_id"
     canal_origen ||--o{ incidencia_paciente : "canal_origen_id"
     categoria_incidencia |o--o{ incidencia_paciente : "categoria_id"
     categoria_incidencia |o--o{ incidencia_paciente : "categoria_ia_id"
+    establecimiento_salud |o--o{ incidencia_paciente : "establecimiento_id"
     estado_incidencia ||--o{ incidencia_paciente : "estado_incidencia_id"
     mensaje |o--o{ incidencia_paciente : "mensaje_id"
+    motivo_archivo |o--o{ incidencia_paciente : "motivo_archivo_id"
     usuario ||--o{ incidencia_paciente : "usuario_id"
     incidencia_paciente ||--o{ incidencia_paciente_auditoria : "incidencia_paciente_id"
     direccion_mensaje ||--o{ mensaje : "direccion_mensaje_id"
     estado_mensaje ||--o{ mensaje : "estado_mensaje_id"
     tipo_mensaje ||--o{ mensaje : "tipo_mensaje_id"
     usuario ||--o{ mensaje : "usuario_id"
-    incidencia_paciente ||--o{ solicitud_carga : "incidencia_paciente_id"
+    incidencia_paciente |o--o{ solicitud_carga : "incidencia_paciente_id"
     usuario ||--o{ solicitud_carga : "usuario_id"
     estado_conversacion ||--o{ usuario : "estado_conversacion_id"
+    tipo_area |o--o{ rol : "tipo_area_id"
     categoria_incidencia ||--o{ rol_categoria : "categoria_incidencia_id"
     rol ||--o{ rol_categoria : "rol_id"
     usuario_interno ||--o{ sesion_usuario : "usuario_interno_id"
+    area |o--o{ usuario_interno : "area_id"
     rol ||--o{ usuario_rol : "rol_id"
     usuario_interno ||--o{ usuario_rol : "usuario_interno_id"
     categoria_incidencia ||--o{ entrenamiento_categoria : "categoria_final_id"
     categoria_incidencia ||--o{ entrenamiento_categoria : "categoria_ia_id"
     incidencia_paciente ||--o{ entrenamiento_categoria : "incidencia_paciente_id"
 
+    area {
+        int id PK
+        text codigo
+        text nombre
+        smallint tipo_area_id FK
+        int padre_id FK
+        boolean activo
+        bloque auditoria
+    }
     canal_origen {
         smallint id PK
         text codigo
@@ -50,6 +70,21 @@ erDiagram
         text codigo
         text nombre
         text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    establecimiento_salud {
+        int id PK
+        text codigo_renipress
+        text nombre
+        text nombre_busqueda
+        smallint nivel_atencion_id FK
+        text categoria
+        text departamento
+        text provincia
+        text distrito
+        text red
+        int area_id FK
         boolean activo
         bloque auditoria
     }
@@ -82,6 +117,31 @@ erDiagram
         text codigo
         text nombre
         text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    motivo_archivo {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    nivel_atencion {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
+    tipo_area {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean recibe_sensibles
         boolean activo
         bloque auditoria
     }
@@ -135,6 +195,16 @@ erDiagram
         timestamptz fecha_recepcion
         bloque auditoria
     }
+    incidencia_analisis {
+        uuid incidencia_paciente_id PK, FK
+        text version_reglas
+        smallint puntaje
+        jsonb senales
+        text cargo_mencionado
+        int area_mencionada_id FK
+        text nombre_mencionado
+        bloque auditoria
+    }
     incidencia_paciente {
         uuid id PK
         smallint canal_origen_id FK
@@ -159,6 +229,14 @@ erDiagram
         text resolucion
         timestamptz resuelto_en
         text resuelto_por
+        int establecimiento_id FK
+        int area_destino_id FK
+        timestamptz derivado_en
+        text derivado_por
+        timestamptz tomado_en
+        text tomado_por
+        smallint motivo_archivo_id FK
+        timestamptz archivado_en
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
@@ -197,6 +275,7 @@ erDiagram
     solicitud_carga {
         uuid id PK
         uuid incidencia_paciente_id FK
+        uuid sesion_id
         uuid usuario_id FK
         text hash_token
         timestamptz vence_en
@@ -224,6 +303,7 @@ erDiagram
         text codigo
         text nombre
         text descripcion
+        smallint tipo_area_id FK
         boolean activo
         bloque auditoria
     }
@@ -244,6 +324,7 @@ erDiagram
         uuid id PK
         text nombre_completo
         text correo
+        int area_id FK
         boolean activo
         timestamptz eliminado_en
         text eliminado_por

@@ -28,27 +28,44 @@ END $$;
 
 DO $$
 BEGIN
+  ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM catalogo.tipo_area)
+         = '1:ESTABLECIMIENTO,2:OTRANS,3:DIRIS,4:INSTITUTO,5:ORGANISMO', 'D22 tipos de area';
+  ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM catalogo.nivel_atencion) = '1:I,2:II,3:III', 'D23 niveles de atencion';
+  ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM catalogo.motivo_archivo)
+         = '1:RESUELTA_VIGENCIA,2:VENCIDA_SIN_ATENDER,3:DATOS_INSUFICIENTES', 'D24 motivos de archivo';
+END $$;
+
+DO $$
+BEGIN
   ASSERT (SELECT string_agg(codigo, ',' ORDER BY id) FROM gestion.rol)
-         = 'ADMINISTRADOR,GESTOR,REVISOR,AREA_DENUNCIA_CORRUPCION,AREA_QUEJA,AREA_RECLAMO', 'D12 roles';
+         = 'ADMINISTRADOR,GESTOR,OTRANS,ESTABLECIMIENTO,DIRIS', 'D12 roles';
+  ASSERT (SELECT string_agg(codigo, ',' ORDER BY id) FROM gestion.rol WHERE activo) = 'ADMINISTRADOR,GESTOR,OTRANS,ESTABLECIMIENTO',
+    'D12 el rol DIRIS nace desactivado';
   ASSERT (SELECT count(*) FROM gestion.usuario_interno) = 0, 'D13 la migracion no crea personas: el primer administrador va aparte';
+
+  ASSERT (SELECT string_agg(r.codigo || '=' || coalesce(ta.codigo, '-'), ',' ORDER BY r.id) FROM gestion.rol r LEFT JOIN catalogo.tipo_area ta ON ta.id = r.tipo_area_id)
+         = 'ADMINISTRADOR=-,GESTOR=-,OTRANS=OTRANS,ESTABLECIMIENTO=ESTABLECIMIENTO,DIRIS=DIRIS', 'D25 tipo de area de cada rol';
 
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
-           WHERE r.codigo = 'AREA_DENUNCIA_CORRUPCION') = 'DENUNCIA_CORRUPCION', 'D14 el area de corrupcion ve solo corrupcion';
+           WHERE r.codigo = 'ADMINISTRADOR') = 'DENUNCIA_CORRUPCION,QUEJA,RECLAMO,OTRO', 'D14 el administrador ve todas las categorias';
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
-           WHERE r.codigo = 'AREA_QUEJA') = 'QUEJA', 'D15 el area de quejas ve solo quejas';
+           WHERE r.codigo = 'GESTOR') = 'QUEJA,RECLAMO,OTRO', 'D15 el gestor ve lo no sensible para derivarlo';
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
-           WHERE r.codigo = 'AREA_RECLAMO') = 'RECLAMO', 'D16 el area de reclamos ve solo reclamos';
+           WHERE r.codigo = 'OTRANS') = 'DENUNCIA_CORRUPCION', 'D16 OTRANS ve solo corrupcion';
+  ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
+            JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
+           WHERE r.codigo = 'ESTABLECIMIENTO') = 'QUEJA,RECLAMO', 'D17 el establecimiento ve quejas y reclamos';
+  ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
+            JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
+           WHERE r.codigo = 'DIRIS') = 'QUEJA,RECLAMO', 'D18 la DIRIS ve quejas y reclamos';
   ASSERT (SELECT string_agg(r.codigo, ',' ORDER BY r.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id AND r.activo
-           WHERE rc.categoria_incidencia_id = 1) = 'ADMINISTRADOR,AREA_DENUNCIA_CORRUPCION',
-    'D17 la denuncia por corrupcion la ven solo el administrador y su area (no el gestor ni el revisor retirado)';
-  ASSERT (SELECT count(*) FROM gestion.rol_categoria rc JOIN gestion.rol r ON r.id = rc.rol_id
-           WHERE r.codigo = 'GESTOR' AND rc.categoria_incidencia_id = 4) = 1, 'D18 el gestor ve lo no clasificable para derivarlo';
-  ASSERT (SELECT count(*) FROM gestion.rol_categoria rc JOIN gestion.rol r ON r.id = rc.rol_id WHERE r.codigo = 'ADMINISTRADOR') = 4,
-    'D19 el administrador ve todas las categorias';
+           WHERE rc.categoria_incidencia_id = 1) = 'ADMINISTRADOR,OTRANS',
+    'D19 la denuncia por corrupcion la ven solo el administrador y OTRANS';
+  ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 12, 'D19 en total hay 12 permisos de categoria';
   ASSERT (SELECT usuario_creacion FROM gestion.rol_categoria LIMIT 1) = 'sistema:migracion', 'D20 la migracion firma lo que carga';
 END $$;
 
@@ -58,8 +75,8 @@ ON CONFLICT (id) DO UPDATE SET descripcion = EXCLUDED.descripcion;
 INSERT INTO gestion.rol_categoria (rol_id, categoria_incidencia_id) VALUES (1, 1) ON CONFLICT (rol_id, categoria_incidencia_id) DO NOTHING;
 DO $$
 BEGIN
-  ASSERT (SELECT count(*) FROM gestion.rol) = 6, 'D21 repetir la carga no duplica roles';
-  ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 14, 'D21 repetir la carga no duplica permisos';
+  ASSERT (SELECT count(*) FROM gestion.rol) = 5, 'D21 repetir la carga no duplica roles';
+  ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 12, 'D21 repetir la carga no duplica permisos';
 END $$;
 
 \echo TODAS LAS PRUEBAS DE DATOS INICIALES PASARON

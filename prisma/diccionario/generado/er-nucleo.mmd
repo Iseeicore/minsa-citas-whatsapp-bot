@@ -3,11 +3,12 @@ erDiagram
     solicitud_carga ||--o{ archivo_recibido : "solicitud_carga_id"
     incidencia_paciente ||--o{ evidencia : "incidencia_paciente_id"
     mensaje |o--o{ evidencia : "mensaje_id"
+    incidencia_paciente ||--o{ incidencia_analisis : "incidencia_paciente_id"
     mensaje |o--o{ incidencia_paciente : "mensaje_id"
     usuario ||--o{ incidencia_paciente : "usuario_id"
     incidencia_paciente ||--o{ incidencia_paciente_auditoria : "incidencia_paciente_id"
     usuario ||--o{ mensaje : "usuario_id"
-    incidencia_paciente ||--o{ solicitud_carga : "incidencia_paciente_id"
+    incidencia_paciente |o--o{ solicitud_carga : "incidencia_paciente_id"
     usuario ||--o{ solicitud_carga : "usuario_id"
     rol ||--o{ rol_categoria : "rol_id"
     usuario_interno ||--o{ sesion_usuario : "usuario_interno_id"
@@ -49,6 +50,16 @@ erDiagram
         timestamptz fecha_recepcion
         bloque auditoria
     }
+    incidencia_analisis {
+        uuid incidencia_paciente_id PK, FK
+        text version_reglas
+        smallint puntaje
+        jsonb senales
+        text cargo_mencionado
+        int area_mencionada_id FK "catalogo area"
+        text nombre_mencionado
+        bloque auditoria
+    }
     incidencia_paciente {
         uuid id PK
         smallint canal_origen_id FK "catalogo canal_origen"
@@ -73,6 +84,14 @@ erDiagram
         text resolucion
         timestamptz resuelto_en
         text resuelto_por
+        int establecimiento_id FK "catalogo establecimiento_salud"
+        int area_destino_id FK "catalogo area"
+        timestamptz derivado_en
+        text derivado_por
+        timestamptz tomado_en
+        text tomado_por
+        smallint motivo_archivo_id FK "catalogo motivo_archivo"
+        timestamptz archivado_en
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
@@ -111,6 +130,7 @@ erDiagram
     solicitud_carga {
         uuid id PK
         uuid incidencia_paciente_id FK
+        uuid sesion_id
         uuid usuario_id FK
         text hash_token
         timestamptz vence_en
@@ -138,6 +158,7 @@ erDiagram
         text codigo
         text nombre
         text descripcion
+        smallint tipo_area_id FK "catalogo tipo_area"
         boolean activo
         bloque auditoria
     }
@@ -158,6 +179,7 @@ erDiagram
         uuid id PK
         text nombre_completo
         text correo
+        int area_id FK "catalogo area"
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
