@@ -83,7 +83,7 @@
       }
     },
     "chatbot.incidencia_paciente": {
-      "descripcion": "Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión y el archivado registran con quién y cuándo, y lo llena la base. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.",
+      "descripcion": "Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión, el archivado y la reapertura registran con quién y cuándo, y lo llena la base. La resolución son tres campos (medidas tomadas, fundamento y resultado) que se registran juntos, una sola vez. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.",
       "columnas": {
         "canal_origen_id": "Canal por el que llegó (WhatsApp o web).",
         "usuario_id": "Usuario que presentó el reporte.",
@@ -93,7 +93,7 @@
         "dni_reclamante": "DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo.",
         "nombre_reclamante": "Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo.",
         "descripcion": "Relato del paciente. Es el texto que analiza la IA. No se puede modificar.",
-        "estado_incidencia_id": "Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde REGISTRADO o CLASIFICADO, por datos insuficientes, que archiva el filtro del sistema o una persona.",
+        "estado_incidencia_id": "Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde un estado abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION), por un motivo manual (datos insuficientes o no corresponde) con su justificación, que archiva una persona (el filtro del sistema solo por datos insuficientes y desde REGISTRADO o CLASIFICADO). Un caso ARCHIVADO por un motivo manual o por vencimiento puede reabrirse a EN_GESTION; uno archivado por vigencia de la resolución, no.",
         "trace_id": "Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte.",
         "categoria_id": "Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida.",
         "categoria_ia_id": "Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo.",
@@ -104,8 +104,10 @@
         "categoria_corregida_por": "Quién corrigió la categoría. La llena la base.",
         "categoria_confirmada_en": "Fecha y hora (UTC) en que una persona confirmó la categoría de la IA. La aplicación solo indica la confirmación; la fecha la fija la base. Se confirma una sola vez y no si ya fue corregida.",
         "categoria_confirmada_por": "Quién confirmó la categoría. La llena la base.",
-        "resolucion": "Resolución que se dio al asunto. Se registra una sola vez.",
-        "resuelto_en": "Fecha y hora (UTC) en que se registró la resolución. La llena la base.",
+        "medidas_tomadas": "Qué medidas se tomaron para atender el caso (10 caracteres o más). Es una de las tres partes de la resolución, junto con el fundamento y el resultado: las tres se registran juntas, una sola vez, y con ellas el caso pasa a RESUELTO.",
+        "fundamento": "Por qué se tomaron esas medidas o se resolvió así (10 caracteres o más). Se registra junto con las medidas y el resultado.",
+        "resultado_resolucion_id": "Resultado de la resolución: ATENDIDO o CERRADO. Se registra junto con las medidas y el fundamento.",
+        "resuelto_en": "Fecha y hora (UTC) en que se registró la resolución (medidas, fundamento y resultado). La llena la base.",
         "resuelto_por": "Quién registró la resolución. La llena la base.",
         "codigo": "Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada.",
         "establecimiento_id": "Establecimiento de salud donde ocurrió el hecho (dato de origen). Opcional. Una vez asignado no se puede cambiar; solo la carga de datos de la migración puede completarlo cuando estaba vacío.",
@@ -114,8 +116,12 @@
         "derivado_por": "Quién derivó el caso. La llena la base con el actor declarado.",
         "tomado_en": "Fecha y hora (UTC) en que el caso pasó a EN_GESTION. La llena la base.",
         "tomado_por": "Quién tomó el caso en gestión. La llena la base con el actor declarado.",
-        "motivo_archivo_id": "Por qué se archivó el caso. Nulo mientras no esté archivado. La base lo deduce (resuelto: vigencia cumplida; vencido sin resolución: sin atender); solo el archivado por datos insuficientes lo indica quien archiva.",
-        "archivado_en": "Fecha y hora (UTC) en que el caso pasó a ARCHIVADO. La llena la base."
+        "motivo_archivo_id": "Por qué se archivó el caso. Nulo mientras no esté archivado. La base lo deduce en los archivados automáticos (resuelto: vigencia cumplida; vencido sin resolución: sin atender); en los manuales (datos insuficientes o no corresponde) lo indica quien archiva, una persona o, solo por datos insuficientes, el filtro del sistema.",
+        "archivado_en": "Fecha y hora (UTC) en que el caso pasó a ARCHIVADO. La llena la base. Se limpia al reabrir el caso.",
+        "archivo_detalle": "Justificación escrita de quien archivó el caso (10 caracteres o más). Obligatoria en los motivos manuales (datos insuficientes y no corresponde); en los automáticos puede quedar vacía. Se limpia al reabrir el caso; el historial queda en la auditoría.",
+        "reabierto_en": "Fecha y hora (UTC) en que el caso se reabrió por última vez (de ARCHIVADO a EN_GESTION). La llena la base. Nulo si nunca se reabrió.",
+        "reabierto_por": "Quién reabrió el caso la última vez. La llena la base con el actor declarado.",
+        "reabierto_motivo": "Por qué se reabrió el caso (10 caracteres o más). Obligatorio al reabrir. Solo se reabre un caso archivado por datos insuficientes, no corresponde o vencido sin atender, nunca uno archivado por vigencia de la resolución. El historial de reaperturas queda en la auditoría."
       }
     },
     "chatbot.contador_codigo_incidencia": {
@@ -165,7 +171,7 @@
       }
     },
     "ia.entrenamiento_categoria": {
-      "descripcion": "Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. Registrar también las confirmaciones permite medir cuánto acierta el modelo y calibrar su puntaje. La llena un disparador y solo se inserta.",
+      "descripcion": "Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. Registrar también las confirmaciones permite medir cuánto acierta el modelo y calibrar su puntaje. La llena un disparador y solo se inserta; lo único que cambia después es apto_entrenamiento, que la base baja cuando el caso se archiva por un motivo manual.",
       "columnas": {
         "incidencia_paciente_id": "Incidencia cuya categoría se revisó.",
         "texto_entrenamiento": "Copia del relato del paciente en el momento de la revisión. En la primera etapa va sin depurar; ver la lista de la segunda etapa.",
@@ -175,7 +181,8 @@
         "categoria_confianza": "Puntaje de confianza que había dado la IA a su categoría.",
         "version_clasificador": "Versión del clasificador que produjo la categoría de la IA.",
         "revisado_por": "Quién revisó, con el formato tipo:detalle.",
-        "fecha_revision": "Fecha y hora (UTC) de la revisión."
+        "fecha_revision": "Fecha y hora (UTC) de la revisión.",
+        "apto_entrenamiento": "Verdadero si la fila puede usarse para entrenar al modelo. La base la pone en falso cuando el caso se archiva por un motivo manual (datos insuficientes o no corresponde) y vuelve a verdadero si el caso se reabre. Es lo único de esta tabla que cambia, y solo lo cambia la base."
       }
     },
     "gestion.usuario_interno": {
@@ -250,7 +257,11 @@
       }
     },
     "catalogo.motivo_archivo": {
-      "descripcion": "Por qué se archivó una incidencia: resuelta con la vigencia cumplida, vencida sin atender o con datos insuficientes para gestionarla.",
+      "descripcion": "Por qué se archivó una incidencia: resuelta con la vigencia cumplida, vencida sin atender (ambos automáticos), con datos insuficientes para gestionarla o porque no corresponde (ambos manuales, con justificación escrita).",
+      "columnas": {}
+    },
+    "catalogo.resultado_resolucion": {
+      "descripcion": "Resultado con que se resuelve un caso: atendido (se tomaron medidas) o cerrado (se cierra sin más gestión).",
       "columnas": {}
     },
     "catalogo.tipo_area": {
@@ -337,6 +348,7 @@
     "fk_incidencia_paciente_area_destino": "Garantiza que el área de destino sea una del catálogo. Sirve para listar lo que debe atender cada área.",
     "fk_incidencia_paciente_establecimiento_salud": "Garantiza que el establecimiento de origen sea uno del padrón. Sirve para listar los casos por establecimiento.",
     "fk_incidencia_paciente_motivo_archivo": "Garantiza que el motivo sea uno del catálogo. Sirve para saber por qué se archivó un caso.",
+    "fk_incidencia_paciente_resultado_resolucion": "Garantiza que el resultado de la resolución sea uno del catálogo (atendido o cerrado). Sirve para contar los casos por cómo se resolvieron.",
     "fk_rol_tipo_area": "Garantiza que el tipo de área del rol sea uno del catálogo. Sirve para exigir que el área del usuario sea de ese tipo.",
     "fk_usuario_interno_area": "Ubica al usuario interno en un área del catálogo. Sirve para dirigirle los casos de su área."
   },
@@ -345,7 +357,7 @@
     "fn_auditoria_creacion": "Al insertar: llena la fecha y el usuario de creación.",
     "fn_fecha_modificacion": "Al modificar: actualiza la fecha de modificación.",
     "fn_bloquear_operacion": "Impide operaciones: en tablas de solo inserción bloquea modificar y borrar; en tablas con borrado lógico bloquea el borrado físico.",
-    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar, y asignada sola para los casos sensibles) y motivo de archivado. Llena las fechas y actores que son de la base.",
+    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar, y asignada sola para los casos sensibles), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.",
     "fn_historial_incidencia": "Después de insertar o modificar, guarda el cambio en el historial.",
     "fn_replicar_categoria_entrenamiento": "Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.",
     "fn_reglas_solicitud_carga": "Hace cumplir las reglas de la solicitud de carga: los datos de emisión (incidencia, usuario, huella del token, vencimiento y límites) no cambian y la solicitud se cierra una sola vez, con la fecha de la base.",
@@ -355,8 +367,10 @@
     "fn_reglas_usuario_rol": "Impide asignar un rol desactivado a un usuario interno y un rol cuyo tipo de área no coincide con el área del usuario.",
     "fn_asignar_codigo_incidencia": "Al insertar una incidencia le pone su código y descarta el que haya enviado quien inserta.",
     "fn_reglas_contador_codigo": "Impide borrar filas del contador de códigos, cambiar su año o bajar el último correlativo.",
-    "fn_reglas_incidencia_ins": "Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma o archivado.",
+    "fn_reglas_incidencia_ins": "Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma, archivado o reapertura.",
     "fn_reglas_rol_categoria": "Impide dar una categoría sensible a un rol de establecimiento o de DIRIS.",
-    "fn_reglas_usuario_interno_area": "Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área."
+    "fn_reglas_usuario_interno_area": "Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área.",
+    "fn_marcar_entrenamiento_archivo": "Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.",
+    "fn_reglas_entrenamiento_categoria": "Hace de solo inserción la tabla de entrenamiento: impide borrar y modificar, salvo apto_entrenamiento, que solo cambia desde el disparador de la incidencia al archivar o reabrir el caso."
   }
 }

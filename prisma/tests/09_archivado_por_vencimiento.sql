@@ -47,7 +47,7 @@ BEGIN
     UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE id = v_id;
   END IF;
   IF p_estado = 'RESUELTO' THEN
-    UPDATE chatbot.incidencia_paciente SET resolucion = 'Atendido' WHERE id = v_id;
+    UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se atendio el caso', fundamento = 'Caso procedente', resultado_resolucion_id = 1 WHERE id = v_id;
   END IF;
 END;
 $$;
@@ -105,7 +105,7 @@ BEGIN
   ASSERT (SELECT count(DISTINCT a.incidencia_paciente_id) FROM chatbot.incidencia_paciente_auditoria a JOIN chatbot.incidencia_paciente i ON i.id = a.incidencia_paciente_id
            WHERE i.trace_id LIKE 'venc-%' AND a.actor = 'sistema:vencimiento' AND a.cambios ? 'estado_incidencia_id') = 5,
     'V18 el historial guarda el archivado por vencimiento de las cinco';
-  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'venc-%' AND estado_incidencia_id = 7 AND resolucion IS NULL) = 5,
+  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'venc-%' AND estado_incidencia_id = 7 AND medidas_tomadas IS NULL) = 5,
     'V19 un archivado por vencimiento se reconoce porque nunca tuvo resolucion';
 
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente i JOIN catalogo.motivo_archivo m ON m.id = i.motivo_archivo_id
@@ -116,7 +116,7 @@ BEGIN
 END $$;
 
 SELECT set_config('app.actor', 'operador:gestor', false);
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 'venc-B'$q$, '23514', 'V21 un archivado por vencimiento no vuelve atras');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 'venc-B'$q$, '23514', 'V21 un archivado por vencimiento no se reabre sin motivo');
 
 TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;

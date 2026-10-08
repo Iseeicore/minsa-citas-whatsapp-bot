@@ -213,6 +213,24 @@ model MotivoArchivo {
   @@schema("catalogo")
 }
 
+model ResultadoResolucion {
+  id                  Int      @id(map: "pk_resultado_resolucion") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_resultado_resolucion_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidencias IncidenciaPaciente[]
+
+  @@map("resultado_resolucion")
+  @@schema("catalogo")
+}
+
 model Area {
   id                  Int      @id(map: "pk_area") @default(autoincrement())
   codigo              String   @unique(map: "uq_area_codigo")
@@ -347,7 +365,9 @@ model IncidenciaPaciente {
   categoriaCorregidaPor  String?   @map("categoria_corregida_por")
   categoriaConfirmadaEn  DateTime? @map("categoria_confirmada_en") @db.Timestamptz(3)
   categoriaConfirmadaPor String?   @map("categoria_confirmada_por")
-  resolucion             String?
+  medidasTomadas         String?   @map("medidas_tomadas")
+  fundamento             String?
+  resultadoResolucionId  Int?      @map("resultado_resolucion_id") @db.SmallInt
   resueltoEn             DateTime? @map("resuelto_en") @db.Timestamptz(3)
   resueltoPor            String?   @map("resuelto_por")
   activo                 Boolean   @default(true)
@@ -367,23 +387,28 @@ model IncidenciaPaciente {
   tomadoPor              String?   @map("tomado_por")
   motivoArchivoId        Int?      @map("motivo_archivo_id") @db.SmallInt
   archivadoEn            DateTime? @map("archivado_en") @db.Timestamptz(3)
+  archivoDetalle         String?   @map("archivo_detalle")
+  reabiertoEn            DateTime? @map("reabierto_en") @db.Timestamptz(3)
+  reabiertoPor           String?   @map("reabierto_por")
+  reabiertoMotivo        String?   @map("reabierto_motivo")
 
-  canalOrigen      CanalOrigen                   @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
-  usuario          Usuario                       @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")
-  mensaje          Mensaje?                      @relation(fields: [mensajeId], references: [id], map: "fk_incidencia_paciente_mensaje")
-  estadoIncidencia EstadoIncidencia              @relation(fields: [estadoIncidenciaId], references: [id], map: "fk_incidencia_paciente_estado_incidencia")
-  categoria        CategoriaIncidencia?          @relation("IncidenciaCategoria", fields: [categoriaId], references: [id], map: "fk_incidencia_paciente_categoria")
-  categoriaIa      CategoriaIncidencia?          @relation("IncidenciaCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_incidencia_paciente_categoria_ia")
-  establecimiento  EstablecimientoSalud?         @relation(fields: [establecimientoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_establecimiento_salud")
-  areaDestino      Area?                         @relation("IncidenciaAreaDestino", fields: [areaDestinoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_area_destino")
-  motivoArchivo    MotivoArchivo?                @relation(fields: [motivoArchivoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_motivo_archivo")
-  analisis         IncidenciaAnalisis?
-  evidencias       Evidencia[]
-  auditoria        IncidenciaPacienteAuditoria[]
-  entrenamientos   EntrenamientoCategoria[]
-  solicitudesCarga SolicitudCarga[]
+  canalOrigen         CanalOrigen                   @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
+  usuario             Usuario                       @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")
+  mensaje             Mensaje?                      @relation(fields: [mensajeId], references: [id], map: "fk_incidencia_paciente_mensaje")
+  estadoIncidencia    EstadoIncidencia              @relation(fields: [estadoIncidenciaId], references: [id], map: "fk_incidencia_paciente_estado_incidencia")
+  categoria           CategoriaIncidencia?          @relation("IncidenciaCategoria", fields: [categoriaId], references: [id], map: "fk_incidencia_paciente_categoria")
+  categoriaIa         CategoriaIncidencia?          @relation("IncidenciaCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_incidencia_paciente_categoria_ia")
+  establecimiento     EstablecimientoSalud?         @relation(fields: [establecimientoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_establecimiento_salud")
+  areaDestino         Area?                         @relation("IncidenciaAreaDestino", fields: [areaDestinoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_area_destino")
+  motivoArchivo       MotivoArchivo?                @relation(fields: [motivoArchivoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_motivo_archivo")
+  resultadoResolucion ResultadoResolucion?          @relation(fields: [resultadoResolucionId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_resultado_resolucion")
+  analisis            IncidenciaAnalisis?
+  evidencias          Evidencia[]
+  auditoria           IncidenciaPacienteAuditoria[]
+  entrenamientos      EntrenamientoCategoria[]
+  solicitudesCarga    SolicitudCarga[]
 
-  // Índices parciales (bandeja por área destino, abiertas) y CHECK de derivación, toma y archivo: solo en la migración.
+  // Índices parciales (bandeja por área destino, abiertas) y CHECK de derivación, toma, archivo, reapertura y resolución: solo en la migración.
   @@index([establecimientoId, fechaCreacion], map: "ix_incidencia_paciente_origen_fecha")
   @@index([estadoIncidenciaId, fechaCreacion], map: "ix_incidencia_paciente_estado_fecha")
   @@index([usuarioId, fechaCreacion], map: "ix_incidencia_paciente_usuario_fecha")
@@ -486,6 +511,7 @@ model EntrenamientoCategoria {
   versionClasificador  String?  @map("version_clasificador")
   revisadoPor          String   @map("revisado_por")
   fechaRevision        DateTime @map("fecha_revision") @db.Timestamptz(3)
+  aptoEntrenamiento    Boolean  @default(true) @map("apto_entrenamiento")
   fechaCreacion        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   usuarioCreacion      String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
 

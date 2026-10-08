@@ -92,7 +92,13 @@ $$;
 --   - un caso de categoria sensible solo puede estar en un area cuyo tipo reciba casos sensibles: la base la asigna sola si
 --     existe una unica, tambien cuando la categoria se corrige despues de derivar;
 --   - archivar exige motivo: RESUELTA_VIGENCIA (desde RESUELTO), VENCIDA_SIN_ATENDER (caso abierto, solo sistema:vencimiento) o
---     DATOS_INSUFICIENTES (desde REGISTRADO o CLASIFICADO, por sistema:filtro o una persona, y lo indica quien archiva).
+--     un motivo manual que lo indica quien archiva, siempre con una justificacion escrita (archivo_detalle, 10 caracteres o
+--     mas): DATOS_INSUFICIENTES (una persona, o sistema:filtro desde REGISTRADO o CLASIFICADO) y NO_CORRESPONDE (una persona),
+--     ambos desde un caso abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION);
+--   - reabrir: ARCHIVADO -> EN_GESTION solo si el motivo fue DATOS_INSUFICIENTES, NO_CORRESPONDE o VENCIDA_SIN_ATENDER (nunca
+--     RESUELTA_VIGENCIA) y con un motivo de reapertura de 10 caracteres o mas; la base limpia el archivado y registra quien,
+--     cuando y por que (el historial completo queda en la auditoria);
+--   - la resolucion son tres campos (medidas tomadas, fundamento y resultado) que se registran juntos, una sola vez.
 CREATE OR REPLACE FUNCTION public.fn_reglas_incidencia() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -103,6 +109,8 @@ DECLARE
   v_area integer;
   v_motivo smallint;
   v_motivo_codigo text;
+  v_archiva boolean := NEW.estado_incidencia_id = 7 AND OLD.estado_incidencia_id <> 7;
+  v_reabre boolean := OLD.estado_incidencia_id = 7 AND NEW.estado_incidencia_id <> 7;
 BEGIN
   IF NEW.canal_origen_id IS DISTINCT FROM OLD.canal_origen_id
      OR NEW.usuario_id IS DISTINCT FROM OLD.usuario_id
@@ -142,14 +150,26 @@ BEGIN
      OR NEW.derivado_por IS DISTINCT FROM OLD.derivado_por
      OR NEW.tomado_en IS DISTINCT FROM OLD.tomado_en
      OR NEW.tomado_por IS DISTINCT FROM OLD.tomado_por
-     OR NEW.archivado_en IS DISTINCT FROM OLD.archivado_en THEN
-    RAISE EXCEPTION 'incidencia_paciente: las fechas y actores de derivacion, toma y archivado los llena la base'
+     OR (NEW.archivado_en IS DISTINCT FROM OLD.archivado_en AND NOT v_reabre)
+     OR NEW.reabierto_en IS DISTINCT FROM OLD.reabierto_en
+     OR NEW.reabierto_por IS DISTINCT FROM OLD.reabierto_por THEN
+    RAISE EXCEPTION 'incidencia_paciente: las fechas y actores de derivacion, toma, archivado y reapertura los llena la base'
       USING ERRCODE = 'check_violation';
   END IF;
 
   IF NEW.motivo_archivo_id IS DISTINCT FROM OLD.motivo_archivo_id
-     AND NOT (OLD.motivo_archivo_id IS NULL AND NEW.estado_incidencia_id = 7 AND OLD.estado_incidencia_id <> 7) THEN
+     AND NOT (OLD.motivo_archivo_id IS NULL AND v_archiva) AND NOT v_reabre THEN
     RAISE EXCEPTION 'incidencia_paciente: el motivo de archivo solo se indica al archivar el caso'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.archivo_detalle IS DISTINCT FROM OLD.archivo_detalle AND NOT (OLD.archivo_detalle IS NULL AND v_archiva) AND NOT v_reabre THEN
+    RAISE EXCEPTION 'incidencia_paciente: la justificacion del archivo solo se indica al archivar el caso'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.reabierto_motivo IS DISTINCT FROM OLD.reabierto_motivo AND NOT v_reabre THEN
+    RAISE EXCEPTION 'incidencia_paciente: el motivo de la reapertura solo se indica al reabrir el caso'
       USING ERRCODE = 'check_violation';
   END IF;
 
@@ -209,11 +229,20 @@ BEGIN
     NEW.categoria_confirmada_por := v_actor;
   END IF;
 
-  IF OLD.resolucion IS NOT NULL AND NEW.resolucion IS DISTINCT FROM OLD.resolucion THEN
+  IF OLD.medidas_tomadas IS NOT NULL
+     AND (NEW.medidas_tomadas IS DISTINCT FROM OLD.medidas_tomadas
+          OR NEW.fundamento IS DISTINCT FROM OLD.fundamento
+          OR NEW.resultado_resolucion_id IS DISTINCT FROM OLD.resultado_resolucion_id) THEN
     RAISE EXCEPTION 'incidencia_paciente: la resolucion solo se registra una vez'
       USING ERRCODE = 'check_violation';
   END IF;
-  IF OLD.resolucion IS NULL AND NEW.resolucion IS NOT NULL THEN
+  IF OLD.medidas_tomadas IS NULL
+     AND (NEW.medidas_tomadas IS NOT NULL OR NEW.fundamento IS NOT NULL OR NEW.resultado_resolucion_id IS NOT NULL) THEN
+    IF NEW.medidas_tomadas IS NULL OR NEW.fundamento IS NULL OR NEW.resultado_resolucion_id IS NULL
+       OR char_length(btrim(NEW.medidas_tomadas)) < 10 OR char_length(btrim(NEW.fundamento)) < 10 THEN
+      RAISE EXCEPTION 'incidencia_paciente: la resolucion exige las medidas tomadas y el fundamento (10 caracteres o mas cada uno) y un resultado'
+        USING ERRCODE = 'check_violation';
+    END IF;
     IF NEW.estado_incidencia_id NOT IN (OLD.estado_incidencia_id, 4) THEN
       RAISE EXCEPTION 'incidencia_paciente: al registrar la resolucion el estado pasa a RESUELTO'
         USING ERRCODE = 'check_violation';
@@ -223,21 +252,21 @@ BEGIN
     NEW.estado_incidencia_id := 4;
   END IF;
 
-  IF NEW.estado_incidencia_id = 4 AND OLD.estado_incidencia_id <> 4 AND NEW.resolucion IS NULL THEN
+  IF NEW.estado_incidencia_id = 4 AND OLD.estado_incidencia_id <> 4 AND NEW.medidas_tomadas IS NULL THEN
     RAISE EXCEPTION 'incidencia_paciente: RESUELTO se alcanza al registrar la resolucion'
       USING ERRCODE = 'check_violation';
   END IF;
 
   IF NEW.estado_incidencia_id IS DISTINCT FROM OLD.estado_incidencia_id
      AND (OLD.estado_incidencia_id, NEW.estado_incidencia_id)
-         NOT IN ((1, 2), (1, 4), (2, 3), (2, 4), (2, 6), (3, 4), (6, 3), (6, 4), (4, 7), (1, 7), (2, 7), (3, 7), (6, 7)) THEN
+         NOT IN ((1, 2), (1, 4), (2, 3), (2, 4), (2, 6), (3, 4), (6, 3), (6, 4), (4, 7), (1, 7), (2, 7), (3, 7), (6, 7), (7, 3)) THEN
     RAISE EXCEPTION 'incidencia_paciente: transicion de estado no permitida (% a %)', OLD.estado_incidencia_id, NEW.estado_incidencia_id
       USING ERRCODE = 'check_violation';
   END IF;
 
-  IF NEW.estado_incidencia_id = 7 AND OLD.estado_incidencia_id <> 7 THEN
+  IF v_archiva THEN
     v_motivo := NEW.motivo_archivo_id;
-    IF v_motivo IS NULL AND NEW.resolucion IS NOT NULL THEN
+    IF v_motivo IS NULL AND NEW.medidas_tomadas IS NOT NULL THEN
       SELECT id INTO v_motivo FROM catalogo.motivo_archivo WHERE codigo = 'RESUELTA_VIGENCIA';
     ELSIF v_motivo IS NULL AND v_actor = 'sistema:vencimiento' THEN
       SELECT id INTO v_motivo FROM catalogo.motivo_archivo WHERE codigo = 'VENCIDA_SIN_ATENDER';
@@ -247,14 +276,23 @@ BEGIN
       RAISE EXCEPTION 'incidencia_paciente: archivar un caso exige un motivo de archivo'
         USING ERRCODE = 'check_violation';
     END IF;
-    IF v_motivo_codigo = 'DATOS_INSUFICIENTES' THEN
-      IF OLD.estado_incidencia_id NOT IN (1, 2) OR NOT (v_actor = 'sistema:filtro' OR v_actor LIKE 'usuario:%') THEN
-        RAISE EXCEPTION 'incidencia_paciente: por datos insuficientes solo se archiva desde REGISTRADO o CLASIFICADO, y lo hace el filtro o una persona'
+    IF v_motivo_codigo IN ('DATOS_INSUFICIENTES', 'NO_CORRESPONDE') THEN
+      IF OLD.estado_incidencia_id NOT IN (1, 2, 3, 6) THEN
+        RAISE EXCEPTION 'incidencia_paciente: un archivado manual solo se hace desde un caso abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION)'
+          USING ERRCODE = 'check_violation';
+      END IF;
+      IF NOT (v_actor LIKE 'usuario:%'
+              OR (v_motivo_codigo = 'DATOS_INSUFICIENTES' AND v_actor = 'sistema:filtro' AND OLD.estado_incidencia_id IN (1, 2))) THEN
+        RAISE EXCEPTION 'incidencia_paciente: un archivado manual (datos insuficientes o no corresponde) lo hace una persona; el filtro del sistema solo archiva por datos insuficientes desde REGISTRADO o CLASIFICADO'
+          USING ERRCODE = 'check_violation';
+      END IF;
+      IF NEW.archivo_detalle IS NULL OR char_length(btrim(NEW.archivo_detalle)) < 10 THEN
+        RAISE EXCEPTION 'incidencia_paciente: un archivado manual exige una justificacion de 10 caracteres o mas'
           USING ERRCODE = 'check_violation';
       END IF;
     ELSIF OLD.estado_incidencia_id IN (1, 2, 3, 6) THEN
       IF v_actor <> 'sistema:vencimiento' THEN
-        RAISE EXCEPTION 'incidencia_paciente: un caso abierto solo se archiva por vencimiento del plazo de atencion, y lo hace el sistema'
+        RAISE EXCEPTION 'incidencia_paciente: un caso abierto solo se archiva por vencimiento del plazo de atencion (lo hace el sistema) o por un motivo manual con justificacion'
           USING ERRCODE = 'check_violation';
       END IF;
       IF v_motivo_codigo <> 'VENCIDA_SIN_ATENDER' THEN
@@ -267,6 +305,23 @@ BEGIN
     END IF;
     NEW.motivo_archivo_id := v_motivo;
     NEW.archivado_en := now();
+  END IF;
+
+  IF v_reabre THEN
+    SELECT codigo INTO v_motivo_codigo FROM catalogo.motivo_archivo WHERE id = OLD.motivo_archivo_id;
+    IF v_motivo_codigo IS NULL OR v_motivo_codigo NOT IN ('DATOS_INSUFICIENTES', 'NO_CORRESPONDE', 'VENCIDA_SIN_ATENDER') THEN
+      RAISE EXCEPTION 'incidencia_paciente: solo se reabre un caso archivado por datos insuficientes, porque no corresponde o por vencimiento sin atender'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.reabierto_motivo IS NULL OR char_length(btrim(NEW.reabierto_motivo)) < 10 THEN
+      RAISE EXCEPTION 'incidencia_paciente: reabrir un caso exige un motivo de 10 caracteres o mas'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    NEW.reabierto_en := now();
+    NEW.reabierto_por := v_actor;
+    NEW.archivado_en := NULL;
+    NEW.motivo_archivo_id := NULL;
+    NEW.archivo_detalle := NULL;
   END IF;
 
   IF NEW.area_destino_id IS DISTINCT FROM OLD.area_destino_id THEN
@@ -329,6 +384,29 @@ $$;
 ALTER TABLE chatbot.incidencia_paciente
   ADD CONSTRAINT ck_incidencia_paciente_motivo_archivo CHECK ((estado_incidencia_id = 7) = (motivo_archivo_id IS NOT NULL));
 
+-- Entrenamiento: al archivar un caso con un motivo manual (datos insuficientes o no corresponde) sus filas de entrenamiento
+-- dejan de ser aptas; al reabrirlo vuelven a serlo. Solo esta funcion puede cambiar apto_entrenamiento.
+CREATE OR REPLACE FUNCTION public.fn_marcar_entrenamiento_archivo() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+BEGIN
+  IF NEW.estado_incidencia_id = 7 THEN
+    IF EXISTS (SELECT 1 FROM catalogo.motivo_archivo WHERE id = NEW.motivo_archivo_id AND codigo IN ('DATOS_INSUFICIENTES', 'NO_CORRESPONDE')) THEN
+      UPDATE ia.entrenamiento_categoria SET apto_entrenamiento = false
+       WHERE incidencia_paciente_id = NEW.id AND apto_entrenamiento;
+    END IF;
+  ELSE
+    UPDATE ia.entrenamiento_categoria SET apto_entrenamiento = true
+     WHERE incidencia_paciente_id = NEW.id AND NOT apto_entrenamiento;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER trg_incidencia_paciente_e_entrenamiento_archivo AFTER UPDATE ON chatbot.incidencia_paciente
+  FOR EACH ROW WHEN (OLD.estado_incidencia_id IS DISTINCT FROM NEW.estado_incidencia_id
+                 AND (NEW.estado_incidencia_id = 7 OR OLD.estado_incidencia_id = 7))
+  EXECUTE FUNCTION public.fn_marcar_entrenamiento_archivo();
+
 CREATE TRIGGER trg_contador_codigo_incidencia_b_fecha BEFORE UPDATE ON chatbot.contador_codigo_incidencia
   FOR EACH ROW EXECUTE FUNCTION public.fn_fecha_modificacion();
 
@@ -355,7 +433,7 @@ COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_creacion IS 'Fecha y 
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_modificacion IS 'Fecha y hora (UTC) del último código entregado ese año. La llena un disparador.';
 COMMENT ON TABLE chatbot.contador_codigo_incidencia IS 'Último correlativo usado en cada año para el código de las incidencias. Una fila por año, que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.codigo IS 'Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada.';
-COMMENT ON TABLE chatbot.incidencia_paciente IS 'Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión y el archivado registran con quién y cuándo, y lo llena la base. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.
+COMMENT ON TABLE chatbot.incidencia_paciente IS 'Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión, el archivado y la reapertura registran con quién y cuándo, y lo llena la base. La resolución son tres campos (medidas tomadas, fundamento y resultado) que se registran juntos, una sola vez. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.
 
 Relaciones:
 - area_destino_id → catalogo.area: Garantiza que el área de destino sea una del catálogo. Sirve para listar lo que debe atender cada área.
@@ -380,10 +458,16 @@ COMMENT ON FUNCTION public.fn_asignar_codigo_incidencia() IS
 COMMENT ON FUNCTION public.fn_reglas_contador_codigo() IS
   'Impide borrar filas del contador de códigos, cambiar su año o bajar el último correlativo.';
 
-COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde REGISTRADO o CLASIFICADO, por datos insuficientes, que archiva el filtro del sistema o una persona.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde un estado abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION), por un motivo manual (datos insuficientes o no corresponde) con su justificación, que archiva una persona (el filtro del sistema solo por datos insuficientes y desde REGISTRADO o CLASIFICADO). Un caso ARCHIVADO por un motivo manual o por vencimiento puede reabrirse a EN_GESTION; uno archivado por vigencia de la resolución, no.';
 
 COMMENT ON FUNCTION public.fn_reglas_incidencia() IS
-  'Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar, y asignada sola para los casos sensibles) y motivo de archivado. Llena las fechas y actores que son de la base.';
+  'Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar, y asignada sola para los casos sensibles), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.';
+
+COMMENT ON FUNCTION public.fn_marcar_entrenamiento_archivo() IS
+  'Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.';
+
+COMMENT ON FUNCTION public.fn_reglas_entrenamiento_categoria() IS
+  'Hace de solo inserción la tabla de entrenamiento: impide borrar y modificar, salvo apto_entrenamiento, que solo cambia desde el disparador de la incidencia al archivar o reabrir el caso.';
 
 COMMENT ON FUNCTION public.fn_reglas_incidencia_ins() IS
-  'Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma o archivado.';
+  'Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma, archivado o reapertura.';

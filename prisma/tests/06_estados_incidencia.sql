@@ -71,10 +71,10 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_inc
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 2 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E08 una persona no archiva a mano un caso abierto como vencido');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 4 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E09 RESUELTO exige registrar la resolucion');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 5 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E10 ANULADO ya no es un destino valido');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET resolucion = 'ok', estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E11 al resolver el estado solo puede ser RESUELTO');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'ok medidas largas', fundamento = 'ok fundamento largo', resultado_resolucion_id = 1, estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E11 al resolver el estado solo puede ser RESUELTO');
 
-UPDATE chatbot.incidencia_paciente SET resolucion = 'Se atendio el reclamo' WHERE trace_id = 'trace-estados-A';
-UPDATE chatbot.incidencia_paciente SET resolucion = 'Resuelta sin IA' WHERE trace_id = 'trace-estados-B';
+UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se atendio el reclamo', fundamento = 'El reclamo era procedente', resultado_resolucion_id = 1 WHERE trace_id = 'trace-estados-A';
+UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Resuelta sin IA', fundamento = 'No hizo falta la IA', resultado_resolucion_id = 2 WHERE trace_id = 'trace-estados-B';
 DO $$
 DECLARE r chatbot.incidencia_paciente;
 BEGIN

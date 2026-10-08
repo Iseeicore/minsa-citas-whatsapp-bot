@@ -9,6 +9,7 @@ import { EstadoIncidenciaId } from "@/lib/enums/estado-incidencia-id";
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { MotivoArchivoId } from "@/lib/enums/motivo-archivo-id";
 import { NivelAtencionId } from "@/lib/enums/nivel-atencion-id";
+import { ResultadoResolucionId } from "@/lib/enums/resultado-resolucion-id";
 import { TipoAreaId } from "@/lib/enums/tipo-area-id";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
@@ -26,6 +27,7 @@ const contratos: Array<{ catalogo: string; enumeracion: Record<string, string | 
   { catalogo: "tipo_area", enumeracion: TipoAreaId, filas: () => prisma.tipoArea.findMany({ select: { id: true, codigo: true } }) },
   { catalogo: "nivel_atencion", enumeracion: NivelAtencionId, filas: () => prisma.nivelAtencion.findMany({ select: { id: true, codigo: true } }) },
   { catalogo: "motivo_archivo", enumeracion: MotivoArchivoId, filas: () => prisma.motivoArchivo.findMany({ select: { id: true, codigo: true } }) },
+  { catalogo: "resultado_resolucion", enumeracion: ResultadoResolucionId, filas: () => prisma.resultadoResolucion.findMany({ select: { id: true, codigo: true } }) },
   { catalogo: "canal_origen",enumeracion: CanalOrigenId, filas: () => prisma.canalOrigen.findMany({ select: { id: true, codigo: true } }) },
   { catalogo: "tipo_evidencia", enumeracion: TipoEvidenciaId, filas: () => prisma.tipoEvidencia.findMany({ select: { id: true, codigo: true } }) },
   { catalogo: "direccion_mensaje", enumeracion: DireccionMensajeId, filas: () => prisma.direccionMensaje.findMany({ select: { id: true, codigo: true } }) },

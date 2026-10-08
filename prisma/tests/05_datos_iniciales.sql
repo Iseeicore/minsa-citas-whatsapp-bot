@@ -32,7 +32,9 @@ BEGIN
          = '1:ESTABLECIMIENTO,2:OTRANS,3:DIRIS,4:INSTITUTO,5:ORGANISMO', 'D22 tipos de area';
   ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM catalogo.nivel_atencion) = '1:I,2:II,3:III', 'D23 niveles de atencion';
   ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM catalogo.motivo_archivo)
-         = '1:RESUELTA_VIGENCIA,2:VENCIDA_SIN_ATENDER,3:DATOS_INSUFICIENTES', 'D24 motivos de archivo';
+         = '1:RESUELTA_VIGENCIA,2:VENCIDA_SIN_ATENDER,3:DATOS_INSUFICIENTES,4:NO_CORRESPONDE', 'D24 motivos de archivo';
+  ASSERT (SELECT string_agg(id || ':' || codigo, ',' ORDER BY id) FROM catalogo.resultado_resolucion)
+         = '1:ATENDIDO,2:CERRADO', 'D24b resultados de la resolucion';
 END $$;
 
 DO $$

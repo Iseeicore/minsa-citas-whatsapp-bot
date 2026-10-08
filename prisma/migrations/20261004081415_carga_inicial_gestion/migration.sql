@@ -113,11 +113,11 @@ BEGIN
     NEW.categoria_confirmada_por := v_actor;
   END IF;
 
-  IF OLD.resolucion IS NOT NULL AND NEW.resolucion IS DISTINCT FROM OLD.resolucion THEN
+  IF OLD.medidas_tomadas IS NOT NULL AND NEW.medidas_tomadas IS DISTINCT FROM OLD.medidas_tomadas THEN
     RAISE EXCEPTION 'incidencia_paciente: la resolucion solo se registra una vez'
       USING ERRCODE = 'check_violation';
   END IF;
-  IF OLD.resolucion IS NULL AND NEW.resolucion IS NOT NULL THEN
+  IF OLD.medidas_tomadas IS NULL AND NEW.medidas_tomadas IS NOT NULL THEN
     IF NEW.estado_incidencia_id NOT IN (OLD.estado_incidencia_id, 4) THEN
       RAISE EXCEPTION 'incidencia_paciente: al registrar la resolucion el estado pasa a RESUELTO'
         USING ERRCODE = 'check_violation';
@@ -127,7 +127,7 @@ BEGIN
     NEW.estado_incidencia_id := 4;
   END IF;
 
-  IF NEW.estado_incidencia_id = 4 AND OLD.estado_incidencia_id <> 4 AND NEW.resolucion IS NULL THEN
+  IF NEW.estado_incidencia_id = 4 AND OLD.estado_incidencia_id <> 4 AND NEW.medidas_tomadas IS NULL THEN
     RAISE EXCEPTION 'incidencia_paciente: RESUELTO se alcanza al registrar la resolucion'
       USING ERRCODE = 'check_violation';
   END IF;

@@ -42,7 +42,7 @@ BEGIN
            WHERE i.trace_id LIKE 'seed-dev-%' AND a.actor = 'sistema:archivado') = 2, 'D18 el historial guarda el archivado por vigencia hecho por el sistema';
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente_auditoria a JOIN chatbot.incidencia_paciente i ON i.id = a.incidencia_paciente_id
            WHERE i.trace_id LIKE 'seed-dev-%' AND a.actor = 'sistema:vencimiento') = 1, 'D19 el historial guarda el archivado por vencimiento';
-  ASSERT (SELECT estado_incidencia_id = 7 AND resolucion IS NULL FROM chatbot.incidencia_paciente WHERE trace_id = 'seed-dev-010'),
+  ASSERT (SELECT estado_incidencia_id = 7 AND medidas_tomadas IS NULL FROM chatbot.incidencia_paciente WHERE trace_id = 'seed-dev-010'),
     'D20 la incidencia 10 se archivo por vencer su plazo, sin resolucion';
 END $$;
 

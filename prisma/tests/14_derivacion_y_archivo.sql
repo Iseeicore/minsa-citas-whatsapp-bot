@@ -56,7 +56,7 @@ BEGIN
     UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = p_traza;
   END IF;
   IF p_estado = 'RESUELTO' THEN
-    UPDATE chatbot.incidencia_paciente SET resolucion = 'Atendido' WHERE trace_id = p_traza;
+    UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se atendio el caso', fundamento = 'Caso procedente', resultado_resolucion_id = 1 WHERE trace_id = p_traza;
   END IF;
 END;
 $$;
@@ -115,7 +115,7 @@ END $$;
 
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'T14-EESS-2') WHERE trace_id = 't14-queja'$q$, '23514', 'X11 en gestion el area ya no se reasigna');
 
-UPDATE chatbot.incidencia_paciente SET resolucion = 'Se atendio la queja' WHERE trace_id = 't14-queja';
+UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se atendio la queja', fundamento = 'La queja era procedente', resultado_resolucion_id = 1 WHERE trace_id = 't14-queja';
 DO $$
 BEGIN
   ASSERT (SELECT estado_incidencia_id = 4 AND resuelto_por = 'usuario:est-14' FROM chatbot.incidencia_paciente WHERE trace_id = 't14-queja'), 'X12 el area resuelve y la base firma';
@@ -204,9 +204,9 @@ SELECT pg_temp.nuevo('t14-persona-registrado', '9141', NULL);
 SELECT pg_temp.nuevo('t14-persona-clasificado', '9141', 3);
 
 SELECT set_config('app.actor', 'sistema:filtro', false);
-UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id = 't14-filtro';
+UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id = 't14-filtro';
 SELECT set_config('app.actor', 'usuario:gestor-14', false);
-UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id IN ('t14-persona-registrado', 't14-persona-clasificado');
+UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id IN ('t14-persona-registrado', 't14-persona-clasificado');
 DO $$
 BEGIN
   ASSERT (SELECT bool_and(estado_incidencia_id = 7 AND motivo_archivo_id = 3 AND archivado_en IS NOT NULL) FROM chatbot.incidencia_paciente
@@ -227,16 +227,20 @@ SELECT pg_temp.nuevo('t14-rechazo-resuelto', '9141', 3);
 SELECT pg_temp.llevar('t14-rechazo-resuelto', 'RESUELTO');
 
 SELECT set_config('app.actor', 'sistema:vencimiento', false);
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id = 't14-rechazo-registrado'$q$, '23514', 'Z03 el vencimiento no archiva por datos insuficientes');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id = 't14-rechazo-registrado'$q$, '23514', 'Z03 el vencimiento no archiva por datos insuficientes');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 1 WHERE trace_id = 't14-rechazo-clasificado'$q$, '23514', 'Z04 un caso abierto vencido no se archiva como resuelto');
 SELECT set_config('app.actor', 'sistema:archivado', false);
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id = 't14-rechazo-registrado'$q$, '23514', 'Z05 el archivador de resueltas no archiva por datos insuficientes');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id = 't14-rechazo-registrado'$q$, '23514', 'Z05 el archivador de resueltas no archiva por datos insuficientes');
 SELECT set_config('app.actor', 'operador:gestor', false);
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id = 't14-rechazo-registrado'$q$, '23514', 'Z06 solo sistema:filtro o usuario:% archivan por datos insuficientes');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id = 't14-rechazo-registrado'$q$, '23514', 'Z06 solo sistema:filtro o usuario:% archivan por datos insuficientes');
 SELECT set_config('app.actor', 'usuario:gestor-14', false);
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id = 't14-rechazo-derivado'$q$, '23514', 'Z07 un caso derivado no se archiva por datos insuficientes');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id = 't14-rechazo-gestion'$q$, '23514', 'Z08 un caso en gestion no se archiva por datos insuficientes');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3 WHERE trace_id = 't14-rechazo-resuelto'$q$, '23514', 'Z09 un caso resuelto no se archiva por datos insuficientes');
+UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id IN ('t14-rechazo-derivado', 't14-rechazo-gestion');
+DO $$
+BEGIN
+  ASSERT (SELECT bool_and(estado_incidencia_id = 7 AND motivo_archivo_id = 3) FROM chatbot.incidencia_paciente WHERE trace_id IN ('t14-rechazo-derivado', 't14-rechazo-gestion')),
+    'Z07 un caso derivado o en gestion si se archiva a mano por datos insuficientes, con su justificacion (ver tambien tests/17)';
+END $$;
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id = 't14-rechazo-resuelto'$q$, '23514', 'Z09 un caso resuelto no se archiva por datos insuficientes');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 2 WHERE trace_id = 't14-rechazo-clasificado'$q$, '23514', 'Z10 una persona no archiva como vencido');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 1 WHERE trace_id = 't14-rechazo-clasificado'$q$, '23514', 'Z11 una persona no archiva un caso abierto como resuelto');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7 WHERE trace_id = 't14-rechazo-clasificado'$q$, '23514', 'Z12 archivar sin motivo falla');

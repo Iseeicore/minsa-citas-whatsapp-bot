@@ -120,13 +120,18 @@ BEGIN
 
   IF p_estado = 'RESUELTO' THEN
     PERFORM set_config('app.actor', 'operador:area', false);
-    UPDATE chatbot.incidencia_paciente SET resolucion = p_resolucion WHERE id = v_id;
+    UPDATE chatbot.incidencia_paciente
+       SET medidas_tomadas = p_resolucion,
+           fundamento = 'La atencion corresponde a lo reportado por el paciente',
+           resultado_resolucion_id = (SELECT id FROM catalogo.resultado_resolucion WHERE codigo = 'ATENDIDO')
+     WHERE id = v_id;
   END IF;
 
   IF p_archivo = 'DATOS_INSUFICIENTES' THEN
     PERFORM set_config('app.actor', 'sistema:filtro', false);
     UPDATE chatbot.incidencia_paciente
-       SET estado_incidencia_id = 7, motivo_archivo_id = (SELECT id FROM catalogo.motivo_archivo WHERE codigo = 'DATOS_INSUFICIENTES')
+       SET estado_incidencia_id = 7, motivo_archivo_id = (SELECT id FROM catalogo.motivo_archivo WHERE codigo = 'DATOS_INSUFICIENTES'),
+           archivo_detalle = 'El mensaje no describe ninguna queja ni reclamo'
      WHERE id = v_id;
   END IF;
 END;
