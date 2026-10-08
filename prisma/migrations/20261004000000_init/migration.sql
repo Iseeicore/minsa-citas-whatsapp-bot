@@ -704,6 +704,15 @@ CREATE INDEX ix_incidencia_paciente_abierta
   ON chatbot.incidencia_paciente (area_destino_id, fecha_creacion)
   WHERE activo AND estado_incidencia_id IN (1, 2, 3, 6);
 
+-- Paginacion por cursor (fecha_creacion y id, de la mas nueva a la mas vieja): uno para los roles con area y otro para los que ven todo.
+CREATE INDEX ix_incidencia_paciente_destino_cursor
+  ON chatbot.incidencia_paciente (area_destino_id, fecha_creacion DESC, id DESC)
+  WHERE activo;
+
+CREATE INDEX ix_incidencia_paciente_cursor
+  ON chatbot.incidencia_paciente (fecha_creacion DESC, id DESC)
+  WHERE activo;
+
 -- Volumen esperado: cientos de miles a millones de incidencias por mes. El espacio libre en cada pagina permite
 -- actualizaciones en el lugar (HOT) y el autovacuum se dispara antes. Las sesiones se reescriben en cada mensaje.
 ALTER TABLE chatbot.incidencia_paciente SET (fillfactor = 85, autovacuum_vacuum_scale_factor = 0.02);

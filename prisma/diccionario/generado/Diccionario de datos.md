@@ -653,6 +653,8 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 
 - `ix_incidencia_paciente_abierta`: `USING btree (area_destino_id, fecha_creacion) WHERE (activo AND (estado_incidencia_id = ANY (ARRAY[1, 2, 3, 6])))`.
 - `ix_incidencia_paciente_categoria`: `USING btree (categoria_id)`.
+- `ix_incidencia_paciente_cursor`: `USING btree (fecha_creacion DESC, id DESC) WHERE activo`.
+- `ix_incidencia_paciente_destino_cursor`: `USING btree (area_destino_id, fecha_creacion DESC, id DESC) WHERE activo`.
 - `ix_incidencia_paciente_destino_estado_fecha`: `USING btree (area_destino_id, estado_incidencia_id, fecha_creacion DESC) INCLUDE (categoria_id) WHERE activo`.
 - `ix_incidencia_paciente_estado_fecha`: `USING btree (estado_incidencia_id, fecha_creacion)`.
 - `ix_incidencia_paciente_origen_fecha`: `USING btree (establecimiento_id, fecha_creacion)`.
