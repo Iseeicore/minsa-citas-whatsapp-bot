@@ -19,6 +19,7 @@ erDiagram
     estado_incidencia ||--o{ incidencia_paciente : "estado_incidencia_id"
     mensaje |o--o{ incidencia_paciente : "mensaje_id"
     motivo_archivo |o--o{ incidencia_paciente : "motivo_archivo_id"
+    resultado_resolucion |o--o{ incidencia_paciente : "resultado_resolucion_id"
     usuario ||--o{ incidencia_paciente : "usuario_id"
     incidencia_paciente ||--o{ incidencia_paciente_auditoria : "incidencia_paciente_id"
     direccion_mensaje ||--o{ mensaje : "direccion_mensaje_id"
@@ -136,6 +137,14 @@ erDiagram
         boolean activo
         bloque auditoria
     }
+    resultado_resolucion {
+        smallint id PK
+        text codigo
+        text nombre
+        text descripcion
+        boolean activo
+        bloque auditoria
+    }
     tipo_area {
         smallint id PK
         text codigo
@@ -226,7 +235,9 @@ erDiagram
         text categoria_corregida_por
         timestamptz categoria_confirmada_en
         text categoria_confirmada_por
-        text resolucion
+        text medidas_tomadas
+        text fundamento
+        smallint resultado_resolucion_id FK
         timestamptz resuelto_en
         text resuelto_por
         int establecimiento_id FK
@@ -237,6 +248,10 @@ erDiagram
         text tomado_por
         smallint motivo_archivo_id FK
         timestamptz archivado_en
+        text archivo_detalle
+        timestamptz reabierto_en
+        text reabierto_por
+        text reabierto_motivo
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
@@ -347,5 +362,6 @@ erDiagram
         text version_clasificador
         text revisado_por
         timestamptz fecha_revision
+        boolean apto_entrenamiento
         bloque auditoria
     }

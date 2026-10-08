@@ -444,6 +444,7 @@ Relaciones:
 - estado_incidencia_id → catalogo.estado_incidencia: Garantiza que el estado sea uno del catálogo. Sirve para listar lo pendiente de cada etapa.
 - mensaje_id → chatbot.mensaje: Enlaza el reporte con el mensaje del chat del que nació. Sirve para reconstruir el contexto de la conversación.
 - motivo_archivo_id → catalogo.motivo_archivo: Garantiza que el motivo sea uno del catálogo. Sirve para saber por qué se archivó un caso.
+- resultado_resolucion_id → catalogo.resultado_resolucion: Garantiza que el resultado de la resolución sea uno del catálogo (atendido o cerrado). Sirve para contar los casos por cómo se resolvieron.
 - usuario_id → chatbot.usuario: Cada reporte lo presenta un usuario. Sirve para ver todo lo que reportó una persona.';
 
 COMMENT ON FUNCTION chatbot.generar_codigo_incidencia(timestamp with time zone) IS

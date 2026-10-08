@@ -81,7 +81,9 @@ erDiagram
         text categoria_corregida_por
         timestamptz categoria_confirmada_en
         text categoria_confirmada_por
-        text resolucion
+        text medidas_tomadas
+        text fundamento
+        smallint resultado_resolucion_id FK "catalogo resultado_resolucion"
         timestamptz resuelto_en
         text resuelto_por
         int establecimiento_id FK "catalogo establecimiento_salud"
@@ -92,6 +94,10 @@ erDiagram
         text tomado_por
         smallint motivo_archivo_id FK "catalogo motivo_archivo"
         timestamptz archivado_en
+        text archivo_detalle
+        timestamptz reabierto_en
+        text reabierto_por
+        text reabierto_motivo
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
@@ -202,5 +208,6 @@ erDiagram
         text version_clasificador
         text revisado_por
         timestamptz fecha_revision
+        boolean apto_entrenamiento
         bloque auditoria
     }

@@ -25,8 +25,9 @@
 | `catalogo.estado_conversacion` | Si la conversación con un usuario está abierta o cerrada. |
 | `catalogo.estado_incidencia` | Estados por los que pasa una incidencia: registrado, clasificado (la IA ya asignó categoría), derivado (enviado al área competente), en gestión, resuelto y archivado (a los 3 días de resuelta, o cuando un caso abierto supera el plazo de atención). |
 | `catalogo.estado_mensaje` | Estado de entrega de un mensaje enviado por WhatsApp (pendiente, enviado, entregado, leído, fallido). |
-| `catalogo.motivo_archivo` | Por qué se archivó una incidencia: resuelta con la vigencia cumplida, vencida sin atender o con datos insuficientes para gestionarla. |
+| `catalogo.motivo_archivo` | Por qué se archivó una incidencia: resuelta con la vigencia cumplida, vencida sin atender (ambos automáticos), con datos insuficientes para gestionarla o porque no corresponde (ambos manuales, con justificación escrita). |
 | `catalogo.nivel_atencion` | Nivel de atención de un establecimiento de salud (I, II o III). |
+| `catalogo.resultado_resolucion` | Resultado con que se resuelve un caso: atendido (se tomaron medidas) o cerrado (se cierra sin más gestión). |
 | `catalogo.tipo_area` | Tipo de área a la que se puede derivar una incidencia: establecimiento, OTRANS, DIRIS, instituto o sede central. |
 | `catalogo.tipo_evidencia` | Tipo de archivo adjunto como evidencia (imagen, video, documento, audio). |
 | `catalogo.tipo_mensaje` | Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla). |
@@ -40,7 +41,7 @@
 | `chatbot.sesion_conversacion` | Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). |
 | `chatbot.solicitud_carga` | Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. |
 | `chatbot.usuario` | Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. |
-| `gestion.rol` | Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). |
+| `gestion.rol` | Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y atiende los casos de su establecimiento), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). |
 | `gestion.rol_categoria` | Qué categorías de incidencia puede ver cada rol. |
 | `gestion.sesion_usuario` | Sesión abierta por un usuario interno. |
 | `gestion.usuario_interno` | Persona de la institución que gestiona los casos. |
@@ -304,7 +305,7 @@ Estado de entrega de un mensaje enviado por WhatsApp (pendiente, enviado, entreg
 
 ### `catalogo.motivo_archivo`
 
-Por qué se archivó una incidencia: resuelta con la vigencia cumplida, vencida sin atender o con datos insuficientes para gestionarla.
+Por qué se archivó una incidencia: resuelta con la vigencia cumplida, vencida sin atender (ambos automáticos), con datos insuficientes para gestionarla o porque no corresponde (ambos manuales, con justificación escrita).
 
 **Columnas**
 
@@ -349,6 +350,30 @@ Nivel de atención de un establecimiento de salud (I, II o III).
 
 - `trg_nivel_atencion_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_nivel_atencion_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+
+### `catalogo.resultado_resolucion`
+
+Resultado con que se resuelve un caso: atendido (se tomaron medidas) o cerrado (se cierra sin más gestión).
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | smallint | No | `nextval('catalogo.resultado_resolucion_id_seq'::regclass)` | PK | Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas. |
+| `codigo` | text | No |  |  | Código estable y único del valor. Es el que usa el código de la aplicación. |
+| `nombre` | text | No |  |  | Nombre legible del valor, para mostrar en pantalla. |
+| `descripcion` | text | Sí |  |  | Explicación opcional de qué significa el valor. |
+| `activo` | boolean | No | `true` |  | Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica. |
+| `version_fila` | integer | No | `1` |  | Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos. |
+| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
+| `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
+| `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
+| `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_resultado_resolucion_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+- `trg_resultado_resolucion_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 
 ### `catalogo.tipo_area`
 
@@ -574,7 +599,7 @@ Análisis automático de una incidencia (puntaje y señales de las reglas, y lo 
 
 ### `chatbot.incidencia_paciente`
 
-Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión y el archivado registran con quién y cuándo, y lo llena la base. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.
+Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión, el archivado y la reapertura registran con quién y cuándo, y lo llena la base. La resolución son tres campos (medidas tomadas, fundamento y resultado) que se registran juntos, una sola vez. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.
 
 **Columnas**
 
@@ -589,7 +614,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `dni_reclamante` | text | Sí |  |  | DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo. |
 | `nombre_reclamante` | text | Sí |  |  | Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo. |
 | `descripcion` | text | No |  |  | Relato del paciente. Es el texto que analiza la IA. No se puede modificar. |
-| `estado_incidencia_id` | smallint | No | `1` | FK | Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde REGISTRADO o CLASIFICADO, por datos insuficientes, que archiva el filtro del sistema o una persona. |
+| `estado_incidencia_id` | smallint | No | `1` | FK | Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde un estado abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION), por un motivo manual (datos insuficientes o no corresponde) con su justificación, que archiva una persona (el filtro del sistema solo por datos insuficientes y desde REGISTRADO o CLASIFICADO). Un caso ARCHIVADO por un motivo manual o por vencimiento puede reabrirse a EN_GESTION; uno archivado por vigencia de la resolución, no. |
 | `trace_id` | text | No |  |  | Identificador del turno del chat que lo originó. Es único: una reentrega de Meta no duplica el reporte. |
 | `categoria_id` | smallint | Sí |  | FK | Categoría vigente: la que asignó la IA o, si una persona la corrigió, la corregida. |
 | `categoria_ia_id` | smallint | Sí |  | FK | Categoría que asignó la IA. Se asigna una sola vez y no se modifica; queda para medir cuánto se equivoca el modelo. |
@@ -600,8 +625,10 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `categoria_corregida_por` | text | Sí |  |  | Quién corrigió la categoría. La llena la base. |
 | `categoria_confirmada_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que una persona confirmó la categoría de la IA. La aplicación solo indica la confirmación; la fecha la fija la base. Se confirma una sola vez y no si ya fue corregida. |
 | `categoria_confirmada_por` | text | Sí |  |  | Quién confirmó la categoría. La llena la base. |
-| `resolucion` | text | Sí |  |  | Resolución que se dio al asunto. Se registra una sola vez. |
-| `resuelto_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que se registró la resolución. La llena la base. |
+| `medidas_tomadas` | text | Sí |  |  | Qué medidas se tomaron para atender el caso (10 caracteres o más). Es una de las tres partes de la resolución, junto con el fundamento y el resultado: las tres se registran juntas, una sola vez, y con ellas el caso pasa a RESUELTO. |
+| `fundamento` | text | Sí |  |  | Por qué se tomaron esas medidas o se resolvió así (10 caracteres o más). Se registra junto con las medidas y el resultado. |
+| `resultado_resolucion_id` | smallint | Sí |  | FK | Resultado de la resolución: ATENDIDO o CERRADO. Se registra junto con las medidas y el fundamento. |
+| `resuelto_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que se registró la resolución (medidas, fundamento y resultado). La llena la base. |
 | `resuelto_por` | text | Sí |  |  | Quién registró la resolución. La llena la base. |
 | `establecimiento_id` | integer | Sí |  | FK | Establecimiento de salud donde ocurrió el hecho (dato de origen). Opcional. Una vez asignado no se puede cambiar; solo la carga de datos de la migración puede completarlo cuando estaba vacío. |
 | `area_destino_id` | integer | Sí |  | FK | Área a la que se derivó o se asignó el caso. La base la asigna sola cuando la categoría es sensible y existe una única área que las recibe; solo se reasigna mientras el caso está CLASIFICADO o DERIVADO, y un caso sensible solo puede estar en un área que reciba casos sensibles. |
@@ -609,8 +636,12 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `derivado_por` | text | Sí |  |  | Quién derivó el caso. La llena la base con el actor declarado. |
 | `tomado_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que el caso pasó a EN_GESTION. La llena la base. |
 | `tomado_por` | text | Sí |  |  | Quién tomó el caso en gestión. La llena la base con el actor declarado. |
-| `motivo_archivo_id` | smallint | Sí |  | FK | Por qué se archivó el caso. Nulo mientras no esté archivado. La base lo deduce (resuelto: vigencia cumplida; vencido sin resolución: sin atender); solo el archivado por datos insuficientes lo indica quien archiva. |
-| `archivado_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que el caso pasó a ARCHIVADO. La llena la base. |
+| `motivo_archivo_id` | smallint | Sí |  | FK | Por qué se archivó el caso. Nulo mientras no esté archivado. La base lo deduce en los archivados automáticos (resuelto: vigencia cumplida; vencido sin resolución: sin atender); en los manuales (datos insuficientes o no corresponde) lo indica quien archiva, una persona o, solo por datos insuficientes, el filtro del sistema. |
+| `archivado_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que el caso pasó a ARCHIVADO. La llena la base. Se limpia al reabrir el caso. |
+| `archivo_detalle` | text | Sí |  |  | Justificación escrita de quien archivó el caso (10 caracteres o más). Obligatoria en los motivos manuales (datos insuficientes y no corresponde); en los automáticos puede quedar vacía. Se limpia al reabrir el caso; el historial queda en la auditoría. |
+| `reabierto_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que el caso se reabrió por última vez (de ARCHIVADO a EN_GESTION). La llena la base. Nulo si nunca se reabrió. |
+| `reabierto_por` | text | Sí |  |  | Quién reabrió el caso la última vez. La llena la base con el actor declarado. |
+| `reabierto_motivo` | text | Sí |  |  | Por qué se reabrió el caso (10 caracteres o más). Obligatorio al reabrir. Solo se reabre un caso archivado por datos insuficientes, no corresponde o vencido sin atender, nunca uno archivado por vigencia de la resolución. El historial de reaperturas queda en la auditoría. |
 | `activo` | boolean | No | `true` |  | Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica. |
 | `eliminado_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) del borrado lógico. Nulo mientras la fila está activa. |
 | `eliminado_por` | text | Sí |  |  | Quién hizo el borrado lógico. Nulo mientras la fila está activa. |
@@ -633,19 +664,24 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `fk_incidencia_paciente_estado_incidencia` | `estado_incidencia_id` | `catalogo.estado_incidencia` | Garantiza que el estado sea uno del catálogo. Sirve para listar lo pendiente de cada etapa. |
 | `fk_incidencia_paciente_mensaje` | `mensaje_id` | `chatbot.mensaje` | Enlaza el reporte con el mensaje del chat del que nació. Sirve para reconstruir el contexto de la conversación. |
 | `fk_incidencia_paciente_motivo_archivo` | `motivo_archivo_id` | `catalogo.motivo_archivo` | Garantiza que el motivo sea uno del catálogo. Sirve para saber por qué se archivó un caso. |
+| `fk_incidencia_paciente_resultado_resolucion` | `resultado_resolucion_id` | `catalogo.resultado_resolucion` | Garantiza que el resultado de la resolución sea uno del catálogo (atendido o cerrado). Sirve para contar los casos por cómo se resolvieron. |
 | `fk_incidencia_paciente_usuario` | `usuario_id` | `chatbot.usuario` | Cada reporte lo presenta un usuario. Sirve para ver todo lo que reportó una persona. |
 
 **Restricciones**
 
 - `ck_incidencia_paciente_anonimo`: `CHECK (((NOT es_anonimo) OR ((dni_reclamante IS NULL) AND (nombre_reclamante IS NULL))))`.
 - `ck_incidencia_paciente_archivo`: `CHECK (((archivado_en IS NULL) = (motivo_archivo_id IS NULL)))`.
+- `ck_incidencia_paciente_archivo_detalle`: `CHECK (((archivo_detalle IS NULL) OR ((motivo_archivo_id IS NOT NULL) AND (char_length(btrim(archivo_detalle)) >= 10))))`.
+- `ck_incidencia_paciente_archivo_manual`: `CHECK (((motivo_archivo_id IS NULL) OR (motivo_archivo_id <> ALL (ARRAY[3, 4])) OR (archivo_detalle IS NOT NULL)))`.
 - `ck_incidencia_paciente_codigo`: `CHECK ((codigo ~ '^MINSA-[0-9]{4}-[0-9]{6,}$'::text))`.
 - `ck_incidencia_paciente_confianza`: `CHECK (((categoria_confianza IS NULL) OR ((categoria_confianza >= (0)::numeric) AND (categoria_confianza <= (100)::numeric))))`.
 - `ck_incidencia_paciente_derivacion`: `CHECK (((derivado_en IS NULL) = (derivado_por IS NULL)))`.
 - `ck_incidencia_paciente_eliminacion`: `CHECK (((activo AND (eliminado_en IS NULL) AND (eliminado_por IS NULL)) OR ((NOT activo) AND (eliminado_en IS NOT NULL) AND (eliminado_por IS NOT NULL))))`.
 - `ck_incidencia_paciente_estado`: `CHECK (((estado_incidencia_id = ANY (ARRAY[1, 4, 5, 7])) OR (categoria_ia_id IS NOT NULL)))`.
 - `ck_incidencia_paciente_motivo_archivo`: `CHECK (((estado_incidencia_id = 7) = (motivo_archivo_id IS NOT NULL)))`.
-- `ck_incidencia_paciente_resolucion`: `CHECK ((((resolucion IS NULL) = (resuelto_en IS NULL)) AND ((resolucion IS NULL) = (resuelto_por IS NULL))))`.
+- `ck_incidencia_paciente_reapertura`: `CHECK ((((reabierto_en IS NULL) = (reabierto_por IS NULL)) AND ((reabierto_en IS NULL) = (reabierto_motivo IS NULL)) AND ((reabierto_motivo IS NULL) OR (char_length(btrim(reabierto_motivo)) >= 10))))`.
+- `ck_incidencia_paciente_resolucion`: `CHECK ((((medidas_tomadas IS NULL) = (resuelto_en IS NULL)) AND ((medidas_tomadas IS NULL) = (resuelto_por IS NULL)) AND ((medidas_tomadas IS NULL) = (fundamento IS NULL)) AND ((medidas_tomadas IS NULL) = (resultado_resolucion_id IS NULL)) AND ((medidas_tomadas IS NULL) OR ((char_length(btrim(medidas_tomadas)) >= 10) AND (char_length(btrim(fundamento)) >= 10)))))`.
+- `ck_incidencia_paciente_resuelto`: `CHECK (((estado_incidencia_id <> 4) OR (medidas_tomadas IS NOT NULL)))`.
 - `ck_incidencia_paciente_revision`: `CHECK ((((categoria_confirmada_en IS NULL) = (categoria_confirmada_por IS NULL)) AND ((categoria_confirmada_en IS NULL) OR (categoria_corregida_en IS NULL))))`.
 - `ck_incidencia_paciente_toma`: `CHECK (((tomado_en IS NULL) = (tomado_por IS NULL)))`.
 
@@ -664,14 +700,15 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 
 **Reglas que aplica la base (disparadores)**
 
-- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar, y asignada sola para los casos sensibles) y motivo de archivado. Llena las fechas y actores que son de la base.
-- `trg_incidencia_paciente_a_reglas_ins` (Antes de insertar): Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma o archivado.
+- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar, y asignada sola para los casos sensibles), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.
+- `trg_incidencia_paciente_a_reglas_ins` (Antes de insertar): Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma, archivado o reapertura.
 - `trg_incidencia_paciente_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_b_codigo_ins` (Antes de insertar): Al insertar una incidencia le pone su código y descarta el que haya enviado quien inserta.
 - `trg_incidencia_paciente_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
 - `trg_incidencia_paciente_c_historial` (Después de insertar o modificar): Después de insertar o modificar, guarda el cambio en el historial.
 - `trg_incidencia_paciente_d_entrenamiento` (Después de modificar): Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.
+- `trg_incidencia_paciente_e_entrenamiento_archivo` (Después de modificar): Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.
 
 ### `chatbot.incidencia_paciente_auditoria`
 
@@ -871,7 +908,7 @@ Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. R
 
 ### `gestion.rol`
 
-Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área, solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
+Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y atiende los casos de su establecimiento), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área (todos menos el administrador), solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
 
 **Columnas**
 
@@ -881,7 +918,7 @@ Rol que puede tener un usuario interno de la plataforma de gestión: administrad
 | `codigo` | text | No |  |  | Código estable y único del valor. Es el que usa el código de la aplicación. |
 | `nombre` | text | No |  |  | Nombre legible del valor, para mostrar en pantalla. |
 | `descripcion` | text | Sí |  |  | Explicación opcional de qué significa el valor. |
-| `tipo_area_id` | smallint | Sí |  | FK | Tipo de área a la que pertenece el rol. Nulo para los roles que valen en cualquier área (administrador y gestor). Si el usuario tiene área, el tipo del rol debe coincidir con el de su área. |
+| `tipo_area_id` | smallint | Sí |  | FK | Tipo de área a la que pertenece el rol. Nulo solo para el administrador, que vale en cualquier área o sin ella. El gestor, el establecimiento y OTRANS tienen tipo de área: el usuario debe tener un área de ese tipo (el gestor, siempre un establecimiento). |
 | `activo` | boolean | No | `true` |  | Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica. |
 | `version_fila` | integer | No | `1` |  | Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos. |
 | `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
@@ -902,7 +939,7 @@ Rol que puede tener un usuario interno de la plataforma de gestión: administrad
 
 ### `gestion.rol_categoria`
 
-Qué categorías de incidencia puede ver cada rol. OTRANS ve solo las denuncias por corrupción (que además solo ve el administrador); el gestor ve lo no sensible para revisarlo y derivarlo; establecimiento y DIRIS ven quejas y reclamos. La base rechaza dar una categoría sensible a un rol de establecimiento o de DIRIS. Solo se inserta (no se modifica ni se borra); la aplicación aplica la regla al listar.
+Qué categorías de incidencia puede ver cada rol. OTRANS ve solo las denuncias por corrupción (que además solo ve el administrador); el gestor y el establecimiento ven quejas, reclamos y otros; la DIRIS ve quejas y reclamos. La base rechaza dar una categoría sensible a un rol de establecimiento o de DIRIS. Solo se inserta (no se modifica ni se borra); la aplicación aplica la regla al listar.
 
 **Columnas**
 
@@ -965,7 +1002,7 @@ Sesión abierta por un usuario interno. Su id es lo único que viaja en la cooki
 
 ### `gestion.usuario_interno`
 
-Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla o cambiarle el área se cierran todas sus sesiones.
+Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla o cambiarle el área se cierran todas sus sesiones. Un establecimiento puede tener como máximo 3 usuarios activos.
 
 **Columnas**
 
@@ -974,7 +1011,7 @@ Persona de la institución que gestiona los casos. Es distinta del usuario de Wh
 | `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
 | `nombre_completo` | text | No |  |  | Nombre completo de la persona. |
 | `correo` | text | No |  |  | Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión. |
-| `area_id` | integer | Sí |  | FK | Área a la que pertenece el usuario. Opcional. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área. |
+| `area_id` | integer | Sí |  | FK | Área a la que pertenece el usuario. Obligatoria para los roles con tipo de área (gestor, establecimiento y OTRANS); opcional para el administrador. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área. Un establecimiento admite como máximo 3 usuarios activos. |
 | `activo` | boolean | No | `true` |  | Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica. |
 | `eliminado_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) del borrado lógico. Nulo mientras la fila está activa. |
 | `eliminado_por` | text | Sí |  |  | Quién hizo el borrado lógico. Nulo mientras la fila está activa. |
@@ -1003,7 +1040,9 @@ Persona de la institución que gestiona los casos. Es distinta del usuario de Wh
 
 **Reglas que aplica la base (disparadores)**
 
-- `trg_usuario_interno_a_reglas_area` (Antes de modificar): Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área.
+- `trg_usuario_interno_a_reglas_area` (Antes de modificar): Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área, y quitarle el área si tiene alguno de esos roles.
+- `trg_usuario_interno_a_tope_ins` (Antes de insertar): Al insertar un usuario interno, reactivarlo o cambiarle el área, impide que un establecimiento tenga más de 3 usuarios activos (de cualquier rol). Las áreas que no son de un establecimiento, como OTRANS, no tienen tope.
+- `trg_usuario_interno_a_tope_upd` (Antes de modificar): Al insertar un usuario interno, reactivarlo o cambiarle el área, impide que un establecimiento tenga más de 3 usuarios activos (de cualquier rol). Las áreas que no son de un establecimiento, como OTRANS, no tienen tope.
 - `trg_usuario_interno_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_usuario_interno_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_usuario_interno_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
@@ -1032,12 +1071,12 @@ Relación entre usuarios internos y roles: un usuario puede tener varios roles y
 
 **Reglas que aplica la base (disparadores)**
 
-- `trg_usuario_rol_a_reglas_ins` (Antes de insertar): Impide asignar un rol desactivado a un usuario interno y un rol cuyo tipo de área no coincide con el área del usuario.
+- `trg_usuario_rol_a_reglas_ins` (Antes de insertar): Impide asignar un rol desactivado a un usuario interno y un rol con tipo de área a un usuario sin área o con un área de otro tipo.
 - `trg_usuario_rol_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
 
 ### `ia.entrenamiento_categoria`
 
-Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. Registrar también las confirmaciones permite medir cuánto acierta el modelo y calibrar su puntaje. La llena un disparador y solo se inserta.
+Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. Registrar también las confirmaciones permite medir cuánto acierta el modelo y calibrar su puntaje. La llena un disparador y solo se inserta; lo único que cambia después es apto_entrenamiento, que la base baja cuando el caso se archiva por un motivo manual.
 
 **Columnas**
 
@@ -1053,6 +1092,7 @@ Copia de cada categoría que una persona revisó (corrigiéndola o confirmándol
 | `version_clasificador` | text | Sí |  |  | Versión del clasificador que produjo la categoría de la IA. |
 | `revisado_por` | text | No |  |  | Quién revisó, con el formato tipo:detalle. |
 | `fecha_revision` | timestamp(3) with time zone | No |  |  | Fecha y hora (UTC) de la revisión. |
+| `apto_entrenamiento` | boolean | No | `true` |  | Verdadero si la fila puede usarse para entrenar al modelo. La base la pone en falso cuando el caso se archiva por un motivo manual (datos insuficientes o no corresponde) y vuelve a verdadero si el caso se reabre. Es lo único de esta tabla que cambia, y solo lo cambia la base. |
 | `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base. |
 | `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
 
@@ -1072,5 +1112,5 @@ Copia de cada categoría que una persona revisó (corrigiéndola o confirmándol
 **Reglas que aplica la base (disparadores)**
 
 - `trg_entrenamiento_categoria_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
-- `trg_entrenamiento_categoria_bloqueo` (Antes de borrar o modificar): Tabla de solo inserción: bloquea modificar y borrar.
+- `trg_entrenamiento_categoria_bloqueo` (Antes de borrar o modificar): Hace de solo inserción la tabla de entrenamiento: impide borrar y modificar, salvo apto_entrenamiento, que solo cambia desde el disparador de la incidencia al archivar o reabrir el caso.
 
