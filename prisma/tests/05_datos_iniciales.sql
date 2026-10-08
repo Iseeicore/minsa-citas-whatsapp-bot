@@ -43,6 +43,7 @@ BEGIN
          = 'ADMINISTRADOR,GESTOR,OTRANS,ESTABLECIMIENTO,DIRIS', 'D12 roles';
   ASSERT (SELECT string_agg(codigo, ',' ORDER BY id) FROM gestion.rol WHERE activo) = 'ADMINISTRADOR,GESTOR,OTRANS,ESTABLECIMIENTO',
     'D12 el rol DIRIS nace desactivado';
+  ASSERT (SELECT nombre FROM gestion.rol WHERE codigo = 'ESTABLECIMIENTO') = 'Responsable de establecimiento', 'D12b el rol ESTABLECIMIENTO se muestra como Responsable de establecimiento (el codigo no cambia)';
   ASSERT (SELECT count(*) FROM gestion.usuario_interno) = 0, 'D13 la migracion no crea personas: el primer administrador va aparte';
 
   ASSERT (SELECT string_agg(r.codigo || '=' || coalesce(ta.codigo, '-'), ',' ORDER BY r.id) FROM gestion.rol r LEFT JOIN catalogo.tipo_area ta ON ta.id = r.tipo_area_id)

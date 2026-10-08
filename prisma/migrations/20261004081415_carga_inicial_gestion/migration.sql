@@ -264,7 +264,7 @@ INSERT INTO gestion.rol (id, codigo, nombre, descripcion, activo, tipo_area_id) 
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'ESTABLECIMIENTO')),
   (3, 'OTRANS', 'OTRANS', 'Revisa (confirma o corrige) las denuncias por corrupción, las toma directo en gestión y las resuelve; es la única que las ve, además del administrador', true,
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'OTRANS')),
-  (4, 'ESTABLECIMIENTO', 'Establecimiento de salud', 'Hace con los casos de su establecimiento lo mismo que el gestor (quejas, reclamos y otros) y, además, gestiona los usuarios de su establecimiento', true,
+  (4, 'ESTABLECIMIENTO', 'Responsable de establecimiento', 'Hace con los casos de su establecimiento lo mismo que el gestor (quejas, reclamos y otros) y, además, gestiona los usuarios de su establecimiento', true,
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'ESTABLECIMIENTO')),
   (5, 'DIRIS', 'DIRIS', 'Atiende las quejas y los reclamos de los establecimientos de su DIRIS. Desactivado hasta que el área usuaria lo confirme', false,
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'DIRIS'));
