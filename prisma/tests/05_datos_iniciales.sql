@@ -46,20 +46,20 @@ BEGIN
   ASSERT (SELECT count(*) FROM gestion.usuario_interno) = 0, 'D13 la migracion no crea personas: el primer administrador va aparte';
 
   ASSERT (SELECT string_agg(r.codigo || '=' || coalesce(ta.codigo, '-'), ',' ORDER BY r.id) FROM gestion.rol r LEFT JOIN catalogo.tipo_area ta ON ta.id = r.tipo_area_id)
-         = 'ADMINISTRADOR=-,GESTOR=-,OTRANS=OTRANS,ESTABLECIMIENTO=ESTABLECIMIENTO,DIRIS=DIRIS', 'D25 tipo de area de cada rol';
+         = 'ADMINISTRADOR=-,GESTOR=ESTABLECIMIENTO,OTRANS=OTRANS,ESTABLECIMIENTO=ESTABLECIMIENTO,DIRIS=DIRIS', 'D25 tipo de area de cada rol: solo el administrador no tiene; el gestor pertenece a un establecimiento';
 
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
            WHERE r.codigo = 'ADMINISTRADOR') = 'DENUNCIA_CORRUPCION,QUEJA,RECLAMO,OTRO', 'D14 el administrador ve todas las categorias';
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
-           WHERE r.codigo = 'GESTOR') = 'QUEJA,RECLAMO,OTRO', 'D15 el gestor ve lo no sensible para derivarlo';
+           WHERE r.codigo = 'GESTOR') = 'QUEJA,RECLAMO,OTRO', 'D15 el gestor ve lo no sensible';
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
            WHERE r.codigo = 'OTRANS') = 'DENUNCIA_CORRUPCION', 'D16 OTRANS ve solo corrupcion';
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
-           WHERE r.codigo = 'ESTABLECIMIENTO') = 'QUEJA,RECLAMO', 'D17 el establecimiento ve quejas y reclamos';
+           WHERE r.codigo = 'ESTABLECIMIENTO') = 'QUEJA,RECLAMO,OTRO', 'D17 el establecimiento ve quejas, reclamos y otros (nunca corrupcion)';
   ASSERT (SELECT string_agg(c.codigo, ',' ORDER BY c.id) FROM gestion.rol_categoria rc
             JOIN gestion.rol r ON r.id = rc.rol_id JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
            WHERE r.codigo = 'DIRIS') = 'QUEJA,RECLAMO', 'D18 la DIRIS ve quejas y reclamos';
@@ -67,7 +67,7 @@ BEGIN
             JOIN gestion.rol r ON r.id = rc.rol_id AND r.activo
            WHERE rc.categoria_incidencia_id = 1) = 'ADMINISTRADOR,OTRANS',
     'D19 la denuncia por corrupcion la ven solo el administrador y OTRANS';
-  ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 12, 'D19 en total hay 12 permisos de categoria';
+  ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 13, 'D19 en total hay 13 permisos de categoria';
   ASSERT (SELECT usuario_creacion FROM gestion.rol_categoria LIMIT 1) = 'sistema:migracion', 'D20 la migracion firma lo que carga';
 END $$;
 
@@ -78,7 +78,7 @@ INSERT INTO gestion.rol_categoria (rol_id, categoria_incidencia_id) VALUES (1, 1
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM gestion.rol) = 5, 'D21 repetir la carga no duplica roles';
-  ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 12, 'D21 repetir la carga no duplica permisos';
+  ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 13, 'D21 repetir la carga no duplica permisos';
 END $$;
 
 \echo TODAS LAS PRUEBAS DE DATOS INICIALES PASARON

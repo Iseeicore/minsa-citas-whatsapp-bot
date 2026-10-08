@@ -24,7 +24,7 @@ BEGIN
          = 'ADMINISTRADOR:DENUNCIA_CORRUPCION,ADMINISTRADOR:QUEJA,ADMINISTRADOR:RECLAMO,ADMINISTRADOR:OTRO,'
            'GESTOR:QUEJA,GESTOR:RECLAMO,GESTOR:OTRO,'
            'OTRANS:DENUNCIA_CORRUPCION,'
-           'ESTABLECIMIENTO:QUEJA,ESTABLECIMIENTO:RECLAMO,'
+           'ESTABLECIMIENTO:QUEJA,ESTABLECIMIENTO:RECLAMO,ESTABLECIMIENTO:OTRO,'
            'DIRIS:QUEJA,DIRIS:RECLAMO',
     'G01 permisos exactos de cada rol';
 END $$;
@@ -65,13 +65,33 @@ SELECT pg_temp.dar_rol('g.ana@minsa.gob.pe', 'GESTOR');
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM gestion.usuario_rol ur JOIN gestion.usuario_interno u ON u.id = ur.usuario_interno_id WHERE u.correo IN ('g.eva@minsa.gob.pe', 'g.omar@minsa.gob.pe', 'g.ana@minsa.gob.pe')) = 4,
-    'G07 el rol coincide con el tipo de area, y administrador y gestor valen en cualquier area';
+    'G07 el rol coincide con el tipo de area: el gestor en un establecimiento y el administrador donde sea';
 END $$;
 
 SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.eva@minsa.gob.pe', 'OTRANS')$q$, '23514', 'G08 un usuario de establecimiento no recibe el rol OTRANS');
 SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.omar@minsa.gob.pe', 'ESTABLECIMIENTO')$q$, '23514', 'G09 un usuario de OTRANS no recibe el rol de establecimiento');
 SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.dora@minsa.gob.pe', 'ESTABLECIMIENTO')$q$, '23514', 'G10 un usuario de una DIRIS no recibe el rol de establecimiento');
 SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.dora@minsa.gob.pe', 'DIRIS')$q$, '23514', 'G11 el rol DIRIS esta desactivado: no se asigna ni a un usuario de una DIRIS');
+
+-- El gestor (como cualquier rol con tipo de area) exige un area del tipo de su rol
+INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash, area_id) VALUES
+  ('Sin Area', 'g.sinarea@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA', NULL);
+INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash, area_id)
+SELECT 'Gestor Mal Ubicado', 'g.malubicado@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA', a.id FROM catalogo.area a WHERE a.codigo = 'T13-DIRIS';
+INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash, area_id)
+SELECT 'Gestor En Otrans', 'g.engotrans@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA', a.id FROM catalogo.area a WHERE a.codigo = 'OTRANS';
+SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.sinarea@minsa.gob.pe', 'GESTOR')$q$, '23514', 'G12 un gestor sin area no es valido');
+SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.sinarea@minsa.gob.pe', 'ESTABLECIMIENTO')$q$, '23514', 'G13 un usuario de establecimiento sin area tampoco');
+SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.sinarea@minsa.gob.pe', 'OTRANS')$q$, '23514', 'G14 ni uno de OTRANS');
+SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.malubicado@minsa.gob.pe', 'GESTOR')$q$, '23514', 'G15 un gestor en el area de una DIRIS no es valido');
+SELECT pg_temp.espera_error($q$SELECT pg_temp.dar_rol('g.engotrans@minsa.gob.pe', 'GESTOR')$q$, '23514', 'G16 un gestor en OTRANS no es valido');
+SELECT pg_temp.dar_rol('g.sinarea@minsa.gob.pe', 'ADMINISTRADOR');
+DO $$
+BEGIN
+  ASSERT (SELECT count(*) FROM gestion.usuario_rol ur JOIN gestion.usuario_interno u ON u.id = ur.usuario_interno_id WHERE u.correo = 'g.sinarea@minsa.gob.pe') = 1,
+    'G17 el administrador si puede existir sin area';
+END $$;
+SELECT pg_temp.espera_error($q$UPDATE gestion.usuario_interno SET area_id = NULL WHERE correo = 'g.ana@minsa.gob.pe'$q$, '23514', 'G18 quitarle el area a quien es gestor se rechaza');
 
 -- Cambiar el area cierra las sesiones y respeta el tipo de area de los roles
 INSERT INTO gestion.sesion_usuario (usuario_interno_id, vence_en)
@@ -116,19 +136,37 @@ END $$;
 
 INSERT INTO gestion.sesion_usuario (usuario_interno_id, vence_en)
 SELECT u.id, now() + interval '8 hours' FROM gestion.usuario_interno u WHERE u.correo = 'g.eva@minsa.gob.pe';
-UPDATE gestion.usuario_interno SET area_id = NULL WHERE correo = 'g.eva@minsa.gob.pe';
+SELECT pg_temp.espera_error($q$UPDATE gestion.usuario_interno SET area_id = NULL WHERE correo = 'g.eva@minsa.gob.pe'$q$, '23514', 'H09a quitarle el area a quien tiene un rol con tipo de area se rechaza');
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM gestion.sesion_usuario s JOIN gestion.usuario_interno u ON u.id = s.usuario_interno_id
-           WHERE u.correo = 'g.eva@minsa.gob.pe' AND s.revocada_en IS NULL) = 0, 'H09 quitarle el area tambien cierra las sesiones';
+           WHERE u.correo = 'g.eva@minsa.gob.pe' AND s.revocada_en IS NULL) = 1, 'H09b un cambio de area rechazado no cierra la sesion nueva';
 END $$;
 
--- Administrador y gestor (roles sin tipo de area) cambian de area sin restriccion
-UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'OTRANS') WHERE correo = 'g.ana@minsa.gob.pe';
+-- Quien solo es administrador (rol sin tipo de area) cambia de area o se queda sin ella, y se le cierran las sesiones
+INSERT INTO gestion.sesion_usuario (usuario_interno_id, vence_en)
+SELECT u.id, now() + interval '8 hours' FROM gestion.usuario_interno u WHERE u.correo = 'g.sinarea@minsa.gob.pe';
+UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'OTRANS') WHERE correo = 'g.sinarea@minsa.gob.pe';
 DO $$
 BEGIN
-  ASSERT (SELECT a.codigo FROM gestion.usuario_interno u JOIN catalogo.area a ON a.id = u.area_id WHERE u.correo = 'g.ana@minsa.gob.pe') = 'OTRANS',
-    'H10 el administrador y el gestor pueden estar en cualquier area';
+  ASSERT (SELECT a.codigo FROM gestion.usuario_interno u JOIN catalogo.area a ON a.id = u.area_id WHERE u.correo = 'g.sinarea@minsa.gob.pe') = 'OTRANS',
+    'H10 el administrador puede estar en cualquier area';
+  ASSERT (SELECT count(*) FROM gestion.sesion_usuario s JOIN gestion.usuario_interno u ON u.id = s.usuario_interno_id
+           WHERE u.correo = 'g.sinarea@minsa.gob.pe' AND s.revocada_en IS NULL) = 0, 'H09 cambiar el area cierra las sesiones del administrador';
+END $$;
+UPDATE gestion.usuario_interno SET area_id = NULL WHERE correo = 'g.sinarea@minsa.gob.pe';
+DO $$
+BEGIN
+  ASSERT (SELECT area_id IS NULL FROM gestion.usuario_interno WHERE correo = 'g.sinarea@minsa.gob.pe'), 'H11 el administrador puede quedarse sin area';
+END $$;
+
+-- Ana es administradora y gestora a la vez: su rol de gestor la ata a un establecimiento
+SELECT pg_temp.espera_error($q$UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'OTRANS') WHERE correo = 'g.ana@minsa.gob.pe'$q$, '23514', 'H12 un usuario con el rol gestor no se pasa a OTRANS');
+UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'T13-EESS-B') WHERE correo = 'g.ana@minsa.gob.pe';
+DO $$
+BEGIN
+  ASSERT (SELECT a.codigo FROM gestion.usuario_interno u JOIN catalogo.area a ON a.id = u.area_id WHERE u.correo = 'g.ana@minsa.gob.pe') = 'T13-EESS-B',
+    'H13 el gestor si cambia a otro establecimiento';
 END $$;
 
 \echo TODAS LAS PRUEBAS DE ROLES POR AREA PASARON

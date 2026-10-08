@@ -92,8 +92,8 @@ BEGIN
   ASSERT (SELECT string_agg(r.codigo || '=' || coalesce(a.codigo, '-'), ',' ORDER BY u.correo)
             FROM gestion.usuario_interno u JOIN gestion.usuario_rol ur ON ur.usuario_interno_id = u.id JOIN gestion.rol r ON r.id = ur.rol_id
             LEFT JOIN catalogo.area a ON a.id = u.area_id WHERE u.correo LIKE '%@seed-dev.invalid')
-         = 'ADMINISTRADOR=-,ESTABLECIMIENTO=EESS-5614,ESTABLECIMIENTO=EESS-6206,GESTOR=-,OTRANS=OTRANS,ESTABLECIMIENTO=EESS-5946',
-    'D29 administrador y gestor sin area, OTRANS en su area y tres usuarios de establecimiento en tres establecimientos distintos';
+         = 'ADMINISTRADOR=-,ESTABLECIMIENTO=EESS-5614,ESTABLECIMIENTO=EESS-6206,GESTOR=EESS-6206,OTRANS=OTRANS,ESTABLECIMIENTO=EESS-5946',
+    'D29 administrador sin area, el gestor en un establecimiento, OTRANS en su area y tres usuarios de establecimiento en tres establecimientos distintos';
   ASSERT (SELECT bool_and(password_hash ~ '^\$argon2id\$') FROM gestion.usuario_interno WHERE correo LIKE '%@seed-dev.invalid'),
     'D30 los usuarios llevan una huella con formato Argon2id y no una clave';
   ASSERT (SELECT count(DISTINCT password_hash) FROM gestion.usuario_interno WHERE correo LIKE '%@seed-dev.invalid') = 1,

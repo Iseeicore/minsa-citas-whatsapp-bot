@@ -208,8 +208,9 @@ CREATE TRIGGER trg_rol_categoria_b_auditoria_ins BEFORE INSERT ON gestion.rol_ca
 CREATE TRIGGER trg_rol_categoria_bloqueo BEFORE UPDATE OR DELETE ON gestion.rol_categoria
   FOR EACH ROW EXECUTE FUNCTION public.fn_bloquear_operacion('todo');
 
--- Un rol desactivado no se asigna a nadie, y el tipo de area del rol debe coincidir con el del area del usuario (los roles
--- sin tipo de area, administrador y gestor, valen en cualquier area).
+-- Un rol desactivado no se asigna a nadie, y un rol con tipo de area exige que el usuario tenga un area de ese tipo (el
+-- gestor y el responsable de establecimiento pertenecen siempre a un establecimiento; solo el administrador, sin tipo de
+-- area, vale en cualquier area o sin ella).
 CREATE OR REPLACE FUNCTION public.fn_reglas_usuario_rol() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -219,11 +220,11 @@ BEGIN
   IF EXISTS (
     SELECT 1
       FROM gestion.usuario_interno u
-      JOIN catalogo.area a ON a.id = u.area_id
+      LEFT JOIN catalogo.area a ON a.id = u.area_id
       JOIN gestion.rol r ON r.id = NEW.rol_id
-     WHERE u.id = NEW.usuario_interno_id AND r.tipo_area_id IS NOT NULL AND r.tipo_area_id <> a.tipo_area_id
+     WHERE u.id = NEW.usuario_interno_id AND r.tipo_area_id IS NOT NULL AND r.tipo_area_id IS DISTINCT FROM a.tipo_area_id
   ) THEN
-    RAISE EXCEPTION 'usuario_rol: el tipo de area del rol no coincide con el area del usuario' USING ERRCODE = 'check_violation';
+    RAISE EXCEPTION 'usuario_rol: el tipo de area del rol no coincide con el area del usuario (un rol con tipo de area exige un area de ese tipo)' USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
 END;
@@ -259,22 +260,23 @@ SELECT setval(pg_get_serial_sequence('catalogo.estado_incidencia', 'id'), 7);
 -- administrador se crea con un procedimiento aparte, nunca en una migracion. El rol DIRIS nace desactivado.
 INSERT INTO gestion.rol (id, codigo, nombre, descripcion, activo, tipo_area_id) VALUES
   (1, 'ADMINISTRADOR', 'Administrador', 'Gestiona usuarios y roles; ve indicadores, métricas y análisis de todos los procesos', true, NULL),
-  (2, 'GESTOR', 'Gestor', 'Revisa la categoría que asignó la IA (la confirma o la corrige una sola vez) y deriva la incidencia al área competente; no ve las denuncias por corrupción', true, NULL),
+  (2, 'GESTOR', 'Gestor', 'Revisa la categoría que asignó la IA (la confirma o la corrige una sola vez), archiva, reabre y resuelve los casos de su establecimiento; pertenece siempre a un establecimiento y no ve las denuncias por corrupción', true,
+    (SELECT id FROM catalogo.tipo_area WHERE codigo = 'ESTABLECIMIENTO')),
   (3, 'OTRANS', 'OTRANS', 'Revisa (confirma o corrige) las denuncias por corrupción, las toma directo en gestión y las resuelve; es la única que las ve, además del administrador', true,
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'OTRANS')),
-  (4, 'ESTABLECIMIENTO', 'Establecimiento de salud', 'Atiende las quejas y los reclamos derivados al área de su establecimiento', true,
+  (4, 'ESTABLECIMIENTO', 'Establecimiento de salud', 'Hace con los casos de su establecimiento lo mismo que el gestor (quejas, reclamos y otros) y, además, gestiona los usuarios de su establecimiento', true,
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'ESTABLECIMIENTO')),
   (5, 'DIRIS', 'DIRIS', 'Atiende las quejas y los reclamos de los establecimientos de su DIRIS. Desactivado hasta que el área usuaria lo confirme', false,
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'DIRIS'));
 SELECT setval(pg_get_serial_sequence('gestion.rol', 'id'), 5);
 
--- Quien ve que: OTRANS solo ve las denuncias por corrupcion; el gestor ve lo no sensible para derivar; los establecimientos
--- y la DIRIS ven quejas y reclamos.
+-- Quien ve que: OTRANS solo ve las denuncias por corrupcion; el gestor y el responsable de establecimiento ven quejas,
+-- reclamos y otros (nunca corrupcion); la DIRIS ve quejas y reclamos.
 INSERT INTO gestion.rol_categoria (rol_id, categoria_incidencia_id) VALUES
   (1, 1), (1, 2), (1, 3), (1, 4),
   (2, 2), (2, 3), (2, 4),
   (3, 1),
-  (4, 2), (4, 3),
+  (4, 2), (4, 3), (4, 4),
   (5, 2), (5, 3);
 
 -- Descripcion de lo nuevo o cambiado (diccionario de datos dentro de la base).
@@ -286,7 +288,7 @@ COMMENT ON TABLE catalogo.estado_incidencia IS 'Estados por los que pasa una inc
 
 COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas (por ejemplo, ARCHIVADO solo desde RESUELTO). Los estados CLASIFICADO, EN_GESTION y DERIVADO exigen que la IA ya haya asignado categoría.';
 
-COMMENT ON TABLE gestion.rol IS 'Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área, solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.';
+COMMENT ON TABLE gestion.rol IS 'Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y atiende los casos de su establecimiento), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área (todos menos el administrador), solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.';
 
 COMMENT ON COLUMN gestion.rol_categoria.rol_id IS 'Rol al que se le permite ver la categoría.';
 
@@ -296,7 +298,7 @@ COMMENT ON COLUMN gestion.rol_categoria.fecha_creacion IS 'Fecha y hora (UTC) en
 
 COMMENT ON COLUMN gestion.rol_categoria.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 
-COMMENT ON TABLE gestion.rol_categoria IS 'Qué categorías de incidencia puede ver cada rol. OTRANS ve solo las denuncias por corrupción (que además solo ve el administrador); el gestor ve lo no sensible para revisarlo y derivarlo; establecimiento y DIRIS ven quejas y reclamos. La base rechaza dar una categoría sensible a un rol de establecimiento o de DIRIS. Solo se inserta (no se modifica ni se borra); la aplicación aplica la regla al listar.
+COMMENT ON TABLE gestion.rol_categoria IS 'Qué categorías de incidencia puede ver cada rol. OTRANS ve solo las denuncias por corrupción (que además solo ve el administrador); el gestor y el establecimiento ven quejas, reclamos y otros; la DIRIS ve quejas y reclamos. La base rechaza dar una categoría sensible a un rol de establecimiento o de DIRIS. Solo se inserta (no se modifica ni se borra); la aplicación aplica la regla al listar.
 
 Relaciones:
 - categoria_incidencia_id → catalogo.categoria_incidencia: Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría.
@@ -306,4 +308,4 @@ COMMENT ON FUNCTION public.fn_reglas_rol_categoria() IS
   'Impide dar una categoría sensible a un rol de establecimiento o de DIRIS.';
 
 COMMENT ON FUNCTION public.fn_reglas_usuario_rol() IS
-  'Impide asignar un rol desactivado a un usuario interno y un rol cuyo tipo de área no coincide con el área del usuario.';
+  'Impide asignar un rol desactivado a un usuario interno y un rol con tipo de área a un usuario sin área o con un área de otro tipo.';

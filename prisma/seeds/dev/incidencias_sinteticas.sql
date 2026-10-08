@@ -27,7 +27,7 @@ INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash, are
 SELECT v.nombre, v.correo, :'hash_clave', (SELECT a.id FROM catalogo.area a WHERE a.codigo = v.area)
   FROM (VALUES
     ('Administrador de prueba',            'admin@seed-dev.invalid',       NULL::text),
-    ('Gestor de prueba',                   'gestor@seed-dev.invalid',      NULL),
+    ('Gestor de prueba',                   'gestor@seed-dev.invalid',      'EESS-6206'),
     ('OTRANS de prueba',                   'otrans@seed-dev.invalid',      'OTRANS'),
     ('Dos de Mayo de prueba',              'dosdemayo@seed-dev.invalid',   'EESS-6206'),
     ('Hipolito Unanue de prueba',          'unanue@seed-dev.invalid',      'EESS-5946'),

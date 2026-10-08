@@ -1512,5 +1512,5 @@ Relaciones:
 - area_mencionada_id → catalogo.area: Garantiza que el área mencionada sea una del catálogo. Sirve para ubicar el área señalada.
 - incidencia_paciente_id → chatbot.incidencia_paciente: Cada análisis pertenece a una incidencia. Sirve para unir el análisis con el caso.';
 
-COMMENT ON COLUMN gestion.rol.tipo_area_id IS 'Tipo de área a la que pertenece el rol. Nulo para los roles que valen en cualquier área (administrador y gestor). Si el usuario tiene área, el tipo del rol debe coincidir con el de su área.';
-COMMENT ON COLUMN gestion.usuario_interno.area_id IS 'Área a la que pertenece el usuario. Opcional. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área.';
+COMMENT ON COLUMN gestion.rol.tipo_area_id IS 'Tipo de área a la que pertenece el rol. Nulo solo para el administrador, que vale en cualquier área o sin ella. El gestor, el establecimiento y OTRANS tienen tipo de área: el usuario debe tener un área de ese tipo (el gestor, siempre un establecimiento).';
+COMMENT ON COLUMN gestion.usuario_interno.area_id IS 'Área a la que pertenece el usuario. Obligatoria para los roles con tipo de área (gestor, establecimiento y OTRANS); opcional para el administrador. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área. Un establecimiento admite como máximo 3 usuarios activos.';

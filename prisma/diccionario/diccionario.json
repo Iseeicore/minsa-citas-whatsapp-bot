@@ -186,18 +186,18 @@
       }
     },
     "gestion.usuario_interno": {
-      "descripcion": "Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla o cambiarle el área se cierran todas sus sesiones.",
+      "descripcion": "Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla o cambiarle el área se cierran todas sus sesiones. Un establecimiento puede tener como máximo 3 usuarios activos.",
       "columnas": {
         "nombre_completo": "Nombre completo de la persona.",
         "correo": "Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.",
         "password_hash": "Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato.",
-        "area_id": "Área a la que pertenece el usuario. Opcional. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área."
+        "area_id": "Área a la que pertenece el usuario. Obligatoria para los roles con tipo de área (gestor, establecimiento y OTRANS); opcional para el administrador. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área. Un establecimiento admite como máximo 3 usuarios activos."
       }
     },
     "gestion.rol": {
-      "descripcion": "Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y deriva), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área, solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.",
+      "descripcion": "Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y atiende los casos de su establecimiento), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área (todos menos el administrador), solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.",
       "columnas": {
-        "tipo_area_id": "Tipo de área a la que pertenece el rol. Nulo para los roles que valen en cualquier área (administrador y gestor). Si el usuario tiene área, el tipo del rol debe coincidir con el de su área."
+        "tipo_area_id": "Tipo de área a la que pertenece el rol. Nulo solo para el administrador, que vale en cualquier área o sin ella. El gestor, el establecimiento y OTRANS tienen tipo de área: el usuario debe tener un área de ese tipo (el gestor, siempre un establecimiento)."
       }
     },
     "gestion.usuario_rol": {
@@ -241,7 +241,7 @@
       }
     },
     "gestion.rol_categoria": {
-      "descripcion": "Qué categorías de incidencia puede ver cada rol. OTRANS ve solo las denuncias por corrupción (que además solo ve el administrador); el gestor ve lo no sensible para revisarlo y derivarlo; establecimiento y DIRIS ven quejas y reclamos. La base rechaza dar una categoría sensible a un rol de establecimiento o de DIRIS. Solo se inserta (no se modifica ni se borra); la aplicación aplica la regla al listar.",
+      "descripcion": "Qué categorías de incidencia puede ver cada rol. OTRANS ve solo las denuncias por corrupción (que además solo ve el administrador); el gestor y el establecimiento ven quejas, reclamos y otros; la DIRIS ve quejas y reclamos. La base rechaza dar una categoría sensible a un rol de establecimiento o de DIRIS. Solo se inserta (no se modifica ni se borra); la aplicación aplica la regla al listar.",
       "columnas": {
         "rol_id": "Rol al que se le permite ver la categoría.",
         "categoria_incidencia_id": "Categoría de incidencia que el rol puede ver."
@@ -364,13 +364,14 @@
     "fn_reglas_archivo_recibido": "Hace cumplir el recorrido del archivo: recibido, verificando y verificado o rechazado, sin saltos; los datos de lo recibido no cambian, los estados finales no se modifican y la fecha de verificación la fija la base.",
     "fn_reglas_sesion_usuario": "Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.",
     "fn_cerrar_sesiones_usuario": "Al desactivar un usuario interno o cambiarle el área, revoca todas sus sesiones abiertas.",
-    "fn_reglas_usuario_rol": "Impide asignar un rol desactivado a un usuario interno y un rol cuyo tipo de área no coincide con el área del usuario.",
+    "fn_reglas_usuario_rol": "Impide asignar un rol desactivado a un usuario interno y un rol con tipo de área a un usuario sin área o con un área de otro tipo.",
     "fn_asignar_codigo_incidencia": "Al insertar una incidencia le pone su código y descarta el que haya enviado quien inserta.",
     "fn_reglas_contador_codigo": "Impide borrar filas del contador de códigos, cambiar su año o bajar el último correlativo.",
     "fn_reglas_incidencia_ins": "Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma, archivado o reapertura.",
     "fn_reglas_rol_categoria": "Impide dar una categoría sensible a un rol de establecimiento o de DIRIS.",
-    "fn_reglas_usuario_interno_area": "Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área.",
+    "fn_reglas_usuario_interno_area": "Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área, y quitarle el área si tiene alguno de esos roles.",
     "fn_marcar_entrenamiento_archivo": "Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.",
-    "fn_reglas_entrenamiento_categoria": "Hace de solo inserción la tabla de entrenamiento: impide borrar y modificar, salvo apto_entrenamiento, que solo cambia desde el disparador de la incidencia al archivar o reabrir el caso."
+    "fn_reglas_entrenamiento_categoria": "Hace de solo inserción la tabla de entrenamiento: impide borrar y modificar, salvo apto_entrenamiento, que solo cambia desde el disparador de la incidencia al archivar o reabrir el caso.",
+    "fn_limitar_usuarios_establecimiento": "Al insertar un usuario interno, reactivarlo o cambiarle el área, impide que un establecimiento tenga más de 3 usuarios activos (de cualquier rol). Las áreas que no son de un establecimiento, como OTRANS, no tienen tope."
   }
 }

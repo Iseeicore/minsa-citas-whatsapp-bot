@@ -34,8 +34,8 @@ SELECT pg_temp.espera_error($q$DELETE FROM gestion.rol_categoria WHERE rol_id = 
 DO $$
 BEGIN
   ASSERT (SELECT descripcion FROM gestion.rol WHERE codigo = 'GESTOR') LIKE '%confirma o la corrige%'
-     AND (SELECT descripcion FROM gestion.rol WHERE codigo = 'GESTOR') LIKE '%deriva%'
-     AND (SELECT descripcion FROM gestion.rol WHERE codigo = 'GESTOR') LIKE '%no ve las denuncias por corrupción%', 'R06 el gestor revisa y deriva, y no ve corrupcion';
+     AND (SELECT descripcion FROM gestion.rol WHERE codigo = 'GESTOR') LIKE '%archiva, reabre y resuelve los casos de su establecimiento%'
+     AND (SELECT descripcion FROM gestion.rol WHERE codigo = 'GESTOR') LIKE '%no ve las denuncias por corrupción%', 'R06 el gestor revisa y atiende los casos de su establecimiento, y no ve corrupcion';
   ASSERT (SELECT descripcion FROM gestion.rol WHERE codigo = 'OTRANS') LIKE '%confirma o corrige%'
      AND (SELECT descripcion FROM gestion.rol WHERE codigo = 'OTRANS') LIKE '%toma directo en gestión%', 'R07 OTRANS revisa y toma directo';
   ASSERT obj_description('gestion.rol'::regclass, 'pg_class') NOT ILIKE '%revisor%', 'R08 el comentario de la tabla de roles no menciona al revisor';
@@ -52,14 +52,15 @@ BEGIN
 END $$;
 
 SELECT set_config('app.actor', 'usuario:admin-prueba', false);
-INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash) VALUES
-  ('Rosa Roles', 'rosa.roles@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA');
+INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES ('T10-EESS', 'Establecimiento de la prueba 10', 1);
+INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash, area_id)
+SELECT 'Rosa Roles', 'rosa.roles@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA', id FROM catalogo.area WHERE codigo = 'T10-EESS';
 
 SELECT pg_temp.espera_error($q$INSERT INTO gestion.usuario_rol (usuario_interno_id, rol_id)
   SELECT id, 5 FROM gestion.usuario_interno WHERE correo = 'rosa.roles@minsa.gob.pe'$q$, '23514', 'R11 no se asigna un rol desactivado (DIRIS)');
 
 INSERT INTO gestion.usuario_rol (usuario_interno_id, rol_id)
-SELECT id, r FROM gestion.usuario_interno, unnest(ARRAY[2, 3]) AS r WHERE correo = 'rosa.roles@minsa.gob.pe';
+SELECT id, r FROM gestion.usuario_interno, unnest(ARRAY[2, 4]) AS r WHERE correo = 'rosa.roles@minsa.gob.pe';
 
 DO $$
 BEGIN
@@ -69,7 +70,7 @@ BEGIN
             JOIN gestion.rol r ON r.id = ur.rol_id AND r.activo
             JOIN gestion.rol_categoria rc ON rc.rol_id = r.id
             JOIN catalogo.categoria_incidencia c ON c.id = rc.categoria_incidencia_id
-           WHERE u.correo = 'rosa.roles@minsa.gob.pe') = 'DENUNCIA_CORRUPCION,OTRO,QUEJA,RECLAMO', 'R12 un usuario con varios roles ve la union de sus categorias';
+           WHERE u.correo = 'rosa.roles@minsa.gob.pe') = 'OTRO,QUEJA,RECLAMO', 'R12 un usuario con varios roles (gestor y establecimiento) ve la union de sus categorias, nunca corrupcion';
 END $$;
 
 SELECT set_config('app.actor', 'ciudadano:wa-roles', false);
