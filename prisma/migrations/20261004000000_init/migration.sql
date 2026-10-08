@@ -1485,7 +1485,7 @@ Relaciones:
 - nivel_atencion_id → catalogo.nivel_atencion: Garantiza que el nivel sea uno del catálogo. Sirve para filtrar por complejidad.';
 
 COMMENT ON COLUMN chatbot.incidencia_paciente.establecimiento_id IS 'Establecimiento de salud donde ocurrió el hecho (dato de origen). Opcional. Una vez asignado no se puede cambiar; solo la carga de datos de la migración puede completarlo cuando estaba vacío.';
-COMMENT ON COLUMN chatbot.incidencia_paciente.area_destino_id IS 'Área a la que se derivó o se asignó el caso. La base la asigna sola cuando la categoría es sensible y existe una única área que las recibe; solo se reasigna mientras el caso está CLASIFICADO o DERIVADO, y un caso sensible solo puede estar en un área que reciba casos sensibles.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.area_destino_id IS 'Área a la que se derivó o se asignó el caso. La base la asigna sola: la de OTRANS cuando la categoría es sensible y existe una única área que las recibe, y la del establecimiento de origen cuando un caso no sensible (queja, reclamo u otro) se clasifica sin destino o se corrige de sensible a no sensible mientras no se gestiona. Solo se reasigna mientras el caso está CLASIFICADO o DERIVADO, y un caso sensible solo puede estar en un área que reciba casos sensibles.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.derivado_en IS 'Fecha y hora (UTC) en que el caso pasó a DERIVADO (o se reasignó su área). La llena la base.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.derivado_por IS 'Quién derivó el caso. La llena la base con el actor declarado.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.tomado_en IS 'Fecha y hora (UTC) en que el caso pasó a EN_GESTION. La llena la base.';

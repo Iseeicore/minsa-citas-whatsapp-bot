@@ -65,8 +65,11 @@ $$;
 SELECT pg_temp.nuevo('t14-queja', '9141', 2);
 SELECT set_config('app.actor', 'usuario:gestor-14', false);
 
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6 WHERE trace_id = 't14-queja'$q$, '23514', 'X01 derivar sin area de destino falla');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 't14-queja'$q$, '23514', 'X02 tomar sin area de destino falla');
+-- Sin establecimiento de origen la base no puede asignar destino al clasificar: derivar o tomar sin area falla
+SELECT pg_temp.nuevo('t14-sinorigen', '0', 2);
+SELECT set_config('app.actor', 'usuario:gestor-14', false);
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6 WHERE trace_id = 't14-sinorigen'$q$, '23514', 'X01 derivar sin area de destino falla');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 't14-sinorigen'$q$, '23514', 'X02 tomar sin area de destino falla');
 
 UPDATE chatbot.incidencia_paciente SET area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'T14-EESS-2') WHERE trace_id = 't14-queja';
 DO $$

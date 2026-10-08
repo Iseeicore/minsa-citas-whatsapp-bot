@@ -89,6 +89,8 @@ $$;
 --   - el establecimiento de origen es dato de origen: no cambia una vez puesto (solo sistema:migracion puede completarlo);
 --   - derivado_*, tomado_*, archivado_en y motivo_archivo_id los llena la base con el actor declarado;
 --   - DERIVADO y EN_GESTION exigen area de destino; esta solo se reasigna en CLASIFICADO o DERIVADO;
+--   - un caso no sensible (queja, reclamo u otro) que se clasifica sin destino queda con el area de su establecimiento de
+--     origen; si se corrige de sensible a no sensible vuelve a ese area. Desde CLASIFICADO se puede tomar (EN_GESTION) o derivar;
 --   - un caso de categoria sensible solo puede estar en un area cuyo tipo reciba casos sensibles: la base la asigna sola si
 --     existe una unica, tambien cuando la categoria se corrige despues de derivar;
 --   - archivar exige motivo: RESUELTA_VIGENCIA (desde RESUELTO), VENCIDA_SIN_ATENDER (caso abierto, solo sistema:vencimiento) o
@@ -362,6 +364,19 @@ BEGIN
     END IF;
   END IF;
 
+  -- Destino de un caso no sensible: al clasificarse (o al corregirse de sensible a no sensible mientras esta abierto sin
+  -- gestionar) sin destino propio, la base le asigna el area de su establecimiento de origen. Si ya tiene destino no se toca.
+  IF NEW.categoria_id IS NOT NULL AND NEW.establecimiento_id IS NOT NULL
+     AND NOT (SELECT es_sensible FROM catalogo.categoria_incidencia WHERE id = NEW.categoria_id)
+     AND ((OLD.categoria_ia_id IS NULL AND NEW.categoria_ia_id IS NOT NULL AND NEW.area_destino_id IS NULL)
+          OR (NEW.categoria_id IS DISTINCT FROM OLD.categoria_id AND OLD.estado_incidencia_id IN (1, 2, 6)
+              AND (SELECT es_sensible FROM catalogo.categoria_incidencia WHERE id = OLD.categoria_id)
+              AND (NEW.area_destino_id IS NULL OR EXISTS (
+                     SELECT 1 FROM catalogo.area a JOIN catalogo.tipo_area ta ON ta.id = a.tipo_area_id
+                      WHERE a.id = NEW.area_destino_id AND ta.recibe_sensibles)))) THEN
+    NEW.area_destino_id := (SELECT area_id FROM catalogo.establecimiento_salud WHERE id = NEW.establecimiento_id);
+  END IF;
+
   IF NEW.estado_incidencia_id IN (3, 6) AND NEW.area_destino_id IS NULL THEN
     RAISE EXCEPTION 'incidencia_paciente: DERIVADO y EN_GESTION exigen un area de destino'
       USING ERRCODE = 'check_violation';
@@ -462,7 +477,7 @@ COMMENT ON FUNCTION public.fn_reglas_contador_codigo() IS
 COMMENT ON COLUMN chatbot.incidencia_paciente.estado_incidencia_id IS 'Estado actual de la incidencia. Nace en REGISTRADO; la base lo pasa a CLASIFICADO cuando la IA asigna la categoría y a RESUELTO cuando se registra la resolución, y solo permite las transiciones definidas. DERIVADO y EN_GESTION exigen que la IA ya haya asignado categoría y que haya área de destino. ARCHIVADO exige un motivo: desde RESUELTO (pasó la vigencia de la resolución); desde un estado abierto cuyo plazo de atención venció, solo por el sistema; o, desde un estado abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION), por un motivo manual (datos insuficientes o no corresponde) con su justificación, que archiva una persona (el filtro del sistema solo por datos insuficientes y desde REGISTRADO o CLASIFICADO). Un caso ARCHIVADO por un motivo manual o por vencimiento puede reabrirse a EN_GESTION; uno archivado por vigencia de la resolución, no.';
 
 COMMENT ON FUNCTION public.fn_reglas_incidencia() IS
-  'Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar, y asignada sola para los casos sensibles), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.';
+  'Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar; asignada sola a OTRANS para los casos sensibles y al establecimiento de origen para los demás al clasificarse), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.';
 
 COMMENT ON FUNCTION public.fn_marcar_entrenamiento_archivo() IS
   'Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.';

@@ -188,4 +188,7 @@ END $$;
 SELECT dblink_disconnect('c_a');
 SELECT dblink_disconnect('c_b');
 
+-- La segunda area OTRANS era solo de esta prueba: se desactiva para que las siguientes vean una unica area que recibe sensibles
+UPDATE catalogo.area SET activo = false WHERE codigo = 'T18-OTRANS';
+
 \echo TODAS LAS PRUEBAS DE USUARIOS POR ESTABLECIMIENTO PASARON

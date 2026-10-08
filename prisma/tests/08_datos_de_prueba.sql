@@ -81,8 +81,8 @@ BEGIN
   ASSERT (SELECT string_agg(e.codigo_renipress || ':' || right(i.trace_id, 3), ',' ORDER BY e.codigo_renipress, i.trace_id)
             FROM chatbot.incidencia_paciente i JOIN catalogo.establecimiento_salud e ON e.area_id = i.area_destino_id
            WHERE i.trace_id LIKE 'seed-dev-%')
-         = '5614:003,5614:012,5614:021,5946:007,5946:014,5946:018,5946:020,6206:001,6206:004,6206:008,6206:010,6206:019',
-    'D27 lo que ve el area de cada establecimiento';
+         = '5614:003,5614:012,5614:015,5614:017,5614:021,5946:002,5946:007,5946:011,5946:014,5946:018,5946:020,6206:001,6206:004,6206:008,6206:010,6206:016,6206:019',
+    'D27 lo que ve el area de cada establecimiento: todo caso no sensible clasificado, tambien los aun sin derivar';
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'seed-dev-%' AND area_destino_id = v_otrans) = 3, 'D27 lo que ve OTRANS son las tres denuncias';
 END $$;
 
