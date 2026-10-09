@@ -131,7 +131,7 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
     [OosCategoryEnum.OOS_02, ["app.sis.gob.pe/ConsultaWeb", "941 988 565", "Línea 113"]],
     [OosCategoryEnum.OOS_03, ["REFCON", "Hoja de Referencia", "Admisión/Referencias"]],
     [OosCategoryEnum.OOS_04, ["Ley N° 26842", "de forma presencial"]],
-    [OosCategoryEnum.OOS_05, ["observatorio.digemid.minsa.gob.pe", "RECLAMO"]],
+    [OosCategoryEnum.OOS_05, ["observatorio.digemid.minsa.gob.pe", "INCIDENCIA"]],
     [OosCategoryEnum.OOS_06, ["carnetvacunacion.minsa.gob.pe", "Línea 113 (Opción 1)"]],
     [OosCategoryEnum.OOS_07, ["Infosalud", "Línea 113"]],
     [OosCategoryEnum.OOS_08, ["SUSALUD", "113 (Opción 7)", "PAUS", "30 días hábiles"]],
@@ -149,7 +149,7 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
   it("each one tells the citizen how to go on, with a word the bot understands", () => {
     expect(OOS_MESSAGES["OOS-01"]).not.toMatch(/CONTINUAR|CITAS|RECLAMO/);
     for (const category of [OosCategoryEnum.OOS_02, "OOS-03", "OOS-04", "OOS-07", "OOS-09"] as const) expect(OOS_MESSAGES[category]).toContain("CITAS");
-    for (const category of [OosCategoryEnum.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("RECLAMO");
+    for (const category of [OosCategoryEnum.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("INCIDENCIA");
   });
 
   it("all fit in a WhatsApp text and keep the spreadsheet's wording (no triple line breaks)", () => {

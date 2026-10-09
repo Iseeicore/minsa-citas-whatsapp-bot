@@ -62,16 +62,16 @@ describe("main_menu — lexical guard routing", () => {
     expect((effect as { text: string }).text).toContain("documento");
   });
 
-  it("aggression with a service complaint: goes straight to the Reclamo flow without AI", () => {
+  it("aggression with a service complaint: goes straight to the incidencia flow without AI", () => {
     const result = handle(sessionAt("main_menu"), text("Doctora imbécil no me dio mi medicina"));
 
-    expect(result.session.state).toBe("reclamo_identity_choice");
+    expect(result.session.state).toBe("incidencia_identity_choice");
     expect(hasQuery(result)).toBe(false);
     const [effect] = sentEffects(result);
     expect(effect.kind).toBe("send_buttons");
     expect((effect as { buttons: { id: string }[] }).buttons.map((button) => button.id)).toEqual([
-      "reclamo_con_nombre",
-      "reclamo_anonimo",
+      "incidencia_con_nombre",
+      "incidencia_anonimo",
     ]);
   });
 
@@ -84,13 +84,13 @@ describe("main_menu — lexical guard routing", () => {
   });
 });
 
-describe("main_menu — RECLAMO keyword", () => {
-  it.each(["RECLAMO", "reclamo", "Quiero hacer un reclamo", "registrar una queja"])(
-    "%s starts the Reclamo flow without AI",
+describe("main_menu — incidencia keywords", () => {
+  it.each(["RECLAMO", "reclamo", "Quiero hacer un reclamo", "registrar una queja", "INCIDENCIA", "quiero presentar una incidencia", "denuncia", "quiero hacer una denuncia"])(
+    "%s starts the incidencia flow without AI",
     (message) => {
       const result = handle(sessionAt("main_menu"), text(message));
 
-      expect(result.session.state).toBe("reclamo_identity_choice");
+      expect(result.session.state).toBe("incidencia_identity_choice");
       expect(hasQuery(result)).toBe(false);
     },
   );
@@ -179,17 +179,17 @@ describe("mid-flow free-text district states", () => {
 describe("bypass — states where the guard must never run", () => {
   it("an insult inside the complaint description is kept as evidence", () => {
     const result = handle(
-      sessionAt("reclamo_awaiting_descripcion"),
+      sessionAt("incidencia_awaiting_descripcion"),
       text("El doctor fue un idiota y me trató pésimo"),
     );
 
-    expect(result.session.state).toBe("reclamo_awaiting_foto");
-    expect(result.session.slots[SlotKey.QUEJA]).toBe("El doctor fue un idiota y me trató pésimo");
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe("El doctor fue un idiota y me trató pésimo");
   });
 
   it("a name that looks like an abbreviation is accepted in the name step", () => {
-    const result = handle(sessionAt("reclamo_awaiting_nombre", { dni: "12345678" }), text("Isaac S. Mendoza"));
-    expect(result.session.state).toBe("reclamo_reniec_pending");
+    const result = handle(sessionAt("incidencia_awaiting_nombre", { dni: "12345678" }), text("Isaac S. Mendoza"));
+    expect(result.session.state).toBe("incidencia_reniec_pending");
   });
 
   it("abusive text in the DNI step is just an invalid DNI", () => {
@@ -212,19 +212,19 @@ describe("main_menu — numeric shortcut", () => {
     expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
   });
 
-  it.each(["2", " 2 "])("%j goes straight to the Reclamo flow without reprinting the menu", (message) => {
+  it.each(["2", " 2 "])("%j goes straight to the incidencia flow without reprinting the menu", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 
-    expect(result.session.state).toBe("reclamo_identity_choice");
+    expect(result.session.state).toBe("incidencia_identity_choice");
     expect(hasQuery(result)).toBe(false);
     expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_buttons"]);
-    expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("registrar_reclamo");
+    expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("registrar_incidencia");
   });
 
   it.each(["3", "0", "11", "12", "1 2", "uno"])("%j is not a menu shortcut and follows the normal path", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 
-    expect(["cita_awaiting_dni", "reclamo_identity_choice"]).not.toContain(result.session.state);
+    expect(["cita_awaiting_dni", "incidencia_identity_choice"]).not.toContain(result.session.state);
   });
 
   it("the numbers only mean a menu option in main_menu (a 1 inside another step is just input)", () => {

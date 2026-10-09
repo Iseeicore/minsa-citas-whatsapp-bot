@@ -78,7 +78,7 @@ describe("masking", () => {
   it("never quotes what was typed at an identity step or a complaint", () => {
     expect(previewInput("cita_awaiting_dni", DNI)).toEqual({ inputLength: 8 });
     expect(previewInput("cita_awaiting_otp", "123456")).toEqual({ inputLength: 6 });
-    expect(previewInput("reclamo_awaiting_descripcion", "me atendieron mal")).toEqual({ inputLength: 17 });
+    expect(previewInput("incidencia_awaiting_descripcion", "me atendieron mal")).toEqual({ inputLength: 17 });
   });
 
   it("quotes a short, masked preview elsewhere", () => {

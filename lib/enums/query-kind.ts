@@ -14,5 +14,5 @@ export enum QueryKind {
   LIST_HORAS = "list_horas",
   BOOK_APPOINTMENT = "book_appointment",
   LIST_REFERENCES = "list_references",
-  ANALYZE_RECLAMO_FOTO_INTENT = "analyze_reclamo_foto_intent",
+  ANALYZE_INCIDENCIA_FOTO_INTENT = "analyze_incidencia_foto_intent",
 }

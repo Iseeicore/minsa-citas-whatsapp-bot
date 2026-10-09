@@ -2,7 +2,7 @@ import { resolveDistritoAiDetailed } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi, type FechaAiOption } from "@/lib/fsm/parsing/ai/fecha";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
-import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/reclamo-foto-intent";
+import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/incidencia-foto-intent";
 import { configuredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
@@ -117,7 +117,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case QueryKind.RESOLVE_DISTRITO_AI:
     case QueryKind.RESOLVE_FECHA_AI:
     case QueryKind.EXTRACT_SELECTION_HINTS:
-    case QueryKind.ANALYZE_RECLAMO_FOTO_INTENT:
+    case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
       return configuredLlmProvider();
     default:
       return "minsa";
@@ -210,7 +210,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
     case QueryKind.LIST_REFERENCES:
       return listReferences(String(effect.payload.numeroDocumento ?? ""), String(effect.payload.tipoDocumento ?? ""));
 
-    case QueryKind.ANALYZE_RECLAMO_FOTO_INTENT:
+    case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
       return analyzeFotoIntent(String(effect.payload.text ?? ""));
 
     default:

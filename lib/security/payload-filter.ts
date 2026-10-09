@@ -5,7 +5,7 @@ export const MAX_FIRST_MESSAGE_LENGTH = 300;
 export const NOISE_MIN_LENGTH = 12;
 
 export const FIRST_MESSAGE_REJECTION_TEXT =
-  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.";
+  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.";
 
 export const MEDIA_WITHOUT_SESSION_TEXT =
   "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.";

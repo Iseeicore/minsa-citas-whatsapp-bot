@@ -28,7 +28,7 @@ export type SlotTypes = {
   [SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT]: string;
   [SlotKey.CITA_HORA_CHOICE_A]: string;
   [SlotKey.CITA_DNI_PENDING]: string;
-  [SlotKey.QUEJA]: string;
+  [SlotKey.DESCRIPCION_INCIDENCIA]: string;
   [SlotKey.NOMBRE_COMPLETO]: string;
   [SlotKey.CITA_HORAS_DIA]: string;
   [SlotKey.CITA_DEMO_REFERENCIA_CODIGO]: string;
@@ -145,7 +145,7 @@ export type QueryEffectKind =
   | "list_horas"
   | "book_appointment"
   | "list_references"
-  | "analyze_reclamo_foto_intent";
+  | "analyze_incidencia_foto_intent";
 
 export type QueryEffect = {
   kind: QueryEffectKind;

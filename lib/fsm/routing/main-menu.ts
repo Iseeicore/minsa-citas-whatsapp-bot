@@ -11,9 +11,9 @@ import {
   detectCitaRequest,
   isContinueReply,
   isGreeting,
-  isReclamoKeyword,
+  isIncidenciaKeyword,
 } from "@/lib/fsm/routing/menu-shortcuts";
-import { beginCita, buildMenuEffect, RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { beginCita, buildMenuEffect, INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import {
   detectOutOfScope,
   isCitaKeyword,
@@ -34,7 +34,7 @@ export const CONTINUE_BUTTON_ID = "continuar_menu";
 
 const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
   "1": MenuChoice.AGENDAR_CITA,
-  "2": MenuChoice.REGISTRAR_RECLAMO,
+  "2": MenuChoice.REGISTRAR_INCIDENCIA,
 };
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
@@ -48,10 +48,10 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
     counters: { ...session.counters },
   };
 
-  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_RECLAMO) {
-    next.state = SessionState.RECLAMO_IDENTITY_CHOICE;
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_INCIDENCIA) {
+    next.state = SessionState.INCIDENCIA_IDENTITY_CHOICE;
     return buildResult(next, [
-      sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", RECLAMO_NOMBRE_BUTTONS),
+      sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", INCIDENCIA_NOMBRE_BUTTONS),
     ]);
   }
 
@@ -78,15 +78,15 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     return enterMainMenu(session.slots);
   }
 
-  if (replyId !== MenuChoice.AGENDAR_CITA && replyId !== MenuChoice.REGISTRAR_RECLAMO) {
-    if (event.text && isReclamoKeyword(event.text)) {
+  if (replyId !== MenuChoice.AGENDAR_CITA && replyId !== MenuChoice.REGISTRAR_INCIDENCIA) {
+    if (event.text && isIncidenciaKeyword(event.text)) {
       return withNote(
         handleAwaitingFlowStart({
           state: SessionState.AWAITING_FLOW_START,
-          slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.REGISTRAR_RECLAMO },
+          slots: { ...session.slots, [SlotKey.MENU_CHOICE]: MenuChoice.REGISTRAR_INCIDENCIA },
           counters: {},
         }),
-        { kind: "shortcut", detail: { name: "reclamo_keyword" } },
+        { kind: "shortcut", detail: { name: "incidencia_keyword" } },
       );
     }
 
@@ -148,7 +148,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
 }
 
 export const OUT_OF_SCOPE_REQUEST_TEXT =
-  "Solo puedo ayudarte a agendar una cita médica o a registrar un reclamo en el Libro de Reclamaciones. Elige una opción:";
+  "Solo puedo ayudarte a agendar una cita médica o a registrar una incidencia. Elige una opción:";
 
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };

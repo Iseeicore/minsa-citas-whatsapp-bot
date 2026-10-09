@@ -3,7 +3,7 @@ import { resolveDistritoAi, resolveDistritoAiDetailed } from "@/lib/fsm/parsing/
 import { resolveFechaAi } from "@/lib/fsm/parsing/ai/fecha";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
-import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/reclamo-foto-intent";
+import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/incidencia-foto-intent";
 import type { LlmClient, LlmJsonOutcome, LlmJsonRequest } from "@/lib/fsm/parsing/ai/llm";
 
 function modelSays(json: unknown): Response {

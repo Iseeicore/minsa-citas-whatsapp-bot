@@ -69,21 +69,21 @@ describe("session store with the database (default)", () => {
 
   it("maps the stored row to a Session, using the modification date as updatedAt", async () => {
     const fechaModificacion = new Date("2026-10-04T10:00:00Z");
-    db.findUnique.mockResolvedValueOnce({ waId: "51999", estado: "cita_awaiting_dni", slots: { [SlotKey.QUEJA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 }, fechaModificacion });
+    db.findUnique.mockResolvedValueOnce({ waId: "51999", estado: "cita_awaiting_dni", slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 }, fechaModificacion });
     await expect(getSession("51999")).resolves.toEqual({
       state: "cita_awaiting_dni",
-      slots: { [SlotKey.QUEJA]: "q" },
+      slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "q" },
       counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
       updatedAt: fechaModificacion,
     });
   });
 
   it("upserts by waId with the Spanish column names", async () => {
-    await saveSession("51999", { state: "main_menu", slots: { [SlotKey.QUEJA]: "q" }, counters: { [CounterKey.CITA_HORA_PAGE]: 2 } });
+    await saveSession("51999", { state: "main_menu", slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "q" }, counters: { [CounterKey.CITA_HORA_PAGE]: 2 } });
     expect(db.upsert).toHaveBeenCalledWith({
       where: { waId: "51999" },
-      create: { waId: "51999", estado: "main_menu", slots: { [SlotKey.QUEJA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 } },
-      update: { estado: "main_menu", slots: { [SlotKey.QUEJA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 } },
+      create: { waId: "51999", estado: "main_menu", slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 } },
+      update: { estado: "main_menu", slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "q" }, contadores: { [CounterKey.CITA_HORA_PAGE]: 2 } },
     });
   });
 

@@ -9,7 +9,7 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import {
   evaluateLexicalGuard,
   INSTITUTIONAL_WARNING_TEXT,
@@ -66,11 +66,11 @@ export function routeLexicalAction(
       ]);
     }
 
-    case "FORCE_RECLAMO":
-      return buildResult({ state: SessionState.RECLAMO_IDENTITY_CHOICE, slots, counters: {} }, [
+    case "FORCE_INCIDENCIA":
+      return buildResult({ state: SessionState.INCIDENCIA_IDENTITY_CHOICE, slots, counters: {} }, [
         sendButtons(
-          "Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?",
-          RECLAMO_NOMBRE_BUTTONS,
+          "Lamentamos lo ocurrido. Vamos a registrar tu incidencia. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?",
+          INCIDENCIA_NOMBRE_BUTTONS,
         ),
       ]);
   }

@@ -127,7 +127,7 @@ export async function toInboundEvent(
     }
   }
 
-  if (message.type === "image" && message.image?.id && sessionState === SessionState.RECLAMO_AWAITING_FOTO) {
+  if (message.type === "image" && message.image?.id && sessionState === SessionState.INCIDENCIA_AWAITING_FOTO) {
     const mediaDataUri = await downloadWhatsAppMediaAsDataUri(message.image.id);
     return {
       from: waId,

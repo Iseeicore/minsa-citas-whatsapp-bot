@@ -101,7 +101,7 @@ describe("detectSessionExpiry", () => {
   });
 
   it("only applies to the authenticated waiting states", () => {
-    for (const state of ["main_menu", "cita_awaiting_dni", "cita_awaiting_otp", "cita_awaiting_reauth", "reclamo_awaiting_descripcion"]) {
+    for (const state of ["main_menu", "cita_awaiting_dni", "cita_awaiting_otp", "cita_awaiting_reauth", "incidencia_awaiting_descripcion"]) {
       expect(detectSessionExpiry(authenticated(state as Session["state"], { idleMs: minutes(60) }), text("x"), NOW)).toBeNull();
     }
     expect(AUTHENTICATED_WAITING_STATES).toContain("cita_awaiting_hora_confirm");

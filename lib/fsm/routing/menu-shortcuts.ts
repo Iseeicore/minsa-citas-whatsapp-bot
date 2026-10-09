@@ -48,10 +48,14 @@ const NOT_A_NEW_CITA_WORDS = new Set([
   "REPROGRAMAR",
   "CAMBIAR",
   "MODIFICAR",
+  "INCIDENCIA",
+  "INCIDENCIAS",
   "RECLAMO",
   "RECLAMOS",
   "QUEJA",
   "QUEJAS",
+  "DENUNCIA",
+  "DENUNCIAS",
 ]);
 
 export function detectCitaRequest(text: string): CitaHints | undefined {
@@ -96,9 +100,19 @@ export function isContinueReply(text: string): boolean {
   return tokens.some((token) => CONTINUE_WORDS.has(token));
 }
 
-const RECLAMO_KEY_WORDS =new Set(["RECLAMO", "RECLAMOS", "QUEJA", "QUEJAS", "RECLAMACIONES"]);
+const INCIDENCIA_KEY_WORDS = new Set([
+  "INCIDENCIA",
+  "INCIDENCIAS",
+  "RECLAMO",
+  "RECLAMOS",
+  "QUEJA",
+  "QUEJAS",
+  "DENUNCIA",
+  "DENUNCIAS",
+  "RECLAMACIONES",
+]);
 
-const RECLAMO_FILLER_WORDS = new Set([
+const INCIDENCIA_FILLER_WORDS = new Set([
   "QUIERO",
   "DESEO",
   "NECESITO",
@@ -117,12 +131,12 @@ const RECLAMO_FILLER_WORDS = new Set([
   "PARA",
 ]);
 
-export function isReclamoKeyword(text: string): boolean {
+export function isIncidenciaKeyword(text: string): boolean {
   const tokens = words(text);
   if (tokens.length === 0 || tokens.length > 6) return false;
 
   return (
-    tokens.some((token) => RECLAMO_KEY_WORDS.has(token)) &&
-    tokens.every((token) => RECLAMO_KEY_WORDS.has(token) || RECLAMO_FILLER_WORDS.has(token))
+    tokens.some((token) => INCIDENCIA_KEY_WORDS.has(token)) &&
+    tokens.every((token) => INCIDENCIA_KEY_WORDS.has(token) || INCIDENCIA_FILLER_WORDS.has(token))
   );
 }

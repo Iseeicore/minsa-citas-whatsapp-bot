@@ -58,7 +58,7 @@ export function sanitizeSlots(slots: Record<string, unknown>): Record<string, un
   return Object.fromEntries(Object.entries(slots).map(([key, value]) => [key, sanitizeValue(key, value)]));
 }
 
-const NEVER_PREVIEW_STATE = /^(cita_awaiting_(dni|otp)|reclamo_)/;
+const NEVER_PREVIEW_STATE = /^(cita_awaiting_(dni|otp)|incidencia_)/;
 const PREVIEW_CHARS = 40;
 
 export function previewInput(state: string, text: string | undefined): Record<string, unknown> {
