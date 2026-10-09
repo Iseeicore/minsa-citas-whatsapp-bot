@@ -1,11 +1,69 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
+-- Datos de prueba para desarrollo: usuarios internos de ejemplo y 21 incidencias sinteticas repartidas en tres establecimientos.
+-- Necesita el padron de establecimientos: correr antes `npm run db:seed:eess` (usa el Hospital Nacional Dos de Mayo 6206, el
+-- Hospital Nacional Hipolito Unanue 5946 y el Centro de Salud Bayovar 5614).
+
+DO $$
+BEGIN
+  IF (SELECT count(*) FROM catalogo.establecimiento_salud WHERE codigo_renipress IN ('6206', '5946', '5614')) < 3 THEN
+    RAISE EXCEPTION 'Faltan los establecimientos 6206, 5946 y 5614: corre primero npm run db:seed:eess';
+  END IF;
+END $$;
+
+-- Los usuarios no llevan clave en ningun archivo. Si quien siembra no trae una huella propia (variable hash_clave, que arma
+-- scripts/db-seed-dev.mjs desde SEED_DEV_PASSWORD_HASH), la base recibe una huella al azar que nadie conoce: los usuarios
+-- existen para probar areas y permisos, pero nadie puede iniciar sesion con ellos hasta que se les ponga una huella real.
+\if :{?hash_clave}
+\else
+  SELECT '$argon2id$v=19$m=65536,t=3,p=4$' || rtrim(encode(sha256(uuidv7()::text::bytea), 'base64'), '=')
+         || '$' || rtrim(encode(sha256(uuidv7()::text::bytea), 'base64'), '=') AS hash_clave \gset
+\endif
+
+DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:seed-dev', false); END $$;
+
+-- Reparto de los usuarios: ningun establecimiento pasa de 3 usuarios activos, ni siquiera sobre una base que ya tenga
+-- usuarios viejos (tres en el Hospital Dos de Mayo y el Hipolito Unanue). El gestor pertenece siempre a un establecimiento
+-- (aqui el Centro de Salud Bayovar). Solo se insertan los que faltan: repetir la siembra no vuelve a pasar por el tope.
+INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash, area_id)
+SELECT v.nombre, v.correo, :'hash_clave', (SELECT a.id FROM catalogo.area a WHERE a.codigo = v.area)
+  FROM (VALUES
+    ('Administrador de prueba',            'admin@seed-dev.invalid',       NULL::text),
+    ('Gestor de prueba',                   'gestor@seed-dev.invalid',      'EESS-5614'),
+    ('OTRANS de prueba',                   'otrans@seed-dev.invalid',      'OTRANS'),
+    ('Dos de Mayo de prueba',              'dosdemayo@seed-dev.invalid',   'EESS-6206'),
+    ('Hipolito Unanue de prueba',          'unanue@seed-dev.invalid',      'EESS-5946'),
+    ('Centro de Salud Bayovar de prueba',  'bayovar@seed-dev.invalid',     'EESS-5614')
+  ) AS v(nombre, correo, area)
+ WHERE NOT EXISTS (SELECT 1 FROM gestion.usuario_interno u WHERE u.correo = v.correo)
+ON CONFLICT (correo) DO NOTHING;
+
+INSERT INTO gestion.usuario_rol (usuario_interno_id, rol_id)
+SELECT u.id, r.id
+  FROM (VALUES
+    ('admin@seed-dev.invalid',     'ADMINISTRADOR'),
+    ('gestor@seed-dev.invalid',    'GESTOR'),
+    ('otrans@seed-dev.invalid',    'OTRANS'),
+    ('dosdemayo@seed-dev.invalid', 'ESTABLECIMIENTO'),
+    ('unanue@seed-dev.invalid',    'ESTABLECIMIENTO'),
+    ('bayovar@seed-dev.invalid',   'ESTABLECIMIENTO')
+  ) AS v(correo, rol)
+  JOIN gestion.usuario_interno u ON u.correo = v.correo
+  JOIN gestion.rol r ON r.codigo = v.rol
+ON CONFLICT (usuario_interno_id, rol_id) DO NOTHING;
+
 CREATE TEMP TABLE edades (traza text PRIMARY KEY, horas_llegada integer NOT NULL, horas_resolucion integer);
 
+-- p_eess: RENIPRESS del establecimiento de origen. p_destino: NULL (la categoria sensible ya la asigno la base a OTRANS) o
+-- 'ORIGEN' (se deriva al area del propio establecimiento). p_resolucion: las medidas tomadas de un caso RESUELTO, con su
+-- p_fundamento y su p_resultado (ATENDIDO o CERRADO). p_archivo: NULL, 'DATOS_INSUFICIENTES' (lo archiva el filtro del
+-- sistema) o un archivado manual hecho por una persona: 'DATOS_INSUFICIENTES_PERSONA' o 'NO_CORRESPONDE', con su
+-- justificacion en p_detalle. p_reabrir: motivo con el que una persona reabre el caso archivado.
 CREATE FUNCTION pg_temp.sembrar(
   p_n integer,
   p_horas_llegada integer,
+  p_eess text,
   p_descripcion text,
   p_nombre text,
   p_dni text,
@@ -14,8 +72,14 @@ CREATE FUNCTION pg_temp.sembrar(
   p_revision text,
   p_categoria_final integer,
   p_estado text,
+  p_destino text,
   p_resolucion text,
-  p_horas_resolucion integer
+  p_horas_resolucion integer,
+  p_archivo text,
+  p_fundamento text DEFAULT NULL,
+  p_resultado text DEFAULT 'ATENDIDO',
+  p_detalle text DEFAULT NULL,
+  p_reabrir text DEFAULT NULL
 ) RETURNS void
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -23,11 +87,14 @@ DECLARE
   v_wa text := 'seed-wa-' || lpad(p_n::text, 3, '0');
   v_usuario uuid;
   v_id uuid;
+  v_area_origen integer;
+  v_categoria_vigente integer := coalesce(p_categoria_final, p_categoria_ia);
 BEGIN
   PERFORM set_config('app.actor', 'ciudadano:seed-dev', false);
   INSERT INTO chatbot.usuario (wa_id) VALUES (v_wa) RETURNING id INTO v_usuario;
-  INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, dni_reclamante, nombre_reclamante, descripcion, trace_id)
-  VALUES (1, v_usuario, v_wa, p_nombre IS NULL, p_dni, p_nombre, p_descripcion, v_traza)
+  INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, dni_reclamante, nombre_reclamante, descripcion, trace_id, establecimiento_id)
+  SELECT 1, v_usuario, v_wa, p_nombre IS NULL, p_dni, p_nombre, p_descripcion, v_traza, e.id
+    FROM catalogo.establecimiento_salud e WHERE e.codigo_renipress = p_eess
   RETURNING id INTO v_id;
   INSERT INTO edades VALUES (v_traza, p_horas_llegada, p_horas_resolucion);
 
@@ -46,9 +113,15 @@ BEGIN
     UPDATE chatbot.incidencia_paciente SET categoria_id = p_categoria_final WHERE id = v_id;
   END IF;
 
-  IF p_estado IN ('DERIVADO', 'EN_GESTION', 'RESUELTO') THEN
+  SELECT area_id INTO v_area_origen FROM catalogo.establecimiento_salud WHERE codigo_renipress = p_eess;
+
+  -- Una denuncia por corrupcion ya quedo en OTRANS al clasificarse (la asigna la base): OTRANS la toma directo, sin derivar.
+  IF p_estado = 'DERIVADO' OR (p_estado IN ('EN_GESTION', 'RESUELTO') AND v_categoria_vigente <> 1) THEN
     PERFORM set_config('app.actor', 'operador:gestor', false);
-    UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6 WHERE id = v_id;
+    UPDATE chatbot.incidencia_paciente
+       SET estado_incidencia_id = 6,
+           area_destino_id = CASE WHEN p_destino = 'ORIGEN' THEN v_area_origen ELSE area_destino_id END
+     WHERE id = v_id;
   END IF;
 
   IF p_estado IN ('EN_GESTION', 'RESUELTO') THEN
@@ -58,7 +131,31 @@ BEGIN
 
   IF p_estado = 'RESUELTO' THEN
     PERFORM set_config('app.actor', 'operador:area', false);
-    UPDATE chatbot.incidencia_paciente SET resolucion = p_resolucion WHERE id = v_id;
+    UPDATE chatbot.incidencia_paciente
+       SET medidas_tomadas = p_resolucion,
+           fundamento = coalesce(p_fundamento, 'La atencion corresponde a lo reportado por el paciente'),
+           resultado_resolucion_id = (SELECT id FROM catalogo.resultado_resolucion WHERE codigo = p_resultado)
+     WHERE id = v_id;
+  END IF;
+
+  IF p_archivo = 'DATOS_INSUFICIENTES' THEN
+    PERFORM set_config('app.actor', 'sistema:filtro', false);
+    UPDATE chatbot.incidencia_paciente
+       SET estado_incidencia_id = 7, motivo_archivo_id = (SELECT id FROM catalogo.motivo_archivo WHERE codigo = 'DATOS_INSUFICIENTES'),
+           archivo_detalle = coalesce(p_detalle, 'El mensaje no describe ninguna queja ni reclamo')
+     WHERE id = v_id;
+  ELSIF p_archivo IN ('DATOS_INSUFICIENTES_PERSONA', 'NO_CORRESPONDE') THEN
+    PERFORM set_config('app.actor', 'usuario:seed-dev-revisor', false);
+    UPDATE chatbot.incidencia_paciente
+       SET estado_incidencia_id = 7,
+           motivo_archivo_id = (SELECT id FROM catalogo.motivo_archivo WHERE codigo = replace(p_archivo, '_PERSONA', '')),
+           archivo_detalle = p_detalle
+     WHERE id = v_id;
+  END IF;
+
+  IF p_reabrir IS NOT NULL THEN
+    PERFORM set_config('app.actor', 'usuario:seed-dev-revisor', false);
+    UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3, reabierto_motivo = p_reabrir WHERE id = v_id;
   END IF;
 END;
 $$;
@@ -73,26 +170,35 @@ BEGIN
 END;
 $$;
 
+-- Origen: 6206 Hospital Nacional Dos de Mayo, 5946 Hospital Nacional Hipolito Unanue, 5614 Centro de Salud Bayovar (seis cada uno).
 DO $$
 BEGIN
-  PERFORM pg_temp.sembrar(1, 50, 'Me cobraron 40 soles por un medicamento que según el afiche de la farmacia debía ser gratuito para mi seguro.', 'María Q.', '00004821', 3, 92, 'confirmada', NULL, 'EN_GESTION', NULL, NULL);
-  PERFORM pg_temp.sembrar(2, 20, 'Pedí cita con cardiología hace dos meses y todavía no me dan fecha. Me dicen que vuelva a llamar.', 'Luis A.', '00001907', 3, 58, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(3, 30, 'La técnica de admisión me gritó delante de todos cuando pregunté dónde sacar mi ticket.', NULL, NULL, 2, 88, 'confirmada', NULL, 'EN_GESTION', NULL, NULL);
-  PERFORM pg_temp.sembrar(4, 26, 'No hay losartán hace tres semanas en la farmacia y me mandan a comprarlo afuera.', 'Rosa T.', '00007730', 3, 79, 'confirmada', NULL, 'DERIVADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(5, 60, 'Un trabajador del módulo de admisión me pidió dinero aparte para darme el turno más temprano.', NULL, NULL, 1, 95, 'confirmada', NULL, 'EN_GESTION', NULL, NULL);
-  PERFORM pg_temp.sembrar(6, 3, 'Hola, quisiera saber si atienden los sábados.', NULL, NULL, NULL, NULL, 'ninguna', NULL, 'REGISTRADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(7, 40, 'El laboratorio perdió mi muestra y tengo que repetir el examen, pero me quieren cobrar de nuevo.', 'Pedro S.', '00003350', 2, 61, 'corregida', 3, 'EN_GESTION', NULL, NULL);
-  PERFORM pg_temp.sembrar(8, 60, 'El consultorio abre una hora después del horario que dice el letrero.', 'Carmen V.', '00002214', 2, 90, 'confirmada', NULL, 'RESUELTO', 'Se explicó al paciente el horario vigente y se colocó el aviso en la puerta del consultorio.', 20);
-  PERFORM pg_temp.sembrar(9, 24, 'Un médico me dijo que podía operarme antes si le daba un apoyo en efectivo.', NULL, NULL, 1, 97, 'confirmada', NULL, 'DERIVADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(10, 100, 'Pagué una consulta que el SIS cubre y no me devuelven el dinero.', 'Julio M.', '00006098', 3, 64, 'confirmada', NULL, 'EN_GESTION', NULL, NULL);
-  PERFORM pg_temp.sembrar(11, 18, 'En emergencia me dejaron esperando tres horas y nadie me explicó nada. Una enfermera se burló de mi dolor.', 'Ana P.', '00008841', 2, 52, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(12, 150, 'Pedí copia de mi historia clínica y no me la entregan.', 'Rafael D.', '00005502', 3, 86, 'confirmada', NULL, 'RESUELTO', 'Se entregó la copia de la historia clínica solicitada.', 80);
-  PERFORM pg_temp.sembrar(13, 10, 'Las citas se las dan primero a conocidos del personal, aunque uno llegue a las cinco de la mañana.', NULL, NULL, 1, 74, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(14, 52, 'Los baños de la sala de espera están sin agua desde hace una semana.', 'Teresa L.', '00009013', 2, 69, 'confirmada', NULL, 'DERIVADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(15, 8, 'Mi hijo tiene tos hace días, ¿qué me recomiendan?', NULL, NULL, 4, 41, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(16, 12, 'Me reprogramaron la cita de traumatología tres veces sin avisarme.', 'Hugo F.', '00001176', 3, 77, 'confirmada', NULL, 'CLASIFICADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(17, 14, 'El vigilante no me dejó entrar con mi mamá, que es adulta mayor y necesita ayuda para caminar.', 'Gloria R.', '00004467', 2, 83, 'confirmada', NULL, 'CLASIFICADO', NULL, NULL);
-  PERFORM pg_temp.sembrar(18, 220, 'La sala de espera de pediatría estaba sucia.', 'Nora C.', '00003021', 2, 91, 'confirmada', NULL, 'RESUELTO', 'Se reforzó la limpieza de la sala y se informó al paciente.', 100);
+  PERFORM pg_temp.sembrar(1, 50, '6206', 'Me cobraron 40 soles por un medicamento que según el afiche de la farmacia debía ser gratuito para mi seguro.', 'María Q.', '00004821', 3, 92, 'confirmada', NULL, 'EN_GESTION', 'ORIGEN', NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(2, 20, '5946', 'Pedí cita con cardiología hace dos meses y todavía no me dan fecha. Me dicen que vuelva a llamar.', 'Luis A.', '00001907', 3, 58, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(3, 30, '5614', 'La técnica de admisión me gritó delante de todos cuando pregunté dónde sacar mi ticket.', NULL, NULL, 2, 88, 'confirmada', NULL, 'EN_GESTION', 'ORIGEN', NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(4, 26, '6206', 'No hay losartán hace tres semanas en la farmacia y me mandan a comprarlo afuera.', 'Rosa T.', '00007730', 3, 79, 'confirmada', NULL, 'DERIVADO', 'ORIGEN', NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(5, 60, '5946', 'Un trabajador del módulo de admisión me pidió dinero aparte para darme el turno más temprano.', NULL, NULL, 1, 95, 'confirmada', NULL, 'EN_GESTION', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(6, 3, '5614', 'Hola, quisiera saber si atienden los sábados.', NULL, NULL, NULL, NULL, 'ninguna', NULL, 'REGISTRADO', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(7, 40, '5946', 'El laboratorio perdió mi muestra y tengo que repetir el examen, pero me quieren cobrar de nuevo.', 'Pedro S.', '00003350', 2, 61, 'corregida', 3, 'EN_GESTION', 'ORIGEN', NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(8, 60, '6206', 'El consultorio abre una hora después del horario que dice el letrero.', 'Carmen V.', '00002214', 2, 90, 'confirmada', NULL, 'RESUELTO', 'ORIGEN', 'Se explicó al paciente el horario vigente y se colocó el aviso en la puerta del consultorio.', 20, NULL,
+    'El horario del letrero no coincidía con el vigente', 'ATENDIDO');
+  PERFORM pg_temp.sembrar(9, 24, '5614', 'Un médico me dijo que podía operarme antes si le daba un apoyo en efectivo.', NULL, NULL, 1, 97, 'confirmada', NULL, 'DERIVADO', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(10, 100, '6206', 'Pagué una consulta que el SIS cubre y no me devuelven el dinero.', 'Julio M.', '00006098', 3, 64, 'confirmada', NULL, 'EN_GESTION', 'ORIGEN', NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(11, 18, '5946', 'En emergencia me dejaron esperando tres horas y nadie me explicó nada. Una enfermera se burló de mi dolor.', 'Ana P.', '00008841', 2, 52, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(12, 150, '5614', 'Pedí copia de mi historia clínica y no me la entregan.', 'Rafael D.', '00005502', 3, 86, 'confirmada', NULL, 'RESUELTO', 'ORIGEN', 'Se entregó la copia de la historia clínica solicitada.', 80, NULL,
+    'La historia clínica es un derecho del paciente y no había motivo para retenerla', 'ATENDIDO');
+  PERFORM pg_temp.sembrar(13, 10, '6206', 'Las citas se las dan primero a conocidos del personal, aunque uno llegue a las cinco de la mañana.', NULL, NULL, 1, 74, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(14, 52, '5946', 'Los baños de la sala de espera están sin agua desde hace una semana.', 'Teresa L.', '00009013', 2, 69, 'confirmada', NULL, 'DERIVADO', 'ORIGEN', NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(15, 8, '5614', 'Mi hijo tiene tos hace días, ¿qué me recomiendan?', NULL, NULL, 4, 41, 'ninguna', NULL, 'CLASIFICADO', NULL, NULL, NULL, 'DATOS_INSUFICIENTES');
+  PERFORM pg_temp.sembrar(16, 12, '6206', 'Me reprogramaron la cita de traumatología tres veces sin avisarme.', 'Hugo F.', '00001176', 3, 77, 'confirmada', NULL, 'CLASIFICADO', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(17, 14, '5614', 'El vigilante no me dejó entrar con mi mamá, que es adulta mayor y necesita ayuda para caminar.', 'Gloria R.', '00004467', 2, 83, 'confirmada', NULL, 'CLASIFICADO', NULL, NULL, NULL, NULL);
+  PERFORM pg_temp.sembrar(18, 220, '5946', 'La sala de espera de pediatría estaba sucia.', 'Nora C.', '00003021', 2, 91, 'confirmada', NULL, 'RESUELTO', 'ORIGEN', 'Se reforzó la limpieza de la sala y se informó al paciente.', 100, NULL,
+    'El paciente no volvió a reportar el problema tras reforzar la limpieza', 'CERRADO');
+
+  -- Archivados a mano por una persona y reabierto
+  PERFORM pg_temp.sembrar(19, 30, '6206', 'Me cobran un trámite que corresponde a la DIRIS, no a este hospital, y no sé a quién reclamar.', 'Elena B.', '00005190', 3, 66, 'confirmada', NULL, 'DERIVADO', 'ORIGEN', NULL, NULL, 'NO_CORRESPONDE', NULL, 'ATENDIDO', 'El trámite no es de este hospital sino de la DIRIS Lima Centro', NULL);
+  PERFORM pg_temp.sembrar(20, 28, '5946', 'Me reprogramaron la cirugía dos veces y nadie me explica el motivo.', 'Marco E.', '00007342', 3, 72, 'confirmada', NULL, 'DERIVADO', 'ORIGEN', NULL, NULL, 'NO_CORRESPONDE', NULL, 'ATENDIDO', 'Parecía un caso de otro hospital, falta confirmar el establecimiento', 'El paciente confirmó que la cirugía es en este hospital');
+  PERFORM pg_temp.sembrar(21, 26, '5614', 'Pedí atención y me dijeron que volviera mañana, pero no entiendo qué servicio me corresponde.', 'Pilar H.', '00002288', 2, 57, 'confirmada', NULL, 'EN_GESTION', 'ORIGEN', NULL, NULL, 'DATOS_INSUFICIENTES_PERSONA', NULL, 'ATENDIDO', 'No indica el servicio ni la fecha: no hay datos para gestionarlo', NULL);
 
   PERFORM pg_temp.evidencia(1, 1, 'image/jpeg', 'foto-boleta.jpg');
   PERFORM pg_temp.evidencia(1, 1, 'image/jpeg', 'afiche-farmacia.jpg');
@@ -113,8 +219,15 @@ UPDATE chatbot.incidencia_paciente i
  WHERE i.trace_id = e.traza;
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
-SELECT chatbot.archivar_incidencias_resueltas(3, 1000) AS archivadas_por_vigencia,
-       chatbot.archivar_incidencias_vencidas(3, 1000) AS archivadas_por_vencimiento;
+-- Archivado automatico, pero SOLO de los casos sembrados: las funciones por lote archivarian tambien cualquier caso viejo
+-- que ya tenga la base (por ejemplo, los datos restaurados). Es la misma regla de las dos funciones (3 dias desde que se
+-- resolvio o desde que llego o se reabrio) con el mismo actor, y la base deduce el motivo.
+DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:archivado', false); END $$;
+UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7
+ WHERE trace_id LIKE 'seed-dev-%' AND activo AND estado_incidencia_id = 4 AND resuelto_en < now() - interval '3 days';
+DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:vencimiento', false); END $$;
+UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7
+ WHERE trace_id LIKE 'seed-dev-%' AND activo AND estado_incidencia_id IN (1, 2, 3, 6) AND coalesce(reabierto_en, fecha_creacion) < now() - interval '3 days';
 
 \echo Datos de prueba sembrados:
 SELECT e.nombre AS estado, count(*) AS incidencias

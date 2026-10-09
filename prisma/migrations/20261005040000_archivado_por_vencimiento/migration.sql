@@ -95,11 +95,11 @@ BEGIN
     NEW.categoria_confirmada_por := v_actor;
   END IF;
 
-  IF OLD.resolucion IS NOT NULL AND NEW.resolucion IS DISTINCT FROM OLD.resolucion THEN
+  IF OLD.medidas_tomadas IS NOT NULL AND NEW.medidas_tomadas IS DISTINCT FROM OLD.medidas_tomadas THEN
     RAISE EXCEPTION 'incidencia_paciente: la resolucion solo se registra una vez'
       USING ERRCODE = 'check_violation';
   END IF;
-  IF OLD.resolucion IS NULL AND NEW.resolucion IS NOT NULL THEN
+  IF OLD.medidas_tomadas IS NULL AND NEW.medidas_tomadas IS NOT NULL THEN
     IF NEW.estado_incidencia_id NOT IN (OLD.estado_incidencia_id, 4) THEN
       RAISE EXCEPTION 'incidencia_paciente: al registrar la resolucion el estado pasa a RESUELTO'
         USING ERRCODE = 'check_violation';
@@ -109,7 +109,7 @@ BEGIN
     NEW.estado_incidencia_id := 4;
   END IF;
 
-  IF NEW.estado_incidencia_id = 4 AND OLD.estado_incidencia_id <> 4 AND NEW.resolucion IS NULL THEN
+  IF NEW.estado_incidencia_id = 4 AND OLD.estado_incidencia_id <> 4 AND NEW.medidas_tomadas IS NULL THEN
     RAISE EXCEPTION 'incidencia_paciente: RESUELTO se alcanza al registrar la resolucion'
       USING ERRCODE = 'check_violation';
   END IF;
@@ -131,7 +131,8 @@ END;
 $$;
 
 -- Archivado por vencimiento: pasa a ARCHIVADO un lote de incidencias ABIERTAS (registradas, clasificadas, derivadas o en
--- gestion) que llegaron hace mas de `p_dias` dias y devuelve cuantas archivo. Quien la programa la repite hasta que
+-- gestion) que llegaron hace mas de `p_dias` dias (o, si se reabrieron, que se reabrieron hace mas de `p_dias` dias) y
+-- devuelve cuantas archivo. Quien la programa la repite hasta que
 -- devuelva 0. Se firma como `sistema:vencimiento`: asi el historial distingue este archivado del de las resueltas.
 CREATE OR REPLACE FUNCTION chatbot.archivar_incidencias_vencidas(p_dias integer DEFAULT 3, p_lote integer DEFAULT 1000)
 RETURNS integer
@@ -157,8 +158,8 @@ BEGIN
        FROM chatbot.incidencia_paciente
       WHERE estado_incidencia_id IN (1, 2, 3, 6)
         AND activo
-        AND fecha_creacion < now() - make_interval(days => p_dias)
-      ORDER BY fecha_creacion
+        AND coalesce(reabierto_en, fecha_creacion) < now() - make_interval(days => p_dias)
+      ORDER BY coalesce(reabierto_en, fecha_creacion)
       LIMIT p_lote
         FOR UPDATE SKIP LOCKED
    );
@@ -168,7 +169,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION chatbot.archivar_incidencias_vencidas(integer, integer) IS
-  'Archiva un lote de incidencias abiertas (registradas, clasificadas, derivadas o en gestión) que llegaron hace más de los días indicados (por defecto 3, el plazo de atención) y devuelve cuántas archivó. Hay que repetirla hasta que devuelva 0. Quien la programa debe pasar el mismo valor de días que usa el backend. Se firma como sistema:vencimiento.';
+  'Archiva un lote de incidencias abiertas (registradas, clasificadas, derivadas o en gestión) que llegaron hace más de los días indicados (por defecto 3, el plazo de atención; un caso reabierto cuenta desde su reapertura) y devuelve cuántas archivó. Hay que repetirla hasta que devuelva 0. Quien la programa debe pasar el mismo valor de días que usa el backend. Se firma como sistema:vencimiento.';
 
 SELECT set_config('app.actor', 'sistema:migracion', true);
 

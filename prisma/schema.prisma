@@ -157,6 +157,135 @@ model EstadoConversacion {
   @@schema("catalogo")
 }
 
+model TipoArea {
+  id                  Int      @id(map: "pk_tipo_area") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_tipo_area_codigo")
+  nombre              String
+  descripcion         String?
+  recibeSensibles     Boolean  @default(false) @map("recibe_sensibles")
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  areas Area[]
+  roles Rol[]
+
+  @@map("tipo_area")
+  @@schema("catalogo")
+}
+
+model NivelAtencion {
+  id                  Int      @id(map: "pk_nivel_atencion") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_nivel_atencion_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  establecimientos EstablecimientoSalud[]
+
+  @@map("nivel_atencion")
+  @@schema("catalogo")
+}
+
+model MotivoArchivo {
+  id                  Int      @id(map: "pk_motivo_archivo") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_motivo_archivo_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidencias IncidenciaPaciente[]
+
+  @@map("motivo_archivo")
+  @@schema("catalogo")
+}
+
+model ResultadoResolucion {
+  id                  Int      @id(map: "pk_resultado_resolucion") @default(autoincrement()) @db.SmallInt
+  codigo              String   @unique(map: "uq_resultado_resolucion_codigo")
+  nombre              String
+  descripcion         String?
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidencias IncidenciaPaciente[]
+
+  @@map("resultado_resolucion")
+  @@schema("catalogo")
+}
+
+model Area {
+  id                  Int      @id(map: "pk_area") @default(autoincrement())
+  codigo              String   @unique(map: "uq_area_codigo")
+  nombre              String
+  tipoAreaId          Int      @map("tipo_area_id") @db.SmallInt
+  padreId             Int?     @map("padre_id")
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  tipoArea           TipoArea              @relation(fields: [tipoAreaId], references: [id], map: "fk_area_tipo_area")
+  padre              Area?                 @relation("AreaPadre", fields: [padreId], references: [id], onDelete: Restrict, map: "fk_area_padre")
+  hijas              Area[]                @relation("AreaPadre")
+  establecimiento    EstablecimientoSalud?
+  usuarios           UsuarioInterno[]
+  incidenciasDestino IncidenciaPaciente[]  @relation("IncidenciaAreaDestino")
+  analisisMencionada IncidenciaAnalisis[]
+
+  @@index([padreId], map: "ix_area_padre")
+  @@map("area")
+  @@schema("catalogo")
+}
+
+model EstablecimientoSalud {
+  id                  Int      @id(map: "pk_establecimiento_salud") @default(autoincrement())
+  codigoRenipress     String   @unique(map: "uq_establecimiento_salud_codigo_renipress") @map("codigo_renipress")
+  nombre              String
+  /// Columna generada por la base (f_unaccent(nombre), STORED): Prisma no expresa columnas generadas. Nunca se escribe.
+  nombreBusqueda      String?  @default(dbgenerated("f_unaccent(nombre)")) @map("nombre_busqueda")
+  nivelAtencionId     Int?     @map("nivel_atencion_id") @db.SmallInt
+  categoria           String?
+  departamento        String?
+  provincia           String?
+  distrito            String?
+  red                 String?
+  areaId              Int      @unique(map: "uq_establecimiento_salud_area") @map("area_id")
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  nivelAtencion NivelAtencion?       @relation(fields: [nivelAtencionId], references: [id], onDelete: Restrict, map: "fk_establecimiento_salud_nivel_atencion")
+  area          Area                 @relation(fields: [areaId], references: [id], map: "fk_establecimiento_salud_area")
+  incidencias   IncidenciaPaciente[]
+
+  @@index([nombreBusqueda(ops: raw("gin_trgm_ops"))], type: Gin, map: "ix_establecimiento_salud_nombre_busqueda")
+  @@map("establecimiento_salud")
+  @@schema("catalogo")
+}
+
 model Usuario {
   id                   String    @id(map: "pk_usuario") @default(dbgenerated("uuidv7()")) @db.Uuid
   waId                 String    @unique(map: "uq_usuario_wa_id") @map("wa_id")
@@ -175,7 +304,7 @@ model Usuario {
   fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  estadoConversacion EstadoConversacion  @relation(fields: [estadoConversacionId], references: [id], map: "fk_usuario_estado_conversacion")
+  estadoConversacion EstadoConversacion   @relation(fields: [estadoConversacionId], references: [id], map: "fk_usuario_estado_conversacion")
   mensajes           Mensaje[]
   incidencias        IncidenciaPaciente[]
   solicitudesCarga   SolicitudCarga[]
@@ -202,10 +331,10 @@ model Mensaje {
   fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  usuario          Usuario             @relation(fields: [usuarioId], references: [id], map: "fk_mensaje_usuario")
-  direccionMensaje DireccionMensaje    @relation(fields: [direccionMensajeId], references: [id], map: "fk_mensaje_direccion_mensaje")
-  tipoMensaje      TipoMensaje         @relation(fields: [tipoMensajeId], references: [id], map: "fk_mensaje_tipo_mensaje")
-  estadoMensaje    EstadoMensaje       @relation(fields: [estadoMensajeId], references: [id], map: "fk_mensaje_estado_mensaje")
+  usuario          Usuario              @relation(fields: [usuarioId], references: [id], map: "fk_mensaje_usuario")
+  direccionMensaje DireccionMensaje     @relation(fields: [direccionMensajeId], references: [id], map: "fk_mensaje_direccion_mensaje")
+  tipoMensaje      TipoMensaje          @relation(fields: [tipoMensajeId], references: [id], map: "fk_mensaje_tipo_mensaje")
+  estadoMensaje    EstadoMensaje        @relation(fields: [estadoMensajeId], references: [id], map: "fk_mensaje_estado_mensaje")
   incidencias      IncidenciaPaciente[]
   evidencias       Evidencia[]
 
@@ -216,50 +345,71 @@ model Mensaje {
 }
 
 model IncidenciaPaciente {
-  id                   String    @id(map: "pk_incidencia_paciente") @default(dbgenerated("uuidv7()")) @db.Uuid
-  canalOrigenId        Int       @map("canal_origen_id") @db.SmallInt
-  usuarioId            String    @map("usuario_id") @db.Uuid
-  mensajeId            String?   @map("mensaje_id") @db.Uuid
-  waId                 String    @map("wa_id")
-  esAnonimo            Boolean   @map("es_anonimo")
-  dniReclamante        String?   @map("dni_reclamante")
-  nombreReclamante     String?   @map("nombre_reclamante")
-  descripcion          String
-  estadoIncidenciaId    Int       @default(1) @map("estado_incidencia_id") @db.SmallInt
-  traceId              String    @unique(map: "uq_incidencia_paciente_trace_id") @map("trace_id")
-  categoriaId           Int?      @map("categoria_id") @db.SmallInt
-  categoriaIaId         Int?      @map("categoria_ia_id") @db.SmallInt
-  categoriaConfianza    Decimal?  @map("categoria_confianza") @db.Decimal(5, 2)
-  versionClasificador   String?   @map("version_clasificador")
-  categoriaAsignadaEn   DateTime? @map("categoria_asignada_en") @db.Timestamptz(3)
-  categoriaCorregidaEn  DateTime? @map("categoria_corregida_en") @db.Timestamptz(3)
-  categoriaCorregidaPor String?   @map("categoria_corregida_por")
-  categoriaConfirmadaEn DateTime? @map("categoria_confirmada_en") @db.Timestamptz(3)
-  categoriaConfirmadaPor String?  @map("categoria_confirmada_por")
-  resolucion           String?
-  resueltoEn           DateTime? @map("resuelto_en") @db.Timestamptz(3)
-  resueltoPor          String?   @map("resuelto_por")
-  activo               Boolean   @default(true)
-  eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor         String?   @map("eliminado_por")
-  versionFila          Int       @default(1) @map("version_fila")
-  fechaCreacion        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  usuarioCreacion      String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
-  fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
-  usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
-  codigo               String    @default("") @unique(map: "uq_incidencia_paciente_codigo")
+  id                     String    @id(map: "pk_incidencia_paciente") @default(dbgenerated("uuidv7()")) @db.Uuid
+  canalOrigenId          Int       @map("canal_origen_id") @db.SmallInt
+  usuarioId              String    @map("usuario_id") @db.Uuid
+  mensajeId              String?   @map("mensaje_id") @db.Uuid
+  waId                   String    @map("wa_id")
+  esAnonimo              Boolean   @map("es_anonimo")
+  dniReclamante          String?   @map("dni_reclamante")
+  nombreReclamante       String?   @map("nombre_reclamante")
+  descripcion            String
+  estadoIncidenciaId     Int       @default(1) @map("estado_incidencia_id") @db.SmallInt
+  traceId                String    @unique(map: "uq_incidencia_paciente_trace_id") @map("trace_id")
+  categoriaId            Int?      @map("categoria_id") @db.SmallInt
+  categoriaIaId          Int?      @map("categoria_ia_id") @db.SmallInt
+  categoriaConfianza     Decimal?  @map("categoria_confianza") @db.Decimal(5, 2)
+  versionClasificador    String?   @map("version_clasificador")
+  categoriaAsignadaEn    DateTime? @map("categoria_asignada_en") @db.Timestamptz(3)
+  categoriaCorregidaEn   DateTime? @map("categoria_corregida_en") @db.Timestamptz(3)
+  categoriaCorregidaPor  String?   @map("categoria_corregida_por")
+  categoriaConfirmadaEn  DateTime? @map("categoria_confirmada_en") @db.Timestamptz(3)
+  categoriaConfirmadaPor String?   @map("categoria_confirmada_por")
+  medidasTomadas         String?   @map("medidas_tomadas")
+  fundamento             String?
+  resultadoResolucionId  Int?      @map("resultado_resolucion_id") @db.SmallInt
+  resueltoEn             DateTime? @map("resuelto_en") @db.Timestamptz(3)
+  resueltoPor            String?   @map("resuelto_por")
+  activo                 Boolean   @default(true)
+  eliminadoEn            DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor           String?   @map("eliminado_por")
+  versionFila            Int       @default(1) @map("version_fila")
+  fechaCreacion          DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion        String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion      DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion    String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+  codigo                 String    @unique(map: "uq_incidencia_paciente_codigo") @default("")
+  establecimientoId      Int?      @map("establecimiento_id")
+  areaDestinoId          Int?      @map("area_destino_id")
+  derivadoEn             DateTime? @map("derivado_en") @db.Timestamptz(3)
+  derivadoPor            String?   @map("derivado_por")
+  tomadoEn               DateTime? @map("tomado_en") @db.Timestamptz(3)
+  tomadoPor              String?   @map("tomado_por")
+  motivoArchivoId        Int?      @map("motivo_archivo_id") @db.SmallInt
+  archivadoEn            DateTime? @map("archivado_en") @db.Timestamptz(3)
+  archivoDetalle         String?   @map("archivo_detalle")
+  reabiertoEn            DateTime? @map("reabierto_en") @db.Timestamptz(3)
+  reabiertoPor           String?   @map("reabierto_por")
+  reabiertoMotivo        String?   @map("reabierto_motivo")
 
-  canalOrigen     CanalOrigen                  @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
-  usuario         Usuario                      @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")
-  mensaje         Mensaje?                     @relation(fields: [mensajeId], references: [id], map: "fk_incidencia_paciente_mensaje")
-  estadoIncidencia EstadoIncidencia              @relation(fields: [estadoIncidenciaId], references: [id], map: "fk_incidencia_paciente_estado_incidencia")
-  categoria        CategoriaIncidencia?                    @relation("IncidenciaCategoria", fields: [categoriaId], references: [id], map: "fk_incidencia_paciente_categoria")
-  categoriaIa      CategoriaIncidencia?                    @relation("IncidenciaCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_incidencia_paciente_categoria_ia")
-  evidencias      Evidencia[]
-  auditoria       IncidenciaPacienteAuditoria[]
-  entrenamientos  EntrenamientoCategoria[]
-  solicitudesCarga SolicitudCarga[]
+  canalOrigen         CanalOrigen                   @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
+  usuario             Usuario                       @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")
+  mensaje             Mensaje?                      @relation(fields: [mensajeId], references: [id], map: "fk_incidencia_paciente_mensaje")
+  estadoIncidencia    EstadoIncidencia              @relation(fields: [estadoIncidenciaId], references: [id], map: "fk_incidencia_paciente_estado_incidencia")
+  categoria           CategoriaIncidencia?          @relation("IncidenciaCategoria", fields: [categoriaId], references: [id], map: "fk_incidencia_paciente_categoria")
+  categoriaIa         CategoriaIncidencia?          @relation("IncidenciaCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_incidencia_paciente_categoria_ia")
+  establecimiento     EstablecimientoSalud?         @relation(fields: [establecimientoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_establecimiento_salud")
+  areaDestino         Area?                         @relation("IncidenciaAreaDestino", fields: [areaDestinoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_area_destino")
+  motivoArchivo       MotivoArchivo?                @relation(fields: [motivoArchivoId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_motivo_archivo")
+  resultadoResolucion ResultadoResolucion?          @relation(fields: [resultadoResolucionId], references: [id], onDelete: Restrict, map: "fk_incidencia_paciente_resultado_resolucion")
+  analisis            IncidenciaAnalisis?
+  evidencias          Evidencia[]
+  auditoria           IncidenciaPacienteAuditoria[]
+  entrenamientos      EntrenamientoCategoria[]
+  solicitudesCarga    SolicitudCarga[]
 
+  // Índices parciales (bandeja por área destino, abiertas) y CHECK de derivación, toma, archivo, reapertura y resolución: solo en la migración.
+  @@index([establecimientoId, fechaCreacion], map: "ix_incidencia_paciente_origen_fecha")
   @@index([estadoIncidenciaId, fechaCreacion], map: "ix_incidencia_paciente_estado_fecha")
   @@index([usuarioId, fechaCreacion], map: "ix_incidencia_paciente_usuario_fecha")
   @@index([categoriaId], map: "ix_incidencia_paciente_categoria")
@@ -268,13 +418,13 @@ model IncidenciaPaciente {
 }
 
 model IncidenciaPacienteAuditoria {
-  id                  BigInt   @id(map: "pk_incidencia_paciente_auditoria") @default(autoincrement())
+  id                   BigInt   @id(map: "pk_incidencia_paciente_auditoria") @default(autoincrement())
   incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
-  operacion           String   @db.VarChar(16)
-  cambios             Json     @db.JsonB
-  actor               String
-  versionFila         Int      @map("version_fila")
-  fechaHora           DateTime @default(now()) @map("fecha_hora") @db.Timestamptz(3)
+  operacion            String   @db.VarChar(16)
+  cambios              Json     @db.JsonB
+  actor                String
+  versionFila          Int      @map("version_fila")
+  fechaHora            DateTime @default(now()) @map("fecha_hora") @db.Timestamptz(3)
 
   incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_incidencia_paciente_auditoria_incidencia_paciente")
 
@@ -283,25 +433,43 @@ model IncidenciaPacienteAuditoria {
   @@schema("chatbot")
 }
 
+model IncidenciaAnalisis {
+  incidenciaPacienteId String   @id(map: "pk_incidencia_analisis") @map("incidencia_paciente_id") @db.Uuid
+  versionReglas        String   @map("version_reglas")
+  puntaje              Int      @db.SmallInt
+  senales              Json
+  cargoMencionado      String?  @map("cargo_mencionado")
+  areaMencionadaId     Int?     @map("area_mencionada_id")
+  nombreMencionado     String?  @map("nombre_mencionado")
+  fechaCreacion        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+
+  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_incidencia_analisis_incidencia_paciente")
+  areaMencionada     Area?              @relation(fields: [areaMencionadaId], references: [id], onDelete: Restrict, map: "fk_incidencia_analisis_area_mencionada")
+
+  @@map("incidencia_analisis")
+  @@schema("chatbot")
+}
+
 model Evidencia {
-  id                  String   @id(map: "pk_evidencia") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                   String   @id(map: "pk_evidencia") @default(dbgenerated("uuidv7()")) @db.Uuid
   incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
-  mensajeId           String?  @map("mensaje_id") @db.Uuid
-  mediaId             String?  @map("media_id")
-  tipoEvidenciaId     Int      @map("tipo_evidencia_id") @db.SmallInt
-  mimeType            String   @map("mime_type")
-  nombreArchivo       String?  @map("nombre_archivo")
-  tamano              Int
-  ruta                String
-  hashArchivo         String?  @map("hash_archivo")
-  fechaRecepcion      DateTime @default(now()) @map("fecha_recepcion") @db.Timestamptz(3)
-  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  mensajeId            String?  @map("mensaje_id") @db.Uuid
+  mediaId              String?  @map("media_id")
+  tipoEvidenciaId      Int      @map("tipo_evidencia_id") @db.SmallInt
+  mimeType             String   @map("mime_type")
+  nombreArchivo        String?  @map("nombre_archivo")
+  tamano               Int
+  ruta                 String
+  hashArchivo          String?  @map("hash_archivo")
+  fechaRecepcion       DateTime @default(now()) @map("fecha_recepcion") @db.Timestamptz(3)
+  fechaCreacion        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
 
   incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_evidencia_incidencia_paciente")
-  mensaje           Mensaje?          @relation(fields: [mensajeId], references: [id], map: "fk_evidencia_mensaje")
-  tipoEvidencia     TipoEvidencia     @relation(fields: [tipoEvidenciaId], references: [id], map: "fk_evidencia_tipo_evidencia")
-  archivoRecibido   ArchivoRecibido?
+  mensaje            Mensaje?           @relation(fields: [mensajeId], references: [id], map: "fk_evidencia_mensaje")
+  tipoEvidencia      TipoEvidencia      @relation(fields: [tipoEvidenciaId], references: [id], map: "fk_evidencia_tipo_evidencia")
+  archivoRecibido    ArchivoRecibido?
 
   @@index([incidenciaPacienteId], map: "ix_evidencia_incidencia_paciente")
   @@map("evidencia")
@@ -333,22 +501,23 @@ model ContadorCodigoIncidencia {
 }
 
 model EntrenamientoCategoria {
-  id                  String   @id(map: "pk_entrenamiento_categoria") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                   String   @id(map: "pk_entrenamiento_categoria") @default(dbgenerated("uuidv7()")) @db.Uuid
   incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
-  textoEntrenamiento  String   @map("texto_entrenamiento")
+  textoEntrenamiento   String   @map("texto_entrenamiento")
   categoriaIaId        Int      @map("categoria_ia_id") @db.SmallInt
   categoriaFinalId     Int      @map("categoria_final_id") @db.SmallInt
-  fueCorregida        Boolean  @map("fue_corregida")
+  fueCorregida         Boolean  @map("fue_corregida")
   categoriaConfianza   Decimal? @map("categoria_confianza") @db.Decimal(5, 2)
-  versionClasificador String?  @map("version_clasificador")
-  revisadoPor        String   @map("revisado_por")
-  fechaRevision     DateTime @map("fecha_revision") @db.Timestamptz(3)
-  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  versionClasificador  String?  @map("version_clasificador")
+  revisadoPor          String   @map("revisado_por")
+  fechaRevision        DateTime @map("fecha_revision") @db.Timestamptz(3)
+  aptoEntrenamiento    Boolean  @default(true) @map("apto_entrenamiento")
+  fechaCreacion        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
 
-  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_entrenamiento_categoria_incidencia_paciente")
-  categoriaIa        CategoriaIncidencia          @relation("EntrenamientoCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_entrenamiento_categoria_categoria_ia")
-  categoriaFinal     CategoriaIncidencia          @relation("EntrenamientoCategoriaFinal", fields: [categoriaFinalId], references: [id], map: "fk_entrenamiento_categoria_categoria_final")
+  incidenciaPaciente IncidenciaPaciente  @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_entrenamiento_categoria_incidencia_paciente")
+  categoriaIa        CategoriaIncidencia @relation("EntrenamientoCategoriaIa", fields: [categoriaIaId], references: [id], map: "fk_entrenamiento_categoria_categoria_ia")
+  categoriaFinal     CategoriaIncidencia @relation("EntrenamientoCategoriaFinal", fields: [categoriaFinalId], references: [id], map: "fk_entrenamiento_categoria_categoria_final")
 
   @@index([incidenciaPacienteId], map: "ix_entrenamiento_categoria_incidencia_paciente")
   @@index([fechaRevision], map: "ix_entrenamiento_categoria_fecha_revision")
@@ -361,6 +530,7 @@ model UsuarioInterno {
   nombreCompleto      String    @map("nombre_completo")
   correo              String    @unique(map: "uq_usuario_interno_correo")
   passwordHash        String    @map("password_hash")
+  areaId              Int?      @map("area_id")
   activo              Boolean   @default(true)
   eliminadoEn         DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor        String?   @map("eliminado_por")
@@ -370,9 +540,11 @@ model UsuarioInterno {
   fechaModificacion   DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
+  area     Area?           @relation(fields: [areaId], references: [id], onDelete: Restrict, map: "fk_usuario_interno_area")
   roles    UsuarioRol[]
   sesiones SesionUsuario[]
 
+  @@index([areaId], map: "ix_usuario_interno_area")
   @@map("usuario_interno")
   @@schema("gestion")
 }
@@ -382,6 +554,7 @@ model Rol {
   codigo              String   @unique(map: "uq_rol_codigo")
   nombre              String
   descripcion         String?
+  tipoAreaId          Int?     @map("tipo_area_id") @db.SmallInt
   activo              Boolean  @default(true)
   versionFila         Int      @default(1) @map("version_fila")
   fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
@@ -389,6 +562,7 @@ model Rol {
   fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
+  tipoArea   TipoArea?      @relation(fields: [tipoAreaId], references: [id], onDelete: Restrict, map: "fk_rol_tipo_area")
   usuarios   UsuarioRol[]
   categorias RolCategoria[]
 
@@ -449,7 +623,9 @@ model EstadoArchivo {
 
 model SolicitudCarga {
   id                   String    @id(map: "pk_solicitud_carga") @default(dbgenerated("uuidv7()")) @db.Uuid
-  incidenciaPacienteId String    @map("incidencia_paciente_id") @db.Uuid
+  incidenciaPacienteId String?   @map("incidencia_paciente_id") @db.Uuid
+  /// Borrador del reporte (sesion_conversacion) del que salió el enlace. Sin llave foránea a propósito: la purga de sesiones la borra.
+  sesionId             String?   @map("sesion_id") @db.Uuid
   usuarioId            String    @map("usuario_id") @db.Uuid
   hashToken            String    @unique(map: "uq_solicitud_carga_hash_token") @map("hash_token")
   venceEn              DateTime  @map("vence_en") @db.Timestamptz(3)
@@ -462,8 +638,8 @@ model SolicitudCarga {
   fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_solicitud_carga_incidencia_paciente")
-  usuario            Usuario            @relation(fields: [usuarioId], references: [id], map: "fk_solicitud_carga_usuario")
+  incidenciaPaciente IncidenciaPaciente? @relation(fields: [incidenciaPacienteId], references: [id], onDelete: Restrict, map: "fk_solicitud_carga_incidencia_paciente")
+  usuario            Usuario             @relation(fields: [usuarioId], references: [id], map: "fk_solicitud_carga_usuario")
   archivosRecibidos  ArchivoRecibido[]
 
   @@index([incidenciaPacienteId], map: "ix_solicitud_carga_incidencia_paciente")
@@ -500,10 +676,10 @@ model ArchivoRecibido {
 }
 
 model RolCategoria {
-  rolId                Int      @map("rol_id") @db.SmallInt
-  categoriaIncidenciaId Int     @map("categoria_incidencia_id") @db.SmallInt
-  fechaCreacion        DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  usuarioCreacion      String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  rolId                 Int      @map("rol_id") @db.SmallInt
+  categoriaIncidenciaId Int      @map("categoria_incidencia_id") @db.SmallInt
+  fechaCreacion         DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion       String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
 
   rol                 Rol                 @relation(fields: [rolId], references: [id], map: "fk_rol_categoria_rol")
   categoriaIncidencia CategoriaIncidencia @relation(fields: [categoriaIncidenciaId], references: [id], map: "fk_rol_categoria_categoria_incidencia")

@@ -16,6 +16,9 @@ BEGIN
 END;
 $$;
 
+SELECT set_config('app.actor', 'sistema:prueba', false);
+INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES ('T06-AREA', 'Area de prueba 06', 1);
+
 SELECT set_config('app.actor', 'ciudadano:wa-estados', false);
 INSERT INTO chatbot.usuario (wa_id) VALUES ('wa-estados');
 INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, descripcion, trace_id)
@@ -41,12 +44,22 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_inc
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 'trace-estados-B'$q$, '23514', 'E04 no se salta a EN_GESTION desde REGISTRADO');
 
 SELECT set_config('app.actor', 'operador:gestor', false);
-UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-A';
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-A'$q$, '23514', 'E04b derivar exige un area de destino');
+UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6, area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'T06-AREA') WHERE trace_id = 'trace-estados-A';
 DO $$
+DECLARE r chatbot.incidencia_paciente;
 BEGIN
-  ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-A') = 6, 'E05 se deriva al area competente';
+  SELECT * INTO r FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-A';
+  ASSERT r.estado_incidencia_id = 6, 'E05 se deriva al area competente';
+  ASSERT r.derivado_en IS NOT NULL AND r.derivado_por = 'operador:gestor', 'E05 la base llena quien y cuando derivo';
 END $$;
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 'trace-estados-A';
+DO $$
+DECLARE r chatbot.incidencia_paciente;
+BEGIN
+  SELECT * INTO r FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-A';
+  ASSERT r.tomado_en IS NOT NULL AND r.tomado_por = 'operador:gestor', 'E05b la base llena quien y cuando tomo el caso';
+END $$;
 
 UPDATE chatbot.incidencia_paciente SET categoria_id = 3 WHERE trace_id = 'trace-estados-C';
 DO $$
@@ -55,13 +68,13 @@ BEGIN
 END $$;
 
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 2 WHERE trace_id = 'trace-estados-A'$q$, '23514', 'E07 no se retrocede de EN_GESTION a CLASIFICADO');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E08 una persona no archiva a mano un caso abierto');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 2 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E08 una persona no archiva a mano un caso abierto como vencido');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 4 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E09 RESUELTO exige registrar la resolucion');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 5 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E10 ANULADO ya no es un destino valido');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET resolucion = 'ok', estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E11 al resolver el estado solo puede ser RESUELTO');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'ok medidas largas', fundamento = 'ok fundamento largo', resultado_resolucion_id = 1, estado_incidencia_id = 6 WHERE trace_id = 'trace-estados-C'$q$, '23514', 'E11 al resolver el estado solo puede ser RESUELTO');
 
-UPDATE chatbot.incidencia_paciente SET resolucion = 'Se atendio el reclamo' WHERE trace_id = 'trace-estados-A';
-UPDATE chatbot.incidencia_paciente SET resolucion = 'Resuelta sin IA' WHERE trace_id = 'trace-estados-B';
+UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se atendio el reclamo', fundamento = 'El reclamo era procedente', resultado_resolucion_id = 1 WHERE trace_id = 'trace-estados-A';
+UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Resuelta sin IA', fundamento = 'No hizo falta la IA', resultado_resolucion_id = 2 WHERE trace_id = 'trace-estados-B';
 DO $$
 DECLARE r chatbot.incidencia_paciente;
 BEGIN
@@ -85,6 +98,9 @@ DO $$
 BEGIN
   ASSERT chatbot.archivar_incidencias_resueltas(3, 1000) = 1, 'E15 se archiva solo la resuelta hace mas de 3 dias';
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-A') = 7, 'E15 queda ARCHIVADA';
+  ASSERT (SELECT m.codigo FROM chatbot.incidencia_paciente i JOIN catalogo.motivo_archivo m ON m.id = i.motivo_archivo_id
+           WHERE i.trace_id = 'trace-estados-A') = 'RESUELTA_VIGENCIA', 'E15 la base deduce el motivo RESUELTA_VIGENCIA';
+  ASSERT (SELECT archivado_en IS NOT NULL FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-A'), 'E15 la base llena la fecha de archivado';
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-B') = 4, 'E15 la de 2 dias sigue RESUELTA';
   ASSERT (SELECT usuario_modificacion FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-A') = 'sistema:archivado', 'E16 la base firma al archivador';
   ASSERT EXISTS (SELECT 1 FROM chatbot.incidencia_paciente_auditoria a JOIN chatbot.incidencia_paciente i ON i.id = a.incidencia_paciente_id
@@ -105,6 +121,6 @@ END $$;
 SELECT pg_temp.espera_error($q$DELETE FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-D'$q$, '23001', 'E23 la incidencia no se borra fisicamente');
 
 TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
-         ia.entrenamiento_categoria, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
+         ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE ESTADOS PASARON

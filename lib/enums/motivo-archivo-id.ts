@@ -1,0 +1,6 @@
+export enum MotivoArchivoId {
+  RESUELTA_VIGENCIA = 1,
+  VENCIDA_SIN_ATENDER = 2,
+  DATOS_INSUFICIENTES = 3,
+  NO_CORRESPONDE = 4,
+}

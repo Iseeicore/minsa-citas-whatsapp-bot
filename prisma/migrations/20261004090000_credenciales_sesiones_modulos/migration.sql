@@ -2,32 +2,6 @@
 ALTER TABLE "gestion"."usuario_interno" ADD COLUMN     "password_hash" TEXT NOT NULL;
 
 -- CreateTable
-CREATE TABLE "gestion"."modulo" (
-    "id" SMALLSERIAL NOT NULL,
-    "codigo" TEXT NOT NULL,
-    "nombre" TEXT NOT NULL,
-    "descripcion" TEXT,
-    "activo" BOOLEAN NOT NULL DEFAULT true,
-    "version_fila" INTEGER NOT NULL DEFAULT 1,
-    "fecha_creacion" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "usuario_creacion" TEXT NOT NULL DEFAULT CURRENT_USER,
-    "fecha_modificacion" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "usuario_modificacion" TEXT NOT NULL DEFAULT CURRENT_USER,
-
-    CONSTRAINT "pk_modulo" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "gestion"."rol_modulo" (
-    "rol_id" SMALLINT NOT NULL,
-    "modulo_id" SMALLINT NOT NULL,
-    "fecha_creacion" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "usuario_creacion" TEXT NOT NULL DEFAULT CURRENT_USER,
-
-    CONSTRAINT "pk_rol_modulo" PRIMARY KEY ("rol_id","modulo_id")
-);
-
--- CreateTable
 CREATE TABLE "gestion"."sesion_usuario" (
     "id" UUID NOT NULL DEFAULT uuidv7(),
     "usuario_interno_id" UUID NOT NULL,
@@ -44,16 +18,7 @@ CREATE TABLE "gestion"."sesion_usuario" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "uq_modulo_codigo" ON "gestion"."modulo"("codigo");
-
--- CreateIndex
 CREATE INDEX "ix_sesion_usuario_usuario_revocada" ON "gestion"."sesion_usuario"("usuario_interno_id", "revocada_en");
-
--- AddForeignKey
-ALTER TABLE "gestion"."rol_modulo" ADD CONSTRAINT "fk_rol_modulo_rol" FOREIGN KEY ("rol_id") REFERENCES "gestion"."rol"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "gestion"."rol_modulo" ADD CONSTRAINT "fk_rol_modulo_modulo" FOREIGN KEY ("modulo_id") REFERENCES "gestion"."modulo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "gestion"."sesion_usuario" ADD CONSTRAINT "fk_sesion_usuario_usuario_interno" FOREIGN KEY ("usuario_interno_id") REFERENCES "gestion"."usuario_interno"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -100,7 +65,7 @@ BEGIN
 END;
 $$;
 
--- Desactivar a un usuario cierra todas sus sesiones abiertas (el interruptor de apagado vive en la base, no en la aplicacion).
+-- Desactivar a un usuario, o cambiarle el area, cierra todas sus sesiones abiertas (el interruptor de apagado vive en la base, no en la aplicacion).
 CREATE OR REPLACE FUNCTION public.fn_cerrar_sesiones_usuario() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -109,14 +74,6 @@ BEGIN
   RETURN NULL;
 END;
 $$;
-
-CREATE TRIGGER trg_modulo_b_auditoria_ins BEFORE INSERT ON gestion.modulo
-  FOR EACH ROW EXECUTE FUNCTION public.fn_auditoria_mutable();
-CREATE TRIGGER trg_modulo_b_auditoria_upd BEFORE UPDATE ON gestion.modulo
-  FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*) EXECUTE FUNCTION public.fn_auditoria_mutable();
-
-CREATE TRIGGER trg_rol_modulo_b_auditoria_ins BEFORE INSERT ON gestion.rol_modulo
-  FOR EACH ROW EXECUTE FUNCTION public.fn_auditoria_creacion();
 
 CREATE TRIGGER trg_sesion_usuario_a_reglas_ins BEFORE INSERT ON gestion.sesion_usuario
   FOR EACH ROW EXECUTE FUNCTION public.fn_reglas_sesion_usuario();
@@ -132,72 +89,81 @@ CREATE TRIGGER trg_sesion_usuario_bloqueo_borrado BEFORE DELETE ON gestion.sesio
 CREATE TRIGGER trg_usuario_interno_c_cerrar_sesiones AFTER UPDATE OF activo ON gestion.usuario_interno
   FOR EACH ROW WHEN (OLD.activo AND NOT NEW.activo) EXECUTE FUNCTION public.fn_cerrar_sesiones_usuario();
 
+-- Cambiar el area de un usuario tambien cierra sus sesiones (los permisos se calculan con el area) y el usuario debe tener
+-- un area del mismo tipo que sus roles con tipo de area (gestor, establecimiento, OTRANS): quitarle el area tambien se
+-- rechaza. Solo el administrador, sin tipo de area, vale en cualquier area o sin ella.
+CREATE OR REPLACE FUNCTION public.fn_reglas_usuario_interno_area() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM gestion.usuario_rol ur
+      JOIN gestion.rol r ON r.id = ur.rol_id
+      LEFT JOIN catalogo.area a ON a.id = NEW.area_id
+     WHERE ur.usuario_interno_id = NEW.id AND r.tipo_area_id IS NOT NULL AND r.tipo_area_id IS DISTINCT FROM a.tipo_area_id
+  ) THEN
+    RAISE EXCEPTION 'usuario_interno: el tipo de area no coincide con el de los roles del usuario (un rol con tipo de area exige un area de ese tipo)' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- Tope de usuarios por establecimiento: como maximo 3 usuarios ACTIVOS (de cualquier rol) en el area de un establecimiento.
+-- Se hace cumplir al insertar un usuario, al reactivarlo y al cambiarle el area; el area OTRANS (y cualquier area que no
+-- sea de un establecimiento) no tiene tope. Una modificacion que no toca el area ni la vigencia no se revisa. Los
+-- insertos y cambios simultaneos del mismo establecimiento esperan su turno (cerrojo por area dentro de la transaccion).
+CREATE OR REPLACE FUNCTION public.fn_limitar_usuarios_establecimiento() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_tope CONSTANT integer := 3;
+  v_activos integer;
+BEGIN
+  IF NOT NEW.activo OR NEW.area_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'UPDATE' AND NEW.area_id IS NOT DISTINCT FROM OLD.area_id AND NEW.activo = OLD.activo AND NEW.eliminado_en IS NOT DISTINCT FROM OLD.eliminado_en THEN
+    RETURN NEW;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM catalogo.area a JOIN catalogo.tipo_area ta ON ta.id = a.tipo_area_id
+     WHERE a.id = NEW.area_id AND ta.codigo = 'ESTABLECIMIENTO'
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended('usuario_interno:tope:' || NEW.area_id::text, 0));
+  SELECT count(*) INTO v_activos FROM gestion.usuario_interno WHERE area_id = NEW.area_id AND activo AND id <> NEW.id;
+  IF v_activos >= v_tope THEN
+    RAISE EXCEPTION 'usuario_interno: el establecimiento ya tiene 3 usuarios activos'
+      USING ERRCODE = 'check_violation',
+            HINT = 'Desactive a un usuario del establecimiento antes de agregar o reactivar otro.';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_usuario_interno_a_tope_ins BEFORE INSERT ON gestion.usuario_interno
+  FOR EACH ROW EXECUTE FUNCTION public.fn_limitar_usuarios_establecimiento();
+CREATE TRIGGER trg_usuario_interno_a_tope_upd BEFORE UPDATE OF area_id, activo, eliminado_en ON gestion.usuario_interno
+  FOR EACH ROW EXECUTE FUNCTION public.fn_limitar_usuarios_establecimiento();
+
+CREATE TRIGGER trg_usuario_interno_a_reglas_area BEFORE UPDATE OF area_id ON gestion.usuario_interno
+  FOR EACH ROW WHEN (OLD.area_id IS DISTINCT FROM NEW.area_id) EXECUTE FUNCTION public.fn_reglas_usuario_interno_area();
+
+CREATE TRIGGER trg_usuario_interno_c_cerrar_sesiones_area AFTER UPDATE OF area_id ON gestion.usuario_interno
+  FOR EACH ROW WHEN (OLD.area_id IS DISTINCT FROM NEW.area_id) EXECUTE FUNCTION public.fn_cerrar_sesiones_usuario();
+
 SELECT set_config('app.actor', 'sistema:migracion', true);
-
--- Modulos de la plataforma de gestion. El acceso se da por modulo: un rol abre los modulos que tiene asignados.
-INSERT INTO gestion.modulo (id, codigo, nombre, descripcion) VALUES
-  (1, 'INCIDENCIAS', 'Incidencias', 'Visor de las incidencias de los pacientes, con su detalle, historial y evidencias'),
-  (2, 'REVISION', 'Revisión y resolución', 'Corregir o confirmar la categoría, derivar al área y registrar la resolución'),
-  (3, 'INDICADORES', 'Indicadores', 'Métricas y análisis de los procesos: ingresos del día, resueltas, por vencer y desempeño de la IA'),
-  (4, 'ENTRENAMIENTO_IA', 'Entrenamiento de la IA', 'Correcciones y confirmaciones que alimentan la mejora del clasificador, y su exactitud por versión'),
-  (5, 'USUARIOS', 'Usuarios y roles', 'Alta, desactivación y asignación de roles de los usuarios internos')
-ON CONFLICT (id) DO UPDATE
-  SET codigo = EXCLUDED.codigo, nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion;
-SELECT setval(pg_get_serial_sequence('gestion.modulo', 'id'), 5);
-
--- Que modulos abre cada rol (provisional, igual que los roles). Que categorias ve sigue en gestion.rol_categoria.
-INSERT INTO gestion.rol_modulo (rol_id, modulo_id) VALUES
-  (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
-  (2, 1), (2, 2),
-  (3, 1), (3, 2), (3, 4),
-  (4, 1), (4, 2),
-  (5, 1), (5, 2),
-  (6, 1), (6, 2)
-ON CONFLICT (rol_id, modulo_id) DO NOTHING;
-
 
 -- Descripcion de lo nuevo o cambiado (diccionario de datos dentro de la base).
 COMMENT ON COLUMN gestion.usuario_interno.correo IS 'Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.';
 
 COMMENT ON COLUMN gestion.usuario_interno.password_hash IS 'Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato.';
 
-COMMENT ON TABLE gestion.usuario_interno IS 'Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla se cierran todas sus sesiones.';
-
-COMMENT ON COLUMN gestion.modulo.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
-
-COMMENT ON COLUMN gestion.modulo.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
-
-COMMENT ON COLUMN gestion.modulo.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
-
-COMMENT ON COLUMN gestion.modulo.descripcion IS 'Explicación opcional de qué significa el valor.';
-
-COMMENT ON COLUMN gestion.modulo.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';
-
-COMMENT ON COLUMN gestion.modulo.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
-
-COMMENT ON COLUMN gestion.modulo.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
-
-COMMENT ON COLUMN gestion.modulo.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
-
-COMMENT ON COLUMN gestion.modulo.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
-
-COMMENT ON COLUMN gestion.modulo.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-
-COMMENT ON TABLE gestion.modulo IS 'Módulo (pantalla o capacidad) de la plataforma de gestión: incidencias, revisión y resolución, indicadores, entrenamiento de la IA y usuarios y roles. El acceso se da por módulo: un rol abre los módulos que tiene asignados. Los valores son provisionales hasta que el área usuaria los confirme.';
-
-COMMENT ON COLUMN gestion.rol_modulo.rol_id IS 'Rol al que se le permite abrir el módulo.';
-
-COMMENT ON COLUMN gestion.rol_modulo.modulo_id IS 'Módulo que el rol puede abrir.';
-
-COMMENT ON COLUMN gestion.rol_modulo.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
-
-COMMENT ON COLUMN gestion.rol_modulo.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
-
-COMMENT ON TABLE gestion.rol_modulo IS 'Qué módulos abre cada rol. Un usuario abre la unión de los módulos de todos sus roles. Solo se inserta; el backend consulta esta relación en cada petición a partir de la sesión, sin enviar roles ni módulos al navegador.
+COMMENT ON TABLE gestion.usuario_interno IS 'Persona de la institución que gestiona los casos. Es distinta del usuario de WhatsApp. Inicia sesión con su correo y su clave: de la clave solo se guarda su huella Argon2id. Nunca se borra: se desactiva, y al desactivarla o cambiarle el área se cierran todas sus sesiones. Un establecimiento puede tener como máximo 3 usuarios activos.
 
 Relaciones:
-- modulo_id → gestion.modulo: Garantiza que el módulo sea uno del catálogo. Sirve para saber qué roles abren un módulo.
-- rol_id → gestion.rol: Cada permiso de módulo pertenece a un rol. Sirve para saber qué módulos abre un rol.';
+- area_id → catalogo.area: Ubica al usuario interno en un área del catálogo. Sirve para dirigirle los casos de su área.';
 
 COMMENT ON COLUMN gestion.sesion_usuario.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 
@@ -228,4 +194,10 @@ COMMENT ON FUNCTION public.fn_reglas_sesion_usuario() IS
   'Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.';
 
 COMMENT ON FUNCTION public.fn_cerrar_sesiones_usuario() IS
-  'Al desactivar un usuario interno, revoca todas sus sesiones abiertas.';
+  'Al desactivar un usuario interno o cambiarle el área, revoca todas sus sesiones abiertas.';
+
+COMMENT ON FUNCTION public.fn_reglas_usuario_interno_area() IS
+  'Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área, y quitarle el área si tiene alguno de esos roles.';
+
+COMMENT ON FUNCTION public.fn_limitar_usuarios_establecimiento() IS
+  'Al insertar un usuario interno, reactivarlo o cambiarle el área, impide que un establecimiento tenga más de 3 usuarios activos (de cualquier rol). Las áreas que no son de un establecimiento, como OTRANS, no tienen tope.';

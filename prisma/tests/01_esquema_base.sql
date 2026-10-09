@@ -79,6 +79,7 @@ BEGIN
   SELECT * INTO r FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-1';
   ASSERT r.categoria_id = 1 AND r.categoria_asignada_en IS NOT NULL, 'T06 la categoria actual queda igual a la de la IA';
   ASSERT r.version_fila = 2 AND r.usuario_modificacion = 'sistema:ia', 'T06 version y actor';
+  ASSERT r.area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'OTRANS'), 'T06 una denuncia por corrupcion queda asignada a OTRANS al clasificarse';
   SELECT * INTO h FROM chatbot.incidencia_paciente_auditoria WHERE incidencia_paciente_id = r.id AND operacion = 'ACTUALIZACION';
   ASSERT h.cambios ? 'categoria_ia_id' AND h.cambios ? 'categoria_id' AND h.cambios ? 'categoria_confianza', 'T06 el historial guarda que cambio';
   ASSERT NOT (h.cambios ? 'version_fila') AND NOT (h.cambios ? 'fecha_modificacion'), 'T06 el historial no guarda ruido de auditoria';
@@ -110,14 +111,14 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET dni_reclam
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET categoria_corregida_en = now() WHERE trace_id = 'trace-1'$q$, '23514', 'T10c columnas gestionadas por la base');
 
 SELECT set_config('app.actor', 'operador:9', false);
-UPDATE chatbot.incidencia_paciente SET resolucion = 'Se derivo al area de integridad', estado_incidencia_id = 4 WHERE trace_id = 'trace-1';
+UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se derivo al area de integridad', fundamento = 'Corresponde a esa area', resultado_resolucion_id = 1, estado_incidencia_id = 4 WHERE trace_id = 'trace-1';
 DO $$
 DECLARE r chatbot.incidencia_paciente;
 BEGIN
   SELECT * INTO r FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-1';
   ASSERT r.resuelto_en IS NOT NULL AND r.resuelto_por = 'operador:9', 'T11 la base llena quien y cuando resolvio';
 END $$;
-SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET resolucion = 'otra' WHERE trace_id = 'trace-1'$q$, '23514', 'T11b la resolucion es unica');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'otra medida distinta' WHERE trace_id = 'trace-1'$q$, '23514', 'T11b la resolucion es unica');
 
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET activo = false WHERE trace_id = 'trace-1'$q$, '23514', 'T12a borrado logico exige fecha y actor');
 UPDATE chatbot.incidencia_paciente SET activo = false, eliminado_en = now(), eliminado_por = 'operador:9' WHERE trace_id = 'trace-1';
@@ -211,6 +212,6 @@ SELECT 1, id, wa_id, true, 'Sin IA todavia', 'trace-4' FROM chatbot.usuario LIMI
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET categoria_confirmada_en = now() WHERE trace_id = 'trace-4'$q$, '23514', 'T29 no se confirma lo que la IA no clasifico');
 
 TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria, ia.entrenamiento_categoria,
-         chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
+         chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS PASARON
