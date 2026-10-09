@@ -1,4 +1,4 @@
-import { buildResult, sendButtons, sendList, sendText } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, sendList, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
@@ -29,9 +29,4 @@ export function beginCita(slots: Session["slots"], hints: CitaHints, intro: stri
     counters: {},
   };
   return buildResult(next, [sendText(intro)]);
-}
-
-export function beginIncidencia(slots: Session["slots"], intro: string): HandlerResult {
-  const next: Session = { state: SessionState.INCIDENCIA_IDENTITY_CHOICE, slots: { ...slots }, counters: {} };
-  return buildResult(next, [sendButtons(intro, INCIDENCIA_NOMBRE_BUTTONS)]);
 }

@@ -1,10 +1,18 @@
 import { INVALID_DNI_TEXT } from "@/lib/fsm/core/failure-texts";
+import { enterDescripcion, handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
+import { afterDescripcion, FOTO_REQUEST_TEXT, submitIncidencia, UNREADABLE_TEXT_RETRY } from "@/lib/fsm/flows/incidencia/pasos-comunes";
+import {
+  handleAwaitingUbicacion,
+  handleConfirmOmitir,
+  handleConfirmUbicacion,
+  handleSelectUbicacion,
+  handleUbicacionPending,
+} from "@/lib/fsm/flows/incidencia/ubicacion";
 import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { namesMatch } from "@/lib/fsm/parsing/text/text";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
-import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
@@ -14,10 +22,7 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 
-const FOTO_REQUEST_TEXT =
-  "Para poder registrar tu incidencia necesitamos una imagen. ¿Deseas compartírnosla? Envíala ahora, o cuéntanos si prefieres continuar sin foto (también podés escribir OMITIR).";
 const FOTO_INTENT_MAX_LENGTH = 200;
-const UNREADABLE_TEXT_RETRY = "No pudimos leer eso — ¿podrías escribirlo de nuevo?";
 
 export function handleIncidencia(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -31,6 +36,20 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
       return handleAwaitingNombre(session, event as InboundEvent);
     case SessionState.INCIDENCIA_RENIEC_PENDING:
       return handleReniecPending(session, event as QueryResultEvent);
+    case SessionState.INCIDENCIA_AWAITING_UBICACION:
+      return handleAwaitingUbicacion(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_UBICACION_PENDING:
+      return handleUbicacionPending(session, event as QueryResultEvent);
+    case SessionState.INCIDENCIA_CONFIRM_UBICACION:
+      return handleConfirmUbicacion(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_SELECT_UBICACION:
+      return handleSelectUbicacion(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_CONFIRM_OMITIR:
+      return handleConfirmOmitir(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_CONFIRM_BORRADOR:
+      return handleConfirmBorrador(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_AWAITING_BORRADOR_EXTRA:
+      return handleAwaitingBorradorExtra(session, event as InboundEvent);
     case SessionState.INCIDENCIA_AWAITING_DESCRIPCION:
       return handleAwaitingDescripcion(session, event as InboundEvent);
     case SessionState.INCIDENCIA_AWAITING_FOTO:
@@ -44,10 +63,6 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
   }
 }
 
-function askDescripcion(): string {
-  return "Cuéntanos tu incidencia (hasta 1000 caracteres).";
-}
-
 function handleIdentityChoice(session: Session, event: InboundEvent): HandlerResult {
   const replyId = readReply(event);
   const next = cloneSession(session);
@@ -57,10 +72,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
     return buildResult(next, [sendText("Ingresa tu nombre.")]);
   }
 
-  if (replyId === IncidenciaButtonId.ANONIMO) {
-    next.state = SessionState.INCIDENCIA_AWAITING_DESCRIPCION;
-    return buildResult(next, [sendText(askDescripcion())]);
-  }
+  if (replyId === IncidenciaButtonId.ANONIMO) return enterDescripcion(next);
 
   return buildResult(session, [
     sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", INCIDENCIA_NOMBRE_BUTTONS),
@@ -81,8 +93,7 @@ function handleAwaitingNombreLibre(session: Session, event: InboundEvent): Handl
 
   const next = cloneSession(session);
   next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
-  next.state = SessionState.INCIDENCIA_AWAITING_DESCRIPCION;
-  return buildResult(next, [sendText(askDescripcion())]);
+  return enterDescripcion(next);
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
@@ -127,8 +138,7 @@ function handleReniecPending(session: Session, event: QueryResultEvent): Handler
 
   if (matched) {
     next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto as string;
-    next.state = SessionState.INCIDENCIA_AWAITING_DESCRIPCION;
-    return buildResult(next, [sendText(askDescripcion())]);
+    return enterDescripcion(next);
   }
 
   next.state = SessionState.INCIDENCIA_REJECTED;
@@ -154,28 +164,7 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
 
   const next = cloneSession(session);
   next.slots[SlotKey.DESCRIPCION_INCIDENCIA] = descripcion;
-  if (!isMediaStorageConfigured()) return submitIncidencia(next, event.from);
-  next.state = SessionState.INCIDENCIA_AWAITING_FOTO;
-  return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
-}
-
-function submitIncidencia(session: Session, from: string, mediaDataUri?: string): HandlerResult {
-  const next = cloneSession(session);
-  if (mediaDataUri) next.slots[SlotKey.MEDIA_DATA_URI] = mediaDataUri;
-  next.state = SessionState.INCIDENCIA_SUBMIT_PENDING;
-
-  const submission = {
-    waId: from,
-    dni: next.slots[SlotKey.DNI] ?? null,
-    nombreCompleto: next.slots[SlotKey.NOMBRE_COMPLETO] ?? null,
-    descripcion: next.slots[SlotKey.DESCRIPCION_INCIDENCIA],
-    mediaDataUri: next.slots[SlotKey.MEDIA_DATA_URI] ?? undefined,
-  };
-
-  return buildResult(next, [
-    sendText("Enviando tu incidencia…"),
-    query(QueryKind.INCIDENCIA_REGISTER, { submission }),
-  ]);
+  return afterDescripcion(next, event.from);
 }
 
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {

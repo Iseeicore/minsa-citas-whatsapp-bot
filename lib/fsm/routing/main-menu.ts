@@ -3,7 +3,6 @@ import {
   omitSlot,
   query,
   readReply,
-  sendButtons,
   sendText,
   withNote,
 } from "@/lib/fsm/core/handlers-shared";
@@ -13,7 +12,9 @@ import {
   isGreeting,
   isIncidenciaKeyword,
 } from "@/lib/fsm/routing/menu-shortcuts";
-import { beginCita, buildMenuEffect, INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { beginCita, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
+import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import {
   detectOutOfScope,
   isCitaKeyword,
@@ -48,12 +49,7 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
     counters: { ...session.counters },
   };
 
-  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_INCIDENCIA) {
-    next.state = SessionState.INCIDENCIA_IDENTITY_CHOICE;
-    return buildResult(next, [
-      sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", INCIDENCIA_NOMBRE_BUTTONS),
-    ]);
-  }
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_INCIDENCIA) return beginIncidencia(next.slots, "");
 
   if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) {
     next.state = SessionState.CITA_AWAITING_DNI;
@@ -69,6 +65,14 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
 
   if (awaitingContinue && event.text && isContinueReply(event.text)) {
     return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "continue_after_warning" } });
+  }
+
+  const inicio = event.text ? parseInicioIncidencia(event.text) : null;
+  if (inicio) {
+    return withNote(beginIncidencia(session.slots, "", inicio), {
+      kind: "shortcut",
+      detail: { name: inicio.origen === "qr" ? "incidencia_qr" : "incidencia_start" },
+    });
   }
 
   const numericChoice = event.text ? NUMERIC_MENU_CHOICES[event.text.trim()] : undefined;

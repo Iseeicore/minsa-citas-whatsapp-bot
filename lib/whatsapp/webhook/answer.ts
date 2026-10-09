@@ -12,6 +12,7 @@ import { findSession, saveSession } from "@/lib/fsm/session/session-store";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp/whatsapp-send";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
@@ -23,27 +24,54 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function deliverTo(message: WhatsAppMessage, conversationId: string | null) {
+  return async (effect: SendEffect) => {
+    await sendTypingIndicator(message.id);
+    await sleep(TYPING_DELAY_MS);
+    await sendAndRecordEffect(conversationId, message.from_user_id, effect);
+  };
+}
+
 async function answerFirstContact(message: WhatsAppMessage, conversationId: string | null): Promise<void> {
   const waId = message.from_user_id;
   const firstContactText = message.type === "text" ? message.text?.body : undefined;
   const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "whatsapp" as const };
+
+  const written = firstContactText ? textoDeLaPersona(firstContactText) : undefined;
+  const verdict = written && !isEmergency(written) ? evaluateLexicalGuard(written) : undefined;
+  const first =
+    verdict && verdict.action !== "ALLOW"
+      ? withNote(routeLexicalAction(fresh, verdict.action, firstContactText), {
+          kind: "lexical_guard",
+          level: "warn",
+          detail: { action: verdict.action, state: "first_contact" },
+        })
+      : handleFirstContact(firstContactText, "whatsapp");
+
+  if (first.effects.some(isQueryEffect)) {
+    const deliver = deliverTo(message, conversationId);
+    let delivered = 0;
+    const { sent } = await runTurnUnlocked(
+      waId,
+      { from: waId, type: "text", text: firstContactText, messageId: message.id },
+      {
+        onSend: async (effect) => {
+          delivered += 1;
+          await deliver(effect);
+        },
+        onWaitingForQuery: () => sendTypingIndicator(message.id),
+      },
+      first,
+    );
+    for (const effect of sent.slice(delivered)) await deliver(effect);
+    return;
+  }
 
   await traceTurn(
     waId,
     { type: message.type, text: firstContactText, messageId: message.id },
     fresh,
     async (trace) => {
-      const verdict = firstContactText && !isEmergency(firstContactText) ? evaluateLexicalGuard(firstContactText) : undefined;
-
-      const first =
-        verdict && verdict.action !== "ALLOW"
-          ? withNote(routeLexicalAction(fresh, verdict.action, firstContactText), {
-              kind: "lexical_guard",
-              level: "warn",
-              detail: { action: verdict.action, state: "first_contact" },
-            })
-          : handleFirstContact(firstContactText, "whatsapp");
-
       for (const note of first.notes ?? []) trace.note(note);
       await saveSession(waId, first.session);
 

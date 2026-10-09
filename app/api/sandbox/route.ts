@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { runTurn, type TurnResult } from "@/lib/fsm/core/executor";
+import { runTurn, runTurnUnlocked, type TurnResult } from "@/lib/fsm/core/executor";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { logger } from "@/lib/observability/logger";
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
   }
 
   const abusiveFirstMessage =
-    type === "text" && !!text && !isEmergency(text) && evaluateLexicalGuard(text).action !== "ALLOW";
+    type === "text" && !!text && !isEmergency(textoDeLaPersona(text)) && evaluateLexicalGuard(textoDeLaPersona(text)).action !== "ALLOW";
 
   let turn;
   try {
@@ -135,9 +136,10 @@ export async function POST(request: NextRequest) {
 async function startConversation(from: string, text?: string): Promise<TurnResult> {
   return withTurnLock(from, async () => {
     const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "web" as const };
+    const first = handleFirstContact(text, "web");
+    if (first.effects.some(isQueryEffect)) return runTurnUnlocked(from, { from, type: "text", text }, undefined, first);
 
     return traceTurn(from, { type: text === undefined ? "other" : "text", text }, fresh, async (trace) => {
-      const first = handleFirstContact(text, "web");
       for (const note of first.notes ?? []) trace.note(note);
       await saveSession(from, first.session);
 

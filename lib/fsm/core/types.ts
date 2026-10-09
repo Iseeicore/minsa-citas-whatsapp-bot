@@ -51,6 +51,14 @@ export type SlotTypes = {
   [SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE]: string;
+  [SlotKey.INCIDENCIA_ORIGEN]: string;
+  [SlotKey.INCIDENCIA_BORRADOR]: string;
+  [SlotKey.INCIDENCIA_UBICACION_TEXTO]: string;
+  [SlotKey.INCIDENCIA_CANDIDATOS]: string;
+  [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: number;
+  [SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]: string;
+  [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: string;
+  [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO]: string;
 };
 
 export type Slots = { [K in SlotKey]?: SlotTypes[K] };
@@ -145,7 +153,8 @@ export type QueryEffectKind =
   | "list_horas"
   | "book_appointment"
   | "list_references"
-  | "analyze_incidencia_foto_intent";
+  | "analyze_incidencia_foto_intent"
+  | "buscar_establecimiento";
 
 export type QueryEffect = {
   kind: QueryEffectKind;

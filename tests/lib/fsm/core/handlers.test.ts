@@ -65,14 +65,11 @@ describe("main_menu — lexical guard routing", () => {
   it("aggression with a service complaint: goes straight to the incidencia flow without AI", () => {
     const result = handle(sessionAt("main_menu"), text("Doctora imbécil no me dio mi medicina"));
 
-    expect(result.session.state).toBe("incidencia_identity_choice");
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(hasQuery(result)).toBe(false);
     const [effect] = sentEffects(result);
-    expect(effect.kind).toBe("send_buttons");
-    expect((effect as { buttons: { id: string }[] }).buttons.map((button) => button.id)).toEqual([
-      "incidencia_con_nombre",
-      "incidencia_anonimo",
-    ]);
+    expect(effect.kind).toBe("send_text");
+    expect((effect as { text: string }).text).toContain("¿En qué establecimiento de salud ocurrió?");
   });
 
   it("the Continuar button returns to the menu", () => {
@@ -90,7 +87,7 @@ describe("main_menu — incidencia keywords", () => {
     (message) => {
       const result = handle(sessionAt("main_menu"), text(message));
 
-      expect(result.session.state).toBe("incidencia_identity_choice");
+      expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
       expect(hasQuery(result)).toBe(false);
     },
   );
@@ -215,9 +212,9 @@ describe("main_menu — numeric shortcut", () => {
   it.each(["2", " 2 "])("%j goes straight to the incidencia flow without reprinting the menu", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 
-    expect(result.session.state).toBe("incidencia_identity_choice");
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(hasQuery(result)).toBe(false);
-    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_buttons"]);
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text"]);
     expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("registrar_incidencia");
   });
 

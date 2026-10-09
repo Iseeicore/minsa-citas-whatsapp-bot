@@ -137,7 +137,7 @@ describe("el submit final nunca lleva DNI por este camino (no se pide DNI en est
 });
 
 function awaitingFoto(): Session {
-  return { state: "incidencia_awaiting_foto", slots: { descripcion_incidencia: "Mala atención" }, counters: {} };
+  return { state: "incidencia_awaiting_foto", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
 }
 
 describe("incidencia_awaiting_foto: ya no exige la palabra exacta OMITIR", () => {
@@ -206,7 +206,7 @@ describe("incidencia_awaiting_foto: ya no exige la palabra exacta OMITIR", () =>
 
 describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
   it("si la IA dice que quiere omitir, registra la incidencia sin foto", () => {
-    const pending: Session = { state: "incidencia_foto_intent_pending", slots: { descripcion_incidencia: "Mala atención" }, counters: {} };
+    const pending: Session = { state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
     const result = handleIncidencia(pending, fotoIntentResult(true));
 
     expect(result.session.state).toBe("incidencia_submit_pending");
@@ -214,7 +214,7 @@ describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
   });
 
   it("si la IA dice que no quiere omitir, vuelve a pedir la foto", () => {
-    const pending: Session = { state: "incidencia_foto_intent_pending", slots: { descripcion_incidencia: "Mala atención" }, counters: {} };
+    const pending: Session = { state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
     const result = handleIncidencia(pending, fotoIntentResult(false));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
@@ -251,7 +251,7 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
   });
   const pending = (): Session => ({
     state: "incidencia_submit_pending",
-    slots: { descripcion_incidencia: "Mala atención", [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,abc" },
+    slots: { descripcionIncidencia: "Mala atención", [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,abc" },
     counters: {},
   });
 

@@ -180,7 +180,7 @@ async function section2() {
     const ctx = ctxFor("2.1j", s);
     await welcome(ctx);
     await ctx.send({ type: "text", text: "hdp" }, { expect: WARNING_A });
-    await ctx.send({ type: "text", text: "RECLAMO" }, { expect: "documento" });
+    await ctx.send({ type: "text", text: "RECLAMO" }, { expect: "establecimiento" });
   })();
   await ctxFor("2.1k", s).send({ type: "text", text: "hdp", reset: true }, { expect: WARNING_A, note: "primer mensaje" });
 

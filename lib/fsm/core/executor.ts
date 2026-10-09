@@ -26,6 +26,7 @@ import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
 import { QueryKind } from "@/lib/enums/query-kind";
 import type {
   HandleEvent,
+  HandlerResult,
   InboundEvent,
   QueryEffect,
   QueryResultEvent,
@@ -33,6 +34,7 @@ import type {
   Session,
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionState } from "@/lib/enums/session-state";
 
 export type TurnResult = {
   sent: SendEffect[];
@@ -46,6 +48,7 @@ export type TurnHooks = {
 };
 
 const MAX_PASSES = 12;
+const FRESH_SESSION: Session = { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
 
 export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> {
   return withTurnLock(from, () => runTurnUnlocked(from, event));
@@ -56,9 +59,17 @@ export function createRunTurn(lock: TurnLock) {
     lock(from, () => runTurnUnlocked(from, event));
 }
 
-/** Ejecuta el turno sin tomar el candado; solo para quien ya lo tiene tomado (el webhook). */
-export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?: TurnHooks): Promise<TurnResult> {
-  const session = await getSession(from);
+/**
+ * Ejecuta el turno sin tomar el candado; solo para quien ya lo tiene tomado (el webhook). Con `start` el primer paso ya viene
+ * calculado (el primer contacto, que no tiene sesión): sus consultas se resuelven igual que las de cualquier turno.
+ */
+export async function runTurnUnlocked(
+  from: string,
+  event: InboundEvent,
+  hooks?: TurnHooks,
+  start?: HandlerResult,
+): Promise<TurnResult> {
+  const session = start ? FRESH_SESSION : await getSession(from);
 
   return traceTurn(from, event, session, async (trace) => {
     const sent: SendEffect[] = [];
@@ -66,7 +77,7 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
     let currentSession = session;
 
     for (let pass = 1; pass <= MAX_PASSES; pass++) {
-      const result = handle(currentSession, currentEvent);
+      const result = pass === 1 && start ? start : handle(currentSession, currentEvent);
       currentSession = result.session;
       for (const note of result.notes ?? []) trace.note(note);
 
@@ -112,6 +123,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case QueryKind.RENIEC_LOOKUP:
       return "reniec";
     case QueryKind.INCIDENCIA_REGISTER:
+    case QueryKind.BUSCAR_ESTABLECIMIENTO:
       return "database";
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
     case QueryKind.RESOLVE_DISTRITO_AI:
@@ -212,6 +224,11 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
 
     case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
       return analyzeFotoIntent(String(effect.payload.text ?? ""));
+
+    case QueryKind.BUSCAR_ESTABLECIMIENTO: {
+      const { buscarEstablecimiento } = await import("@/lib/establecimientos/buscar");
+      return buscarEstablecimiento(effect.payload);
+    }
 
     default:
       throw new Error(`resolveQuery: unhandled query kind "${effect.kind}"`);

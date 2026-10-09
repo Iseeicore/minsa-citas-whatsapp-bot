@@ -23,9 +23,10 @@ import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SessionState } from "@/lib/enums/session-state";
+import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
-  if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, event.text)) {
+  if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, textoDeLaPersona(event.text))) {
     return emergencyCut(session.state);
   }
   return handleTurn(session, event, now);

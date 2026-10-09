@@ -1,5 +1,7 @@
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
-import { beginCita, beginIncidencia, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { beginCita, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
+import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
 import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import { detectCitaRequest, isGreeting, isIncidenciaKeyword } from "@/lib/fsm/routing/menu-shortcuts";
@@ -10,7 +12,7 @@ import type { HandlerResult, SessionChannel } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 
-const INCIDENCIA_INTRO = "¡Hola! Vamos a registrar tu incidencia. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?";
+const INCIDENCIA_LEAD = "¡Hola!";
 
 function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
   const what = especialidad ? ` de ${especialidad}` : "";
@@ -23,6 +25,8 @@ const routed = (route: "welcome" | "cita" | "incidencia" | "menu" | "out_of_scop
 
 export function handleFirstContact(text: string | undefined, channel: SessionChannel): HandlerResult {
   const message = text?.trim();
+  const inicio = message ? parseInicioIncidencia(message) : null;
+  if (inicio?.origen === "qr") return routed("incidencia", beginIncidencia({}, INCIDENCIA_LEAD, inicio));
 
   if (!message || isGreeting(message)) {
     return routed("welcome", buildResult({ state: SessionState.MAIN_MENU, slots: {}, counters: {} }, [buildWelcomeEffect(channel)]));
@@ -35,16 +39,18 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
     return withNote(routed("out_of_scope", reply), { kind: "out_of_scope", detail: { category: outOfScope } });
   }
 
+  if (inicio) return routed("incidencia", beginIncidencia({}, INCIDENCIA_LEAD, inicio));
+
   if (message === "1" || isCitaKeyword(message)) {
     return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:"));
   }
-  if (message === "2") return routed("incidencia", beginIncidencia({}, INCIDENCIA_INTRO));
+  if (message === "2") return routed("incidencia", beginIncidencia({}, INCIDENCIA_LEAD));
 
   const cita = detectCitaRequest(message);
   if (cita) return routed("cita", beginCita({ [SlotKey.INITIAL_MESSAGE_TEXT]: message }, cita, describeCitaRequest(cita)));
 
   if (isIncidenciaKeyword(message)) {
-    return routed("incidencia", beginIncidencia({}, INCIDENCIA_INTRO));
+    return routed("incidencia", beginIncidencia({}, INCIDENCIA_LEAD));
   }
 
   return routed(

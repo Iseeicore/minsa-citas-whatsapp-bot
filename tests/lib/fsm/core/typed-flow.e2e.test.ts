@@ -106,7 +106,7 @@ describe("typed Cita flow end to end (fake adapters)", () => {
   it("routes an angry complaint straight to the incidencia flow with no AI step", async () => {
     const result = await say("Doctora imbécil no me dio mi medicina");
 
-    expect(result.session.state).toBe("incidencia_identity_choice");
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(result.texts.some((line) => line.includes("registrar tu incidencia"))).toBe(true);
   });
 
@@ -119,6 +119,6 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(menu.sent[0].kind).toBe("send_interactive_list");
 
     const reclamo = await say("RECLAMO");
-    expect(reclamo.session.state).toBe("incidencia_identity_choice");
+    expect(reclamo.session.state).toBe("incidencia_awaiting_ubicacion");
   });
 });
