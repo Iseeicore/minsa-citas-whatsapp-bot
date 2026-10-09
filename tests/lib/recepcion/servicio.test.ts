@@ -5,6 +5,7 @@ const db = vi.hoisted(() => ({
   incidenciaCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({ id: "i-1" })),
   evidenciaCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
   executeRaw: vi.fn<(...args: unknown[]) => Promise<number>>(async () => 1),
+  queryRaw: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => [{ total: BigInt(0) }]),
   enabled: true,
   storageConfigured: true,
   guardarImagen: vi.fn<(bytes: Buffer, mimeType: string) => Promise<{ ruta: string }>>(async () => ({ ruta: "2026/10/foto.png" })),
@@ -13,6 +14,7 @@ const db = vi.hoisted(() => ({
 vi.mock("@/lib/db/persistence", () => ({ isDatabaseEnabled: () => db.enabled }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
+    $queryRaw: db.queryRaw,
     $transaction: async (run: (tx: unknown) => Promise<unknown>) =>
       run({
         $executeRaw: db.executeRaw,
@@ -54,10 +56,58 @@ describe("registering an incident directly in the database", () => {
         dniReclamante: null,
         nombreReclamante: null,
         descripcion: "Me cobraron de mas",
+        establecimientoId: null,
         traceId: "trace-abc",
       },
     });
     expect(db.evidenciaCreate).not.toHaveBeenCalled();
+  });
+
+  it("a phone that already sent the daily maximum is refused before anything is saved, and the turn is logged", async () => {
+    db.queryRaw.mockResolvedValueOnce([{ total: BigInt(5) }]);
+
+    await expect(registrarIncidencia(base)).resolves.toEqual({ status: "rejected", reason: "daily_limit" });
+
+    expect(db.incidenciaCreate).not.toHaveBeenCalled();
+    expect(db.usuarioUpsert).not.toHaveBeenCalled();
+  });
+
+  it("one below the maximum still goes through", async () => {
+    db.queryRaw.mockResolvedValueOnce([{ total: BigInt(4) }]);
+
+    await expect(registrarIncidencia(base)).resolves.toEqual({ status: "accepted" });
+  });
+
+  it("the count leaves out the incident of this same turn, so a repeated delivery of the last allowed one is not refused", async () => {
+    await registrarIncidencia(base);
+
+    const [strings, ...values] = db.queryRaw.mock.calls[0] as [readonly string[], ...unknown[]];
+    const sql = strings.join("?");
+    expect(values).toEqual(["wa-1", "trace-abc"]);
+    expect(sql).toContain("trace_id <>");
+    expect(sql).toContain("America/Lima");
+  });
+
+  it("a database that cannot count is an error, never a silent pass", async () => {
+    db.queryRaw.mockRejectedValueOnce(new Error("connection refused"));
+
+    await expect(registrarIncidencia(base)).resolves.toEqual({ status: "error" });
+    expect(db.incidenciaCreate).not.toHaveBeenCalled();
+  });
+
+  it("saves the establecimiento the citizen confirmed, and answers with the code the database gave", async () => {
+    db.incidenciaCreate.mockResolvedValueOnce({ id: "i-1", codigo: "MINSA-2026-000123" });
+
+    await expect(registrarIncidencia({ ...base, establecimientoId: 7 })).resolves.toEqual({ status: "accepted", codigo: "MINSA-2026-000123" });
+
+    expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ establecimientoId: 7 }) });
+  });
+
+  it("refuses an establecimiento id that is not a positive integer, before the database", async () => {
+    for (const establecimientoId of [0, -1, 1.5, "7"]) {
+      await expect(registrarIncidencia({ ...base, establecimientoId })).resolves.toEqual({ status: "error" });
+    }
+    expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
   it("is not anonymous when the citizen gave a name, even without a DNI", async () => {

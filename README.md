@@ -1,6 +1,6 @@
 # Bot de citas MINSA por WhatsApp
 
-Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra reclamos, deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
+Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra incidencias (reclamos, quejas y denuncias), deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
 
 ## Inicio rápido
 
@@ -120,7 +120,7 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 | Estado de cada conversación | Tabla `chatbot.sesion_conversacion` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
 | Reentregas de Meta (no responder dos veces) | Índice único `wa_message_id` | Lista en memoria de ids de mensaje, conservada 24 h |
 | Usuarios, historial de mensajes y estados de entrega | Tablas `chatbot.usuario` y `chatbot.mensaje` | No se guarda nada |
-| Reclamos (incidencias) y sus fotos | Tablas `chatbot.incidencia_paciente` y `chatbot.evidencia`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar el reclamo |
+| Incidencias | Tabla `chatbot.incidencia_paciente`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
 | Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
@@ -134,13 +134,13 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
 | `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
-| `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de reclamo, ajustes finos |
+| `##### Completo: variables opcionales` | Base de datos, incidencias (RENIEC), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de incidencia, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
 > **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
 
-- **Sin el bloque completo, el reclamo no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) el reclamo no se puede guardar**: el bot responde que no pudo registrarlo.
+- **Sin el bloque completo, la incidencia no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
@@ -152,7 +152,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 |---|---|
 | `META_APP_SECRET` | Secreto de la app: valida la firma HMAC (`X-Hub-Signature-256`) de cada webhook |
 | `META_WEBHOOK_VERIFY_TOKEN` | Token que eliges tú; Meta lo envía en el `GET` de verificación del webhook |
-| `META_ACCESS_TOKEN` | Token de acceso: envía mensajes y descarga las fotos del Libro de Reclamaciones |
+| `META_ACCESS_TOKEN` | Token de acceso: envía los mensajes |
 | `META_PHONE_NUMBER_ID` | ID del número de WhatsApp desde el que responde el bot |
 | `META_GRAPH_API_VERSION` | Versión de Graph API, sin espacios (por defecto `v21.0`) |
 
@@ -177,13 +177,13 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
-**Imágenes del reclamo** (opcional: sin `MEDIA_STORAGE_BASE_URL` el bot **no pide la foto** y el reclamo se guarda sin ella)
+**Imágenes de la incidencia** (el flujo de incidencia **ya no guarda imágenes ni archivos**: si la persona envía una imagen o un PDF, el bot lo reconoce, no lo descarga y sigue; estas variables solo las usa el servicio de registro si algún día se le entrega una imagen)
 
 | Variable | Uso |
 |---|---|
 | `MEDIA_STORAGE_BASE_URL` | URL del servicio de imágenes. El bot le hace `POST` con los bytes de la foto (cabecera `Content-Type` con su tipo) y espera `{ "ruta": "..." }`; esa ruta es lo que se guarda como evidencia. Contrato a confirmar con OGTI |
 | `MEDIA_STORAGE_TOKEN` | Credencial del servicio, si la pide: se envía como `Authorization: Bearer`. Vacía = sin cabecera |
-| `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de la subida, en milisegundos (por defecto `10000`). Si vence, el reclamo no se guarda y el ciudadano puede reintentar |
+| `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de la subida, en milisegundos (por defecto `10000`). Si vence, la incidencia no se guarda y el ciudadano puede reintentar |
 
 **IA** (ver [Cambiar de proveedor de IA](#cambiar-de-proveedor-de-ia))
 
@@ -265,7 +265,7 @@ lib/
           exit/              salida/cancelación del flujo
           hora/              el paso de hora: lista, horas escritas, elección «1»..«10», confirmación
           demo/              flujo hardcodeado para el piloto comercial; borrar junto con su importador al cerrarlo
-      reclamo/               flujo de reclamo
+      incidencia/            flujo de incidencia
       emergency/             corte por urgencia
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
 tests/
@@ -342,9 +342,9 @@ El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pul
 - Correr las migraciones dentro del build es un enfoque simple, suficiente para la escala actual. Conviene revisarlo si el equipo crece o si las migraciones se vuelven riesgosas de ejecutar sin supervisión.
 - `next.config.ts` solo activa la salida *standalone* cuando `NEXT_OUTPUT_STANDALONE=true` (lo hace el Dockerfile), así que los builds de Vercel no cambian.
 
-## Sandbox (probador de los flujos de cita y reclamo)
+## Sandbox (probador de los flujos de cita e incidencia)
 
-Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de reclamo, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
+Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de incidencia, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
 - Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería.
 - Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.

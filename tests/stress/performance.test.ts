@@ -105,7 +105,7 @@ describe("D.1 latency of evaluateLexicalGuard over 10,000 varied messages", () =
 
     expect(counts.ALLOW).toBeGreaterThan(1000);
     expect(counts.DROP_AND_WARN).toBeGreaterThan(100);
-    expect(counts.FORCE_RECLAMO).toBeGreaterThan(100);
+    expect(counts.FORCE_INCIDENCIA).toBeGreaterThan(100);
   });
 });
 

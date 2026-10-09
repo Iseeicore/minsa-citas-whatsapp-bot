@@ -12,7 +12,7 @@ if [ "${DATABASE_ENABLED:-}" = "false" ]; then
   if [ -n "${DATABASE_URL:-}" ]; then
     log "ADVERTENCIA: DATABASE_ENABLED=false pero DATABASE_URL tiene un valor. El servicio arranca SIN base de datos y no aplica migraciones. Si quieres usar la base, define DATABASE_ENABLED=true."
   else
-    log "ADVERTENCIA: no hay base de datos activa (DATABASE_ENABLED=false). La conversación vive en memoria y los reclamos no se pueden guardar."
+    log "ADVERTENCIA: no hay base de datos activa (DATABASE_ENABLED=false). La conversación vive en memoria y las incidencias no se pueden guardar."
   fi
   exec "$@"
 fi

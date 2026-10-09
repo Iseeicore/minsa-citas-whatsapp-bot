@@ -54,7 +54,7 @@ Un primer mensaje es el que llega **sin sesión abierta**.
 
 | Comportamiento | Sandbox | WhatsApp real |
 |---|---|---|
-| Primer mensaje normal | Un saludo: la bienvenida, en **un solo mensaje** con el botón **Continuar mi cita**. Un pedido de cita o de reclamo: directo a ese flujo. Otro texto: el menú. Sin IA. | Igual (mismas reglas en los dos canales). |
+| Primer mensaje normal | Un saludo: la bienvenida, en **un solo mensaje** con el botón **Continuar mi cita**. Un pedido de cita o de incidencia: directo a ese flujo. Otro texto: el menú. Sin IA. | Igual (mismas reglas en los dos canales). |
 | Límite de ritmo (5 en 10 s / 20 en 60 s) | No aplica. | Sí aplica. |
 | Notas de voz y stickers | No se pueden enviar (solo imagen con 📎). | Sí. |
 | Registro en «Chat real» | No guarda conversaciones. | Guarda mensajes y respuestas. |
@@ -77,13 +77,13 @@ Para generar exactamente 300 y 301 caracteres en PowerShell: `('a' * 300) | clip
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo WhatsApp). | ☐ ☐ |
+| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo WhatsApp). | ☐ ☐ |
 | 1.1b | Enviar `('a' * 301)` como primer mensaje. | El mismo texto de rechazo. | Igual que 1.1a. | ☐ ☐ |
 | 1.1c | Enviar `hola ` repetido 60 veces (300 caracteres, sin una letra repetida). | **No** se rechaza. Como no es un saludo ni un pedido, sale el menú `¿En qué podemos ayudarte hoy?` (WhatsApp y Sandbox), sin bienvenida. | El límite es «más de 300». | ☐ ☐ |
 | 1.1d | Tras 1.1a, enviar `Hola`. | Se comporta como primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
 | 1.1e | **WhatsApp:** abrir **Chat real** tras 1.1a. | Tu número **no** aparece como conversación nueva. | Confirma que no se escribió nada. | ☐ ☐ |
-| 1.1f | Con sesión abierta (ya en el flujo de reclamo, en el paso de la descripción), enviar el texto de 383 caracteres. | **No** se rechaza: el bot lo acepta como descripción del reclamo (permite hasta 1000). | El filtro solo aplica al primer mensaje. | ☐ ☐ |
-| 1.1g | Tras 1.1a, escribir `1` (y en otra prueba `2`). | `1`: `¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:`. `2`: `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?` con los botones **[Sí, tengo documento]** y **[No tengo documento]**. | El texto de rechazo ofrece «[1] Citas [2] Reclamos»: la respuesta numérica funciona sin menú previo. Sin IA. | ☐ ☐ |
+| 1.1f | Con sesión abierta (ya en el flujo de incidencia, en el paso de la descripción), enviar el texto de 383 caracteres. | **No** se rechaza: el bot lo acepta como descripción de la incidencia (permite hasta 1000). | El filtro solo aplica al primer mensaje. | ☐ ☐ |
+| 1.1g | Tras 1.1a, escribir `1` (y en otra prueba `2`). | `1`: `¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:`. `2`: `¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. | El texto de rechazo ofrece «[1] Citas [2] Incidencias»: la respuesta numérica funciona sin menú previo. Sin IA. | ☐ ☐ |
 
 ### 1.2 Enlaces, publicidad y enlaces de WhatsApp — primer mensaje
 
@@ -100,7 +100,7 @@ Respuesta esperada en todos los casos de rechazo: el mismo texto de 1.1a. Log: `
 | 1.2g | `HTTP://MAYUSCULAS.COM` | Texto de rechazo. | No distingue mayúsculas. | ☐ ☐ |
 | 1.2h | `vivo en Lima.Peru` (no es un enlace) | **No** se rechaza. Sigue el flujo normal. | Falso positivo: si se rechaza, es un fallo. | ☐ ☐ |
 | 1.2i | `son las 8.45 am` (no es un enlace) | **No** se rechaza. | Igual. | ☐ ☐ |
-| 1.2j | Con sesión abierta, dentro del reclamo: `mi dirección está en https://maps.example.org/x` | **No** se rechaza; se guarda como parte del reclamo. | Solo aplica al primer mensaje. | ☐ ☐ |
+| 1.2j | Con sesión abierta, dentro de la incidencia: `mi dirección está en https://maps.example.org/x` | **No** se rechaza; se guarda como parte de la incidencia. | Solo aplica al primer mensaje. | ☐ ☐ |
 
 ### 1.3 Spam, emojis repetidos y letras infinitas
 
@@ -126,7 +126,7 @@ Requiere un número **sin sesión** (ver 0.4).
 | 1.4d | **WhatsApp:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4e | **Sandbox:** tras reiniciar, pulsar 📎 y adjuntar una imagen como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4f | Tras 1.4a, enviar `Hola`. | Primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
-| 1.4g | Con sesión, en el paso «¿Deseas adjuntar una foto como evidencia?» del reclamo, enviar una foto. | **Sí** se acepta la foto. | Con sesión, la foto sí se procesa. | ☐ ☐ |
+| 1.4g | Con sesión, en el paso «¿Quieres enviar una imagen o un archivo como evidencia?» de la incidencia, enviar una foto (y en otra prueba un PDF). | `Ok, se registró tu evidencia.` y luego `Enviando tu incidencia…`. | El archivo se reconoce pero no se guarda. Un sticker o un audio en ese paso no genera respuesta. | ☐ ☐ |
 
 ### 1.5 Inundación (rate limiting) — solo WhatsApp
 
@@ -154,7 +154,7 @@ Requiere un número **sin sesión** (ver 0.4).
 Si no se indica lo contrario, envía cada texto **en el menú** (con sesión ya abierta). Para asegurarte, escribe primero `Hola`.
 
 Mensaje de advertencia (`A`):
-`Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Si desea registrar una queja o denuncia formal sobre un mal servicio de salud, escriba RECLAMO para iniciar el trámite oficial.` con el botón **[Continuar]**.
+`Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Si desea registrar una incidencia sobre un mal servicio de salud, escriba INCIDENCIA para iniciar el trámite oficial.` con el botón **[Continuar]**.
 
 ### 2.1 Agresión pura → advertencia y corte de turno
 
@@ -168,8 +168,8 @@ Mensaje de advertencia (`A`):
 | 2.1f | `cojuuuudo` | Mensaje `A`. | Sin IA. Colapsa letras repetidas. | ☐ ☐ |
 | 2.1g | `c s m` | Mensaje `A`. | Sin IA. Une las letras sueltas. | ☐ ☐ |
 | 2.1h | `hijo de puta` | Mensaje `A`. | Sin IA. | ☐ ☐ |
-| 2.1i | Tras 2.1a, tocar **Continuar**. | El menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar un reclamo**. | Vuelve al menú sin IA. | ☐ ☐ |
-| 2.1j | Tras 2.1a, escribir `RECLAMO`. | `¿Tienes tu documento de identidad a la mano?` con **[Sí, tengo documento]** **[No tengo documento]**. | La palabra que promete la advertencia funciona. Sin IA. | ☐ ☐ |
+| 2.1i | Tras 2.1a, tocar **Continuar**. | El menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar una incidencia**. | Vuelve al menú sin IA. | ☐ ☐ |
+| 2.1j | Tras 2.1a, escribir `RECLAMO`. | `¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. | La palabra que promete la advertencia funciona. Sin IA. | ☐ ☐ |
 | 2.1k | **Primer mensaje** `hdp` (número o sesión nuevos). | Mensaje `A` con **Continuar**. **Sin** bienvenida. | Se crea la sesión para que el botón funcione. | ☐ ☐ |
 
 > **No se detecta:** `idotoaia` pasa como texto normal (es demasiado distinto de «idiota»). Es un límite conocido y aceptado.
@@ -184,13 +184,13 @@ Mensaje de advertencia (`A`):
 | 2.2d | `Mi posta es CS San Martín` | Igual que 2.2a. | ALLOW. | ☐ ☐ |
 | 2.2e | `c.s.m` (sin espacios ni mayúsculas) | Mensaje `A` (aquí sí es evasión). | Confirma que la excepción es solo para iniciales bien escritas. | ☐ ☐ |
 
-### 2.3 Agresión con queja → derivación al Libro de Reclamaciones
+### 2.3 Agresión con queja → derivación al flujo de incidencia
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 2.3a | `posta de mrda pésima atención del doctor` | `Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?` con **[Sí, tengo documento]** **[No tengo documento]**. **No** aparece el mensaje `A`. | **Sin IA.** Va directo al estado del reclamo. El usuario no queda bloqueado. | ☐ ☐ |
+| 2.3a | `posta de mrda pésima atención del doctor` | `Lamentamos lo ocurrido. Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. **No** aparece el mensaje `A`. | **Sin IA.** Va directo al estado de la incidencia. El usuario no queda bloqueado. | ☐ ☐ |
 | 2.3b | `Doctora imbécil no me dio mi medicina` | Igual que 2.3a. | Sin IA. | ☐ ☐ |
-| 2.3c | Tras 2.3a, tocar **No tengo documento** (aparece `Cuéntanos tu reclamo (hasta 1000 caracteres).`) y escribir `El doctor fue un idiota y me trató pésimo`. | Se acepta y avanza a `¿Deseas adjuntar una foto como evidencia? Envíala ahora, o escribe OMITIR.` | En la descripción del reclamo **el insulto nunca se bloquea** (es evidencia). | ☐ ☐ |
+| 2.3c | Tras 2.3a, responder `omitir`, tocar **Sí, continuar** y **Prefiero ser anónimo** (aparece `Cuéntanos tu incidencia (hasta 1000 caracteres).`) y escribir `El doctor fue un idiota y me trató pésimo`. | Se acepta y avanza a `¿Deseas adjuntar una foto como evidencia? Envíala ahora, o escribe OMITIR.` | En la descripción de la incidencia **el insulto nunca se bloquea** (es evidencia). | ☐ ☐ |
 
 ### 2.4 Agresión con cita → advertencia y se conservan los datos
 
@@ -251,14 +251,14 @@ porque exige la misma primera letra). Se espera que pasen como texto normal,
 (`cita_awaiting_distrito_ai`).** El guard, en este estado, descarta el
 mensaje completo y repite la pregunta — nunca llega a
 `extractCitaHints`/`resolveDistritoText` esa vuelta, sin importar si la
-acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_RECLAMO`
+acción interna es `DROP_AND_WARN`, `CITA_WITH_WARNING` o `FORCE_INCIDENCIA`
 (`lib/fsm/routing/lexical-guard-routing.ts:116`). Llega hasta aquí con `reachDistritoPrompt`.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 2.5.4a | `hdp no jodas, san juan de lurigancho` | Mensaje `A` (recordatorio) + repite `Cuéntanos en qué distrito buscas atención`. **No** avanza a especialidad. | El distrito nombrado se pierde esa vuelta pese a ser válido. | ☐ ☐ |
 | 2.5.4b | `cojudos apurense, cita en surco` | Igual que 2.5.4a, aunque el mensaje sí tiene la palabra "cita" (internamente sería `CITA_WITH_WARNING`). | Confirma que en medio del flujo el tipo de acción no cambia el resultado: siempre se descarta. | ☐ ☐ |
-| 2.5.4c | `posta de mrda, en comas` | Igual que 2.5.4a (repite la pregunta de distrito). | Internamente sería `FORCE_RECLAMO` (hay palabra de salud "posta" sin "cita"), pero en medio del flujo **no** deriva a Reclamos: se queda pidiendo el distrito. Vale la pena decidir si esto es lo deseado. | ☐ ☐ |
+| 2.5.4c | `posta de mrda, en comas` | Igual que 2.5.4a (repite la pregunta de distrito). | Internamente sería `FORCE_INCIDENCIA` (hay palabra de salud "posta" sin "cita"), pero en medio del flujo **no** deriva a Reclamos: se queda pidiendo el distrito. Vale la pena decidir si esto es lo deseado. | ☐ ☐ |
 
 **2.5.5 — Hostilidad en medio del flujo, estado SIN guard
 (`cita_awaiting_hora_confirm`).** Este estado no está en `FREE_TEXT_STATE_PROMPTS`
@@ -293,11 +293,23 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 3.1a | `Hola` (sesión nueva). | **WhatsApp:** un solo mensaje, la bienvenida grande con el botón **[Continuar mi cita]** y, al final del texto, `¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.` Incluye la línea `⚠️ En caso de emergencia médica, llama al *106* (SAMU).` **Sandbox (widget web):** un solo mensaje de texto, sin botón, que se presenta como «el asistente virtual de MINSA Digital» y termina en `Escríbeme lo que necesitas y te ayudo.`; también incluye la línea del *106*. En ambos casos: **sin** segundo mensaje y **sin** el menú `¿En qué podemos ayudarte hoy?`. | Distinto texto/formato según canal (`session.channel`: `whatsapp` vs `web`), ver `lib/fsm/routing/welcome.ts`. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
-| 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar un reclamo**. Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
+| 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar una incidencia**. Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
 | 3.1c | Con **sesión nueva**, primer mensaje: `Sabes quiero una cita para san Juan de Lurigancho para medicina general`. | **Un solo mensaje:** `¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de documento:`. **Sin** bienvenida ni menú. | Sin IA. Slots (panel Debug): `citaDistritoHintText` = `San Juan de Lurigancho`, `citaEspecialidadHintText` = `Medicina General`. Reiniciar antes de seguir con 3.2. | ☐ ☐ |
-| 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Tienes tu documento de identidad a la mano?` con **[Sí, tengo documento]** y **[No tengo documento]**. Sin bienvenida ni menú. | Sin IA. Estado `reclamo_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
-| 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica** y **Registrar un reclamo**. **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
-| 3.2 | `1` | `Ingresa tu número de documento.` **Sin** volver a mostrar el menú. | Atajo numérico: `2` haría lo mismo con el reclamo. Sin IA. | ☐ ☐ |
+| 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. Sin bienvenida ni menú. | Sin IA. Estado `incidencia_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
+| 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica** y **Registrar una incidencia**. **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
+| 3.1f | Con **sesión nueva**, primer mensaje (el del QR): `Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206`. | **Un solo mensaje** con botones: `¿Estás seguro de esa ubicación?` y **HOSPITAL NACIONAL DOS DE MAYO**, `Código IPRESS: 6206`, **[Sí, es ese]** **[No, es otro]**. Sin bienvenida ni menú. | Entrada por QR: requiere base de datos con el padrón cargado (`npm run db:seed:eess`). Sin IA. | ☐ ☐ |
+| 3.1o | En cualquier paso de una incidencia, escribir `quiero cerrar`. | `Entendido, cerramos esta conversación y no se registró ninguna incidencia…`. Un mensaje nuevo empieza de cero. | Cancela sin guardar nada. Un relato que contiene la frase no cancela. | ☐ ☐ |
+| 3.1p | En el paso del relato escribir `me cobraron` (menos de 20 caracteres). | `Cuéntanos un poco más: escribe al menos 20 caracteres para poder entender lo que pasó.` | No avanza ni guarda. | ☐ ☐ |
+| 3.1q | Registrar 5 incidencias con el mismo teléfono (o `from` del sandbox) y una sexta el mismo día. | La sexta: `Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.` | Tope provisional de 5 por día (hora de Lima). | ☐ ☐ |
+| 3.1l | Con el flujo de 3.1f y 3.1g, elegir **Prefiero ser anónimo**, escribir un relato de más de 20 caracteres y responder `omitir`. | `¡Gracias! Tu incidencia quedó registrada con el código MINSA-AAAA-NNNNNN. Guárdalo para darle seguimiento.` | La incidencia queda en la base con el establecimiento. El código es el que asigna la base. | ☐ ☐ |
+| 3.1m | Con **sesión nueva** y sin indicar el establecimiento (3.1j), seguir hasta el final. | `Gracias por tu reporte de incidencia, ya se registró.` (sin código). | Se guarda con `establecimiento_id` nulo. | ☐ ☐ |
+| 3.1n | Con **Sí, doy mi nombre**, escribir un número de 9 dígitos. | `Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.` con **[Continuar anónimo]**. | Por ahora no se acepta el carnet de extranjería. | ☐ ☐ |
+| 3.1g | Tras 3.1f, tocar **Sí, es ese**. | `Perfecto, registraremos tu incidencia en *HOSPITAL NACIONAL DOS DE MAYO*.` y luego `¿Deseas registrar tu nombre, o prefieres que sea anónimo?` con **[Sí, doy mi nombre]** **[Prefiero ser anónimo]**. | El establecimiento queda en la sesión (todavía no se guarda en la incidencia). | ☐ ☐ |
+| 3.1h | Con **sesión nueva**, primer mensaje: `Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137`. | Pregunta de confirmación con **C.S.M. COMUNITARIO LINCE**. **No** aparece la advertencia de respeto. | «C.S.M.» no se toma por un insulto: lo precargado por el QR no pasa por el filtro de insultos. | ☐ ☐ |
+| 3.1i | Con **sesión nueva**, primer mensaje: `quiero presentar una incidencia en el hospital`. | Una lista `Encontré estos establecimientos. Elige el correcto:` con los 4 hospitales (filas `IPRESS 6206`, `5946`, `6215`, `33381`) y **Ninguno de estos**. | Solo el tipo: se ofrece la lista corta. Elegir una fila sigue con la pregunta del nombre. | ☐ ☐ |
+| 3.1j | Con **sesión nueva**, primer mensaje: `quiero presentar una incidencia`. Responder tres veces con textos que no son un establecimiento (`xyzzy`, `qwerty`, `zzzz`). | Tras el tercero: `Disculpa, no logramos ubicar el establecimiento. ¿Quieres continuar sin indicar el establecimiento?` con **[Sí, continuar]** **[No, indicarlo]**. | Con «Sí» sigue con la pregunta del nombre, sin establecimiento. | ☐ ☐ |
+| 3.1k | Con **sesión nueva**, primer mensaje: `Hola quiero presentar una incidencia Hospital Nacional Hipólito Unanue - CODIGO-IPRESS 5946 Me cobraron sin recibo en la ventanilla.`; confirmar el lugar, elegir anónimo. | `Esto es lo que escribiste:` con el texto y **[Usar así]** **[Agregar más]**. | Lo que se escribió junto al QR se ofrece como relato. «Agregar más» pide otro mensaje y lo une al anterior; «Usar así» sigue con la foto o el registro. | ☐ ☐ |
+| 3.2 | `1` | `Ingresa tu número de documento.` **Sin** volver a mostrar el menú. | Atajo numérico: `2` haría lo mismo con la incidencia. Sin IA. | ☐ ☐ |
 | 3.3 | `1234567` (7 dígitos) | `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` | Validación de formato, sin IA. Lo mismo con 10 dígitos o con letras. | ☐ ☐ |
 | 3.4 | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake) con `tipo_documento` `01`. | ☐ ☐ |
 | 3.4b | Reiniciar, `1` y `123456789` (9 dígitos) | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Carnet de extranjería: llamada a MINSA (fake) con `tipo_documento` `03`; luego el código `1234` y las referencias se piden con tipo `03`. | ☐ ☐ |
@@ -370,17 +382,17 @@ Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenci
 | 3.16c | `¿Mi SIS está activo?` | `Consulta sobre SIS (Seguro Integral de Salud):` … `app.sis.gob.pe/ConsultaWeb` … `941 988 565` … `escriba CITAS.` | `category: OOS-02` (nivel info). | ☐ ☐ |
 | 3.16d | `¿Ya aceptaron mi referencia?` | `Gestión de Referencias Médicas:` … `REFCON` … `Admisión/Referencias`. | `OOS-03`. `punto de referencia` (una dirección) **no** dispara esto. | ☐ ☐ |
 | 3.16e | `¿Ya salieron mis análisis de sangre?` | `Entrega de Resultados Médicos:` … `Ley N° 26842` … `de forma presencial`. | `OOS-04`. | ☐ ☐ |
-| 3.16f | `¿Tienen Paracetamol o Insulina en la posta?` | `Consulta de Medicamentos:` … `observatorio.digemid.minsa.gob.pe` … `escriba RECLAMO`. | `OOS-05`. `medicina general` (una especialidad) **no** dispara esto. | ☐ ☐ |
+| 3.16f | `¿Tienen Paracetamol o Insulina en la posta?` | `Consulta de Medicamentos:` … `observatorio.digemid.minsa.gob.pe` … `escriba INCIDENCIA`. | `OOS-05`. `medicina general` (una especialidad) **no** dispara esto. | ☐ ☐ |
 | 3.16g | `¿Qué días vacunan contra la influenza?` | `Vacunación y Carnets Oficiales:` … `carnetvacunacion.minsa.gob.pe` … `Línea 113 (Opción 1)`. | `OOS-06`. | ☐ ☐ |
 | 3.16h | `Quiero hablar con un doctor ahorita` | `Orientación Médica Telefónica Gratuita:` … `Infosalud: Línea 113`. | `OOS-07`. | ☐ ☐ |
-| 3.16i | `Mi reclamo N° 458-2026 sigue sin resolverse` | `Seguimiento de Reclamos:` … `SUSALUD al 113 (Opción 7)` … `escriba RECLAMO`. | `OOS-08`. Pedir el **estado** de un reclamo ya presentado no abre un reclamo nuevo. | ☐ ☐ |
+| 3.16i | `Mi reclamo N° 458-2026 sigue sin resolverse` | `Seguimiento de Reclamos:` … `SUSALUD al 113 (Opción 7)` … `escriba INCIDENCIA`. | `OOS-08`. Pedir el **estado** de un reclamo ya presentado no abre un reclamo nuevo. | ☐ ☐ |
 | 3.16j | `Necesito que me sellen mi descanso médico para mi trabajo` | `Trámites Documentarios y Certificados:` … `SISFOH` … `Unidad Local de Empadronamiento (ULE)`. | `OOS-09`. | ☐ ☐ |
-| 3.16k | Tras cualquiera de las anteriores, escribir `CITAS`; en otra prueba `CONTINUAR`; en otra `RECLAMO`. | `CITAS`: `Ingresa tu número de documento.` `CONTINUAR`: el menú `¿En qué podemos ayudarte hoy?`. `RECLAMO`: `¿Tienes tu documento de identidad a la mano?` con los dos botones. | Las tres palabras que piden los mensajes se entienden **sin IA**. Solo la palabra sola: `quiero una cita` sigue su camino de antes. | ☐ ☐ |
-| 3.16l | Con la sesión ya iniciada, en el paso del DNI escribir `vacunas`; en el paso de la descripción del reclamo escribir `no me entregaron mis medicamentos`. | DNI: `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` Reclamo: se toma como la descripción y sigue el flujo. | Dentro de un flujo solo se aplica la lectura de urgencias (3.16o): las demás categorías nunca, cada paso lee lo que pidió. | ☐ ☐ |
+| 3.16k | Tras cualquiera de las anteriores, escribir `CITAS`; en otra prueba `CONTINUAR`; en otra `RECLAMO`. | `CITAS`: `Ingresa tu número de documento.` `CONTINUAR`: el menú `¿En qué podemos ayudarte hoy?`. `RECLAMO`: `¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.` con los dos botones. | Las tres palabras que piden los mensajes se entienden **sin IA**. Solo la palabra sola: `quiero una cita` sigue su camino de antes. | ☐ ☐ |
+| 3.16l | Con la sesión ya iniciada, en el paso del DNI escribir `vacunas`; en el paso de la descripción de la incidencia escribir `no me entregaron mis medicamentos`. | DNI: `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` Reclamo: se toma como la descripción y sigue el flujo. | Dentro de un flujo solo se aplica la lectura de urgencias (3.16o): las demás categorías nunca, cada paso lee lo que pidió. | ☐ ☐ |
 | 3.16m | `quiero una cita de medicina general` y `necesito cita en medicina interna` | Siguen el camino de la cita (DNI o consulta a la IA), **sin** mensaje de medicamentos. | Contraejemplos de falsos positivos de OOS-05. | ☐ ☐ |
 | 3.16n | Tras terminar un flujo (por ejemplo tras 3.14a), escribir `¿Tienen vacunas para mi bebé?` | El mensaje de OOS-06, **sin** bienvenida. | El reingreso tras un estado terminal se lee igual que un primer mensaje. | ☐ ☐ |
-| 3.16o | En el paso del DNI (o del OTP, del distrito, de la descripción del reclamo, de la confirmación del horario) escribir `mi hijo no respira`. | El mismo mensaje de emergencia de 3.16a, **y nada más**: el flujo **se cierra**. | Sesión `emergency_closed` vacía: se pierde la verificación y lo elegido, a propósito (el bot no mantiene abierta una conversación con una urgencia). Solo textos de hasta 120 caracteres. Con la sesión expirada o esperando la nueva verificación también se corta. | ☐ ☐ |
-| 3.16p | En el paso de la descripción del reclamo pegar un relato largo (más de 120 caracteres) que mencione `una ambulancia que nunca llegó`. | Se toma como la descripción y sigue `¿Deseas adjuntar una foto como evidencia?…`, **sin** el mensaje de emergencia. | Un relato de un hecho pasado es evidencia, no una alarma. | ☐ ☐ |
+| 3.16o | En el paso del DNI (o del OTP, del distrito, de la descripción de la incidencia, de la confirmación del horario) escribir `mi hijo no respira`. | El mismo mensaje de emergencia de 3.16a, **y nada más**: el flujo **se cierra**. | Sesión `emergency_closed` vacía: se pierde la verificación y lo elegido, a propósito (el bot no mantiene abierta una conversación con una urgencia). Solo textos de hasta 120 caracteres. Con la sesión expirada o esperando la nueva verificación también se corta. | ☐ ☐ |
+| 3.16p | En el paso de la descripción de la incidencia pegar un relato largo (más de 120 caracteres) que mencione `una ambulancia que nunca llegó`. | Se toma como la descripción y sigue `¿Deseas adjuntar una foto como evidencia?…`, **sin** el mensaje de emergencia. | Un relato de un hecho pasado es evidencia, no una alarma. | ☐ ☐ |
 
 ### 3.17 Un solo horario disponible (confirmación antes de agendar)
 

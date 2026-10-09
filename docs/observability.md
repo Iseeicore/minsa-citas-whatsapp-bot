@@ -45,12 +45,14 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `webhook.fixed_reply_failed` | error | `waId` (últimos 4), `error`. No se pudo enviar una respuesta fija (perímetro o texto de falla) |
 | `whatsapp.send_failed` | error | `operation` (`send_effect` o `send_cta_url`), `waId` (últimos 4), `status` y `response` (cuerpo de Meta enmascarado y truncado) o `error` |
 | `whatsapp.typing_failed` | warn | `error`. Falló el indicador de «escribiendo»; la respuesta sigue su curso |
-| `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; el reclamo sigue sin imagen |
-| `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). El reclamo llegó al servicio con datos que no pasan la validación; no se guarda |
-| `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): el reclamo no se puede guardar y se le responde error al ciudadano |
-| `incidencia.media_not_stored` | warn | `reason`. El ciudadano adjuntó una foto y todavía no hay servicio de imágenes: el reclamo se guarda sin ella |
+| `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; la incidencia sigue sin imagen |
+| `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). La incidencia llegó al servicio con datos que no pasan la validación; no se guarda |
+| `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): la incidencia no se puede guardar y se le responde error al ciudadano |
+| `incidencia.media_not_stored` | warn | `reason`. El ciudadano adjuntó una foto y todavía no hay servicio de imágenes: la incidencia se guarda sin ella |
 | `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
 | `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
+| `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |
+| `incidencia.establecimiento_lookup_failed` | error | `by` (`codigo` o `nombre`) y `error`. Falló la búsqueda del establecimiento en el padrón; el flujo trata el resultado como no disponible y pide la ubicación de otra forma |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |
 | `config.invalid` | error / warn | `issue` (el código del catálogo), `value`, `message`. Problema de configuración detectado al arrancar el servidor (ver `lib/config/config-errors.ts`); el bot sigue funcionando con su respaldo y `/api/health` responde `degraded` |
@@ -63,7 +65,7 @@ Todo campo pasa por `lib/observability/mask.ts` antes de salir, aunque quien lla
 - **Tokens:** `citaBearer`, `token`, `authorization`, `secret`, `twofa`, códigos OTP → `[redacted]`. Un `Bearer …` o un JWT dentro de un texto se reemplaza.
 - **Números largos** (7 o más dígitos: teléfonos, un DNI escrito dentro de un mensaje) → `****1234`.
 - **Teléfono / waId:** solo los 4 últimos (`...0111`).
-- **Texto libre:** `initialMessageText` y las listas guardadas se reducen a su largo. Lo que se escribe en un paso de DNI, OTP, nombre o reclamo **nunca** se cita, solo su largo.
+- **Texto libre:** `initialMessageText` y las listas guardadas se reducen a su largo. Lo que se escribe en un paso de DNI, OTP, nombre o incidencia **nunca** se cita, solo su largo.
 
 ## Cómo encontrar lo que importa
 

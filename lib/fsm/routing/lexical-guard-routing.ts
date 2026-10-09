@@ -9,7 +9,8 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { RECLAMO_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
+import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
+import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import {
   evaluateLexicalGuard,
   INSTITUTIONAL_WARNING_TEXT,
@@ -66,13 +67,8 @@ export function routeLexicalAction(
       ]);
     }
 
-    case "FORCE_RECLAMO":
-      return buildResult({ state: SessionState.RECLAMO_IDENTITY_CHOICE, slots, counters: {} }, [
-        sendButtons(
-          "Lamentamos lo ocurrido. Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?",
-          RECLAMO_NOMBRE_BUTTONS,
-        ),
-      ]);
+    case "FORCE_INCIDENCIA":
+      return beginIncidencia(slots, "Lamentamos lo ocurrido.");
   }
 }
 
@@ -84,7 +80,7 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
   const isSelection = SELECTION_STATES.has(session.state);
   if (!isMenuLevel && midFlowPrompt === undefined && !isSelection) return undefined;
 
-  const { action } = evaluateLexicalGuard(event.text);
+  const { action } = evaluateLexicalGuard(textoDeLaPersona(event.text));
   if (action === "ALLOW") return undefined;
 
   const verdict: TurnNote = { kind: "lexical_guard", level: "warn", detail: { action, state: session.state } };

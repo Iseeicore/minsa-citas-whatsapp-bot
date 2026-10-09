@@ -103,22 +103,22 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(otp.texts.some((line) => line.includes("Establecimiento encontrado"))).toBe(true);
   });
 
-  it("routes an angry complaint straight to the Reclamo flow with no AI step", async () => {
+  it("routes an angry complaint straight to the incidencia flow with no AI step", async () => {
     const result = await say("Doctora imbécil no me dio mi medicina");
 
-    expect(result.session.state).toBe("reclamo_identity_choice");
-    expect(result.texts.some((line) => line.includes("Libro de Reclamaciones"))).toBe(true);
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(result.texts.some((line) => line.includes("registrar tu incidencia"))).toBe(true);
   });
 
   it("answers a pure insult with the institutional warning and lets the citizen continue", async () => {
     const warning = await say("hdp");
     expect(warning.session.state).toBe("main_menu");
-    expect(warning.texts[0]).toContain("escriba RECLAMO");
+    expect(warning.texts[0]).toContain("escriba INCIDENCIA");
 
     const menu = await runTurn(FROM, { from: FROM, type: "button", listId: "continuar_menu" });
     expect(menu.sent[0].kind).toBe("send_interactive_list");
 
     const reclamo = await say("RECLAMO");
-    expect(reclamo.session.state).toBe("reclamo_identity_choice");
+    expect(reclamo.session.state).toBe("incidencia_awaiting_ubicacion");
   });
 });

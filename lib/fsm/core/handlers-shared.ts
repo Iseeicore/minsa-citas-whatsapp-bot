@@ -18,9 +18,9 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
-  SessionState.RECLAMO_REJECTED,
-  SessionState.RECLAMO_CONFIRMED,
-  SessionState.RECLAMO_FAILED,
+  SessionState.INCIDENCIA_CONFIRMED,
+  SessionState.INCIDENCIA_CANCELLED,
+  SessionState.INCIDENCIA_FAILED,
   SessionState.CITA_REGISTRATION_REJECTED,
   SessionState.CITA_OTP_LOCKED,
   SessionState.CITA_BOOKED,

@@ -74,12 +74,12 @@ describe("the order: emergency, then the lexical guard, then the rest", () => {
   });
 
   it("a real complaint request still opens the complaint flow", () => {
-    expect(handle(menu(), text("quiero hacer un reclamo")).session.state).toBe("reclamo_identity_choice");
+    expect(handle(menu(), text("quiero hacer un reclamo")).session.state).toBe("incidencia_awaiting_ubicacion");
   });
 });
 
 describe("after a finished flow, the first message is read the same way", () => {
-  it.each(["cita_booked", "cita_booking_rejected", "reclamo_confirmed"])("%s + a consultation gets the message, not the welcome", (state) => {
+  it.each(["cita_booked", "cita_booking_rejected", "incidencia_confirmed"])("%s + a consultation gets the message, not the welcome", (state) => {
     const result = handle(at(state as Session["state"], { [SlotKey.CITA_DNI]: "12345678" }), text("¿Tienen vacunas para mi bebé?"));
 
     expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-06"] }]);
@@ -102,7 +102,7 @@ describe("never inside a flow: each step reads what it asked for", () => {
   });
 
   it("the description of a complaint is evidence, whatever words it holds", () => {
-    const result = handle(at("reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text("No me entregaron mis medicamentos y nadie me explicó por qué"));
+    const result = handle(at("incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text("No me entregaron mis medicamentos y nadie me explicó por qué"));
 
     expect(JSON.stringify(result.effects)).not.toContain(OOS_MESSAGES["OOS-05"]);
     expect(oosNote(result)).toBeUndefined();
@@ -133,7 +133,7 @@ describe("the words the messages ask the citizen to type", () => {
   });
 
   it("«RECLAMO» still opens the complaint flow", () => {
-    expect(handle(menu(), text("RECLAMO")).session.state).toBe("reclamo_identity_choice");
+    expect(handle(menu(), text("RECLAMO")).session.state).toBe("incidencia_awaiting_ubicacion");
   });
 
   it("the whole conversation: an out-of-scope question, then CITAS", () => {

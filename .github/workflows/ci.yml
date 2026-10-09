@@ -87,6 +87,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
+      - name: Load the establecimientos padron (the smoke tests look places up in it)
+        run: npm run db:seed:eess -- --base-real=postgres
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
       - name: Smoke tests against PostgreSQL
         run: npm run smoke:postgres
         env:

@@ -122,8 +122,8 @@ async function section1() {
   await (async () => {
     const c1 = ctxFor("1.1g-cita", s);
     await c1.send({ type: "text", text: "1", reset: true }, { expect: "documento" });
-    const c2 = ctxFor("1.1g-reclamo", s);
-    await c2.send({ type: "text", text: "2", reset: true }, { expect: "Libro de Reclamaciones" });
+    const c2 = ctxFor("1.1g-incidencia", s);
+    await c2.send({ type: "text", text: "2", reset: true }, { expect: "registrar tu incidencia" });
   })();
 
   const links = [
@@ -180,7 +180,7 @@ async function section2() {
     const ctx = ctxFor("2.1j", s);
     await welcome(ctx);
     await ctx.send({ type: "text", text: "hdp" }, { expect: WARNING_A });
-    await ctx.send({ type: "text", text: "RECLAMO" }, { expect: "documento" });
+    await ctx.send({ type: "text", text: "RECLAMO" }, { expect: "establecimiento" });
   })();
   await ctxFor("2.1k", s).send({ type: "text", text: "hdp", reset: true }, { expect: WARNING_A, note: "primer mensaje" });
 
@@ -207,7 +207,7 @@ async function section2() {
   ]) {
     const ctx = ctxFor(id, s);
     await welcome(ctx);
-    await ctx.send({ type: "text", text }, { expect: "Libro de Reclamaciones" });
+    await ctx.send({ type: "text", text }, { expect: "registrar tu incidencia" });
   }
 
   await (async () => {
@@ -280,7 +280,7 @@ async function section2_5Stress() {
     await reachDistritoPrompt(ctx);
     await ctx.send({ type: "text", text: "posta de mrda, en comas" }, {
       expect: WARNING_A,
-      note: "internamente sería FORCE_RECLAMO, pero en medio del flujo NO deriva a Reclamos — decisión de producto a revisar",
+      note: "internamente sería FORCE_INCIDENCIA, pero en medio del flujo NO deriva a Reclamos — decisión de producto a revisar",
     });
   })();
 
@@ -325,7 +325,7 @@ async function section3HappyPath() {
     { type: "text", text: "Sabes quiero una cita para san Juan de Lurigancho para medicina general", reset: true },
     { expect: "San Juan de Lurigancho" },
   );
-  await ctxFor("3.1d", s).send({ type: "text", text: "Quiero poner una queja", reset: true }, { expect: "Libro de Reclamaciones" });
+  await ctxFor("3.1d", s).send({ type: "text", text: "Quiero poner una queja", reset: true }, { expect: "registrar tu incidencia" });
   await ctxFor("3.1e", s).send({ type: "text", text: "necesito hablar con alguien", reset: true }, { expect: MENU_TEXT });
 
   const ctx = ctxFor("3.happy", s);

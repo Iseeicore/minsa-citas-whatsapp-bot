@@ -78,14 +78,14 @@ describe("lexical guard — aggression + intent", () => {
     expect(action("quiero una cita hdp")).toBe("CITA_WITH_WARNING");
   });
 
-  it("routes an insulting complaint about the service to the Reclamo flow", () => {
-    expect(action("Doctora imbécil no me dio mi medicina")).toBe("FORCE_RECLAMO");
-    expect(action("maldita posta no me atiende el doctor")).toBe("FORCE_RECLAMO");
-    expect(action("maldita posta atienden pésimo")).toBe("FORCE_RECLAMO");
+  it("routes an insulting complaint about the service to the incidencia flow", () => {
+    expect(action("Doctora imbécil no me dio mi medicina")).toBe("FORCE_INCIDENCIA");
+    expect(action("maldita posta no me atiende el doctor")).toBe("FORCE_INCIDENCIA");
+    expect(action("maldita posta atienden pésimo")).toBe("FORCE_INCIDENCIA");
   });
 
   it("gives the complaint route precedence over the cita route", () => {
-    expect(action("quiero un reclamo por mi cita, idiotas")).toBe("FORCE_RECLAMO");
+    expect(action("quiero un reclamo por mi cita, idiotas")).toBe("FORCE_INCIDENCIA");
   });
 });
 

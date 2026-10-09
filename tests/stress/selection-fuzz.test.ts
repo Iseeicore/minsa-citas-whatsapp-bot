@@ -81,7 +81,7 @@ const TOKENS = [
   "noche", "mediodía", "hoy", "lunes", "22/09", "san juan", "lurigancho", "odontología", "hospital",
   "semana", "próxima", "cojudo", "hdp", "sí", "no", "🕐", "😡", "||", "%", "<script>alert(1)</script>",
   "'; DROP TABLE sessions;--", "\n", "\t", "   ", "１２", "٣", "a|b|c", "150101", "01|02", "09:99",
-  "8:45", "13:00|13:30", "hora_confirm_si", "hora_pagina_siguiente", "continuar_menu", "reclamo_con_dni",
+  "8:45", "13:00|13:30", "hora_confirm_si", "hora_pagina_siguiente", "continuar_menu", "incidencia_con_dni",
 ];
 
 function randomText(random: () => number): string {

@@ -1,5 +1,5 @@
 import { handleCita } from "@/lib/fsm/flows/cita/handlers-cita";
-import { handleReclamo } from "@/lib/fsm/flows/reclamo/handlers-reclamo";
+import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
 import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
@@ -23,9 +23,10 @@ import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SessionState } from "@/lib/enums/session-state";
+import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
-  if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, event.text)) {
+  if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, textoDeLaPersona(event.text))) {
     return emergencyCut(session.state);
   }
   return handleTurn(session, event, now);
@@ -74,8 +75,8 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
     return handleAwaitingFlowStart(session);
   }
 
-  if (session.state.startsWith("reclamo_")) {
-    return handleReclamo(session, event);
+  if (session.state.startsWith("incidencia_")) {
+    return handleIncidencia(session, event);
   }
 
   if (session.state.startsWith("cita_")) {

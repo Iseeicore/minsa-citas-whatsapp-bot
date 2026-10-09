@@ -7,6 +7,7 @@ export type DatosIncidencia = {
   waId: string;
   dni: string | null;
   nombreCompleto: string | null;
+  establecimientoId: number | null;
   descripcion: string;
   traceId: string;
 };
@@ -28,6 +29,7 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
         dniReclamante: datos.dni,
         nombreReclamante: datos.nombreCompleto,
         descripcion: datos.descripcion,
+        establecimientoId: datos.establecimientoId,
         traceId: datos.traceId,
       },
     });
@@ -46,4 +48,21 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
 
     return incidencia;
   });
+}
+
+/** Cuántas incidencias envió ese teléfono hoy (día de Lima), sin contar la de este mismo turno si ya estaba guardada. */
+export async function contarDelDia(waId: string, excluirTraceId: string): Promise<number> {
+  const filas = await prisma.$queryRaw<{ total: bigint }[]>`
+    SELECT count(*) AS total
+      FROM chatbot.incidencia_paciente
+     WHERE wa_id = ${waId}
+       AND trace_id <> ${excluirTraceId}
+       AND (fecha_creacion AT TIME ZONE 'America/Lima')::date = (now() AT TIME ZONE 'America/Lima')::date`;
+  return Number(filas[0]?.total ?? 0);
+}
+
+/** Código legible de una incidencia ya guardada con ese trace id; null si no existe. */
+export async function buscarCodigoPorTrace(traceId: string): Promise<string | null> {
+  const fila = await prisma.incidenciaPaciente.findUnique({ where: { traceId }, select: { codigo: true } });
+  return fila?.codigo ?? null;
 }

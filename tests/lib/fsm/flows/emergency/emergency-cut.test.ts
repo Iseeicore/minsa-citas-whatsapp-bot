@@ -37,8 +37,8 @@ const STATES: Array<[string, Session["slots"]]> = [
   ["cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" }],
   ["cita_awaiting_other_fecha", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }],
   ["cita_awaiting_reauth", { [SlotKey.CITA_DNI]: "12345678" }],
-  ["reclamo_awaiting_dni", {}],
-  ["reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }],
+  ["incidencia_awaiting_dni", {}],
+  ["incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }],
 ];
 
 describe("a medical emergency ends the conversation cleanly, wherever it is typed", () => {
@@ -198,12 +198,12 @@ describe("inside a flow only a short text is read as an emergency", () => {
       "El dia martes esperamos mas de tres horas una ambulancia que nunca llego al centro de salud, el personal no supo explicar por que y nadie se hizo responsable de la demora en la atencion de mi familiar";
     expect(narrative.length).toBeGreaterThan(IN_FLOW_MAX_CHARS);
 
-    const result = handle(at("reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text(narrative));
+    const result = handle(at("incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text(narrative));
 
     expect(sent(result)[0]).not.toEqual(CUT);
     expect(oosNote(result)).toBeUndefined();
-    expect(result.session.state).toBe("reclamo_awaiting_foto");
-    expect(result.session.slots[SlotKey.QUEJA]).toBe(narrative);
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(narrative);
   });
 
   it("at the menu there is no length limit: the citizen is not in the middle of anything", () => {

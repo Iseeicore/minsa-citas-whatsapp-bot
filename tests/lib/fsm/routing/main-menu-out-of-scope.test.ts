@@ -24,7 +24,7 @@ describe("handleMainMenuIntentPending: a request outside the bot's scope", () =>
 
   it("uses the text agreed with the team", () => {
     expect(OUT_OF_SCOPE_REQUEST_TEXT).toBe(
-      "Solo puedo ayudarte a agendar una cita médica o a registrar un reclamo en el Libro de Reclamaciones. Elige una opción:",
+      "Solo puedo ayudarte a agendar una cita médica o a registrar una incidencia. Elige una opción:",
     );
   });
 

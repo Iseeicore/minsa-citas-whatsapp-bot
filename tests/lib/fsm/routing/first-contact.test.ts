@@ -144,8 +144,8 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
   it("«2» opens the complaint flow", () => {
     const result = handleFirstContact(" 2 ", "whatsapp");
 
-    expect(result.session.state).toBe("reclamo_identity_choice");
-    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
   });
 
   it("any other number is just text: it gets the menu", () => {
@@ -158,23 +158,19 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
     const finished: Session = { state: "cita_booked", slots: {}, counters: {} };
 
     expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_dni");
-    expect(handle(finished, text("2")).session.state).toBe("reclamo_identity_choice");
+    expect(handle(finished, text("2")).session.state).toBe("incidencia_awaiting_ubicacion");
   });
 });
 
 describe("first contact: a request to file a complaint", () => {
-  it.each(["Quiero poner una queja", "quiero hacer un reclamo", "RECLAMO"])("%j goes straight to the complaint flow", (message) => {
+  it.each(["Quiero poner una queja", "quiero hacer un reclamo", "RECLAMO", "INCIDENCIA", "quiero presentar una incidencia", "quiero hacer una denuncia"])("%j goes straight to the complaint flow", (message) => {
     const result = handleFirstContact(message, "whatsapp");
 
-    expect(result.session.state).toBe("reclamo_identity_choice");
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(sent(result)).toHaveLength(1);
-    expect(sent(result)[0]).toMatchObject({
-      kind: "send_buttons",
-      text: "¡Hola! Vamos a registrar tu reclamo en el Libro de Reclamaciones. ¿Deseas registrar tu nombre, o prefieres que sea anónimo?",
-      buttons: [
-        { id: "reclamo_con_nombre", title: "Sí, doy mi nombre" },
-        { id: "reclamo_anonimo", title: "Prefiero ser anónimo" },
-      ],
+    expect(sent(result)[0]).toEqual({
+      kind: "send_text",
+      text: "¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
     });
   });
 });
@@ -206,7 +202,7 @@ describe("first contact: the web (sandbox/widget) channel", () => {
 describe("returning after a finished cita or reclamo", () => {
   const finished = (state: Session["state"]): Session => ({ state, slots: { [SlotKey.CITA_DNI]: "12345678" }, counters: {} });
 
-  it.each(["cita_booking_rejected", "cita_booked", "reclamo_confirmed"])("%s + «hola»: the welcome alone, no menu chained", (state) => {
+  it.each(["cita_booking_rejected", "cita_booked", "incidencia_confirmed"])("%s + «hola»: the welcome alone, no menu chained", (state) => {
     const result = handle(finished(state as Session["state"]), text("hola"));
 
     expect(sent(result).map((effect) => effect.kind)).toEqual(["send_cta_url"]);
