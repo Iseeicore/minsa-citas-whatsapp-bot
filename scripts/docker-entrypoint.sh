@@ -3,6 +3,7 @@ set -eu
 
 PRISMA_CLI="${PRISMA_CLI:-/opt/prisma/node_modules/prisma/build/index.js}"
 PRISMA_SCHEMA="${PRISMA_SCHEMA:-/app/prisma/schema.prisma}"
+MIGRACION_FALLIDA="20261004000000_init"
 
 log() {
   printf '[entrypoint] %s\n' "$1"
@@ -50,6 +51,11 @@ SQL
     exit 1
   fi
   log "Base borrada. Las migraciones se aplicarán desde cero."
+fi
+
+log "Marcando como revertida la migración $MIGRACION_FALLIDA, si quedó fallida, para reintentarla."
+if ! node "$PRISMA_CLI" migrate resolve --rolled-back "$MIGRACION_FALLIDA" --schema "$PRISMA_SCHEMA"; then
+  log "ADVERTENCIA: no se pudo marcar como revertida (si ya está aplicada o no existe, es normal). Se continúa con las migraciones."
 fi
 
 log "Aplicando migraciones pendientes."
