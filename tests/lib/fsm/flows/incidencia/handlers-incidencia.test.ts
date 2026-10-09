@@ -64,16 +64,22 @@ describe("incidencia_awaiting_dni: el largo decide el documento", () => {
     expect(queries(result)).toEqual([{ kind: "reniec_lookup", payload: { dni: "12345678" } }]);
   });
 
-  it("un carnet de extranjería de 9 dígitos no se consulta en RENIEC: se pide el nombre o un alias", () => {
+  it("un carnet de extranjería de 9 dígitos no se acepta por ahora: se ofrece escribir un DNI o seguir anónimo, sin consultar RENIEC", () => {
     const result = handleIncidencia(awaitingDni(), text("123456789"));
 
-    expect(result.session.state).toBe("incidencia_awaiting_nombre_libre");
-    expect(result.session.slots[SlotKey.DNI]).toBe("123456789");
+    expect(result.session.state).toBe("incidencia_awaiting_dni");
+    expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
     expect(queries(result)).toHaveLength(0);
-    expect(texts(result)[0]).toContain("carnet de extranjería");
+    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", text: "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.", buttons: [{ id: "incidencia_anonimo" }] });
   });
 
-  it.each(["", "1234567", "1234567890", "abcdefgh", "1234 5678", "hdp"])("%j no es un documento: lo pide de nuevo", (value) => {
+  it("tocar «Continuar anónimo» desde ahí sigue al relato, sin documento ni nombre", () => {
+    const result = handleIncidencia(awaitingDni(), tap("incidencia_anonimo"));
+
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
+  });
+  it.each(["", "1234567", "1234567890", "abcdefgh", "1234 5678", "hdp"])("%j no es un DNI: lo pide de nuevo", (value) => {
     const result = handleIncidencia(awaitingDni(), text(value));
 
     expect(result.session.state).toBe("incidencia_awaiting_dni");
@@ -171,7 +177,7 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
   });
 });
 
-describe("el registro final: con la persona, con carnet o anónimo", () => {
+describe("el registro final: con la persona o anónimo", () => {
   const submission = (step: HandlerResult) => queries(step)[0].payload.submission as { dni: string | null; nombreCompleto: string | null; mediaDataUri?: string };
 
   it("con DNI: lleva el documento y el nombre de RENIEC", () => {
@@ -181,7 +187,7 @@ describe("el registro final: con la persona, con carnet o anónimo", () => {
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
 
-    expect(submission(step)).toEqual({ waId: FROM, dni: "12345678", nombreCompleto: "JUAN CARLOS QUISPE PEREZ", descripcion: "El consultorio estaba cerrado." });
+    expect(submission(step)).toEqual({ waId: FROM, dni: "12345678", nombreCompleto: "JUAN CARLOS QUISPE PEREZ", descripcion: "El consultorio estaba cerrado.", establecimientoId: null });
   });
 
   it("con RENIEC caído: lleva el documento y el alias que escribió", () => {
@@ -195,14 +201,12 @@ describe("el registro final: con la persona, con carnet o anónimo", () => {
     expect(submission(step)).toMatchObject({ dni: "12345678", nombreCompleto: "Juan" });
   });
 
-  it("con carnet de extranjería: lleva el número y el nombre que escribió", () => {
-    let step = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
-    step = handleIncidencia(step.session, text("123456789"));
-    step = handleIncidencia(step.session, text("María Gómez"));
+  it("con el establecimiento confirmado: el registro lleva su id", () => {
+    let step = handleIncidencia({ ...identityChoice(), slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } }, tap("incidencia_anonimo"));
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
 
-    expect(submission(step)).toMatchObject({ dni: "123456789", nombreCompleto: "María Gómez" });
+    expect(submission(step)).toMatchObject({ establecimientoId: 7 });
   });
 
   it("anónimo: llega con documento y nombre en null", () => {
@@ -210,7 +214,7 @@ describe("el registro final: con la persona, con carnet o anónimo", () => {
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
 
-    expect(submission(step)).toEqual({ waId: FROM, dni: null, nombreCompleto: null, descripcion: "El consultorio estaba cerrado." });
+    expect(submission(step)).toEqual({ waId: FROM, dni: null, nombreCompleto: null, descripcion: "El consultorio estaba cerrado.", establecimientoId: null });
   });
 });
 
@@ -303,7 +307,7 @@ describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
 });
 
 describe("incidencia_submit_pending: el resultado del registro", () => {
-  const submitResult = (result: { status: string; reason?: string }): QueryResultEvent => ({
+  const submitResult = (result: { status: string; reason?: string; codigo?: string }): QueryResultEvent => ({
     from: FROM,
     type: "query_result",
     queryKind: "incidencia_register",
@@ -311,14 +315,25 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
   });
   const pending = (): Session => ({ state: "incidencia_submit_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} });
 
-  it("aceptado: confirma y cierra", () => {
-    const result = handleIncidencia(pending(), submitResult({ status: "accepted" }));
+  it("aceptado sin establecimiento: solo agradece, sin código", () => {
+    const result = handleIncidencia(pending(), submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
 
     expect(result.session.state).toBe("incidencia_confirmed");
-    expect(texts(result)[0]).toContain("Tu incidencia fue registrada");
+    expect(texts(result)).toEqual(["Gracias por tu reporte de incidencia, ya se registró."]);
     expect(result.outcome).toBe("closed");
   });
 
+  it("aceptado con establecimiento: entrega el código de seguimiento", () => {
+    const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
+    const result = handleIncidencia(withPlace, submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
+
+    expect(texts(result)).toEqual(["¡Gracias! Tu incidencia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento."]);
+  });
+
+  it("aceptado con establecimiento pero sin código (una reentrega que no lo pudo leer): solo agradece", () => {
+    const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
+    expect(texts(handleIncidencia(withPlace, submitResult({ status: "accepted" })))).toEqual(["Gracias por tu reporte de incidencia, ya se registró."]);
+  });
   it("fallido: avisa que no se pudo registrar", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "error" }));
 

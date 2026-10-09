@@ -1,4 +1,4 @@
-import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
+import { INVALID_DNI_TEXT } from "@/lib/fsm/core/failure-texts";
 import { enterDescripcion, handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
 import {
   afterDescripcion,
@@ -13,7 +13,7 @@ import {
   handleConfirmUbicacion,
   handleUbicacionPending,
 } from "@/lib/fsm/flows/incidencia/ubicacion";
-import { isValidDocumentoFormat, tipoDocumentoDe } from "@/lib/fsm/parsing/text/identity-format";
+import { isValidDniFormat, isValidDocumentoFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
@@ -26,12 +26,12 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-import { TipoDocumento } from "@/lib/enums/tipo-documento";
 
 const FOTO_INTENT_MAX_LENGTH = 200;
 const ASK_DOCUMENTO_TEXT = "Ingresa tu número de documento.";
 const RENIEC_FAILED_TEXT = "Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias.";
-const CARNET_NOT_VALIDATED_TEXT = "Gracias. Por ahora no podemos validar el carnet de extranjería en este canal. Escríbenos tu nombre o un alias.";
+const ONLY_DNI_TEXT = "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.";
+const ONLY_DNI_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, title: "Continuar anónimo" }];
 
 export function handleIncidencia(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -84,20 +84,22 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   ]);
 }
 
-/** El largo decide el documento: 8 dígitos es DNI y se valida en RENIEC; 9 es carnet de extranjería y RENIEC no lo conoce, así que se pide el nombre. */
+/**
+ * Por ahora solo se valida el DNI en RENIEC. Un carnet de extranjería (9 dígitos) se reconoce para no decirle «inválido», pero
+ * no se acepta: puede escribir un DNI o seguir de forma anónima.
+ */
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
+  if (readReply(event) === IncidenciaButtonId.ANONIMO) return enterDescripcion(cloneSession(session));
+
   const documento = (event.text ?? "").trim();
 
-  if (!isValidDocumentoFormat(documento)) return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
+  if (!isValidDniFormat(documento)) {
+    if (isValidDocumentoFormat(documento)) return buildResult(session, [sendButtons(ONLY_DNI_TEXT, ONLY_DNI_BUTTONS)]);
+    return buildResult(session, [sendText(INVALID_DNI_TEXT)]);
+  }
 
   const next = cloneSession(session);
   next.slots[SlotKey.DNI] = documento;
-
-  if (tipoDocumentoDe(documento) === TipoDocumento.CARNET_EXTRANJERIA) {
-    next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE;
-    return buildResult(next, [sendText(CARNET_NOT_VALIDATED_TEXT)]);
-  }
-
   next.state = SessionState.INCIDENCIA_RENIEC_PENDING;
   return buildResult(next, [sendText("Verificando tu documento…"), query(QueryKind.RENIEC_LOOKUP, { dni: documento })]);
 }
@@ -191,13 +193,20 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
   return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
 }
 
+/** Con establecimiento se entrega el código de seguimiento; sin él, solo se agradece. */
+function confirmationText(session: Session, codigo: string | undefined): string {
+  const hasEstablecimiento = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] !== undefined;
+  if (hasEstablecimiento && codigo) return `¡Gracias! Tu incidencia quedó registrada con el código ${codigo}. Guárdalo para darle seguimiento.`;
+  return "Gracias por tu reporte de incidencia, ya se registró.";
+}
+
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string };
+  const result = event.result as { status: string; codigo?: string };
   const next = cloneSession(session);
 
   if (result.status === "accepted") {
     next.state = SessionState.INCIDENCIA_CONFIRMED;
-    return buildResult(next, [sendText("¡Listo! Tu incidencia fue registrada. Nos pondremos en contacto contigo pronto.")]);
+    return buildResult(next, [sendText(confirmationText(next, result.codigo))]);
   }
 
   next.state = SessionState.INCIDENCIA_FAILED;

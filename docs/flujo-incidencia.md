@@ -26,12 +26,11 @@ entrada ─► ubicación ─► nombre o anónimo ─► relato ─► foto ─
    - De 2 a 5 parecidos: lista para elegir, con **Ninguno de estos**.
    - Demasiados o ninguno: se pide el nombre completo o el código IPRESS.
    - Tres intentos fallidos, «no sé», «omitir» o una base que no responde: `¿Quieres continuar sin indicar el establecimiento?`. Con «Sí» sigue sin establecimiento.
-2. **Nombre o anónimo**. Con nombre se pide el número de documento: un DNI (8 dígitos) se valida en RENIEC y de ahí sale el nombre completo (`RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true`; sin ellas solo el DNI de prueba); un carnet de extranjería (9 dígitos) no se consulta y se pide el nombre o un alias. Si RENIEC no lo encuentra o no responde, se disculpa y pide un nombre o alias. El documento tecleado se guarda aunque no se haya podido validar.
+2. **Nombre o anónimo**. Con nombre se pide el número de documento. **Por ahora solo se acepta el DNI** (8 dígitos): se valida en RENIEC y de ahí sale el nombre completo (`RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true`; sin ellas solo el DNI de prueba). Quien escribe 9 dígitos (carnet de extranjería) recibe «Por ahora este canal solo valida el DNI» con el botón **Continuar anónimo**. Si RENIEC no encuentra el DNI o no responde, se disculpa y pide un nombre o alias; el DNI tecleado se guarda aunque no se haya podido validar.
 3. **Relato** (`borrador.ts`). Si la persona ya escribió algo aprovechable (20 caracteres o más, sin ruido) junto a la frase de inicio, se le muestra y pregunta **Usar así** / **Agregar más**; si no, se le pide siempre. «Agregar más» une lo nuevo al borrador (hasta 1000 caracteres).
-4. **Evidencia** (opcional, siempre se ofrece) y **registro** en la base. Si llega un archivo (imagen o PDF) se acusa recibo («Ok, se registró tu evidencia.») pero **no se descarga ni se guarda**; con `OMITIR`, un «no» o un texto que lo diga (la IA lo entiende) se sigue sin él. Los stickers, audios y demás no son archivos y se ignoran en silencio, igual que cualquier imagen o PDF enviado fuera de este paso.
+4. **Evidencia** (opcional, siempre se ofrece) y **registro** en la base, con el establecimiento confirmado (`establecimiento_id`; nulo si la persona siguió sin él). Al cerrar, **con establecimiento se entrega el código de seguimiento** (`MINSA-AAAA-NNNNNN`, lo asigna la base) y sin él solo se agradece. Una reentrega del mismo mensaje no duplica la incidencia y devuelve el mismo código. Si llega un archivo (imagen o PDF) se acusa recibo («Ok, se registró tu evidencia.») pero **no se descarga ni se guarda**; con `OMITIR`, un «no» o un texto que lo diga (la IA lo entiende) se sigue sin él. Los stickers, audios y demás no son archivos y se ignoran en silencio, igual que cualquier imagen o PDF enviado fuera de este paso.
 
 ## Lo que todavía no hace
 
-- No guarda el establecimiento en la incidencia: queda en la sesión (`incidenciaEstablecimiento*`).
-- No devuelve el código de seguimiento al cerrar.
+- El canal de origen se guarda siempre como WhatsApp, también desde el sandbox.
 - La IA no entra todavía como entrada: el texto ambiguo de reclamo sigue yendo a «no claro».

@@ -7,6 +7,7 @@ export type DatosIncidencia = {
   waId: string;
   dni: string | null;
   nombreCompleto: string | null;
+  establecimientoId: number | null;
   descripcion: string;
   traceId: string;
 };
@@ -28,6 +29,7 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
         dniReclamante: datos.dni,
         nombreReclamante: datos.nombreCompleto,
         descripcion: datos.descripcion,
+        establecimientoId: datos.establecimientoId,
         traceId: datos.traceId,
       },
     });
@@ -46,4 +48,10 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
 
     return incidencia;
   });
+}
+
+/** Código legible de una incidencia ya guardada con ese trace id; null si no existe. */
+export async function buscarCodigoPorTrace(traceId: string): Promise<string | null> {
+  const fila = await prisma.incidenciaPaciente.findUnique({ where: { traceId }, select: { codigo: true } });
+  return fila?.codigo ?? null;
 }

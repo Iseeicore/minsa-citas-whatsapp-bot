@@ -99,6 +99,55 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     expect(identity.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]).toBeUndefined();
   });
 
+  it("from the QR to a saved incidencia: the place goes to the database and the person gets the code", async () => {
+    const p = person();
+    await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    await p.tap("incidencia_ubicacion_si");
+    await p.tap("incidencia_anonimo");
+    const asked = await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
+    expect(asked.session.state).toBe("incidencia_awaiting_foto");
+
+    const done = await p.say("omitir");
+    expect(done.session.state).toBe("incidencia_confirmed");
+    expect(textOf(done.sent.at(-1))).toMatch(/código MINSA-\d{4}-\d{6,}/);
+
+    const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from }, include: { establecimiento: true } });
+    expect(saved.establecimiento?.codigoRenipress).toBe("6206");
+    expect(saved.esAnonimo).toBe(true);
+    expect(textOf(done.sent.at(-1))).toContain(saved.codigo);
+  });
+
+  it("with no establecimiento the incidencia is saved without one and the person is only thanked, with no code", async () => {
+    const p = person();
+    await p.start("quiero presentar una incidencia");
+    await p.say("xyzzy plugh");
+    await p.say("qwerty asdfgh");
+    await p.say("zzzz yyyy");
+    await p.tap("incidencia_omitir_si");
+    await p.tap("incidencia_anonimo");
+    await p.say("El doctor me atendió mal y no me explicó nada.");
+    const done = await p.say("omitir");
+
+    expect(textOf(done.sent.at(-1))).toBe("Gracias por tu reporte de incidencia, ya se registró.");
+    const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from } });
+    expect(saved.establecimientoId).toBeNull();
+  });
+
+  it("with a DNI the name comes from RENIEC (the test DNI) and is saved with the document", async () => {
+    const p = person();
+    await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    await p.tap("incidencia_ubicacion_si");
+    await p.tap("incidencia_con_nombre");
+    const named = await p.say("12345678");
+    expect(named.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(named.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("JUAN CARLOS QUISPE PEREZ");
+
+    await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
+    await p.say("omitir");
+    const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from } });
+    expect(saved).toMatchObject({ esAnonimo: false, dniReclamante: "12345678", nombreReclamante: "JUAN CARLOS QUISPE PEREZ" });
+  });
+
   it("the menu option asks for the place and a typed code finds it", async () => {
     const p = person();
     const asked = await p.start("2");

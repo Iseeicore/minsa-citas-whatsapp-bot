@@ -54,10 +54,26 @@ describe("registering an incident directly in the database", () => {
         dniReclamante: null,
         nombreReclamante: null,
         descripcion: "Me cobraron de mas",
+        establecimientoId: null,
         traceId: "trace-abc",
       },
     });
     expect(db.evidenciaCreate).not.toHaveBeenCalled();
+  });
+
+  it("saves the establecimiento the citizen confirmed, and answers with the code the database gave", async () => {
+    db.incidenciaCreate.mockResolvedValueOnce({ id: "i-1", codigo: "MINSA-2026-000123" });
+
+    await expect(registrarIncidencia({ ...base, establecimientoId: 7 })).resolves.toEqual({ status: "accepted", codigo: "MINSA-2026-000123" });
+
+    expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ establecimientoId: 7 }) });
+  });
+
+  it("refuses an establecimiento id that is not a positive integer, before the database", async () => {
+    for (const establecimientoId of [0, -1, 1.5, "7"]) {
+      await expect(registrarIncidencia({ ...base, establecimientoId })).resolves.toEqual({ status: "error" });
+    }
+    expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
   it("is not anonymous when the citizen gave a name, even without a DNI", async () => {
