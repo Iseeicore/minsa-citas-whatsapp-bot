@@ -89,6 +89,38 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     expect(result.out).not.toContain("SERVER_STARTED");
   });
 
+  it("reset confirmed with the database name: wipes first, then migrates from scratch, then starts", () => {
+    const result = run({
+      DATABASE_ENABLED: "true",
+      DATABASE_URL: "postgresql://u:p@host:5432/bd_chatbot?schema=public",
+      RESET_DATABASE_CONFIRM: "bd_chatbot",
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.out.indexOf("db execute")).toBeGreaterThan(-1);
+    expect(result.out.indexOf("db execute")).toBeLessThan(result.out.indexOf("migrate deploy"));
+    expect(result.out.indexOf("migrate deploy")).toBeLessThan(result.out.indexOf("SERVER_STARTED"));
+  });
+
+  it("reset with a wrong database name: wipes nothing and never starts the server", () => {
+    const result = run({
+      DATABASE_ENABLED: "true",
+      DATABASE_URL: "postgresql://u:p@host:5432/bd_chatbot",
+      RESET_DATABASE_CONFIRM: "otra_base",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.out).toContain("no coincide");
+    expect(result.out).not.toContain("db execute");
+    expect(result.out).not.toContain("SERVER_STARTED");
+  });
+
+  it("without the reset variable: never wipes", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://u:p@host:5432/bd_chatbot" });
+
+    expect(result.out).not.toContain("db execute");
+  });
+
   it("disabled database without a URL: warns and starts without migrating", () => {
     const result = run({ DATABASE_ENABLED: "false" });
 
