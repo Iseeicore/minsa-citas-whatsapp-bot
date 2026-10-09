@@ -1,18 +1,7 @@
 import type { BuscarEstablecimientoResult } from "@/lib/establecimientos/buscar";
-import { decidirCandidatos, MAX_EN_LISTA, type Candidato, type Establecimiento } from "@/lib/establecimientos/decidir";
+import { decidirCandidatos, type Establecimiento } from "@/lib/establecimientos/decidir";
 import { UNREADABLE_TEXT_RETRY } from "@/lib/fsm/flows/incidencia/pasos-comunes";
-import {
-  buildResult,
-  cloneSession,
-  omitSlot,
-  query,
-  readReply,
-  sendButtons,
-  sendList,
-  sendText,
-  truncateForRow,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, omitSlot, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { parseCodigoSuelto, type InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
@@ -27,7 +16,6 @@ import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 
 export const MAX_INTENTOS_UBICACION = 3;
-export const NINGUNO_ROW_ID = "ninguno";
 
 const PEDIR_UBICACION = "¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.";
 const PEDIR_OTRO = "Escribe el nombre del establecimiento o su código IPRESS.";
@@ -53,11 +41,11 @@ const toPropuesto = (establecimiento: Establecimiento): Propuesto => ({
   distrito: establecimiento.distrito,
 });
 
-function readPropuesto(session: Session, key: SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO | SlotKey.INCIDENCIA_CANDIDATOS): unknown {
-  const raw = session.slots[key];
+function readPropuesto(session: Session): Propuesto | undefined {
+  const raw = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO];
   if (typeof raw !== "string") return undefined;
   try {
-    return JSON.parse(raw);
+    return JSON.parse(raw) as Propuesto;
   } catch {
     return undefined;
   }
@@ -73,8 +61,8 @@ function searching(next: Session, payload: { codigo?: string; nombre?: string })
 }
 
 /**
- * Entrada común a la incidencia: desde el QR, desde un texto que la anuncia, desde el menú o desde un atajo. Si trae código
- * o nombre del establecimiento los busca de inmediato; si no, pide la ubicación. Lo que la persona ya escribió queda de borrador.
+ * Entrada común a la incidencia: desde el QR, desde un texto que la anuncia, desde la IA, desde el menú o desde un atajo. Si trae
+ * código o nombre del establecimiento los busca de inmediato; si no, pide la ubicación. Lo que la persona ya escribió queda de borrador.
  */
 export function beginIncidencia(slots: Session["slots"], lead: string, inicio: InicioIncidencia | null = null): HandlerResult {
   const next: Session = { state: SessionState.INCIDENCIA_AWAITING_UBICACION, slots: { ...slots }, counters: {} };
@@ -119,21 +107,16 @@ function confirmUbicacion(next: Session, establecimiento: Establecimiento): Hand
   ]);
 }
 
-function offerList(next: Session, candidatos: Candidato[]): HandlerResult {
-  next.slots[SlotKey.INCIDENCIA_CANDIDATOS] = JSON.stringify(candidatos.map(toPropuesto));
-  next.state = SessionState.INCIDENCIA_SELECT_UBICACION;
-  const rows = candidatos.slice(0, MAX_EN_LISTA).map((candidato) => ({
-    id: candidato.codigoRenipress,
-    title: `IPRESS ${candidato.codigoRenipress}`,
-    description: truncateForRow(candidato.nombre, WHATSAPP_ROW_DESCRIPTION_MAX),
-  }));
-  rows.push({ id: NINGUNO_ROW_ID, title: "Ninguno de estos", description: "Escribiré otro nombre o código" });
-  return buildResult(next, [sendList("Encontré estos establecimientos. Elige el correcto:", rows)]);
-}
-
+/**
+ * Resultado de buscar el establecimiento. Solo se le propone uno cuando hay un solo candidato claro: nunca una lista, porque si la
+ * persona no sabe dónde ocurrió, ella decide si lo escribe o sigue sin él. El origen solo cuenta para la primera búsqueda: si el texto
+ * de inicio resultó ser un nombre, no era su historia; las búsquedas posteriores no tocan el borrador.
+ */
 export function handleUbicacionPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as BuscarEstablecimientoResult;
   const next = cloneSession(session);
+  const fromTexto = next.slots[SlotKey.INCIDENCIA_ORIGEN] === "texto";
+  next.slots[SlotKey.INCIDENCIA_ORIGEN] = "menu";
 
   if (result.status === "unavailable") {
     return offerOmitir(next, "No pudimos buscar el establecimiento en este momento.");
@@ -152,19 +135,15 @@ export function handleUbicacionPending(session: Session, event: QueryResultEvent
   if (result.by !== "nombre" || result.status !== "ok") return failedAttempt(next, `No pudimos leer eso. ${PEDIR_OTRO}`);
 
   const decision = decidirCandidatos(result.candidatos);
-  if (next.slots[SlotKey.INCIDENCIA_ORIGEN] === "texto" && decision.kind !== "ninguno") {
-    next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);
-  }
+  if (fromTexto && decision.kind !== "ninguno") next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);
 
   switch (decision.kind) {
     case "uno":
       return confirmUbicacion(next, decision.establecimiento);
-    case "lista":
-      return offerList(next, decision.candidatos);
-    case "muchos":
-      return failedAttempt(next, `Hay varios establecimientos que se parecen. Escribe su nombre completo o su código IPRESS.`);
+    case "varios":
+      return failedAttempt(next, "Hay varios establecimientos que se parecen. Escribe su nombre completo o su código IPRESS.");
     default:
-      return failedAttempt(next, `No encontré ese establecimiento. Escribe su nombre completo o su código IPRESS.`);
+      return failedAttempt(next, "No encontré ese establecimiento. Escribe su nombre completo o su código IPRESS.");
   }
 }
 
@@ -176,7 +155,7 @@ function acceptUbicacion(next: Session, propuesto: Propuesto): HandlerResult {
 }
 
 function continueAfterUbicacion(next: Session, acknowledgement: string): HandlerResult {
-  for (const key of [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO, SlotKey.INCIDENCIA_CANDIDATOS, SlotKey.INCIDENCIA_UBICACION_TEXTO]) {
+  for (const key of [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO, SlotKey.INCIDENCIA_UBICACION_TEXTO]) {
     next.slots = omitSlot(next.slots, key);
   }
   next.counters = omitCounter(next.counters);
@@ -204,33 +183,14 @@ function readConfirmation(event: InboundEvent, yes: IncidenciaButtonId, no: Inci
 }
 
 export function handleConfirmUbicacion(session: Session, event: InboundEvent): HandlerResult {
-  const propuesto = readPropuesto(session, SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO) as Propuesto | undefined;
+  const propuesto = readPropuesto(session);
   const answer = propuesto ? readConfirmation(event, IncidenciaButtonId.UBICACION_SI, IncidenciaButtonId.UBICACION_NO) : Confirmation.NO;
   const next = cloneSession(session);
 
   if (answer === Confirmation.YES && propuesto) return acceptUbicacion(next, propuesto);
   if (answer === Confirmation.NO) return failedAttempt(next, `Entendido. ${PEDIR_OTRO}`);
 
-  return buildResult(session, [
-    sendButtons("¿Es ese el establecimiento donde ocurrió? Toca Sí o No.", UBICACION_BUTTONS),
-  ]);
-}
-
-export function handleSelectUbicacion(session: Session, event: InboundEvent): HandlerResult {
-  const candidatos = (readPropuesto(session, SlotKey.INCIDENCIA_CANDIDATOS) as Propuesto[] | undefined) ?? [];
-  const reply = readReply(event)?.trim();
-  const next = cloneSession(session);
-
-  const chosen = candidatos.find((candidato) => candidato.codigoRenipress === reply);
-  if (chosen) return acceptUbicacion(next, chosen);
-
-  if (reply === NINGUNO_ROW_ID || (event.text && quiereOmitirUbicacion(event.text))) {
-    return failedAttempt(next, `Entendido. ${PEDIR_OTRO}`);
-  }
-
-  const typed = (event.text ?? "").trim();
-  if (!typed) return buildResult(session, [sendText("Elige un establecimiento de la lista o escribe otro nombre o código IPRESS.")]);
-  return handleAwaitingUbicacion(next, event);
+  return buildResult(session, [sendButtons("¿Es ese el establecimiento donde ocurrió? Toca Sí o No.", UBICACION_BUTTONS)]);
 }
 
 function offerOmitir(next: Session, lead: string): HandlerResult {

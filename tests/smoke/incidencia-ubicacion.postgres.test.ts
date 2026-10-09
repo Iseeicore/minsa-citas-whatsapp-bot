@@ -69,17 +69,12 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     expect(turn.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
   });
 
-  it("only «hospital»: offers the four hospitals and a choice picks one", async () => {
-    const p = person();
-    const list = await p.start("quiero presentar una incidencia en el hospital");
+  it("only «hospital»: no list is shown, it asks for the name", async () => {
+    const turn = await person().start("quiero presentar una incidencia en el hospital");
 
-    expect(list.session.state).toBe("incidencia_select_ubicacion");
-    const rows = (list.sent[0] as { rows: { id: string }[] }).rows.map((row) => row.id).sort();
-    expect(rows).toEqual(["33381", "5946", "6206", "6215", "ninguno"].sort());
-
-    const identity = await p.pick("5946");
-    expect(identity.session.state).toBe("incidencia_identity_choice");
-    expect(identity.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]).toBe("5946");
+    expect(turn.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(turn.sent.every((effect) => effect.kind === "send_text")).toBe(true);
+    expect(textOf(turn.sent[0])).toContain("Hay varios establecimientos que se parecen");
   });
 
   it("a story with no place: the place is asked and the story is kept as a draft", async () => {

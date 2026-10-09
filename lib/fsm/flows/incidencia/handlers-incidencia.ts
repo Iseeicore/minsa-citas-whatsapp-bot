@@ -5,7 +5,6 @@ import {
   handleAwaitingUbicacion,
   handleConfirmOmitir,
   handleConfirmUbicacion,
-  handleSelectUbicacion,
   handleUbicacionPending,
 } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
@@ -42,8 +41,6 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
       return handleUbicacionPending(session, event as QueryResultEvent);
     case SessionState.INCIDENCIA_CONFIRM_UBICACION:
       return handleConfirmUbicacion(session, event as InboundEvent);
-    case SessionState.INCIDENCIA_SELECT_UBICACION:
-      return handleSelectUbicacion(session, event as InboundEvent);
     case SessionState.INCIDENCIA_CONFIRM_OMITIR:
       return handleConfirmOmitir(session, event as InboundEvent);
     case SessionState.INCIDENCIA_CONFIRM_BORRADOR:

@@ -37,31 +37,23 @@ describe("decidirCandidatos con los valores medidos en el padrón", () => {
     expect(decidirCandidatos([fila("HOSPITAL NACIONAL DOS DE MAYO", 0.47, 0.5)])).toMatchObject({ kind: "uno" });
   });
 
-  it("the type alone with few matches (the four hospitals) is a list to choose from", () => {
+  it("the type alone (the four hospitals) is never a list: it asks for the full name", () => {
     const hospitales = ["HOSPITAL NACIONAL DOS DE MAYO", "Hospital Nacional Hipólito Unanue", "Hospital de Lima Este - Vitarte (III-E)", "HOSPITAL NACIONAL DOCENTE MADRE NIÑO SAN BARTOLOME"];
-    const decision = decidirCandidatos(hospitales.map((nombre, i) => fila(nombre, 0.3 - i * 0.01 + 0.02, 1, i + 1)));
-    expect(decision.kind).toBe("lista");
-    if (decision.kind === "lista") expect(decision.candidatos).toHaveLength(4);
+    expect(decidirCandidatos(hospitales.map((nombre, i) => fila(nombre, 0.3 - i * 0.01 + 0.02, 1, i + 1)))).toEqual({ kind: "varios", total: 4 });
   });
 
-  it("the type alone with too many matches (170 centros de salud) asks for the name", () => {
+  it("too many matches (170 centros de salud) also ask for the name", () => {
     const muchos = Array.from({ length: 8 }, (_, i) => fila(`CENTRO DE SALUD ${i}`, 0.76 - i * 0.005, 1, i + 1));
-    expect(decidirCandidatos(muchos)).toEqual({ kind: "muchos", total: 8 });
+    expect(decidirCandidatos(muchos)).toEqual({ kind: "varios", total: 8 });
   });
 
-  it("several that look alike (the three of San Borja) are a list", () => {
+  it("several that look alike (the three of San Borja) are not offered as a list either", () => {
     const decision = decidirCandidatos([fila("C.S.M. COMUNITARIO SAN BORJA", 0.33, 0.56), fila("HOGAR PROTEGIDO SAN BORJA", 0.31, 0.56, 2), fila("CENTRO DE SALUD TODOS LOS SANTOS SAN BORJA", 0.3, 0.56, 3)]);
-    expect(decision.kind).toBe("lista");
+    expect(decision).toEqual({ kind: "varios", total: 3 });
   });
 
   it("a word-level match passes even with a low similarity (dos de mayo)", () => {
     const decision = decidirCandidatos([fila("HOSPITAL NACIONAL DOS DE MAYO", 0.39, 1)]);
     expect(decision).toMatchObject({ kind: "uno" });
-  });
-
-  it("orders the list from the closest to the least close", () => {
-    const decision = decidirCandidatos([fila("B", 0.31, 0.4, 2), fila("A", 0.45, 0.4, 1), fila("C", 0.33, 0.4, 3)]);
-    expect(decision.kind).toBe("lista");
-    if (decision.kind === "lista") expect(decision.candidatos.map((c) => c.nombre)).toEqual(["A", "C", "B"]);
   });
 });

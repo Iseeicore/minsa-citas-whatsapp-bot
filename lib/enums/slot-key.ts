@@ -46,7 +46,6 @@ export enum SlotKey {
   INCIDENCIA_ORIGEN = "incidenciaOrigen",
   INCIDENCIA_BORRADOR = "incidenciaBorrador",
   INCIDENCIA_UBICACION_TEXTO = "incidenciaUbicacionTexto",
-  INCIDENCIA_CANDIDATOS = "incidenciaCandidatos",
   INCIDENCIA_ESTABLECIMIENTO_ID = "incidenciaEstablecimientoId",
   INCIDENCIA_ESTABLECIMIENTO_CODIGO = "incidenciaEstablecimientoCodigo",
   INCIDENCIA_ESTABLECIMIENTO_NOMBRE = "incidenciaEstablecimientoNombre",

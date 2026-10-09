@@ -13,19 +13,17 @@ export const MIN_SIMILITUD_PALABRA = 0.9;
 export const SIMILITUD_EXACTA = 0.8;
 export const VENTAJA_CLARA = 0.25;
 export const SIMILITUD_CON_VENTAJA = 0.5;
-export const MAX_EN_LISTA = 5;
 
 export type Decision =
   | { kind: "ninguno" }
   | { kind: "uno"; establecimiento: Candidato }
-  | { kind: "lista"; candidatos: Candidato[] }
-  | { kind: "muchos"; total: number };
+  | { kind: "varios"; total: number };
 
 const esCandidato = (fila: Candidato) => fila.similitud >= MIN_SIMILITUD || fila.similitudPalabra >= MIN_SIMILITUD_PALABRA;
 
 /**
- * Decide qué hacer con los resultados de buscar un nombre: uno solo (confirmar), pocos (lista para elegir), demasiados
- * (pedir el nombre) o ninguno. Un nombre casi exacto, o con clara ventaja sobre el siguiente, gana aunque otros se parezcan.
+ * Decide qué hacer con los resultados de buscar un nombre: uno solo (confirmar), varios (pedir el nombre completo) o ninguno.
+ * Un nombre casi exacto, o con clara ventaja sobre el siguiente, gana aunque otros se parezcan. Nunca devuelve una lista para elegir.
  */
 export function decidirCandidatos(filas: Candidato[]): Decision {
   const candidatos = filas
@@ -39,6 +37,5 @@ export function decidirCandidatos(filas: Candidato[]): Decision {
   if (primero.similitud >= SIMILITUD_CON_VENTAJA && primero.similitud - segundo.similitud >= VENTAJA_CLARA) {
     return { kind: "uno", establecimiento: primero };
   }
-  if (candidatos.length > MAX_EN_LISTA) return { kind: "muchos", total: candidatos.length };
-  return { kind: "lista", candidatos };
+  return { kind: "varios", total: candidatos.length };
 }

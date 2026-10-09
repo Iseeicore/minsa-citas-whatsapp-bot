@@ -133,7 +133,11 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     }
 
     if (event.text) {
-      const next: Session = { state: SessionState.MAIN_MENU_INTENT_PENDING, slots: preservedSlots, counters: {} };
+      const next: Session = {
+        state: SessionState.MAIN_MENU_INTENT_PENDING,
+        slots: { ...preservedSlots, [SlotKey.INCIDENCIA_BORRADOR]: event.text },
+        counters: {},
+      };
       return buildResult(next, [
         sendText("Un momento, estamos revisando tu mensaje…"),
         query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text }),
@@ -156,12 +160,20 @@ export const OUT_OF_SCOPE_REQUEST_TEXT =
 
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
+  const slots = omitSlot(session.slots, SlotKey.INCIDENCIA_BORRADOR);
 
-  if (result.intent === MainMenuIntent.CITA) return beginCitaFromIntent(session.slots, result);
+  if (result.intent === MainMenuIntent.INCIDENCIA) {
+    return withNote(beginIncidencia(slots, "", { origen: "ia", resto: session.slots[SlotKey.INCIDENCIA_BORRADOR] }), {
+      kind: "shortcut",
+      detail: { name: "incidencia_ai" },
+    });
+  }
+
+  if (result.intent === MainMenuIntent.CITA) return beginCitaFromIntent(slots, result);
 
   if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
-      buildResult({ state: SessionState.MAIN_MENU, slots: session.slots, counters: {} }, [
+      buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [
         sendText(OUT_OF_SCOPE_REQUEST_TEXT),
         buildMenuEffect(),
       ]),
@@ -169,7 +181,7 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
     );
   }
 
-  return withNote(enterMainMenu(session.slots), {
+  return withNote(enterMainMenu(slots), {
     kind: "menu_fallback",
     level: "warn",
     detail: { reason: "intent_unclear" },

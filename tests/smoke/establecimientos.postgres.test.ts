@@ -55,11 +55,9 @@ describe.skipIf(!process.env.DATABASE_URL)("search of establecimientos against t
     await expect(decidir("el doctor me atendió mal en la ventanilla")).resolves.toEqual({ kind: "ninguno" });
   });
 
-  it("the type alone: the four hospitals are a list, the 170 centros de salud ask for the name", async () => {
-    const hospital = await decidir("hospital");
-    expect(hospital.kind).toBe("lista");
-    if (hospital.kind === "lista") expect(hospital.candidatos.map((c) => c.codigoRenipress).sort()).toEqual(["33381", "5946", "6206", "6215"]);
-    await expect(decidir("centro de salud")).resolves.toMatchObject({ kind: "muchos" });
+  it("the type alone is never a list: the four hospitals and the 170 centros de salud ask for the full name", async () => {
+    await expect(decidir("hospital")).resolves.toMatchObject({ kind: "varios" });
+    await expect(decidir("centro de salud")).resolves.toMatchObject({ kind: "varios" });
   });
 
   it("«posta» finds the puestos de salud thanks to the synonym", async () => {

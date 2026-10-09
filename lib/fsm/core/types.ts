@@ -54,7 +54,6 @@ export type SlotTypes = {
   [SlotKey.INCIDENCIA_ORIGEN]: string;
   [SlotKey.INCIDENCIA_BORRADOR]: string;
   [SlotKey.INCIDENCIA_UBICACION_TEXTO]: string;
-  [SlotKey.INCIDENCIA_CANDIDATOS]: string;
   [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: number;
   [SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]: string;
   [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: string;

@@ -1,5 +1,5 @@
 export type InicioIncidencia = {
-  origen: "qr" | "texto";
+  origen: "qr" | "texto" | "ia";
   codigoRenipress?: string;
   nombre?: string;
   resto?: string;

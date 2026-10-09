@@ -59,7 +59,6 @@ export enum SessionState {
   INCIDENCIA_CONFIRM_BORRADOR = "incidencia_confirm_borrador",
   INCIDENCIA_CONFIRM_OMITIR = "incidencia_confirm_omitir",
   INCIDENCIA_CONFIRM_UBICACION = "incidencia_confirm_ubicacion",
-  INCIDENCIA_SELECT_UBICACION = "incidencia_select_ubicacion",
   INCIDENCIA_UBICACION_PENDING = "incidencia_ubicacion_pending",
   INCIDENCIA_AWAITING_FOTO = "incidencia_awaiting_foto",
   INCIDENCIA_AWAITING_NOMBRE = "incidencia_awaiting_nombre",

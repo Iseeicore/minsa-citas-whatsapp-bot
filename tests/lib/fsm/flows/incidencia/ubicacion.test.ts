@@ -147,16 +147,13 @@ describe("looking the place up", () => {
     expect(result.session.state).toBe("incidencia_confirm_ubicacion");
   });
 
-  it("a few names are a list to choose from, with a «Ninguno de estos» row", () => {
+  it("a few names that look alike are never a list: it asks for the full name and counts the attempt", () => {
     const candidatos = [candidato("Hospital A", "1", 0.3, 1, 1), candidato("Hospital B", "2", 0.3, 1, 2), candidato("Hospital C", "3", 0.29, 1, 3)];
     const result = handle(at("incidencia_ubicacion_pending"), answer({ by: "nombre", status: "ok", candidatos }));
 
-    expect(result.session.state).toBe("incidencia_select_ubicacion");
-    const list = sent(result)[0] as { kind: string; rows: { id: string; title: string; description?: string }[] };
-    expect(list.kind).toBe("send_interactive_list");
-    expect(list.rows.map((row) => row.id)).toEqual(["1", "2", "3", "ninguno"]);
-    expect(list.rows[0].title).toBe("IPRESS 1");
-    expect(list.rows.every((row) => row.title.length <= 24 && (row.description ?? "").length <= 72)).toBe(true);
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(sent(result)).toEqual([{ kind: "send_text", text: "Hay varios establecimientos que se parecen. Escribe su nombre completo o su código IPRESS." }]);
+    expect(result.session.counters[CounterKey.INCIDENCIA_UBICACION_INTENTOS]).toBe(1);
   });
 
   it("nothing found: asks for the full name or the code", () => {
@@ -177,6 +174,20 @@ describe("looking the place up", () => {
 
     expect(result.session.state).toBe("incidencia_confirm_omitir");
     expect((sent(result)[0] as { text: string }).text).toContain("No pudimos buscar el establecimiento en este momento.");
+  });
+
+  it("a story kept as a draft survives a later search: only the first lookup can tell that the start was a name", () => {
+    const story = { [SlotKey.INCIDENCIA_ORIGEN]: "texto", [SlotKey.INCIDENCIA_BORRADOR]: "en el hospital porque me cobraron sin recibo" };
+    const first = handle(at("incidencia_ubicacion_pending", story), answer({ by: "nombre", status: "ok", candidatos: [] }));
+    expect(first.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe("en el hospital porque me cobraron sin recibo");
+    expect(first.session.slots[SlotKey.INCIDENCIA_ORIGEN]).toBe("menu");
+
+    const later = handle(
+      { ...first.session, state: "incidencia_ubicacion_pending" },
+      answer({ by: "nombre", status: "ok", candidatos: [candidato("HOSPITAL NACIONAL DOS DE MAYO", "6206", 1)] }),
+    );
+    expect(later.session.state).toBe("incidencia_confirm_ubicacion");
+    expect(later.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe("en el hospital porque me cobraron sin recibo");
   });
 
   it("a story written as the start is dropped when the text turned out to be a name, and kept when nothing was found", () => {
@@ -247,30 +258,6 @@ describe("confirming the place", () => {
 
     expect(result.session.state).toBe("incidencia_confirm_ubicacion");
     expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
-  });
-});
-
-describe("choosing from the list", () => {
-  const candidatos = JSON.stringify([
-    { id: 1, areaId: 1, codigoRenipress: "5946", nombre: "Hospital Nacional Hipólito Unanue", distrito: null },
-    { id: 2, areaId: 2, codigoRenipress: "6206", nombre: "HOSPITAL NACIONAL DOS DE MAYO", distrito: null },
-  ]);
-  const list = at("incidencia_select_ubicacion", { [SlotKey.INCIDENCIA_CANDIDATOS]: candidatos });
-
-  it("a row chosen is the place", () => {
-    const result = handle(list, { from: FROM, type: "list", listId: "6206" });
-
-    expect(result.session.state).toBe("incidencia_identity_choice");
-    expect(result.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]).toBe("6206");
-  });
-
-  it("«Ninguno de estos» asks for another name or code", () => {
-    const result = handle(list, { from: FROM, type: "list", listId: "ninguno" });
-    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-  });
-
-  it("writing a new name instead of choosing starts a new lookup", () => {
-    expect(queries(handle(list, text("posta buena vista")))).toEqual([{ kind: "buscar_establecimiento", payload: { nombre: "posta buena vista" } }]);
   });
 });
 
