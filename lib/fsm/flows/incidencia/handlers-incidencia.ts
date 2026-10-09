@@ -16,7 +16,8 @@ import {
 import { isValidDniFormat, isValidDocumentoFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
-import { MAX_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
+import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
+import { quiereCerrar } from "@/lib/fsm/parsing/text/cerrar-incidencia";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
@@ -33,7 +34,19 @@ const RENIEC_FAILED_TEXT = "Disculpa, nuestro servicio no responde. Disculpa las
 const ONLY_DNI_TEXT = "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.";
 const ONLY_DNI_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, title: "Continuar anónimo" }];
 
+const CANCELLED_TEXT =
+  "Entendido, cerramos esta conversación y no se registró ninguna incidencia. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+
+const DAILY_LIMIT_TEXT = "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
+
+/** «Quiero cerrar» (mensaje completo) cancela desde cualquier paso: no se guarda nada y la conversación termina. */
+function cancel(): HandlerResult {
+  return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(CANCELLED_TEXT)]);
+}
+
 export function handleIncidencia(session: Session, event: HandleEvent): HandlerResult {
+  if (event.type === InboundEventType.TEXT && event.text && quiereCerrar(event.text)) return cancel();
+
   switch (session.state) {
     case SessionState.INCIDENCIA_AWAITING_UBICACION:
       return handleAwaitingUbicacion(session, event as InboundEvent);
@@ -143,6 +156,10 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
 
   if (looksLikeNoise(descripcion)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
 
+  if (descripcion.length < MIN_DESCRIPCION_LENGTH) {
+    return buildResult(session, [sendText(`Cuéntanos un poco más: escribe al menos ${MIN_DESCRIPCION_LENGTH} caracteres para poder entender lo que pasó.`)]);
+  }
+
   const next = cloneSession(session);
   next.slots[SlotKey.DESCRIPCION_INCIDENCIA] = descripcion;
   return afterDescripcion(next);
@@ -201,7 +218,7 @@ function confirmationText(session: Session, codigo: string | undefined): string 
 }
 
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; codigo?: string };
+  const result = event.result as { status: string; reason?: string; codigo?: string };
   const next = cloneSession(session);
 
   if (result.status === "accepted") {
@@ -210,5 +227,6 @@ function handleSubmitPending(session: Session, event: QueryResultEvent): Handler
   }
 
   next.state = SessionState.INCIDENCIA_FAILED;
-  return buildResult(next, [sendText("No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.")]);
+  const message = result.reason === "daily_limit" ? DAILY_LIMIT_TEXT : "No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.";
+  return buildResult(next, [sendText(message)]);
 }

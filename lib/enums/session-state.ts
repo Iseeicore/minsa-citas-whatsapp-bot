@@ -55,6 +55,7 @@ export enum SessionState {
   INCIDENCIA_AWAITING_DESCRIPCION = "incidencia_awaiting_descripcion",
   INCIDENCIA_AWAITING_DNI = "incidencia_awaiting_dni",
   INCIDENCIA_AWAITING_UBICACION = "incidencia_awaiting_ubicacion",
+  INCIDENCIA_CANCELLED = "incidencia_cancelled",
   INCIDENCIA_AWAITING_BORRADOR_EXTRA = "incidencia_awaiting_borrador_extra",
   INCIDENCIA_CONFIRM_BORRADOR = "incidencia_confirm_borrador",
   INCIDENCIA_CONFIRM_OMITIR = "incidencia_confirm_omitir",

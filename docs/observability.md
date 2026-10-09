@@ -51,6 +51,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `incidencia.media_not_stored` | warn | `reason`. El ciudadano adjuntó una foto y todavía no hay servicio de imágenes: la incidencia se guarda sin ella |
 | `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
 | `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
+| `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |
 | `incidencia.establecimiento_lookup_failed` | error | `by` (`codigo` o `nombre`) y `error`. Falló la búsqueda del establecimiento en el padrón; el flujo trata el resultado como no disponible y pide la ubicación de otra forma |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |

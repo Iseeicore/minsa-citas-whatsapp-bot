@@ -2,14 +2,13 @@ import { afterDescripcion, askDescripcion, UNREADABLE_TEXT_RETRY } from "@/lib/f
 import { buildResult, cloneSession, omitSlot, readReply, sendButtons, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
-import { MAX_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
+import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 
-export const MIN_BORRADOR_LENGTH = 20;
 const SHOWN_BORRADOR_MAX = 800;
 
 export const BORRADOR_BUTTONS = [
@@ -18,7 +17,7 @@ export const BORRADOR_BUTTONS = [
 ];
 
 const isUsable = (borrador: string | undefined): borrador is string =>
-  typeof borrador === "string" && borrador.length >= MIN_BORRADOR_LENGTH && borrador.length <= MAX_DESCRIPCION_LENGTH && !looksLikeNoise(borrador);
+  typeof borrador === "string" && borrador.length >= MIN_DESCRIPCION_LENGTH && borrador.length <= MAX_DESCRIPCION_LENGTH && !looksLikeNoise(borrador);
 
 /** Punto donde se pide el relato: si la persona ya escribió algo aprovechable, se lo muestra y le pregunta; si no, se lo pide. */
 export function enterDescripcion(session: Session): HandlerResult {

@@ -148,6 +148,57 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     expect(saved).toMatchObject({ esAnonimo: false, dniReclamante: "12345678", nombreReclamante: "JUAN CARLOS QUISPE PEREZ" });
   });
 
+  it("«quiero cerrar» in the middle ends the conversation and saves nothing", async () => {
+    const p = person();
+    await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    await p.tap("incidencia_ubicacion_si");
+    await p.tap("incidencia_anonimo");
+    const closed = await p.say("quiero cerrar");
+
+    expect(closed.session.state).toBe("incidencia_cancelled");
+    expect(textOf(closed.sent[0])).toContain("no se registró ninguna incidencia");
+    expect(await prisma.incidenciaPaciente.count({ where: { waId: p.from } })).toBe(0);
+
+    const again = await p.say("hola");
+    expect(again.session.state).toBe("main_menu");
+  });
+
+  it("a relato shorter than 20 characters is asked to be longer and nothing is saved", async () => {
+    const p = person();
+    await p.start("quiero presentar una incidencia");
+    await p.say("omitir");
+    await p.tap("incidencia_omitir_si");
+    await p.tap("incidencia_anonimo");
+    const short = await p.say("me cobraron");
+
+    expect(short.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(textOf(short.sent[0])).toContain("al menos 20 caracteres");
+    expect(await prisma.incidenciaPaciente.count({ where: { waId: p.from } })).toBe(0);
+  });
+
+  it("the daily maximum: the sixth incidencia of the same phone is refused, the first five were saved", async () => {
+    const p = person();
+    const registrar = async () => {
+      await p.start("quiero presentar una incidencia");
+      await p.say("omitir");
+      await p.tap("incidencia_omitir_si");
+      await p.tap("incidencia_anonimo");
+      await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
+      return p.say("omitir");
+    };
+
+    for (let i = 1; i <= 5; i++) {
+      const done = await registrar();
+      expect(done.session.state, `incidencia ${i}`).toBe("incidencia_confirmed");
+      await p.say("hola");
+    }
+    const sixth = await registrar();
+
+    expect(sixth.session.state).toBe("incidencia_failed");
+    expect(textOf(sixth.sent.at(-1))).toContain("Podrás registrar otra mañana");
+    expect(await prisma.incidenciaPaciente.count({ where: { waId: p.from } })).toBe(5);
+  });
+
   it("the menu option asks for the place and a typed code finds it", async () => {
     const p = person();
     const asked = await p.start("2");

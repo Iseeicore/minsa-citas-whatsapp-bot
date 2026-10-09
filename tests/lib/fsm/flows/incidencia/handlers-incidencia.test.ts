@@ -158,6 +158,18 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
     expect(texts(result)).toEqual(["No pudimos leer eso — ¿podrías escribirlo de nuevo?"]);
   });
 
+  it.each(["cerrado", "me cobraron", "x".repeat(19)])("un relato demasiado corto (%j) se pide ampliar y no avanza", (corto) => {
+    const result = handleIncidencia(awaitingDescripcion(), text(corto));
+
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBeUndefined();
+    expect(texts(result)).toEqual(["Cuéntanos un poco más: escribe al menos 20 caracteres para poder entender lo que pasó."]);
+  });
+
+  it("un relato de exactamente 20 caracteres se acepta", () => {
+    expect(handleIncidencia(awaitingDescripcion(), text("a".repeat(20))).session.state).toBe("incidencia_awaiting_foto");
+  });
+
   it("una incidencia real con palabras pasa a ofrecer la evidencia", () => {
     const result = handleIncidencia(awaitingDescripcion(), text("El consultorio estaba cerrado."));
 
@@ -288,6 +300,45 @@ describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", ()
   });
 });
 
+describe("«quiero cerrar» cancela desde cualquier paso", () => {
+  const steps: [string, Session][] = [
+    ["pedir ubicación", { state: "incidencia_awaiting_ubicacion", slots: {}, counters: {} }],
+    ["confirmar ubicación", { state: "incidencia_confirm_ubicacion", slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO]: "{}" }, counters: {} }],
+    ["omitir ubicación", { state: "incidencia_confirm_omitir", slots: {}, counters: {} }],
+    ["nombre o anónimo", identityChoice()],
+    ["documento", { state: "incidencia_awaiting_dni", slots: {}, counters: {} }],
+    ["nombre libre", { state: "incidencia_awaiting_nombre_libre", slots: { [SlotKey.DNI]: "12345678" }, counters: {} }],
+    ["relato", { state: "incidencia_awaiting_descripcion", slots: { [SlotKey.NOMBRE_COMPLETO]: "Ana" }, counters: {} }],
+    ["borrador", { state: "incidencia_confirm_borrador", slots: { [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." }, counters: {} }],
+    ["evidencia", awaitingFoto()],
+  ];
+
+  it.each(steps)("en el paso «%s»: no guarda nada, limpia la sesión y se despide", (_label, session) => {
+    const result = handleIncidencia(session, text("Quiero cerrar"));
+
+    expect(result.session).toEqual({ state: "incidencia_cancelled", slots: {}, counters: {} });
+    expect(queries(result)).toHaveLength(0);
+    expect(texts(result)[0]).toContain("no se registró ninguna incidencia");
+    expect(result.outcome).toBe("closed");
+  });
+
+  it.each(["quiero cerrar", "QUIERO CERRAR.", "  Quiero   cerrar!! ", "cerrar", "cerrar sesión", "terminar la sesión"])("%j cierra", (frase) => {
+    expect(handleIncidencia(awaitingFoto(), text(frase)).session.state).toBe("incidencia_cancelled");
+  });
+
+  it("un relato que solo menciona la frase no cancela", () => {
+    const relato = "El doctor me dijo que quiero cerrar mi cuenta pero me cobraron sin recibo";
+    const result = handleIncidencia({ state: "incidencia_awaiting_descripcion", slots: {}, counters: {} }, text(relato));
+
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(relato);
+  });
+
+  it("tocar un botón no cancela", () => {
+    expect(handleIncidencia(identityChoice(), tap("incidencia_anonimo")).session.state).toBe("incidencia_awaiting_descripcion");
+  });
+});
+
 describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
   const pending = (): Session => ({ state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} });
 
@@ -334,6 +385,13 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
     expect(texts(handleIncidencia(withPlace, submitResult({ status: "accepted" })))).toEqual(["Gracias por tu reporte de incidencia, ya se registró."]);
   });
+  it("tope diario alcanzado: avisa que podrá registrar otra mañana y cierra", () => {
+    const result = handleIncidencia(pending(), submitResult({ status: "rejected", reason: "daily_limit" }));
+
+    expect(result.session.state).toBe("incidencia_failed");
+    expect(texts(result)[0]).toContain("Podrás registrar otra mañana");
+  });
+
   it("fallido: avisa que no se pudo registrar", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "error" }));
 

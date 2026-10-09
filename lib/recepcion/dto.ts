@@ -2,6 +2,8 @@ import { z } from "zod";
 import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
 
 export const MAX_DESCRIPCION_LENGTH = 1000;
+export const MIN_DESCRIPCION_LENGTH = 20;
+export const MAX_INCIDENCIAS_POR_DIA = 5;
 
 /** Frontera del módulo: lo que no valida acá no llega a la base. */
 export const registrarIncidenciaSchema = z.object({
@@ -17,5 +19,5 @@ export type RegistrarIncidenciaInput = z.infer<typeof registrarIncidenciaSchema>
 
 export type RegistrarIncidenciaResult =
   | { status: "accepted"; codigo?: string }
-  | { status: "rejected"; reason: "media_too_large" | "other" }
+  | { status: "rejected"; reason: "media_too_large" | "daily_limit" | "other" }
   | { status: "error" };

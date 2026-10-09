@@ -3,11 +3,11 @@ import { actorCiudadano } from "@/lib/db/actor";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { currentTraceId } from "@/lib/observability/context";
 import { logger } from "@/lib/observability/logger";
-import { registrarIncidenciaSchema, type RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
+import { MAX_INCIDENCIAS_POR_DIA, registrarIncidenciaSchema, type RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
 import { guardarImagenHttp } from "@/lib/recepcion/imagenes/almacen-http";
 import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
-import { buscarCodigoPorTrace, insertarIncidencia, type DatosEvidencia } from "@/lib/recepcion/repositorio";
+import { buscarCodigoPorTrace, contarDelDia, insertarIncidencia, type DatosEvidencia } from "@/lib/recepcion/repositorio";
 
 const isUniqueViolation = (error: unknown) =>
   typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
@@ -54,6 +54,17 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
     return { status: "error" };
   }
 
+  const traceId = currentTraceId() ?? randomUUID();
+  try {
+    if ((await contarDelDia(waId, traceId)) >= MAX_INCIDENCIAS_POR_DIA) {
+      logger.warn("incidencia.daily_limit_reached", { limit: MAX_INCIDENCIAS_POR_DIA });
+      return { status: "rejected", reason: "daily_limit" };
+    }
+  } catch (error) {
+    logger.error("incidencia.persist_failed", { error });
+    return { status: "error" };
+  }
+
   let evidencia: DatosEvidencia | null = null;
   if (mediaDataUri) {
     if (isMediaStorageConfigured()) {
@@ -65,7 +76,6 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
     }
   }
 
-  const traceId = currentTraceId() ?? randomUUID();
   try {
     const incidencia = await insertarIncidencia(
       { waId, dni, nombreCompleto, establecimientoId, descripcion, traceId },
