@@ -74,7 +74,7 @@ export type Session = {
   channel?: SessionChannel;
 };
 
-export type InboundEventType = "text" | "button" | "list" | "image";
+export type InboundEventType = "text" | "button" | "list" | "image" | "document";
 
 export type InboundEvent = {
   from: string;

@@ -60,7 +60,7 @@ export async function OPTIONS(request: NextRequest) {
 
 const sandboxEventSchema = z.object({
   from: z.string().min(1),
-  type: z.enum(["text", "button", "list", "image"]),
+  type: z.enum(["text", "button", "list", "image", "document"]),
   text: z.string().optional(),
   listId: z.string().optional(),
   mediaId: z.string().optional(),

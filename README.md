@@ -120,7 +120,7 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 | Estado de cada conversación | Tabla `chatbot.sesion_conversacion` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
 | Reentregas de Meta (no responder dos veces) | Índice único `wa_message_id` | Lista en memoria de ids de mensaje, conservada 24 h |
 | Usuarios, historial de mensajes y estados de entrega | Tablas `chatbot.usuario` y `chatbot.mensaje` | No se guarda nada |
-| Incidencias y sus fotos | Tablas `chatbot.incidencia_paciente` y `chatbot.evidencia`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
+| Incidencias | Tabla `chatbot.incidencia_paciente`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
 | Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
@@ -152,7 +152,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 |---|---|
 | `META_APP_SECRET` | Secreto de la app: valida la firma HMAC (`X-Hub-Signature-256`) de cada webhook |
 | `META_WEBHOOK_VERIFY_TOKEN` | Token que eliges tú; Meta lo envía en el `GET` de verificación del webhook |
-| `META_ACCESS_TOKEN` | Token de acceso: envía mensajes y descarga las fotos de la incidencia |
+| `META_ACCESS_TOKEN` | Token de acceso: envía los mensajes |
 | `META_PHONE_NUMBER_ID` | ID del número de WhatsApp desde el que responde el bot |
 | `META_GRAPH_API_VERSION` | Versión de Graph API, sin espacios (por defecto `v21.0`) |
 
@@ -177,7 +177,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
-**Imágenes de la incidencia** (opcional: sin `MEDIA_STORAGE_BASE_URL` el bot **no pide la foto** y la incidencia se guarda sin ella)
+**Imágenes de la incidencia** (el flujo de incidencia **ya no guarda imágenes ni archivos**: si la persona envía una imagen o un PDF, el bot lo reconoce, no lo descarga y sigue; estas variables solo las usa el servicio de registro si algún día se le entrega una imagen)
 
 | Variable | Uso |
 |---|---|

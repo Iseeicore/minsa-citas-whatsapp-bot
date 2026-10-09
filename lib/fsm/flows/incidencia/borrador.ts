@@ -40,20 +40,20 @@ export function enterDescripcion(session: Session): HandlerResult {
   return buildResult(next, [sendText(askDescripcion())]);
 }
 
-function applyText(session: Session, text: string, from: string): HandlerResult {
+function applyText(session: Session, text: string): HandlerResult {
   const next = cloneSession(session);
   next.slots[SlotKey.DESCRIPCION_INCIDENCIA] = text;
   next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);
-  return afterDescripcion(next, from);
+  return afterDescripcion(next);
 }
 
-function appendExtra(session: Session, extra: string, from: string): HandlerResult {
+function appendExtra(session: Session, extra: string): HandlerResult {
   const borrador = session.slots[SlotKey.INCIDENCIA_BORRADOR] ?? "";
   const combined = `${borrador}\n${extra}`.trim();
   if (combined.length > MAX_DESCRIPCION_LENGTH) {
     return buildResult(session, [sendText(`Con lo que ya escribiste, el texto no puede pasar de ${MAX_DESCRIPCION_LENGTH} caracteres. Escribe algo más corto.`)]);
   }
-  return applyText(session, combined, from);
+  return applyText(session, combined);
 }
 
 function askExtra(session: Session): HandlerResult {
@@ -67,22 +67,22 @@ export function handleConfirmBorrador(session: Session, event: InboundEvent): Ha
   if (!isUsable(borrador)) return enterDescripcion(session);
 
   const reply = readReply(event);
-  if (reply === IncidenciaButtonId.BORRADOR_USAR) return applyText(session, borrador, event.from);
+  if (reply === IncidenciaButtonId.BORRADOR_USAR) return applyText(session, borrador);
   if (reply === IncidenciaButtonId.BORRADOR_AGREGAR) return askExtra(session);
 
   const typed = (event.text ?? "").trim();
   if (!typed) return buildResult(session, [sendButtons("¿Usamos tu texto tal cual o quieres agregar más?", BORRADOR_BUTTONS)]);
 
   const confirmation = resolveConfirmation(typed);
-  if (confirmation === Confirmation.YES) return applyText(session, borrador, event.from);
+  if (confirmation === Confirmation.YES) return applyText(session, borrador);
   if (confirmation === Confirmation.NO) return askExtra(session);
   if (looksLikeNoise(typed)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
-  return appendExtra(session, typed, event.from);
+  return appendExtra(session, typed);
 }
 
 export function handleAwaitingBorradorExtra(session: Session, event: InboundEvent): HandlerResult {
   const extra = (event.text ?? "").trim();
   if (!extra) return buildResult(session, [sendText("Escribe lo que quieras agregar.")]);
   if (looksLikeNoise(extra)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
-  return appendExtra(session, extra, event.from);
+  return appendExtra(session, extra);
 }

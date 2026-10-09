@@ -185,8 +185,8 @@ describe("bypass — states where the guard must never run", () => {
   });
 
   it("a name that looks like an abbreviation is accepted in the name step", () => {
-    const result = handle(sessionAt("incidencia_awaiting_nombre", { dni: "12345678" }), text("Isaac S. Mendoza"));
-    expect(result.session.state).toBe("incidencia_reniec_pending");
+    const result = handle(sessionAt("incidencia_awaiting_nombre_libre", { dni: "12345678" }), text("Isaac S. Mendoza"));
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
   });
 
   it("abusive text in the DNI step is just an invalid DNI", () => {

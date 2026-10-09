@@ -1,14 +1,19 @@
-import { INVALID_DNI_TEXT } from "@/lib/fsm/core/failure-texts";
+import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { enterDescripcion, handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
-import { afterDescripcion, FOTO_REQUEST_TEXT, submitIncidencia, UNREADABLE_TEXT_RETRY } from "@/lib/fsm/flows/incidencia/pasos-comunes";
+import {
+  afterDescripcion,
+  EVIDENCIA_ACK_TEXT,
+  FOTO_REQUEST_TEXT,
+  submitIncidencia,
+  UNREADABLE_TEXT_RETRY,
+} from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import {
   handleAwaitingUbicacion,
   handleConfirmOmitir,
   handleConfirmUbicacion,
   handleUbicacionPending,
 } from "@/lib/fsm/flows/incidencia/ubicacion";
-import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
-import { namesMatch } from "@/lib/fsm/parsing/text/text";
+import { isValidDocumentoFormat, tipoDocumentoDe } from "@/lib/fsm/parsing/text/identity-format";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
@@ -17,24 +22,19 @@ import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Sessio
 import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { TipoDocumento } from "@/lib/enums/tipo-documento";
 
 const FOTO_INTENT_MAX_LENGTH = 200;
+const ASK_DOCUMENTO_TEXT = "Ingresa tu número de documento.";
+const RENIEC_FAILED_TEXT = "Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias.";
+const CARNET_NOT_VALIDATED_TEXT = "Gracias. Por ahora no podemos validar el carnet de extranjería en este canal. Escríbenos tu nombre o un alias.";
 
 export function handleIncidencia(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
-    case SessionState.INCIDENCIA_IDENTITY_CHOICE:
-      return handleIdentityChoice(session, event as InboundEvent);
-    case SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE:
-      return handleAwaitingNombreLibre(session, event as InboundEvent);
-    case SessionState.INCIDENCIA_AWAITING_DNI:
-      return handleAwaitingDni(session, event as InboundEvent);
-    case SessionState.INCIDENCIA_AWAITING_NOMBRE:
-      return handleAwaitingNombre(session, event as InboundEvent);
-    case SessionState.INCIDENCIA_RENIEC_PENDING:
-      return handleReniecPending(session, event as QueryResultEvent);
     case SessionState.INCIDENCIA_AWAITING_UBICACION:
       return handleAwaitingUbicacion(session, event as InboundEvent);
     case SessionState.INCIDENCIA_UBICACION_PENDING:
@@ -43,6 +43,14 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
       return handleConfirmUbicacion(session, event as InboundEvent);
     case SessionState.INCIDENCIA_CONFIRM_OMITIR:
       return handleConfirmOmitir(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_IDENTITY_CHOICE:
+      return handleIdentityChoice(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_AWAITING_DNI:
+      return handleAwaitingDni(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_RENIEC_PENDING:
+      return handleReniecPending(session, event as QueryResultEvent);
+    case SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE:
+      return handleAwaitingNombreLibre(session, event as InboundEvent);
     case SessionState.INCIDENCIA_CONFIRM_BORRADOR:
       return handleConfirmBorrador(session, event as InboundEvent);
     case SessionState.INCIDENCIA_AWAITING_BORRADOR_EXTRA:
@@ -65,8 +73,8 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   const next = cloneSession(session);
 
   if (replyId === IncidenciaButtonId.CON_NOMBRE) {
-    next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE;
-    return buildResult(next, [sendText("Ingresa tu nombre.")]);
+    next.state = SessionState.INCIDENCIA_AWAITING_DNI;
+    return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
   }
 
   if (replyId === IncidenciaButtonId.ANONIMO) return enterDescripcion(next);
@@ -76,96 +84,78 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   ]);
 }
 
-/** Nombre tal cual lo escribe el usuario, sin verificar contra RENIEC: ya no se pide DNI, no hay contra qué verificarlo. */
+/** El largo decide el documento: 8 dígitos es DNI y se valida en RENIEC; 9 es carnet de extranjería y RENIEC no lo conoce, así que se pide el nombre. */
+function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
+  const documento = (event.text ?? "").trim();
+
+  if (!isValidDocumentoFormat(documento)) return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
+
+  const next = cloneSession(session);
+  next.slots[SlotKey.DNI] = documento;
+
+  if (tipoDocumentoDe(documento) === TipoDocumento.CARNET_EXTRANJERIA) {
+    next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE;
+    return buildResult(next, [sendText(CARNET_NOT_VALIDATED_TEXT)]);
+  }
+
+  next.state = SessionState.INCIDENCIA_RENIEC_PENDING;
+  return buildResult(next, [sendText("Verificando tu documento…"), query(QueryKind.RENIEC_LOOKUP, { dni: documento })]);
+}
+
+/** El nombre sale de RENIEC. Si no lo encuentra o no responde, se pide un nombre o alias y se sigue sin detener a la persona. */
+function handleReniecPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { status: string; nombreCompleto?: string };
+  const next = cloneSession(session);
+
+  if (result.status === "found" && typeof result.nombreCompleto === "string" && result.nombreCompleto.trim() !== "") {
+    next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto.trim();
+    return withGreeting(enterDescripcion(next), result.nombreCompleto.trim());
+  }
+
+  next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE;
+  return buildResult(next, [sendText(RENIEC_FAILED_TEXT)]);
+}
+
+function withGreeting(result: HandlerResult, nombre: string): HandlerResult {
+  return { ...result, effects: [sendText(`Gracias, ${nombre}.`), ...result.effects] };
+}
+
+/** Nombre o alias tal cual lo escribe la persona; no se verifica: es lo que se usa cuando RENIEC no pudo darlo. */
 function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
   const nombre = (event.text ?? "").trim();
 
-  if (!nombre) {
-    return buildResult(session, [sendText("Por favor, ingresa tu nombre.")]);
-  }
-
-  if (looksLikeNoise(nombre)) {
-    return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
-  }
+  if (!nombre) return buildResult(session, [sendText("Por favor, ingresa tu nombre.")]);
+  if (looksLikeNoise(nombre)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
 
   const next = cloneSession(session);
   next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
   return enterDescripcion(next);
 }
 
-function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  const dni = (event.text ?? "").trim();
-
-  if (!isValidDniFormat(dni)) {
-    return buildResult(session, [
-      sendText(INVALID_DNI_TEXT),
-    ]);
-  }
-
-  const next = cloneSession(session);
-  next.slots[SlotKey.DNI] = dni;
-  next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE;
-  return buildResult(next, [sendText("Ingresa tu nombre (como aparece en tu documento de identidad).")]);
-}
-
-function handleAwaitingNombre(session: Session, event: InboundEvent): HandlerResult {
-  const nombre = (event.text ?? "").trim();
-
-  if (!nombre) {
-    return buildResult(session, [sendText("Por favor, ingresa tu nombre.")]);
-  }
-
-  const next = cloneSession(session);
-  next.slots[SlotKey.NOMBRE] = nombre;
-  next.state = SessionState.INCIDENCIA_RENIEC_PENDING;
-  return buildResult(next, [
-    sendText("Verificando tu identidad en RENIEC…"),
-    query(QueryKind.RENIEC_LOOKUP, { dni: next.slots[SlotKey.DNI] }),
-  ]);
-}
-
-function handleReniecPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; nombreCompleto?: string };
-  const next = cloneSession(session);
-
-  const matched =
-    result.status === "found" &&
-    typeof result.nombreCompleto === "string" &&
-    namesMatch(String(next.slots[SlotKey.NOMBRE] ?? ""), result.nombreCompleto);
-
-  if (matched) {
-    next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto as string;
-    return enterDescripcion(next);
-  }
-
-  next.state = SessionState.INCIDENCIA_REJECTED;
-  return buildResult(next, [
-    sendText(
-      "No pudimos verificar tu identidad con los datos ingresados. Por favor, comunícate directamente con el establecimiento de salud.",
-    ),
-  ]);
-}
-
 function handleAwaitingDescripcion(session: Session, event: InboundEvent): HandlerResult {
   const descripcion = (event.text ?? "").trim();
 
   if (!descripcion || descripcion.length > MAX_DESCRIPCION_LENGTH) {
-    return buildResult(session, [
-      sendText(`Escribe tu incidencia en hasta ${MAX_DESCRIPCION_LENGTH} caracteres.`),
-    ]);
+    return buildResult(session, [sendText(`Escribe tu incidencia en hasta ${MAX_DESCRIPCION_LENGTH} caracteres.`)]);
   }
 
-  if (looksLikeNoise(descripcion)) {
-    return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
-  }
+  if (looksLikeNoise(descripcion)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
 
   const next = cloneSession(session);
   next.slots[SlotKey.DESCRIPCION_INCIDENCIA] = descripcion;
-  return afterDescripcion(next, event.from);
+  return afterDescripcion(next);
 }
 
+function isFile(event: InboundEvent): boolean {
+  return event.type === InboundEventType.IMAGE || event.type === InboundEventType.DOCUMENT;
+}
+
+/**
+ * Pide la evidencia, que es opcional. Si llega un archivo (imagen o PDF) se reconoce pero no se descarga ni se guarda: se acusa
+ * recibo y se registra la incidencia. Lo que no es un archivo (sticker, audio) ni siquiera llega aquí.
+ */
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
-  if (event.mediaDataUri) return submitIncidencia(session, event.from, event.mediaDataUri);
+  if (isFile(event)) return withAck(submitIncidencia(session, event.from));
 
   const typed = (event.text ?? "").trim();
   if (!typed) return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
@@ -187,6 +177,10 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   return buildResult(next, [query(QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT, { text: typed })]);
 }
 
+function withAck(result: HandlerResult): HandlerResult {
+  return { ...result, effects: [sendText(EVIDENCIA_ACK_TEXT), ...result.effects] };
+}
+
 function handleFotoIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { quiereOmitir?: boolean };
   const next = cloneSession(session);
@@ -198,22 +192,14 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
 }
 
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; reason?: string };
+  const result = event.result as { status: string };
   const next = cloneSession(session);
-  delete next.slots[SlotKey.MEDIA_DATA_URI];
 
   if (result.status === "accepted") {
     next.state = SessionState.INCIDENCIA_CONFIRMED;
-    return buildResult(next, [
-      sendText("¡Listo! Tu incidencia fue registrada. Nos pondremos en contacto contigo pronto."),
-    ]);
+    return buildResult(next, [sendText("¡Listo! Tu incidencia fue registrada. Nos pondremos en contacto contigo pronto.")]);
   }
 
   next.state = SessionState.INCIDENCIA_FAILED;
-  const message =
-    result.reason === "media_too_large"
-      ? "No pudimos registrar tu incidencia: la foto adjunta es demasiado pesada. Intenta de nuevo sin foto o con una imagen más liviana."
-      : "No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.";
-
-  return buildResult(next, [sendText(message)]);
+  return buildResult(next, [sendText("No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.")]);
 }

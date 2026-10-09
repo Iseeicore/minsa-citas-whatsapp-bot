@@ -126,7 +126,7 @@ Requiere un número **sin sesión** (ver 0.4).
 | 1.4d | **WhatsApp:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4e | **Sandbox:** tras reiniciar, pulsar 📎 y adjuntar una imagen como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4f | Tras 1.4a, enviar `Hola`. | Primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
-| 1.4g | Con sesión, en el paso «¿Deseas adjuntar una foto como evidencia?» de la incidencia, enviar una foto. | **Sí** se acepta la foto. | Con sesión, la foto sí se procesa. | ☐ ☐ |
+| 1.4g | Con sesión, en el paso «¿Quieres enviar una imagen o un archivo como evidencia?» de la incidencia, enviar una foto (y en otra prueba un PDF). | `Ok, se registró tu evidencia.` y luego `Enviando tu incidencia…`. | El archivo se reconoce pero no se guarda. Un sticker o un audio en ese paso no genera respuesta. | ☐ ☐ |
 
 ### 1.5 Inundación (rate limiting) — solo WhatsApp
 

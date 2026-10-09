@@ -61,13 +61,11 @@ export enum SessionState {
   INCIDENCIA_CONFIRM_UBICACION = "incidencia_confirm_ubicacion",
   INCIDENCIA_UBICACION_PENDING = "incidencia_ubicacion_pending",
   INCIDENCIA_AWAITING_FOTO = "incidencia_awaiting_foto",
-  INCIDENCIA_AWAITING_NOMBRE = "incidencia_awaiting_nombre",
   INCIDENCIA_AWAITING_NOMBRE_LIBRE = "incidencia_awaiting_nombre_libre",
   INCIDENCIA_CONFIRMED = "incidencia_confirmed",
   INCIDENCIA_FAILED = "incidencia_failed",
   INCIDENCIA_FOTO_INTENT_PENDING = "incidencia_foto_intent_pending",
   INCIDENCIA_IDENTITY_CHOICE = "incidencia_identity_choice",
-  INCIDENCIA_REJECTED = "incidencia_rejected",
   INCIDENCIA_RENIEC_PENDING = "incidencia_reniec_pending",
   INCIDENCIA_SUBMIT_PENDING = "incidencia_submit_pending",
 }

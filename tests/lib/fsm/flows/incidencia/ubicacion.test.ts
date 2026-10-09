@@ -1,9 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const config = vi.hoisted(() => ({ mediaConfigured: false }));
-vi.mock("@/lib/recepcion/imagenes/config", () => ({ isMediaStorageConfigured: () => config.mediaConfigured }));
+import { describe, expect, it } from "vitest";
 
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
@@ -285,10 +282,6 @@ describe("what the person already wrote: use it or add more", () => {
   const story = "Me cobraron sin recibo en la ventanilla de admisión.";
   const withDraft = (state: Session["state"]) => at(state, { [SlotKey.INCIDENCIA_BORRADOR]: story });
 
-  beforeEach(() => {
-    config.mediaConfigured = false;
-  });
-
   it("when the relato is asked, a usable draft is shown with «Usar así» and «Agregar más»", () => {
     const result = handle(withDraft("incidencia_identity_choice"), tap("incidencia_anonimo"));
 
@@ -310,16 +303,12 @@ describe("what the person already wrote: use it or add more", () => {
     expect(result.session.state).toBe("incidencia_awaiting_descripcion");
   });
 
-  it.each([["the button", tap("incidencia_borrador_usar")], ["«sí»", text("sí")]])("using it as it is (%s) saves it as the relato and goes on", (_label, event) => {
+  it.each([["the button", tap("incidencia_borrador_usar")], ["«sí»", text("sí")]])("using it as it is (%s) saves it as the relato and offers the evidence", (_label, event) => {
     const result = handle(withDraft("incidencia_confirm_borrador"), event);
 
-    expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0]).toMatchObject({ kind: "incidencia_register", payload: { submission: { descripcion: story } } });
-  });
-
-  it("using it with the image service on asks for the photo", () => {
-    config.mediaConfigured = true;
-    expect(handle(withDraft("incidencia_confirm_borrador"), tap("incidencia_borrador_usar")).session.state).toBe("incidencia_awaiting_foto");
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(story);
+    expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
   });
 
   it("adding more asks for the extra text and joins it to the draft", () => {
@@ -327,13 +316,13 @@ describe("what the person already wrote: use it or add more", () => {
     expect(asked.session.state).toBe("incidencia_awaiting_borrador_extra");
 
     const result = handle(asked.session, text("Además no me dieron el medicamento."));
-    expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0]).toMatchObject({ payload: { submission: { descripcion: `${story}\nAdemás no me dieron el medicamento.` } } });
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(`${story}\nAdemás no me dieron el medicamento.`);
   });
 
   it("writing more instead of tapping a button also adds it to the draft", () => {
     const result = handle(withDraft("incidencia_confirm_borrador"), text("Y también me trataron mal."));
-    expect(queries(result)[0]).toMatchObject({ payload: { submission: { descripcion: `${story}\nY también me trataron mal.` } } });
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(`${story}\nY también me trataron mal.`);
   });
 
   it("the draft plus the extra cannot pass 1000 characters", () => {

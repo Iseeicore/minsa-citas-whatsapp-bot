@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
@@ -6,17 +6,10 @@ import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "51999999999";
 
-beforeEach(() => {
-  vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test");
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
-
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
-const photo = (): InboundEvent => ({ from: FROM, type: "image", mediaDataUri: "data:image/png;base64,abc" });
+const file = (type: "image" | "document"): InboundEvent => ({ from: FROM, type, text: type === "image" ? "foto del cobro" : undefined });
+const reniecResult = (result: unknown): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind: "reniec_lookup", result });
 const fotoIntentResult = (quiereOmitir: boolean): QueryResultEvent => ({
   from: FROM,
   type: "query_result",
@@ -26,12 +19,13 @@ const fotoIntentResult = (quiereOmitir: boolean): QueryResultEvent => ({
 
 const sent = (result: HandlerResult): SendEffect[] =>
   result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const texts = (result: HandlerResult): string[] => sent(result).map((effect) => ("text" in effect ? effect.text : ""));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
 const identityChoice = (): Session => ({ state: "incidencia_identity_choice", slots: {}, counters: {} });
 
-describe("incidencia_identity_choice: nombre o anónimo (reemplaza la pregunta por DNI)", () => {
-  it("ofrece los botones nombre/anónimo, no DNI", () => {
+describe("incidencia_identity_choice: nombre o anónimo", () => {
+  it("ofrece los botones nombre/anónimo", () => {
     const result = handleIncidencia(identityChoice(), text("cualquier cosa"));
 
     expect(sent(result)[0]).toMatchObject({
@@ -43,37 +37,91 @@ describe("incidencia_identity_choice: nombre o anónimo (reemplaza la pregunta p
     });
   });
 
-  it("'incidencia_con_nombre' pasa a pedir el nombre (NO pide DNI)", () => {
+  it("'incidencia_con_nombre' pide el número de documento, sin decir cuántos dígitos", () => {
     const result = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
 
-    expect(result.session.state).toBe("incidencia_awaiting_nombre_libre");
-    expect((sent(result)[0] as { text: string }).text).toBe("Ingresa tu nombre.");
+    expect(result.session.state).toBe("incidencia_awaiting_dni");
+    expect(texts(result)).toEqual(["Ingresa tu número de documento."]);
   });
 
-  it("'incidencia_anonimo' salta directo a la descripción, sin pedir nombre", () => {
+  it("'incidencia_anonimo' salta directo al relato, sin pedir documento ni nombre", () => {
     const result = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
 
     expect(result.session.state).toBe("incidencia_awaiting_descripcion");
     expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBeUndefined();
-  });
-
-  it("ya no reconoce los ids viejos (incidencia_con_dni/incidencia_sin_dni): la rama DNI queda dormida", () => {
-    const conDni = handleIncidencia(identityChoice(), tap("incidencia_con_dni"));
-    expect(conDni.session.state).toBe("incidencia_identity_choice");
-
-    const sinDni = handleIncidencia(identityChoice(), tap("incidencia_sin_dni"));
-    expect(sinDni.session.state).toBe("incidencia_identity_choice");
+    expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
   });
 });
 
-describe("incidencia_awaiting_nombre_libre: toma el nombre tal cual, sin RENIEC", () => {
-  const awaitingNombre = (): Session => ({ state: "incidencia_awaiting_nombre_libre", slots: {}, counters: {} });
+describe("incidencia_awaiting_dni: el largo decide el documento", () => {
+  const awaitingDni = (): Session => ({ state: "incidencia_awaiting_dni", slots: {}, counters: {} });
 
-  it("guarda el nombre y pasa a descripción, sin disparar ninguna query (ni reniec_lookup)", () => {
+  it("un DNI de 8 dígitos se valida en RENIEC", () => {
+    const result = handleIncidencia(awaitingDni(), text(" 12345678 "));
+
+    expect(result.session.state).toBe("incidencia_reniec_pending");
+    expect(result.session.slots[SlotKey.DNI]).toBe("12345678");
+    expect(queries(result)).toEqual([{ kind: "reniec_lookup", payload: { dni: "12345678" } }]);
+  });
+
+  it("un carnet de extranjería de 9 dígitos no se consulta en RENIEC: se pide el nombre o un alias", () => {
+    const result = handleIncidencia(awaitingDni(), text("123456789"));
+
+    expect(result.session.state).toBe("incidencia_awaiting_nombre_libre");
+    expect(result.session.slots[SlotKey.DNI]).toBe("123456789");
+    expect(queries(result)).toHaveLength(0);
+    expect(texts(result)[0]).toContain("carnet de extranjería");
+  });
+
+  it.each(["", "1234567", "1234567890", "abcdefgh", "1234 5678", "hdp"])("%j no es un documento: lo pide de nuevo", (value) => {
+    const result = handleIncidencia(awaitingDni(), text(value));
+
+    expect(result.session.state).toBe("incidencia_awaiting_dni");
+    expect(texts(result)[0]).toContain("Documento inválido");
+    expect(queries(result)).toHaveLength(0);
+  });
+});
+
+describe("incidencia_reniec_pending: el nombre sale de RENIEC", () => {
+  const pending = (): Session => ({ state: "incidencia_reniec_pending", slots: { [SlotKey.DNI]: "12345678" }, counters: {} });
+
+  it("encontrado: guarda el nombre de RENIEC, lo saluda y pide el relato", () => {
+    const result = handleIncidencia(pending(), reniecResult({ status: "found", nombreCompleto: "JUAN CARLOS QUISPE PEREZ" }));
+
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("JUAN CARLOS QUISPE PEREZ");
+    expect(texts(result)).toEqual(["Gracias, JUAN CARLOS QUISPE PEREZ.", "Cuéntanos tu incidencia (hasta 1000 caracteres)."]);
+  });
+
+  it.each([["no lo encuentra", { status: "not_found" }], ["no responde", { status: "error" }], ["trae un nombre vacío", { status: "found", nombreCompleto: "  " }]])(
+    "RENIEC %s: se disculpa y pide un nombre o alias, sin detener a la persona",
+    (_label, result) => {
+      const step = handleIncidencia(pending(), reniecResult(result));
+
+      expect(step.session.state).toBe("incidencia_awaiting_nombre_libre");
+      expect(texts(step)).toEqual(["Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias."]);
+      expect(step.session.slots[SlotKey.DNI]).toBe("12345678");
+    },
+  );
+
+  it("con un borrador ya escrito, ofrece usarlo después de saludar", () => {
+    const session: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." } };
+    const result = handleIncidencia(session, reniecResult({ status: "found", nombreCompleto: "ANA RIOS" }));
+
+    expect(result.session.state).toBe("incidencia_confirm_borrador");
+    expect(texts(result)[0]).toBe("Gracias, ANA RIOS.");
+  });
+});
+
+describe("incidencia_awaiting_nombre_libre: nombre o alias tal cual", () => {
+  const awaitingNombre = (): Session => ({ state: "incidencia_awaiting_nombre_libre", slots: { [SlotKey.DNI]: "12345678" }, counters: {} });
+
+  it("guarda el nombre, conserva el documento y pasa al relato, sin ninguna consulta", () => {
     const result = handleIncidencia(awaitingNombre(), text("Juan Pérez"));
 
     expect(result.session.state).toBe("incidencia_awaiting_descripcion");
     expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("Juan Pérez");
+    expect(result.session.slots[SlotKey.DNI]).toBe("12345678");
     expect(queries(result)).toHaveLength(0);
   });
 
@@ -81,7 +129,7 @@ describe("incidencia_awaiting_nombre_libre: toma el nombre tal cual, sin RENIEC"
     const result = handleIncidencia(awaitingNombre(), text("   "));
 
     expect(result.session.state).toBe("incidencia_awaiting_nombre_libre");
-    expect((sent(result)[0] as { text: string }).text).toBe("Por favor, ingresa tu nombre.");
+    expect(texts(result)).toEqual(["Por favor, ingresa tu nombre."]);
   });
 
   it("puro ruido (sin letras reales) no se guarda como nombre, pide reintentar", () => {
@@ -89,7 +137,7 @@ describe("incidencia_awaiting_nombre_libre: toma el nombre tal cual, sin RENIEC"
 
     expect(result.session.state).toBe("incidencia_awaiting_nombre_libre");
     expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBeUndefined();
-    expect((sent(result)[0] as { text: string }).text).toBe("No pudimos leer eso — ¿podrías escribirlo de nuevo?");
+    expect(texts(result)).toEqual(["No pudimos leer eso — ¿podrías escribirlo de nuevo?"]);
   });
 });
 
@@ -101,38 +149,68 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
 
     expect(result.session.state).toBe("incidencia_awaiting_descripcion");
     expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBeUndefined();
-    expect((sent(result)[0] as { text: string }).text).toBe("No pudimos leer eso — ¿podrías escribirlo de nuevo?");
+    expect(texts(result)).toEqual(["No pudimos leer eso — ¿podrías escribirlo de nuevo?"]);
   });
 
-  it("una incidencia real con palabras sigue funcionando igual que hoy", () => {
+  it("una incidencia real con palabras pasa a ofrecer la evidencia", () => {
     const result = handleIncidencia(awaitingDescripcion(), text("El consultorio estaba cerrado."));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
     expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe("El consultorio estaba cerrado.");
+    expect(texts(result)[0]).toContain("imagen o un archivo");
+  });
+
+  it("la evidencia se ofrece siempre: ya no depende de que exista un servicio de imágenes", () => {
+    const previous = process.env.MEDIA_STORAGE_BASE_URL;
+    delete process.env.MEDIA_STORAGE_BASE_URL;
+    try {
+      expect(handleIncidencia(awaitingDescripcion(), text("El consultorio estaba cerrado.")).session.state).toBe("incidencia_awaiting_foto");
+    } finally {
+      if (previous !== undefined) process.env.MEDIA_STORAGE_BASE_URL = previous;
+    }
   });
 });
 
-describe("el submit final nunca lleva DNI por este camino (no se pide DNI en este flujo)", () => {
-  it("camino con nombre: el submit llega con dni null", () => {
+describe("el registro final: con la persona, con carnet o anónimo", () => {
+  const submission = (step: HandlerResult) => queries(step)[0].payload.submission as { dni: string | null; nombreCompleto: string | null; mediaDataUri?: string };
+
+  it("con DNI: lleva el documento y el nombre de RENIEC", () => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
-    step = handleIncidencia(step.session, text("Juan Pérez"));
+    step = handleIncidencia(step.session, text("12345678"));
+    step = handleIncidencia(step.session, reniecResult({ status: "found", nombreCompleto: "JUAN CARLOS QUISPE PEREZ" }));
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
 
-    const [submitQuery] = queries(step);
-    expect(submitQuery.kind).toBe("incidencia_register");
-    expect((submitQuery.payload.submission as { dni: string | null }).dni).toBeNull();
-    expect((submitQuery.payload.submission as { nombreCompleto: string | null }).nombreCompleto).toBe("Juan Pérez");
+    expect(submission(step)).toEqual({ waId: FROM, dni: "12345678", nombreCompleto: "JUAN CARLOS QUISPE PEREZ", descripcion: "El consultorio estaba cerrado." });
   });
 
-  it("camino anónimo: el submit llega con dni y nombreCompleto null", () => {
+  it("con RENIEC caído: lleva el documento y el alias que escribió", () => {
+    let step = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
+    step = handleIncidencia(step.session, text("12345678"));
+    step = handleIncidencia(step.session, reniecResult({ status: "error" }));
+    step = handleIncidencia(step.session, text("Juan"));
+    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
+    step = handleIncidencia(step.session, text("OMITIR"));
+
+    expect(submission(step)).toMatchObject({ dni: "12345678", nombreCompleto: "Juan" });
+  });
+
+  it("con carnet de extranjería: lleva el número y el nombre que escribió", () => {
+    let step = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
+    step = handleIncidencia(step.session, text("123456789"));
+    step = handleIncidencia(step.session, text("María Gómez"));
+    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
+    step = handleIncidencia(step.session, text("OMITIR"));
+
+    expect(submission(step)).toMatchObject({ dni: "123456789", nombreCompleto: "María Gómez" });
+  });
+
+  it("anónimo: llega con documento y nombre en null", () => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
 
-    const [submitQuery] = queries(step);
-    expect((submitQuery.payload.submission as { dni: string | null }).dni).toBeNull();
-    expect((submitQuery.payload.submission as { nombreCompleto: string | null }).nombreCompleto).toBeNull();
+    expect(submission(step)).toEqual({ waId: FROM, dni: null, nombreCompleto: null, descripcion: "El consultorio estaba cerrado." });
   });
 });
 
@@ -140,26 +218,30 @@ function awaitingFoto(): Session {
   return { state: "incidencia_awaiting_foto", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
 }
 
-describe("incidencia_awaiting_foto: ya no exige la palabra exacta OMITIR", () => {
-  it("una foto directa se registra igual que siempre", () => {
-    const result = handleIncidencia(awaitingFoto(), photo());
+describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", () => {
+  it.each(["image", "document"] as const)("un archivo (%s) se reconoce, se acusa y se registra la incidencia sin él", (type) => {
+    const result = handleIncidencia(awaitingFoto(), file(type));
 
     expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0].kind).toBe("incidencia_register");
+    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
+    const [register] = queries(result);
+    expect(register.kind).toBe("incidencia_register");
+    expect(register.payload.submission).not.toHaveProperty("mediaDataUri");
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
   });
 
-  it("'OMITIR' sigue funcionando como atajo determinístico (sin IA)", () => {
+  it("'OMITIR' sigue funcionando como atajo determinístico (sin IA), sin acuse", () => {
     const result = handleIncidencia(awaitingFoto(), text("OMITIR"));
 
     expect(result.session.state).toBe("incidencia_submit_pending");
     expect(queries(result)[0].kind).toBe("incidencia_register");
+    expect(texts(result)).not.toContain("Ok, se registró tu evidencia.");
   });
 
-  it("'no quiero' se reconoce determinísticamente (sin IA), ya está en el parser de confirmación", () => {
+  it("'no quiero' se reconoce determinísticamente (sin IA)", () => {
     const result = handleIncidencia(awaitingFoto(), text("no quiero"));
 
     expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0].kind).toBe("incidencia_register");
   });
 
   it("texto ambiguo tipo 'no deseo' dispara la consulta a IA en vez de reinterpretar solo", () => {
@@ -177,12 +259,10 @@ describe("incidencia_awaiting_foto: ya no exige la palabra exacta OMITIR", () =>
   });
 
   it("un 'sí' con más palabras ('sí, ya te mando') no es un match determinístico limpio: se consulta a la IA", () => {
-    const result = handleIncidencia(awaitingFoto(), text("sí, ya te mando"));
-
-    expect(result.session.state).toBe("incidencia_foto_intent_pending");
+    expect(handleIncidencia(awaitingFoto(), text("sí, ya te mando")).session.state).toBe("incidencia_foto_intent_pending");
   });
 
-  it("texto vacío, vuelve a pedir la foto sin IA", () => {
+  it("texto vacío, vuelve a pedir la evidencia sin IA", () => {
     const result = handleIncidencia(awaitingFoto(), text(""));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
@@ -205,40 +285,20 @@ describe("incidencia_awaiting_foto: ya no exige la palabra exacta OMITIR", () =>
 });
 
 describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
-  it("si la IA dice que quiere omitir, registra la incidencia sin foto", () => {
-    const pending: Session = { state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
-    const result = handleIncidencia(pending, fotoIntentResult(true));
+  const pending = (): Session => ({ state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} });
+
+  it("si la IA dice que quiere omitir, registra la incidencia", () => {
+    const result = handleIncidencia(pending(), fotoIntentResult(true));
 
     expect(result.session.state).toBe("incidencia_submit_pending");
     expect(queries(result)[0].kind).toBe("incidencia_register");
   });
 
-  it("si la IA dice que no quiere omitir, vuelve a pedir la foto", () => {
-    const pending: Session = { state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
-    const result = handleIncidencia(pending, fotoIntentResult(false));
+  it("si la IA dice que no quiere omitir, vuelve a pedir la evidencia", () => {
+    const result = handleIncidencia(pending(), fotoIntentResult(false));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
     expect(queries(result)).toHaveLength(0);
-  });
-});
-
-describe("sin servicio de imágenes configurado, no se pide la foto", () => {
-  const awaitingDescripcion = (): Session => ({ state: "incidencia_awaiting_descripcion", slots: {}, counters: {} });
-
-  it("tras la descripción registra directo, sin pedir foto", () => {
-    vi.stubEnv("MEDIA_STORAGE_BASE_URL", "");
-
-    const result = handleIncidencia(awaitingDescripcion(), text("El consultorio estaba cerrado."));
-
-    expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0].kind).toBe("incidencia_register");
-    expect(sent(result).map((effect) => (effect as { text: string }).text).join(" ")).not.toContain("imagen");
-  });
-
-  it("con el servicio configurado, sigue pidiendo la foto", () => {
-    const result = handleIncidencia(awaitingDescripcion(), text("El consultorio estaba cerrado."));
-
-    expect(result.session.state).toBe("incidencia_awaiting_foto");
   });
 });
 
@@ -249,30 +309,20 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     queryKind: "incidencia_register",
     result,
   });
-  const pending = (): Session => ({
-    state: "incidencia_submit_pending",
-    slots: { descripcionIncidencia: "Mala atención", [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,abc" },
-    counters: {},
-  });
+  const pending = (): Session => ({ state: "incidencia_submit_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} });
 
-  it("aceptado: confirma y no deja la foto (base64) guardada en la sesión", () => {
+  it("aceptado: confirma y cierra", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "accepted" }));
 
     expect(result.session.state).toBe("incidencia_confirmed");
-    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+    expect(texts(result)[0]).toContain("Tu incidencia fue registrada");
+    expect(result.outcome).toBe("closed");
   });
 
-  it("fallido: tampoco deja la foto en la sesión", () => {
+  it("fallido: avisa que no se pudo registrar", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "error" }));
 
     expect(result.session.state).toBe("incidencia_failed");
-    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
-  });
-
-  it("foto demasiado pesada: avisa el motivo", () => {
-    const result = handleIncidencia(pending(), submitResult({ status: "rejected", reason: "media_too_large" }));
-
-    expect((sent(result)[0] as { text: string }).text).toContain("demasiado pesada");
-    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+    expect(texts(result)[0]).toContain("No pudimos registrar tu incidencia");
   });
 });
