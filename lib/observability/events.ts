@@ -27,6 +27,7 @@ export const LOG_EVENTS = [
   "incidencia.media_not_stored",
   "incidencia.media_upload_failed",
   "incidencia.persist_failed",
+  "incidencia.establecimiento_lookup_failed",
   "sandbox.cors_invalid_origin",
   "config.invalid",
 ] as const;

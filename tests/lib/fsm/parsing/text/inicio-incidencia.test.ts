@@ -116,10 +116,11 @@ describe("parseInicioIncidencia: message of the QR (with the CODIGO-IPRESS label
 });
 
 describe("parseInicioIncidencia: only the name, without the code", () => {
-  it("takes the name as a candidate to look up in the padron", () => {
+  it("takes the name as a candidate to look up in the padron, and keeps what was written as a draft", () => {
     expect(parseInicioIncidencia("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO")).toEqual({
       origen: "texto",
       nombre: "HOSPITAL NACIONAL DOS DE MAYO",
+      resto: "HOSPITAL NACIONAL DOS DE MAYO",
     });
   });
 
@@ -127,6 +128,7 @@ describe("parseInicioIncidencia: only the name, without the code", () => {
     expect(parseInicioIncidencia("quiero presentar una incidencia en el HOSPITAL NACIONAL DOS DE MAYO")).toEqual({
       origen: "texto",
       nombre: "HOSPITAL NACIONAL DOS DE MAYO",
+      resto: "en el HOSPITAL NACIONAL DOS DE MAYO",
     });
   });
 
@@ -135,16 +137,16 @@ describe("parseInicioIncidencia: only the name, without the code", () => {
     expect(parseInicioIncidencia("quiero presentar una incidencia.")).toEqual({ origen: "texto" });
   });
 
-  it("a long story is not a name: it is dropped and the place will be asked", () => {
-    expect(
-      parseInicioIncidencia("quiero presentar una incidencia porque el doctor me atendió mal y además me cobraron sin recibo en la ventanilla de admisión"),
-    ).toEqual({ origen: "texto" });
+  it("a long story is not a name: it stays as a draft and the place will be asked", () => {
+    const story = "porque el doctor me atendió mal y además me cobraron sin recibo en la ventanilla de admisión";
+    expect(parseInicioIncidencia(`quiero presentar una incidencia ${story}`)).toEqual({ origen: "texto", resto: story });
   });
 
   it("a short story still comes out as a candidate: the lookup and the confirmation decide", () => {
     expect(parseInicioIncidencia("quiero presentar una incidencia en el hospital porque me cobraron")).toEqual({
       origen: "texto",
       nombre: "hospital porque me cobraron",
+      resto: "en el hospital porque me cobraron",
     });
   });
 
@@ -152,6 +154,7 @@ describe("parseInicioIncidencia: only the name, without the code", () => {
     expect(parseInicioIncidencia("Hola quiero presentar una incidencia POSTA MEDICA CODIGO-IPRESS")).toEqual({
       origen: "texto",
       nombre: "POSTA MEDICA CODIGO-IPRESS",
+      resto: "POSTA MEDICA CODIGO-IPRESS",
     });
   });
 

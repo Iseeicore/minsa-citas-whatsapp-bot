@@ -57,8 +57,10 @@ function fromQr(text: string, labelIndex: number, labelLength: number): InicioIn
 
 function fromSentence(text: string, sentenceLength: number): InicioIncidencia {
   const result: InicioIncidencia = { origen: "texto" };
-  const nombre = plausibleNombre(tidy(tidy(text.slice(sentenceLength))?.replace(LEADING_PREPOSITIONS, "") ?? ""));
+  const written = tidy(text.slice(sentenceLength));
+  const nombre = plausibleNombre(tidy(written?.replace(LEADING_PREPOSITIONS, "") ?? ""));
   if (nombre) result.nombre = nombre;
+  if (written) result.resto = written;
   return result;
 }
 
