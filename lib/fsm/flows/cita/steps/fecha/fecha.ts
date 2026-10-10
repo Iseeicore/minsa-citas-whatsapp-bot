@@ -22,6 +22,7 @@ import { todayInLima } from "@/lib/time/lima-clock";
 import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
+import { referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 
@@ -79,6 +80,8 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     }));
     return buildResult(next, offerPagedList(next, "Selecciona la fecha:", rows));
   }
+
+  if (referenciaSeleccionadaId(next.slots)) return closeWithApology("referencia_sin_cupos");
 
   return searchOtherEstablecimiento(next);
 }

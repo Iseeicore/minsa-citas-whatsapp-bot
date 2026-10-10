@@ -74,6 +74,7 @@ export type BookAppointmentParams = {
   fechaCita: string;
   horaCita: string;
   numeroDocumentoPaciente: string;
+  referenciaId?: string;
 };
 
 export type BookAppointmentResult =
@@ -92,6 +93,8 @@ export type ReferenciaItem = {
   ipressDestino: string;
   upsOrigen: string;
   upsDestino: string;
+  codigoIpressDestino: string;
+  codigoUpsDestino: string;
   estado: 3 | 5 | 7;
 };
 

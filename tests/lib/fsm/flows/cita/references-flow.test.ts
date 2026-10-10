@@ -33,6 +33,8 @@ const REFERENCIA: ReferenciaItem = {
   ipressDestino: "HOSPITAL MARIA AUXILIADORA",
   upsOrigen: "MEDICINA GENERAL",
   upsDestino: "GASTROENTEROLOGÍA",
+  codigoIpressDestino: "5987",
+  codigoUpsDestino: "222800",
   estado: 7,
 };
 
@@ -150,8 +152,27 @@ function referenciaConfirmPending(): Session {
 }
 
 describe("handleAwaitingReferenciaConfirm", () => {
-  it("sí: por ahora continúa con el flujo normal de cita (placeholder)", () => {
+  it("sí: usa el destino de la referencia y salta directo a buscar fechas, sin preguntar distrito", () => {
     const result = handle(referenciaConfirmPending(), text("si"));
+
+    expect(result.session.state).toBe("cita_fecha_pending");
+    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("5987");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("222800");
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]).toBe("HOSPITAL MARIA AUXILIADORA");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("GASTROENTEROLOGÍA");
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("1364486");
+    expect(texts(result).join(" ")).not.toContain("distrito");
+
+    const fechas = result.effects.find((effect) => isQueryEffect(effect) && effect.kind === "list_fechas");
+    expect(fechas).toEqual({ kind: "list_fechas", payload: { codEess: "5987", especialidadId: "222800" } });
+  });
+
+  it("sí, pero la referencia llegó sin códigos de destino: sigue con el flujo normal de cita", () => {
+    const sinCodigos: ReferenciaItem = { ...REFERENCIA, codigoIpressDestino: "", codigoUpsDestino: "" };
+    const session = referenciaConfirmPending();
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([sinCodigos]);
+
+    const result = handle(session, text("si"));
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
   });
@@ -161,6 +182,7 @@ describe("handleAwaitingReferenciaConfirm", () => {
 
     expect(result.session.state).toBe("cita_awaiting_referencia_select");
     expect(listRows(result)).toHaveLength(1);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
   });
 
   it("respuesta ambigua: reintenta mostrando el mismo detalle", () => {

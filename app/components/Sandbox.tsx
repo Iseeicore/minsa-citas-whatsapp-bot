@@ -12,7 +12,7 @@ import {
 } from "@/app/components/sandbox-chat/storage";
 import { SessionState } from "@/lib/enums/session-state";
 import { randomId, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
-import { SandboxHeader } from "@/app/components/sandbox-chat/SandboxHeader";
+import { SandboxHeader, type WindowControls } from "@/app/components/sandbox-chat/SandboxHeader";
 import { Composer } from "@/app/components/sandbox-chat/Composer";
 import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
 import { TypingIndicator } from "@/app/components/sandbox-chat/TypingIndicator";
@@ -22,16 +22,22 @@ import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
+const WELCOME_TRIGGER_TEXT = "Hola";
+
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const IMAGE_TOO_LARGE_MESSAGE =
   "La imagen es muy pesada para subirla en el entorno de Vercel. Por el momento estamos trabajando en la mejora.";
 
 export default function Sandbox({
   onBack,
+  windowControls,
   showDebugPanel = true,
+  active = true,
 }: {
   onBack?: () => void;
+  windowControls?: WindowControls;
   showDebugPanel?: boolean;
+  active?: boolean;
 }) {
   const [from, setFrom] = useState<string | null>(null);
   const [entries, setEntriesState] = useState<ChatEntry[]>([]);
@@ -42,6 +48,7 @@ export default function Sandbox({
   const [session, setSessionState] = useState<SessionSnapshot | null>(null);
   const [dniValue, setDniValue] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const welcomeRequestedRef = useRef(false);
 
   function setEntries(updater: ChatEntry[] | ((prev: ChatEntry[]) => ChatEntry[])) {
     setEntriesState((prev) => {
@@ -76,6 +83,12 @@ export default function Sandbox({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries, typing]);
+
+  useEffect(() => {
+    if (!active || !from || entries.length > 0 || welcomeRequestedRef.current) return;
+    welcomeRequestedRef.current = true;
+    sendTurn({ type: "text", text: WELCOME_TRIGGER_TEXT, reset: true });
+  });
 
   async function sendTurn(
     payload: {
@@ -183,7 +196,7 @@ export default function Sandbox({
         }
       >
         <div className="flex flex-col overflow-hidden">
-          <SandboxHeader onBack={onBack} />
+          <SandboxHeader onBack={onBack} windowControls={windowControls} />
 
           <div className="flex items-center gap-2 px-4 pt-3">
             <div className="h-px flex-1 bg-gray-200" />

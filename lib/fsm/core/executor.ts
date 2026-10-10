@@ -203,6 +203,7 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
           fechaCita: formatFechaForApi(String(effect.payload.fechaCita ?? "")),
           horaCita: formatHoraCita(String(effect.payload.horaInicio ?? "")),
           numeroDocumentoPaciente: String(effect.payload.numeroDocumentoPaciente ?? ""),
+          ...(effect.payload.referenciaId ? { referenciaId: String(effect.payload.referenciaId) } : {}),
         },
         bearer,
       );

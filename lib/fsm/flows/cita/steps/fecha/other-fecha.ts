@@ -20,6 +20,7 @@ const OTHER_FECHA_NO_ID = OtherFechaButtonId.NO;
 export const FAREWELL = "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
 const DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${FAREWELL}`;
 const NO_OTHER_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${FAREWELL}`;
+const REFERENCIA_SIN_CUPOS_TEXT = `Lo sentimos mucho. Para tu referencia médica no encontramos cupos disponibles en nuestro canal en este momento. Te recomendamos comunicarte con tu centro de salud principal para que te derive a otra área. ${FAREWELL}`;
 
 const INTRO_ONLY_DECLINED = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
 const INTRO_NO_HORARIOS = "No hay horarios disponibles para esa fecha.";
@@ -51,11 +52,17 @@ export function discardedDates(slots: Session["slots"]): string[] {
     .filter(Boolean);
 }
 
-export function closeWithApology(reason: "declined" | "no_other_dates"): HandlerResult {
+type CloseReason = "declined" | "no_other_dates" | "referencia_sin_cupos";
+
+const CLOSE_TEXT_BY_REASON: Record<CloseReason, string> = {
+  declined: DECLINED_TEXT,
+  no_other_dates: NO_OTHER_DATES_TEXT,
+  referencia_sin_cupos: REFERENCIA_SIN_CUPOS_TEXT,
+};
+
+export function closeWithApology(reason: CloseReason): HandlerResult {
   return withNote(
-    buildResult({ state: DECLINED_CLOSED_STATE, slots: {}, counters: {} }, [
-      sendText(reason === "declined" ? DECLINED_TEXT : NO_OTHER_DATES_TEXT),
-    ]),
+    buildResult({ state: DECLINED_CLOSED_STATE, slots: {}, counters: {} }, [sendText(CLOSE_TEXT_BY_REASON[reason])]),
     { kind: "cita_closed", detail: { reason } },
   );
 }

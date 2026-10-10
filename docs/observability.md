@@ -41,6 +41,8 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `webhook.message_failed` | error | `waId` (últimos 4), `error` (nombre y mensaje). Falló guardar la conversación, el turno o sus envíos; el ciudadano recibe el mismo texto fijo, con el mismo límite de una vez cada 30 s por número. El turno, si llegó a empezar, ya dejó su `turn.failed`. **El registro nunca se calla:** el límite de 30 s solo frena la respuesta al ciudadano |
 | `perimeter.dropped`, `perimeter.rejected`, `perimeter.muted`, `perimeter.banned` | info / warn | `waId`, `reason` (`repeat` entre los rechazos), `traceId` (el que tendría el turno). `perimeter.muted` sale una vez por silencio de 2 minutos; el `perimeter.dropped` del mensaje que inicia el silencio lleva `noticeSent: true` (es el único que recibe el aviso «espere 2 minutos») |
 | `turn_lock.waited` | info | `waId` (últimos 4), `waitedMs`, `layer` (`process` o `database`). Un turno esperó a otro del mismo ciudadano más de lo normal |
+| `inbound.expired_on_boot` | info | `expired`. Al arrancar, cuántos mensajes entrantes quedaron pendientes por una caída y se vencieron sin responderse |
+| `inbound.expire_failed` | warn | `error`. No se pudo vencer los pendientes al arrancar; el servidor arranca igual |
 | `webhook.entry_failed` | error | `error`. Falló procesar una entrada del webhook fuera del turno (perímetro, estados de entrega); el ciudadano no recibe aviso |
 | `webhook.fixed_reply_failed` | error | `waId` (últimos 4), `error`. No se pudo enviar una respuesta fija (perímetro o texto de falla) |
 | `whatsapp.send_failed` | error | `operation` (`send_effect` o `send_cta_url`), `waId` (últimos 4), `status` y `response` (cuerpo de Meta enmascarado y truncado) o `error` |

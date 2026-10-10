@@ -37,3 +37,8 @@ export function buildWelcomeEffect(channel: SessionChannel): SendEffect {
 
   return sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, appUrl);
 }
+
+export function buildWelcomeEffects(channel: SessionChannel): SendEffect[] {
+  if (channel === SessionChannelEnum.WEB) return [buildWelcomeEffect(channel), buildMenuEffect()];
+  return [buildWelcomeEffect(channel)];
+}
