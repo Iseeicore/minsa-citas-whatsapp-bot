@@ -108,3 +108,18 @@ export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsu
   });
   return filas.map((fila) => ({ codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo }));
 }
+
+/** Si ese wa_id ya autorizó el tratamiento de datos alguna vez; false también cuando el usuario no existe todavía. */
+export async function tieneConsentimientoAceptado(waId: string): Promise<boolean> {
+  const usuario = await prisma.usuario.findUnique({ where: { waId }, select: { consentimientoAceptadoEn: true } });
+  return usuario?.consentimientoAceptadoEn != null;
+}
+
+/** Deja constancia de que ese wa_id autorizó el tratamiento de datos; crea el usuario si todavía no existía. */
+export async function marcarConsentimientoAceptado(waId: string): Promise<void> {
+  await prisma.usuario.upsert({
+    where: { waId },
+    create: { waId, consentimientoAceptadoEn: new Date() },
+    update: { consentimientoAceptadoEn: new Date() },
+  });
+}

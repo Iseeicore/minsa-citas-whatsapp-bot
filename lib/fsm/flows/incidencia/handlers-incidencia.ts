@@ -1,10 +1,17 @@
 import { INVALID_DNI_TEXT } from "@/lib/fsm/core/failure-texts";
-import { enterDescripcion, handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
+import { handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
+import {
+  askConsentimiento,
+  handleConsentCheckPending,
+  handleConsentimiento,
+  handleConsentRegisterPending,
+} from "@/lib/fsm/flows/incidencia/consentimiento";
 import {
   afterDescripcion,
+  askConfirmRegistro,
   EVIDENCIA_ACK_TEXT,
   askFoto,
-  submitIncidencia,
+  handleConfirmRegistro,
   UNREADABLE_TEXT_RETRY,
 } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import {
@@ -64,6 +71,12 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
       return handleReniecPending(session, event as QueryResultEvent);
     case SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE:
       return handleAwaitingNombreLibre(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_CONSENT_CHECK_PENDING:
+      return handleConsentCheckPending(session, event as QueryResultEvent);
+    case SessionState.INCIDENCIA_CONSENT_CHOICE:
+      return handleConsentimiento(session, event as InboundEvent);
+    case SessionState.INCIDENCIA_CONSENT_REGISTER_PENDING:
+      return handleConsentRegisterPending(session);
     case SessionState.INCIDENCIA_CONFIRM_BORRADOR:
       return handleConfirmBorrador(session, event as InboundEvent);
     case SessionState.INCIDENCIA_AWAITING_BORRADOR_EXTRA:
@@ -74,6 +87,8 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
       return handleAwaitingFoto(session, event as InboundEvent);
     case SessionState.INCIDENCIA_FOTO_INTENT_PENDING:
       return handleFotoIntentPending(session, event as QueryResultEvent);
+    case SessionState.INCIDENCIA_CONFIRM_REGISTRO:
+      return handleConfirmRegistro(session, event as InboundEvent);
     case SessionState.INCIDENCIA_SUBMIT_PENDING:
       return handleSubmitPending(session, event as QueryResultEvent);
     default:
@@ -90,7 +105,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
     return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
   }
 
-  if (replyId === IncidenciaButtonId.ANONIMO) return enterDescripcion(next);
+  if (replyId === IncidenciaButtonId.ANONIMO) return askConsentimiento(next);
 
   return buildResult(session, [
     sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", INCIDENCIA_NOMBRE_BUTTONS),
@@ -102,7 +117,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
  * no se acepta: puede escribir un DNI o seguir de forma anónima.
  */
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  if (readReply(event) === IncidenciaButtonId.ANONIMO) return enterDescripcion(cloneSession(session));
+  if (readReply(event) === IncidenciaButtonId.ANONIMO) return askConsentimiento(cloneSession(session));
 
   const documento = (event.text ?? "").trim();
 
@@ -124,7 +139,7 @@ function handleReniecPending(session: Session, event: QueryResultEvent): Handler
 
   if (result.status === "found" && typeof result.nombreCompleto === "string" && result.nombreCompleto.trim() !== "") {
     next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto.trim();
-    return withGreeting(enterDescripcion(next), result.nombreCompleto.trim());
+    return withGreeting(askConsentimiento(next), result.nombreCompleto.trim());
   }
 
   next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE;
@@ -144,7 +159,7 @@ function handleAwaitingNombreLibre(session: Session, event: InboundEvent): Handl
 
   const next = cloneSession(session);
   next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
-  return enterDescripcion(next);
+  return askConsentimiento(next);
 }
 
 function handleAwaitingDescripcion(session: Session, event: InboundEvent): HandlerResult {
@@ -174,14 +189,14 @@ function isFile(event: InboundEvent): boolean {
  * recibo y se registra la incidencia. Lo que no es un archivo (sticker, audio) ni siquiera llega aquí.
  */
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
-  if (isFile(event)) return withAck(submitIncidencia(session, event.from));
-  if (event.listId === IncidenciaButtonId.FOTO_OMITIR) return submitIncidencia(session, event.from);
+  if (isFile(event)) return withAck(askConfirmRegistro(session));
+  if (event.listId === IncidenciaButtonId.FOTO_OMITIR) return askConfirmRegistro(session);
 
   const typed = (event.text ?? "").trim();
   if (!typed) return buildResult(session, [askFoto()]);
 
   if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === Confirmation.NO) {
-    return submitIncidencia(session, event.from);
+    return askConfirmRegistro(session);
   }
 
   if (
@@ -206,7 +221,7 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_AWAITING_FOTO;
 
-  if (result.quiereOmitir === true) return submitIncidencia(next, event.from);
+  if (result.quiereOmitir === true) return askConfirmRegistro(next);
 
   return buildResult(next, [askFoto()]);
 }

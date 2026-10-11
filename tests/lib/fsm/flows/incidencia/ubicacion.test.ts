@@ -28,6 +28,15 @@ const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((eff
 const queries = (result: HandlerResult): QueryEffect[] => result.effects.filter(isQueryEffect);
 const at = (state: Session["state"], slots: Session["slots"] = {}, counters: Session["counters"] = {}): Session => ({ state, slots, counters });
 
+/** Para tests que no les importa el consentimiento: simula que nunca lo dio y lo autoriza ahora, hasta llegar al relato. */
+function throughConsent(step: HandlerResult): HandlerResult {
+  const checked: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "verificar_consentimiento", result: { aceptado: false } };
+  const registered: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "registrar_consentimiento", result: { ok: true } };
+  let next = handle(step.session, checked);
+  next = handle(next.session, tap("incidencia_consent_si"));
+  return handle(next.session, registered);
+}
+
 const DOS_DE_MAYO = { id: 7, areaId: 9, codigoRenipress: "6206", nombre: "HOSPITAL NACIONAL DOS DE MAYO", distrito: null };
 const candidato = (nombre: string, codigo: string, similitud: number, similitudPalabra = similitud, id = 1): Candidato => ({
   id,
@@ -283,24 +292,24 @@ describe("what the person already wrote: use it or add more", () => {
   const withDraft = (state: Session["state"]) => at(state, { [SlotKey.INCIDENCIA_BORRADOR]: story });
 
   it("when the relato is asked, a usable draft is shown with «Usar así» and «Agregar más»", () => {
-    const result = handle(withDraft("incidencia_identity_choice"), tap("incidencia_anonimo"));
+    const afterConsent = throughConsent(handle(withDraft("incidencia_identity_choice"), tap("incidencia_anonimo")));
 
-    expect(result.session.state).toBe("incidencia_confirm_borrador");
-    expect((sent(result)[0] as { text: string }).text).toContain(`«${story}»`);
-    expect(sent(result)[0]).toMatchObject({ buttons: [{ id: "incidencia_borrador_usar" }, { id: "incidencia_borrador_agregar" }] });
+    expect(afterConsent.session.state).toBe("incidencia_confirm_borrador");
+    expect((sent(afterConsent)[0] as { text: string }).text).toContain(`«${story}»`);
+    expect(sent(afterConsent)[0]).toMatchObject({ buttons: [{ id: "incidencia_borrador_usar" }, { id: "incidencia_borrador_agregar" }] });
   });
 
   it("a draft that is too short or is noise is dropped and the relato is asked", () => {
     for (const draft of ["cobraron", "123456789012345678901234"]) {
-      const result = handle(at("incidencia_identity_choice", { [SlotKey.INCIDENCIA_BORRADOR]: draft }), tap("incidencia_anonimo"));
-      expect(result.session.state).toBe("incidencia_awaiting_descripcion");
-      expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
+      const afterConsent = throughConsent(handle(at("incidencia_identity_choice", { [SlotKey.INCIDENCIA_BORRADOR]: draft }), tap("incidencia_anonimo")));
+      expect(afterConsent.session.state).toBe("incidencia_awaiting_descripcion");
+      expect(afterConsent.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
     }
   });
 
   it("without a draft the relato is asked as always", () => {
-    const result = handle(at("incidencia_identity_choice"), tap("incidencia_anonimo"));
-    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    const afterConsent = throughConsent(handle(at("incidencia_identity_choice"), tap("incidencia_anonimo")));
+    expect(afterConsent.session.state).toBe("incidencia_awaiting_descripcion");
   });
 
   it.each([["the button", tap("incidencia_borrador_usar")], ["«sí»", text("sí")]])("using it as it is (%s) saves it as the relato and offers the evidence", (_label, event) => {

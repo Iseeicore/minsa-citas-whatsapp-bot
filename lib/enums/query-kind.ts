@@ -18,4 +18,6 @@ export enum QueryKind {
   BUSCAR_ESTABLECIMIENTO = "buscar_establecimiento",
   CONSULTAR_INCIDENCIA = "consultar_incidencia",
   LISTAR_INCIDENCIAS = "listar_incidencias",
+  VERIFICAR_CONSENTIMIENTO = "verificar_consentimiento",
+  REGISTRAR_CONSENTIMIENTO = "registrar_consentimiento",
 }
