@@ -29,12 +29,11 @@ const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
 const mainMenu = (): Session => ({ state: "main_menu", slots: {}, counters: {} });
 
 describe("el código en el primer mensaje", () => {
-  it("WhatsApp: también pide verificar la identidad con DNI+OTP antes de buscar", () => {
+  it("WhatsApp: busca de inmediato y la consulta no lleva el wa_id (lo pone el servidor)", () => {
     const first = handleFirstContact(`quiero revisar mi incidencia ${CODIGO}`, "whatsapp");
 
-    expect(first.session.state).toBe("consulta_awaiting_dni");
-    expect(queries(first)).toEqual([]);
-    expect(texts(first)).toEqual([ASK_DOCUMENTO_TEXT]);
+    expect(first.session.state).toBe("consulta_query_pending");
+    expect(queries(first)).toEqual([{ kind: "consultar_incidencia", payload: { codigo: CODIGO, canal: "whatsapp" } }]);
   });
 
   it("web: antes de buscar pide verificar la identidad", () => {
@@ -86,8 +85,8 @@ describe("desde el menú principal", () => {
 describe("consulta_awaiting_codigo", () => {
   const waiting = (): Session => ({ state: "consulta_awaiting_codigo", slots: { consultaCanal: "whatsapp" }, counters: {} });
 
-  it("un código válido pide verificar identidad; uno inválido lo vuelve a pedir con un ejemplo", () => {
-    expect(handle(waiting(), text(CODIGO)).session.state).toBe("consulta_awaiting_dni");
+  it("un código válido busca; uno inválido lo vuelve a pedir con un ejemplo", () => {
+    expect(handle(waiting(), text(CODIGO)).session.state).toBe("consulta_query_pending");
 
     const bad = handle(waiting(), text("123"));
     expect(bad.session.state).toBe("consulta_awaiting_codigo");

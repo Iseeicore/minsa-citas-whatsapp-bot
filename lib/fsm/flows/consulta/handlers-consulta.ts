@@ -48,14 +48,14 @@ function startSearch(session: Session): HandlerResult {
     query(QueryKind.CONSULTAR_INCIDENCIA, {
       codigo: String(next.slots[SlotKey.CONSULTA_CODIGO] ?? ""),
       canal: web ? CANAL_WEB : CANAL_WHATSAPP,
-      dni: String(next.slots[SlotKey.CONSULTA_DNI] ?? ""),
+      ...(web ? { dni: String(next.slots[SlotKey.CONSULTA_DNI] ?? "") } : {}),
     }),
   ]);
 }
 
-/** DNI + OTP es obligatorio para cualquier canal: solo se salta si ya se verificó en esta misma sesión de consulta. */
 function afterCodigo(session: Session): HandlerResult {
-  if (session.slots[SlotKey.CONSULTA_DNI]) return startSearch(session);
+  const web = session.slots[SlotKey.CONSULTA_CANAL] === CANAL_WEB;
+  if (!web || session.slots[SlotKey.CONSULTA_DNI]) return startSearch(session);
 
   const next = cloneSession(session);
   next.state = SessionState.CONSULTA_AWAITING_DNI;
