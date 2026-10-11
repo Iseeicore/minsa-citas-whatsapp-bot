@@ -121,7 +121,7 @@ BEGIN
   ASSERT (SELECT cerrada_en FROM chatbot.solicitud_carga WHERE hash_token = 'hash-1') IS NOT NULL, 'C26 la solicitud queda cerrada';
 END $$;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET cerrada_en = NULL WHERE hash_token = 'hash-1'$q$, '23514', 'C27 no se reabre');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET cerrada_en = now() WHERE hash_token = 'hash-1'$q$, '23514', 'C28 no se cierra dos veces');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET cerrada_en = cerrada_en + interval '1 second' WHERE hash_token = 'hash-1'$q$, '23514', 'C28 no se cierra dos veces');
 
 TRUNCATE chatbot.archivo_recibido, chatbot.evidencia, chatbot.solicitud_carga, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
