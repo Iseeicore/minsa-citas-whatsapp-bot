@@ -280,7 +280,7 @@ async function section2_5Stress() {
     await reachDistritoPrompt(ctx);
     await ctx.send({ type: "text", text: "posta de mrda, en comas" }, {
       expect: WARNING_A,
-      note: "internamente sería FORCE_INCIDENCIA, pero en medio del flujo NO deriva a Reclamos — decisión de producto a revisar",
+      note: "internamente sería FORCE_INCIDENCIA, pero en medio del flujo NO deriva a Incidencias — decisión de producto a revisar",
     });
   })();
 
