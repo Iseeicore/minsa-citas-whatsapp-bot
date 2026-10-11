@@ -7,7 +7,7 @@ type RowIcon = ComponentType<{ className?: string }>;
 
 const MENU_ROW_PRESENTATION: Record<MenuChoice, { label: string; Icon: RowIcon }> = {
   [MenuChoice.AGENDAR_CITA]: { label: "Agendar una cita médica", Icon: CalendarIcon },
-  [MenuChoice.REGISTRAR_RECLAMO]: { label: "Registrar una incidencia", Icon: ReportIcon },
+  [MenuChoice.REGISTRAR_INCIDENCIA]: { label: "Registrar una incidencia", Icon: ReportIcon },
 };
 
 export function rowPresentation(row: ListRow): { label: string; Icon?: RowIcon } {

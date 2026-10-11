@@ -11,7 +11,7 @@ import { SessionState } from "@/lib/enums/session-state";
 describe("resolveWindowMs", () => {
   it("waits the free-text window in states where the user writes a sentence", () => {
     for (const state of [
-      SessionState.RECLAMO_AWAITING_DESCRIPCION,
+      SessionState.INCIDENCIA_AWAITING_DESCRIPCION,
       SessionState.CITA_AWAITING_DISTRITO,
       SessionState.MAIN_MENU,
     ]) {
@@ -27,7 +27,7 @@ describe("resolveWindowMs", () => {
     for (const state of [
       SessionState.CITA_AWAITING_DNI,
       SessionState.CITA_AWAITING_OTP,
-      SessionState.RECLAMO_AWAITING_DNI,
+      SessionState.INCIDENCIA_AWAITING_DNI,
       SessionState.CITA_AWAITING_HORA_CONFIRM,
       SessionState.CITA_AWAITING_EXIT_CONFIRM,
     ]) {

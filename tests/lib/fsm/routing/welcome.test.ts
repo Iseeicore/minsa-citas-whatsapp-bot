@@ -78,7 +78,7 @@ describe("buildWelcomeEffects", () => {
       text: "¿En qué podemos ayudarte hoy?",
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
-        { id: "registrar_reclamo", title: "Registrar un reclamo" },
+        { id: "registrar_incidencia", title: "Registrar una incidencia" },
       ],
     });
   });
