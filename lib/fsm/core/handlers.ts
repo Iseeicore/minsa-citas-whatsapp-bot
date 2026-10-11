@@ -1,4 +1,5 @@
 import { handleCita } from "@/lib/fsm/flows/cita/handlers-cita";
+import { handleConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
@@ -59,7 +60,7 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
   if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
     return handleFirstContact(
       event.type === InboundEventType.TEXT ? event.text : undefined,
-      session.channel ?? SessionChannel.WHATSAPP,
+      (event as InboundEvent).channel ?? session.channel ?? SessionChannel.WHATSAPP,
     );
   }
 
@@ -77,6 +78,10 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
 
   if (session.state.startsWith("incidencia_")) {
     return handleIncidencia(session, event);
+  }
+
+  if (session.state.startsWith("consulta_")) {
+    return handleConsulta(session, event);
   }
 
   if (session.state.startsWith("cita_")) {

@@ -19,6 +19,7 @@ import {
 } from "@/lib/whatsapp/webhook/payload";
 import { answerMessage, sendFixedReply, answerFailure } from "@/lib/whatsapp/webhook/answer";
 import { inboundDedupe } from "@/lib/whatsapp/webhook/inbound-dedupe";
+import { processBsuidChanges } from "@/lib/whatsapp/webhook/user-id-update";
 import { createInboundCoalescer } from "@/lib/whatsapp/inbound/inbound-coalescer";
 import { createPostgresInboundBuffer } from "@/lib/whatsapp/inbound/postgres-inbound-buffer";
 import { resolveWindowMs } from "@/lib/whatsapp/inbound/inbound-policy";
@@ -110,7 +111,12 @@ export async function processValue(value: WhatsAppValue) {
 
   const staged: Array<{ waId: string; respond: () => Promise<void> }> = [];
 
+  if (isDatabaseEnabled()) await processBsuidChanges(value);
+
   for (const message of value.messages ?? []) {
+    // Los mensajes de sistema de Meta (p. ej. cambio de número) no son texto de la persona: no pasan por el perímetro ni se responden.
+    if (message.type === "system") continue;
+
     const decision = await screenInbound(
       { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
       { limiter: inboundRateLimiter, hasSession: sessionRowExists },

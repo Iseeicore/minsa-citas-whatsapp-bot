@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     turn =
       !hadExistingSession && !abusiveFirstMessage
         ? await startConversation(from, type === "text" ? text : undefined)
-        : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
+        : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri, channel: "web" });
   } catch (error) {
     if (error instanceof TurnLockTimeoutError) {
       return apiError(ApiErrorCode.BUSY, { headers: cors });

@@ -58,6 +58,11 @@ export type SlotTypes = {
   [SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]: string;
   [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: string;
   [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO]: string;
+  [SlotKey.CONSULTA_CANAL]: string;
+  [SlotKey.CONSULTA_CODIGO]: string;
+  [SlotKey.CONSULTA_DNI]: string;
+  [SlotKey.CONSULTA_DNI_PENDING]: string;
+  [SlotKey.CONSULTA_TWOFA_ID]: string;
 };
 
 export type Slots = { [K in SlotKey]?: SlotTypes[K] };
@@ -84,6 +89,8 @@ export type InboundEvent = {
   mediaId?: string;
   mediaDataUri?: string;
   messageId?: string;
+  /** Canal por donde llegó el turno; lo fija el servidor (webhook o sandbox), nunca el cliente. */
+  channel?: SessionChannel;
 };
 
 export type QueryResultEvent = {
@@ -153,7 +160,8 @@ export type QueryEffectKind =
   | "book_appointment"
   | "list_references"
   | "analyze_incidencia_foto_intent"
-  | "buscar_establecimiento";
+  | "buscar_establecimiento"
+  | "consultar_incidencia";
 
 export type QueryEffect = {
   kind: QueryEffectKind;

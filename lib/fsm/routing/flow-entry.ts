@@ -9,6 +9,7 @@ import { SessionState } from "@/lib/enums/session-state";
 export const MENU_ROWS = [
   { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" },
   { id: MenuChoice.REGISTRAR_INCIDENCIA, title: "Registrar una incidencia" },
+  { id: MenuChoice.CONSULTAR_INCIDENCIA, title: "Consultar una incidencia" },
 ];
 
 export const INCIDENCIA_NOMBRE_BUTTONS = [

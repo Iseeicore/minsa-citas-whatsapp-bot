@@ -53,7 +53,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
     let delivered = 0;
     const { sent } = await runTurnUnlocked(
       waId,
-      { from: waId, type: "text", text: firstContactText, messageId: message.id },
+      { from: waId, type: "text", text: firstContactText, messageId: message.id, channel: "whatsapp" },
       {
         onSend: async (effect) => {
           delivered += 1;
@@ -109,7 +109,7 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
   let delivered = 0;
   const { sent } = await runTurnUnlocked(
     waId,
-    { ...inboundEvent, messageId: message.id },
+    { ...inboundEvent, messageId: message.id, channel: "whatsapp" },
     {
       onSend: async (effect) => {
         delivered += 1;

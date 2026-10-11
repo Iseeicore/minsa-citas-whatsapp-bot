@@ -44,6 +44,9 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `inbound.expired_on_boot` | info | `expired`. Al arrancar, cuántos mensajes entrantes quedaron pendientes por una caída y se vencieron sin responderse |
 | `inbound.expire_failed` | warn | `error`. No se pudo vencer los pendientes al arrancar; el servidor arranca igual |
 | `webhook.entry_failed` | error | `error`. Falló procesar una entrada del webhook fuera del turno (perímetro, estados de entrega); el ciudadano no recibe aviso |
+| `webhook.bsuid_updated` | info | `previous`, `current` (últimos 4). Meta avisó que cambió el identificador de una persona (cambió de número): su usuario y su sesión pasan al identificador nuevo |
+| `webhook.bsuid_conflict` | warn | `previous`, `current` (últimos 4). El identificador nuevo ya tenía usuario propio; no se fusionan y el anterior queda como está (limitación conocida) |
+| `webhook.bsuid_update_failed` | error | `previous`, `current` (últimos 4), `error`. Falló aplicar el cambio de identificador; no afecta a los mensajes del mismo webhook |
 | `webhook.fixed_reply_failed` | error | `waId` (últimos 4), `error`. No se pudo enviar una respuesta fija (perímetro o texto de falla) |
 | `whatsapp.send_failed` | error | `operation` (`send_effect` o `send_cta_url`), `waId` (últimos 4), `status` y `response` (cuerpo de Meta enmascarado y truncado) o `error` |
 | `whatsapp.typing_failed` | warn | `error`. Falló el indicador de «escribiendo»; la respuesta sigue su curso |
@@ -54,6 +57,8 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
 | `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
 | `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |
+| `incidencia.consulta_unavailable` | error | `reason`. Se quiso consultar una incidencia con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
+| `incidencia.consulta_failed` | error | `error`. Falló la consulta de una incidencia en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
 | `incidencia.establecimiento_lookup_failed` | error | `by` (`codigo` o `nombre`) y `error`. Falló la búsqueda del establecimiento en el padrón; el flujo trata el resultado como no disponible y pide la ubicación de otra forma |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |

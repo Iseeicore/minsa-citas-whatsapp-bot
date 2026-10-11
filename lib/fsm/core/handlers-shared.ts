@@ -21,6 +21,8 @@ export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
   SessionState.INCIDENCIA_CANCELLED,
   SessionState.INCIDENCIA_FAILED,
+  SessionState.CONSULTA_COMPLETED,
+  SessionState.CONSULTA_FAILED,
   SessionState.CITA_REGISTRATION_REJECTED,
   SessionState.CITA_OTP_LOCKED,
   SessionState.CITA_BOOKED,

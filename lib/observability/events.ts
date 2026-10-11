@@ -21,6 +21,9 @@ export const LOG_EVENTS = [
   "webhook.message_failed",
   "webhook.entry_failed",
   "webhook.fixed_reply_failed",
+  "webhook.bsuid_updated",
+  "webhook.bsuid_conflict",
+  "webhook.bsuid_update_failed",
   "whatsapp.send_failed",
   "whatsapp.typing_failed",
   "whatsapp.media_failed",
@@ -31,6 +34,8 @@ export const LOG_EVENTS = [
   "incidencia.persist_failed",
   "incidencia.establecimiento_lookup_failed",
   "incidencia.daily_limit_reached",
+  "incidencia.consulta_unavailable",
+  "incidencia.consulta_failed",
   "sandbox.cors_invalid_origin",
   "config.invalid",
 ] as const;

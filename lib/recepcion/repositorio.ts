@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { declararActorEn } from "@/lib/db/actor";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
+import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
 
 export type DatosIncidencia = {
   waId: string;
@@ -65,4 +66,29 @@ export async function contarDelDia(waId: string, excluirTraceId: string): Promis
 export async function buscarCodigoPorTrace(traceId: string): Promise<string | null> {
   const fila = await prisma.incidenciaPaciente.findUnique({ where: { traceId }, select: { codigo: true } });
   return fila?.codigo ?? null;
+}
+
+export type IncidenciaConsultada = { codigo: string; fechaCreacion: Date; estadoCodigo: string };
+
+/**
+ * Busca la incidencia por código SOLO si pertenece a quien consulta, en una sola consulta: «no existe» y «no es tuya» son
+ * indistinguibles. WhatsApp compara por el usuario dueño (su wa_id actual, que sigue al usuario si Meta cambia el identificador);
+ * la web compara el DNI ya verificado y excluye las anónimas.
+ */
+export async function buscarIncidenciaDeQuienConsulta(
+  codigo: string,
+  identidad: IdentidadConsulta,
+): Promise<IncidenciaConsultada | null> {
+  const fila = await prisma.incidenciaPaciente.findFirst({
+    where: {
+      codigo,
+      activo: true,
+      eliminadoEn: null,
+      ...(identidad.canal === "whatsapp"
+        ? { usuario: { waId: identidad.waId } }
+        : { esAnonimo: false, dniReclamante: identidad.dni }),
+    },
+    select: { codigo: true, fechaCreacion: true, estadoIncidencia: { select: { codigo: true } } },
+  });
+  return fila ? { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo } : null;
 }

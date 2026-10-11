@@ -1,5 +1,7 @@
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { beginCita, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
+import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
@@ -20,11 +22,16 @@ function describeCitaRequest({ especialidad, distrito }: CitaHints): string {
   return `¡Hola! Te ayudaremos a agendar tu cita${what}${where}. Para comenzar, por favor indícanos tu número de documento:`;
 }
 
-const routed = (route: "welcome" | "cita" | "incidencia" | "menu" | "out_of_scope", result: HandlerResult): HandlerResult =>
+const routed = (route: "welcome" | "cita" | "incidencia" | "consulta" | "menu" | "out_of_scope", result: HandlerResult): HandlerResult =>
   withNote(result, { kind: "first_contact", detail: { route } });
 
 export function handleFirstContact(text: string | undefined, channel: SessionChannel): HandlerResult {
   const message = text?.trim();
+  const esEmergencia = message ? detectOutOfScope(message) === OosCategory.OOS_01 : false;
+  const codigo = message && !esEmergencia ? extractCodigoIncidencia(message) : null;
+  if (codigo) return routed("consulta", beginConsulta(channel, codigo));
+  if (message && !esEmergencia && isConsultaKeyword(message)) return routed("consulta", beginConsulta(channel));
+
   const inicio = message ? parseInicioIncidencia(message) : null;
   if (inicio?.origen === "qr") return routed("incidencia", beginIncidencia({}, INCIDENCIA_LEAD, inicio));
 
@@ -45,6 +52,7 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
     return routed("cita", beginCita({}, {}, "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:"));
   }
   if (message === "2") return routed("incidencia", beginIncidencia({}, INCIDENCIA_LEAD));
+  if (message === "3") return routed("consulta", beginConsulta(channel));
 
   const cita = detectCitaRequest(message);
   if (cita) return routed("cita", beginCita({ [SlotKey.INITIAL_MESSAGE_TEXT]: message }, cita, describeCitaRequest(cita)));
