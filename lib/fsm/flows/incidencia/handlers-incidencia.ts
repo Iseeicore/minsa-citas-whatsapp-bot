@@ -3,7 +3,7 @@ import { enterDescripcion, handleAwaitingBorradorExtra, handleConfirmBorrador } 
 import {
   afterDescripcion,
   EVIDENCIA_ACK_TEXT,
-  FOTO_REQUEST_TEXT,
+  askFoto,
   submitIncidencia,
   UNREADABLE_TEXT_RETRY,
 } from "@/lib/fsm/flows/incidencia/pasos-comunes";
@@ -175,9 +175,10 @@ function isFile(event: InboundEvent): boolean {
  */
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
   if (isFile(event)) return withAck(submitIncidencia(session, event.from));
+  if (event.listId === IncidenciaButtonId.FOTO_OMITIR) return submitIncidencia(session, event.from);
 
   const typed = (event.text ?? "").trim();
-  if (!typed) return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
+  if (!typed) return buildResult(session, [askFoto()]);
 
   if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === Confirmation.NO) {
     return submitIncidencia(session, event.from);
@@ -188,7 +189,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
     typed.length > FOTO_INTENT_MAX_LENGTH ||
     looksLikeNoise(typed)
   ) {
-    return buildResult(session, [sendText(FOTO_REQUEST_TEXT)]);
+    return buildResult(session, [askFoto()]);
   }
 
   const next = cloneSession(session);
@@ -207,7 +208,7 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
 
   if (result.quiereOmitir === true) return submitIncidencia(next, event.from);
 
-  return buildResult(next, [sendText(FOTO_REQUEST_TEXT)]);
+  return buildResult(next, [askFoto()]);
 }
 
 /** Con establecimiento se entrega el código de seguimiento; sin él, solo se agradece. */

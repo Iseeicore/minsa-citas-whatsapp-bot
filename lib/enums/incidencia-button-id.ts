@@ -7,4 +7,5 @@ export enum IncidenciaButtonId {
   OMITIR_NO = "incidencia_omitir_no",
   BORRADOR_USAR = "incidencia_borrador_usar",
   BORRADOR_AGREGAR = "incidencia_borrador_agregar",
+  FOTO_OMITIR = "incidencia_foto_omitir",
 }
