@@ -330,6 +330,7 @@ COMMENT ON COLUMN chatbot.mensaje.fecha_creacion IS 'Fecha y hora (UTC) en que s
 COMMENT ON COLUMN chatbot.mensaje.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN chatbot.mensaje.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN chatbot.mensaje.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON COLUMN chatbot.mensaje.procesado_en IS 'Momento en que el bot atendió (o descartó por viejo o repetido) un mensaje entrante. NULL significa pendiente de atender.';
 COMMENT ON TABLE chatbot.mensaje IS 'Mensaje de la conversación, entrante o saliente. Es la tabla de mayor volumen: se estiman decenas de millones de filas por mes.
 
 Relaciones:
