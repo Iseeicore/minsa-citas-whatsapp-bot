@@ -19,8 +19,8 @@ describe("resolveWindowMs", () => {
     }
   });
 
-  it("waits the same free-text window on first contact, so a multi-line opener is merged too", () => {
-    expect(resolveWindowMs({ state: null, type: "text" })).toBe(INBOUND_FREE_TEXT_WINDOW_MS);
+  it("never waits on first contact: the welcome goes out as soon as the greeting arrives", () => {
+    expect(resolveWindowMs({ state: null, type: "text" })).toBe(0);
   });
 
   it("never waits in states that expect a single exact answer such as DNI or OTP", () => {

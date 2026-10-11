@@ -116,6 +116,14 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.resetSession).toHaveBeenCalledTimes(1);
     expect(json.sent[0].text).toBe(FIRST_MESSAGE_REJECTION_TEXT);
   });
+
+  it("after a reset it does not ask the database whether the session exists: it was just deleted", async () => {
+    await send({ type: "text", text: "Hola", reset: true });
+
+    expect(mocks.resetSession).toHaveBeenCalledTimes(1);
+    expect(mocks.sessionRowExists).not.toHaveBeenCalled();
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
+  });
 });
 
 describe("turn lock timeout", () => {

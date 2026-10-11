@@ -17,22 +17,40 @@ import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
 import { SessionState } from "@/lib/enums/session-state";
+import type { LatencyMarks } from "@/lib/observability/inbound-latency";
 
 const TYPING_DELAY_MS = 1000;
+
+/** Marca el turno y el primer envío una sola vez, aunque el turno mande varios efectos. */
+function firstSendMarker(marks: LatencyMarks | undefined) {
+  let marked = false;
+  return {
+    beforeSend() {
+      if (!marked) marks?.mark("turn");
+    },
+    afterSend() {
+      if (!marked) marks?.mark("first_send");
+      marked = true;
+    },
+  };
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function deliverTo(message: WhatsAppMessage, conversationId: string | null) {
+function deliverTo(message: WhatsAppMessage, conversationId: string | null, marks: LatencyMarks | undefined) {
+  const first = firstSendMarker(marks);
   return async (effect: SendEffect) => {
     // Primer contacto: la bienvenida sale de inmediato, sin la pausa de "escribiendo…".
+    first.beforeSend();
     await sendTypingIndicator(message.id);
     await sendAndRecordEffect(conversationId, message.from_user_id, effect);
+    first.afterSend();
   };
 }
 
-async function answerFirstContact(message: WhatsAppMessage, conversationId: string | null): Promise<void> {
+async function answerFirstContact(message: WhatsAppMessage, conversationId: string | null, marks?: LatencyMarks): Promise<void> {
   const waId = message.from_user_id;
   const firstContactText = message.type === "text" ? message.text?.body : undefined;
   const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "whatsapp" as const };
@@ -49,7 +67,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
       : handleFirstContact(firstContactText, "whatsapp");
 
   if (first.effects.some(isQueryEffect)) {
-    const deliver = deliverTo(message, conversationId);
+    const deliver = deliverTo(message, conversationId, marks);
     let delivered = 0;
     const { sent } = await runTurnUnlocked(
       waId,
@@ -78,20 +96,18 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
       const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
       trace.complete({ session: first.session, sentCount: toSend.length });
 
-      for (const effect of toSend) {
-        await sendTypingIndicator(message.id);
-        await sendAndRecordEffect(conversationId, waId, effect);
-      }
+      const deliver = deliverTo(message, conversationId, marks);
+      for (const effect of toSend) await deliver(effect);
     },
   );
 }
 
-export async function answerMessage(message: WhatsAppMessage, conversationId: string | null): Promise<void> {
+export async function answerMessage(message: WhatsAppMessage, conversationId: string | null, marks?: LatencyMarks): Promise<void> {
   const waId = message.from_user_id;
   const existingSession = await findSession(waId);
 
   if (!existingSession) {
-    await answerFirstContact(message, conversationId);
+    await answerFirstContact(message, conversationId, marks);
     return;
   }
 
@@ -100,10 +116,13 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
 
   await sendTypingIndicator(message.id);
 
+  const first = firstSendMarker(marks);
   const deliver = async (effect: SendEffect) => {
+    first.beforeSend();
     await sendTypingIndicator(message.id);
     await sleep(TYPING_DELAY_MS);
     await sendAndRecordEffect(conversationId, waId, effect);
+    first.afterSend();
   };
 
   let delivered = 0;
