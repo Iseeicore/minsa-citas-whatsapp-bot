@@ -164,7 +164,9 @@ export type QueryEffectKind =
   | "analyze_incidencia_foto_intent"
   | "buscar_establecimiento"
   | "consultar_incidencia"
-  | "listar_incidencias";
+  | "listar_incidencias"
+  | "verificar_consentimiento"
+  | "registrar_consentimiento";
 
 export type QueryEffect = {
   kind: QueryEffectKind;

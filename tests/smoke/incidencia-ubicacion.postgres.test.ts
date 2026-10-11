@@ -56,7 +56,10 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206", ` ${story}`));
     await p.tap("incidencia_ubicacion_si");
 
-    const draft = await p.tap("incidencia_anonimo");
+    const consentAsked = await p.tap("incidencia_anonimo");
+    expect(consentAsked.session.state).toBe("incidencia_consent_choice");
+
+    const draft = await p.tap("incidencia_consent_si");
     expect(draft.session.state).toBe("incidencia_confirm_borrador");
     expect(textOf(draft.sent[0])).toContain(story);
   });
@@ -104,10 +107,14 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
     await p.tap("incidencia_ubicacion_si");
     await p.tap("incidencia_anonimo");
+    await p.tap("incidencia_consent_si");
     const asked = await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
     expect(asked.session.state).toBe("incidencia_awaiting_foto");
 
-    const done = await p.say("omitir");
+    const confirming = await p.say("omitir");
+    expect(confirming.session.state).toBe("incidencia_confirm_registro");
+
+    const done = await p.tap("incidencia_confirmar_registro_si");
     expect(done.session.state).toBe("incidencia_confirmed");
     expect(textOf(done.sent.at(-1))).toMatch(/código MINSA-\d{4}-\d{6,}/);
 
@@ -125,8 +132,10 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     await p.say("zzzz yyyy");
     await p.tap("incidencia_omitir_si");
     await p.tap("incidencia_anonimo");
+    await p.tap("incidencia_consent_si");
     await p.say("El doctor me atendió mal y no me explicó nada.");
-    const done = await p.say("omitir");
+    await p.say("omitir");
+    const done = await p.tap("incidencia_confirmar_registro_si");
 
     expect(textOf(done.sent.at(-1))).toBe("Gracias por tu reporte de incidencia, ya se registró.");
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from } });
@@ -139,11 +148,13 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     await p.tap("incidencia_ubicacion_si");
     await p.tap("incidencia_con_nombre");
     const named = await p.say("12345678");
-    expect(named.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(named.session.state).toBe("incidencia_consent_choice");
     expect(named.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("JUAN CARLOS QUISPE PEREZ");
 
+    await p.tap("incidencia_consent_si");
     await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
     await p.say("omitir");
+    await p.tap("incidencia_confirmar_registro_si");
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from } });
     expect(saved).toMatchObject({ esAnonimo: false, dniReclamante: "12345678", nombreReclamante: "JUAN CARLOS QUISPE PEREZ" });
   });
@@ -169,6 +180,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     await p.say("omitir");
     await p.tap("incidencia_omitir_si");
     await p.tap("incidencia_anonimo");
+    await p.tap("incidencia_consent_si");
     const short = await p.say("me cobraron");
 
     expect(short.session.state).toBe("incidencia_awaiting_descripcion");
@@ -178,13 +190,23 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
   it("the daily maximum: the sixth incidencia of the same phone is refused, the first five were saved", async () => {
     const p = person();
+
+    // Autoriza el tratamiento de datos una vez (sin guardar nada); el resto de registros ya no vuelve a preguntar.
+    await p.start("quiero presentar una incidencia");
+    await p.say("omitir");
+    await p.tap("incidencia_omitir_si");
+    await p.tap("incidencia_anonimo");
+    await p.tap("incidencia_consent_si");
+    await p.say("quiero cerrar");
+
     const registrar = async () => {
       await p.start("quiero presentar una incidencia");
       await p.say("omitir");
       await p.tap("incidencia_omitir_si");
       await p.tap("incidencia_anonimo");
       await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
-      return p.say("omitir");
+      await p.say("omitir");
+      return p.tap("incidencia_confirmar_registro_si");
     };
 
     for (let i = 1; i <= 5; i++) {

@@ -79,4 +79,8 @@ export enum SessionState {
   INCIDENCIA_IDENTITY_CHOICE = "incidencia_identity_choice",
   INCIDENCIA_RENIEC_PENDING = "incidencia_reniec_pending",
   INCIDENCIA_SUBMIT_PENDING = "incidencia_submit_pending",
+  INCIDENCIA_CONSENT_CHECK_PENDING = "incidencia_consent_check_pending",
+  INCIDENCIA_CONSENT_CHOICE = "incidencia_consent_choice",
+  INCIDENCIA_CONSENT_REGISTER_PENDING = "incidencia_consent_register_pending",
+  INCIDENCIA_CONFIRM_REGISTRO = "incidencia_confirm_registro",
 }

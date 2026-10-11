@@ -16,6 +16,20 @@ const fotoIntentResult = (quiereOmitir: boolean): QueryResultEvent => ({
   queryKind: "analyze_incidencia_foto_intent",
   result: { quiereOmitir },
 });
+const consentCheckResult = (aceptado: boolean): QueryResultEvent => ({
+  from: FROM,
+  type: "query_result",
+  queryKind: "verificar_consentimiento",
+  result: { aceptado },
+});
+const consentRegisterResult = (): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind: "registrar_consentimiento", result: { ok: true } });
+
+/** Para tests que no les importa el consentimiento: simula que nunca lo dio y lo autoriza ahora, hasta llegar al relato. */
+function throughConsent(step: HandlerResult): HandlerResult {
+  let next = handleIncidencia(step.session, consentCheckResult(false));
+  next = handleIncidencia(next.session, tap("incidencia_consent_si"));
+  return handleIncidencia(next.session, consentRegisterResult());
+}
 
 const sent = (result: HandlerResult): SendEffect[] =>
   result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
@@ -45,10 +59,11 @@ describe("incidencia_identity_choice: nombre o anónimo", () => {
     expect(texts(result)).toEqual(["Ingresa tu número de documento."]);
   });
 
-  it("'incidencia_anonimo' salta directo al relato, sin pedir documento ni nombre", () => {
+  it("'incidencia_anonimo' salta directo a verificar el consentimiento, sin pedir documento ni nombre", () => {
     const result = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
 
-    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
+    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
     expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBeUndefined();
     expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
   });
@@ -74,10 +89,10 @@ describe("incidencia_awaiting_dni: el largo decide el documento", () => {
     expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", text: "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.", buttons: [{ id: "incidencia_anonimo" }] });
   });
 
-  it("tocar «Continuar anónimo» desde ahí sigue al relato, sin documento ni nombre", () => {
+  it("tocar «Continuar anónimo» desde ahí sigue a verificar el consentimiento, sin documento ni nombre", () => {
     const result = handleIncidencia(awaitingDni(), tap("incidencia_anonimo"));
 
-    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
     expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
   });
   it.each(["", "1234567", "1234567890", "abcdefgh", "1234 5678", "hdp"])("%j no es un DNI: lo pide de nuevo", (value) => {
@@ -92,12 +107,13 @@ describe("incidencia_awaiting_dni: el largo decide el documento", () => {
 describe("incidencia_reniec_pending: el nombre sale de RENIEC", () => {
   const pending = (): Session => ({ state: "incidencia_reniec_pending", slots: { [SlotKey.DNI]: "12345678" }, counters: {} });
 
-  it("encontrado: guarda el nombre de RENIEC, lo saluda y pide el relato", () => {
+  it("encontrado: guarda el nombre de RENIEC, lo saluda y pasa a verificar el consentimiento", () => {
     const result = handleIncidencia(pending(), reniecResult({ status: "found", nombreCompleto: "JUAN CARLOS QUISPE PEREZ" }));
 
-    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
     expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("JUAN CARLOS QUISPE PEREZ");
-    expect(texts(result)).toEqual(["Gracias, JUAN CARLOS QUISPE PEREZ.", "Cuéntanos tu incidencia (hasta 1000 caracteres)."]);
+    expect(texts(result)).toEqual(["Gracias, JUAN CARLOS QUISPE PEREZ."]);
+    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
   });
 
   it.each([["no lo encuentra", { status: "not_found" }], ["no responde", { status: "error" }], ["trae un nombre vacío", { status: "found", nombreCompleto: "  " }]])(
@@ -111,25 +127,28 @@ describe("incidencia_reniec_pending: el nombre sale de RENIEC", () => {
     },
   );
 
-  it("con un borrador ya escrito, ofrece usarlo después de saludar", () => {
+  it("con un borrador ya escrito, lo ofrece usar después de saludar y de que autorice el tratamiento de datos", () => {
     const session: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." } };
-    const result = handleIncidencia(session, reniecResult({ status: "found", nombreCompleto: "ANA RIOS" }));
+    let result = handleIncidencia(session, reniecResult({ status: "found", nombreCompleto: "ANA RIOS" }));
 
-    expect(result.session.state).toBe("incidencia_confirm_borrador");
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
     expect(texts(result)[0]).toBe("Gracias, ANA RIOS.");
+
+    result = throughConsent(result);
+    expect(result.session.state).toBe("incidencia_confirm_borrador");
   });
 });
 
 describe("incidencia_awaiting_nombre_libre: nombre o alias tal cual", () => {
   const awaitingNombre = (): Session => ({ state: "incidencia_awaiting_nombre_libre", slots: { [SlotKey.DNI]: "12345678" }, counters: {} });
 
-  it("guarda el nombre, conserva el documento y pasa al relato, sin ninguna consulta", () => {
+  it("guarda el nombre, conserva el documento y pasa a verificar el consentimiento", () => {
     const result = handleIncidencia(awaitingNombre(), text("Juan Pérez"));
 
-    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
     expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("Juan Pérez");
     expect(result.session.slots[SlotKey.DNI]).toBe("12345678");
-    expect(queries(result)).toHaveLength(0);
+    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
   });
 
   it("nombre vacío, vuelve a pedirlo", () => {
@@ -192,13 +211,18 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
 
 describe("el registro final: con la persona o anónimo", () => {
   const submission = (step: HandlerResult) => queries(step)[0].payload.submission as { dni: string | null; nombreCompleto: string | null; mediaDataUri?: string };
+  /** Tras llegar al checklist final, confirma «Registrar» para que dispare la query real. */
+  const confirmar = (step: HandlerResult) => handleIncidencia(step.session, tap("incidencia_confirmar_registro_si"));
 
   it("con DNI: lleva el documento y el nombre de RENIEC", () => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
     step = handleIncidencia(step.session, text("12345678"));
     step = handleIncidencia(step.session, reniecResult({ status: "found", nombreCompleto: "JUAN CARLOS QUISPE PEREZ" }));
+    step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
+    expect(step.session.state).toBe("incidencia_confirm_registro");
+    step = confirmar(step);
 
     expect(submission(step)).toEqual({ waId: FROM, dni: "12345678", nombreCompleto: "JUAN CARLOS QUISPE PEREZ", descripcion: "El consultorio estaba cerrado.", establecimientoId: null });
   });
@@ -208,24 +232,30 @@ describe("el registro final: con la persona o anónimo", () => {
     step = handleIncidencia(step.session, text("12345678"));
     step = handleIncidencia(step.session, reniecResult({ status: "error" }));
     step = handleIncidencia(step.session, text("Juan"));
+    step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
+    step = confirmar(step);
 
     expect(submission(step)).toMatchObject({ dni: "12345678", nombreCompleto: "Juan" });
   });
 
   it("con el establecimiento confirmado: el registro lleva su id", () => {
     let step = handleIncidencia({ ...identityChoice(), slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } }, tap("incidencia_anonimo"));
+    step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
+    step = confirmar(step);
 
     expect(submission(step)).toMatchObject({ establecimientoId: 7 });
   });
 
   it("anónimo: llega con documento y nombre en null", () => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
+    step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
+    step = confirmar(step);
 
     expect(submission(step)).toEqual({ waId: FROM, dni: null, nombreCompleto: null, descripcion: "El consultorio estaba cerrado.", establecimientoId: null });
   });
@@ -236,30 +266,28 @@ function awaitingFoto(): Session {
 }
 
 describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", () => {
-  it.each(["image", "document"] as const)("un archivo (%s) se reconoce, se acusa y se registra la incidencia sin él", (type) => {
+  it.each(["image", "document"] as const)("un archivo (%s) se reconoce, se acusa y pide confirmar el registro (sin guardarlo todavía)", (type) => {
     const result = handleIncidencia(awaitingFoto(), file(type));
 
-    expect(result.session.state).toBe("incidencia_submit_pending");
+    expect(result.session.state).toBe("incidencia_confirm_registro");
     expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
-    const [register] = queries(result);
-    expect(register.kind).toBe("incidencia_register");
-    expect(register.payload.submission).not.toHaveProperty("mediaDataUri");
+    expect(queries(result)).toHaveLength(0);
     expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
   });
 
-  it("'OMITIR' sigue funcionando como atajo determinístico (sin IA), sin acuse", () => {
+  it("'OMITIR' sigue funcionando como atajo determinístico (sin IA): pide confirmar, sin acuse", () => {
     const result = handleIncidencia(awaitingFoto(), text("OMITIR"));
 
-    expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0].kind).toBe("incidencia_register");
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(queries(result)).toHaveLength(0);
     expect(texts(result)).not.toContain("Ok, se registró tu evidencia.");
   });
 
-  it("tocar el botón Omitir registra la incidencia igual que escribir OMITIR, sin IA ni acuse", () => {
+  it("tocar el botón Omitir pide confirmar el registro igual que escribir OMITIR, sin IA ni acuse", () => {
     const result = handleIncidencia(awaitingFoto(), { from: FROM, type: "button", listId: "incidencia_foto_omitir" });
 
-    expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0].kind).toBe("incidencia_register");
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(queries(result)).toHaveLength(0);
     expect(texts(result)).not.toContain("Ok, se registró tu evidencia.");
   });
 
@@ -274,7 +302,7 @@ describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", ()
   it("'no quiero' se reconoce determinísticamente (sin IA)", () => {
     const result = handleIncidencia(awaitingFoto(), text("no quiero"));
 
-    expect(result.session.state).toBe("incidencia_submit_pending");
+    expect(result.session.state).toBe("incidencia_confirm_registro");
   });
 
   it("texto ambiguo tipo 'no deseo' dispara la consulta a IA en vez de reinterpretar solo", () => {
@@ -352,18 +380,18 @@ describe("«quiero cerrar» cancela desde cualquier paso", () => {
   });
 
   it("tocar un botón no cancela", () => {
-    expect(handleIncidencia(identityChoice(), tap("incidencia_anonimo")).session.state).toBe("incidencia_awaiting_descripcion");
+    expect(handleIncidencia(identityChoice(), tap("incidencia_anonimo")).session.state).toBe("incidencia_consent_check_pending");
   });
 });
 
 describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
   const pending = (): Session => ({ state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} });
 
-  it("si la IA dice que quiere omitir, registra la incidencia", () => {
+  it("si la IA dice que quiere omitir, pide confirmar el registro", () => {
     const result = handleIncidencia(pending(), fotoIntentResult(true));
 
-    expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)[0].kind).toBe("incidencia_register");
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(queries(result)).toHaveLength(0);
   });
 
   it("si la IA dice que no quiere omitir, vuelve a pedir la evidencia", () => {
@@ -428,5 +456,95 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
 
     expect(result.session.state).toBe("incidencia_failed");
     expect(texts(result)[0]).toContain("No pudimos registrar tu incidencia");
+  });
+});
+
+describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
+  const checkPending = (): Session => ({ state: "incidencia_consent_check_pending", slots: { [SlotKey.NOMBRE_COMPLETO]: "Ana" }, counters: {} });
+  const choice = (): Session => ({ state: "incidencia_consent_choice", slots: {}, counters: {} });
+  const registerPending = (): Session => ({ state: "incidencia_consent_register_pending", slots: {}, counters: {} });
+
+  it("si ya había autorizado antes, salta directo al relato sin volver a preguntar", () => {
+    const result = handleIncidencia(checkPending(), consentCheckResult(true));
+
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(queries(result)).toHaveLength(0);
+  });
+
+  it("si nunca autorizó, muestra el aviso de privacidad con los botones Autorizo/No autorizo", () => {
+    const result = handleIncidencia(checkPending(), consentCheckResult(false));
+
+    expect(result.session.state).toBe("incidencia_consent_choice");
+    expect(sent(result)[1]).toMatchObject({
+      kind: "send_buttons",
+      buttons: [
+        { id: "incidencia_consent_si", title: "Autorizo y deseo continuar" },
+        { id: "incidencia_consent_no", title: "No autorizo" },
+      ],
+    });
+  });
+
+  it("«Autorizo» deja constancia en la base y recién después pasa al relato", () => {
+    const result = handleIncidencia(choice(), tap("incidencia_consent_si"));
+
+    expect(result.session.state).toBe("incidencia_consent_register_pending");
+    expect(queries(result)).toEqual([{ kind: "registrar_consentimiento", payload: {} }]);
+  });
+
+  it("tras registrar el consentimiento, pasa al relato", () => {
+    const result = handleIncidencia(registerPending(), consentRegisterResult());
+
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+  });
+
+  it("«No autorizo» cierra sin registrar nada y sin ofrecer reintento", () => {
+    const result = handleIncidencia(choice(), tap("incidencia_consent_no"));
+
+    expect(result.session).toEqual({ state: "incidencia_cancelled", slots: {}, counters: {} });
+    expect(queries(result)).toHaveLength(0);
+    expect(texts(result)[0]).toContain("No se registrará tu incidencia por este canal");
+  });
+
+  it("una respuesta ambigua avisa que no se entendió y repite los botones", () => {
+    const result = handleIncidencia(choice(), text("tal vez"));
+
+    expect(result.session.state).toBe("incidencia_consent_choice");
+    expect(texts(result)[0]).toContain("No pudimos identificar tu respuesta");
+    expect(sent(result)[1]).toMatchObject({ kind: "send_buttons" });
+  });
+
+  it("«quiero cerrar» también corta desde la elección de consentimiento", () => {
+    expect(handleIncidencia(choice(), text("quiero cerrar")).session.state).toBe("incidencia_cancelled");
+  });
+});
+
+describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
+  const confirming = (): Session => ({
+    state: "incidencia_confirm_registro",
+    slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo." },
+    counters: {},
+  });
+
+  it("«Registrar» dispara el registro real", () => {
+    const result = handleIncidencia(confirming(), tap("incidencia_confirmar_registro_si"));
+
+    expect(result.session.state).toBe("incidencia_submit_pending");
+    expect(queries(result)).toEqual([{ kind: "incidencia_register", payload: { submission: expect.objectContaining({ descripcion: "Me cobraron sin recibo." }) } }]);
+  });
+
+  it("«Cancelar» cierra sin registrar nada", () => {
+    const result = handleIncidencia(confirming(), tap("incidencia_confirmar_registro_no"));
+
+    expect(result.session).toEqual({ state: "incidencia_cancelled", slots: {}, counters: {} });
+    expect(queries(result)).toHaveLength(0);
+    expect(texts(result)[0]).toContain("no se registró tu incidencia");
+  });
+
+  it("una respuesta ambigua avisa que no se entendió y repite el resumen con los botones", () => {
+    const result = handleIncidencia(confirming(), text("quizás"));
+
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(texts(result)[0]).toContain("No pudimos identificar tu respuesta");
+    expect(sent(result)[1]).toMatchObject({ kind: "send_buttons" });
   });
 });

@@ -51,7 +51,11 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     await expect(p.state()).resolves.toBe("incidencia_confirm_ubicacion");
 
     await p.tap("incidencia_ubicacion_si");
-    await p.tap("incidencia_anonimo");
+    const consentAsked = await p.tap("incidencia_anonimo");
+    expect(consentAsked.some((effect) => effect.kind === "send_buttons")).toBe(true);
+    await expect(p.state()).resolves.toBe("incidencia_consent_choice");
+
+    await p.tap("incidencia_consent_si");
     const asked = await p.text("Me cobraron sin recibo en la ventanilla de admisión.");
     expect(asked[0].text).toContain("evidencia");
 
@@ -59,9 +63,12 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     expect(sticker).toEqual([]);
     await expect(p.state()).resolves.toBe("incidencia_awaiting_foto");
 
-    const done = await p.file("document");
+    const confirming = await p.file("document");
+    expect(confirming[0].text).toBe("Ok, se registró tu evidencia.");
+    await expect(p.state()).resolves.toBe("incidencia_confirm_registro");
+
+    const done = await p.tap("incidencia_confirmar_registro_si");
     expect(done.map((effect) => effect.text)).toEqual([
-      "Ok, se registró tu evidencia.",
       "Enviando tu incidencia…",
       expect.stringMatching(/código MINSA-\d{4}-\d{6,}/),
     ]);

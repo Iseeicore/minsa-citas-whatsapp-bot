@@ -82,7 +82,10 @@ describe("what the menu does with that answer", () => {
     const located = handle(asked.session, answer({ intent: "incidencia" }));
     const identity = { ...located.session, state: "incidencia_identity_choice" as const };
 
-    const result = handle(identity, { from: FROM, type: "button", listId: "incidencia_anonimo" });
+    const consentChecked = handle(identity, { from: FROM, type: "button", listId: "incidencia_anonimo" });
+    expect(consentChecked.session.state).toBe("incidencia_consent_check_pending");
+
+    const result = handle(consentChecked.session, { from: FROM, type: "query_result", queryKind: "verificar_consentimiento", result: { aceptado: true } });
     expect(result.session.state).toBe("incidencia_confirm_borrador");
     expect((sent(result)[0] as { text: string }).text).toContain(STORY);
   });

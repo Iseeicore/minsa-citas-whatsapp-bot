@@ -1,12 +1,12 @@
 import type { BuscarEstablecimientoResult } from "@/lib/establecimientos/buscar";
 import { decidirCandidatos, type Establecimiento } from "@/lib/establecimientos/decidir";
+import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
 import { UNREADABLE_TEXT_RETRY } from "@/lib/fsm/flows/incidencia/pasos-comunes";
-import { buildResult, cloneSession, omitSlot, query, readReply, sendButtons, sendText, withLeadingText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, omitSlot, query, sendButtons, sendText, withLeadingText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { parseCodigoSuelto, type InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { quiereOmitirUbicacion } from "@/lib/fsm/parsing/text/omitir-ubicacion";
-import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -176,15 +176,6 @@ function askAgain(next: Session, message: string): HandlerResult {
   return buildResult(next, [sendText(message)]);
 }
 
-function readConfirmation(event: InboundEvent, yes: IncidenciaButtonId, no: IncidenciaButtonId): Confirmation | undefined {
-  const reply = readReply(event);
-  if (reply === yes) return Confirmation.YES;
-  if (reply === no) return Confirmation.NO;
-  const typed = (event.text ?? "").trim();
-  if (!typed) return undefined;
-  const resolved = resolveConfirmation(typed);
-  return resolved === Confirmation.YES || resolved === Confirmation.NO ? resolved : undefined;
-}
 
 export function handleConfirmUbicacion(session: Session, event: InboundEvent): HandlerResult {
   const propuesto = readPropuesto(session);
