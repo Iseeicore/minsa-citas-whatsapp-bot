@@ -29,7 +29,7 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     const waId = `smoke-${randomUUID()}`;
     const send = async (message: Pick<WhatsAppMessage, "type"> & Partial<WhatsAppMessage>) => {
       sender.delivered.length = 0;
-      await processValue({ messages: [{ id: `wamid.${randomUUID()}`, from_user_id: waId, timestamp: "1780000000", ...message }] });
+      await processValue({ messages: [{ id: `wamid.${randomUUID()}`, from_user_id: waId, timestamp: String(Math.floor(Date.now() / 1000)), ...message }] });
       return sender.delivered.filter((item) => item.waId === waId).map((item) => item.effect);
     };
     return {

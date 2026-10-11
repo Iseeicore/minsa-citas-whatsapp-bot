@@ -325,6 +325,7 @@ model Mensaje {
   waMessageId         String?  @unique(map: "uq_mensaje_wa_message_id") @map("wa_message_id")
   estadoMensajeId     Int      @default(1) @map("estado_mensaje_id") @db.SmallInt
   fechaHora           DateTime @map("fecha_hora") @db.Timestamptz(3)
+  procesadoEn         DateTime? @map("procesado_en") @db.Timestamptz(3)
   versionFila         Int      @default(1) @map("version_fila")
   fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")

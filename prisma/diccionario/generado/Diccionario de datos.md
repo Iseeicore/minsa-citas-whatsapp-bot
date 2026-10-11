@@ -766,6 +766,7 @@ Mensaje de la conversación, entrante o saliente. Es la tabla de mayor volumen: 
 | `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
 | `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
 | `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
+| `procesado_en` | timestamp(3) with time zone | Sí |  |  | Momento en que el bot atendió (o descartó por viejo o repetido) un mensaje entrante. NULL significa pendiente de atender. |
 
 **Llaves foráneas** (qué relaciona y para qué)
 

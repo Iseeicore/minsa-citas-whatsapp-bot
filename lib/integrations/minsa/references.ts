@@ -1,5 +1,5 @@
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { FAKE_REFERENCIAS } from "@/lib/integrations/minsa/fake-data";
+import { FAKE_REFERENCIAS, FAKE_REFERENCIAS_DNI } from "@/lib/integrations/minsa/fake-data";
 import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
@@ -24,12 +24,17 @@ function parseReferencia(raw: Record<string, unknown>): ReferenciaItem | undefin
   if (!isEstadoVisible(estado)) return undefined;
 
   const ipressOrigen = raw.ipress_origen as { descripcion?: unknown } | string | undefined;
-  const ipressDestino = raw.ipress_destino as { descripcion?: unknown } | string | undefined;
+  const ipressDestino = raw.ipress_destino as { codigo?: unknown; descripcion?: unknown } | string | undefined;
   const upsOrigen = raw.ups_origen as { descripcion?: unknown } | string | undefined;
-  const upsDestino = raw.ups_destino as { descripcion?: unknown } | string | undefined;
+  const upsDestino = raw.ups_destino as { codigo?: unknown; descripcion?: unknown } | string | undefined;
 
   const descripcionDe = (value: { descripcion?: unknown } | string | undefined): string =>
     typeof value === "string" ? value : typeof value?.descripcion === "string" ? value.descripcion : "";
+
+  const codigoDe = (value: { codigo?: unknown } | string | undefined): string => {
+    const codigo = typeof value === "object" && value !== null ? value.codigo : undefined;
+    return typeof codigo === "string" || typeof codigo === "number" ? String(codigo) : "";
+  };
 
   const idReferencia = raw.id_referencia ?? raw.idReferencia;
   if (typeof idReferencia !== "string" && typeof idReferencia !== "number") return undefined;
@@ -42,6 +47,8 @@ function parseReferencia(raw: Record<string, unknown>): ReferenciaItem | undefin
     ipressDestino: descripcionDe(ipressDestino),
     upsOrigen: descripcionDe(upsOrigen),
     upsDestino: descripcionDe(upsDestino),
+    codigoIpressDestino: codigoDe(ipressDestino),
+    codigoUpsDestino: codigoDe(upsDestino),
     estado,
   };
 }
@@ -66,5 +73,5 @@ export async function listReferences(numeroDocumento: string, tipoDocumento: str
     return items.length > 0 ? { status: "found", items } : { status: "empty" };
   }
 
-  return FAKE_REFERENCIAS.length > 0 ? { status: "found", items: FAKE_REFERENCIAS } : { status: "empty" };
+  return numeroDocumento === FAKE_REFERENCIAS_DNI ? { status: "found", items: FAKE_REFERENCIAS } : { status: "empty" };
 }

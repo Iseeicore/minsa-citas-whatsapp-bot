@@ -29,6 +29,7 @@ const request = (body?: unknown) =>
 
 describe("inbox API with DATABASE_ENABLED=false", () => {
   beforeEach(() => {
+    vi.stubEnv("SANDBOX_PAGE_ENABLED", "true");
     vi.stubEnv("DATABASE_ENABLED", "false");
     db.touched = 0;
   });

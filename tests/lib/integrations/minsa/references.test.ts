@@ -9,6 +9,21 @@ describe("fake references", () => {
   it("el sandbox no tiene referencias por defecto, para no interrumpir el flujo feliz existente", async () => {
     await expect(listReferences("12345678", "01")).resolves.toEqual({ status: "empty" });
   });
+
+  it("el sandbox ofrece referencias solo al DNI de prueba 32028036, con los códigos de destino", async () => {
+    const result = await listReferences("32028036", "01");
+
+    expect(result.status).toBe("found");
+    if (result.status !== "found") return;
+    expect(result.items).toHaveLength(6);
+    expect(result.items[0]).toMatchObject({
+      idReferencia: "1364486",
+      codigoIpressDestino: "5987",
+      codigoUpsDestino: "222800",
+      estado: 7,
+    });
+    expect(result.items.every((item) => [3, 5, 7].includes(item.estado))).toBe(true);
+  });
 });
 
 describe("real MINSA — listReferences", () => {
@@ -62,6 +77,8 @@ describe("real MINSA — listReferences", () => {
           ipressDestino: "HOSPITAL MARIA AUXILIADORA",
           upsOrigen: "MEDICINA GENERAL",
           upsDestino: "GASTROENTEROLOGÍA",
+          codigoIpressDestino: "5987",
+          codigoUpsDestino: "222800",
           estado: 7,
         },
         {
@@ -72,6 +89,8 @@ describe("real MINSA — listReferences", () => {
           ipressDestino: "HOSPITAL NACIONAL  DOS DE MAYO",
           upsOrigen: "",
           upsDestino: "",
+          codigoIpressDestino: "6206",
+          codigoUpsDestino: "230101",
           estado: 5,
         },
       ],

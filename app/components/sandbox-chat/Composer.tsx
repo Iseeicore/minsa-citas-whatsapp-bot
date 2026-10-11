@@ -19,7 +19,7 @@ export function Composer({
   return (
     <div className="flex items-center gap-2 border-t border-gray-200 bg-white p-3">
       <label
-        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sb-accent hover:bg-blue-50 ${
+        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-sb-navy ${
           !from || loading ? "pointer-events-none opacity-50" : "cursor-pointer"
         }`}
       >
@@ -35,7 +35,7 @@ export function Composer({
           }}
         />
       </label>
-      <div className="flex flex-1 items-center rounded-full bg-gray-100 px-4 py-2">
+      <div className="flex flex-1 items-center rounded-xl border border-sb-bubble-border bg-sb-panel px-3 py-2 transition-colors focus-within:border-sb-navy focus-within:bg-white">
         <input
           type="text"
           value={inputText}
@@ -55,7 +55,7 @@ export function Composer({
         disabled={!from || loading || !inputText.trim()}
         ariaLabel="Enviar mensaje"
         size="h-9 w-9"
-        toneClassName="bg-sb-accent"
+        toneClassName="bg-sb-navy hover:bg-sb-navy-dark"
       />
     </div>
   );

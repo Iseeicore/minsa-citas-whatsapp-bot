@@ -2,6 +2,21 @@
 -- Fuente: la carpeta scripts/ del diseno de la base; mantener ambas sincronizadas.
 
 -- ===== 001_esquema.sql: Tablas, llaves, indices y esquemas (el DDL que genera Prisma desde schema.prisma).
+-- uuidv7() es nativa desde PostgreSQL 18; en versiones anteriores se define aqui un equivalente (RFC 9562) para que los DEFAULT funcionen igual.
+DO $$
+BEGIN
+  IF to_regprocedure('uuidv7()') IS NULL THEN
+    CREATE FUNCTION public.uuidv7() RETURNS uuid
+    LANGUAGE sql VOLATILE PARALLEL SAFE AS $f$
+      SELECT encode(
+        set_bit(set_bit(
+          overlay(uuid_send(gen_random_uuid()) PLACING substring(int8send((extract(epoch FROM clock_timestamp()) * 1000)::bigint) FROM 3) FROM 1 FOR 6),
+        52, 1), 53, 1),
+      'hex')::uuid
+    $f$;
+  END IF;
+END $$;
+
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "catalogo";
 

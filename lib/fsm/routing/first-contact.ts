@@ -7,7 +7,7 @@ import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared"
 import { detectCitaRequest, isGreeting, isIncidenciaKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { detectOutOfScope, isCitaKeyword, OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { OosCategory } from "@/lib/enums/oos-category";
-import { buildWelcomeEffect } from "@/lib/fsm/routing/welcome";
+import { buildWelcomeEffects } from "@/lib/fsm/routing/welcome";
 import type { HandlerResult, SessionChannel } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -29,7 +29,7 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
   if (inicio?.origen === "qr") return routed("incidencia", beginIncidencia({}, INCIDENCIA_LEAD, inicio));
 
   if (!message || isGreeting(message)) {
-    return routed("welcome", buildResult({ state: SessionState.MAIN_MENU, slots: {}, counters: {} }, [buildWelcomeEffect(channel)]));
+    return routed("welcome", buildResult({ state: SessionState.MAIN_MENU, slots: {}, counters: {} }, buildWelcomeEffects(channel)));
   }
 
   const outOfScope = detectOutOfScope(message);

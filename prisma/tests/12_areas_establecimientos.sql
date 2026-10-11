@@ -138,7 +138,7 @@ SELECT 1, u.id, u.wa_id, true, 'Sin origen', 't12-sin-origen' FROM chatbot.usuar
 
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET establecimiento_id = (SELECT id FROM catalogo.establecimiento_salud WHERE codigo_renipress = '5614') WHERE trace_id = 't12-origen'$q$, '23514', 'O05 el establecimiento de origen no cambia');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET establecimiento_id = (SELECT id FROM catalogo.establecimiento_salud WHERE codigo_renipress = '5614') WHERE trace_id = 't12-sin-origen'$q$, '23514', 'O06 quien no es la migracion no completa el origen vacio');
-SELECT pg_temp.espera_error($q$DELETE FROM catalogo.establecimiento_salud WHERE codigo_renipress = '6206'$q$, '23001', 'O07 un establecimiento con incidencias no se borra');
+SELECT pg_temp.espera_error($q$DELETE FROM catalogo.establecimiento_salud WHERE codigo_renipress = '6206'$q$, CASE WHEN current_setting('server_version_num')::int >= 180000 THEN '23001' ELSE '23503' END, 'O07 un establecimiento con incidencias no se borra (la llave foranea RESTRICT da 23001 desde PostgreSQL 18 y 23503 antes)');
 
 SELECT set_config('app.actor', 'sistema:migracion', false);
 UPDATE chatbot.incidencia_paciente SET establecimiento_id = (SELECT id FROM catalogo.establecimiento_salud WHERE codigo_renipress = '5614') WHERE trace_id = 't12-sin-origen';

@@ -59,6 +59,7 @@ const post = (body: unknown) =>
 describe("the inbox API keeps its contract on top of usuario and mensaje", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("SANDBOX_PAGE_ENABLED", "true");
     vi.stubEnv("META_PHONE_NUMBER_ID", "123");
     vi.stubEnv("META_ACCESS_TOKEN", "token");
   });

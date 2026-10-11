@@ -4,6 +4,7 @@ import {
   buildResult,
   cloneSession,
   offerPagedList,
+  query,
   sendButtons,
   sendText,
   truncateForRow,
@@ -17,6 +18,7 @@ import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/mi
 import { ReferencesOfferButtonId } from "@/lib/enums/references-offer-button-id";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
+import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -64,8 +66,28 @@ function withLeadingText(result: HandlerResult, text: string): HandlerResult {
 
 function offerReferenciasList(session: Session): HandlerResult {
   const next = cloneSession(session);
+  delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
   next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
   return buildResult(next, offerPagedList(next, "Estas son tus referencias:", referenciaRows(readReferencias(next))));
+}
+
+function continueWithReferencia(session: Session, item: ReferenciaItem | undefined): HandlerResult {
+  if (!item?.codigoIpressDestino || !item.codigoUpsDestino) {
+    const normal = cloneSession(session);
+    delete normal.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
+    return continueCitaAfterVerification(normal);
+  }
+
+  const next = cloneSession(session);
+  next.slots[SlotKey.CITA_COD_EESS] = item.codigoIpressDestino;
+  next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = item.codigoUpsDestino;
+  next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = item.ipressDestino;
+  if (item.upsDestino) next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = item.upsDestino;
+  next.state = SessionState.CITA_FECHA_PENDING;
+  return buildResult(next, [
+    sendText(`Perfecto. Buscando fechas disponibles para tu referencia en *${item.ipressDestino}*…`),
+    query(QueryKind.LIST_FECHAS, { codEess: item.codigoIpressDestino, especialidadId: item.codigoUpsDestino }),
+  ]);
 }
 
 function askReferenciaConfirmation(session: Session, item: ReferenciaItem | undefined): HandlerResult {
@@ -145,11 +167,12 @@ export function handleAwaitingReferenciaConfirm(session: Session, event: Inbound
     return offerReferenciasList(session);
   }
 
-  if (reply === REFERENCIA_CONFIRM_YES_ID || typed === Confirmation.YES) {
-    return continueCitaAfterVerification(session);
-  }
-
   const selectedId = String(session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] ?? "");
   const item = readReferencias(session).find((r) => r.idReferencia === selectedId);
+
+  if (reply === REFERENCIA_CONFIRM_YES_ID || typed === Confirmation.YES) {
+    return continueWithReferencia(session, item);
+  }
+
   return askReferenciaConfirmation(session, item);
 }

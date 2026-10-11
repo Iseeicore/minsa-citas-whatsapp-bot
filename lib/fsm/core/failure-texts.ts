@@ -10,3 +10,6 @@ export type SearchSubject = "especialidades" | "establecimientos" | "fechas" | "
 
 export const searchFailureText = (subject: SearchSubject): string =>
   `Ocurrió un error al buscar ${subject} disponibles. Intenta iniciar tu cita nuevamente en unos minutos.`;
+
+export const INTERRUPTION_NOTICE_TEXT =
+  "Tuvimos una interrupción temporal y no pudimos atender tu mensaje a tiempo. Por favor, escríbenos de nuevo para continuar.";

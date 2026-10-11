@@ -25,6 +25,7 @@ function logBookingFailure(params: BookAppointmentParams, httpStatus: number, bo
       codigoUps: params.codigoUps,
       fechaCita: params.fechaCita,
       horaCita: params.horaCita,
+      referenciaId: params.referenciaId,
     },
   });
 }
@@ -42,6 +43,7 @@ export async function bookAppointment(
         fecha_cita: params.fechaCita,
         hora_cita: params.horaCita,
         numero_documento_paciente: params.numeroDocumentoPaciente,
+        ...(params.referenciaId ? { referencia_id: params.referenciaId } : {}),
       },
       bearer,
     );
