@@ -20,6 +20,8 @@ export type WhatsAppMessage = {
   audio?: { id?: string };
   document?: { id?: string; filename?: string };
   location?: { latitude?: number; longitude?: number };
+  /** Mensaje de sistema de Meta; `user_changed_user_id` avisa que la persona cambió de número y de BSUID. */
+  system?: { type?: string; user_id?: string; previous_user_id?: string };
   interactive?: {
     button_reply?: { id: string; title?: string };
     list_reply?: { id: string; title?: string };
@@ -31,10 +33,17 @@ type WhatsAppStatus = {
   status: string;
 };
 
+/** Elemento del webhook `user_id_update`: el BSUID de una persona cambió (`previous` → `current`). */
+export type WhatsAppUserIdUpdate = {
+  wa_id?: string;
+  user_id?: { previous?: string; current?: string };
+};
+
 export type WhatsAppValue = {
   contacts?: WhatsAppContact[];
   messages?: WhatsAppMessage[];
   statuses?: WhatsAppStatus[];
+  user_id_update?: WhatsAppUserIdUpdate[];
 };
 
 type WhatsAppEntry = {

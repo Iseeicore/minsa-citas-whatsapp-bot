@@ -44,6 +44,9 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `inbound.expired_on_boot` | info | `expired`. Al arrancar, cuántos mensajes entrantes quedaron pendientes por una caída y se vencieron sin responderse |
 | `inbound.expire_failed` | warn | `error`. No se pudo vencer los pendientes al arrancar; el servidor arranca igual |
 | `webhook.entry_failed` | error | `error`. Falló procesar una entrada del webhook fuera del turno (perímetro, estados de entrega); el ciudadano no recibe aviso |
+| `webhook.bsuid_updated` | info | `previous`, `current` (últimos 4). Meta avisó que cambió el identificador de una persona (cambió de número): su usuario y su sesión pasan al identificador nuevo |
+| `webhook.bsuid_conflict` | warn | `previous`, `current` (últimos 4). El identificador nuevo ya tenía usuario propio; no se fusionan y el anterior queda como está (limitación conocida) |
+| `webhook.bsuid_update_failed` | error | `previous`, `current` (últimos 4), `error`. Falló aplicar el cambio de identificador; no afecta a los mensajes del mismo webhook |
 | `webhook.fixed_reply_failed` | error | `waId` (últimos 4), `error`. No se pudo enviar una respuesta fija (perímetro o texto de falla) |
 | `whatsapp.send_failed` | error | `operation` (`send_effect` o `send_cta_url`), `waId` (últimos 4), `status` y `response` (cuerpo de Meta enmascarado y truncado) o `error` |
 | `whatsapp.typing_failed` | warn | `error`. Falló el indicador de «escribiendo»; la respuesta sigue su curso |
