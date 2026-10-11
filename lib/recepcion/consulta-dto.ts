@@ -7,6 +7,12 @@ export type ConsultaIncidenciaResult =
 /** Quién consulta: el usuario de WhatsApp (por su identificador actual) o un documento verificado (DNI + OTP). */
 export type IdentidadConsulta = { canal: "whatsapp"; waId: string } | { canal: "web"; dni: string };
 
+/** Resultado de listar todas las incidencias de quien consulta. Mismos campos que una consulta puntual, nunca descripción ni datos de la persona. */
+export type ListarIncidenciasResult =
+  | { status: "found"; items: Array<{ codigo: string; estado: string; fechaRegistro: string }> }
+  | { status: "empty" }
+  | { status: "error" };
+
 const ESTADO_RECIBIDA = "Recibida, pendiente de revisión";
 
 /** Estado del catálogo (`catalogo.estado_incidencia.codigo`) en palabras para la persona. */

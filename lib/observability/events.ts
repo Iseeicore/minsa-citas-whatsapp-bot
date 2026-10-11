@@ -36,6 +36,8 @@ export const LOG_EVENTS = [
   "incidencia.daily_limit_reached",
   "incidencia.consulta_unavailable",
   "incidencia.consulta_failed",
+  "incidencia.listado_unavailable",
+  "incidencia.listado_failed",
   "sandbox.cors_invalid_origin",
   "config.invalid",
 ] as const;

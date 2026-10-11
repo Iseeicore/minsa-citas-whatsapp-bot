@@ -55,4 +55,6 @@ export enum SlotKey {
   CONSULTA_DNI = "consultaDni",
   CONSULTA_DNI_PENDING = "consultaDniPending",
   CONSULTA_TWOFA_ID = "consultaTwofaId",
+  CONSULTA_LISTANDO = "consultaListando",
+  CONSULTA_LISTADO_DATA = "consultaListadoData",
 }

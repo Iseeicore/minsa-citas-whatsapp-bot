@@ -17,4 +17,5 @@ export enum QueryKind {
   ANALYZE_INCIDENCIA_FOTO_INTENT = "analyze_incidencia_foto_intent",
   BUSCAR_ESTABLECIMIENTO = "buscar_establecimiento",
   CONSULTAR_INCIDENCIA = "consultar_incidencia",
+  LISTAR_INCIDENCIAS = "listar_incidencias",
 }

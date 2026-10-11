@@ -63,6 +63,8 @@ export type SlotTypes = {
   [SlotKey.CONSULTA_DNI]: string;
   [SlotKey.CONSULTA_DNI_PENDING]: string;
   [SlotKey.CONSULTA_TWOFA_ID]: string;
+  [SlotKey.CONSULTA_LISTANDO]: boolean;
+  [SlotKey.CONSULTA_LISTADO_DATA]: string;
 };
 
 export type Slots = { [K in SlotKey]?: SlotTypes[K] };
@@ -161,7 +163,8 @@ export type QueryEffectKind =
   | "list_references"
   | "analyze_incidencia_foto_intent"
   | "buscar_establecimiento"
-  | "consultar_incidencia";
+  | "consultar_incidencia"
+  | "listar_incidencias";
 
 export type QueryEffect = {
   kind: QueryEffectKind;
