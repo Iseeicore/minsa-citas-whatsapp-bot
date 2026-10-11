@@ -70,10 +70,10 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.runTurn).toHaveBeenCalledTimes(1);
   });
 
-  it("an ordinary first message is not filtered: it gets the web welcome, and no menu on top of it", async () => {
+  it("an ordinary first message is not filtered: it gets the web welcome followed by the main menu", async () => {
     const { json } = await send({ type: "text", text: "Hola" });
 
-    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_text"]);
+    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_text", "send_interactive_list"]);
     expect(json.sent[0].text).toContain("asistente virtual de MINSA Digital");
     expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();

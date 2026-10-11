@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TipoDocumento } from "@/lib/enums/tipo-documento";
-import { FAKE_CARNET_EXTRANJERIA, FAKE_DNI, FAKE_TWOFA_ID } from "@/lib/integrations/minsa/fake-data";
+import {
+  FAKE_CARNET_EXTRANJERIA,
+  FAKE_DNI,
+  FAKE_REFERENCIAS_DNI,
+  FAKE_TWOFA_ID,
+} from "@/lib/integrations/minsa/fake-data";
 import { validateUser } from "@/lib/integrations/minsa/identity";
 
 describe("fake validateUser", () => {
@@ -10,6 +15,13 @@ describe("fake validateUser", () => {
 
   it("valida el DNI de prueba", async () => {
     await expect(validateUser(FAKE_DNI, TipoDocumento.DNI)).resolves.toEqual({ status: "valid", twofaId: FAKE_TWOFA_ID });
+  });
+
+  it("valida el DNI de prueba de referencias médicas, para poder recorrer ese flujo en el sandbox", async () => {
+    await expect(validateUser(FAKE_REFERENCIAS_DNI, TipoDocumento.DNI)).resolves.toEqual({
+      status: "valid",
+      twofaId: FAKE_TWOFA_ID,
+    });
   });
 
   it("valida el carnet de extranjería de prueba, con 9 dígitos", async () => {

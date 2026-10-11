@@ -4,13 +4,14 @@ import {
   FAKE_CARNET_EXTRANJERIA,
   FAKE_DNI,
   FAKE_OTP,
+  FAKE_REFERENCIAS_DNI,
   FAKE_TWOFA_ID,
 } from "@/lib/integrations/minsa/fake-data";
 import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 
-const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
+const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA, FAKE_REFERENCIAS_DNI];
 
 export async function validateUser(numeroDocumento: string, tipoDocumento: TipoDocumento): Promise<ValidateUserResult> {
   if (isRealMinsaEnabled()) {

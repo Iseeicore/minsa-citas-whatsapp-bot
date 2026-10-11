@@ -38,6 +38,7 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
   let dir: string;
   let okCli: string;
   let failingCli: string;
+  let resolveFailingCli: string;
 
   beforeAll(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "entrypoint-"));
@@ -45,6 +46,11 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     failingCli = path.join(dir, "fail.js");
     fs.writeFileSync(okCli, 'console.log("MIGRATE_RAN " + process.argv.slice(2).join(" "));');
     fs.writeFileSync(failingCli, "process.exit(1);");
+    resolveFailingCli = path.join(dir, "resolve-fail.js");
+    fs.writeFileSync(
+      resolveFailingCli,
+      'if (process.argv.includes("resolve")) process.exit(1); console.log("MIGRATE_RAN " + process.argv.slice(2).join(" "));',
+    );
   });
 
   afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -87,6 +93,62 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     expect(result.status).toBe(1);
     expect(result.out).toContain("las migraciones fallaron");
     expect(result.out).not.toContain("SERVER_STARTED");
+  });
+
+  it("reset confirmed with the database name: wipes first, then migrates from scratch, then starts", () => {
+    const result = run({
+      DATABASE_ENABLED: "true",
+      DATABASE_URL: "postgresql://u:p@host:5432/bd_chatbot?schema=public",
+      RESET_DATABASE_CONFIRM: "bd_chatbot",
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.out.indexOf("db execute")).toBeGreaterThan(-1);
+    expect(result.out.indexOf("db execute")).toBeLessThan(result.out.indexOf("migrate deploy"));
+    expect(result.out.indexOf("migrate deploy")).toBeLessThan(result.out.indexOf("SERVER_STARTED"));
+  });
+
+  it("reset with a wrong database name: wipes nothing and never starts the server", () => {
+    const result = run({
+      DATABASE_ENABLED: "true",
+      DATABASE_URL: "postgresql://u:p@host:5432/bd_chatbot",
+      RESET_DATABASE_CONFIRM: "otra_base",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.out).toContain("no coincide");
+    expect(result.out).not.toContain("db execute");
+    expect(result.out).not.toContain("SERVER_STARTED");
+  });
+
+  it("without the reset variable: never wipes", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://u:p@host:5432/bd_chatbot" });
+
+    expect(result.out).not.toContain("db execute");
+  });
+
+  it("marks the migration as rolled back, then migrates, then starts", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" });
+
+    expect(result.status).toBe(0);
+    expect(result.out).toContain("MIGRATE_RAN migrate resolve --rolled-back 20261004000000_init --schema schema.prisma");
+    expect(result.out.indexOf("migrate resolve")).toBeLessThan(result.out.indexOf("migrate deploy"));
+    expect(result.out.indexOf("migrate deploy")).toBeLessThan(result.out.indexOf("SERVER_STARTED"));
+  });
+
+  it("the resolve fails (already applied): warns and still migrates and starts", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" }, resolveFailingCli);
+
+    expect(result.status).toBe(0);
+    expect(result.out).toContain("no se pudo marcar como revertida");
+    expect(result.out).toContain("MIGRATE_RAN migrate deploy");
+    expect(result.out).toContain("SERVER_STARTED");
+  });
+
+  it("disabled database: never runs resolve", () => {
+    const result = run({ DATABASE_ENABLED: "false" });
+
+    expect(result.out).not.toContain("migrate resolve");
   });
 
   it("disabled database without a URL: warns and starts without migrating", () => {

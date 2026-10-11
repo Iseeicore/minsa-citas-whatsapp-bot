@@ -1,6 +1,7 @@
 import { buildResult, cloneSession, query, sendText, sendButtons } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
+import { referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
 import { formatHoraRange, ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -36,6 +37,7 @@ export function startBooking(session: Session, horaInicio: string): HandlerResul
   delete next.slots[SlotKey.CITA_HORA_CHOICE_A];
   delete next.slots[SlotKey.CITA_HORA_CHOICE_B];
   next.state = SessionState.CITA_BOOKING_PENDING;
+  const referenciaId = referenciaSeleccionadaId(next.slots);
   return buildResult(next, [
     sendText("Agendando tu cita…"),
     query(QueryKind.BOOK_APPOINTMENT, {
@@ -44,6 +46,7 @@ export function startBooking(session: Session, horaInicio: string): HandlerResul
       fechaCita: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
       horaInicio,
       numeroDocumentoPaciente: String(next.slots[SlotKey.CITA_DNI] ?? ""),
+      ...(referenciaId ? { referenciaId } : {}),
     }),
   ]);
 }
