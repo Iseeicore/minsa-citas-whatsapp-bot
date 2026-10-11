@@ -1,4 +1,8 @@
+import { redirect } from "next/navigation";
 import SandboxWidgetDemo from "@/app/components/SandboxWidgetDemo";
+import { HEALTH_PATH, isSandboxPageEnabled } from "@/lib/config/sandbox-page";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "MINSA Digital",
@@ -6,5 +10,7 @@ export const metadata = {
 };
 
 export default function SandboxPage() {
+  if (!isSandboxPageEnabled()) redirect(HEALTH_PATH);
+
   return <SandboxWidgetDemo />;
 }

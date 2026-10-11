@@ -12,6 +12,8 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 
 ### 0.1 Dónde probar
 
+> Las páginas `/sandbox` y `/configuracion-visor-sandbox` solo se ven con `SANDBOX_PAGE_ENABLED=true`; sin ella redirigen a `/api/health`.
+
 | Entorno | Cómo entrar | Para qué sirve |
 |---|---|---|
 | **Sandbox (widget)** | `/sandbox` | Simula al ciudadano. No muestra el panel de depuración. |

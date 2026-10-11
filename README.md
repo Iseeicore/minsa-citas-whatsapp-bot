@@ -199,6 +199,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
+| `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Sandbox (`/sandbox` y `/configuracion-visor-sandbox`) y deja que `/` redirija a `/sandbox`. Sin definir o con cualquier otro valor quedan ocultas: las tres rutas redirigen a `/api/health`. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). En Production déjala sin definir |
 | `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-widget-del-sandbox) |
 
 **Logs** (ver [docs/observability.md](docs/observability.md))
@@ -346,7 +347,7 @@ El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pul
 
 Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de incidencia, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
-- Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería.
+- Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería. Las páginas se controlan aparte con `SANDBOX_PAGE_ENABLED=true` (local y Vercel); sin ella, `/`, `/sandbox` y `/configuracion-visor-sandbox` redirigen a `/api/health`.
 - Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), DNI `32028036` (trae 6 referencias médicas de prueba para recorrer la cita por referencia), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.
 
 ## Notas técnicas
