@@ -82,6 +82,7 @@ RESET_DATABASE_CONFIRM=<nombre exacto de la base de DATABASE_URL>
 - **Cuándo no borra:** sin la variable, nunca. Si su valor no coincide con el nombre de la base, el servicio no arranca y no borra nada.
 - **Úsala una sola vez y quítala del ambiente antes del siguiente despliegue.** Mientras siga puesta, **cada reinicio vuelve a borrar todo**: no hay ninguna marca que impida repetirlo.
 - **No la uses con incidencias reales.**
+- **Requiere el esquema `public` sin tablas ajenas a Prisma** (en un despliegue normal solo está `_prisma_migrations`, que el reset borra). Si las hay, tras borrar los esquemas `migrate deploy` falla con `P3005` y la base queda sin esquemas: quita esas tablas y vuelve a arrancar.
 - En cada arranque con base, el entrypoint además marca como revertida la migración inicial (`20261004000000_init`) si quedó fallida, para poder reintentarla; si ya está aplicada, no hace nada.
 
 ### Conectar un frontend externo (widget del Sandbox)

@@ -93,7 +93,7 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 
 | Variable | Por qué |
 |---|---|
-| `RESET_DATABASE_CONFIRM` | **Destructiva.** Si vale lo mismo que el nombre de la base, el arranque borra todos los esquemas y migra desde cero. Con la variable puesta, **cada reinicio vuelve a borrar todo**. Se usa una sola vez y se quita antes del siguiente arranque. Ver el [README](../README.md#borrar-la-base-y-migrar-desde-cero) |
+| `RESET_DATABASE_CONFIRM` | **Destructiva.** Si vale lo mismo que el nombre de la base, el arranque borra todos los esquemas y migra desde cero. Con la variable puesta, **cada reinicio vuelve a borrar todo**. Solo funciona si el esquema `public` no tiene tablas ajenas a Prisma; si las tiene, tras borrar las migraciones fallan (P3005) y la base queda sin esquemas. Se usa una sola vez y se quita antes del siguiente arranque. Ver el [README](../README.md#borrar-la-base-y-migrar-desde-cero) |
 | `SANDBOX_PAGE_ENABLED=true` | Abre una bandeja sin autenticación |
 | `INBOUND_RATE_LIMIT=off` y `TURN_DB_LOCK=off` | Quitan la protección contra ráfagas de mensajes y contra procesar dos veces un mismo turno |
 
@@ -116,7 +116,7 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 1. Crear la base según la sección 2.
 2. Preparar el `.env` con las variables de la sección 3, junto a `docker-compose.yml`.
 3. Construir y levantar la imagen (`npm run docker:up`, o el procedimiento propio de infraestructura sobre el mismo `Dockerfile`).
-4. El contenedor aplica las migraciones al arrancar. En el log aparecen mensajes `[entrypoint]`; el último, si todo salió bien, es `Migraciones al día. Iniciando el servicio.` Si fallan, el contenedor se detiene con un mensaje que indica qué revisar.
+4. El contenedor aplica las migraciones al arrancar. En el log aparecen mensajes `[entrypoint]`; el último, si todo salió bien, es `Migraciones al día. Iniciando el servicio.` Si fallan, el contenedor se detiene con un mensaje que indica qué revisar. En el log pueden aparecer `Error: Invariant violation` (primer arranque) o `Error: P3012` (reinicios): vienen del paso que intenta marcar como revertida la migración inicial, son **inofensivos** y el arranque continúa.
 
 ## 6. Comprobaciones posteriores
 
