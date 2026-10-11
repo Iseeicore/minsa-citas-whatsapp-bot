@@ -72,7 +72,7 @@ export function SandboxHeader({
         )}
       </div>
 
-      <AssistantCard fluid className="border-b border-sb-bubble-border bg-white px-3 pt-3" />
+      <AssistantCard fluid className="border-b border-sb-bubble-border bg-white pl-0 pr-3 pt-3" />
     </header>
   );
 }
