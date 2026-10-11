@@ -67,7 +67,7 @@ describe("main_menu — lexical guard routing", () => {
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(hasQuery(result)).toBe(false);
-    const [effect] = sentEffects(result);
+    const [, effect] = sentEffects(result);
     expect(effect.kind).toBe("send_text");
     expect((effect as { text: string }).text).toContain("¿En qué establecimiento de salud ocurrió?");
   });
@@ -214,7 +214,7 @@ describe("main_menu — numeric shortcut", () => {
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(hasQuery(result)).toBe(false);
-    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text"]);
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text", "send_text"]);
     expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("registrar_incidencia");
   });
 
