@@ -2,7 +2,8 @@ import { handleCita } from "@/lib/fsm/flows/cita/handlers-cita";
 import { handleConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
-import { detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
+import { detectIncidenciaExpiry, detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
+import { beginIncidenciaReauth, handleAwaitingIncidenciaReauth } from "@/lib/fsm/flows/incidencia/reauth";
 import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -38,6 +39,10 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
     return handleAwaitingReauth(session, event as InboundEvent);
   }
 
+  if (session.state === SessionState.INCIDENCIA_AWAITING_REAUTH && event.type !== "query_result") {
+    return handleAwaitingIncidenciaReauth(session, event as InboundEvent);
+  }
+
   const expiry = detectSessionExpiry(session, event, now);
   if (expiry) {
     return withNote(beginSessionReauth(session), {
@@ -45,6 +50,19 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
       level: "warn",
       detail: {
         reason: expiry === SessionExpiryReason.IDLE ? "IDLE_TIMEOUT" : "JWT_EXPIRED",
+        state: session.state,
+        ...(session.updatedAt ? { idleMs: now - session.updatedAt.getTime() } : {}),
+      },
+    });
+  }
+
+  const incidenciaExpiry = detectIncidenciaExpiry(session, event, now);
+  if (incidenciaExpiry) {
+    return withNote(beginIncidenciaReauth(session), {
+      kind: "session_expired",
+      level: "warn",
+      detail: {
+        reason: "IDLE_TIMEOUT",
         state: session.state,
         ...(session.updatedAt ? { idleMs: now - session.updatedAt.getTime() } : {}),
       },

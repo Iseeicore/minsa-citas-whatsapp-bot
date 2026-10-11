@@ -83,4 +83,5 @@ export enum SessionState {
   INCIDENCIA_CONSENT_CHOICE = "incidencia_consent_choice",
   INCIDENCIA_CONSENT_REGISTER_PENDING = "incidencia_consent_register_pending",
   INCIDENCIA_CONFIRM_REGISTRO = "incidencia_confirm_registro",
+  INCIDENCIA_AWAITING_REAUTH = "incidencia_awaiting_reauth",
 }

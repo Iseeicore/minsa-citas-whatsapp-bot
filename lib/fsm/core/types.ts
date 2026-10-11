@@ -15,6 +15,7 @@ export type SlotTypes = {
   [SlotKey.INITIAL_MESSAGE_TEXT]: string;
   [SlotKey.CITA_FECHA]: string;
   [SlotKey.CITA_RESUME_STATE]: string;
+  [SlotKey.INCIDENCIA_RESUME_STATE]: string;
   [SlotKey.CITA_UBIGEO]: string;
   [SlotKey.CITA_DNI]: string | null;
   [SlotKey.CITA_HORA_CONFIRM_ONLY]: string;
