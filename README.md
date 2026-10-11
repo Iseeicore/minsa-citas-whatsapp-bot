@@ -378,6 +378,7 @@ Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de con
 | Documento | Contenido |
 |---|---|
 | [docs/flujo-cita.md](docs/flujo-cita.md) | Árbol del flujo de cita: listas, botones, texto libre que entiende cada paso y todas las ramas de error |
+| [docs/despliegue-minsa.md](docs/despliegue-minsa.md) | Requisitos de la base, variables nuevas, despliegue y comprobaciones para infraestructura de MINSA |
 | [docs/ci.md](docs/ci.md) | Qué comprueba el CI y la regla de la rama `main` |
 | [docs/observability.md](docs/observability.md) | Logs estructurados, trazas y enmascarado |
 | [docs/technical-gaps.md](docs/technical-gaps.md) | Brechas técnicas conocidas y su estado |
