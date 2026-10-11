@@ -16,10 +16,13 @@ import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 
+/** El bot descarta lo que llega con más de 2 minutos de antigüedad, así que el mensaje de prueba lleva la hora de ahora. */
+const nowSeconds = (): number => Math.floor(Date.now() / 1000);
+
 const textMessage = (waId: string, wamid: string, body: string) => ({
   id: wamid,
   from_user_id: waId,
-  timestamp: "1780000000",
+  timestamp: String(nowSeconds()),
   type: "text",
   text: { body },
 });
@@ -78,23 +81,25 @@ describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real Postg
 
     await processValue({ statuses: [{ id: wamid, status: "delivered" }] });
 
+    // versión 1 al guardarlo, 2 al marcarlo atendido (procesado_en) y 3 con el aviso de entrega de Meta.
     const mensaje = await prisma.mensaje.findUniqueOrThrow({ where: { waMessageId: wamid } });
     expect(mensaje).toMatchObject({
       estadoMensajeId: EstadoMensajeId.ENTREGADO,
       usuarioModificacion: "externo:meta",
       usuarioCreacion: `ciudadano:${waId}`,
-      versionFila: 2,
+      versionFila: 3,
     });
   });
 
   it("a second message from the same citizen keeps one user and refreshes the last-message time", async () => {
     const waId = `smoke-${randomUUID()}`;
     await processValue({ messages: [textMessage(waId, `wamid.${randomUUID()}`, "uno")] });
-    await processValue({ messages: [{ ...textMessage(waId, `wamid.${randomUUID()}`, "dos"), timestamp: "1780000100" }] });
+    const later = nowSeconds() + 100;
+    await processValue({ messages: [{ ...textMessage(waId, `wamid.${randomUUID()}`, "dos"), timestamp: String(later) }] });
 
     expect(await prisma.usuario.count({ where: { waId } })).toBe(1);
     const usuario = await prisma.usuario.findUniqueOrThrow({ where: { waId } });
-    expect(usuario.ultimoMensajeEn.getTime()).toBe(1780000100 * 1000);
+    expect(usuario.ultimoMensajeEn.getTime()).toBe(later * 1000);
     expect(usuario.versionFila).toBe(2);
   });
 });
