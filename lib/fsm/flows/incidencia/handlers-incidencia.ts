@@ -25,7 +25,7 @@ import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-pa
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
 import { quiereCerrar } from "@/lib/fsm/parsing/text/cerrar-incidencia";
-import { buildResult, cloneSession, query, readReply, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query, readReply, sendButtons, sendText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
@@ -107,9 +107,9 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
 
   if (replyId === IncidenciaButtonId.ANONIMO) return askConsentimiento(next);
 
-  return buildResult(session, [
+  return withRejectionNotice(buildResult(session, [
     sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", INCIDENCIA_NOMBRE_BUTTONS),
-  ]);
+  ]));
 }
 
 /**
@@ -193,7 +193,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR) return askConfirmRegistro(session);
 
   const typed = (event.text ?? "").trim();
-  if (!typed) return buildResult(session, [askFoto()]);
+  if (!typed) return withRejectionNotice(buildResult(session, [askFoto()]));
 
   if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === Confirmation.NO) {
     return askConfirmRegistro(session);
@@ -204,7 +204,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
     typed.length > FOTO_INTENT_MAX_LENGTH ||
     looksLikeNoise(typed)
   ) {
-    return buildResult(session, [askFoto()]);
+    return withRejectionNotice(buildResult(session, [askFoto()]));
   }
 
   const next = cloneSession(session);
@@ -226,11 +226,21 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
   return buildResult(next, [askFoto()]);
 }
 
-/** Con establecimiento se entrega el código de seguimiento; sin él, solo se agradece. */
+/**
+ * Con establecimiento se entrega el código de seguimiento; sin él, solo se agradece. Además, el texto final distingue si la
+ * persona se identificó (tiene DNI verificado en la sesión) o fue anónima.
+ */
 function confirmationText(session: Session, codigo: string | undefined): string {
   const hasEstablecimiento = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] !== undefined;
-  if (hasEstablecimiento && codigo) return `¡Gracias! Tu incidencia quedó registrada con el código ${codigo}. Guárdalo para darle seguimiento.`;
-  return "Gracias por tu reporte de incidencia, ya se registró.";
+  const identificado = session.slots[SlotKey.DNI] !== undefined;
+
+  if (!(hasEstablecimiento && codigo)) return "Gracias por tu reporte de incidencia, ya se registró.";
+
+  const base = `¡Gracias! Tu incidencia quedó registrada con el código ${codigo}. Guárdalo para darle seguimiento.`;
+  const adicional = identificado
+    ? "Si el área responsable necesita información adicional, se comunicará contigo."
+    : "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.";
+  return `${base} ${adicional}`;
 }
 
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {

@@ -8,6 +8,8 @@ import {
   sendButtons,
   sendText,
   truncateForRow,
+  withLeadingText,
+  withRejectionNotice,
   WHATSAPP_ROW_DESCRIPTION_MAX,
   WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
@@ -58,10 +60,6 @@ function referenciaRows(items: ReferenciaItem[]): ListRow[] {
     title: truncateForRow(item.ipressDestino, WHATSAPP_ROW_TITLE_MAX),
     description: truncateForRow(`${formatFechaHora12(item.fechaInicio)} · ${item.ipressOrigen}`, WHATSAPP_ROW_DESCRIPTION_MAX),
   }));
-}
-
-function withLeadingText(result: HandlerResult, text: string): HandlerResult {
-  return { ...result, effects: [sendText(text), ...result.effects] };
 }
 
 function offerReferenciasList(session: Session): HandlerResult {
@@ -139,12 +137,12 @@ export function handleAwaitingReferenciasOffer(session: Session, event: InboundE
     return withLeadingText(continueCitaAfterVerification(session), "Entendido, continuamos con tu cita médica.");
   }
 
-  return buildResult(session, [
+  return withRejectionNotice(buildResult(session, [
     sendButtons("¿Deseas revisar tus referencias?", [
       { id: REFERENCES_OFFER_YES_ID, title: "Sí" },
       { id: REFERENCES_OFFER_NO_ID, title: "No" },
     ]),
-  ]);
+  ]));
 }
 
 export function handleAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {

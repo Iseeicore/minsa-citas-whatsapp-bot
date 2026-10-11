@@ -11,8 +11,12 @@ import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
+import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { OosCategory } from "@/lib/enums/oos-category";
 import { SlotKey } from "@/lib/enums/slot-key";
+
+const AVISO_EMERGENCIA_TEXT = OOS_MESSAGES[OosCategory.OOS_01];
 
 const FROM = "sandbox-ubicacion";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -78,6 +82,7 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(sent(result)).toEqual([
+      { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
       { kind: "send_text", text: "¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS." },
     ]);
   });
@@ -85,7 +90,10 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
   it("the menu option and the shortcuts ask for the place too", () => {
     const fromMenu = handle(at("main_menu"), tap("registrar_incidencia"));
     expect(fromMenu.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(sent(fromMenu)).toEqual([{ kind: "send_text", text: "Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS." }]);
+    expect(sent(fromMenu)).toEqual([
+      { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
+      { kind: "send_text", text: "Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS." },
+    ]);
   });
 
   it("a QR scanned with the main menu already open is read too", () => {
@@ -263,7 +271,8 @@ describe("confirming the place", () => {
     const result = handle(at("incidencia_confirm_ubicacion", propuesto), text("mmm"));
 
     expect(result.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
+    expect(sent(result)[1]).toMatchObject({ kind: "send_buttons" });
   });
 });
 

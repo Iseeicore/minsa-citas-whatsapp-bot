@@ -1,6 +1,6 @@
 import { enterDescripcion } from "@/lib/fsm/flows/incidencia/borrador";
-import { readConfirmation, withRejectionNotice } from "@/lib/fsm/flows/incidencia/confirmation";
-import { buildResult, cloneSession, query, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
+import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
+import { buildResult, cloneSession, query, sendButtons, sendText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";

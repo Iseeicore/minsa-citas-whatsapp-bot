@@ -2,18 +2,22 @@ import type { BuscarEstablecimientoResult } from "@/lib/establecimientos/buscar"
 import { decidirCandidatos, type Establecimiento } from "@/lib/establecimientos/decidir";
 import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
 import { UNREADABLE_TEXT_RETRY } from "@/lib/fsm/flows/incidencia/pasos-comunes";
-import { buildResult, cloneSession, omitSlot, query, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, omitSlot, query, sendButtons, sendText, withLeadingText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { parseCodigoSuelto, type InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { quiereOmitirUbicacion } from "@/lib/fsm/parsing/text/omitir-ubicacion";
 import { looksLikeNoise } from "@/lib/security/text-noise";
+import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { OosCategory } from "@/lib/enums/oos-category";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+
+const AVISO_EMERGENCIA_TEXT = OOS_MESSAGES[OosCategory.OOS_01];
 
 export const MAX_INTENTOS_UBICACION = 3;
 
@@ -71,10 +75,10 @@ export function beginIncidencia(slots: Session["slots"], lead: string, inicio: I
 
   if (inicio?.codigoRenipress) {
     if (inicio.nombre) next.slots[SlotKey.INCIDENCIA_UBICACION_TEXTO] = inicio.nombre;
-    return searching(next, { codigo: inicio.codigoRenipress });
+    return withLeadingText(searching(next, { codigo: inicio.codigoRenipress }), AVISO_EMERGENCIA_TEXT);
   }
-  if (inicio?.nombre) return searching(next, { nombre: inicio.nombre });
-  return buildResult(next, [sendText(`${leadIn(lead)} ${PEDIR_UBICACION}`)]);
+  if (inicio?.nombre) return withLeadingText(searching(next, { nombre: inicio.nombre }), AVISO_EMERGENCIA_TEXT);
+  return withLeadingText(buildResult(next, [sendText(`${leadIn(lead)} ${PEDIR_UBICACION}`)]), AVISO_EMERGENCIA_TEXT);
 }
 
 export function handleAwaitingUbicacion(session: Session, event: InboundEvent): HandlerResult {
@@ -181,7 +185,7 @@ export function handleConfirmUbicacion(session: Session, event: InboundEvent): H
   if (answer === Confirmation.YES && propuesto) return acceptUbicacion(next, propuesto);
   if (answer === Confirmation.NO) return failedAttempt(next, `Entendido. ${PEDIR_OTRO}`);
 
-  return buildResult(session, [sendButtons("¿Es ese el establecimiento donde ocurrió? Toca Sí o No.", UBICACION_BUTTONS)]);
+  return withRejectionNotice(buildResult(session, [sendButtons("¿Es ese el establecimiento donde ocurrió? Toca Sí o No.", UBICACION_BUTTONS)]));
 }
 
 function offerOmitir(next: Session, lead: string): HandlerResult {
@@ -204,5 +208,5 @@ export function handleConfirmOmitir(session: Session, event: InboundEvent): Hand
     next.counters = omitCounter(next.counters);
     return askAgain(next, PEDIR_OTRO);
   }
-  return buildResult(session, [sendButtons("¿Quieres continuar sin indicar el establecimiento? Toca Sí o No.", OMITIR_BUTTONS)]);
+  return withRejectionNotice(buildResult(session, [sendButtons("¿Quieres continuar sin indicar el establecimiento? Toca Sí o No.", OMITIR_BUTTONS)]));
 }

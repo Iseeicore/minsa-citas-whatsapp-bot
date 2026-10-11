@@ -42,7 +42,8 @@ describe("incidencia_identity_choice: nombre o anónimo", () => {
   it("ofrece los botones nombre/anónimo", () => {
     const result = handleIncidencia(identityChoice(), text("cualquier cosa"));
 
-    expect(sent(result)[0]).toMatchObject({
+    expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
+    expect(sent(result)[1]).toMatchObject({
       kind: "send_buttons",
       buttons: [
         { id: "incidencia_con_nombre", title: "Sí, doy mi nombre" },
@@ -418,11 +419,25 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     expect(result.outcome).toBe("closed");
   });
 
-  it("aceptado con establecimiento: entrega el código de seguimiento", () => {
+  it("aceptado con establecimiento, anónimo: entrega el código de seguimiento sin prometer contacto", () => {
     const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
     const result = handleIncidencia(withPlace, submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
 
-    expect(texts(result)).toEqual(["¡Gracias! Tu incidencia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento."]);
+    expect(texts(result)).toEqual([
+      "¡Gracias! Tu incidencia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.",
+    ]);
+  });
+
+  it("aceptado con establecimiento, identificado (tiene DNI): avisa que el área se comunicará", () => {
+    const withPlace: Session = {
+      ...pending(),
+      slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7, [SlotKey.DNI]: "12345678" },
+    };
+    const result = handleIncidencia(withPlace, submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
+
+    expect(texts(result)).toEqual([
+      "¡Gracias! Tu incidencia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Si el área responsable necesita información adicional, se comunicará contigo.",
+    ]);
   });
 
   it("aceptado con establecimiento pero sin código (una reentrega que no lo pudo leer): solo agradece", () => {

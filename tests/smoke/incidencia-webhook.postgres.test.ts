@@ -45,9 +45,9 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     const p = person();
 
     const confirm = await p.text(QR);
-    expect(confirm).toHaveLength(1);
-    expect(confirm[0].kind).toBe("send_buttons");
-    expect(confirm[0].text).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
+    expect(confirm).toHaveLength(2);
+    expect(confirm[1].kind).toBe("send_buttons");
+    expect(confirm[1].text).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
     await expect(p.state()).resolves.toBe("incidencia_confirm_ubicacion");
 
     await p.tap("incidencia_ubicacion_si");
@@ -85,8 +85,8 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
 
     const confirm = await p.text("Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137");
 
-    expect(confirm).toHaveLength(1);
-    expect(confirm[0].text).toContain("C.S.M. COMUNITARIO LINCE");
+    expect(confirm).toHaveLength(2);
+    expect(confirm[1].text).toContain("C.S.M. COMUNITARIO LINCE");
   }, 60_000);
 
   it("«quiero cerrar» closes it and the next message starts over", async () => {

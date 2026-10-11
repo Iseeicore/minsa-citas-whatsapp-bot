@@ -35,9 +35,10 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
 
     expect(store.buscar).toHaveBeenCalledWith({ codigo: "6206" });
     expect(turn.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(turn.sent).toHaveLength(1);
-    expect(turn.sent[0]).toMatchObject({ kind: "send_buttons" });
-    expect((turn.sent[0] as { text: string }).text).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
+    expect(turn.sent).toHaveLength(2);
+    expect(turn.sent[0]).toMatchObject({ kind: "send_text" });
+    expect(turn.sent[1]).toMatchObject({ kind: "send_buttons" });
+    expect((turn.sent[1] as { text: string }).text).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
     expect(store.sessions.get(FROM)?.state).toBe("incidencia_confirm_ubicacion");
   });
 

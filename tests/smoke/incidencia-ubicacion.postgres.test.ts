@@ -36,7 +36,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     const confirm = await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
 
     expect(confirm.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(textOf(confirm.sent[0])).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
+    expect(textOf(confirm.sent[1])).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
 
     const identity = await p.tap("incidencia_ubicacion_si");
     expect(identity.session.state).toBe("incidencia_identity_choice");
@@ -47,7 +47,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
   it("the QR of a center named C.S.M. is not dropped as an insult", async () => {
     const turn = await person().start(QR("C.S.M. COMUNITARIO LINCE", "38137"));
     expect(turn.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(textOf(turn.sent[0])).toContain("C.S.M. COMUNITARIO LINCE");
+    expect(textOf(turn.sent[1])).toContain("C.S.M. COMUNITARIO LINCE");
   });
 
   it("a QR with a story after the code: the place is confirmed and then the story is offered to use or add to", async () => {
@@ -68,7 +68,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     const turn = await person().start("quiero presentar una incidencia en el hospital dos de mayo");
 
     expect(turn.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(textOf(turn.sent[0])).toContain("HOSPITAL NACIONAL DOS DE MAYO");
+    expect(textOf(turn.sent[1])).toContain("HOSPITAL NACIONAL DOS DE MAYO");
     expect(turn.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
   });
 
@@ -77,7 +77,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
     expect(turn.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(turn.sent.every((effect) => effect.kind === "send_text")).toBe(true);
-    expect(textOf(turn.sent[0])).toContain("Hay varios establecimientos que se parecen");
+    expect(textOf(turn.sent[1])).toContain("Hay varios establecimientos que se parecen");
   });
 
   it("a story with no place: the place is asked and the story is kept as a draft", async () => {
@@ -85,7 +85,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     const turn = await person().start(`quiero presentar una incidencia ${story}`);
 
     expect(turn.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(textOf(turn.sent[0])).toContain("No encontré ese establecimiento");
+    expect(textOf(turn.sent[1])).toContain("No encontré ese establecimiento");
     expect(turn.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe(story);
   });
 
