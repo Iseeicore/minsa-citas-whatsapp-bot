@@ -103,6 +103,9 @@ export default function Sandbox({
   ) {
     if (!from) return;
 
+    // La bienvenida (tras un reinicio o con el chat vacío) sale de inmediato; el estado de React puede ir un render atrás.
+    const esBienvenida = payload.reset === true || payload.resetAll === true || entries.length === 0;
+
     if (userDisplayText) {
       setEntries((prev) => [...prev, { id: randomId(), from: "user", text: userDisplayText }]);
     }
@@ -126,8 +129,6 @@ export default function Sandbox({
 
       const data = (await res.json()) as { sent: SendEffect[]; session: SessionSnapshot };
 
-      // El mensaje de bienvenida (primer turno, sin sesión) sale de inmediato; los demás simulan el "escribiendo…".
-      const esBienvenida = session === null;
       for (const effect of data.sent) {
         if (!esBienvenida) {
           setTyping(true);

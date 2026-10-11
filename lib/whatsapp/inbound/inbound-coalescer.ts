@@ -1,6 +1,7 @@
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
 import type { InboundBuffer, PendingInbound } from "@/lib/whatsapp/inbound/inbound-buffer";
+import type { LatencyMarks } from "@/lib/observability/inbound-latency";
 import {
   INBOUND_MAX_AGE_MS,
   INBOUND_MAX_BATCH,
@@ -11,13 +12,13 @@ import {
 export type InboundCoalescerDeps = {
   buffer: InboundBuffer;
   runTurn: (waId: string, task: () => Promise<void>) => Promise<void>;
-  answer: (message: WhatsAppMessage, usuarioId: string) => Promise<void>;
+  answer: (message: WhatsAppMessage, usuarioId: string, marks?: LatencyMarks) => Promise<void>;
   notifyStale: (waId: string) => Promise<void>;
   sleep: (ms: number) => Promise<void>;
   now: () => number;
 };
 
-export type InboundInput = { message: WhatsAppMessage; usuarioId: string; windowMs: number };
+export type InboundInput = { message: WhatsAppMessage; usuarioId: string; windowMs: number; marks?: LatencyMarks };
 
 /** Une los textos pendientes en un solo mensaje; si hay algo que no es texto, solo responde al mensaje propio. */
 function mergeBatch(rows: PendingInbound[], own: WhatsAppMessage): WhatsAppMessage {
@@ -43,16 +44,17 @@ export function createInboundCoalescer(deps: InboundCoalescerDeps) {
   const { buffer } = deps;
 
   async function flush(input: InboundInput): Promise<void> {
-    const { message, usuarioId } = input;
+    const { message, usuarioId, marks } = input;
     let claimed = 0;
 
     do {
       claimed = 0;
       await deps.runTurn(message.from_user_id, async () => {
+        marks?.mark("lock");
         const rows = await buffer.claim(usuarioId, INBOUND_MAX_BATCH, message.id);
         claimed = rows.length;
         if (rows.length === 0) return;
-        await deps.answer(mergeBatch(rows, message), usuarioId);
+        await deps.answer(mergeBatch(rows, message), usuarioId, marks);
       });
     } while (claimed === INBOUND_MAX_BATCH);
   }
@@ -84,6 +86,7 @@ export function createInboundCoalescer(deps: InboundCoalescerDeps) {
       const waitedMs = deps.now() - summary.oldestArrivedAt.getTime();
       if (summary.newestWaMessageId !== message.id && waitedMs < INBOUND_MAX_WAIT_MS) return;
     }
+    input.marks?.mark("window");
 
     await flush(input);
   }

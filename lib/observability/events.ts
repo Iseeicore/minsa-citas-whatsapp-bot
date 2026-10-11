@@ -18,6 +18,8 @@ export const LOG_EVENTS = [
   "perimeter.banned",
   "inbound.expired_on_boot",
   "inbound.expire_failed",
+  "inbound.latency",
+  "sandbox.latency",
   "webhook.message_failed",
   "webhook.entry_failed",
   "webhook.fixed_reply_failed",

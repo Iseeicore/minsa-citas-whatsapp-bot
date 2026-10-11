@@ -7,6 +7,7 @@ import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { logger } from "@/lib/observability/logger";
 import { traceTurn } from "@/lib/observability/tracer";
+import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import type { SendEffect } from "@/lib/fsm/core/types";
@@ -85,14 +86,18 @@ export async function POST(request: NextRequest) {
   }
 
   const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll } = parsed.data;
+  const marks = createLatencyMarks();
 
   if (resetAll) {
     await resetAllSandboxTestSessions();
   } else if (reset) {
     await resetSession(from);
   }
+  marks.mark("reset");
 
-  const hadExistingSession = await sessionRowExists(from);
+  // Tras un reinicio la sesión acaba de borrarse: no hace falta otro viaje a la base para comprobarlo.
+  const hadExistingSession = reset || resetAll ? false : await sessionRowExists(from);
+  marks.mark("exists");
 
   if (!hadExistingSession && (type === "text" || type === "image")) {
     const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text });
@@ -114,7 +119,7 @@ export async function POST(request: NextRequest) {
   try {
     turn =
       !hadExistingSession && !abusiveFirstMessage
-        ? await startConversation(from, type === "text" ? text : undefined)
+        ? await startConversation(from, type === "text" ? text : undefined, marks)
         : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri, channel: "web" });
   } catch (error) {
     if (error instanceof TurnLockTimeoutError) {
@@ -122,6 +127,8 @@ export async function POST(request: NextRequest) {
     }
     throw error;
   }
+  marks.mark("turn");
+  marks.finish("sandbox.latency", { waId: from, channel: "web" });
   const { sent, session } = turn;
 
   return NextResponse.json(
@@ -133,8 +140,9 @@ export async function POST(request: NextRequest) {
   );
 }
 
-async function startConversation(from: string, text?: string): Promise<TurnResult> {
+async function startConversation(from: string, text: string | undefined, marks: LatencyMarks): Promise<TurnResult> {
   return withTurnLock(from, async () => {
+    marks.mark("lock");
     const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "web" as const };
     const first = handleFirstContact(text, "web");
     if (first.effects.some(isQueryEffect)) return runTurnUnlocked(from, { from, type: "text", text }, undefined, first);

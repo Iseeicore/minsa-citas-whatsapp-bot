@@ -18,6 +18,9 @@ import {
   extractContentAndMedia,
 } from "@/lib/whatsapp/webhook/payload";
 import { answerMessage, sendFixedReply, answerFailure } from "@/lib/whatsapp/webhook/answer";
+import { sendTypingIndicator } from "@/lib/whatsapp/whatsapp-send";
+import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
+import { deriveTraceId } from "@/lib/observability/tracer";
 import { inboundDedupe } from "@/lib/whatsapp/webhook/inbound-dedupe";
 import { processBsuidChanges } from "@/lib/whatsapp/webhook/user-id-update";
 import { createInboundCoalescer } from "@/lib/whatsapp/inbound/inbound-coalescer";
@@ -67,10 +70,16 @@ async function claimInboundMessage(
 async function stageInboundMessage(
   message: WhatsAppMessage,
   contact: WhatsAppContact | undefined,
+  marks: LatencyMarks,
 ): Promise<(() => Promise<void>) | null> {
   if (!isDatabaseEnabled()) {
     if (!inboundDedupe.claim(message.id)) return null;
-    return () => withTurnLock(message.from_user_id, () => answerMessage(message, null));
+    marks.mark("staged");
+    return () =>
+      withTurnLock(message.from_user_id, () => {
+        marks.mark("lock");
+        return answerMessage(message, null, marks);
+      });
   }
 
   const profileName = contact?.profile?.name;
@@ -78,29 +87,33 @@ async function stageInboundMessage(
   const timestamp = new Date(Number(message.timestamp) * 1000);
   const { content, mediaId } = extractContentAndMedia(message);
 
-  const [, usuario] = await prisma.$transaction([
-    declararActor(actorCiudadano(message.from_user_id)),
-    prisma.usuario.upsert({
-      where: { waId: message.from_user_id },
-      create: {
-        waId: message.from_user_id,
-        phoneNumber: phoneNumber ?? null,
-        profileName: profileName ?? null,
-        ultimoMensajeEn: timestamp,
-      },
-      update: {
-        ...(phoneNumber ? { phoneNumber } : {}),
-        ...(profileName ? { profileName } : {}),
-        ultimoMensajeEn: timestamp,
-      },
-    }),
+  // La sesión no depende del usuario: se consulta en paralelo para ahorrar un viaje a la base.
+  const [[, usuario], session] = await Promise.all([
+    prisma.$transaction([
+      declararActor(actorCiudadano(message.from_user_id)),
+      prisma.usuario.upsert({
+        where: { waId: message.from_user_id },
+        create: {
+          waId: message.from_user_id,
+          phoneNumber: phoneNumber ?? null,
+          profileName: profileName ?? null,
+          ultimoMensajeEn: timestamp,
+        },
+        update: {
+          ...(phoneNumber ? { phoneNumber } : {}),
+          ...(profileName ? { profileName } : {}),
+          ultimoMensajeEn: timestamp,
+        },
+      }),
+    ]),
+    findSession(message.from_user_id),
   ]);
 
   if (!(await claimInboundMessage(message, usuario.id, { content, mediaId, timestamp }))) return null;
 
-  const session = await findSession(message.from_user_id);
+  marks.mark("staged");
   const windowMs = resolveWindowMs({ state: session?.state ?? null, type: message.type });
-  return () => inboundCoalescer.handle({ message, usuarioId: usuario.id, windowMs });
+  return () => inboundCoalescer.handle({ message, usuarioId: usuario.id, windowMs, marks });
 }
 
 export async function processValue(value: WhatsAppValue) {
@@ -109,7 +122,7 @@ export async function processValue(value: WhatsAppValue) {
     contactsByWaId.set(contact.user_id, contact);
   }
 
-  const staged: Array<{ waId: string; respond: () => Promise<void> }> = [];
+  const staged: Array<{ waId: string; messageId: string; respond: () => Promise<void>; marks: LatencyMarks }> = [];
 
   if (isDatabaseEnabled()) await processBsuidChanges(value);
 
@@ -117,6 +130,7 @@ export async function processValue(value: WhatsAppValue) {
     // Los mensajes de sistema de Meta (p. ej. cambio de número) no son texto de la persona: no pasan por el perímetro ni se responden.
     if (message.type === "system") continue;
 
+    const marks = createLatencyMarks();
     const decision = await screenInbound(
       { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
       { limiter: inboundRateLimiter, hasSession: sessionRowExists },
@@ -126,21 +140,27 @@ export async function processValue(value: WhatsAppValue) {
       await sendFixedReply(message.from_user_id, decision.reply);
       continue;
     }
+    marks.mark("perimeter");
+
+    // Solo lo que pasó el perímetro recibe el "leído / escribiendo…", y lo recibe antes de tocar la base o esperar la ventana.
+    void sendTypingIndicator(message.id);
 
     try {
-      const respond = await stageInboundMessage(message, contactsByWaId.get(message.from_user_id));
-      if (respond) staged.push({ waId: message.from_user_id, respond });
+      const respond = await stageInboundMessage(message, contactsByWaId.get(message.from_user_id), marks);
+      if (respond) staged.push({ waId: message.from_user_id, messageId: message.id, respond, marks });
     } catch (error) {
       await answerFailure(message.from_user_id, error);
     }
   }
 
   await Promise.all(
-    staged.map(async ({ waId, respond }) => {
+    staged.map(async ({ waId, messageId, respond, marks }) => {
       try {
         await respond();
       } catch (error) {
         await answerFailure(waId, error);
+      } finally {
+        marks.finish("inbound.latency", { waId, channel: "whatsapp", traceId: deriveTraceId(waId, messageId) });
       }
     }),
   );

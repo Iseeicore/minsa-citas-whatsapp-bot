@@ -28,6 +28,7 @@ vi.mock("@/lib/whatsapp/webhook/answer", () => ({
   sendFixedReply: vi.fn(),
   answerFailure: vi.fn(),
 }));
+vi.mock("@/lib/whatsapp/whatsapp-send", () => ({ sendTypingIndicator: vi.fn(async () => undefined) }));
 vi.mock("@/lib/whatsapp/inbound/postgres-inbound-buffer", () => ({ createPostgresInboundBuffer: () => ({}) }));
 vi.mock("@/lib/whatsapp/inbound/inbound-coalescer", () => ({
   createInboundCoalescer: () => ({

@@ -24,10 +24,11 @@ const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
 
 /**
  * Milisegundos que se espera tras un mensaje antes de responder; 0 si el estado espera un dato exacto (DNI, OTP, botón)
- * o no es texto. El primer contacto (estado null) usa la misma ventana que el resto del texto libre.
+ * o no es texto. El primer contacto (estado null) no espera: un saludo casi nunca se parte en varias líneas y la
+ * bienvenida debe salir cuanto antes.
  */
 export function resolveWindowMs(input: { state: string | null; type: string }): number {
   if (input.type !== "text") return 0;
-  if (input.state === null) return INBOUND_FREE_TEXT_WINDOW_MS;
+  if (input.state === null) return 0;
   return FREE_TEXT_STATES.has(input.state) ? INBOUND_FREE_TEXT_WINDOW_MS : 0;
 }

@@ -58,7 +58,11 @@ describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real Postg
       contenido: "Hola",
       usuarioCreacion: `ciudadano:${waId}`,
     });
-    expect(answers.answerMessage).toHaveBeenCalledWith(expect.objectContaining({ id: wamid }), usuario.id);
+    expect(answers.answerMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: wamid }),
+      usuario.id,
+      expect.objectContaining({ mark: expect.any(Function) }),
+    );
   });
 
   it("a redelivery of the same WhatsApp message is skipped: one row, one answer", async () => {
