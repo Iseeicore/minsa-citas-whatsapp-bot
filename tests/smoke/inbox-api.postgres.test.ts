@@ -28,6 +28,7 @@ describe.skipIf(!process.env.DATABASE_URL)("inbox API against a real PostgreSQL"
   let usuarioId = "";
 
   beforeAll(async () => {
+    vi.stubEnv("SANDBOX_PAGE_ENABLED", "true");
     vi.stubEnv("META_PHONE_NUMBER_ID", "123");
     vi.stubEnv("META_ACCESS_TOKEN", "token");
     await processValue({
