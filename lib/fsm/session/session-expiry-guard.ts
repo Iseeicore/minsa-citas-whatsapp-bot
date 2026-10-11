@@ -78,3 +78,36 @@ export function detectSessionExpiry(
 
   return null;
 }
+
+/**
+ * Estados de incidencia que esperan una respuesta del usuario (no un `query()` que se resuelve dentro del mismo turno). Son
+ * exactamente los que tienen un handler propio en `resumeIncidencia` — si se agrega un estado nuevo a ese switch, agregarlo aquí
+ * también, o el idle lo capturará sin saber cómo reanudarlo.
+ */
+const INCIDENCIA_RESUMABLE_STATES: ReadonlySet<string> = new Set<string>([
+  SessionState.INCIDENCIA_AWAITING_UBICACION,
+  SessionState.INCIDENCIA_CONFIRM_UBICACION,
+  SessionState.INCIDENCIA_CONFIRM_OMITIR,
+  SessionState.INCIDENCIA_IDENTITY_CHOICE,
+  SessionState.INCIDENCIA_AWAITING_DNI,
+  SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE,
+  SessionState.INCIDENCIA_CONSENT_CHOICE,
+  SessionState.INCIDENCIA_CONFIRM_BORRADOR,
+  SessionState.INCIDENCIA_AWAITING_DESCRIPCION,
+  SessionState.INCIDENCIA_AWAITING_BORRADOR_EXTRA,
+  SessionState.INCIDENCIA_AWAITING_FOTO,
+  SessionState.INCIDENCIA_CONFIRM_REGISTRO,
+]);
+
+/**
+ * Mecanismo de idle propio de incidencia: a diferencia de `detectSessionExpiry`, no depende de `SlotKey.CITA_BEARER` (incidencia
+ * no usa DNI/RENIEC/2FA) — solo mira cuánto lleva inactiva una incidencia que está esperando al usuario.
+ */
+export function detectIncidenciaExpiry(session: Session, event: HandleEvent, now: number): SessionExpiryReason | null {
+  if (event.type === "query_result") return null;
+  if (!INCIDENCIA_RESUMABLE_STATES.has(session.state)) return null;
+  if (session.updatedAt && now - session.updatedAt.getTime() > SESSION_IDLE_TIMEOUT_MS) {
+    return SessionExpiryReason.IDLE;
+  }
+  return null;
+}

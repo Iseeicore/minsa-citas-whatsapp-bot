@@ -12,4 +12,6 @@ export enum IncidenciaButtonId {
   CONSENT_NO = "incidencia_consent_no",
   CONFIRM_REGISTRO_SI = "incidencia_confirmar_registro_si",
   CONFIRM_REGISTRO_NO = "incidencia_confirmar_registro_no",
+  REAUTH_SI = "incidencia_reauth_si",
+  REAUTH_NO = "incidencia_reauth_no",
 }

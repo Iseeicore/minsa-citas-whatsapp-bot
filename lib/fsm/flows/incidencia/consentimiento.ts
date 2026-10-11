@@ -31,6 +31,10 @@ export function askConsentimiento(session: Session): HandlerResult {
   return buildResult(next, [query(QueryKind.VERIFICAR_CONSENTIMIENTO, {})]);
 }
 
+function consentimientoPrompt() {
+  return [sendText(AVISO_PRIVACIDAD_TEXT), sendButtons("¿Autorizas el tratamiento de tus datos?", CONSENT_BUTTONS)];
+}
+
 export function handleConsentCheckPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { aceptado?: boolean };
   const next = cloneSession(session);
@@ -38,7 +42,12 @@ export function handleConsentCheckPending(session: Session, event: QueryResultEv
   if (result.aceptado === true) return enterDescripcion(next);
 
   next.state = SessionState.INCIDENCIA_CONSENT_CHOICE;
-  return buildResult(next, [sendText(AVISO_PRIVACIDAD_TEXT), sendButtons("¿Autorizas el tratamiento de tus datos?", CONSENT_BUTTONS)]);
+  return buildResult(next, consentimientoPrompt());
+}
+
+/** Reanudación tras un reauth propio de incidencia: re-muestra el aviso y los botones sin volver a consultar la base. */
+export function resendConsentimiento(session: Session): HandlerResult {
+  return buildResult(cloneSession(session), consentimientoPrompt());
 }
 
 export function handleConsentimiento(session: Session, event: InboundEvent): HandlerResult {

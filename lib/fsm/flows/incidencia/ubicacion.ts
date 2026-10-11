@@ -188,7 +188,29 @@ export function handleConfirmUbicacion(session: Session, event: InboundEvent): H
   return withRejectionNotice(buildResult(session, [sendButtons("¿Es ese el establecimiento donde ocurrió? Toca Sí o No.", UBICACION_BUTTONS)]));
 }
 
-function offerOmitir(next: Session, lead: string): HandlerResult {
+/** Reanudación tras un reauth propio de incidencia: re-pregunta la ubicación sin perder el estado ya construido. */
+export function askUbicacionAgain(session: Session): HandlerResult {
+  return buildResult(cloneSession(session), [sendText(PEDIR_OTRO)]);
+}
+
+/** Igual que `confirmUbicacion`, pero a partir de lo ya guardado en el slot — para reanudar sin volver a buscar. */
+export function resendConfirmUbicacion(session: Session): HandlerResult {
+  const propuesto = readPropuesto(session);
+  if (!propuesto) return askUbicacionAgain(session);
+  const distrito = propuesto.distrito ? `\nDistrito: ${propuesto.distrito}` : "";
+  return buildResult(cloneSession(session), [
+    sendButtons(
+      `¿Estás seguro de esa ubicación?\n\n*${propuesto.nombre}*\nCódigo IPRESS: ${propuesto.codigoRenipress}${distrito}`,
+      UBICACION_BUTTONS,
+    ),
+  ]);
+}
+
+export function askIdentityChoice(session: Session): HandlerResult {
+  return buildResult(cloneSession(session), [sendButtons(IDENTITY_QUESTION, INCIDENCIA_NOMBRE_BUTTONS)]);
+}
+
+export function offerOmitir(next: Session, lead: string): HandlerResult {
   next.state = SessionState.INCIDENCIA_CONFIRM_OMITIR;
   const question = "¿Quieres continuar sin indicar el establecimiento?";
   return buildResult(next, [sendButtons([lead, question].filter(Boolean).join(" "), OMITIR_BUTTONS)]);
