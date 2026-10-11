@@ -70,6 +70,20 @@ DATABASE_ENABLED=true
 - Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL (`%40`, `%3A`...).
 - La imagen trae el CLI de Prisma en `/opt/prisma` (versión fijada por `PRISMA_VERSION` en el `Dockerfile`, igual a la de `package.json`).
 
+#### Borrar la base y migrar desde cero
+
+`RESET_DATABASE_CONFIRM` es opcional y **destructiva**. Sirve para rehacer una base de pruebas o para pasar una base a migraciones reescritas, cuyo historial ya no coincide con el de este código.
+
+```bash
+RESET_DATABASE_CONFIRM=<nombre exacto de la base de DATABASE_URL>
+```
+
+- **Qué borra:** los esquemas `catalogo`, `chatbot`, `gestion` e `ia`, las funciones `fn_*` de `public` y el historial de migraciones (`_prisma_migrations`). Después aplica todas las migraciones desde cero. Se pierden las incidencias, los usuarios y todo lo demás.
+- **Cuándo no borra:** sin la variable, nunca. Si su valor no coincide con el nombre de la base, el servicio no arranca y no borra nada.
+- **Úsala una sola vez y quítala del ambiente antes del siguiente despliegue.** Mientras siga puesta, **cada reinicio vuelve a borrar todo**: no hay ninguna marca que impida repetirlo.
+- **No la uses con incidencias reales.**
+- En cada arranque con base, el entrypoint además marca como revertida la migración inicial (`20261004000000_init`) si quedó fallida, para poder reintentarla; si ya está aplicada, no hace nada.
+
 ### Conectar un frontend externo (widget del Sandbox)
 
 Para que otro sitio, por ejemplo el portal de MINSA Digital, converse con el bot a través de `POST /api/sandbox`, el bloque mínimo ya trae `SANDBOX_ENABLED=true`; completa el origen:
@@ -121,7 +135,7 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 | Reentregas de Meta (no responder dos veces) | Índice único `wa_message_id` | Lista en memoria de ids de mensaje, conservada 24 h |
 | Usuarios, historial de mensajes y estados de entrega | Tablas `chatbot.usuario` y `chatbot.mensaje` | No se guarda nada |
 | Incidencias | Tabla `chatbot.incidencia_paciente`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
-| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}` |
+| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible solo con `SANDBOX_PAGE_ENABLED=true`; sin ella responde `404` | Con `SANDBOX_PAGE_ENABLED=true` responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}`; sin ella, `404` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
 
@@ -162,6 +176,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 |---|---|
 | `DATABASE_ENABLED` | `false` = sin base de datos (servidor MINSA). Vacía = con base de datos (Vercel). Ver [Modos de persistencia](#modos-de-persistencia) |
 | `DATABASE_URL` | Cadena de conexión a PostgreSQL. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy`. No hace falta con `DATABASE_ENABLED=false` |
+| `RESET_DATABASE_CONFIRM` | **Destructiva, solo Docker.** Si vale lo mismo que el nombre de la base de `DATABASE_URL`, el arranque borra los esquemas y migra desde cero. Úsala una sola vez y quítala después. Ver [Borrar la base y migrar desde cero](#borrar-la-base-y-migrar-desde-cero) |
 | `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
 
 **MINSA y RENIEC** (en `false`, el bot usa datos de prueba fijos)
@@ -199,7 +214,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
-| `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Sandbox (`/sandbox` y `/configuracion-visor-sandbox`) y deja que `/` redirija a `/sandbox`. Sin definir o con cualquier otro valor quedan ocultas: las tres rutas redirigen a `/api/health`. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). En Production déjala sin definir |
+| `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Sandbox (`/sandbox` y `/configuracion-visor-sandbox`), deja que `/` redirija a `/sandbox` y **abre la bandeja web** (`/api/conversations*` y `/api/messages/send`). Sin definir o con cualquier otro valor: las tres páginas redirigen a `/api/health` y esas cuatro rutas responden `404`, aunque la base esté activa. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). La bandeja web **no tiene autenticación**: lista todas las conversaciones con su teléfono y permite escribir desde el número oficial. En Production déjala sin definir |
 | `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-widget-del-sandbox) |
 
 **Logs** (ver [docs/observability.md](docs/observability.md))
