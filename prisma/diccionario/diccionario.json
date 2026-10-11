@@ -79,7 +79,8 @@
         "media_id": "Id del archivo en Meta (dato de Meta). No es una URL.",
         "wa_message_id": "Id del mensaje en WhatsApp (dato de Meta). Es único: evita procesar dos veces una reentrega de Meta.",
         "estado_mensaje_id": "Estado de entrega del mensaje. Lo actualiza Meta con sus avisos de entrega.",
-        "fecha_hora": "Momento real del mensaje según WhatsApp. Es la fecha del evento y no se confunde con fecha_creacion, que es la de inserción."
+        "fecha_hora": "Momento real del mensaje según WhatsApp. Es la fecha del evento y no se confunde con fecha_creacion, que es la de inserción.",
+        "procesado_en": "Momento en que el bot atendió (o descartó por viejo o repetido) un mensaje entrante. NULL significa pendiente de atender."
       }
     },
     "chatbot.incidencia_paciente": {
