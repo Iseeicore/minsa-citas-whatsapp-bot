@@ -126,10 +126,14 @@ export default function Sandbox({
 
       const data = (await res.json()) as { sent: SendEffect[]; session: SessionSnapshot };
 
+      // El mensaje de bienvenida (primer turno, sin sesión) sale de inmediato; los demás simulan el "escribiendo…".
+      const esBienvenida = session === null;
       for (const effect of data.sent) {
-        setTyping(true);
-        await sleep(500);
-        setTyping(false);
+        if (!esBienvenida) {
+          setTyping(true);
+          await sleep(500);
+          setTyping(false);
+        }
         setEntries((prev) => [...prev, { id: randomId(), from: "bot" as const, effect }]);
       }
 

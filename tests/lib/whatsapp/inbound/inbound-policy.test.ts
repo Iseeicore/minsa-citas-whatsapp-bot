@@ -19,8 +19,8 @@ describe("resolveWindowMs", () => {
     }
   });
 
-  it("waits the free-text window on first contact, when there is no session yet", () => {
-    expect(resolveWindowMs({ state: null, type: "text" })).toBe(INBOUND_FREE_TEXT_WINDOW_MS);
+  it("never waits on first contact, so the welcome message goes out right away", () => {
+    expect(resolveWindowMs({ state: null, type: "text" })).toBe(0);
   });
 
   it("never waits in states that expect a single exact answer such as DNI or OTP", () => {

@@ -22,9 +22,12 @@ const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
   SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE,
 ]);
 
-/** Milisegundos que se espera tras un mensaje antes de responder; 0 si el estado espera un dato exacto (DNI, OTP, botón) o no es texto. */
+/**
+ * Milisegundos que se espera tras un mensaje antes de responder; 0 si el estado espera un dato exacto (DNI, OTP, botón),
+ * no es texto o es el primer contacto (la bienvenida sale de inmediato).
+ */
 export function resolveWindowMs(input: { state: string | null; type: string }): number {
   if (input.type !== "text") return 0;
-  if (input.state === null) return INBOUND_FREE_TEXT_WINDOW_MS;
+  if (input.state === null) return 0;
   return FREE_TEXT_STATES.has(input.state) ? INBOUND_FREE_TEXT_WINDOW_MS : 0;
 }
