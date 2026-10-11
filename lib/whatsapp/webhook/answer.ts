@@ -26,8 +26,8 @@ function sleep(ms: number): Promise<void> {
 
 function deliverTo(message: WhatsAppMessage, conversationId: string | null) {
   return async (effect: SendEffect) => {
+    // Primer contacto: la bienvenida sale de inmediato, sin la pausa de "escribiendo…".
     await sendTypingIndicator(message.id);
-    await sleep(TYPING_DELAY_MS);
     await sendAndRecordEffect(conversationId, message.from_user_id, effect);
   };
 }
@@ -80,7 +80,6 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
 
       for (const effect of toSend) {
         await sendTypingIndicator(message.id);
-        await sleep(TYPING_DELAY_MS);
         await sendAndRecordEffect(conversationId, waId, effect);
       }
     },

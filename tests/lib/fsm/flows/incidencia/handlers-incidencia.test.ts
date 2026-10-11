@@ -254,6 +254,22 @@ describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", ()
     expect(texts(result)).not.toContain("Ok, se registró tu evidencia.");
   });
 
+  it("tocar el botón Omitir registra la incidencia igual que escribir OMITIR, sin IA ni acuse", () => {
+    const result = handleIncidencia(awaitingFoto(), { from: FROM, type: "button", listId: "incidencia_foto_omitir" });
+
+    expect(result.session.state).toBe("incidencia_submit_pending");
+    expect(queries(result)[0].kind).toBe("incidencia_register");
+    expect(texts(result)).not.toContain("Ok, se registró tu evidencia.");
+  });
+
+  it("la pregunta de evidencia ofrece el botón Omitir", () => {
+    const session: Session = { state: "incidencia_awaiting_descripcion", slots: {}, counters: {} };
+    const result = handleIncidencia(session, text("El consultorio estaba cerrado."));
+    const buttons = result.effects.find((effect) => !isQueryEffect(effect) && effect.kind === "send_buttons");
+
+    expect(buttons).toMatchObject({ buttons: [{ id: "incidencia_foto_omitir", title: "Omitir" }] });
+  });
+
   it("'no quiero' se reconoce determinísticamente (sin IA)", () => {
     const result = handleIncidencia(awaitingFoto(), text("no quiero"));
 
