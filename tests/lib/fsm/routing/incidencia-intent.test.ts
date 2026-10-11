@@ -74,7 +74,7 @@ describe("what the menu does with that answer", () => {
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe(STORY);
     expect(result.session.slots[SlotKey.INCIDENCIA_ORIGEN]).toBe("ia");
-    expect((sent(result)[0] as { text: string }).text).toContain("¿En qué establecimiento de salud ocurrió?");
+    expect((sent(result)[1] as { text: string }).text).toContain("¿En qué establecimiento de salud ocurrió?");
   });
 
   it("the draft is offered to use or to add to once the person has said who they are", () => {

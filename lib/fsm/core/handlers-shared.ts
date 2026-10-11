@@ -51,6 +51,18 @@ export function sendText(text: string): SendEffect {
   return { kind: SendType.TEXT, text };
 }
 
+/** Antepone un texto a los effects de un resultado ya construido, sin tocar su estado ni el resto de los effects. */
+export function withLeadingText(result: HandlerResult, text: string): HandlerResult {
+  return { ...result, effects: [sendText(text), ...result.effects] };
+}
+
+export const FALLBACK_TEXT = "No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.";
+
+/** Antepone un aviso de "no entendimos tu respuesta" a un resultado que vuelve a preguntar lo mismo. */
+export function withRejectionNotice(result: HandlerResult, text: string = FALLBACK_TEXT): HandlerResult {
+  return withLeadingText(result, text);
+}
+
 export function sendList(text: string, rows: ListRow[]): SendEffect {
   return { kind: SendType.INTERACTIVE_LIST, text, rows };
 }

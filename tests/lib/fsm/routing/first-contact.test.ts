@@ -167,8 +167,8 @@ describe("first contact: a request to file a complaint", () => {
     const result = handleFirstContact(message, "whatsapp");
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(sent(result)).toHaveLength(1);
-    expect(sent(result)[0]).toEqual({
+    expect(sent(result)).toHaveLength(2);
+    expect(sent(result)[1]).toEqual({
       kind: "send_text",
       text: "¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
     });
