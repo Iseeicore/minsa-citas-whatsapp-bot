@@ -13,6 +13,8 @@ import {
   isIncidenciaKeyword,
 } from "@/lib/fsm/routing/menu-shortcuts";
 import { beginCita, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
+import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import {
@@ -36,6 +38,7 @@ export const CONTINUE_BUTTON_ID = "continuar_menu";
 const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
   "1": MenuChoice.AGENDAR_CITA,
   "2": MenuChoice.REGISTRAR_INCIDENCIA,
+  "3": MenuChoice.CONSULTAR_INCIDENCIA,
 };
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
@@ -67,6 +70,14 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     return withNote(enterMainMenu(session.slots), { kind: "shortcut", detail: { name: "continue_after_warning" } });
   }
 
+  const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
+  if (codigo) {
+    return withNote(beginConsulta(event.channel, codigo), { kind: "shortcut", detail: { name: "consulta_codigo" } });
+  }
+  if (event.text && isConsultaKeyword(event.text)) {
+    return withNote(beginConsulta(event.channel), { kind: "shortcut", detail: { name: "consulta_keyword" } });
+  }
+
   const inicio = event.text ? parseInicioIncidencia(event.text) : null;
   if (inicio) {
     return withNote(beginIncidencia(session.slots, "", inicio), {
@@ -81,6 +92,8 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
   if (replyId === CONTINUE_BUTTON_ID) {
     return enterMainMenu(session.slots);
   }
+
+  if (replyId === MenuChoice.CONSULTAR_INCIDENCIA) return beginConsulta(event.channel);
 
   if (replyId !== MenuChoice.AGENDAR_CITA && replyId !== MenuChoice.REGISTRAR_INCIDENCIA) {
     if (event.text && isIncidenciaKeyword(event.text)) {

@@ -43,6 +43,7 @@ describe("buildWelcomeEffect", () => {
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
         { id: "registrar_incidencia", title: "Registrar una incidencia" },
+        { id: "consultar_incidencia", title: "Consultar una incidencia" },
       ],
     });
   });
@@ -79,6 +80,7 @@ describe("buildWelcomeEffects", () => {
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
         { id: "registrar_incidencia", title: "Registrar una incidencia" },
+        { id: "consultar_incidencia", title: "Consultar una incidencia" },
       ],
     });
   });

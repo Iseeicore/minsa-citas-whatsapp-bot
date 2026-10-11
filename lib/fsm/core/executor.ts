@@ -100,7 +100,7 @@ export async function runTurnUnlocked(
       const [queryEffect] = queries;
       if (hooks) await hooks.onWaitingForQuery();
       const queryResult = await trace.external(serviceFor(queryEffect.kind), queryEffect.kind, () =>
-        resolveQuery(queryEffect, currentSession),
+        resolveQuery(queryEffect, currentSession, from),
       );
 
       const resultEvent: QueryResultEvent = {
@@ -123,6 +123,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case QueryKind.RENIEC_LOOKUP:
       return "reniec";
     case QueryKind.INCIDENCIA_REGISTER:
+    case QueryKind.CONSULTAR_INCIDENCIA:
     case QueryKind.BUSCAR_ESTABLECIMIENTO:
       return "database";
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
@@ -136,7 +137,8 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   }
 }
 
-async function resolveQuery(effect: QueryEffect, session: Session): Promise<unknown> {
+/** `from` es la identidad que el servidor ya conoce del turno (el usuario de WhatsApp verificado por el webhook), no un dato del mensaje. */
+async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
   const bearer = String(session.slots[SlotKey.CITA_BEARER] ?? "");
 
   switch (effect.kind) {
@@ -146,6 +148,17 @@ async function resolveQuery(effect: QueryEffect, session: Session): Promise<unkn
     case QueryKind.INCIDENCIA_REGISTER: {
       const { registrarIncidencia } = await import("@/lib/recepcion/servicio");
       return registrarIncidencia(effect.payload.submission);
+    }
+
+    case QueryKind.CONSULTAR_INCIDENCIA: {
+      const { consultarIncidencia } = await import("@/lib/recepcion/consulta");
+      const codigo = String(effect.payload.codigo ?? "");
+      return consultarIncidencia(
+        codigo,
+        effect.payload.canal === "web"
+          ? { canal: "web", dni: String(effect.payload.dni ?? "") }
+          : { canal: "whatsapp", waId: from },
+      );
     }
 
     case QueryKind.VALIDATE_USER:

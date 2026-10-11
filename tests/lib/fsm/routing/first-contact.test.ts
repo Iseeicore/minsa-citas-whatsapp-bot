@@ -149,7 +149,7 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
   });
 
   it("any other number is just text: it gets the menu", () => {
-    for (const message of ["3", "12", "10"]) {
+    for (const message of ["4", "12", "10"]) {
       expect(sent(handleFirstContact(message, "whatsapp")).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
     }
   });
