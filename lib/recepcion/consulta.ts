@@ -1,7 +1,7 @@
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { logger } from "@/lib/observability/logger";
-import type { ConsultaIncidenciaResult, IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
-import { buscarIncidenciaDeQuienConsulta } from "@/lib/recepcion/repositorio";
+import type { ConsultaIncidenciaResult, IdentidadConsulta, ListarIncidenciasResult } from "@/lib/recepcion/consulta-dto";
+import { buscarIncidenciaDeQuienConsulta, listarIncidenciasDeQuienConsulta } from "@/lib/recepcion/repositorio";
 
 const CODIGO_VALIDO = /^MINSA-\d{4}-\d{6}$/;
 
@@ -22,6 +22,26 @@ export async function consultarIncidencia(codigo: string, identidad: IdentidadCo
     return { status: "found", codigo: fila.codigo, estado: fila.estadoCodigo, fechaRegistro: fila.fechaCreacion.toISOString() };
   } catch (error) {
     logger.error("incidencia.consulta_failed", { error });
+    return { status: "error" };
+  }
+}
+
+/** Todas las incidencias de quien consulta, de la más reciente a la más antigua. Solo lectura, mismo criterio de pertenencia. */
+export async function listarIncidencias(identidad: IdentidadConsulta): Promise<ListarIncidenciasResult> {
+  if (!isDatabaseEnabled()) {
+    logger.error("incidencia.listado_unavailable", { reason: "DATABASE_ENABLED=false" });
+    return { status: "error" };
+  }
+
+  try {
+    const filas = await listarIncidenciasDeQuienConsulta(identidad);
+    if (filas.length === 0) return { status: "empty" };
+    return {
+      status: "found",
+      items: filas.map((fila) => ({ codigo: fila.codigo, estado: fila.estadoCodigo, fechaRegistro: fila.fechaCreacion.toISOString() })),
+    };
+  } catch (error) {
+    logger.error("incidencia.listado_failed", { error });
     return { status: "error" };
   }
 }

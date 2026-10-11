@@ -124,6 +124,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
       return "reniec";
     case QueryKind.INCIDENCIA_REGISTER:
     case QueryKind.CONSULTAR_INCIDENCIA:
+    case QueryKind.LISTAR_INCIDENCIAS:
     case QueryKind.BUSCAR_ESTABLECIMIENTO:
       return "database";
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
@@ -155,6 +156,15 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       const codigo = String(effect.payload.codigo ?? "");
       return consultarIncidencia(
         codigo,
+        effect.payload.canal === "web"
+          ? { canal: "web", dni: String(effect.payload.dni ?? "") }
+          : { canal: "whatsapp", waId: from },
+      );
+    }
+
+    case QueryKind.LISTAR_INCIDENCIAS: {
+      const { listarIncidencias } = await import("@/lib/recepcion/consulta");
+      return listarIncidencias(
         effect.payload.canal === "web"
           ? { canal: "web", dni: String(effect.payload.dni ?? "") }
           : { canal: "whatsapp", waId: from },

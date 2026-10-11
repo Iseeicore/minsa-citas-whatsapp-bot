@@ -1,12 +1,25 @@
 import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
-import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
-import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session, SessionChannel } from "@/lib/fsm/core/types";
+import {
+  buildResult,
+  cloneSession,
+  offerPagedList,
+  query,
+  sendButtons,
+  sendText,
+  truncateForRow,
+  WHATSAPP_ROW_DESCRIPTION_MAX,
+  WHATSAPP_ROW_TITLE_MAX,
+} from "@/lib/fsm/core/handlers-shared";
+import { resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
+import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session, SessionChannel } from "@/lib/fsm/core/types";
 import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
 import { extractCodigoIncidencia } from "@/lib/fsm/parsing/text/codigo-incidencia";
 import { isValidDocumentoFormat, isValidOtpFormat } from "@/lib/fsm/parsing/text/identity-format";
-import { estadoLegible, fechaLegible, type ConsultaIncidenciaResult } from "@/lib/recepcion/consulta-dto";
+import { estadoLegible, fechaLegible, type ConsultaIncidenciaResult, type ListarIncidenciasResult } from "@/lib/recepcion/consulta-dto";
+import { ConsultaCodigoButtonId } from "@/lib/enums/consulta-codigo-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -15,8 +28,10 @@ const MAX_INTENTOS_CODIGO = 3;
 const MAX_INTENTOS_OTP = 3;
 const CANAL_WEB = "web";
 const CANAL_WHATSAPP = "whatsapp";
+const LISTAR_ID = ConsultaCodigoButtonId.LISTAR;
 
 export const ASK_CODIGO_TEXT = "Escribe el código de tu incidencia (por ejemplo, MINSA-2026-000001).";
+export const ASK_CODIGO_O_LISTAR_TEXT = "¿Tienes el código, o prefieres ver todas tus incidencias registradas?";
 export const INVALID_CODIGO_TEXT = "El código no tiene el formato correcto. Debe verse así: MINSA-2026-000001. Intenta de nuevo.";
 export const CODIGO_NO_RECONOCIDO_TEXT = "No pudimos reconocer el código. Revísalo e inicia la consulta nuevamente.";
 export const ASK_DOCUMENTO_TEXT = "Para consultar tu incidencia necesito verificar tu identidad. Ingresa tu número de documento.";
@@ -27,6 +42,7 @@ export const OTP_BLOQUEADO_TEXT = "Superaste el número de intentos permitidos. 
 /** Una incidencia inexistente, ajena, anónima (en la web) o borrada recibe EXACTAMENTE este texto: no se distingue entre ellas. */
 export const NO_UBICADA_TEXT = "No se logró ubicar el registro de la incidencia.";
 export const CONSULTA_FALLA_TEXT = "Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.";
+export const SIN_INCIDENCIAS_TEXT = "No tienes incidencias registradas.";
 
 /**
  * Punto de extensión para la identidad en la web: hoy se verifica con DNI + código OTP de MINSA Digital (los mismos pasos que el
@@ -53,13 +69,46 @@ function startSearch(session: Session): HandlerResult {
   ]);
 }
 
-function afterCodigo(session: Session): HandlerResult {
+/** Pide DNI+OTP antes de avanzar solo en la web; en WhatsApp sigue directo, como ya era antes de requerirlo también ahí. */
+function afterIdentityCheck(session: Session, next: SessionState): HandlerResult {
   const web = session.slots[SlotKey.CONSULTA_CANAL] === CANAL_WEB;
-  if (!web || session.slots[SlotKey.CONSULTA_DNI]) return startSearch(session);
+  if (!web || session.slots[SlotKey.CONSULTA_DNI]) {
+    return next === SessionState.CONSULTA_QUERY_PENDING ? startSearch(session) : startListado(session);
+  }
 
+  const pending = cloneSession(session);
+  pending.state = SessionState.CONSULTA_AWAITING_DNI;
+  return buildResult(pending, [sendText(ASK_DOCUMENTO_TEXT)]);
+}
+
+function afterCodigo(session: Session): HandlerResult {
+  return afterIdentityCheck(session, SessionState.CONSULTA_QUERY_PENDING);
+}
+
+function afterListarChoice(session: Session): HandlerResult {
   const next = cloneSession(session);
-  next.state = SessionState.CONSULTA_AWAITING_DNI;
-  return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
+  next.slots[SlotKey.CONSULTA_LISTANDO] = true;
+  return afterIdentityCheck(next, SessionState.CONSULTA_LISTAR_PENDING);
+}
+
+function startListado(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  next.state = SessionState.CONSULTA_LISTAR_PENDING;
+  const web = next.slots[SlotKey.CONSULTA_CANAL] === CANAL_WEB;
+  return buildResult(next, [
+    sendText("Buscando tus incidencias…"),
+    query(QueryKind.LISTAR_INCIDENCIAS, {
+      canal: web ? CANAL_WEB : CANAL_WHATSAPP,
+      ...(web ? { dni: String(next.slots[SlotKey.CONSULTA_DNI] ?? "") } : {}),
+    }),
+  ]);
+}
+
+function askCodigoOrListar(session: Session): HandlerResult {
+  return buildResult(session, [
+    sendText(ASK_CODIGO_TEXT),
+    sendButtons(ASK_CODIGO_O_LISTAR_TEXT, [{ id: LISTAR_ID, title: "Ver todas mis incidencias" }]),
+  ]);
 }
 
 /** Entrada a la consulta; con `codigo` ya reconocido en el mensaje salta directo a la búsqueda (o a verificar la identidad en la web). */
@@ -69,10 +118,13 @@ export function beginConsulta(channel: SessionChannel | undefined, codigo?: stri
     slots: { [SlotKey.CONSULTA_CANAL]: canalDe(channel), ...(codigo ? { [SlotKey.CONSULTA_CODIGO]: codigo } : {}) },
     counters: {},
   };
-  return codigo ? afterCodigo(session) : buildResult(session, [sendText(ASK_CODIGO_TEXT)]);
+  return codigo ? afterCodigo(session) : askCodigoOrListar(session);
 }
 
 function handleAwaitingCodigo(session: Session, event: InboundEvent): HandlerResult {
+  const reply = event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  if (reply === LISTAR_ID) return afterListarChoice(session);
+
   const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
   if (codigo) {
     const next = cloneSession(session);
@@ -80,7 +132,7 @@ function handleAwaitingCodigo(session: Session, event: InboundEvent): HandlerRes
     return afterCodigo(next);
   }
 
-  if (!event.text) return buildResult(session, [sendText(ASK_CODIGO_TEXT)]);
+  if (!event.text) return askCodigoOrListar(session);
 
   const next = cloneSession(session);
   const attempts = (next.counters[CounterKey.CONSULTA_INTENTOS_CODIGO] ?? 0) + 1;
@@ -132,7 +184,9 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
     delete next.slots[SlotKey.CONSULTA_DNI_PENDING];
     delete next.slots[SlotKey.CONSULTA_TWOFA_ID];
     delete next.counters[CounterKey.CONSULTA_INTENTOS_OTP];
-    return startSearch(next);
+    const listando = Boolean(next.slots[SlotKey.CONSULTA_LISTANDO]);
+    delete next.slots[SlotKey.CONSULTA_LISTANDO];
+    return listando ? startListado(next) : startSearch(next);
   }
 
   if (result.status !== "invalid") return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
@@ -158,6 +212,46 @@ function handleQueryPending(event: QueryResultEvent): HandlerResult {
   return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 }
 
+type IncidenciaListada = { codigo: string; estado: string; fechaRegistro: string };
+
+function readListado(session: Session): IncidenciaListada[] {
+  const raw = session.slots[SlotKey.CONSULTA_LISTADO_DATA];
+  if (typeof raw !== "string") return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as IncidenciaListada[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function listadoRows(items: IncidenciaListada[]): ListRow[] {
+  return items.map((item) => ({
+    id: item.codigo,
+    title: truncateForRow(item.codigo, WHATSAPP_ROW_TITLE_MAX),
+    description: truncateForRow(`${estadoLegible(item.estado)} · ${fechaLegible(item.fechaRegistro)}`, WHATSAPP_ROW_DESCRIPTION_MAX),
+  }));
+}
+
+function handleListarPending(event: QueryResultEvent): HandlerResult {
+  const result = event.result as ListarIncidenciasResult | undefined;
+  if (result?.status === "empty") return closed(SessionState.CONSULTA_COMPLETED, SIN_INCIDENCIAS_TEXT);
+  if (result?.status !== "found") return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
+
+  const next: Session = { state: SessionState.CONSULTA_AWAITING_LISTADO, slots: {}, counters: {} };
+  next.slots[SlotKey.CONSULTA_LISTADO_DATA] = JSON.stringify(result.items);
+  return buildResult(next, offerPagedList(next, "Estas son tus incidencias:", listadoRows(result.items)));
+}
+
+function handleAwaitingListado(session: Session, event: InboundEvent): HandlerResult {
+  const outcome = resolveSelection(session, event);
+  if ("result" in outcome) return outcome.result;
+
+  const item = readListado(session).find((i) => i.codigo === outcome.replyId);
+  if (!item) return closed(SessionState.CONSULTA_COMPLETED, NO_UBICADA_TEXT);
+  return closed(SessionState.CONSULTA_COMPLETED, foundText({ status: "found", ...item }));
+}
+
 export function handleConsulta(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
     case SessionState.CONSULTA_AWAITING_CODIGO:
@@ -172,6 +266,10 @@ export function handleConsulta(session: Session, event: HandleEvent): HandlerRes
       return handleVerifyPending(session, event as QueryResultEvent);
     case SessionState.CONSULTA_QUERY_PENDING:
       return handleQueryPending(event as QueryResultEvent);
+    case SessionState.CONSULTA_LISTAR_PENDING:
+      return handleListarPending(event as QueryResultEvent);
+    case SessionState.CONSULTA_AWAITING_LISTADO:
+      return handleAwaitingListado(session, event as InboundEvent);
     default:
       throw new Error(`handleConsulta: unknown state "${session.state}"`);
   }

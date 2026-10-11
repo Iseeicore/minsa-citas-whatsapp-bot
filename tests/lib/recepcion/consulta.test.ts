@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   findFirst: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
+  findMany: vi.fn<(args: unknown) => Promise<unknown>>(async () => []),
   enabled: true,
 }));
 
 vi.mock("@/lib/db/persistence", () => ({ isDatabaseEnabled: () => db.enabled }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { incidenciaPaciente: { findFirst: db.findFirst } } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { incidenciaPaciente: { findFirst: db.findFirst, findMany: db.findMany } } }));
 
-import { consultarIncidencia } from "@/lib/recepcion/consulta";
+import { consultarIncidencia, listarIncidencias } from "@/lib/recepcion/consulta";
 import { estadoLegible, fechaLegible } from "@/lib/recepcion/consulta-dto";
 
 const CODIGO = "MINSA-2026-000003";
@@ -19,6 +20,7 @@ describe("consultarIncidencia", () => {
     vi.clearAllMocks();
     db.enabled = true;
     db.findFirst.mockResolvedValue(null);
+    db.findMany.mockResolvedValue([]);
   });
 
   it("WhatsApp: busca por el usuario dueño (su wa_id actual), sin borradas, y devuelve solo código, estado y fecha", async () => {
@@ -68,6 +70,63 @@ describe("consultarIncidencia", () => {
     db.findFirst.mockRejectedValue(new Error("connection refused"));
 
     await expect(consultarIncidencia(CODIGO, { canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "error" });
+  });
+});
+
+describe("listarIncidencias", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.enabled = true;
+    db.findMany.mockResolvedValue([]);
+  });
+
+  it("WhatsApp: busca todas las del usuario dueño, de la más reciente a la más antigua", async () => {
+    db.findMany.mockResolvedValue([
+      { ...fila, descripcion: "no debe salir" },
+      { codigo: "MINSA-2026-000001", fechaCreacion: new Date("2026-01-01T00:00:00.000Z"), estadoIncidencia: { codigo: "RESUELTO" } },
+    ]);
+
+    const result = await listarIncidencias({ canal: "whatsapp", waId: "bsuid-ana" });
+
+    expect(result).toEqual({
+      status: "found",
+      items: [
+        { codigo: CODIGO, estado: "EN_GESTION", fechaRegistro: "2026-10-09T15:30:00.000Z" },
+        { codigo: "MINSA-2026-000001", estado: "RESUELTO", fechaRegistro: "2026-01-01T00:00:00.000Z" },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toMatch(/no debe salir/);
+    expect(db.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { activo: true, eliminadoEn: null, usuario: { waId: "bsuid-ana" } },
+        orderBy: { fechaCreacion: "desc" },
+      }),
+    );
+  });
+
+  it("web: exige el DNI verificado y excluye las anónimas, igual que la consulta puntual", async () => {
+    await listarIncidencias({ canal: "web", dni: "12345678" });
+
+    expect(db.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { activo: true, eliminadoEn: null, esAnonimo: false, dniReclamante: "12345678" } }),
+    );
+  });
+
+  it("sin incidencias: empty", async () => {
+    await expect(listarIncidencias({ canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "empty" });
+  });
+
+  it("base apagada: error y no consulta", async () => {
+    db.enabled = false;
+
+    await expect(listarIncidencias({ canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "error" });
+    expect(db.findMany).not.toHaveBeenCalled();
+  });
+
+  it("base caída: error, sin propagar la excepción", async () => {
+    db.findMany.mockRejectedValue(new Error("connection refused"));
+
+    await expect(listarIncidencias({ canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "error" });
   });
 });
 

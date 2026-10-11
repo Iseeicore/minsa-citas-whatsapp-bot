@@ -92,3 +92,19 @@ export async function buscarIncidenciaDeQuienConsulta(
   });
   return fila ? { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo } : null;
 }
+
+/** Mismo criterio de pertenencia que `buscarIncidenciaDeQuienConsulta`, pero sin filtro de código: todas las de quien consulta. */
+export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsulta): Promise<IncidenciaConsultada[]> {
+  const filas = await prisma.incidenciaPaciente.findMany({
+    where: {
+      activo: true,
+      eliminadoEn: null,
+      ...(identidad.canal === "whatsapp"
+        ? { usuario: { waId: identidad.waId } }
+        : { esAnonimo: false, dniReclamante: identidad.dni }),
+    },
+    orderBy: { fechaCreacion: "desc" },
+    select: { codigo: true, fechaCreacion: true, estadoIncidencia: { select: { codigo: true } } },
+  });
+  return filas.map((fila) => ({ codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo }));
+}

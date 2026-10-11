@@ -1,7 +1,7 @@
 import { SessionState } from "@/lib/enums/session-state";
 
-export const INBOUND_FREE_TEXT_WINDOW_MS = 3_000;
-export const INBOUND_MAX_WAIT_MS = 10_000;
+export const INBOUND_FREE_TEXT_WINDOW_MS = 1_500;
+export const INBOUND_MAX_WAIT_MS = 3_000;
 export const INBOUND_MAX_BATCH = 10;
 export const INBOUND_MAX_AGE_MS = 120_000;
 export const INBOUND_REPEAT_WINDOW_MS = 3_000;
@@ -23,11 +23,11 @@ const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /**
- * Milisegundos que se espera tras un mensaje antes de responder; 0 si el estado espera un dato exacto (DNI, OTP, botón),
- * no es texto o es el primer contacto (la bienvenida sale de inmediato).
+ * Milisegundos que se espera tras un mensaje antes de responder; 0 si el estado espera un dato exacto (DNI, OTP, botón)
+ * o no es texto. El primer contacto (estado null) usa la misma ventana que el resto del texto libre.
  */
 export function resolveWindowMs(input: { state: string | null; type: string }): number {
   if (input.type !== "text") return 0;
-  if (input.state === null) return 0;
+  if (input.state === null) return INBOUND_FREE_TEXT_WINDOW_MS;
   return FREE_TEXT_STATES.has(input.state) ? INBOUND_FREE_TEXT_WINDOW_MS : 0;
 }

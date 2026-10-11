@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import {
+  ASK_CODIGO_O_LISTAR_TEXT,
   ASK_CODIGO_TEXT,
   ASK_DOCUMENTO_TEXT,
   ASK_OTP_TEXT,
@@ -54,7 +55,7 @@ describe("el código en el primer mensaje", () => {
     const first = handleFirstContact("quiero consultar mi incidencia", "whatsapp");
 
     expect(first.session.state).toBe("consulta_awaiting_codigo");
-    expect(texts(first)).toEqual([ASK_CODIGO_TEXT]);
+    expect(texts(first)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
   });
 
   it("un código con formato incorrecto no inicia la consulta", () => {
@@ -77,7 +78,7 @@ describe("desde el menú principal", () => {
       const step = handle(mainMenu(), event);
 
       expect(step.session.state).toBe("consulta_awaiting_codigo");
-      expect(texts(step)).toEqual([ASK_CODIGO_TEXT]);
+      expect(texts(step)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
     }
   });
 });
@@ -198,5 +199,85 @@ describe("consulta_query_pending: el resultado", () => {
     const web = handle(done, text("hola", "web"));
     expect(web.session.state).toBe("main_menu");
     expect(sent(web).length).toBe(2);
+  });
+});
+
+describe("ver todas mis incidencias", () => {
+  const LISTAR_ID = "consulta_codigo_listar";
+  const atCodigo = (channel: InboundEvent["channel"] = "whatsapp"): Session => ({
+    state: "consulta_awaiting_codigo",
+    slots: { consultaCanal: channel === "web" ? "web" : "whatsapp" },
+    counters: {},
+  });
+
+  it("WhatsApp: el botón «Ver todas» busca de inmediato, sin DNI", () => {
+    const step = handle(atCodigo(), pick(LISTAR_ID));
+
+    expect(step.session.state).toBe("consulta_listar_pending");
+    expect(queries(step)).toEqual([{ kind: "listar_incidencias", payload: { canal: "whatsapp" } }]);
+  });
+
+  it("web: el botón «Ver todas» pide DNI+OTP antes de listar", () => {
+    let step = handle(atCodigo("web"), pick(LISTAR_ID, "web"));
+    expect(step.session.state).toBe("consulta_awaiting_dni");
+
+    step = handle(step.session, text("12345678", "web"));
+    step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw-1" }));
+    step = handle(step.session, text("123456", "web"));
+    step = handle(step.session, result("verify_code", { status: "verified", token: "secreto" }));
+
+    expect(step.session.state).toBe("consulta_listar_pending");
+    expect(queries(step)).toEqual([{ kind: "listar_incidencias", payload: { canal: "web", dni: "12345678" } }]);
+  });
+
+  describe("consulta_listar_pending: el resultado", () => {
+    const pendingListar = (): Session => ({ state: "consulta_listar_pending", slots: { consultaCanal: "whatsapp" }, counters: {} });
+
+    it("sin incidencias, cierra con el aviso y no deja ninguna query a medias", () => {
+      const step = handle(pendingListar(), result("listar_incidencias", { status: "empty" }));
+
+      expect(step.session.state).toBe("consulta_completed");
+      expect(texts(step)).toEqual(["No tienes incidencias registradas."]);
+    });
+
+    it("con incidencias, ofrece la lista paginada (mismo mecanismo que las referencias de citas)", () => {
+      const step = handle(
+        pendingListar(),
+        result("listar_incidencias", {
+          status: "found",
+          items: [
+            { codigo: CODIGO, estado: "RESUELTO", fechaRegistro: "2026-10-10T03:30:00.000Z" },
+            { codigo: "MINSA-2026-000009", estado: "EN_GESTION", fechaRegistro: "2026-09-01T03:30:00.000Z" },
+          ],
+        }),
+      );
+
+      expect(step.session.state).toBe("consulta_awaiting_listado");
+      const listEffect = step.effects.find((e) => "rows" in e) as { text: string; rows: { id: string; title: string }[] };
+      expect(listEffect.text).toBe("Estas son tus incidencias:");
+      expect(listEffect.rows.map((r) => r.id)).toEqual([CODIGO, "MINSA-2026-000009"]);
+    });
+
+    it("base caída: cierra con el mismo mensaje de falla que una consulta puntual", () => {
+      const step = handle(pendingListar(), result("listar_incidencias", { status: "error" }));
+
+      expect(texts(step)).toEqual([CONSULTA_FALLA_TEXT]);
+      expect(step.session.state).toBe("consulta_failed");
+    });
+  });
+
+  it("al elegir una de la lista, muestra el mismo detalle que una consulta por código", () => {
+    const listado = handle(
+      { state: "consulta_listar_pending", slots: { consultaCanal: "whatsapp" }, counters: {} },
+      result("listar_incidencias", {
+        status: "found",
+        items: [{ codigo: CODIGO, estado: "RESUELTO", fechaRegistro: "2026-10-10T03:30:00.000Z" }],
+      }),
+    ).session;
+
+    const step = handle(listado, pick(CODIGO));
+
+    expect(step.session.state).toBe("consulta_completed");
+    expect(texts(step)).toEqual([`Incidencia ${CODIGO}\nEstado: Resuelta\nFecha de registro: 09/10/2026`]);
   });
 });
