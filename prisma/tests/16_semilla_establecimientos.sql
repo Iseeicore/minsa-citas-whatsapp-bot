@@ -1,8 +1,6 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
--- Prueba el cargador del padron (el mismo que usa `npm run db:seed:eess`) con un puñado de filas: ceros a la izquierda,
--- espacios, campos vacios, idempotencia y actualizacion de lo que cambio.
 CREATE TEMP TABLE eess_fuente (codigo_renipress text, nombre text, nivel text, categoria text, diris text, departamento text, provincia text, distrito text);
 INSERT INTO eess_fuente VALUES
   ('00016206', ' HOSPITAL SEMILLA UNO ', 'III', NULL, 'DIRIS Lima Centro', NULL, NULL, NULL),
@@ -46,7 +44,6 @@ BEGIN
   ASSERT pg_temp.huella() = (SELECT h FROM huella_1), 'L09 cargar dos veces lo mismo no cambia nada (ni versiones ni fechas)';
 END $$;
 
--- Si algo cambio en la fuente, solo esa fila se actualiza
 UPDATE eess_fuente SET nombre = 'CENTRO DE SALUD SEMILLA DOS RENOMBRADO', categoria = 'I-4' WHERE codigo_renipress = '16207';
 \ir ../seeds/eess/cargar_establecimientos.sql
 DO $$
@@ -58,7 +55,6 @@ BEGIN
   ASSERT (SELECT count(*) FROM catalogo.establecimiento_salud WHERE codigo_renipress LIKE '162%') = 4, 'L12 no se duplica nada';
 END $$;
 
--- Si la fuente trae el codigo con ceros y el establecimiento ya existe sin ellos, es el mismo
 UPDATE eess_fuente SET codigo_renipress = '0016207' WHERE codigo_renipress = '16207';
 \ir ../seeds/eess/cargar_establecimientos.sql
 DO $$

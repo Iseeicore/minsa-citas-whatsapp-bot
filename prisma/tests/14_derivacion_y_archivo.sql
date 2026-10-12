@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- Dos establecimientos de prueba, cada uno con su area, y un area desactivada
 SELECT set_config('app.actor', 'sistema:prueba', false);
 INSERT INTO catalogo.area (codigo, nombre, tipo_area_id, activo) VALUES
   ('T14-EESS-1', 'Establecimiento 1', 1, true),
@@ -42,7 +41,6 @@ BEGIN
 END;
 $$;
 
--- Lleva un caso clasificado (queja o reclamo) hasta el estado pedido por el camino normal, al area del establecimiento 1.
 CREATE FUNCTION pg_temp.llevar(p_traza text, p_estado text) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -61,11 +59,9 @@ BEGIN
 END;
 $$;
 
--- ===== Derivar exige destino; las marcas las llena la base =====
 SELECT pg_temp.nuevo('t14-queja', '9141', 2);
 SELECT set_config('app.actor', 'usuario:gestor-14', false);
 
--- Sin establecimiento de origen la base no puede asignar destino al clasificar: derivar o tomar sin area falla
 SELECT pg_temp.nuevo('t14-sinorigen', '0', 2);
 SELECT set_config('app.actor', 'usuario:gestor-14', false);
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 6 WHERE trace_id = 't14-sinorigen'$q$, '23514', 'X01 derivar sin area de destino falla');
@@ -124,7 +120,6 @@ BEGIN
   ASSERT (SELECT estado_incidencia_id = 4 AND resuelto_por = 'usuario:est-14' FROM chatbot.incidencia_paciente WHERE trace_id = 't14-queja'), 'X12 el area resuelve y la base firma';
 END $$;
 
--- ===== La corrupcion siempre va a OTRANS =====
 SELECT pg_temp.nuevo('t14-corrupcion', '9141', 1);
 SELECT set_config('app.actor', 'usuario:gestor-14', false);
 DO $$
@@ -155,7 +150,6 @@ BEGIN
   ASSERT r.estado_incidencia_id = 3 AND r.tomado_por = 'usuario:otrans-14' AND r.derivado_por IS NULL, 'Y05 OTRANS toma la denuncia directo, sin derivarla';
 END $$;
 
--- Una queja ya derivada a un establecimiento que se corrige a corrupcion pasa sola a OTRANS
 SELECT pg_temp.nuevo('t14-corregida-derivada', '9142', 2);
 SELECT pg_temp.llevar('t14-corregida-derivada', 'DERIVADO');
 SELECT pg_sleep(0.05);
@@ -172,7 +166,6 @@ BEGIN
 END $$;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'T14-EESS-1') WHERE trace_id = 't14-corregida-derivada'$q$, '23514', 'Y07 despues de corregirla no se puede devolver a un establecimiento');
 
--- ...y tambien si ya estaba en gestion en el establecimiento
 SELECT pg_temp.nuevo('t14-corregida-en-gestion', '9141', 3);
 SELECT pg_temp.llevar('t14-corregida-en-gestion', 'EN_GESTION');
 SELECT set_config('app.actor', 'usuario:gestor-14c', false);
@@ -183,7 +176,6 @@ BEGIN
     'Y08 una queja en gestion que se corrige a corrupcion tambien pasa a OTRANS';
 END $$;
 
--- Con dos areas que reciben casos sensibles la base no elige: la persona asigna
 BEGIN;
 INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES ('T14-OTRANS-2', 'Otra oficina de transparencia', 2);
 SELECT pg_temp.nuevo('t14-dos-areas', '9141', 1);
@@ -201,7 +193,6 @@ BEGIN
 END $$;
 ROLLBACK;
 
--- ===== Archivado: siempre con motivo =====
 SELECT pg_temp.nuevo('t14-filtro', '9141', NULL);
 SELECT pg_temp.nuevo('t14-persona-registrado', '9141', NULL);
 SELECT pg_temp.nuevo('t14-persona-clasificado', '9141', 3);
@@ -259,7 +250,6 @@ BEGIN
     'Z17 al archivar un resuelto la base deduce RESUELTA_VIGENCIA';
 END $$;
 
--- Las funciones de archivado por lote deducen el motivo
 SELECT pg_temp.nuevo('t14-lote-resuelto', '9142', 3);
 SELECT pg_temp.llevar('t14-lote-resuelto', 'RESUELTO');
 SELECT pg_temp.nuevo('t14-lote-abierto', '9142', 2);

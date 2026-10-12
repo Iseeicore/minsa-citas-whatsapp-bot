@@ -23,7 +23,6 @@ INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES
 INSERT INTO catalogo.establecimiento_salud (codigo_renipress, nombre, nivel_atencion_id, area_id)
 SELECT v.renipress, a.nombre, 1, a.id FROM (VALUES ('9191', 'T19-EESS-1'), ('9192', 'T19-EESS-2')) AS v(renipress, area) JOIN catalogo.area a ON a.codigo = v.area;
 
--- p_eess NULL: caso sin establecimiento de origen. p_categoria NULL: sin clasificar.
 CREATE FUNCTION pg_temp.nuevo(p_traza text, p_eess text, p_categoria integer) RETURNS void
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -47,7 +46,6 @@ LANGUAGE sql AS $$
   SELECT coalesce(a.codigo, '-') FROM chatbot.incidencia_paciente i LEFT JOIN catalogo.area a ON a.id = i.area_destino_id WHERE i.trace_id = p_traza;
 $$;
 
--- ===== Al clasificarse, el caso no sensible queda en el area de su establecimiento =====
 SELECT pg_temp.nuevo('t19-queja', '9191', 2);
 SELECT pg_temp.nuevo('t19-reclamo', '9192', 3);
 SELECT pg_temp.nuevo('t19-otro', '9191', 4);
@@ -67,7 +65,6 @@ BEGIN
     'N07 asignar el destino no deriva ni toma: el caso sigue CLASIFICADO';
 END $$;
 
--- ===== Tomar directo desde CLASIFICADO, para cualquier destino =====
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 't19-queja';
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 't19-sinorigen'$q$, '23514', 'N09 tomar sin destino falla');
 DO $$
@@ -83,14 +80,12 @@ BEGIN
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 't19-corrupcion') = 3, 'N10 la corrupcion tambien se toma directo';
 END $$;
 
--- Resolver desde ahi
 UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se atendio la queja', fundamento = 'La queja era procedente', resultado_resolucion_id = 1 WHERE trace_id = 't19-queja';
 DO $$
 BEGIN
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 't19-queja') = 4, 'N11 el flujo cierra: clasificado, en gestion, resuelto';
 END $$;
 
--- ===== Derivar sigue permitido desde CLASIFICADO, a otra area =====
 UPDATE chatbot.incidencia_paciente SET area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'T19-EESS-2'), estado_incidencia_id = 6 WHERE trace_id = 't19-otro';
 DO $$
 DECLARE r chatbot.incidencia_paciente;
@@ -99,20 +94,18 @@ BEGIN
   ASSERT r.estado_incidencia_id = 6 AND pg_temp.destino('t19-otro') = 'T19-EESS-2' AND r.derivado_por = 'usuario:rev-19', 'N12 derivar a otra area desde CLASIFICADO sigue funcionando';
 END $$;
 
--- ===== Correcciones de categoria =====
--- no sensible a no sensible: el destino no cambia
 SELECT pg_temp.nuevo('t19-q-r', '9191', 2);
 UPDATE chatbot.incidencia_paciente SET categoria_id = 3 WHERE trace_id = 't19-q-r';
--- no sensible a sensible: pasa a OTRANS
+
 SELECT pg_temp.nuevo('t19-q-c', '9191', 2);
 UPDATE chatbot.incidencia_paciente SET categoria_id = 1 WHERE trace_id = 't19-q-c';
--- sensible a no sensible: vuelve al establecimiento de origen
+
 SELECT pg_temp.nuevo('t19-c-q', '9192', 1);
 UPDATE chatbot.incidencia_paciente SET categoria_id = 2 WHERE trace_id = 't19-c-q';
--- sensible a no sensible sin establecimiento de origen: se queda donde esta
+
 SELECT pg_temp.nuevo('t19-c-q-sin', NULL, 1);
 UPDATE chatbot.incidencia_paciente SET categoria_id = 2 WHERE trace_id = 't19-c-q-sin';
--- sensible a no sensible con el caso ya en gestion: no se mueve
+
 SELECT pg_temp.nuevo('t19-c-q-gestion', '9192', 1);
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 't19-c-q-gestion';
 UPDATE chatbot.incidencia_paciente SET categoria_id = 2 WHERE trace_id = 't19-c-q-gestion';
@@ -127,7 +120,6 @@ BEGIN
     'N18 la correccion sigue firmada por quien la hizo';
 END $$;
 
--- El destino puesto por la base cuenta para derivar y para el CHECK de sensibles
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'T19-EESS-1') WHERE trace_id = 't19-q-c'$q$, '23514', 'N19 un caso de corrupcion no se reasigna a un establecimiento');
 
 TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,

@@ -1,4 +1,3 @@
--- CreateTable
 CREATE TABLE "catalogo"."estado_archivo" (
     "id" SMALLSERIAL NOT NULL,
     "codigo" TEXT NOT NULL,
@@ -14,7 +13,6 @@ CREATE TABLE "catalogo"."estado_archivo" (
     CONSTRAINT "pk_estado_archivo" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "chatbot"."solicitud_carga" (
     "id" UUID NOT NULL DEFAULT uuidv7(),
     "incidencia_paciente_id" UUID,
@@ -34,7 +32,6 @@ CREATE TABLE "chatbot"."solicitud_carga" (
     CONSTRAINT "pk_solicitud_carga" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "chatbot"."archivo_recibido" (
     "id" UUID NOT NULL DEFAULT uuidv7(),
     "solicitud_carga_id" UUID NOT NULL,
@@ -57,38 +54,26 @@ CREATE TABLE "chatbot"."archivo_recibido" (
     CONSTRAINT "pk_archivo_recibido" PRIMARY KEY ("id")
 );
 
--- CreateIndex
 CREATE UNIQUE INDEX "uq_estado_archivo_codigo" ON "catalogo"."estado_archivo"("codigo");
 
--- CreateIndex
 CREATE UNIQUE INDEX "uq_solicitud_carga_hash_token" ON "chatbot"."solicitud_carga"("hash_token");
 
--- CreateIndex
 CREATE INDEX "ix_solicitud_carga_incidencia_paciente" ON "chatbot"."solicitud_carga"("incidencia_paciente_id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "uq_archivo_recibido_evidencia" ON "chatbot"."archivo_recibido"("evidencia_id");
 
--- CreateIndex
 CREATE INDEX "ix_archivo_recibido_solicitud_estado" ON "chatbot"."archivo_recibido"("solicitud_carga_id", "estado_archivo_id");
 
--- AddForeignKey
 ALTER TABLE "chatbot"."solicitud_carga" ADD CONSTRAINT "fk_solicitud_carga_incidencia_paciente" FOREIGN KEY ("incidencia_paciente_id") REFERENCES "chatbot"."incidencia_paciente"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."solicitud_carga" ADD CONSTRAINT "fk_solicitud_carga_usuario" FOREIGN KEY ("usuario_id") REFERENCES "chatbot"."usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."archivo_recibido" ADD CONSTRAINT "fk_archivo_recibido_solicitud_carga" FOREIGN KEY ("solicitud_carga_id") REFERENCES "chatbot"."solicitud_carga"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."archivo_recibido" ADD CONSTRAINT "fk_archivo_recibido_estado_archivo" FOREIGN KEY ("estado_archivo_id") REFERENCES "catalogo"."estado_archivo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."archivo_recibido" ADD CONSTRAINT "fk_archivo_recibido_evidencia" FOREIGN KEY ("evidencia_id") REFERENCES "chatbot"."evidencia"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-
--- Restricciones e indices parciales que Prisma no expresa.
 ALTER TABLE chatbot.solicitud_carga
   ADD CONSTRAINT ck_solicitud_carga_vencimiento CHECK (vence_en > fecha_creacion),
   ADD CONSTRAINT ck_solicitud_carga_limites CHECK (max_archivos > 0 AND max_bytes_archivo > 0),
@@ -113,8 +98,6 @@ CREATE INDEX ix_archivo_recibido_pendiente
   ON chatbot.archivo_recibido (fecha_creacion)
   WHERE estado_archivo_id IN (1, 2);
 
--- Reglas de la solicitud: los datos de emision no cambian (salvo que la incidencia se enlaza una sola vez, cuando el
--- ciudadano sube los archivos antes de que exista la incidencia) y se cierra una sola vez (la fecha de cierre la fija la base).
 CREATE OR REPLACE FUNCTION public.fn_reglas_solicitud_carga() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -146,7 +129,6 @@ BEGIN
 END;
 $$;
 
--- Reglas del archivo: recibido -> verificando -> verificado o rechazado; los estados finales no cambian.
 CREATE OR REPLACE FUNCTION public.fn_reglas_archivo_recibido() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -223,7 +205,6 @@ INSERT INTO catalogo.estado_archivo (id, codigo, nombre, descripcion) VALUES
   (4, 'RECHAZADO', 'Rechazado', 'No pasó una verificación; se indica el motivo');
 SELECT setval(pg_get_serial_sequence('catalogo.estado_archivo', 'id'), 4);
 
--- Descripcion de cada tabla y columna nueva (diccionario de datos dentro de la base).
 COMMENT ON COLUMN catalogo.estado_archivo.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 
 COMMENT ON COLUMN catalogo.estado_archivo.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';

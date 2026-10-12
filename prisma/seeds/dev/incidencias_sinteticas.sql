@@ -1,10 +1,6 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
--- Datos de prueba para desarrollo: usuarios internos de ejemplo y 21 incidencias sinteticas repartidas en tres establecimientos.
--- Necesita el padron de establecimientos: correr antes `npm run db:seed:eess` (usa el Hospital Nacional Dos de Mayo 6206, el
--- Hospital Nacional Hipolito Unanue 5946 y el Centro de Salud Bayovar 5614).
-
 DO $$
 BEGIN
   IF (SELECT count(*) FROM catalogo.establecimiento_salud WHERE codigo_renipress IN ('6206', '5946', '5614')) < 3 THEN
@@ -12,9 +8,6 @@ BEGIN
   END IF;
 END $$;
 
--- Los usuarios no llevan clave en ningun archivo. Si quien siembra no trae una huella propia (variable hash_clave, que arma
--- scripts/db-seed-dev.mjs desde SEED_DEV_PASSWORD_HASH), la base recibe una huella al azar que nadie conoce: los usuarios
--- existen para probar areas y permisos, pero nadie puede iniciar sesion con ellos hasta que se les ponga una huella real.
 \if :{?hash_clave}
 \else
   SELECT '$argon2id$v=19$m=65536,t=3,p=4$' || rtrim(encode(sha256(uuidv7()::text::bytea), 'base64'), '=')
@@ -23,9 +16,6 @@ END $$;
 
 DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:seed-dev', false); END $$;
 
--- Reparto de los usuarios: ningun establecimiento pasa de 3 usuarios activos, ni siquiera sobre una base que ya tenga
--- usuarios viejos (tres en el Hospital Dos de Mayo y el Hipolito Unanue). El gestor pertenece siempre a un establecimiento
--- (aqui el Centro de Salud Bayovar). Solo se insertan los que faltan: repetir la siembra no vuelve a pasar por el tope.
 INSERT INTO gestion.usuario_interno (nombre_completo, correo, password_hash, area_id)
 SELECT v.nombre, v.correo, :'hash_clave', (SELECT a.id FROM catalogo.area a WHERE a.codigo = v.area)
   FROM (VALUES
@@ -55,11 +45,6 @@ ON CONFLICT (usuario_interno_id, rol_id) DO NOTHING;
 
 CREATE TEMP TABLE edades (traza text PRIMARY KEY, horas_llegada integer NOT NULL, horas_resolucion integer);
 
--- p_eess: RENIPRESS del establecimiento de origen. p_destino: NULL (la categoria sensible ya la asigno la base a OTRANS) o
--- 'ORIGEN' (se deriva al area del propio establecimiento). p_resolucion: las medidas tomadas de un caso RESUELTO, con su
--- p_fundamento y su p_resultado (ATENDIDO o CERRADO). p_archivo: NULL, 'DATOS_INSUFICIENTES' (lo archiva el filtro del
--- sistema) o un archivado manual hecho por una persona: 'DATOS_INSUFICIENTES_PERSONA' o 'NO_CORRESPONDE', con su
--- justificacion en p_detalle. p_reabrir: motivo con el que una persona reabre el caso archivado.
 CREATE FUNCTION pg_temp.sembrar(
   p_n integer,
   p_horas_llegada integer,
@@ -115,7 +100,6 @@ BEGIN
 
   SELECT area_id INTO v_area_origen FROM catalogo.establecimiento_salud WHERE codigo_renipress = p_eess;
 
-  -- Una denuncia por corrupcion ya quedo en OTRANS al clasificarse (la asigna la base): OTRANS la toma directo, sin derivar.
   IF p_estado = 'DERIVADO' OR (p_estado IN ('EN_GESTION', 'RESUELTO') AND v_categoria_vigente <> 1) THEN
     PERFORM set_config('app.actor', 'operador:gestor', false);
     UPDATE chatbot.incidencia_paciente
@@ -170,7 +154,6 @@ BEGIN
 END;
 $$;
 
--- Origen: 6206 Hospital Nacional Dos de Mayo, 5946 Hospital Nacional Hipolito Unanue, 5614 Centro de Salud Bayovar (seis cada uno).
 DO $$
 BEGIN
   PERFORM pg_temp.sembrar(1, 50, '6206', 'Me cobraron 40 soles por un medicamento que según el afiche de la farmacia debía ser gratuito para mi seguro.', 'María Q.', '00004821', 3, 92, 'confirmada', NULL, 'EN_GESTION', 'ORIGEN', NULL, NULL, NULL);
@@ -195,7 +178,6 @@ BEGIN
   PERFORM pg_temp.sembrar(18, 220, '5946', 'La sala de espera de pediatría estaba sucia.', 'Nora C.', '00003021', 2, 91, 'confirmada', NULL, 'RESUELTO', 'ORIGEN', 'Se reforzó la limpieza de la sala y se informó al paciente.', 100, NULL,
     'El paciente no volvió a reportar el problema tras reforzar la limpieza', 'CERRADO');
 
-  -- Archivados a mano por una persona y reabierto
   PERFORM pg_temp.sembrar(19, 30, '6206', 'Me cobran un trámite que corresponde a la DIRIS, no a este hospital, y no sé a quién reclamar.', 'Elena B.', '00005190', 3, 66, 'confirmada', NULL, 'DERIVADO', 'ORIGEN', NULL, NULL, 'NO_CORRESPONDE', NULL, 'ATENDIDO', 'El trámite no es de este hospital sino de la DIRIS Lima Centro', NULL);
   PERFORM pg_temp.sembrar(20, 28, '5946', 'Me reprogramaron la cirugía dos veces y nadie me explica el motivo.', 'Marco E.', '00007342', 3, 72, 'confirmada', NULL, 'DERIVADO', 'ORIGEN', NULL, NULL, 'NO_CORRESPONDE', NULL, 'ATENDIDO', 'Parecía un caso de otro hospital, falta confirmar el establecimiento', 'El paciente confirmó que la cirugía es en este hospital');
   PERFORM pg_temp.sembrar(21, 26, '5614', 'Pedí atención y me dijeron que volviera mañana, pero no entiendo qué servicio me corresponde.', 'Pilar H.', '00002288', 2, 57, 'confirmada', NULL, 'EN_GESTION', 'ORIGEN', NULL, NULL, 'DATOS_INSUFICIENTES_PERSONA', NULL, 'ATENDIDO', 'No indica el servicio ni la fecha: no hay datos para gestionarlo', NULL);
@@ -219,9 +201,6 @@ UPDATE chatbot.incidencia_paciente i
  WHERE i.trace_id = e.traza;
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
--- Archivado automatico, pero SOLO de los casos sembrados: las funciones por lote archivarian tambien cualquier caso viejo
--- que ya tenga la base (por ejemplo, los datos restaurados). Es la misma regla de las dos funciones (3 dias desde que se
--- resolvio o desde que llego o se reabrio) con el mismo actor, y la base deduce el motivo.
 DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:archivado', false); END $$;
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7
  WHERE trace_id LIKE 'seed-dev-%' AND activo AND estado_incidencia_id = 4 AND resuelto_en < now() - interval '3 days';

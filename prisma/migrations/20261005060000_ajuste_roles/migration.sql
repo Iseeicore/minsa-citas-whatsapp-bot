@@ -1,3 +1,0 @@
--- Sin cambios: el ajuste de roles (retiro del modulo de permisos y de los roles de revision y de area por categoria, regla de
--- roles desactivados) quedo integrado en las migraciones que crean esos objetos. Se conserva la carpeta para no romper la
--- secuencia de migraciones.

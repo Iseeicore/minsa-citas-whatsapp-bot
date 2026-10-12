@@ -1,7 +1,5 @@
--- AlterTable
 ALTER TABLE "catalogo"."categoria_incidencia" ADD COLUMN     "es_sensible" BOOLEAN NOT NULL DEFAULT false;
 
--- CreateTable
 CREATE TABLE "gestion"."rol_categoria" (
     "rol_id" SMALLINT NOT NULL,
     "categoria_incidencia_id" SMALLINT NOT NULL,
@@ -11,24 +9,14 @@ CREATE TABLE "gestion"."rol_categoria" (
     CONSTRAINT "pk_rol_categoria" PRIMARY KEY ("rol_id","categoria_incidencia_id")
 );
 
--- AddForeignKey
 ALTER TABLE "gestion"."rol_categoria" ADD CONSTRAINT "fk_rol_categoria_rol" FOREIGN KEY ("rol_id") REFERENCES "gestion"."rol"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "gestion"."rol_categoria" ADD CONSTRAINT "fk_rol_categoria_categoria_incidencia" FOREIGN KEY ("categoria_incidencia_id") REFERENCES "catalogo"."categoria_incidencia"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
-
--- Los estados CLASIFICADO, EN_GESTION y DERIVADO solo existen si la IA ya asigno una categoria.
 ALTER TABLE chatbot.incidencia_paciente
   ADD CONSTRAINT ck_incidencia_paciente_estado
     CHECK (estado_incidencia_id IN (1, 4, 5, 7) OR categoria_ia_id IS NOT NULL);
 
--- Reglas de la incidencia con maquina de estados:
---   REGISTRADO -> CLASIFICADO (lo hace la base cuando la IA asigna la categoria)
---   CLASIFICADO -> DERIVADO (al area competente segun la categoria) o EN_GESTION
---   DERIVADO -> EN_GESTION; EN_GESTION -> RESUELTO (lo hace la base al registrar la resolucion)
---   RESUELTO -> ARCHIVADO (lo hace la funcion de archivado a los 3 dias)
--- ANULADO queda retirado: la anulacion es el borrado logico (activo = false).
 CREATE OR REPLACE FUNCTION public.fn_reglas_incidencia() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -143,8 +131,6 @@ BEGIN
 END;
 $$;
 
--- Archivado automatico: pasa a ARCHIVADO un lote de incidencias RESUELTAS hace mas de `p_dias` dias (3 por defecto,
--- la vigencia de la resolucion) y devuelve cuantas archivo. Quien la programa la repite hasta que devuelva 0.
 CREATE OR REPLACE FUNCTION chatbot.archivar_incidencias_resueltas(p_dias integer DEFAULT 3, p_lote integer DEFAULT 1000)
 RETURNS integer
 LANGUAGE plpgsql AS $$
@@ -182,8 +168,6 @@ $$;
 COMMENT ON FUNCTION chatbot.archivar_incidencias_resueltas(integer, integer) IS
   'Archiva un lote de incidencias resueltas hace más de los días indicados (por defecto 3, la vigencia de la resolución) y devuelve cuántas archivó. Hay que repetirla hasta que devuelva 0.';
 
--- Quien puede ver que categoria de incidencia: solo se inserta (no se modifica ni se borra). Un rol de establecimiento o de
--- DIRIS nunca ve una categoria sensible.
 CREATE OR REPLACE FUNCTION public.fn_reglas_rol_categoria() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -208,9 +192,6 @@ CREATE TRIGGER trg_rol_categoria_b_auditoria_ins BEFORE INSERT ON gestion.rol_ca
 CREATE TRIGGER trg_rol_categoria_bloqueo BEFORE UPDATE OR DELETE ON gestion.rol_categoria
   FOR EACH ROW EXECUTE FUNCTION public.fn_bloquear_operacion('todo');
 
--- Un rol desactivado no se asigna a nadie, y un rol con tipo de area exige que el usuario tenga un area de ese tipo (el
--- gestor y el responsable de establecimiento pertenecen siempre a un establecimiento; solo el administrador, sin tipo de
--- area, vale en cualquier area o sin ella).
 CREATE OR REPLACE FUNCTION public.fn_reglas_usuario_rol() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -235,7 +216,6 @@ CREATE TRIGGER trg_usuario_rol_a_reglas_ins BEFORE INSERT ON gestion.usuario_rol
 
 SELECT set_config('app.actor', 'sistema:migracion', true);
 
--- Categorias: la denuncia por corrupcion es sensible y se agrega la categoria de salida OTRO.
 UPDATE catalogo.categoria_incidencia SET es_sensible = true WHERE codigo = 'DENUNCIA_CORRUPCION';
 INSERT INTO catalogo.categoria_incidencia (id, codigo, nombre, descripcion, es_sensible) VALUES
   (4, 'OTRO', 'Otro / no clasificable', 'Texto que no es una denuncia por corrupción, una queja ni un reclamo, o que la IA no puede clasificar con seguridad: una persona decide', false)
@@ -243,7 +223,6 @@ ON CONFLICT (id) DO UPDATE
   SET codigo = EXCLUDED.codigo, nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion, es_sensible = EXCLUDED.es_sensible;
 SELECT setval(pg_get_serial_sequence('catalogo.categoria_incidencia', 'id'), 4);
 
--- Estados: ANULADO se retira (es el borrado logico) y se agregan DERIVADO y ARCHIVADO.
 UPDATE catalogo.estado_incidencia
    SET activo = false, descripcion = 'Retirado: anular una incidencia es su borrado lógico (activo = false)'
  WHERE codigo = 'ANULADO';
@@ -256,8 +235,6 @@ ON CONFLICT (id) DO UPDATE
   SET codigo = EXCLUDED.codigo, nombre = EXCLUDED.nombre, descripcion = EXCLUDED.descripcion;
 SELECT setval(pg_get_serial_sequence('catalogo.estado_incidencia', 'id'), 7);
 
--- Roles de la plataforma de gestion (provisionales hasta que el area usuaria los confirme). Sin usuarios: el primer
--- administrador se crea con un procedimiento aparte, nunca en una migracion. El rol DIRIS nace desactivado.
 INSERT INTO gestion.rol (id, codigo, nombre, descripcion, activo, tipo_area_id) VALUES
   (1, 'ADMINISTRADOR', 'Administrador', 'Gestiona usuarios y roles; ve indicadores, métricas y análisis de todos los procesos', true, NULL),
   (2, 'GESTOR', 'Gestor', 'Revisa la categoría que asignó la IA (la confirma o la corrige una sola vez), archiva, reabre y resuelve los casos de su establecimiento; pertenece siempre a un establecimiento y no ve las denuncias por corrupción', true,
@@ -270,8 +247,6 @@ INSERT INTO gestion.rol (id, codigo, nombre, descripcion, activo, tipo_area_id) 
     (SELECT id FROM catalogo.tipo_area WHERE codigo = 'DIRIS'));
 SELECT setval(pg_get_serial_sequence('gestion.rol', 'id'), 5);
 
--- Quien ve que: OTRANS solo ve las denuncias por corrupcion; el gestor y el responsable de establecimiento ven quejas,
--- reclamos y otros (nunca corrupcion); la DIRIS ve quejas y reclamos.
 INSERT INTO gestion.rol_categoria (rol_id, categoria_incidencia_id) VALUES
   (1, 1), (1, 2), (1, 3), (1, 4),
   (2, 2), (2, 3), (2, 4),
@@ -279,7 +254,6 @@ INSERT INTO gestion.rol_categoria (rol_id, categoria_incidencia_id) VALUES
   (4, 2), (4, 3), (4, 4),
   (5, 2), (5, 3);
 
--- Descripcion de lo nuevo o cambiado (diccionario de datos dentro de la base).
 COMMENT ON COLUMN catalogo.categoria_incidencia.es_sensible IS 'Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por un área que reciba casos sensibles (OTRANS) y siempre pasa por revisión humana. La base impide derivarla a un establecimiento.';
 
 COMMENT ON TABLE catalogo.categoria_incidencia IS 'Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). Marca cuáles son sensibles. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.';
