@@ -1,3 +1,5 @@
+import type { ReferenceStatus } from "@/lib/enums/reference-status";
+
 export type ValidateUserResult =
   | { status: "valid"; twofaId: string }
   | { status: "not_valid" }
@@ -74,6 +76,7 @@ export type BookAppointmentParams = {
   fechaCita: string;
   horaCita: string;
   numeroDocumentoPaciente: string;
+  referenciaId?: string;
 };
 
 export type BookAppointmentResult =
@@ -83,7 +86,6 @@ export type BookAppointmentResult =
   | { status: "error" }
   | { status: "unauthorized" };
 
-/** Solo 3/5/7 llegan hasta acá: el filtro de estado ya se aplicó en listReferences. */
 export type ReferenciaItem = {
   idReferencia: string;
   numero: string;
@@ -92,10 +94,13 @@ export type ReferenciaItem = {
   ipressDestino: string;
   upsOrigen: string;
   upsDestino: string;
-  estado: 3 | 5 | 7;
+  codigoIpressDestino: string;
+  codigoUpsDestino: string;
+  estado: number;
 };
 
-export type ListReferencesResult =
-  | { status: "found"; items: ReferenciaItem[] }
-  | { status: "empty" }
-  | { status: "error" };
+export type ListReferencesResult = {
+  statusReference: ReferenceStatus;
+  message: string;
+  data: ReferenciaItem[];
+};

@@ -29,6 +29,15 @@ export function readStoredEntries(): ChatEntry[] {
   }
 }
 
+export function clearStoredChat(): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    for (const key of [FROM_STORAGE_KEY, ENTRIES_STORAGE_KEY, SESSION_STORAGE_KEY]) localStorage.removeItem(key);
+  } catch {
+  }
+}
+
 export function readStoredSession(): SessionSnapshot | null {
   if (typeof window === "undefined") return null;
   try {

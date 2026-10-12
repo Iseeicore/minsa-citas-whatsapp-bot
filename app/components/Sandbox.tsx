@@ -12,15 +12,20 @@ import {
 } from "@/app/components/sandbox-chat/storage";
 import { SessionState } from "@/lib/enums/session-state";
 import { randomId, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
-import { SandboxHeader } from "@/app/components/sandbox-chat/SandboxHeader";
+import { SandboxHeader, type WindowControls } from "@/app/components/sandbox-chat/SandboxHeader";
 import { Composer } from "@/app/components/sandbox-chat/Composer";
 import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
 import { TypingIndicator } from "@/app/components/sandbox-chat/TypingIndicator";
 import { DniCard } from "@/app/components/sandbox-chat/DniCard";
 import { DebugPanel } from "@/app/components/sandbox-chat/DebugPanel";
-import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
+import { Banner } from "@/app/components/ui/Banner";
+import { Button } from "@/app/components/ui/Button";
+import { BannerTone } from "@/lib/enums/banner-tone";
+import { ButtonVariant } from "@/lib/enums/button-variant";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
+
+const WELCOME_TRIGGER_TEXT = "Hola";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const IMAGE_TOO_LARGE_MESSAGE =
@@ -28,10 +33,14 @@ const IMAGE_TOO_LARGE_MESSAGE =
 
 export default function Sandbox({
   onBack,
+  windowControls,
   showDebugPanel = true,
+  active = true,
 }: {
   onBack?: () => void;
+  windowControls?: WindowControls;
   showDebugPanel?: boolean;
+  active?: boolean;
 }) {
   const [from, setFrom] = useState<string | null>(null);
   const [entries, setEntriesState] = useState<ChatEntry[]>([]);
@@ -42,6 +51,7 @@ export default function Sandbox({
   const [session, setSessionState] = useState<SessionSnapshot | null>(null);
   const [dniValue, setDniValue] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const welcomeRequestedRef = useRef(false);
 
   function setEntries(updater: ChatEntry[] | ((prev: ChatEntry[]) => ChatEntry[])) {
     setEntriesState((prev) => {
@@ -77,6 +87,12 @@ export default function Sandbox({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries, typing]);
 
+  useEffect(() => {
+    if (!active || !from || entries.length > 0 || welcomeRequestedRef.current) return;
+    welcomeRequestedRef.current = true;
+    sendTurn({ type: "text", text: WELCOME_TRIGGER_TEXT, reset: true });
+  });
+
   async function sendTurn(
     payload: {
       type: InboundEventType;
@@ -89,6 +105,8 @@ export default function Sandbox({
     userDisplayText?: string,
   ) {
     if (!from) return;
+
+    const esBienvenida = payload.reset === true || payload.resetAll === true || entries.length === 0;
 
     if (userDisplayText) {
       setEntries((prev) => [...prev, { id: randomId(), from: "user", text: userDisplayText }]);
@@ -114,9 +132,11 @@ export default function Sandbox({
       const data = (await res.json()) as { sent: SendEffect[]; session: SessionSnapshot };
 
       for (const effect of data.sent) {
-        setTyping(true);
-        await sleep(500);
-        setTyping(false);
+        if (!esBienvenida) {
+          setTyping(true);
+          await sleep(500);
+          setTyping(false);
+        }
         setEntries((prev) => [...prev, { id: randomId(), from: "bot" as const, effect }]);
       }
 
@@ -183,7 +203,7 @@ export default function Sandbox({
         }
       >
         <div className="flex flex-col overflow-hidden">
-          <SandboxHeader onBack={onBack} />
+          <SandboxHeader onBack={onBack} windowControls={windowControls} />
 
           <div className="flex items-center gap-2 px-4 pt-3">
             <div className="h-px flex-1 bg-gray-200" />
@@ -193,12 +213,9 @@ export default function Sandbox({
 
           {showDebugPanel && (
             <div className="flex items-center justify-end px-4 pt-2">
-              <button
-                onClick={handleReset}
-                className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-              >
+              <Button variant={ButtonVariant.PILL_NEUTRAL} onClick={handleReset}>
                 Reiniciar todas las pruebas
-              </button>
+              </Button>
             </div>
           )}
 
@@ -216,7 +233,7 @@ export default function Sandbox({
             <div ref={bottomRef} />
           </div>
 
-          {error && <ErrorBanner>{error}</ErrorBanner>}
+          {error && <Banner tone={BannerTone.ERROR}>{error}</Banner>}
 
           <Composer
             from={from}

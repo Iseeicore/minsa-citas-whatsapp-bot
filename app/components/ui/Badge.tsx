@@ -1,18 +1,23 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils/cn";
 
 export function Badge({
   size = "sm",
-  className = "",
+  className,
   children,
 }: {
   size?: "sm" | "md";
   className?: string;
   children: ReactNode;
 }) {
-  const sizeClassName = size === "md" ? "px-3 py-1" : "px-1.5 py-0.5";
-
   return (
-    <span className={`flex-shrink-0 rounded-full text-xs font-medium ${sizeClassName} ${className}`}>
+    <span
+      className={cn(
+        "flex-shrink-0 rounded-full text-xs font-medium",
+        size === "md" ? "px-3 py-1" : "px-1.5 py-0.5",
+        className,
+      )}
+    >
       {children}
     </span>
   );
