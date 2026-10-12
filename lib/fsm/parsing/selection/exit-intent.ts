@@ -1,11 +1,9 @@
-import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/constants/regex/text";
+import { STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/constants/regex/text";
 import { EXIT_PATTERNS } from "@/lib/constants/regex/selection";
+import { stripAccents } from "@/lib/utils/text-values";
 
 export function normalizeIntentPhrase(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
+  return stripAccents(text.toLowerCase())
     .replace(STRETCHED_CHARACTER, "$1")
     .replace(WORD_SEPARATORS, " ")
     .trim();

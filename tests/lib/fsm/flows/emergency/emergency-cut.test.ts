@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
-import { IN_FLOW_MAX_CHARS, isEmergency, isEmergencyInFlow } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { isEmergency, isEmergencyInFlow } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 import { SessionState } from "@/lib/enums/session-state";
+import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
 
 const FROM = "sandbox-emergency-cut";
 

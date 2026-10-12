@@ -2,7 +2,7 @@ import { CLOCK_TIME } from "@/lib/constants/regex/text";
 import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { isSlotAcceptance, resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { cloneSession, withNote } from "@/lib/fsm/core/handlers-shared";
+import { cloneSession, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import { matchHoraText } from "@/lib/fsm/parsing/date/time-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
@@ -18,6 +18,7 @@ import { NEGATION_WORD } from "@/lib/constants/regex/selection";
 import { CHOOSE_OTHER_HORA_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import { MatchKind } from "@/lib/enums/match-kind";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 function acceptsPendingHora(typed: string, slotId: string): boolean {
   const plain = normalizeText(typed).toLowerCase();
@@ -29,7 +30,7 @@ function acceptsPendingHora(typed: string, slotId: string): boolean {
 }
 
 export function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const slotId = String(session.slots[SlotKey.CITA_HORA_CONFIRM_ID] ?? "");
+  const slotId = slotText(session.slots, SlotKey.CITA_HORA_CONFIRM_ID);
   const [start] = slotId.split("|");
   const only = session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY] === ONLY_HORA_FLAG;
   const offered = readOffered(session.slots);
@@ -51,9 +52,8 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
 
   if (!CLOCK_TIME.test(start ?? "")) return backToList();
 
-  const reply =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
-  const typedText = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+  const reply = readTappedId(event);
+  const typedText = readTypedText(event);
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(typedText) : Confirmation.UNKNOWN;
   const takesThatHora =
     typed === Confirmation.UNKNOWN && event.type === InboundEventType.TEXT && acceptsPendingHora(typedText, slotId);

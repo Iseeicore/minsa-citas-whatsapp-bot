@@ -6,8 +6,8 @@ import {
   sendButtons,
   sendText,
   truncateForRow,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
+  readTappedId,
+  readTrimmedText,
 } from "@/lib/fsm/core/handlers-shared";
 import { resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import type { HandleEvent, HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session, SessionChannel } from "@/lib/fsm/core/types";
@@ -18,7 +18,6 @@ import { estadoLegible, fechaLegible, type ConsultaIncidenciaResult, type Listar
 import { ConsultaCodigoButtonId } from "@/lib/enums/consulta-codigo-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
-import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -47,9 +46,12 @@ import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { LookupStatus } from "@/lib/enums/lookup-status";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
-
-const MAX_INTENTOS_CODIGO = 3;
-const MAX_INTENTOS_OTP = 3;
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { isString } from "@/lib/utils/type-guards";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { arrayOr } from "@/lib/utils/array-values";
+import { MAX_INTENTOS_CODIGO, MAX_INTENTOS_OTP } from "@/lib/constants/limits/consulta";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 const canalDe = (channel: SessionChannel | undefined): string => (channel === SessionChannelEnum.WEB ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP);
 
@@ -64,9 +66,9 @@ function startSearch(session: Session): HandlerResult {
   return buildResult(next, [
     sendText(BUSCANDO_INCIDENCIA_TEXT),
     query(QueryKind.CONSULTAR_INCIDENCIA, {
-      codigo: String(next.slots[SlotKey.CONSULTA_CODIGO] ?? ""),
+      codigo: slotText(next.slots, SlotKey.CONSULTA_CODIGO),
       canal: web ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP,
-      ...(web ? { dni: String(next.slots[SlotKey.CONSULTA_DNI] ?? "") } : {}),
+      ...(web ? { dni: slotText(next.slots, SlotKey.CONSULTA_DNI) } : {}),
     }),
   ]);
 }
@@ -100,7 +102,7 @@ function startListado(session: Session): HandlerResult {
     sendText(BUSCANDO_INCIDENCIAS_TEXT),
     query(QueryKind.LISTAR_INCIDENCIAS, {
       canal: web ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP,
-      ...(web ? { dni: String(next.slots[SlotKey.CONSULTA_DNI] ?? "") } : {}),
+      ...(web ? { dni: slotText(next.slots, SlotKey.CONSULTA_DNI) } : {}),
     }),
   ]);
 }
@@ -122,7 +124,7 @@ export function beginConsulta(channel: SessionChannel | undefined, codigo?: stri
 }
 
 function handleAwaitingCodigo(session: Session, event: InboundEvent): HandlerResult {
-  const reply = event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const reply = readTappedId(event);
   if (reply === ConsultaCodigoButtonId.LISTAR) return afterListarChoice(session);
 
   const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
@@ -142,7 +144,7 @@ function handleAwaitingCodigo(session: Session, event: InboundEvent): HandlerRes
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  const documento = (event.text ?? "").trim();
+  const documento = readTrimmedText(event);
   if (!isValidDocumentoFormat(documento)) return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
 
   const next = cloneSession(session);
@@ -154,7 +156,7 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 function handleValidatePending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status?: string; twofaId?: string };
 
-  if (result.status === ValidateUserStatus.VALID && typeof result.twofaId === "string") {
+  if (result.status === ValidateUserStatus.VALID && isString(result.twofaId)) {
     const next = cloneSession(session);
     next.slots[SlotKey.CONSULTA_TWOFA_ID] = result.twofaId;
     next.state = SessionState.CONSULTA_AWAITING_OTP;
@@ -164,14 +166,14 @@ function handleValidatePending(session: Session, event: QueryResultEvent): Handl
 }
 
 function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
-  const code = (event.text ?? "").trim();
+  const code = readTrimmedText(event);
   if (!isValidOtpFormat(code)) return buildResult(session, [sendText(INVALID_OTP_TEXT)]);
 
   const next = cloneSession(session);
   next.state = SessionState.CONSULTA_VERIFY_PENDING;
   return buildResult(next, [
     sendText(VERIFICANDO_CODIGO_TEXT),
-    query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots[SlotKey.CONSULTA_TWOFA_ID] ?? ""), code }),
+    query(QueryKind.VERIFY_CODE, { twofaId: slotText(next.slots, SlotKey.CONSULTA_TWOFA_ID), code }),
   ]);
 }
 
@@ -179,8 +181,8 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
   const result = event.result as { status?: string; token?: string };
   const next = cloneSession(session);
 
-  if (result.status === VerifyCodeStatus.VERIFIED && typeof result.token === "string") {
-    next.slots[SlotKey.CONSULTA_DNI] = String(next.slots[SlotKey.CONSULTA_DNI_PENDING] ?? "");
+  if (result.status === VerifyCodeStatus.VERIFIED && isString(result.token)) {
+    next.slots[SlotKey.CONSULTA_DNI] = slotText(next.slots, SlotKey.CONSULTA_DNI_PENDING);
     delete next.slots[SlotKey.CONSULTA_DNI_PENDING];
     delete next.slots[SlotKey.CONSULTA_TWOFA_ID];
     delete next.counters[CounterKey.CONSULTA_INTENTOS_OTP];
@@ -215,13 +217,8 @@ type IncidenciaListada = { codigo: string; estado: string; fechaRegistro: string
 
 function readListado(session: Session): IncidenciaListada[] {
   const raw = session.slots[SlotKey.CONSULTA_LISTADO_DATA];
-  if (typeof raw !== "string") return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as IncidenciaListada[]) : [];
-  } catch {
-    return [];
-  }
+  if (!isString(raw)) return [];
+  return arrayOr<IncidenciaListada>(parseJsonOr(raw, []));
 }
 
 function listadoRows(items: IncidenciaListada[]): ListRow[] {

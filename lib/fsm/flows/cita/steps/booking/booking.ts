@@ -18,8 +18,8 @@ import {
 } from "@/lib/constants/textos/cita-reserva";
 import { CITA_BOOKED_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
 import { BookingStatus } from "@/lib/enums/booking-status";
-
-const MAX_BOOKING_FAILURES = 3;
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { MAX_BOOKING_FAILURES } from "@/lib/constants/limits/cita";
 
 export function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; url?: string; message?: string };
@@ -61,9 +61,9 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
     return withNote(buildResult(next, [
       sendText(retryText),
       query(QueryKind.LIST_HORAS, {
-        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-        fecha: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
+        codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+        fecha: slotText(next.slots, SlotKey.CITA_FECHA),
       }),
     ]), {
       kind: "booking_retry",

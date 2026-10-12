@@ -5,6 +5,7 @@ import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { MAIN_MENU_INTENT_SYSTEM_PROMPT } from "@/lib/constants/prompts/main-menu-intent";
 import { LlmFailure } from "@/lib/enums/llm-failure";
+import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
 
 export type MainMenuIntentResult = {
   intent: MainMenuIntent;
@@ -71,15 +72,15 @@ export async function analyzeMainMenuIntent(
 
     try {
       const parsed = outcome.json as MainMenuIntentJsonShape;
-      const intent = typeof parsed.intent === "string" ? parsed.intent.trim().toLowerCase() : "";
+      const intent = stringOr(parsed.intent).trim().toLowerCase();
       if (intent === MainMenuIntent.FUERA_DE_ALCANCE) return { intent: MainMenuIntent.FUERA_DE_ALCANCE };
       if (intent === MainMenuIntent.INCIDENCIA) return { intent: MainMenuIntent.INCIDENCIA };
       if (intent !== MainMenuIntent.CITA) return { intent: MainMenuIntent.UNCLEAR };
 
       return {
         intent: MainMenuIntent.CITA,
-        especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
-        distrito: typeof parsed.distrito === "string" ? parsed.distrito : undefined,
+        especialidad: stringOrUndefined(parsed.especialidad),
+        distrito: stringOrUndefined(parsed.distrito),
       };
     } catch {
       return unclearIntent("response was not valid JSON");

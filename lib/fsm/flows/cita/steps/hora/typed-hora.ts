@@ -1,4 +1,4 @@
-import { buildResult, cloneSession, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, sendButtons, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { matchHoraText, packHoraSlots, unpackHoraSlots, type HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
@@ -10,8 +10,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import { BARE_SMALL_NUMBER } from "@/lib/constants/regex/selection";
 import { hourGroupSeeHorasText, numberedHoraOptionText, bareNumberQuestionText, HORA_UNAVAILABLE_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { MatchKind } from "@/lib/enums/match-kind";
-
-export const BUTTON_TITLE_MAX = 20;
+import { WHATSAPP_LIST_MAX_ROWS, BUTTON_TITLE_MAX } from "@/lib/constants/limits/whatsapp";
 
 function resolveBareHoraNumber(
   session: Session,

@@ -1,8 +1,7 @@
 import { afterDescripcion, askDescripcion } from "@/lib/fsm/flows/incidencia/pasos-comunes";
-import { buildResult, cloneSession, omitSlot, readReply, sendButtons, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, omitSlot, readReply, sendButtons, sendText, truncateForRow, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
-import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
@@ -16,11 +15,11 @@ import {
   borradorConfirmText,
   borradorTooLongText,
 } from "@/lib/constants/textos/incidencia";
-
-const SHOWN_BORRADOR_MAX = 800;
+import { isString } from "@/lib/utils/type-guards";
+import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH, SHOWN_BORRADOR_MAX } from "@/lib/constants/limits/incidencia";
 
 const isUsable = (borrador: string | undefined): borrador is string =>
-  typeof borrador === "string" && borrador.length >= MIN_DESCRIPCION_LENGTH && borrador.length <= MAX_DESCRIPCION_LENGTH && !looksLikeNoise(borrador);
+  isString(borrador) && borrador.length >= MIN_DESCRIPCION_LENGTH && borrador.length <= MAX_DESCRIPCION_LENGTH && !looksLikeNoise(borrador);
 
 export function enterDescripcion(session: Session): HandlerResult {
   const next = cloneSession(session);
@@ -71,7 +70,7 @@ export function handleConfirmBorrador(session: Session, event: InboundEvent): Ha
   if (reply === IncidenciaButtonId.BORRADOR_USAR) return applyText(session, borrador);
   if (reply === IncidenciaButtonId.BORRADOR_AGREGAR) return askExtra(session);
 
-  const typed = (event.text ?? "").trim();
+  const typed = readTrimmedText(event);
   if (!typed) return buildResult(session, [sendButtons(BORRADOR_QUESTION_TEXT, BORRADOR_BUTTONS)]);
 
   const confirmation = resolveConfirmation(typed);
@@ -82,7 +81,7 @@ export function handleConfirmBorrador(session: Session, event: InboundEvent): Ha
 }
 
 export function handleAwaitingBorradorExtra(session: Session, event: InboundEvent): HandlerResult {
-  const extra = (event.text ?? "").trim();
+  const extra = readTrimmedText(event);
   if (!extra) return buildResult(session, [sendText(ASK_BORRADOR_EXTRA_TEXT)]);
   if (looksLikeNoise(extra)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
   return appendExtra(session, extra);

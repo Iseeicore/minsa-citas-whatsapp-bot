@@ -20,6 +20,7 @@ import {
   resumenNombreText,
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export function askFoto() {
   return sendButtons(FOTO_REQUEST_TEXT, FOTO_BUTTONS);
@@ -51,7 +52,7 @@ export function afterDescripcion(session: Session): HandlerResult {
 }
 
 function resumenRegistro(session: Session): string {
-  const descripcion = String(session.slots[SlotKey.DESCRIPCION_INCIDENCIA] ?? "");
+  const descripcion = slotText(session.slots, SlotKey.DESCRIPCION_INCIDENCIA);
   const establecimiento = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE];
   const nombre = session.slots[SlotKey.NOMBRE_COMPLETO];
 

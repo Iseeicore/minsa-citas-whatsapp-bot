@@ -1,11 +1,10 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { looksLikePlaceName, resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
-import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
-import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -22,6 +21,7 @@ import {
   OTHER_DISTRITO_BUTTONS,
 } from "@/lib/constants/textos/cita-ubicacion";
 import { CHANGE_DISTRICT_ANSWERS } from "@/lib/constants/palabras-clave";
+import { stringOr } from "@/lib/utils/text-values";
 
 const DISTRICT_BOUND_SLOTS = [
   SlotKey.CITA_DISTRITO,
@@ -51,7 +51,7 @@ export function offerOtherDistrito(
   const next = cloneSession(session);
   next.state = SessionState.CITA_AWAITING_OTHER_DISTRITO;
 
-  const distrito = typeof next.slots[SlotKey.CITA_DISTRITO] === "string" ? next.slots[SlotKey.CITA_DISTRITO].trim() : "";
+  const distrito = stringOr(next.slots[SlotKey.CITA_DISTRITO]).trim();
   const where = distrito ? noCoverageInPlaceText(toDisplayPlace(distrito)) : NO_COVERAGE_IN_YOUR_AREA_TEXT;
   const what = missing === SearchSubject.ESPECIALIDADES ? NO_COVERAGE_ESPECIALIDADES_TEXT : NO_COVERAGE_ESTABLECIMIENTOS_TEXT;
 
@@ -73,9 +73,8 @@ export function offerChangeDistrito(session: Session, source: "local" | "ai"): H
 }
 
 export function handleOtherDistrito(session: Session, event: InboundEvent): HandlerResult {
-  const tapped =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
-  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+  const tapped = readTappedId(event);
+  const typed = readTypedText(event);
   const answer =
     typed && CHANGE_DISTRICT_ANSWERS.has(normalizeText(typed)) ? Confirmation.YES : resolveConfirmation(typed);
 

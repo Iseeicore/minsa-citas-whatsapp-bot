@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
-import { isQueryEffect, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleVerifyPending } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 const FROM = "sandbox-demo";
 

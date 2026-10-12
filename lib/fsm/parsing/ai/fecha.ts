@@ -1,6 +1,7 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { FECHA_AI_SYSTEM_PROMPT, FECHA_OPTIONS_HEADER, fechaTodayLine, fechaOptionLine, fechaRequestLine } from "@/lib/constants/prompts/fecha";
+import { isString } from "@/lib/utils/type-guards";
 
 export type FechaAiOption = { id: string; label: string };
 export type FechaAiResult = { id?: string; quiereSalir?: true };
@@ -42,7 +43,7 @@ export async function resolveFechaAi(
     try {
       const parsed = outcome.json as { id?: unknown; quiere_salir?: unknown };
       const offered = options.some((option) => option.id === parsed.id);
-      const picked: FechaAiResult = typeof parsed.id === "string" && offered ? { id: parsed.id } : {};
+      const picked: FechaAiResult = isString(parsed.id) && offered ? { id: parsed.id } : {};
       return parsed.quiere_salir === true ? { ...picked, quiereSalir: true } : picked;
     } catch {
       return {};

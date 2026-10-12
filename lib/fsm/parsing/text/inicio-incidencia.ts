@@ -13,6 +13,7 @@ import {
   TRAILING_SPACES_AND_HYPHENS,
 } from "@/lib/constants/regex/incidencia";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
+import { MAX_CODIGO_RENIPRESS_LENGTH, MAX_NOMBRE_ESTABLECIMIENTO_LENGTH, MAX_NOMBRE_ESTABLECIMIENTO_WORDS } from "@/lib/constants/limits/incidencia";
 
 export type InicioIncidencia = {
   origen: `${IncidenciaOrigen.QR}` | `${IncidenciaOrigen.TEXTO}` | `${IncidenciaOrigen.IA}`;
@@ -21,17 +22,13 @@ export type InicioIncidencia = {
   resto?: string;
 };
 
-const MAX_CODIGO_LENGTH = 8;
-const MAX_NOMBRE_LENGTH = 100;
-const MAX_NOMBRE_WORDS = 14;
-
 function fold(text: string): string {
   return Array.from(text, (char) => (char.length === 1 ? char.normalize("NFD")[0] : char)).join("");
 }
 
 function normalizeCodigo(raw: string): string | undefined {
   const withoutZeros = raw.replace(LEADING_ZEROS, "");
-  if (!POSITIVE_INTEGER.test(withoutZeros) || withoutZeros.length > MAX_CODIGO_LENGTH) return undefined;
+  if (!POSITIVE_INTEGER.test(withoutZeros) || withoutZeros.length > MAX_CODIGO_RENIPRESS_LENGTH) return undefined;
   return withoutZeros;
 }
 
@@ -41,7 +38,7 @@ function tidy(value: string): string | undefined {
 }
 
 function plausibleNombre(value: string | undefined): string | undefined {
-  if (!value || value.length > MAX_NOMBRE_LENGTH || value.split(WHITESPACE_RUN).length > MAX_NOMBRE_WORDS) return undefined;
+  if (!value || value.length > MAX_NOMBRE_ESTABLECIMIENTO_LENGTH || value.split(WHITESPACE_RUN).length > MAX_NOMBRE_ESTABLECIMIENTO_WORDS) return undefined;
   return value;
 }
 

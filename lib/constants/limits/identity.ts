@@ -1,0 +1,1 @@
+export const CARNET_EXTRANJERIA_LENGTH = 9;

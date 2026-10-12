@@ -4,16 +4,13 @@ import { minsaDigitalUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integ
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ACTIVE_CITA_MESSAGE } from "@/lib/constants/regex/integrations";
 import { BookingStatus } from "@/lib/enums/booking-status";
-
-const BOOKING_LOG_BODY_LIMIT = 300;
+import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { BOOKING_LOG_BODY_LIMIT } from "@/lib/constants/limits/minsa";
 
 function minsaMessageOf(body: string): string | undefined {
-  try {
-    const message = (JSON.parse(body) as { message?: unknown }).message;
-    return typeof message === "string" ? message : undefined;
-  } catch {
-    return undefined;
-  }
+  const parsed = parseJsonOr(body, null) as { message?: unknown } | null;
+  return stringOrUndefined(parsed?.message);
 }
 
 function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
@@ -63,12 +60,8 @@ export async function bookAppointment(
       return { status: BookingStatus.ERROR };
     }
 
-    let body: { data?: { url?: string }; message?: string } = {};
-    try {
-      body = JSON.parse(rawBody) as typeof body;
-    } catch {
-    }
-    const message = typeof body?.message === "string" ? body.message : "";
+    const body = parseJsonOr(rawBody, {}) as { data?: { url?: string }; message?: string } | null;
+    const message = stringOr(body?.message);
 
     if (body?.data?.url) {
       return { status: BookingStatus.BOOKED, url: body.data.url, message };

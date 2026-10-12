@@ -1,5 +1,5 @@
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
-import { ALL_WHITESPACE_RUNS, CLOCK_TIME, COMBINING_ACCENT_MARKS } from "@/lib/constants/regex/text";
+import { ALL_WHITESPACE_RUNS, CLOCK_TIME } from "@/lib/constants/regex/text";
 import {
   AFTERNOON_OR_NIGHT_WORD,
   BARE_HOUR,
@@ -19,6 +19,9 @@ import {
 } from "@/lib/constants/regex/date-time";
 import { MatchKind } from "@/lib/enums/match-kind";
 import { TimeRequestKind } from "@/lib/enums/time-request-kind";
+import { isString } from "@/lib/utils/type-guards";
+import { stripAccents } from "@/lib/utils/text-values";
+import { HIGHEST_AMBIGUOUS_BARE_HOUR } from "@/lib/constants/limits/date-time";
 
 export type HoraSlot = { start: string; end: string; cupos: number };
 
@@ -33,7 +36,7 @@ export function packHoraSlots(slots: HoraSlot[]): string {
 }
 
 export function unpackHoraSlots(raw: unknown): HoraSlot[] {
-  if (typeof raw !== "string" || !raw) return [];
+  if (!isString(raw) || !raw) return [];
 
   const slots: HoraSlot[] = [];
   for (const part of raw.split(";")) {
@@ -52,10 +55,7 @@ const NUMBER_WORDS: Record<string, number> = {
 };
 
 function normalize(raw: string): string {
-  const text = raw
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
+  const text = stripAccents(raw.toLowerCase())
     .replace(DOTTED_MERIDIEM, " $1m ")
     .replace(SYMBOLS_OUTSIDE_TIME_TEXT, " ")
     .replace(ALL_WHITESPACE_RUNS, " ")
@@ -127,7 +127,7 @@ function parse(text: string): Parsed {
   if (hour === undefined) return period ? { kind: TimeRequestKind.PERIOD, period } : { kind: TimeRequestKind.NONE };
 
   if (hour > 24 || (minute !== null && minute > 59)) return { kind: TimeRequestKind.NONE };
-  if (minute === null && !hasHourMarker && hour <= 10) return { kind: TimeRequestKind.NONE };
+  if (minute === null && !hasHourMarker && hour <= HIGHEST_AMBIGUOUS_BARE_HOUR) return { kind: TimeRequestKind.NONE };
 
   return { kind: TimeRequestKind.TIME, hour: hour % 24, minute, period };
 }

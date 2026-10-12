@@ -6,6 +6,7 @@ import { catalogRowDescription, formatEspecialidadName, rememberFullNames } from
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { especialidadNotAvailableText, especialidadDetectedText, SELECT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -44,7 +45,7 @@ export function acceptDetectedEspecialidad(next: Session, matched: EspecialidadR
     sendText(especialidadDetectedText(name.full)),
     query(QueryKind.LIST_ESTABLECIMIENTOS, {
       especialidadId: matched.codigoEspecialidad,
-      ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+      ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO),
     }),
   ]);
 }

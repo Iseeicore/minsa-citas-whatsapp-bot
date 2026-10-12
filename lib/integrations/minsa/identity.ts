@@ -1,17 +1,18 @@
 import type { ValidateUserResult, VerifyCodeResult } from "@/lib/integrations/minsa/types";
 import { FAKE_BEARER, FAKE_CARNET_EXTRANJERIA, FAKE_DNI, FAKE_OTP, FAKE_TWOFA_ID } from "@/lib/integrations/minsa/fake-data";
-import { isRawRow, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import type { RawRow } from "@/lib/integrations/minsa/row-readers";
 import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
+import { isString, isRecord } from "@/lib/utils/type-guards";
 
 const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
 
 function rootAndData(body: unknown): { root: RawRow; data: RawRow } {
-  const root = isRawRow(body) ? body : {};
-  return { root, data: isRawRow(root.data) ? root.data : {} };
+  const root = isRecord(body) ? body : {};
+  return { root, data: isRecord(root.data) ? root.data : {} };
 }
 
 function parseValidateUser(body: unknown): ValidateUserResult {
@@ -20,13 +21,13 @@ function parseValidateUser(body: unknown): ValidateUserResult {
   if (!valid) return { status: ValidateUserStatus.NOT_VALID };
 
   const twofaId = root.twofa_id ?? data.twofa_id;
-  return typeof twofaId === "string" ? { status: ValidateUserStatus.VALID, twofaId } : { status: ValidateUserStatus.ERROR };
+  return isString(twofaId) ? { status: ValidateUserStatus.VALID, twofaId } : { status: ValidateUserStatus.ERROR };
 }
 
 function parseVerifyCode(body: unknown): VerifyCodeResult {
   const { root, data } = rootAndData(body);
   const token = root.token ?? data.token;
-  return root.success === true && typeof token === "string" ? { status: VerifyCodeStatus.VERIFIED, token } : { status: VerifyCodeStatus.INVALID };
+  return root.success === true && isString(token) ? { status: VerifyCodeStatus.VERIFIED, token } : { status: VerifyCodeStatus.INVALID };
 }
 
 export async function validateUser(numeroDocumento: string, tipoDocumento: TipoDocumento): Promise<ValidateUserResult> {

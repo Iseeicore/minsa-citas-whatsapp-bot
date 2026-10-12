@@ -7,12 +7,13 @@ import {
   sendButtons,
   sendText,
   withNote,
+  readTappedId,
+  readTypedText,
 } from "@/lib/fsm/core/handlers-shared";
 import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
-import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SearchSubject } from "@/lib/enums/search-subject";
@@ -29,6 +30,7 @@ import {
   THAT_ESPECIALIDAD_TEXT,
   OTHER_ESTABLECIMIENTO_BUTTONS,
 } from "@/lib/constants/textos/cita-catalogo";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 
 export type AlternativeEstablecimiento = { id: string; name: string };
@@ -37,7 +39,7 @@ const questionButtons = (text: string) =>
   sendButtons(text, OTHER_ESTABLECIMIENTO_BUTTONS);
 
 export function discardedEstablecimientos(slots: Session["slots"]): string[] {
-  return String(slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS] ?? "")
+  return slotText(slots, SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS)
     .split(",")
     .filter(Boolean);
 }
@@ -48,11 +50,11 @@ export function isSearchingOtherEstablecimiento(slots: Session["slots"]): boolea
 
 export function searchOtherEstablecimiento(session: Session): HandlerResult {
   const next = cloneSession(session);
-  const empty = String(next.slots[SlotKey.CITA_COD_EESS] ?? "");
+  const empty = slotText(next.slots, SlotKey.CITA_COD_EESS);
   const discarded = empty ? [...new Set([...discardedEstablecimientos(next.slots), empty])] : discardedEstablecimientos(next.slots);
   if (discarded.length > 0) next.slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS] = discarded.join(",");
 
-  next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS] = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] ?? "");
+  next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS] = slotText(next.slots, SlotKey.CITA_ESTABLECIMIENTO_NOMBRE);
   delete next.slots[SlotKey.CITA_COD_EESS];
   delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE];
   next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
@@ -60,8 +62,8 @@ export function searchOtherEstablecimiento(session: Session): HandlerResult {
   return withNote(
     buildResult(next, [
       query(QueryKind.LIST_ESTABLECIMIENTOS, {
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-        ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+        ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO),
         page: next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] ?? 1,
       }),
     ]),
@@ -75,7 +77,7 @@ export function offerOtherEstablecimiento(
   rows: ListRow[],
 ): HandlerResult {
   const next = cloneSession(session);
-  const emptyName = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS] ?? "");
+  const emptyName = slotText(next.slots, SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS);
   delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS];
   const where = emptyName ? `*${emptyName}*` : THAT_ESTABLECIMIENTO_TEXT;
 
@@ -98,15 +100,14 @@ export function offerOtherEstablecimiento(
 }
 
 export function handleOtherEstablecimiento(session: Session, event: InboundEvent): HandlerResult {
-  const tapped =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
-  const answer = resolveConfirmation(event.type === InboundEventType.TEXT ? (event.text ?? "") : "");
+  const tapped = readTappedId(event);
+  const answer = resolveConfirmation(readTypedText(event));
 
   if (tapped === OtherEstablecimientoButtonId.YES || answer === Confirmation.YES) {
     const next = cloneSession(session);
-    const proposed = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO] ?? "");
+    const proposed = slotText(next.slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO);
     next.slots[SlotKey.CITA_COD_EESS] = proposed;
-    next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] ?? "");
+    next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = slotText(next.slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE);
     delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO];
     delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE];
     next.state = SessionState.CITA_FECHA_PENDING;
@@ -114,7 +115,7 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
       sendText(SEARCHING_FECHAS_TEXT),
       query(QueryKind.LIST_FECHAS, {
         codEess: proposed,
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
       }),
     ]);
   }
@@ -126,7 +127,7 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     });
   }
 
-  return withNote(buildResult(session, [questionButtons(otherEstablecimientoQuestionText(String(session.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] ?? "")))]), {
+  return withNote(buildResult(session, [questionButtons(otherEstablecimientoQuestionText(slotText(session.slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE)))]), {
     kind: "confirmation_unknown",
     level: "warn",
     detail: { step: "other_establecimiento" },

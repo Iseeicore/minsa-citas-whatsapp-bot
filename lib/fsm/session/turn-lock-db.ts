@@ -3,6 +3,7 @@ import { tail } from "@/lib/observability/mask";
 import { TurnLockTimeoutError, type DbTurnLock } from "@/lib/fsm/session/turn-lock";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { LOCK_TIMEOUT_MESSAGE } from "@/lib/constants/regex/integrations";
+import { toText } from "@/lib/utils/text-values";
 
 type Tx = { $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number> };
 
@@ -61,7 +62,7 @@ function isLockTimeout(error: unknown): boolean {
   return (
     candidate?.code === "55P03" ||
     candidate?.meta?.code === "55P03" ||
-    LOCK_TIMEOUT_MESSAGE.test(String(candidate?.message ?? ""))
+    LOCK_TIMEOUT_MESSAGE.test(toText(candidate?.message))
   );
 }
 

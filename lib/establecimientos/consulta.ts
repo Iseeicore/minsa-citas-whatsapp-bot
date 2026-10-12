@@ -1,14 +1,11 @@
-import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS } from "@/lib/constants/regex/text";
+import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
 import { ESTABLECIMIENTO_SYNONYMS } from "@/lib/constants/regex/catalog";
+import { stripAccents } from "@/lib/utils/text-values";
 
 const MAX_CONSULTA_LENGTH = 120;
 
-function fold(text: string): string {
-  return text.normalize("NFD").replace(COMBINING_ACCENT_MARKS, "");
-}
-
 function limpiar(text: string): string {
-  return fold(text).toLowerCase().replace(ALL_WHITESPACE_RUNS, " ").trim().slice(0, MAX_CONSULTA_LENGTH);
+  return stripAccents(text).toLowerCase().replace(ALL_WHITESPACE_RUNS, " ").trim().slice(0, MAX_CONSULTA_LENGTH);
 }
 
 export function normalizarConsulta(text: string): string {

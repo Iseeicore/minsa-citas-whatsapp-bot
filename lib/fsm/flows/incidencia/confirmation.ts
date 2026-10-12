@@ -1,4 +1,4 @@
-import { readReply } from "@/lib/fsm/core/handlers-shared";
+import { readReply, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import type { InboundEvent } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -8,7 +8,7 @@ export function readConfirmation(event: InboundEvent, yes: IncidenciaButtonId, n
   const reply = readReply(event);
   if (reply === yes) return Confirmation.YES;
   if (reply === no) return Confirmation.NO;
-  const typed = (event.text ?? "").trim();
+  const typed = readTrimmedText(event);
   if (!typed) return undefined;
   const resolved = resolveConfirmation(typed);
   return resolved === Confirmation.YES || resolved === Confirmation.NO ? resolved : undefined;

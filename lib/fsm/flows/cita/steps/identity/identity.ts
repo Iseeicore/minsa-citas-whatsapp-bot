@@ -12,6 +12,7 @@ import {
   readReply,
   sendText,
   sendButtons,
+  readTrimmedText,
 } from "@/lib/fsm/core/handlers-shared";
 import { sendMinsaDigitalCta } from "@/lib/fsm/core/minsa-digital-cta";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
@@ -39,16 +40,17 @@ import { VALIDANDO_DOCUMENTO_TEXT, ASK_OTP_TEXT, INVALID_OTP_TEXT, VERIFICANDO_C
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
-
-const MAX_REGISTRATION_CHECKS = 3;
-const MAX_OTP_ATTEMPTS = 3;
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { isString } from "@/lib/utils/type-guards";
+import { toText, stringOrUndefined } from "@/lib/utils/text-values";
+import { MAX_REGISTRATION_CHECKS, MAX_OTP_ATTEMPTS } from "@/lib/constants/limits/cita";
 
 function registrationRetryButtons(text: string) {
   return sendButtons(text, REGISTRATION_BUTTONS);
 }
 
 export function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  const documento = (event.text ?? "").trim();
+  const documento = readTrimmedText(event);
 
   if (!isValidDocumentoFormat(documento)) {
     return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
@@ -64,7 +66,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
   const result = event.result as { status: string; twofaId?: string };
   const next = cloneSession(session);
 
-  if (result.status === ValidateUserStatus.VALID && typeof result.twofaId === "string") {
+  if (result.status === ValidateUserStatus.VALID && isString(result.twofaId)) {
     next.slots[SlotKey.CITA_TWOFA_ID] = result.twofaId;
     next.state = SessionState.CITA_AWAITING_OTP;
     return buildResult(next, [
@@ -112,12 +114,12 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   next.state = SessionState.CITA_VALIDATE_PENDING;
   return buildResult(next, [
     sendText(VALIDATING_AGAIN_TEXT),
-    validateUserQuery(String(next.slots[SlotKey.CITA_DNI_PENDING] ?? "")),
+    validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING)),
   ]);
 }
 
 export function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
-  const code = (event.text ?? "").trim();
+  const code = readTrimmedText(event);
 
   if (!isValidOtpFormat(code)) {
     return buildResult(session, [sendText(INVALID_OTP_TEXT)]);
@@ -127,7 +129,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   next.state = SessionState.CITA_VERIFY_PENDING;
   return buildResult(next, [
     sendText(VERIFICANDO_CODIGO_TEXT),
-    query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots[SlotKey.CITA_TWOFA_ID] ?? ""), code }),
+    query(QueryKind.VERIFY_CODE, { twofaId: slotText(next.slots, SlotKey.CITA_TWOFA_ID), code }),
   ]);
 }
 
@@ -159,7 +161,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
   const result = event.result as { status: string; token?: string };
   const next = cloneSession(session);
 
-  if (result.status === VerifyCodeStatus.VERIFIED && typeof result.token === "string") {
+  if (result.status === VerifyCodeStatus.VERIFIED && isString(result.token)) {
     const dni = next.slots[SlotKey.CITA_DNI_PENDING];
     delete next.slots[SlotKey.CITA_DNI_PENDING];
     delete next.slots[SlotKey.CITA_TWOFA_ID];
@@ -169,7 +171,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     next.slots[SlotKey.CITA_BEARER] = result.token;
     next.slots[SlotKey.CITA_DNI] = dni ?? null;
 
-    if (isDemoReferenciaDni(typeof dni === "string" ? dni : undefined)) {
+    if (isDemoReferenciaDni(stringOrUndefined(dni))) {
       delete next.slots[SlotKey.CITA_RESUME_STATE];
       delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
       return offerDemoReferencias(next);
@@ -182,7 +184,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     }
 
     next.state = SessionState.CITA_REFERENCES_PENDING;
-    const numeroDocumento = String(dni ?? "");
+    const numeroDocumento = toText(dni);
     return buildResult(next, [
       sendText(ANALYZING_CUENTA_TEXT),
       query(QueryKind.LIST_REFERENCES, { numeroDocumento, tipoDocumento: tipoDocumentoDe(numeroDocumento) }),

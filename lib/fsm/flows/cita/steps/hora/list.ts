@@ -8,9 +8,6 @@ import {
   sendText,
   sendButtons,
   truncateForRow,
-  WHATSAPP_LIST_MAX_ROWS,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
 import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
@@ -30,6 +27,8 @@ import {
 import { searchFailureText } from "@/lib/constants/textos/fallas";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
@@ -96,7 +95,7 @@ export function handleHoraPending(session: Session, event: QueryResultEvent): Ha
     ]);
   }
 
-  const ordered = orderHorasFromNow(String(session.slots[SlotKey.CITA_FECHA] ?? ""), result.items ?? []);
+  const ordered = orderHorasFromNow(slotText(session.slots, SlotKey.CITA_FECHA), result.items ?? []);
   return buildHoraPage(session, ordered, 0);
 }
 
@@ -117,7 +116,7 @@ export function handleHoraPagePending(session: Session, event: QueryResultEvent)
     ]);
   }
 
-  const ordered = orderHorasFromNow(String(session.slots[SlotKey.CITA_FECHA] ?? ""), result.items ?? []);
+  const ordered = orderHorasFromNow(slotText(session.slots, SlotKey.CITA_FECHA), result.items ?? []);
   const page = session.counters[CounterKey.CITA_HORA_PAGE] ?? 0;
   return buildHoraPage(session, ordered, page);
 }

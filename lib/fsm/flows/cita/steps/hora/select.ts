@@ -10,6 +10,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import { SELECTION_REJECTION_TEXT } from "@/lib/constants/textos/comunes";
 import { SEARCHING_MORE_HORARIOS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event, {
@@ -27,9 +28,9 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
     return buildResult(next, [
       sendText(SEARCHING_MORE_HORARIOS_TEXT),
       query(QueryKind.LIST_HORAS, {
-        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-        fecha: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
+        codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+        fecha: slotText(next.slots, SlotKey.CITA_FECHA),
       }),
     ]);
   }

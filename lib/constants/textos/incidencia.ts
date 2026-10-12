@@ -1,5 +1,6 @@
 import { noPudimosLeerText } from "@/lib/constants/textos/comunes";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 
 export const ASK_UBICACION_TEXT = "¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.";
 export const ASK_OTRA_UBICACION_TEXT = "Escribe el nombre del establecimiento o su código IPRESS.";
@@ -53,7 +54,7 @@ export const CONSENT_BUTTONS = [
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
 ];
 
-export const ASK_DESCRIPCION_TEXT = "Cuéntanos tu incidencia (hasta 1000 caracteres).";
+export const ASK_DESCRIPCION_TEXT = `Cuéntanos tu incidencia (hasta ${MAX_DESCRIPCION_LENGTH} caracteres).`;
 export const descripcionTooLongText = (maximo: number): string => `Escribe tu incidencia en hasta ${maximo} caracteres.`;
 
 export const descripcionTooShortText = (minimo: number): string =>

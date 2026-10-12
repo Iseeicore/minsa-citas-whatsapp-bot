@@ -1,6 +1,6 @@
 import { FUZZY_TARGETS, PROTECTED_WORDS } from "@/lib/security/lexicon";
 import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
-import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WHITESPACE_RUN } from "@/lib/constants/regex/text";
+import { STRETCHED_CHARACTER, WHITESPACE_RUN } from "@/lib/constants/regex/text";
 import {
   CANONICAL_INITIALS,
   CITA_TOKEN_PATTERNS,
@@ -19,6 +19,7 @@ import {
   SEPARATED_WORD,
   SYMBOL_LEFT_IN_TOKEN,
 } from "@/lib/constants/regex/security";
+import { stripAccents } from "@/lib/utils/text-values";
 
 export type LexicalAction = "ALLOW" | "DROP_AND_WARN" | "CITA_WITH_WARNING" | "FORCE_INCIDENCIA";
 
@@ -47,10 +48,6 @@ const LEET_MAP: Record<string, string> = {
 const MIN_SPACED_RUN = 3;
 
 const MIN_FUZZY_TOKEN_LENGTH = 5;
-
-function stripAccents(text: string): string {
-  return text.toLowerCase().normalize("NFD").replace(COMBINING_ACCENT_MARKS, "");
-}
 
 const MAX_JOINED_LENGTH = 40;
 
@@ -118,7 +115,7 @@ function removeProtectedPhrases(tokens: string[]): string[] {
 }
 
 function tokenize(text: string): string[] {
-  const pieces = joinSpacedRuns(toPieces(stripAccents(text.replace(CANONICAL_INITIALS, " "))));
+  const pieces = joinSpacedRuns(toPieces(stripAccents(text.replace(CANONICAL_INITIALS, " ").toLowerCase())));
   const tokens = pieces.map(finalizeToken).filter(Boolean);
   return removeProtectedPhrases(tokens);
 }

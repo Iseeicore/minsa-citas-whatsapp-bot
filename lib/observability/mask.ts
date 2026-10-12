@@ -11,6 +11,7 @@ import {
   SENSITIVE_KEY,
   URL_WITH_QUERY_STRING,
 } from "@/lib/constants/regex/observability";
+import { isString } from "@/lib/utils/type-guards";
 
 const LENGTH_ONLY_KEYS = new Set<string>([
   SlotKey.CITA_OFFERED,
@@ -44,9 +45,9 @@ export function sanitizeValue(key: string, value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
   if (SENSITIVE_KEY.test(key)) return "[redacted]";
   if (LENGTH_ONLY_KEYS.has(key)) return { length: String(value).length };
-  if (DNI_KEY.test(key) && (typeof value === "string" || typeof value === "number")) return maskDni(String(value));
+  if (DNI_KEY.test(key) && (isString(value) || typeof value === "number")) return maskDni(String(value));
 
-  if (typeof value === "string") {
+  if (isString(value)) {
     const clean = redactString(value);
     return clean.length > MAX_STRING ? `${clean.slice(0, MAX_STRING)}…` : clean;
   }

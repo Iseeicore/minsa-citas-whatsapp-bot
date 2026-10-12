@@ -1,7 +1,6 @@
 import { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { DNI_DIGITS, DNI_OR_CARNET_DIGITS, OTP_DIGITS } from "@/lib/constants/regex/identity";
-
-const CARNET_EXTRANJERIA_LENGTH = 9;
+import { CARNET_EXTRANJERIA_LENGTH } from "@/lib/constants/limits/identity";
 
 export function isValidDniFormat(value: string): boolean {
   return DNI_DIGITS.test(value.trim());

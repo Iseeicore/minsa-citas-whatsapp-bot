@@ -47,6 +47,9 @@ import {
 import { SEARCHING_FECHAS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { SelectionStep } from "@/lib/enums/selection-step";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { isString } from "@/lib/utils/type-guards";
+import { HINT_MAX_LENGTH } from "@/lib/constants/limits/cita";
 
 export function handleEspecialidadPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EspecialidadResultItem[] };
@@ -67,8 +70,6 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   if (hint && matches.length === 0) return offerEspecialidadesWithoutHint(next, items, hint);
   return offerEspecialidades(next, items);
 }
-
-const HINT_MAX_LENGTH = 80;
 
 function askSelectionHints(
   session: Session,
@@ -100,13 +101,13 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
   if (result.quiereCambiarDistrito === true) return offerChangeDistrito(restored, "ai");
 
   const own = step === SelectionStep.ESTABLECIMIENTO ? result.establecimiento : result.especialidad;
-  const matched = typeof own === "string" && offered ? matchAllTokens(own, offered.rows) : undefined;
+  const matched = isString(own) && offered ? matchAllTokens(own, offered.rows) : undefined;
 
   if (!matched) {
     return reshowOffered(restored, offered, OPTION_NOT_IDENTIFIED_TEXT);
   }
 
-  if (step === SelectionStep.ESPECIALIDAD && typeof result.establecimiento === "string") {
+  if (step === SelectionStep.ESPECIALIDAD && isString(result.establecimiento)) {
     const hint = hintText(result.establecimiento).slice(0, HINT_MAX_LENGTH);
     if (hint) restored.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT] = hint;
   }
@@ -139,7 +140,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
     sendText(SEARCHING_ESTABLECIMIENTOS_TEXT),
     query(QueryKind.LIST_ESTABLECIMIENTOS, {
       especialidadId: replyId,
-      ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+      ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO),
     }),
   ]);
 }
@@ -210,7 +211,7 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
     sendText(SEARCHING_FECHAS_TEXT),
     query(QueryKind.LIST_FECHAS, {
       codEess: replyId,
-      especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+      especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
     }),
   ]);
 }

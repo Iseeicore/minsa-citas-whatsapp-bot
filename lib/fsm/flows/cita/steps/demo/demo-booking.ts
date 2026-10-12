@@ -7,8 +7,7 @@ import {
   sendButtons,
   sendText,
   truncateForRow,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
+  readTappedId,
 } from "@/lib/fsm/core/handlers-shared";
 import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import {
@@ -36,6 +35,8 @@ import {
   DEMO_CONFIRM_BUTTONS,
 } from "@/lib/constants/textos/cita-demo";
 import { constanciaCitaText } from "@/lib/constants/textos/cita-reserva";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 function referenciaRows(dni: string): ListRow[] {
   return demoReferenciasForDni(dni).map((referencia) => ({
@@ -50,7 +51,7 @@ export function offerDemoReferencias(session: Session): HandlerResult {
   next.state = SessionState.CITA_DEMO_AWAITING_REFERENCIA_SELECT;
   delete next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO];
   delete next.slots[SlotKey.CITA_DEMO_HORA_ID];
-  const dni = String(next.slots[SlotKey.CITA_DNI] ?? "");
+  const dni = slotText(next.slots, SlotKey.CITA_DNI);
   return buildResult(next, offerPagedList(next, DEMO_ANALYZING_TEXT, referenciaRows(dni)));
 }
 
@@ -88,17 +89,16 @@ export function handleDemoAwaitingHoraSelect(session: Session, event: InboundEve
   if ("result" in outcome) return outcome.result;
 
   const next = clearOffered(session);
-  const codigo = String(next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] ?? "");
+  const codigo = slotText(next.slots, SlotKey.CITA_DEMO_REFERENCIA_CODIGO);
   next.slots[SlotKey.CITA_DEMO_HORA_ID] = outcome.replyId;
   next.state = SessionState.CITA_DEMO_AWAITING_CONFIRM;
   return askDemoConfirmation(next, codigo, outcome.replyId);
 }
 
 export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const codigo = String(session.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] ?? "");
-  const horaId = String(session.slots[SlotKey.CITA_DEMO_HORA_ID] ?? "");
-  const reply =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const codigo = slotText(session.slots, SlotKey.CITA_DEMO_REFERENCIA_CODIGO);
+  const horaId = slotText(session.slots, SlotKey.CITA_DEMO_HORA_ID);
+  const reply = readTappedId(event);
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
   if (reply === DemoConfirmButtonId.YES || typed === Confirmation.YES) {

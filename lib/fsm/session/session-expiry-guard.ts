@@ -4,6 +4,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { BASE64URL_MINUS, BASE64URL_UNDERSCORE } from "@/lib/constants/regex/integrations";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { isString, isFiniteNumber, isObject } from "@/lib/utils/type-guards";
 
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
@@ -34,7 +35,7 @@ export const AUTHENTICATED_WAITING_STATES: readonly string[] = Object.keys(RESUM
 function guardedStateOf(state: string, slots: Session["slots"]): string | undefined {
   if (state !== SessionState.CITA_AWAITING_EXIT_CONFIRM) return state in RESUME_STATE_BY_WAITING_STATE ? state : undefined;
   const before = slots[SlotKey.CITA_EXIT_RESUME_STATE];
-  return typeof before === "string" && before in RESUME_STATE_BY_WAITING_STATE ? before : undefined;
+  return isString(before) && before in RESUME_STATE_BY_WAITING_STATE ? before : undefined;
 }
 
 export function resumeStateFor(waitingState: string, slots: Session["slots"] = {}): string | undefined {
@@ -50,9 +51,9 @@ export function decodeJwtExp(token: string): number | null {
     const base64 = parts[1].replace(BASE64URL_MINUS, "+").replace(BASE64URL_UNDERSCORE, "/");
     const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const payload: unknown = JSON.parse(atob(padded));
-    if (typeof payload !== "object" || payload === null) return null;
+    if (!isObject(payload)) return null;
     const exp = (payload as { exp?: unknown }).exp;
-    return typeof exp === "number" && Number.isFinite(exp) ? exp : null;
+    return isFiniteNumber(exp) ? exp : null;
   } catch {
     return null;
   }
@@ -67,7 +68,7 @@ export function detectSessionExpiry(
   if (!guardedStateOf(session.state, session.slots)) return null;
 
   const bearer = session.slots[SlotKey.CITA_BEARER];
-  if (typeof bearer !== "string" || bearer === "") return null;
+  if (!isString(bearer) || bearer === "") return null;
 
   if (session.updatedAt && now - session.updatedAt.getTime() > SESSION_IDLE_TIMEOUT_MS) {
     return SessionExpiryReason.IDLE;

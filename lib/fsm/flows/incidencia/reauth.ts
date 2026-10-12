@@ -18,6 +18,7 @@ import {
   INCIDENCIA_RETOMADA_TEXT,
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
+import { stringOr } from "@/lib/utils/text-values";
 
 function reauthPrompt() {
   return sendButtons(INCIDENCIA_REAUTH_PROMPT_TEXT, INCIDENCIA_REAUTH_BUTTONS);
@@ -34,7 +35,7 @@ function resumeIncidencia(session: Session): HandlerResult {
   const resumeState = session.slots[SlotKey.INCIDENCIA_RESUME_STATE];
   const next = cloneSession(session);
   delete next.slots[SlotKey.INCIDENCIA_RESUME_STATE];
-  next.state = (typeof resumeState === "string" ? resumeState : SessionState.INCIDENCIA_AWAITING_UBICACION) as Session["state"];
+  next.state = stringOr(resumeState, SessionState.INCIDENCIA_AWAITING_UBICACION) as Session["state"];
 
   switch (next.state) {
     case SessionState.INCIDENCIA_CONFIRM_UBICACION:

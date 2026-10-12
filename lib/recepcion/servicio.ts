@@ -3,16 +3,18 @@ import { actorCiudadano } from "@/lib/db/actor";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { currentTraceId } from "@/lib/observability/context";
 import { logger } from "@/lib/observability/logger";
-import { MAX_INCIDENCIAS_POR_DIA, registrarIncidenciaSchema, type RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
+import { registrarIncidenciaSchema, type RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
 import { guardarImagenHttp } from "@/lib/recepcion/imagenes/almacen-http";
 import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
 import { buscarCodigoPorTrace, contarDelDia, insertarIncidencia, type DatosEvidencia } from "@/lib/recepcion/repositorio";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
+import { isObject } from "@/lib/utils/type-guards";
+import { MAX_INCIDENCIAS_POR_DIA } from "@/lib/constants/limits/incidencia";
 
 const isUniqueViolation = (error: unknown) =>
-  typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+  isObject(error) && "code" in error && error.code === "P2002";
 
 async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | RegistrarIncidenciaResult> {
   const image = parseImageDataUri(mediaDataUri);

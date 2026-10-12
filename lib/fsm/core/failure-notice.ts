@@ -1,3 +1,5 @@
+import { FAILURE_NOTICE_WINDOW_MS } from "@/lib/constants/limits/engine";
+
 export type FailureNoticeThrottle = {
   shouldNotify(waId: string): boolean;
 };
@@ -6,7 +8,7 @@ export function createFailureNoticeThrottle(
   options: { now?: () => number; windowMs?: number } = {},
 ): FailureNoticeThrottle {
   const now = options.now ?? Date.now;
-  const windowMs = options.windowMs ?? 30_000;
+  const windowMs = options.windowMs ?? FAILURE_NOTICE_WINDOW_MS;
   const lastNotifiedAt = new Map<string, number>();
 
   return {

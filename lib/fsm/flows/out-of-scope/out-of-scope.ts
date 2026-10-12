@@ -4,6 +4,7 @@ import type { OosCategory } from "@/lib/enums/oos-category";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 import { OUT_OF_SCOPE_RULES } from "@/lib/constants/regex/out-of-scope";
 import { CITA_KEYWORD, CITAS_KEYWORD, CONTINUAR_KEYWORD } from "@/lib/constants/palabras-clave";
+import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
 
 export type { OosCategory };
 
@@ -25,7 +26,6 @@ export function detectOutOfScope(text: string): OosCategory | undefined {
 
 export const isEmergency = (text: string): boolean => detectOutOfScope(text) === OosCategoryEnum.OOS_01;
 
-export const IN_FLOW_MAX_CHARS = 120;
 export const isEmergencyInFlow = (text: string): boolean => text.length <= IN_FLOW_MAX_CHARS && isEmergency(text);
 
 const single = (text: string): string | undefined => {

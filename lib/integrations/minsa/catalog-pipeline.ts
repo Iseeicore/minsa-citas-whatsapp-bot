@@ -1,7 +1,8 @@
-import { isRawRow, parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import { parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
 import { postWithBearer } from "@/lib/integrations/minsa/wire";
 import type { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
+import { isRecord } from "@/lib/utils/type-guards";
 
 const HTTP_UNAUTHORIZED = 401;
 
@@ -23,7 +24,7 @@ type CatalogFetchParams<T> = {
 function rowsAt(body: unknown, path: readonly string[]): unknown {
   let node: unknown = body;
   for (const key of path) {
-    if (!isRawRow(node)) return undefined;
+    if (!isRecord(node)) return undefined;
     node = node[key];
   }
   return node;

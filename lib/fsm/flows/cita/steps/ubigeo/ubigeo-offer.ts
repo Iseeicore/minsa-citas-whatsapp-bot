@@ -5,15 +5,14 @@ import {
   query,
   sendText,
   truncateForRow,
-  WHATSAPP_LIST_MAX_ROWS,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { searchingCatalogInText, SELECT_UBIGEO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import { isString } from "@/lib/utils/type-guards";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 export type UbigeoResultItem = {
   ubigeoInei: string;
@@ -26,10 +25,10 @@ export function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): 
   if (items.length === 1) return items[0];
 
   const same = (found: string, known: unknown) =>
-    typeof known !== "string" || known === "" || normalizeText(found) === normalizeText(known);
+    !isString(known) || known === "" || normalizeText(found) === normalizeText(known);
   const exact = items.filter(
     (item) =>
-      typeof session.slots[SlotKey.CITA_DISTRITO] === "string" &&
+      isString(session.slots[SlotKey.CITA_DISTRITO]) &&
       normalizeText(item.distrito) === normalizeText(session.slots[SlotKey.CITA_DISTRITO]) &&
       same(item.provincia, session.slots[SlotKey.CITA_PROVINCIA]) &&
       same(item.departamento, session.slots[SlotKey.CITA_DEPARTAMENTO]),

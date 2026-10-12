@@ -12,6 +12,7 @@ import {
   INCIDENCIA_KEY_WORDS,
   INCIDENCIA_FILLER_WORDS,
 } from "@/lib/constants/palabras-clave";
+import { MAX_CONTINUE_WORDS, MAX_INCIDENCIA_KEYWORD_WORDS } from "@/lib/constants/limits/menu";
 
 function words(text: string): string[] {
   return normalizeText(text)
@@ -34,8 +35,6 @@ export function detectCitaRequest(text: string): CitaHints | undefined {
   return extractCitaHints(text);
 }
 
-const MAX_CONTINUE_WORDS = 5;
-
 export function isContinueReply(text: string): boolean {
   const tokens = words(text);
   if (tokens.length === 0 || tokens.length > MAX_CONTINUE_WORDS) return false;
@@ -45,7 +44,7 @@ export function isContinueReply(text: string): boolean {
 
 export function isIncidenciaKeyword(text: string): boolean {
   const tokens = words(text);
-  if (tokens.length === 0 || tokens.length > 6) return false;
+  if (tokens.length === 0 || tokens.length > MAX_INCIDENCIA_KEYWORD_WORDS) return false;
 
   return (
     tokens.some((token) => INCIDENCIA_KEY_WORDS.has(token)) &&

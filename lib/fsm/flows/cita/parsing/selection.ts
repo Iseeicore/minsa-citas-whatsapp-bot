@@ -5,6 +5,7 @@ import {
   pageCount,
   pageEffects,
   sendText,
+  readTrimmedText,
 } from "@/lib/fsm/core/handlers-shared";
 import {
   matchSelection,
@@ -85,7 +86,7 @@ export function resolveSelection(
     return valid ? { replyId: id } : { result: reshowOffered(session, offered) };
   }
 
-  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "").trim() : "";
+  const typed = event.type === InboundEventType.TEXT ? readTrimmedText(event) : "";
   if (!typed || !offered) {
     return { result: reshowOffered(session, offered) };
   }

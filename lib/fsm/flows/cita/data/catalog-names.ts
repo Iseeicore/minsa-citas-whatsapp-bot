@@ -1,6 +1,6 @@
 import { toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
-import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
+import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -14,6 +14,9 @@ import {
   TITLE_CASED_ROMAN_NUMERAL,
 } from "@/lib/constants/regex/catalog";
 import { cuposText } from "@/lib/constants/textos/cita-catalogo";
+import { isString } from "@/lib/utils/type-guards";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 export type CatalogName = { title: string; full: string };
 
@@ -73,14 +76,10 @@ export function rememberFullNames(slots: Session["slots"], entries: ReadonlyArra
 
 export function offeredFullName(slots: Session["slots"], row: OfferedRow): string {
   const raw = slots[SlotKey.CITA_OFFERED_NAMES];
-  if (typeof raw === "string") {
-    try {
-      const names = JSON.parse(raw) as Record<string, unknown>;
-      const full = names[row.id];
-      if (typeof full === "string" && full) return full;
-    } catch {
-      return fullNameFromRow(row);
-    }
+  if (isString(raw)) {
+    const names = parseJsonOr(raw, null) as Record<string, unknown> | null;
+    const full = names?.[row.id];
+    if (isString(full) && full) return full;
   }
   return fullNameFromRow(row);
 }

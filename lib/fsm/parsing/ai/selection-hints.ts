@@ -1,6 +1,7 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { SELECTION_HINTS_SYSTEM_PROMPT } from "@/lib/constants/prompts/selection-hints";
+import { stringOrUndefined } from "@/lib/utils/text-values";
 
 export type SelectionHintsResult = {
   especialidad?: string;
@@ -45,8 +46,8 @@ export async function extractSelectionHints(
         quiere_cambiar_distrito?: unknown;
       };
       const hints: SelectionHintsResult = {
-        especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
-        establecimiento: typeof parsed.establecimiento === "string" ? parsed.establecimiento : undefined,
+        especialidad: stringOrUndefined(parsed.especialidad),
+        establecimiento: stringOrUndefined(parsed.establecimiento),
       };
       if (parsed.quiere_salir === true) return { ...hints, quiereSalir: true };
       return parsed.quiere_cambiar_distrito === true ? { ...hints, quiereCambiarDistrito: true } : hints;

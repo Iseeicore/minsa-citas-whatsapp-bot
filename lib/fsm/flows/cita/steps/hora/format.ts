@@ -1,11 +1,12 @@
 import { CLOCK_TIME } from "@/lib/constants/regex/text";
-import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
+import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { nowInLima } from "@/lib/time/lima-clock";
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
 import { cuposDisponiblesText } from "@/lib/constants/textos/cita-fecha-hora";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 export type HoraResultItem = {
   horaInicio: string;

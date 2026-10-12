@@ -2,6 +2,7 @@ import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { DistritoAiOutcome } from "@/lib/enums/distrito-ai-outcome";
 import { DISTRITO_AI_SYSTEM_PROMPT, distritoDirectAnswerLine, distritoInitialMessageLine } from "@/lib/constants/prompts/distrito";
+import { isString } from "@/lib/utils/type-guards";
 
 export type DistritoAiCandidate = {
   departamento: string;
@@ -68,9 +69,9 @@ const FAKE_DISTRITO_CANDIDATES: Record<string, DistritoAiCandidate[]> = {
 function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
   const candidate = value as Partial<DistritoAiCandidate> | null;
   return (
-    typeof candidate?.departamento === "string" &&
-    typeof candidate?.provincia === "string" &&
-    typeof candidate?.distrito === "string"
+    isString(candidate?.departamento) &&
+    isString(candidate?.provincia) &&
+    isString(candidate?.distrito)
   );
 }
 

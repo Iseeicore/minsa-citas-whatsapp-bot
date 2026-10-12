@@ -1,5 +1,5 @@
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS } from "@/lib/constants/regex/text";
+import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
 import {
   DAY_AFTER_TOMORROW,
   DAY_MONTH_AND_OPTIONAL_YEAR,
@@ -20,6 +20,7 @@ import {
   longDateText,
   dayLabelText,
 } from "@/lib/constants/textos/cita-fecha-hora";
+import { stripAccents } from "@/lib/utils/text-values";
 
 export type DateParts = { year: number; month: number; day: number };
 
@@ -73,10 +74,7 @@ const WEEKDAYS: Record<string, number> = {
 };
 
 function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
+  return stripAccents(text.toLowerCase())
     .replace(SYMBOLS_OUTSIDE_DATE_TEXT, " ")
     .replace(ALL_WHITESPACE_RUNS, " ")
     .trim();

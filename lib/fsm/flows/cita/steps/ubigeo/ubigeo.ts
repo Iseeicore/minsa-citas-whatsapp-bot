@@ -11,6 +11,7 @@ import {
   isAffirmativeReply,
   query,
   sendText,
+  readTrimmedText,
 } from "@/lib/fsm/core/handlers-shared";
 import { isGibberishPlaceText } from "@/lib/fsm/parsing/text/gibberish";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -51,9 +52,11 @@ import {
   UNRECOGNIZED_DISTRITO_TEXT,
 } from "@/lib/constants/textos/cita-ubicacion";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { MAX_DISTRITO_NOT_FOUND } from "@/lib/constants/limits/cita";
 
 export function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
-  const rawText = (event.text ?? "").trim();
+  const rawText = readTrimmedText(event);
   if (!rawText) {
     return buildResult(session, [sendText(ASK_DISTRITO_NOMBRE_TEXT)]);
   }
@@ -66,8 +69,6 @@ export function handleAwaitingDistritoAi(session: Session, event: InboundEvent):
 
   return resolveDistritoText(session, distritoText, contextText);
 }
-
-const MAX_DISTRITO_NOT_FOUND = 2;
 
 export function handleDistritoAiPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { outcome?: DistritoAiOutcome; candidates?: DistritoAiCandidateResult[]; quiereSalir?: boolean };
@@ -131,7 +132,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
 }
 
 export function handleAwaitingDepartamento(session: Session, event: InboundEvent): HandlerResult {
-  const departamento = (event.text ?? "").trim();
+  const departamento = readTrimmedText(event);
   if (!departamento) {
     return buildResult(session, [sendText(ASK_DEPARTAMENTO_TEXT)]);
   }
@@ -147,7 +148,7 @@ export function handleAwaitingDepartamento(session: Session, event: InboundEvent
 }
 
 export function handleAwaitingProvincia(session: Session, event: InboundEvent): HandlerResult {
-  const provincia = (event.text ?? "").trim();
+  const provincia = readTrimmedText(event);
   if (!provincia) {
     return buildResult(session, [sendText(ASK_PROVINCIA_TEXT)]);
   }
@@ -163,7 +164,7 @@ export function handleAwaitingProvincia(session: Session, event: InboundEvent): 
 }
 
 export function handleAwaitingDistrito(session: Session, event: InboundEvent): HandlerResult {
-  const distrito = (event.text ?? "").trim();
+  const distrito = readTrimmedText(event);
   if (!distrito) {
     return buildResult(session, [sendText(ASK_DISTRITO_MANUAL_TEXT)]);
   }
@@ -178,8 +179,8 @@ export function handleAwaitingDistrito(session: Session, event: InboundEvent): H
   return buildResult(next, [
     sendText(SEARCHING_UBIGEO_TEXT),
     query(QueryKind.SEARCH_UBIGEO, {
-      departamento: String(next.slots[SlotKey.CITA_DEPARTAMENTO] ?? ""),
-      provincia: String(next.slots[SlotKey.CITA_PROVINCIA] ?? ""),
+      departamento: slotText(next.slots, SlotKey.CITA_DEPARTAMENTO),
+      provincia: slotText(next.slots, SlotKey.CITA_PROVINCIA),
       distrito,
     }),
   ]);

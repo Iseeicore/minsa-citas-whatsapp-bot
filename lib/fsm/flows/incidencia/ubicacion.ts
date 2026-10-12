@@ -1,7 +1,7 @@
 import type { BuscarEstablecimientoResult } from "@/lib/establecimientos/buscar";
 import { decidirCandidatos, type Establecimiento } from "@/lib/establecimientos/decidir";
 import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
-import { buildResult, cloneSession, omitSlot, query, sendButtons, sendText, withLeadingText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, omitSlot, query, sendButtons, sendText, withLeadingText, withRejectionNotice, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { parseCodigoSuelto, type InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { quiereOmitirUbicacion } from "@/lib/fsm/parsing/text/omitir-ubicacion";
@@ -41,8 +41,9 @@ import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 import { EstablecimientoDecision } from "@/lib/enums/establecimiento-decision";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
-
-export const MAX_INTENTOS_UBICACION = 3;
+import { isString } from "@/lib/utils/type-guards";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { MAX_INTENTOS_UBICACION } from "@/lib/constants/limits/incidencia";
 
 type Propuesto = { id: number; areaId: number; codigoRenipress: string; nombre: string; distrito: string | null };
 
@@ -56,12 +57,8 @@ const toPropuesto = (establecimiento: Establecimiento): Propuesto => ({
 
 function readPropuesto(session: Session): Propuesto | undefined {
   const raw = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO];
-  if (typeof raw !== "string") return undefined;
-  try {
-    return JSON.parse(raw) as Propuesto;
-  } catch {
-    return undefined;
-  }
+  if (!isString(raw)) return undefined;
+  return parseJsonOr(raw, undefined) as Propuesto | undefined;
 }
 
 function leadIn(lead: string): string {
@@ -87,7 +84,7 @@ export function beginIncidencia(slots: Session["slots"], lead: string, inicio: I
 }
 
 export function handleAwaitingUbicacion(session: Session, event: InboundEvent): HandlerResult {
-  const text = (event.text ?? "").trim();
+  const text = readTrimmedText(event);
   if (!text) return buildResult(session, [sendText(ASK_OTRA_UBICACION_TEXT)]);
   if (quiereOmitirUbicacion(text)) return offerOmitir(cloneSession(session), "");
 

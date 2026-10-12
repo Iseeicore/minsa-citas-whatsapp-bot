@@ -2,10 +2,7 @@ import { z } from "zod";
 import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
 import type { RegistrationStatus } from "@/lib/enums/registration-status";
 import type { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
-
-export const MAX_DESCRIPCION_LENGTH = 1000;
-export const MIN_DESCRIPCION_LENGTH = 20;
-export const MAX_INCIDENCIAS_POR_DIA = 5;
+import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 
 export const registrarIncidenciaSchema = z.object({
   waId: z.string().min(1),

@@ -4,7 +4,7 @@ import { offerChangeDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-cover
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { buildResult, cloneSession, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import {
@@ -22,6 +22,7 @@ import { ASK_DISTRITO_NOMBRE_TEXT, ASK_DEPARTAMENTO_TEXT, ASK_PROVINCIA_TEXT, AS
 import { CITA_ABANDONED_TEXT } from "@/lib/constants/textos/cita-salida";
 import { LEAVE_ANSWERS, STAY_ANSWERS } from "@/lib/constants/palabras-clave";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export { askToLeave };
 
@@ -74,9 +75,8 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
 }
 
 export function handleExitConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const tapped =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
-  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+  const tapped = readTappedId(event);
+  const typed = readTypedText(event);
   const normalized = normalizeText(typed);
   const answer =
     LEAVE_ANSWERS.has(normalized) || (typed && detectExitIntent(typed))
@@ -88,7 +88,7 @@ export function handleExitConfirm(session: Session, event: InboundEvent): Handle
   if (tapped === ExitButtonId.YES || answer === Confirmation.YES) {
     return withNote(buildResult({ state: SessionState.CITA_ABANDONED, slots: {}, counters: {} }, [sendText(CITA_ABANDONED_TEXT)]), {
       kind: "cita_closed",
-      detail: { reason: "abandoned", from: String(session.slots[SlotKey.CITA_EXIT_RESUME_STATE] ?? "") },
+      detail: { reason: "abandoned", from: slotText(session.slots, SlotKey.CITA_EXIT_RESUME_STATE) },
     });
   }
 

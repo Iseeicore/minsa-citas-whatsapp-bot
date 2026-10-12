@@ -10,8 +10,6 @@ import {
   query,
   sendText,
   truncateForRow,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "@/lib/fsm/parsing/date/date-parser";
@@ -37,6 +35,9 @@ import {
 } from "@/lib/constants/textos/cita-fecha-hora";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { MatchKind } from "@/lib/enums/match-kind";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { isString } from "@/lib/utils/type-guards";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -73,8 +74,8 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     return buildResult(next, [
       sendText(fechaFoundText(displayFechaLong(item.fechaCupo))),
       query(QueryKind.LIST_HORAS, {
-        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+        codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
         fecha: item.fechaCupo,
       }),
     ]);
@@ -128,7 +129,7 @@ export function handleFechaAiPending(session: Session, event: QueryResultEvent):
 
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
-  if (typeof result.id === "string" && offered?.rows.some((row) => row.id === result.id)) {
+  if (isString(result.id) && offered?.rows.some((row) => row.id === result.id)) {
     return handleAwaitingFechaSelect(restored, { from: event.from, type: InboundEventType.LIST, listId: result.id });
   }
 
@@ -156,8 +157,8 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
   return buildResult(next, [
     sendText(SEARCHING_HORARIOS_TEXT),
     query(QueryKind.LIST_HORAS, {
-      codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-      especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+      codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+      especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
       fecha: replyId,
     }),
   ]);

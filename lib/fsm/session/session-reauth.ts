@@ -1,4 +1,4 @@
-import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, sendText, withNote, readTappedId } from "@/lib/fsm/core/handlers-shared";
 import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
 import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
@@ -12,6 +12,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { REAUTH_ASK_DOCUMENTO_TEXT, REAUTH_SENDING_CODIGO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
+import { isString } from "@/lib/utils/type-guards";
 
 const TRANSIENT_BOOKING_SLOTS = [
   SlotKey.CITA_BEARER,
@@ -41,8 +42,7 @@ export function beginSessionReauth(session: Session): HandlerResult {
 }
 
 export function handleAwaitingReauth(session: Session, event: InboundEvent): HandlerResult {
-  const tapped =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const tapped = readTappedId(event);
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
   if (tapped === ReauthButtonId.NO || typed === Confirmation.NO) return askToLeave(session, "reauth");
@@ -51,7 +51,7 @@ export function handleAwaitingReauth(session: Session, event: InboundEvent): Han
     const dni = session.slots[SlotKey.CITA_DNI];
     const next: Session = { state: SessionState.CITA_AWAITING_DNI, slots: { ...session.slots }, counters: { ...session.counters } };
 
-    if (typeof dni !== "string" || dni === "") {
+    if (!isString(dni) || dni === "") {
       return buildResult(next, [sendText(REAUTH_ASK_DOCUMENTO_TEXT)]);
     }
 

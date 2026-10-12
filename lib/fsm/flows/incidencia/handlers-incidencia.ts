@@ -20,9 +20,8 @@ import {
 import { isValidDniFormat, isValidDocumentoFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
-import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH } from "@/lib/recepcion/dto";
 import { quiereCerrar } from "@/lib/fsm/parsing/text/cerrar-incidencia";
-import { buildResult, cloneSession, query, readReply, sendButtons, sendText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query, readReply, sendButtons, sendText, withRejectionNotice, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -57,8 +56,8 @@ import { INVALID_DNI_TEXT } from "@/lib/constants/textos/fallas";
 import { LookupStatus } from "@/lib/enums/lookup-status";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
-
-const FOTO_INTENT_MAX_LENGTH = 200;
+import { isNonEmptyString } from "@/lib/utils/type-guards";
+import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH, FOTO_INTENT_MAX_LENGTH } from "@/lib/constants/limits/incidencia";
 
 function cancel(): HandlerResult {
   return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(INCIDENCIA_CANCELADA_TEXT)]);
@@ -128,7 +127,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
   if (readReply(event) === IncidenciaButtonId.ANONIMO) return askConsentimiento(cloneSession(session));
 
-  const documento = (event.text ?? "").trim();
+  const documento = readTrimmedText(event);
 
   if (!isValidDniFormat(documento)) {
     if (isValidDocumentoFormat(documento)) return buildResult(session, [sendButtons(ONLY_DNI_TEXT, ONLY_DNI_BUTTONS)]);
@@ -145,7 +144,7 @@ function handleReniecPending(session: Session, event: QueryResultEvent): Handler
   const result = event.result as { status: string; nombreCompleto?: string };
   const next = cloneSession(session);
 
-  if (result.status === LookupStatus.FOUND && typeof result.nombreCompleto === "string" && result.nombreCompleto.trim() !== "") {
+  if (result.status === LookupStatus.FOUND && isNonEmptyString(result.nombreCompleto)) {
     next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto.trim();
     return withGreeting(askConsentimiento(next), result.nombreCompleto.trim());
   }
@@ -159,7 +158,7 @@ function withGreeting(result: HandlerResult, nombre: string): HandlerResult {
 }
 
 function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
-  const nombre = (event.text ?? "").trim();
+  const nombre = readTrimmedText(event);
 
   if (!nombre) return buildResult(session, [sendText(ASK_NOMBRE_TEXT)]);
   if (looksLikeNoise(nombre)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
@@ -170,7 +169,7 @@ function handleAwaitingNombreLibre(session: Session, event: InboundEvent): Handl
 }
 
 function handleAwaitingDescripcion(session: Session, event: InboundEvent): HandlerResult {
-  const descripcion = (event.text ?? "").trim();
+  const descripcion = readTrimmedText(event);
 
   if (!descripcion || descripcion.length > MAX_DESCRIPCION_LENGTH) {
     return buildResult(session, [sendText(descripcionTooLongText(MAX_DESCRIPCION_LENGTH))]);
@@ -195,7 +194,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   if (isFile(event)) return withAck(askConfirmRegistro(session));
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR) return askConfirmRegistro(session);
 
-  const typed = (event.text ?? "").trim();
+  const typed = readTrimmedText(event);
   if (!typed) return withRejectionNotice(buildResult(session, [askFoto()]));
 
   if (typed.toUpperCase() === OMITIR_KEYWORD || resolveConfirmation(typed) === Confirmation.NO) {

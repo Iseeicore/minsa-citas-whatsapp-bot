@@ -8,6 +8,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { onlyHoraConfirmText, horaConfirmText, ONLY_HORA_CONFIRM_BUTTONS, HORA_CONFIRM_BUTTONS } from "@/lib/constants/textos/cita-fecha-hora";
 import { BOOKING_IN_PROGRESS_TEXT } from "@/lib/constants/textos/cita-reserva";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export function askHoraConfirmation(session: Session, slotId: string, options: { only?: boolean } = {}): HandlerResult {
   const [start, end] = slotId.split("|");
@@ -37,11 +38,11 @@ export function startBooking(session: Session, horaInicio: string): HandlerResul
   return buildResult(next, [
     sendText(BOOKING_IN_PROGRESS_TEXT),
     query(QueryKind.BOOK_APPOINTMENT, {
-      codigoRenipress: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-      codigoUps: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-      fechaCita: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
+      codigoRenipress: slotText(next.slots, SlotKey.CITA_COD_EESS),
+      codigoUps: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+      fechaCita: slotText(next.slots, SlotKey.CITA_FECHA),
       horaInicio,
-      numeroDocumentoPaciente: String(next.slots[SlotKey.CITA_DNI] ?? ""),
+      numeroDocumentoPaciente: slotText(next.slots, SlotKey.CITA_DNI),
       ...(referenciaId ? { referenciaId } : {}),
     }),
   ]);

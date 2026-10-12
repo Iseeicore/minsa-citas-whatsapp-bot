@@ -8,6 +8,7 @@ import { REVERIFICATION_PROMPT_TEXT, reverifiedText } from "@/lib/constants/text
 import { SEARCHING_UBIGEO_TEXT, SEARCHING_ESPECIALIDADES_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 import { SEARCHING_FECHAS_TEXT, SEARCHING_HORARIOS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { SEARCHING_ESTABLECIMIENTOS_TEXT } from "@/lib/constants/textos/cita-catalogo";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export function beginReverification(session: Session, resumeState: string): HandlerResult {
   const next = cloneSession(session);
@@ -30,24 +31,24 @@ export function resumeAfterReverification(session: Session, resumeState: string)
       return buildResult(next, [
         sendText(reverifiedText(SEARCHING_UBIGEO_TEXT)),
         query(QueryKind.SEARCH_UBIGEO, {
-          departamento: String(next.slots[SlotKey.CITA_DEPARTAMENTO] ?? ""),
-          provincia: String(next.slots[SlotKey.CITA_PROVINCIA] ?? ""),
-          distrito: String(next.slots[SlotKey.CITA_DISTRITO] ?? ""),
+          departamento: slotText(next.slots, SlotKey.CITA_DEPARTAMENTO),
+          provincia: slotText(next.slots, SlotKey.CITA_PROVINCIA),
+          distrito: slotText(next.slots, SlotKey.CITA_DISTRITO),
         }),
       ]);
 
     case SessionState.CITA_ESPECIALIDAD_PENDING:
       return buildResult(next, [
         sendText(reverifiedText(SEARCHING_ESPECIALIDADES_TEXT)),
-        query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? "") }),
+        query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) }),
       ]);
 
     case SessionState.CITA_ESTABLECIMIENTO_PENDING:
       return buildResult(next, [
         sendText(reverifiedText(SEARCHING_ESTABLECIMIENTOS_TEXT)),
         query(QueryKind.LIST_ESTABLECIMIENTOS, {
-          especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-          ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+          especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+          ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO),
           page: next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] ?? 1,
         }),
       ]);
@@ -56,8 +57,8 @@ export function resumeAfterReverification(session: Session, resumeState: string)
       return buildResult(next, [
         sendText(reverifiedText(SEARCHING_FECHAS_TEXT)),
         query(QueryKind.LIST_FECHAS, {
-          codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-          especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+          codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+          especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
         }),
       ]);
 
@@ -66,9 +67,9 @@ export function resumeAfterReverification(session: Session, resumeState: string)
       return buildResult(next, [
         sendText(reverifiedText(SEARCHING_HORARIOS_TEXT)),
         query(QueryKind.LIST_HORAS, {
-          codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-          especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-          fecha: String(next.slots[SlotKey.CITA_FECHA] ?? ""),
+          codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+          especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+          fecha: slotText(next.slots, SlotKey.CITA_FECHA),
         }),
       ]);
   }

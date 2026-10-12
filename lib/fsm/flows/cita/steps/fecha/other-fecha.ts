@@ -1,12 +1,11 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { buildResult, cloneSession, query, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query, sendButtons, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
 import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";
-import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -21,6 +20,7 @@ import {
   OTHER_FECHA_BUTTONS,
 } from "@/lib/constants/textos/cita-fecha-hora";
 import { CHANGE_DATE_ANSWERS } from "@/lib/constants/palabras-clave";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 const DATE_BOUND_SLOTS = [SlotKey.CITA_FECHA, SlotKey.CITA_HORA_CONFIRM_ID, SlotKey.CITA_HORA_CONFIRM_ONLY, SlotKey.CITA_HORAS_DIA, SlotKey.CITA_OFFERED];
 
@@ -28,7 +28,7 @@ const questionButtons = (text: string) =>
   sendButtons(text, OTHER_FECHA_BUTTONS);
 
 export function discardedDates(slots: Session["slots"]): string[] {
-  return String(slots[SlotKey.CITA_FECHAS_DESCARTADAS] ?? "")
+  return slotText(slots, SlotKey.CITA_FECHAS_DESCARTADAS)
     .split(",")
     .filter(Boolean);
 }
@@ -66,7 +66,7 @@ export function offerOtherFecha(
 ): HandlerResult {
   const next = cloneSession(session);
 
-  const declined = String(next.slots[SlotKey.CITA_FECHA] ?? "");
+  const declined = slotText(next.slots, SlotKey.CITA_FECHA);
   const discarded = declined ? [...new Set([...discardedDates(next.slots), declined])] : discardedDates(next.slots);
   if (discarded.length > 0) next.slots[SlotKey.CITA_FECHAS_DESCARTADAS] = discarded.join(",");
 
@@ -85,9 +85,8 @@ export function offerOtherFecha(
 }
 
 export function handleOtherFecha(session: Session, event: InboundEvent): HandlerResult {
-  const tapped =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
-  const typed = event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+  const tapped = readTappedId(event);
+  const typed = readTypedText(event);
   const answer = typed && CHANGE_DATE_ANSWERS.has(normalizeText(typed)) ? Confirmation.YES : resolveConfirmation(typed);
 
   if (tapped === OtherFechaButtonId.YES || answer === Confirmation.YES) {
@@ -96,8 +95,8 @@ export function handleOtherFecha(session: Session, event: InboundEvent): Handler
     return buildResult(next, [
       sendText(SEARCHING_OTHER_FECHAS_TEXT),
       query(QueryKind.LIST_FECHAS, {
-        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+        codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
       }),
     ]);
   }

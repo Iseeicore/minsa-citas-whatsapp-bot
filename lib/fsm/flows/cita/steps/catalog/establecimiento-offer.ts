@@ -16,6 +16,7 @@ import {
   SELECT_ESTABLECIMIENTO_TEXT,
 } from "@/lib/constants/textos/cita-catalogo";
 import { pageOfText } from "@/lib/constants/textos/comunes";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export type EstablecimientoResultItem = {
   renipressCode: string;
@@ -53,8 +54,8 @@ export function searchEstablecimientosPage(next: Session, page: number, announce
   next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] = page;
   next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
   const search = query(QueryKind.LIST_ESTABLECIMIENTOS, {
-    especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
-    ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+    especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+    ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO),
     page,
   });
   return buildResult(next, announcement ? [sendText(announcement), search] : [search]);
@@ -87,7 +88,7 @@ export function chooseEstablecimiento(
     sendText(establecimientoChosenText(label, establecimientoFullName(item))),
     query(QueryKind.LIST_FECHAS, {
       codEess: item.renipressCode,
-      especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+      especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
     }),
   ]);
 }

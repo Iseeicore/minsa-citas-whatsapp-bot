@@ -11,8 +11,7 @@ import {
   truncateForRow,
   withLeadingText,
   withRejectionNotice,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
+  readTappedId,
 } from "@/lib/fsm/core/handlers-shared";
 import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/identity";
@@ -38,6 +37,11 @@ import {
   REFERENCIA_CONFIRM_BUTTONS,
   REFERENCIAS_OFFER_BUTTONS,
 } from "@/lib/constants/textos/cita-reserva";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { isString } from "@/lib/utils/type-guards";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { arrayOr } from "@/lib/utils/array-values";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 function formatFechaHora12(fechaHora: string): string {
   const [fecha, hora] = fechaHora.split(" ");
@@ -47,13 +51,8 @@ function formatFechaHora12(fechaHora: string): string {
 
 function readReferencias(session: Session): ReferenciaItem[] {
   const raw = session.slots[SlotKey.CITA_REFERENCIAS_DATA];
-  if (typeof raw !== "string") return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as ReferenciaItem[]) : [];
-  } catch {
-    return [];
-  }
+  if (!isString(raw)) return [];
+  return arrayOr<ReferenciaItem>(parseJsonOr(raw, []));
 }
 
 function referenciaRows(items: ReferenciaItem[]): ListRow[] {
@@ -123,8 +122,7 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
 }
 
 export function handleAwaitingReferenciasOffer(session: Session, event: InboundEvent): HandlerResult {
-  const reply =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const reply = readTappedId(event);
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
   if (reply === ReferencesOfferButtonId.YES || typed === Confirmation.YES) {
@@ -152,15 +150,14 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
 }
 
 export function handleAwaitingReferenciaConfirm(session: Session, event: InboundEvent): HandlerResult {
-  const reply =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const reply = readTappedId(event);
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
   if (reply === ReferenciaConfirmButtonId.NO || typed === Confirmation.NO) {
     return offerReferenciasList(session);
   }
 
-  const selectedId = String(session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] ?? "");
+  const selectedId = slotText(session.slots, SlotKey.CITA_REFERENCIA_SELECCIONADA_ID);
   const item = readReferencias(session).find((r) => r.idReferencia === selectedId);
 
   if (reply === ReferenciaConfirmButtonId.YES || typed === Confirmation.YES) {

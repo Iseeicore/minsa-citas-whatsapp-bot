@@ -7,9 +7,6 @@ import {
   query,
   sendText,
   truncateForRow,
-  WHATSAPP_LIST_MAX_ROWS,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
 } from "@/lib/fsm/core/handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "@/lib/fsm/flows/cita/data/ubigeo-data";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
@@ -26,6 +23,7 @@ import {
   searchingDistritoText,
   UNRECOGNIZED_DISTRITO_TEXT,
 } from "@/lib/constants/textos/cita-ubicacion";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 export function looksLikePlaceName(text: string): boolean {
   return PLAUSIBLE_PLACE_NAME.test(text);

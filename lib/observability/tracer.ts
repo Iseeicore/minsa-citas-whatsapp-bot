@@ -4,6 +4,7 @@ import { logger as appLogger, type AppLogger } from "@/lib/observability/logger"
 import { previewInput, sanitizeSlots, tail } from "@/lib/observability/mask";
 import type { ExternalService, TurnNote } from "@/lib/observability/types";
 import { SessionState } from "@/lib/enums/session-state";
+import { isString, isObject } from "@/lib/utils/type-guards";
 
 export type TraceSession = { state: string; slots: Record<string, unknown> };
 export type TraceEvent = { type: string; text?: string; listId?: string; messageId?: string };
@@ -29,7 +30,7 @@ export type TurnTrace = {
 type TraceOptions = { now?: () => number; log?: AppLogger };
 
 const statusOf = (result: unknown): string | undefined =>
-  typeof result === "object" && result !== null && typeof (result as { status?: unknown }).status === "string"
+  isObject(result) && isString((result as { status?: unknown }).status)
     ? (result as { status: string }).status
     : undefined;
 

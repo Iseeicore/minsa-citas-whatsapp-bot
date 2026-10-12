@@ -18,6 +18,8 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { FALLBACK_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, LIST_PAGE_NEXT_BUTTON_TEXT, listPageSummaryText } from "@/lib/constants/textos/comunes";
 import { AFFIRMATIVE_REPLIES } from "@/lib/constants/palabras-clave";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
@@ -39,6 +41,18 @@ export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
 
 export function readReply(event: InboundEvent): string | undefined {
   return event.listId ?? event.text;
+}
+
+export function readTappedId(event: InboundEvent): string | undefined {
+  return event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+}
+
+export function readTypedText(event: InboundEvent): string {
+  return event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+}
+
+export function readTrimmedText(event: InboundEvent): string {
+  return (event.text ?? "").trim();
 }
 
 export function cloneSession(session: Session): Session {
@@ -107,10 +121,6 @@ function dropBearerWhenClosed(session: Session): Session {
 export function omitSlot(slots: Session["slots"], name: SlotKey): Session["slots"] {
   return Object.fromEntries(Object.entries(slots).filter(([key]) => key !== name));
 }
-
-export const WHATSAPP_ROW_TITLE_MAX = 24;
-export const WHATSAPP_ROW_DESCRIPTION_MAX = 72;
-export const WHATSAPP_LIST_MAX_ROWS = 10;
 
 export function truncateForRow(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;

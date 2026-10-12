@@ -4,9 +4,9 @@ import { isAllowedDepartamento } from "@/lib/fsm/flows/cita/pilot-scope";
 import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/constants/regex/text";
 import { ESPECIALIDAD_ROOTS, MEDICINA_GENERAL_PHRASE } from "@/lib/constants/regex/catalog";
 import { MEDICINA_GENERAL_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
+import { MAX_PLACE_WORDS } from "@/lib/constants/limits/cita";
 
 const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);
-const MAX_PLACE_WORDS = 4;
 
 export type CitaHints = { especialidad?: string; distrito?: string };
 

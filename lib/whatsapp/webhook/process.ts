@@ -26,6 +26,7 @@ import { createInboundCoalescer } from "@/lib/whatsapp/inbound/inbound-coalescer
 import { createPostgresInboundBuffer } from "@/lib/whatsapp/inbound/postgres-inbound-buffer";
 import { resolveWindowMs } from "@/lib/whatsapp/inbound/inbound-policy";
 import { INTERRUPTION_NOTICE_TEXT } from "@/lib/constants/textos/fallas";
+import { isObject } from "@/lib/utils/type-guards";
 
 const inboundCoalescer = createInboundCoalescer({
   buffer: createPostgresInboundBuffer(),
@@ -60,7 +61,7 @@ async function claimInboundMessage(
     ]);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") return false;
+    if (isObject(error) && "code" in error && error.code === "P2002") return false;
     throw error;
   }
 }

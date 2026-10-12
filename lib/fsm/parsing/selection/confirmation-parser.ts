@@ -1,6 +1,8 @@
-import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/constants/regex/text";
+import { STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/constants/regex/text";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { SUITS_ME, TAKING_IT, TAKING_THAT } from "@/lib/constants/regex/selection";
+import { stripAccents } from "@/lib/utils/text-values";
+import { LONGEST_CONFIRMATION_PHRASE_WORDS } from "@/lib/constants/limits/selection";
 
 export type { Confirmation };
 
@@ -58,13 +60,8 @@ const NO_PHRASES = new Set([
 
 const COURTESY_WORDS = new Set(["por", "favor", "porfa", "porfis", "porfavor", "gracias", "muchas", "pues", "nomas"]);
 
-const LONGEST_PHRASE_WORDS = 3;
-
 function toWords(text: string): string[] {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
+  return stripAccents(text.toLowerCase())
     .replace(STRETCHED_CHARACTER, "$1")
     .replace(WORD_SEPARATORS, " ")
     .trim()
@@ -88,7 +85,7 @@ export function resolveConfirmation(text: string): Confirmation {
   while (index < words.length) {
     let consumed = 0;
 
-    for (let size = Math.min(LONGEST_PHRASE_WORDS, words.length - index); size >= 1; size--) {
+    for (let size = Math.min(LONGEST_CONFIRMATION_PHRASE_WORDS, words.length - index); size >= 1; size--) {
       const phrase = words.slice(index, index + size).join(" ");
       if (YES_PHRASES.has(phrase)) {
         sawYes = true;

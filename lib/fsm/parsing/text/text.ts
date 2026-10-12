@@ -1,15 +1,13 @@
 import {
   ALL_WHITESPACE_RUNS,
   CAPITALIZED_CONNECTOR,
-  COMBINING_ACCENT_MARKS,
   WHITESPACE_RUN,
   WORD_INITIAL,
 } from "@/lib/constants/regex/text";
+import { stripAccents } from "@/lib/utils/text-values";
 
 export function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
+  return stripAccents(value)
     .toUpperCase()
     .trim()
     .replace(ALL_WHITESPACE_RUNS, " ");

@@ -1,11 +1,10 @@
 import { CLOCK_TIME } from "@/lib/constants/regex/text";
-import { buildResult, cloneSession, offerList, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, offerList, sendButtons, truncateForRow, readTappedId } from "@/lib/fsm/core/handlers-shared";
 import { unpackHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
-import { BUTTON_TITLE_MAX } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -15,9 +14,11 @@ import { SLOT_STARTING_WITH_CLOCK_TIME } from "@/lib/constants/regex/date-time";
 import { NARROWED_LIST_TEXT } from "@/lib/constants/textos/comunes";
 import { HORA_CHOICE_PROMPT_TEXT, horaOptionText, SEE_HORAS_BUTTON_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { WHATSAPP_LIST_MAX_ROWS, BUTTON_TITLE_MAX } from "@/lib/constants/limits/whatsapp";
 
 export function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
-  const slotA = String(session.slots[SlotKey.CITA_HORA_CHOICE_A] ?? "");
+  const slotA = slotText(session.slots, SlotKey.CITA_HORA_CHOICE_A);
   const slotsB = unpackHoraSlots(session.slots[SlotKey.CITA_HORA_CHOICE_B]);
   const offered = readOffered(session.slots);
 
@@ -31,8 +32,7 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
 
   if (event.type === InboundEventType.TEXT) return handleAwaitingHoraSelect(back(), event);
 
-  const reply =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const reply = readTappedId(event);
 
   if (reply === HoraChoiceButtonId.A && SLOT_STARTING_WITH_CLOCK_TIME.test(slotA)) {
     return startBooking(back(), slotA.split("|")[0]);

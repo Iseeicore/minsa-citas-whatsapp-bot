@@ -1,6 +1,6 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { buildResult, cloneSession, query, sendButtons, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query, sendButtons, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -13,6 +13,7 @@ import { CITA_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
 import { THAT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
 import { DUPLICATE_QUESTION_TEXT, duplicateActiveText, SEARCHING_OTHER_ESPECIALIDADES_TEXT, DUPLICATE_BUTTONS } from "@/lib/constants/textos/cita-reserva";
 import { OTHER_ESPECIALIDAD_ANSWERS, DUPLICATE_EXIT_ANSWERS } from "@/lib/constants/palabras-clave";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 const BOOKING_BOUND_SLOTS = [
   SlotKey.CITA_ESPECIALIDAD_ID,
@@ -31,14 +32,14 @@ const questionButtons = (text: string) =>
   sendButtons(text, DUPLICATE_BUTTONS);
 
 export function discardedEspecialidades(slots: Session["slots"]): string[] {
-  return String(slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS] ?? "")
+  return slotText(slots, SlotKey.CITA_ESPECIALIDADES_DESCARTADAS)
     .split(",")
     .filter(Boolean);
 }
 
 export function offerOtherEspecialidad(session: Session): HandlerResult {
   const next = cloneSession(session);
-  const taken = String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? "");
+  const taken = slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID);
   const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : THAT_ESPECIALIDAD_TEXT;
 
   const discarded = taken ? [...new Set([...discardedEspecialidades(next.slots), taken])] : discardedEspecialidades(next.slots);
@@ -55,21 +56,20 @@ export function offerOtherEspecialidad(session: Session): HandlerResult {
 }
 
 export function handleDuplicateChoice(session: Session, event: InboundEvent): HandlerResult {
-  const tapped =
-    event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+  const tapped = readTappedId(event);
   const typed = event.type === InboundEventType.TEXT ? normalizeText(event.text ?? "") : "";
   const answer = OTHER_ESPECIALIDAD_ANSWERS.has(typed)
     ? Confirmation.YES
     : DUPLICATE_EXIT_ANSWERS.has(typed)
       ? Confirmation.NO
-      : resolveConfirmation(event.type === InboundEventType.TEXT ? (event.text ?? "") : "");
+      : resolveConfirmation(readTypedText(event));
 
   if (tapped === DuplicateButtonId.OTHER_ESPECIALIDAD || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
     return buildResult(next, [
       sendText(SEARCHING_OTHER_ESPECIALIDADES_TEXT),
-      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? "") }),
+      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) }),
     ]);
   }
 

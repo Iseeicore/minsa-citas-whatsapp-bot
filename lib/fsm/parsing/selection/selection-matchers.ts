@@ -1,8 +1,12 @@
-import { COMBINING_ACCENT_MARKS, WORD_SEPARATORS } from "@/lib/constants/regex/text";
+import { WORD_SEPARATORS } from "@/lib/constants/regex/text";
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
 import { MatchKind } from "@/lib/enums/match-kind";
+import { isString } from "@/lib/utils/type-guards";
+import { stripAccents } from "@/lib/utils/text-values";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { MIN_PREFIX_MATCH_LENGTH, MIN_TOKEN_LENGTH } from "@/lib/constants/limits/selection";
 
 export type OfferedRow = { id: string; title: string; description?: string };
 export type OfferedList = { text: string; rows: OfferedRow[] };
@@ -16,24 +20,20 @@ export function serializeOffered(list: OfferedList): string {
 function isOfferedRow(value: unknown): value is OfferedRow {
   const row = value as Partial<OfferedRow> | null;
   return (
-    typeof row?.id === "string" &&
-    typeof row?.title === "string" &&
-    (row.description === undefined || typeof row.description === "string")
+    isString(row?.id) &&
+    isString(row?.title) &&
+    (row.description === undefined || isString(row.description))
   );
 }
 
 export function readOffered(slots: Session["slots"]): OfferedList | undefined {
   const raw = slots[SlotKey.CITA_OFFERED];
-  if (typeof raw !== "string") return undefined;
+  if (!isString(raw)) return undefined;
 
-  try {
-    const parsed = JSON.parse(raw) as Partial<OfferedList> | null;
-    if (typeof parsed?.text !== "string" || !Array.isArray(parsed.rows)) return undefined;
-    if (!parsed.rows.every(isOfferedRow)) return undefined;
-    return { text: parsed.text, rows: parsed.rows };
-  } catch {
-    return undefined;
-  }
+  const parsed = parseJsonOr(raw, null) as Partial<OfferedList> | null;
+  if (!isString(parsed?.text) || !Array.isArray(parsed.rows)) return undefined;
+  if (!parsed.rows.every(isOfferedRow)) return undefined;
+  return { text: parsed.text, rows: parsed.rows };
 }
 
 export type SelectionMatch =
@@ -46,10 +46,7 @@ export type MatchOptions = {
 };
 
 function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
+  return stripAccents(text.toLowerCase())
     .replace(WORD_SEPARATORS, " ")
     .trim();
 }
@@ -110,8 +107,8 @@ function rowTokens(row: OfferedRow, includeDescription: boolean): HayToken[] {
 
 function tokenMatches(typed: string, hay: HayToken): boolean {
   if (typed === hay.word) return true;
-  if (typed.length >= 4 && hay.word.startsWith(typed)) return true;
-  return hay.truncated && hay.word.length >= 4 && typed.startsWith(hay.word);
+  if (typed.length >= MIN_PREFIX_MATCH_LENGTH && hay.word.startsWith(typed)) return true;
+  return hay.truncated && hay.word.length >= MIN_PREFIX_MATCH_LENGTH && typed.startsWith(hay.word);
 }
 
 export function matchSelection(
@@ -125,7 +122,7 @@ export function matchSelection(
   const position = parseOrdinal(normalized, rows.length);
   if (position !== undefined) return { kind: MatchKind.MATCH, row: rows[position - 1] };
 
-  const typedTokens = normalized.split(" ").filter((token) => token.length >= 2 && !STOP_WORDS.has(token));
+  const typedTokens = normalized.split(" ").filter((token) => token.length >= MIN_TOKEN_LENGTH && !STOP_WORDS.has(token));
   if (typedTokens.length === 0) return { kind: MatchKind.NONE };
 
   const scored = rows.map((row) => {
@@ -149,7 +146,7 @@ const HINT_NOISE_WORDS = new Set([
 function significantTokens(text: string): string[] {
   return normalize(text)
     .split(" ")
-    .filter((token) => token.length >= 2 && !STOP_WORDS.has(token) && !HINT_NOISE_WORDS.has(token));
+    .filter((token) => token.length >= MIN_TOKEN_LENGTH && !STOP_WORDS.has(token) && !HINT_NOISE_WORDS.has(token));
 }
 
 export function leftoverHint(text: string, chosen: OfferedRow): string {
