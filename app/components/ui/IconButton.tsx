@@ -1,46 +1,34 @@
 import type { ReactNode } from "react";
+import { Button } from "@/app/components/ui/Button";
+import type { ButtonSize } from "@/lib/enums/button-size";
+import { ButtonVariant } from "@/lib/enums/button-variant";
+
+type IconButtonVariant =
+  | ButtonVariant.ICON_PLAIN
+  | ButtonVariant.ICON_CONTROL
+  | ButtonVariant.ICON_SOLID_NAVY
+  | ButtonVariant.ICON_SOLID_WHATSAPP;
+
+type IconButtonSize = ButtonSize.ICON_MD | ButtonSize.ICON_LG;
 
 export function IconButton({
   icon,
   onClick,
   ariaLabel,
-  variant = "ghost",
-  size = "h-5 w-5",
-  toneClassName = "text-white/80 hover:text-white",
-  hitAreaClassName = "",
+  variant = ButtonVariant.ICON_CONTROL,
+  size,
   disabled,
 }: {
   icon: ReactNode;
   onClick?: () => void;
   ariaLabel: string;
-  variant?: "ghost" | "solid";
-  size?: string;
-  toneClassName?: string;
-  hitAreaClassName?: string;
+  variant?: IconButtonVariant;
+  size?: IconButtonSize;
   disabled?: boolean;
 }) {
-  if (variant === "solid") {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={ariaLabel}
-        className={`flex ${size} flex-shrink-0 items-center justify-center rounded-full text-white transition-opacity disabled:opacity-40 ${toneClassName}`}
-      >
-        {icon}
-      </button>
-    );
-  }
-
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className={`flex-shrink-0 ${toneClassName} ${hitAreaClassName}`}
-    >
+    <Button variant={variant} size={size} onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
       {icon}
-    </button>
+    </Button>
   );
 }

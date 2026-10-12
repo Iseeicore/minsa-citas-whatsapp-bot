@@ -1,4 +1,10 @@
 import { LockIcon } from "@/app/components/icons";
+import { Button } from "@/app/components/ui/Button";
+import { Card } from "@/app/components/ui/Card";
+import { TextInput } from "@/app/components/ui/TextInput";
+import { ButtonVariant } from "@/lib/enums/button-variant";
+import { ButtonWidth } from "@/lib/enums/button-width";
+import { TextInputVariant } from "@/lib/enums/text-input-variant";
 
 export function DniCard({
   value,
@@ -10,37 +16,25 @@ export function DniCard({
   onSubmit: () => void;
 }) {
   return (
-    <div className="ml-9 mb-3 max-w-[75%] rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+    <Card className="mb-3 ml-9 max-w-3/4 p-3">
       <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-sb-accent">
         <LockIcon className="h-4 w-4" />
         Acceso rápido con Documento
       </div>
-      <input
-        type="text"
+      <TextInput
+        variant={TextInputVariant.BOXED}
         inputMode="numeric"
         maxLength={9}
         aria-label="Número de documento"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onSubmit();
-        }}
+        onValueChange={onChange}
+        onEnter={onSubmit}
         placeholder="Ingresa tu número de documento"
-        className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-sb-accent"
+        className="mb-2"
       />
-      <button
-        onClick={onSubmit}
-        disabled={!value.trim()}
-        className="w-full rounded-lg bg-sb-accent px-3 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40"
-      >
+      <Button variant={ButtonVariant.ACCENT} width={ButtonWidth.FULL} onClick={onSubmit} disabled={!value.trim()}>
         Validar y Continuar Cita
-      </button>
-      <p className="mt-2 text-center text-xs text-gray-400">
-        ¿No estás registrado?{" "}
-        <a href="#" className="text-sb-accent hover:underline">
-          Regístrate aquí
-        </a>
-      </p>
-    </div>
+      </Button>
+    </Card>
   );
 }

@@ -3,7 +3,6 @@ import type {
   EstablecimientoItem,
   FechaItem,
   HoraItem,
-  ReferenciaItem,
   UbigeoItem,
 } from "@/lib/integrations/minsa/types";
 import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
@@ -58,6 +57,3 @@ export const FAKE_HORAS: HoraItem[] = [
   { horaInicio: "09:30", horaFin: "10:00", cantidadCupos: 1 },
   { horaInicio: "13:00", horaFin: "13:30", cantidadCupos: 2 },
 ];
-
-/** Vacío a propósito: el sandbox no debe interrumpir el flujo feliz existente con el paso opcional de referencias. */
-export const FAKE_REFERENCIAS: ReferenciaItem[] = [];

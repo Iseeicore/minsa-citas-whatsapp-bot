@@ -1,5 +1,4 @@
-import { logger } from "@/lib/observability/logger";
-import { isRawRow, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import { isRawRow, parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
 import { postWithBearer } from "@/lib/integrations/minsa/wire";
 import type { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
@@ -29,7 +28,6 @@ function rowsAt(body: unknown, path: readonly string[]): unknown {
   return node;
 }
 
-/** Esqueleto común de los catálogos con bearer: descarta filas inválidas y, si ninguna es válida, responde "error" y no "empty". */
 export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promise<CatalogFetchResult<T>> {
   const response = await postWithBearer(params.endpoint, params.body, params.bearer);
   if (response.status === HTTP_UNAUTHORIZED) return { status: "unauthorized" };
@@ -42,18 +40,7 @@ export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promi
   if (!Array.isArray(rawRows)) return { status: "error" };
   if (rawRows.length === 0) return { status: "empty" };
 
-  const items = rawRows
-    .map((row) => (isRawRow(row) ? params.parseRow(row) : undefined))
-    .filter((item): item is T => item !== undefined);
-
-  if (items.length < rawRows.length) {
-    logger.warn("minsa.catalog.rows_discarded", {
-      endpoint: params.endpoint,
-      discarded: rawRows.length - items.length,
-      total: rawRows.length,
-    });
-  }
-
+  const items = parseRows(params.endpoint, rawRows, params.parseRow);
   if (items.length === 0) return { status: "error" };
   return { status: "found", items, ...params.pageInfo?.(body) };
 }

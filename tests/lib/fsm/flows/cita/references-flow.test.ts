@@ -33,6 +33,8 @@ const REFERENCIA: ReferenciaItem = {
   ipressDestino: "HOSPITAL MARIA AUXILIADORA",
   upsOrigen: "MEDICINA GENERAL",
   upsDestino: "GASTROENTEROLOGÍA",
+  codigoIpressDestino: "5987",
+  codigoUpsDestino: "222800",
   estado: 7,
 };
 
@@ -46,19 +48,19 @@ function referencesPending(): Session {
 
 describe("handleReferencesPending", () => {
   it("sin referencias (empty), sigue directo al flujo normal sin preguntar nada", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "empty" }));
+    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "empty", message: "", data: [] }));
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
     expect(texts(result).join(" ")).toContain("Cuéntanos en qué distrito");
   });
 
   it("con error, también sigue directo al flujo normal", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "error" }));
+    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "error", message: "", data: [] }));
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
   });
 
   it("con referencias encontradas, pregunta si quiere revisarlas (no pasa a distrito todavía)", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "found", items: [REFERENCIA] }));
+    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "found", message: "", data: [REFERENCIA] }));
 
     expect(result.session.state).toBe("cita_awaiting_references_offer");
     expect(texts(result).join(" ")).toContain("¿Deseas revisar tus referencias?");

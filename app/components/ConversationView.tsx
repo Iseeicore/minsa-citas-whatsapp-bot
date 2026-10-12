@@ -14,10 +14,18 @@ import {
 } from "@/app/components/icons";
 import { IconButton } from "@/app/components/ui/IconButton";
 import { Badge } from "@/app/components/ui/Badge";
-import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
+import { Banner } from "@/app/components/ui/Banner";
+import { Button } from "@/app/components/ui/Button";
+import { TextInput } from "@/app/components/ui/TextInput";
+import { cn } from "@/lib/utils/cn";
+import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
+import { BannerTone } from "@/lib/enums/banner-tone";
+import { ButtonSize } from "@/lib/enums/button-size";
+import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
 import { MessageDirection } from "@/lib/enums/message-direction";
+import { TextInputVariant } from "@/lib/enums/text-input-variant";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -137,10 +145,10 @@ export default function ConversationView({
       <header className="flex items-center gap-3 bg-wa-header px-4 py-2.5 text-white">
         {onBack && (
           <IconButton
+            variant={ButtonVariant.ICON_PLAIN}
             icon={<BackArrowIcon className="h-5 w-5" />}
             onClick={onBack}
             ariaLabel="Volver"
-            toneClassName="text-white/90 hover:text-white"
           />
         )}
         <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/20">
@@ -152,14 +160,9 @@ export default function ConversationView({
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
           {status === ConversationStatus.OPEN ? (
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={closing}
-              className="rounded-full border border-white/40 px-3 py-1 text-xs font-medium text-white/90 hover:bg-white/10 disabled:opacity-50"
-            >
-              {closing ? "Cerrando…" : "Cerrar conversación"}
-            </button>
+            <Button variant={ButtonVariant.PILL_ON_DARK} onClick={handleClose} loading={closing} loadingLabel="Cerrando…">
+              Cerrar conversación
+            </Button>
           ) : (
             <Badge size="md" className="bg-white/20 text-white/90">Cerrada</Badge>
           )}
@@ -171,25 +174,24 @@ export default function ConversationView({
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`mb-2 flex ${
-              message.direction === MessageDirection.OUTBOUND ? "justify-end" : "justify-start"
-            }`}
+            className={cn(
+              "mb-2 flex",
+              message.direction === MessageDirection.OUTBOUND ? "justify-end" : "justify-start",
+            )}
           >
             <div
-              className={`max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${
+              className={cn(
+                "max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm",
                 message.direction === MessageDirection.OUTBOUND
                   ? "rounded-tr-none bg-wa-bubble-out text-gray-900"
-                  : "rounded-tl-none bg-wa-bubble-in text-gray-900"
-              }`}
+                  : "rounded-tl-none bg-wa-bubble-in text-gray-900",
+              )}
             >
               <div className="whitespace-pre-wrap break-words">
                 {message.content ?? `[${message.type}]`}
               </div>
               <div className="mt-0.5 flex items-center justify-end gap-1 text-xs text-gray-500">
-                {new Date(message.timestamp).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatClockTime(message.timestamp)}
                 {message.direction === MessageDirection.OUTBOUND && (
                   <ReadTicksIcon status={message.status} />
                 )}
@@ -201,42 +203,32 @@ export default function ConversationView({
       </div>
 
       {countdown && (
-        <div
-          className={`px-4 pt-1.5 text-xs ${
-            countdown.warning ? "text-amber-600" : "text-gray-500"
-          }`}
-        >
+        <div className={cn("px-4 pt-1.5 text-xs", countdown.warning ? "text-amber-600" : "text-gray-500")}>
           {countdown.label}
         </div>
       )}
 
-      {status === ConversationStatus.CLOSED && (
-        <div className="border-t border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
-          Esta conversación está cerrada.
-        </div>
-      )}
+      {status === ConversationStatus.CLOSED && <Banner tone={BannerTone.NOTICE}>Esta conversación está cerrada.</Banner>}
 
       {status === ConversationStatus.OPEN && !windowOpen && (
-        <div className="border-t border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
+        <Banner tone={BannerTone.NOTICE}>
           La ventana de 24 horas está cerrada — envía un mensaje de plantilla aprobado en lugar de
           texto libre.
-        </div>
+        </Banner>
       )}
 
-      {sendError && <ErrorBanner>{sendError}</ErrorBanner>}
+      {sendError && <Banner tone={BannerTone.ERROR}>{sendError}</Banner>}
 
-      {closeError && <ErrorBanner>{closeError}</ErrorBanner>}
+      {closeError && <Banner tone={BannerTone.ERROR}>{closeError}</Banner>}
 
       <div className="flex items-center gap-2 bg-wa-footer px-3 py-2">
         <EmojiIcon className="h-6 w-6 flex-shrink-0 text-gray-500" />
         <div className="flex flex-1 items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm">
-          <input
-            type="text"
+          <TextInput
+            variant={TextInputVariant.INLINE}
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSend();
-            }}
+            onValueChange={setText}
+            onEnter={handleSend}
             disabled={status === ConversationStatus.CLOSED || !windowOpen || sending}
             placeholder={
               status === ConversationStatus.CLOSED
@@ -245,19 +237,17 @@ export default function ConversationView({
                   ? "Escribe un mensaje"
                   : "Ventana de 24h cerrada"
             }
-            className="flex-1 border-none bg-transparent text-sm outline-none disabled:cursor-not-allowed"
           />
           <PaperclipIcon className="h-5 w-5 flex-shrink-0 text-gray-500" />
           <CameraIcon className="h-5 w-5 flex-shrink-0 text-gray-500" />
         </div>
         <IconButton
-          variant="solid"
+          variant={ButtonVariant.ICON_SOLID_WHATSAPP}
+          size={ButtonSize.ICON_LG}
           icon={<SendIcon className="h-5 w-5" />}
           onClick={handleSend}
           disabled={status === ConversationStatus.CLOSED || !windowOpen || sending || !text.trim()}
           ariaLabel="Enviar mensaje"
-          size="h-10 w-10"
-          toneClassName="bg-wa-accent"
         />
       </div>
     </div>

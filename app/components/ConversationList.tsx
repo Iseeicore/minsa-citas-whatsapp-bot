@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { Conversation } from "@/app/components/types";
+import { Avatar } from "@/app/components/ui/Avatar";
 import { Badge } from "@/app/components/ui/Badge";
+import { Button } from "@/app/components/ui/Button";
 import { avatarColor, initials } from "@/lib/utils/avatar";
+import { cn } from "@/lib/utils/cn";
+import { formatClockTime } from "@/lib/utils/format-clock-time";
+import { ButtonVariant } from "@/lib/enums/button-variant";
+import { ButtonWidth } from "@/lib/enums/button-width";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
 
 const POLL_INTERVAL_MS = 4000;
@@ -52,27 +58,18 @@ export default function ConversationList({
           const active = selectedId === conversation.id;
           return (
             <li key={conversation.id}>
-              <button
+              <Button
+                variant={ButtonVariant.ROW}
+                width={ButtonWidth.FULL}
+                selected={active}
                 onClick={() => onSelect(conversation)}
-                className={`flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
-                  active ? "bg-teal-50" : ""
-                }`}
               >
-                <span
-                  className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(
-                    conversation.waId,
-                  )}`}
-                >
-                  {initials(label)}
-                </span>
+                <Avatar className={cn("font-semibold", avatarColor(conversation.waId))}>{initials(label)}</Avatar>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium text-gray-900">{label}</span>
                     <span className="flex-shrink-0 text-xs text-gray-400">
-                      {new Date(conversation.lastMessageAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatClockTime(conversation.lastMessageAt)}
                     </span>
                   </span>
                   <span className="mt-0.5 flex items-center justify-between gap-2">
@@ -88,7 +85,7 @@ export default function ConversationList({
                     </Badge>
                   </span>
                 </span>
-              </button>
+              </Button>
             </li>
           );
         })}
