@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- Dos establecimientos de prueba, cada uno con su area
 SELECT set_config('app.actor', 'sistema:prueba', false);
 INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES
   ('T17-EESS-1', 'Establecimiento 17-1', 1),
@@ -41,7 +40,6 @@ BEGIN
 END;
 $$;
 
--- Lleva un caso clasificado hasta el estado pedido por el camino normal, al area del establecimiento 1.
 CREATE FUNCTION pg_temp.llevar(p_traza text, p_estado text) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -66,7 +64,6 @@ LANGUAGE sql AS $$
     JOIN chatbot.incidencia_paciente i ON i.id = e.incidencia_paciente_id WHERE i.trace_id = p_traza;
 $$;
 
--- ===== Resolucion en tres campos =====
 SELECT pg_temp.nuevo('t17-res-a', 3);
 SELECT pg_temp.nuevo('t17-res-b', 3);
 SELECT pg_temp.nuevo('t17-chk', 3);
@@ -99,14 +96,12 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET medidas_to
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET fundamento = 'Otro fundamento distinto' WHERE trace_id = 't17-res-a'$q$, '23514', 'R11 el fundamento se registra una sola vez');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET resultado_resolucion_id = 2 WHERE trace_id = 't17-res-a'$q$, '23514', 'R12 el resultado se registra una sola vez');
 
--- Las reglas tambien viven en CHECK: aunque se apaguen los disparadores
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 4 WHERE trace_id = 't17-chk'$q$, '23514', 'R13 un caso RESUELTO exige la resolucion (CHECK)');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'Se atendio el reclamo', resuelto_en = now(), resuelto_por = 'x' WHERE trace_id = 't17-chk'$q$, '23514', 'R14 las medidas sin fundamento ni resultado violan el CHECK');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET medidas_tomadas = 'corta', fundamento = 'Era procedente del todo', resultado_resolucion_id = 1, resuelto_en = now(), resuelto_por = 'x' WHERE trace_id = 't17-chk'$q$, '23514', 'R15 las medidas cortas violan el CHECK');
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
--- ===== Archivado manual desde cualquier estado abierto =====
 SELECT pg_temp.nuevo('t17-reg', NULL);
 SELECT pg_temp.nuevo('t17-cla', 3);
 SELECT pg_temp.nuevo('t17-der', 3);
@@ -156,14 +151,12 @@ END $$;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET archivo_detalle = 'Otra justificacion distinta' WHERE trace_id = 't17-ges'$q$, '23514', 'A16 la justificacion de un archivado no se cambia');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET motivo_archivo_id = 3 WHERE trace_id = 't17-ges'$q$, '23514', 'A17 el motivo de un archivado no se cambia');
 
--- El CHECK tambien rige con los disparadores apagados
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 4, archivado_en = now() WHERE trace_id = 't17-chk2'$q$, '23514', 'A18 un motivo manual sin justificacion viola el CHECK');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET archivo_detalle = 'Justificacion sin motivo de archivo' WHERE trace_id = 't17-chk2'$q$, '23514', 'A19 una justificacion sin archivado viola el CHECK');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivado_en = now(), archivo_detalle = 'corto' WHERE trace_id = 't17-chk2'$q$, '23514', 'A20 una justificacion corta viola el CHECK');
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
--- Los archivados automaticos no necesitan justificacion
 SELECT pg_temp.nuevo('t17-auto', 3);
 SELECT pg_temp.llevar('t17-auto', 'EN_GESTION');
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
@@ -175,7 +168,6 @@ BEGIN
   ASSERT (SELECT archivo_detalle IS NULL AND estado_incidencia_id = 7 FROM chatbot.incidencia_paciente WHERE trace_id = 't17-auto'), 'A21 un archivado automatico queda sin justificacion';
 END $$;
 
--- ===== Reabrir =====
 SELECT set_config('app.actor', 'usuario:rev-17', false);
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3 WHERE trace_id = 't17-der'$q$, '23514', 'B01 reabrir exige un motivo');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3, reabierto_motivo = 'corto' WHERE trace_id = 't17-der'$q$, '23514', 'B02 el motivo de la reapertura debe tener 10 caracteres o mas');
@@ -185,9 +177,9 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_inc
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET reabierto_motivo = 'Motivo sin reabrir el caso' WHERE trace_id = 't17-der'$q$, '23514', 'B06 el motivo de reapertura solo se indica al reabrir');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3, reabierto_motivo = 'Llegaron los datos pedidos', reabierto_por = 'otro' WHERE trace_id = 't17-der'$q$, '23514', 'B07 quien reabrio lo llena la base');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3, reabierto_motivo = 'Llegaron los datos pedidos', reabierto_en = now() WHERE trace_id = 't17-der'$q$, '23514', 'B08 cuando se reabrio lo llena la base');
--- Un caso archivado desde REGISTRADO nunca tuvo area de destino: no hay a donde reabrirlo
+
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3, reabierto_motivo = 'Llegaron los datos pedidos' WHERE trace_id = 't17-reg'$q$, '23514', 'B09 reabrir exige area de destino (un archivado desde REGISTRADO no la tiene)');
--- El vencimiento tampoco reabre
+
 SELECT set_config('app.actor', 'sistema:vencimiento', false);
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3, reabierto_motivo = 'Reabierto por el sistema' WHERE trace_id = 't17-neg'$q$, '23514', 'B10 un caso abierto no se reabre');
 
@@ -210,7 +202,6 @@ BEGIN
     'B16 el historial conserva la justificacion anterior y el motivo de la reapertura';
 END $$;
 
--- Un caso archivado por la vigencia de su resolucion no se reabre
 SELECT pg_temp.nuevo('t17-vig', 3);
 SELECT pg_temp.llevar('t17-vig', 'RESUELTO');
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
@@ -224,7 +215,6 @@ BEGIN
 END $$;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 3, reabierto_motivo = 'Se quiere volver a atender' WHERE trace_id = 't17-vig'$q$, '23514', 'B18 un archivado por vigencia de la resolucion nunca se reabre');
 
--- Un caso reabierto puede archivarse otra vez y reabrirse de nuevo
 SELECT set_config('app.actor', 'usuario:rev-17b', false);
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 4, archivo_detalle = 'Tampoco corresponde, segunda vez' WHERE trace_id = 't17-ges';
 DO $$
@@ -246,13 +236,11 @@ BEGIN
            WHERE i.trace_id = 't17-ges' AND a.operacion = 'ACTUALIZACION' AND a.cambios ? 'reabierto_motivo') = 2, 'B22 el historial guarda las dos reaperturas';
 END $$;
 
--- El CHECK de la reapertura tambien rige con los disparadores apagados
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET reabierto_motivo = 'Motivo sin quien ni cuando' WHERE trace_id = 't17-chk3'$q$, '23514', 'B23 el motivo de reapertura sin quien ni cuando viola el CHECK');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET reabierto_en = now(), reabierto_por = 'x', reabierto_motivo = 'corto' WHERE trace_id = 't17-chk3'$q$, '23514', 'B24 un motivo de reapertura corto viola el CHECK');
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
--- El plazo de vencimiento de un caso reabierto cuenta desde la reapertura
 DO $$
 BEGIN
   ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'B25 un caso recien reabierto no vuelve a vencer enseguida, aunque haya llegado hace mas de 3 dias';
@@ -266,7 +254,6 @@ BEGIN
   ASSERT (SELECT estado_incidencia_id = 7 FROM chatbot.incidencia_paciente WHERE trace_id = 't17-auto'), 'B26 queda archivado de nuevo';
 END $$;
 
--- ===== Entrenamiento: los archivados a mano no entran =====
 SELECT pg_temp.nuevo('t17-ent-di', 3);
 SELECT pg_temp.nuevo('t17-ent-nc', 3);
 SELECT pg_temp.nuevo('t17-ent-vig', 3);
@@ -301,7 +288,6 @@ BEGIN
   ASSERT pg_temp.apto('t17-ent-di') = 'false', 'C06 al archivarlo otra vez a mano sale de nuevo';
 END $$;
 
--- Un archivado por vigencia o por vencimiento no cambia nada
 SELECT pg_temp.llevar('t17-ent-vig', 'RESUELTO');
 SELECT set_config('app.actor', 'usuario:rev-17', false);
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
@@ -313,7 +299,6 @@ BEGIN
   ASSERT (SELECT estado_incidencia_id = 7 FROM chatbot.incidencia_paciente WHERE trace_id = 't17-ent-vig') AND pg_temp.apto('t17-ent-vig') = 'true', 'C07 archivar por vigencia no saca el caso del entrenamiento';
 END $$;
 
--- Si el caso ya esta archivado a mano cuando se revisa la categoria, la fila nace no apta
 SELECT set_config('app.actor', 'usuario:rev-17', false);
 UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7, motivo_archivo_id = 3, archivo_detalle = 'Faltan datos para gestionar' WHERE trace_id = 't17-ent-previo';
 UPDATE chatbot.incidencia_paciente SET categoria_confirmada_en = now() WHERE trace_id = 't17-ent-previo';
@@ -327,7 +312,6 @@ BEGIN
   ASSERT pg_temp.apto('t17-ent-previo') = 'true', 'C09 al reabrirlo esa fila pasa a apta';
 END $$;
 
--- apto_entrenamiento solo lo cambia la base; la tabla sigue siendo de solo insercion para lo demas
 SELECT pg_temp.espera_error($q$UPDATE ia.entrenamiento_categoria SET apto_entrenamiento = false$q$, '23001', 'C10 nadie cambia apto_entrenamiento a mano');
 SELECT pg_temp.espera_error($q$UPDATE ia.entrenamiento_categoria SET texto_entrenamiento = 'otro texto'$q$, '23001', 'C11 el texto de entrenamiento no se modifica');
 SELECT pg_temp.espera_error($q$UPDATE ia.entrenamiento_categoria SET apto_entrenamiento = false, categoria_final_id = 4$q$, '23001', 'C12 tampoco junto con otro cambio');

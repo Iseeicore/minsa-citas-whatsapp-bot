@@ -1,15 +1,3 @@
--- Codigo legible de la incidencia: MINSA-AAAA-NNNNNN (por ejemplo MINSA-2026-003241).
---
--- Hasta ahora un caso solo se identificaba por su id (UUIDv7) o por trace_id (el id del turno del chat), que no sirven para
--- decirlos por telefono ni para escribirlos en un oficio. AAAA es el anio de la llegada en la zona America/Lima y NNNNNN el
--- correlativo de ese anio (6 digitos; pasado el 999999 sigue creciendo), que reinicia cada anio. Lo genera la base al insertar
--- (nadie lo envia: lo que mande quien inserta se descarta) y no se puede modificar.
---
--- El correlativo sale de una fila por anio en chatbot.contador_codigo_incidencia, que se incrementa dentro de la misma
--- transaccion del INSERT: si la transaccion se revierte el numero no se gasta (sin huecos) y dos transacciones simultaneas
--- esperan su turno en lugar de repetir el codigo. Una secuencia no sirve: no revierte y deja huecos.
-
--- CreateTable
 CREATE TABLE "chatbot"."contador_codigo_incidencia" (
     "anio" SMALLINT NOT NULL,
     "ultimo" INTEGER NOT NULL DEFAULT 0,
@@ -23,7 +11,6 @@ ALTER TABLE chatbot.contador_codigo_incidencia
   ADD CONSTRAINT ck_contador_codigo_incidencia_anio CHECK (anio BETWEEN 1000 AND 9999),
   ADD CONSTRAINT ck_contador_codigo_incidencia_ultimo CHECK (ultimo >= 0);
 
--- AlterTable
 ALTER TABLE "chatbot"."incidencia_paciente" ADD COLUMN "codigo" TEXT NOT NULL DEFAULT '';
 
 CREATE OR REPLACE FUNCTION chatbot.generar_codigo_incidencia(p_fecha timestamptz) RETURNS text
@@ -83,24 +70,6 @@ BEGIN
 END;
 $$;
 
--- Redefine la regla de la incidencia (version final): la de la migracion archivado_por_vencimiento, mas la regla del codigo
--- (una vez asignado no cambia; el unico cambio permitido es el relleno de las filas anteriores a esta migracion, que traen
--- una cadena vacia), mas las reglas del area de destino y del archivado:
---   - el establecimiento de origen es dato de origen: no cambia una vez puesto (solo sistema:migracion puede completarlo);
---   - derivado_*, tomado_*, archivado_en y motivo_archivo_id los llena la base con el actor declarado;
---   - DERIVADO y EN_GESTION exigen area de destino; esta solo se reasigna en CLASIFICADO o DERIVADO;
---   - un caso no sensible (queja, reclamo u otro) que se clasifica sin destino queda con el area de su establecimiento de
---     origen; si se corrige de sensible a no sensible vuelve a ese area. Desde CLASIFICADO se puede tomar (EN_GESTION) o derivar;
---   - un caso de categoria sensible solo puede estar en un area cuyo tipo reciba casos sensibles: la base la asigna sola si
---     existe una unica, tambien cuando la categoria se corrige despues de derivar;
---   - archivar exige motivo: RESUELTA_VIGENCIA (desde RESUELTO), VENCIDA_SIN_ATENDER (caso abierto, solo sistema:vencimiento) o
---     un motivo manual que lo indica quien archiva, siempre con una justificacion escrita (archivo_detalle, 10 caracteres o
---     mas): DATOS_INSUFICIENTES (una persona, o sistema:filtro desde REGISTRADO o CLASIFICADO) y NO_CORRESPONDE (una persona),
---     ambos desde un caso abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION);
---   - reabrir: ARCHIVADO -> EN_GESTION solo si el motivo fue DATOS_INSUFICIENTES, NO_CORRESPONDE o VENCIDA_SIN_ATENDER (nunca
---     RESUELTA_VIGENCIA) y con un motivo de reapertura de 10 caracteres o mas; la base limpia el archivado y registra quien,
---     cuando y por que (el historial completo queda en la auditoria);
---   - la resolucion son tres campos (medidas tomadas, fundamento y resultado) que se registran juntos, una sola vez.
 CREATE OR REPLACE FUNCTION public.fn_reglas_incidencia() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -364,8 +333,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- Destino de un caso no sensible: al clasificarse (o al corregirse de sensible a no sensible mientras esta abierto sin
-  -- gestionar) sin destino propio, la base le asigna el area de su establecimiento de origen. Si ya tiene destino no se toca.
   IF NEW.categoria_id IS NOT NULL AND NEW.establecimiento_id IS NOT NULL
      AND NOT (SELECT es_sensible FROM catalogo.categoria_incidencia WHERE id = NEW.categoria_id)
      AND ((OLD.categoria_ia_id IS NULL AND NEW.categoria_ia_id IS NOT NULL AND NEW.area_destino_id IS NULL)
@@ -399,8 +366,6 @@ $$;
 ALTER TABLE chatbot.incidencia_paciente
   ADD CONSTRAINT ck_incidencia_paciente_motivo_archivo CHECK ((estado_incidencia_id = 7) = (motivo_archivo_id IS NOT NULL));
 
--- Entrenamiento: al archivar un caso con un motivo manual (datos insuficientes o no corresponde) sus filas de entrenamiento
--- dejan de ser aptas; al reabrirlo vuelven a serlo. Solo esta funcion puede cambiar apto_entrenamiento.
 CREATE OR REPLACE FUNCTION public.fn_marcar_entrenamiento_archivo() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 BEGIN
@@ -428,11 +393,8 @@ CREATE TRIGGER trg_contador_codigo_incidencia_b_fecha BEFORE UPDATE ON chatbot.c
 CREATE TRIGGER trg_contador_codigo_incidencia_a_reglas BEFORE UPDATE OR DELETE ON chatbot.contador_codigo_incidencia
   FOR EACH ROW EXECUTE FUNCTION public.fn_reglas_contador_codigo();
 
--- Las filas anteriores a esta migracion reciben su codigo en el orden en que llegaron, firmado como sistema:migracion; solo
--- despues se exige que el codigo exista, sea unico y se genere en cada insercion nueva.
 SELECT chatbot.rellenar_codigos_incidencia();
 
--- CreateIndex
 CREATE UNIQUE INDEX "uq_incidencia_paciente_codigo" ON "chatbot"."incidencia_paciente"("codigo");
 
 ALTER TABLE chatbot.incidencia_paciente
@@ -441,7 +403,6 @@ ALTER TABLE chatbot.incidencia_paciente
 CREATE TRIGGER trg_incidencia_paciente_b_codigo_ins BEFORE INSERT ON chatbot.incidencia_paciente
   FOR EACH ROW EXECUTE FUNCTION public.fn_asignar_codigo_incidencia();
 
--- Descripciones del diccionario (generadas desde diccionario.json con npm run db:diccionario).
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.anio IS 'Año del código (zona America/Lima), de cuatro dígitos. Es la clave: hay una fila por año.';
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.ultimo IS 'Último correlativo entregado ese año. El próximo código usa este valor más uno. Solo puede subir.';
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_creacion IS 'Fecha y hora (UTC) en que se creó la fila del año, es decir, cuando llegó la primera incidencia de ese año.';

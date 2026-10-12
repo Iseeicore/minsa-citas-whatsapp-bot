@@ -261,7 +261,6 @@ model EstablecimientoSalud {
   id                  Int      @id(map: "pk_establecimiento_salud") @default(autoincrement())
   codigoRenipress     String   @unique(map: "uq_establecimiento_salud_codigo_renipress") @map("codigo_renipress")
   nombre              String
-  /// Columna generada por la base (f_unaccent(nombre), STORED): Prisma no expresa columnas generadas. Nunca se escribe.
   nombreBusqueda      String?  @default(dbgenerated("f_unaccent(nombre)")) @map("nombre_busqueda")
   nivelAtencionId     Int?     @map("nivel_atencion_id") @db.SmallInt
   categoria           String?
@@ -411,7 +410,6 @@ model IncidenciaPaciente {
   solicitudesCarga    SolicitudCarga[]
   etiquetas           IncidenciaEtiqueta[]
 
-  // Índices parciales (bandeja por área destino, abiertas) y CHECK de derivación, toma, archivo, reapertura y resolución: solo en la migración.
   @@index([establecimientoId, fechaCreacion], map: "ix_incidencia_paciente_origen_fecha")
   @@index([estadoIncidenciaId, fechaCreacion], map: "ix_incidencia_paciente_estado_fecha")
   @@index([usuarioId, fechaCreacion], map: "ix_incidencia_paciente_usuario_fecha")
@@ -627,7 +625,6 @@ model EstadoArchivo {
 model SolicitudCarga {
   id                   String    @id(map: "pk_solicitud_carga") @default(dbgenerated("uuidv7()")) @db.Uuid
   incidenciaPacienteId String?   @map("incidencia_paciente_id") @db.Uuid
-  /// Borrador del reporte (sesion_conversacion) del que salió el enlace. Sin llave foránea a propósito: la purga de sesiones la borra.
   sesionId             String?   @map("sesion_id") @db.Uuid
   usuarioId            String    @map("usuario_id") @db.Uuid
   hashToken            String    @unique(map: "uq_solicitud_carga_hash_token") @map("hash_token")

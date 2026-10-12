@@ -1,9 +1,3 @@
--- Carga del padron de establecimientos de salud: las 4 DIRIS de Lima, un area por establecimiento y el establecimiento.
---
--- Lo llama scripts/db-seed-eess.mjs dentro de una transaccion y tambien las pruebas. Espera que la sesion ya tenga la tabla
--- temporal eess_fuente con una fila por establecimiento:
---   eess_fuente (codigo_renipress text, nombre text, nivel text, categoria text, diris text, departamento text, provincia text, distrito text)
--- Es idempotente: una fila que no cambio no se toca (ni sube su version), y una que cambio se actualiza.
 \set ON_ERROR_STOP on
 
 DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:seed-eess', false); END $$;

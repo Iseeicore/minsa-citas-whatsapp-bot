@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- Catalogos y area OTRANS
 DO $$
 BEGIN
   ASSERT (SELECT string_agg(codigo, ',' ORDER BY id) FROM catalogo.tipo_area WHERE recibe_sensibles) = 'OTRANS', 'A01 solo el tipo OTRANS recibe casos sensibles';
@@ -37,7 +36,6 @@ SELECT pg_temp.espera_error($q$INSERT INTO catalogo.area (codigo, nombre, tipo_a
 SELECT pg_temp.espera_error($q$INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES ('T12-SIN-TIPO', 'Sin tipo', 99)$q$, '23503', 'A05 el tipo de area debe existir');
 SELECT pg_temp.espera_error($q$INSERT INTO catalogo.area (codigo, nombre, tipo_area_id, padre_id) VALUES ('T12-SIN-PADRE', 'Sin padre', 1, 99999)$q$, '23503', 'A06 el padre debe existir');
 
--- Establecimientos y codigo RENIPRESS canonico
 INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES
   ('T12-DIRIS', 'DIRIS de prueba 12', 3),
   ('T12-EESS-1', 'Hospital Hipólito Unanue', 1),
@@ -45,7 +43,6 @@ INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES
   ('T12-EESS-3', 'CENTRO DE SALUD EL AGUSTINO', 1);
 UPDATE catalogo.area SET padre_id = (SELECT id FROM catalogo.area WHERE codigo = 'T12-DIRIS') WHERE codigo LIKE 'T12-EESS-%';
 
--- La prueba de la semilla de desarrollo (08) deja sus tres establecimientos de ejemplo: se quitan para probar desde cero.
 DELETE FROM catalogo.establecimiento_salud WHERE codigo_renipress IN ('6206', '5946', '5614');
 
 INSERT INTO catalogo.establecimiento_salud (codigo_renipress, nombre, nivel_atencion_id, categoria, distrito, area_id)
@@ -90,7 +87,6 @@ BEGIN
     'E10 el nombre de busqueda se recalcula sin tildes y en minuscula';
 END $$;
 
--- Busqueda por similitud sin tildes ni mayusculas
 DO $$
 BEGIN
   ASSERT (SELECT string_agg(codigo_renipress, ',') FROM catalogo.establecimiento_salud WHERE public.f_unaccent('HIPOLITO UNANUE') <% nombre_busqueda) = '6206',
@@ -117,7 +113,6 @@ BEGIN
 END $$;
 RESET enable_seqscan;
 
--- Origen de la incidencia
 INSERT INTO chatbot.usuario (wa_id) VALUES ('wa-t12');
 UPDATE catalogo.establecimiento_salud SET activo = false WHERE codigo_renipress = '12345678';
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, descripcion, trace_id, establecimiento_id)

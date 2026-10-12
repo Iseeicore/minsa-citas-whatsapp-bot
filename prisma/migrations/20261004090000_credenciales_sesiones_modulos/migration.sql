@@ -1,7 +1,5 @@
--- AlterTable
 ALTER TABLE "gestion"."usuario_interno" ADD COLUMN     "password_hash" TEXT NOT NULL;
 
--- CreateTable
 CREATE TABLE "gestion"."sesion_usuario" (
     "id" UUID NOT NULL DEFAULT uuidv7(),
     "usuario_interno_id" UUID NOT NULL,
@@ -17,22 +15,14 @@ CREATE TABLE "gestion"."sesion_usuario" (
     CONSTRAINT "pk_sesion_usuario" PRIMARY KEY ("id")
 );
 
--- CreateIndex
 CREATE INDEX "ix_sesion_usuario_usuario_revocada" ON "gestion"."sesion_usuario"("usuario_interno_id", "revocada_en");
 
--- AddForeignKey
 ALTER TABLE "gestion"."sesion_usuario" ADD CONSTRAINT "fk_sesion_usuario_usuario_interno" FOREIGN KEY ("usuario_interno_id") REFERENCES "gestion"."usuario_interno"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
-
-
--- Credenciales del usuario interno. La clave nunca se guarda: solo su huella Argon2id (formato PHC). La migracion no crea
--- personas; si una base ya tuviera usuarios internos, agregar las columnas obligatorias falla a proposito.
 ALTER TABLE gestion.usuario_interno
   ADD CONSTRAINT ck_usuario_interno_correo_minusculas CHECK (correo = lower(correo)),
   ADD CONSTRAINT ck_usuario_interno_password_hash CHECK (starts_with(password_hash, '$argon2id$'));
 
--- Reglas de la sesion: se crea vigente y sin revocar para un usuario activo; el usuario y el vencimiento no cambian; la
--- actividad no retrocede; la revocacion se registra una sola vez con la fecha de la base y una sesion revocada no se toca.
 CREATE OR REPLACE FUNCTION public.fn_reglas_sesion_usuario() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -65,7 +55,6 @@ BEGIN
 END;
 $$;
 
--- Desactivar a un usuario, o cambiarle el area, cierra todas sus sesiones abiertas (el interruptor de apagado vive en la base, no en la aplicacion).
 CREATE OR REPLACE FUNCTION public.fn_cerrar_sesiones_usuario() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -89,9 +78,6 @@ CREATE TRIGGER trg_sesion_usuario_bloqueo_borrado BEFORE DELETE ON gestion.sesio
 CREATE TRIGGER trg_usuario_interno_c_cerrar_sesiones AFTER UPDATE OF activo ON gestion.usuario_interno
   FOR EACH ROW WHEN (OLD.activo AND NOT NEW.activo) EXECUTE FUNCTION public.fn_cerrar_sesiones_usuario();
 
--- Cambiar el area de un usuario tambien cierra sus sesiones (los permisos se calculan con el area) y el usuario debe tener
--- un area del mismo tipo que sus roles con tipo de area (gestor, establecimiento, OTRANS): quitarle el area tambien se
--- rechaza. Solo el administrador, sin tipo de area, vale en cualquier area o sin ella.
 CREATE OR REPLACE FUNCTION public.fn_reglas_usuario_interno_area() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -108,10 +94,6 @@ BEGIN
 END;
 $$;
 
--- Tope de usuarios por establecimiento: como maximo 3 usuarios ACTIVOS (de cualquier rol) en el area de un establecimiento.
--- Se hace cumplir al insertar un usuario, al reactivarlo y al cambiarle el area; el area OTRANS (y cualquier area que no
--- sea de un establecimiento) no tiene tope. Una modificacion que no toca el area ni la vigencia no se revisa. Los
--- insertos y cambios simultaneos del mismo establecimiento esperan su turno (cerrojo por area dentro de la transaccion).
 CREATE OR REPLACE FUNCTION public.fn_limitar_usuarios_establecimiento() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -155,7 +137,6 @@ CREATE TRIGGER trg_usuario_interno_c_cerrar_sesiones_area AFTER UPDATE OF area_i
 
 SELECT set_config('app.actor', 'sistema:migracion', true);
 
--- Descripcion de lo nuevo o cambiado (diccionario de datos dentro de la base).
 COMMENT ON COLUMN gestion.usuario_interno.correo IS 'Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.';
 
 COMMENT ON COLUMN gestion.usuario_interno.password_hash IS 'Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato.';

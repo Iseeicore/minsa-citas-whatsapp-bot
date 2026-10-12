@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- Mensaje estable del tope: lo mapea el backend
 CREATE OR REPLACE FUNCTION pg_temp.espera_tope(p_sql text, p_nombre text) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -46,7 +45,6 @@ LANGUAGE sql AS $$
   SELECT p_correo, p_correo, '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA', (SELECT id FROM catalogo.area WHERE codigo = p_area);
 $$;
 
--- ===== Hasta 3 activos por establecimiento, de cualquier rol =====
 SELECT pg_temp.usuario('t18.a1@minsa.gob.pe', 'T18-EESS-A');
 SELECT pg_temp.usuario('t18.a2@minsa.gob.pe', 'T18-EESS-A');
 SELECT pg_temp.usuario('t18.a3@minsa.gob.pe', 'T18-EESS-A');
@@ -57,7 +55,6 @@ END $$;
 
 SELECT pg_temp.espera_tope($q$SELECT pg_temp.usuario('t18.a4@minsa.gob.pe', 'T18-EESS-A')$q$, 'U02 el cuarto usuario activo del establecimiento se rechaza al insertar');
 
--- El tope es por establecimiento
 SELECT pg_temp.usuario('t18.b1@minsa.gob.pe', 'T18-EESS-B');
 SELECT pg_temp.usuario('t18.b2@minsa.gob.pe', 'T18-EESS-B');
 DO $$
@@ -65,14 +62,12 @@ BEGIN
   ASSERT (SELECT count(*) FROM gestion.usuario_interno WHERE correo LIKE 't18.b_@minsa.gob.pe') = 2, 'U03 otro establecimiento tiene su propio tope';
 END $$;
 
--- Cambiar de area a un establecimiento lleno
 SELECT pg_temp.espera_tope($q$UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'T18-EESS-A') WHERE correo = 't18.b1@minsa.gob.pe'$q$, 'U04 pasar un usuario activo a un establecimiento lleno se rechaza');
 DO $$
 BEGIN
   ASSERT (SELECT a.codigo FROM gestion.usuario_interno u JOIN catalogo.area a ON a.id = u.area_id WHERE u.correo = 't18.b1@minsa.gob.pe') = 'T18-EESS-B', 'U04 el rechazo no mueve al usuario';
 END $$;
 
--- Desactivar libera un cupo; un inactivo no cuenta
 UPDATE gestion.usuario_interno SET activo = false, eliminado_en = now(), eliminado_por = 'usuario:admin-18' WHERE correo = 't18.a3@minsa.gob.pe';
 SELECT pg_temp.usuario('t18.a4@minsa.gob.pe', 'T18-EESS-A');
 DO $$
@@ -81,14 +76,12 @@ BEGIN
   ASSERT (SELECT count(*) FROM gestion.usuario_interno WHERE correo LIKE 't18.a_@minsa.gob.pe') = 4, 'U05 el desactivado sigue existiendo (nunca se borra)';
 END $$;
 
--- Reactivar con el establecimiento lleno
 SELECT pg_temp.espera_tope($q$UPDATE gestion.usuario_interno SET activo = true, eliminado_en = NULL, eliminado_por = NULL WHERE correo = 't18.a3@minsa.gob.pe'$q$, 'U06 reactivar a un usuario con el establecimiento lleno se rechaza');
 DO $$
 BEGIN
   ASSERT (SELECT NOT activo FROM gestion.usuario_interno WHERE correo = 't18.a3@minsa.gob.pe'), 'U06 el rechazo lo deja desactivado';
 END $$;
 
--- Un usuario desactivado puede cambiar de area aunque el destino este lleno (no suma)
 UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'T18-EESS-B') WHERE correo = 't18.a3@minsa.gob.pe';
 UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'T18-EESS-A') WHERE correo = 't18.a3@minsa.gob.pe';
 DO $$
@@ -96,7 +89,6 @@ BEGIN
   ASSERT (SELECT NOT activo FROM gestion.usuario_interno WHERE correo = 't18.a3@minsa.gob.pe'), 'U07 un desactivado no cuenta para el tope';
 END $$;
 
--- Reactivar con cupo libre
 UPDATE gestion.usuario_interno SET activo = false, eliminado_en = now(), eliminado_por = 'usuario:admin-18' WHERE correo = 't18.a4@minsa.gob.pe';
 UPDATE gestion.usuario_interno SET activo = true, eliminado_en = NULL, eliminado_por = NULL WHERE correo = 't18.a3@minsa.gob.pe';
 DO $$
@@ -104,14 +96,12 @@ BEGIN
   ASSERT (SELECT activo FROM gestion.usuario_interno WHERE correo = 't18.a3@minsa.gob.pe'), 'U08 con cupo libre se puede reactivar';
 END $$;
 
--- Cambiar de area a un establecimiento con cupo
 UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'T18-EESS-B') WHERE correo = 't18.a1@minsa.gob.pe';
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM gestion.usuario_interno u JOIN catalogo.area a ON a.id = u.area_id WHERE a.codigo = 'T18-EESS-B' AND u.activo) = 3, 'U09 con cupo libre se puede cambiar de area';
 END $$;
 
--- Una modificacion que no toca el area ni la vigencia no se revisa (aunque el establecimiento este lleno)
 UPDATE gestion.usuario_interno SET nombre_completo = 'Nombre cambiado' WHERE correo = 't18.b1@minsa.gob.pe';
 UPDATE gestion.usuario_interno SET area_id = area_id, activo = activo WHERE correo = 't18.b1@minsa.gob.pe';
 DO $$
@@ -119,7 +109,6 @@ BEGIN
   ASSERT (SELECT nombre_completo FROM gestion.usuario_interno WHERE correo = 't18.b1@minsa.gob.pe') = 'Nombre cambiado', 'U10 editar otros datos de un usuario en un establecimiento lleno es posible';
 END $$;
 
--- Los usuarios sin area o en areas que no son de un establecimiento no tienen tope
 SELECT pg_temp.usuario('t18.o1@minsa.gob.pe', 'OTRANS');
 SELECT pg_temp.usuario('t18.o2@minsa.gob.pe', 'OTRANS');
 SELECT pg_temp.usuario('t18.o3@minsa.gob.pe', 'OTRANS');
@@ -142,20 +131,17 @@ BEGIN
   ASSERT (SELECT count(*) FROM gestion.usuario_interno WHERE correo LIKE 't18.d_@minsa.gob.pe' OR correo LIKE 't18.s_@minsa.gob.pe') = 8, 'U12 las DIRIS y los usuarios sin area tampoco';
 END $$;
 
--- Tampoco al pasar a un area sin tope
 UPDATE gestion.usuario_interno SET area_id = (SELECT id FROM catalogo.area WHERE codigo = 'OTRANS') WHERE correo = 't18.b2@minsa.gob.pe';
 DO $$
 BEGIN
   ASSERT (SELECT a.codigo FROM gestion.usuario_interno u JOIN catalogo.area a ON a.id = u.area_id WHERE u.correo = 't18.b2@minsa.gob.pe') = 'OTRANS', 'U13 se pasa sin tope a OTRANS';
 END $$;
 
--- Con roles: el tope cuenta usuarios de cualquier rol
 SELECT pg_temp.usuario('t18.r1@minsa.gob.pe', 'T18-EESS-B');
 INSERT INTO gestion.usuario_rol (usuario_interno_id, rol_id)
 SELECT u.id, r.id FROM gestion.usuario_interno u, gestion.rol r WHERE u.correo = 't18.r1@minsa.gob.pe' AND r.codigo = 'GESTOR';
 SELECT pg_temp.espera_tope($q$SELECT pg_temp.usuario('t18.r2@minsa.gob.pe', 'T18-EESS-B')$q$, 'U14 un establecimiento con 3 activos (uno gestor) rechaza al cuarto, sea cual sea su rol');
 
--- La base tambien lo hace cumplir con varias sesiones a la vez
 CREATE EXTENSION IF NOT EXISTS dblink;
 INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES ('T18-EESS-C', 'Establecimiento 18-C', 1);
 SELECT pg_temp.usuario('t18.c1@minsa.gob.pe', 'T18-EESS-C');
@@ -188,7 +174,6 @@ END $$;
 SELECT dblink_disconnect('c_a');
 SELECT dblink_disconnect('c_b');
 
--- La segunda area OTRANS era solo de esta prueba: se desactiva para que las siguientes vean una unica area que recibe sensibles
 UPDATE catalogo.area SET activo = false WHERE codigo = 'T18-OTRANS';
 
 \echo TODAS LAS PRUEBAS DE USUARIOS POR ESTABLECIMIENTO PASARON

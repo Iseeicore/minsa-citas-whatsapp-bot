@@ -21,7 +21,6 @@ INSERT INTO chatbot.usuario (wa_id) VALUES ('wa-t15');
 INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, descripcion, trace_id)
 SELECT 1, u.id, u.wa_id, true, 'Caso ' || t, 't15-' || t FROM chatbot.usuario u, unnest(ARRAY['a', 'b']) AS t WHERE u.wa_id = 'wa-t15';
 
--- ===== Analisis de la incidencia: uno por incidencia, solo se inserta =====
 SELECT set_config('app.actor', 'sistema:analisis', false);
 INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje, senales, cargo_mencionado, area_mencionada_id, nombre_mencionado)
 SELECT i.id, 'reglas-v1', 87, '{"menciona_dinero": true, "palabras": ["cobro"]}'::jsonb, 'Jefe de admision', a.id, 'Pedro Quispe Mamani'
@@ -44,7 +43,6 @@ SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidenc
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje, senales, area_mencionada_id) SELECT id, 'reglas-v1', 1, '{}', 99999 FROM chatbot.incidencia_paciente WHERE trace_id = 't15-b'$q$, '23503', 'N09 el area mencionada debe existir');
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje) SELECT id, 'reglas-v1', 1 FROM chatbot.incidencia_paciente WHERE trace_id = 't15-b'$q$, '23502', 'N10 las senales son obligatorias');
 
--- ===== Solicitud de carga ligada a la sesion del borrador =====
 SELECT set_config('app.actor', 'ciudadano:wa-t15', false);
 INSERT INTO chatbot.sesion_conversacion (wa_id, estado, slots, contadores) VALUES ('wa-t15', 'incidencia_awaiting_evidence', '{}', '{}');
 
@@ -78,7 +76,6 @@ BEGIN
   ASSERT (SELECT count(*) FROM chatbot.solicitud_carga WHERE hash_token = 'hash-t15-sesion') = 1, 'S07 la purga de la sesion no toca la solicitud (no hay llave foranea a proposito)';
 END $$;
 
--- ===== Barrido de archivos huerfanos =====
 CREATE FUNCTION pg_temp.solicitud_vencida(p_hash text, p_con_incidencia boolean, p_cerrada boolean) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -115,7 +112,6 @@ INSERT INTO chatbot.evidencia (incidencia_paciente_id, tipo_evidencia_id, mime_t
 SELECT id, 1, 'image/png', 10, 'definitivo/promovido.png' FROM chatbot.incidencia_paciente WHERE trace_id = 't15-b';
 UPDATE chatbot.archivo_recibido SET evidencia_id = (SELECT id FROM chatbot.evidencia WHERE ruta = 'definitivo/promovido.png') WHERE nombre_original = 'promovido.png';
 
--- Se vencen las solicitudes sin pasar por la regla que impide modificarlas
 ALTER TABLE chatbot.solicitud_carga DISABLE TRIGGER USER;
 UPDATE chatbot.solicitud_carga SET fecha_creacion = now() - interval '2 hours', vence_en = now() - interval '1 hour'
  WHERE hash_token IN ('barrido-huerfana', 'barrido-huerfana-2', 'barrido-con-incidencia', 'barrido-cerrada');

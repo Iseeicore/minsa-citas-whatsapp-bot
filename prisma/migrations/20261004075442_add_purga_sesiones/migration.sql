@@ -1,7 +1,3 @@
--- Purga de sesiones inactivas. Borra UN lote de sesiones sin actividad por mas de `p_horas` horas y devuelve cuantas
--- borro; quien la programa (pg_cron, el cron del servidor, etc.) la repite hasta que devuelva 0. Asi ninguna llamada
--- mantiene bloqueos largos. SKIP LOCKED evita pelear con una sesion que se esta usando justo ahora.
--- Solo toca chatbot.sesion_conversacion: los mensajes, usuarios e incidencias tienen su propia retencion.
 CREATE OR REPLACE FUNCTION chatbot.purgar_sesiones_inactivas(p_horas integer DEFAULT 1, p_lote integer DEFAULT 1000)
 RETURNS integer
 LANGUAGE plpgsql AS $$
@@ -34,11 +30,6 @@ $$;
 COMMENT ON FUNCTION chatbot.purgar_sesiones_inactivas(integer, integer) IS
   'Borra un lote de sesiones de conversación (borradores de reporte) sin actividad por más de las horas indicadas (por defecto 1) y devuelve cuántas borró. Cada llamada borra como máximo el lote indicado (por defecto 1000) y se salta las sesiones en uso, así que hay que repetirla hasta que devuelva 0. Solo toca sesiones, nunca mensajes, usuarios ni incidencias; los archivos huérfanos de los borradores los limpia barrer_archivos_huerfanos.';
 
--- Barrido de archivos huerfanos. Una solicitud de carga emitida desde el borrador del chat (sin incidencia, con sesion_id)
--- que vence sin que el reporte se complete deja archivos sin dueno. Esta funcion toma UN lote de esas solicitudes vencidas,
--- rechaza sus archivos que aun no terminaron de verificarse (motivo 'sesión vencida'), cierra la solicitud y devuelve las
--- rutas de los archivos que no llegaron a ser evidencia, para que un proceso externo los borre del almacenamiento. Quien la
--- programa la repite hasta que no devuelva filas. La solicitud cerrada no vuelve a barrerse.
 CREATE OR REPLACE FUNCTION chatbot.barrer_archivos_huerfanos(p_lote integer DEFAULT 1000)
 RETURNS TABLE (ruta text)
 LANGUAGE plpgsql AS $$

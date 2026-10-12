@@ -1,8 +1,6 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
--- La semilla de desarrollo necesita el padron: aqui se carga con el mismo cargador que usa `npm run db:seed:eess`, pero con tres
--- establecimientos de ejemplo en lugar de los 434.
 CREATE TEMP TABLE eess_fuente (codigo_renipress text, nombre text, nivel text, categoria text, diris text, departamento text, provincia text, distrito text);
 INSERT INTO eess_fuente VALUES
   ('6206', 'HOSPITAL NACIONAL DOS DE MAYO', 'III', NULL, 'DIRIS Lima Centro', NULL, NULL, NULL),
@@ -104,14 +102,14 @@ END $$;
 
 DO $$
 BEGIN
-  -- Resolucion en tres campos
+
   ASSERT (SELECT string_agg(right(i.trace_id, 3) || '=' || r.codigo, ',' ORDER BY i.trace_id)
             FROM chatbot.incidencia_paciente i JOIN catalogo.resultado_resolucion r ON r.id = i.resultado_resolucion_id
            WHERE i.trace_id LIKE 'seed-dev-%') = '008=ATENDIDO,012=ATENDIDO,018=CERRADO',
     'D31 las tres resueltas llevan su resultado';
   ASSERT (SELECT bool_and(medidas_tomadas IS NOT NULL AND fundamento IS NOT NULL) FROM chatbot.incidencia_paciente
            WHERE trace_id LIKE 'seed-dev-%' AND resultado_resolucion_id IS NOT NULL), 'D31 y sus medidas y su fundamento';
-  -- Archivados a mano con justificacion, y un caso reabierto
+
   ASSERT (SELECT bool_and(archivo_detalle IS NOT NULL) FROM chatbot.incidencia_paciente
            WHERE trace_id LIKE 'seed-dev-%' AND estado_incidencia_id = 7 AND motivo_archivo_id IN (3, 4)), 'D32 todo archivado manual lleva su justificacion';
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'seed-dev-%' AND reabierto_en IS NOT NULL) = 1, 'D33 un caso quedo reabierto';
@@ -120,7 +118,7 @@ BEGIN
             FROM chatbot.incidencia_paciente WHERE trace_id = 'seed-dev-020'), 'D33 el reabierto vuelve a EN_GESTION sin rastro del archivado y con quien y por que';
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente_auditoria a JOIN chatbot.incidencia_paciente i ON i.id = a.incidencia_paciente_id
            WHERE i.trace_id = 'seed-dev-020' AND a.cambios ? 'reabierto_motivo' AND a.operacion = 'ACTUALIZACION') = 1, 'D33 la auditoria guarda la reapertura';
-  -- Entrenamiento: los archivados a mano no entran
+
   ASSERT (SELECT string_agg(right(i.trace_id, 3) || '=' || e.apto_entrenamiento, ',' ORDER BY i.trace_id)
             FROM ia.entrenamiento_categoria e JOIN chatbot.incidencia_paciente i ON i.id = e.incidencia_paciente_id
            WHERE i.trace_id IN ('seed-dev-019', 'seed-dev-020', 'seed-dev-021', 'seed-dev-012')) = '012=true,019=false,020=true,021=false',
