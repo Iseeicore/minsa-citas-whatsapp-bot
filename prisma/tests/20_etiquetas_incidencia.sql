@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- Mensajes estables de las reglas: los mapea el backend
 CREATE OR REPLACE FUNCTION pg_temp.espera_regla(p_sql text, p_mensaje text, p_nombre text) RETURNS void
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -59,7 +58,6 @@ LANGUAGE sql AS $$
   SELECT count(*) FROM chatbot.incidencia_etiqueta WHERE incidencia_paciente_id = pg_temp.incidencia(p_trace) AND activo;
 $$;
 
--- ===== Catalogo de etiquetas =====
 SELECT set_config('app.actor', 'usuario:admin-20', false);
 INSERT INTO catalogo.etiqueta (nombre, descripcion, tono) VALUES ('Urgente', 'Requiere atencion el mismo dia', 'danger');
 
@@ -111,7 +109,6 @@ END $$;
 
 SELECT pg_temp.espera_error($q$DELETE FROM catalogo.etiqueta WHERE nombre = 'AB'$q$, '23001', 'Q09 una etiqueta no se borra fisicamente');
 
--- ===== Asignacion a una incidencia =====
 SELECT set_config('app.actor', 'sistema:bot', false);
 INSERT INTO chatbot.usuario (wa_id, profile_name) VALUES ('wa-t20', 'Prueba 20');
 INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, descripcion, trace_id)
@@ -141,7 +138,6 @@ SELECT pg_temp.espera_regla($q$INSERT INTO chatbot.incidencia_etiqueta (incidenc
 SELECT pg_temp.espera_regla($q$INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id, eliminado_en, eliminado_por) VALUES (pg_temp.incidencia('t20-A'), pg_temp.etiqueta('AB'), now(), 'x')$q$,
   'incidencia_etiqueta: una asignacion nace vigente', 'Q13b no se inserta una asignacion con datos de quien la quito');
 
--- Regla: no se asigna una etiqueta retirada
 UPDATE catalogo.etiqueta SET activo = false WHERE nombre = 'Tono neutral';
 SELECT pg_temp.espera_regla($q$SELECT pg_temp.asignar('t20-A', 'Tono neutral')$q$,
   'incidencia_etiqueta: la etiqueta esta retirada y no se puede asignar', 'Q14 una etiqueta retirada no se asigna');
@@ -152,7 +148,6 @@ END $$;
 UPDATE catalogo.etiqueta SET activo = true WHERE nombre = 'Tono neutral';
 SELECT pg_temp.asignar('t20-A', 'Tono neutral');
 
--- Regla: no se asigna a una incidencia eliminada (borrado logico)
 SELECT pg_temp.asignar('t20-C', 'Urgente');
 UPDATE chatbot.incidencia_paciente SET activo = false, eliminado_en = now(), eliminado_por = 'usuario:gestor-20' WHERE trace_id = 't20-C';
 SELECT pg_temp.espera_regla($q$SELECT pg_temp.asignar('t20-C', 'AB')$q$,
@@ -163,7 +158,6 @@ BEGIN
   ASSERT pg_temp.vigentes('t20-C') = 0, 'Q15 a una incidencia eliminada si se le puede quitar una etiqueta';
 END $$;
 
--- Quitar: borrado logico, lo firma la base
 SELECT pg_sleep(0.05);
 SELECT set_config('app.actor', 'usuario:gestor-21', false);
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_etiqueta SET eliminado_en = now(), eliminado_por = 'x' WHERE incidencia_paciente_id = pg_temp.incidencia('t20-A') AND etiqueta_id = pg_temp.etiqueta('Urgente')$q$,
@@ -185,7 +179,6 @@ SELECT pg_temp.espera_regla($q$UPDATE chatbot.incidencia_etiqueta SET activo = t
 SELECT pg_temp.espera_regla($q$UPDATE chatbot.incidencia_etiqueta SET eliminado_por = 'usuario:otro' WHERE incidencia_paciente_id = pg_temp.incidencia('t20-A') AND etiqueta_id = pg_temp.etiqueta('Urgente')$q$,
   'incidencia_etiqueta: una asignacion quitada no se modifica ni se reactiva', 'Q17b quien la quito no se reescribe');
 
--- Volver a asignar despues de quitar: fila nueva, el historial queda
 SELECT pg_temp.asignar('t20-A', 'Urgente');
 DO $$
 BEGIN
@@ -203,7 +196,6 @@ SELECT pg_temp.espera_regla($q$UPDATE chatbot.incidencia_etiqueta SET incidencia
   'incidencia_etiqueta: la incidencia y la etiqueta de una asignacion no se pueden modificar', 'Q19b la incidencia de una asignacion no cambia');
 SELECT pg_temp.espera_error($q$DELETE FROM chatbot.incidencia_etiqueta WHERE incidencia_paciente_id = pg_temp.incidencia('t20-A')$q$, '23001', 'Q20 una asignacion no se borra fisicamente');
 
--- Regla: como maximo 10 etiquetas vigentes por incidencia
 INSERT INTO catalogo.etiqueta (nombre, tono) SELECT 'Tope ' || lpad(n::text, 2, '0'), 'primary' FROM generate_series(1, 12) AS n;
 INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id)
 SELECT pg_temp.incidencia('t20-B'), id FROM catalogo.etiqueta WHERE nombre BETWEEN 'Tope 01' AND 'Tope 10' ORDER BY nombre;
@@ -229,7 +221,6 @@ BEGIN
   ASSERT pg_temp.vigentes('t20-A') = 2, 'Q25 el tope es por incidencia';
 END $$;
 
--- Retirar una etiqueta no quita las asignaciones que ya tiene
 UPDATE catalogo.etiqueta SET activo = false WHERE nombre = 'Tope 01';
 DO $$
 BEGIN
@@ -239,14 +230,12 @@ SELECT pg_temp.quitar('t20-B', 'Tope 01');
 SELECT pg_temp.espera_regla($q$SELECT pg_temp.asignar('t20-B', 'Tope 01')$q$,
   'incidencia_etiqueta: la etiqueta esta retirada y no se puede asignar', 'Q27 la etiqueta retirada se puede quitar pero no volver a asignar');
 
--- Las etiquetas no pasan al historial de la incidencia ni la modifican
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente_auditoria) = (SELECT historial FROM antes_20) + 1, 'Q28 solo el borrado logico de la incidencia C escribio en el historial';
   ASSERT (SELECT sum(version_fila) FROM chatbot.incidencia_paciente) = (SELECT versiones FROM antes_20) + 1, 'Q28 asignar y quitar etiquetas no modifica la incidencia';
 END $$;
 
--- Indices de los dos accesos del backend
 DO $$
 BEGIN
   ASSERT (SELECT indexdef FROM pg_indexes WHERE schemaname = 'chatbot' AND indexname = 'uq_incidencia_etiqueta_activa')
@@ -255,7 +244,6 @@ BEGIN
          ~ '\(etiqueta_id, incidencia_paciente_id\) WHERE activo', 'Q29 indice de las incidencias vigentes de una etiqueta';
 END $$;
 
--- La base tambien hace cumplir el tope con varias sesiones a la vez
 CREATE EXTENSION IF NOT EXISTS dblink;
 INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id)
 SELECT pg_temp.incidencia('t20-D'), id FROM catalogo.etiqueta WHERE nombre BETWEEN 'Tope 02' AND 'Tope 10' ORDER BY nombre;
