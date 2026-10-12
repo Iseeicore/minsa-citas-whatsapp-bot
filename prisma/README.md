@@ -24,6 +24,20 @@ Todo lo que define la base vive aquí y se versiona con el código.
 6. Cada regla nueva lleva su prueba en `tests/` y se verifica que **falle** cuando la regla se apaga.
 7. **Un rol o un valor de catálogo no se borra: se retira con `activo = false`.** Las filas de `rol_categoria` y `usuario_rol` no se tocan, y las consultas cuentan solo los roles activos (así nace desactivado el rol `DIRIS`; los permisos son por rol, sin tablas de módulos).
 
+## Migración puente para bases creadas con el esquema anterior
+
+`20261012000000_puente_esquema_anterior` existe por las excepciones del punto 1: las nueve primeras migraciones se reescribieron dentro de su misma carpeta. Prisma reconoce una migración por el nombre de la carpeta, así que una base creada con el contenido anterior las da por aplicadas: `prisma migrate deploy` termina sin error y la deja sin las tablas, columnas, restricciones, índices, funciones, disparadores y descripciones que se agregaron después. El puente lleva esa base a la forma actual sin perder filas.
+
+- **En una base creada con las migraciones de este repositorio no hace nada.** Cada paso comprueba antes si hace falta (`IF NOT EXISTS`, consultas al catálogo de PostgreSQL y condiciones sobre la forma anterior): no modifica ninguna fila ni sube `version_fila`. Solo vuelve a definir funciones y descripciones con el mismo texto. Se puede ejecutar más de una vez.
+- **En una base anterior** crea las tablas `catalogo.tipo_area`, `nivel_atencion`, `motivo_archivo`, `resultado_resolucion`, `area` y `establecimiento_salud` y `chatbot.incidencia_analisis` con sus valores iniciales, agrega las columnas, restricciones, índices y disparadores que faltan, reemplaza las funciones que cambiaron y deja las descripciones como las del diccionario.
+- **Resolución:** el texto de `incidencia_paciente.resolucion` pasa tal cual a `medidas_tomadas` (si tiene menos de 10 caracteres se le antepone «Resolución registrada: »), `fundamento` recibe un texto fijo que indica que no se registró y `resultado_resolucion_id` queda en ATENDIDO; `resuelto_en` y `resuelto_por` no cambian. Después se elimina la columna `resolucion`. Si hay una incidencia en RESUELTO sin texto de resolución, la migración se detiene con un mensaje y no cambia nada.
+- **Archivadas:** reciben `motivo_archivo_id` (`RESUELTA_VIGENCIA` si tenían resolución, `VENCIDA_SIN_ATENDER` si no) y `archivado_en`. Esa fecha, y las de `derivado_*` y `tomado_*`, salen del historial de cambios de cada incidencia.
+- **Área de destino:** las incidencias de categoría sensible quedan en el área OTRANS. Las demás no tienen establecimiento de origen y quedan sin área de destino.
+- **Roles:** los roles que ya no existen (`REVISOR`, `AREA_DENUNCIA_CORRUPCION`, `AREA_QUEJA`, `AREA_RECLAMO`) no se borran: se desactivan y su identificador pasa a ser el anterior más 100 (103 a 106), para que `ADMINISTRADOR`, `GESTOR`, `OTRANS`, `ESTABLECIMIENTO` y `DIRIS` tengan los identificadores 1 a 5 de una base nueva. Sus filas de `usuario_rol` y `rol_categoria` los siguen. Por eso una base migrada tiene 9 roles y 20 permisos de categoría, y una nueva 5 y 13; las consultas cuentan solo los roles activos.
+- **Queda para una persona, después de aplicarla:** dar un área a cada usuario interno (ninguno la tiene, y `GESTOR` exige la de un establecimiento), asignar un rol vigente a quienes solo tenían un rol retirado y cargar el establecimiento de origen de las incidencias anteriores. Todo eso necesita antes el padrón (`npm run db:seed:eess`).
+
+Como toda migración aplicada, no se edita.
+
 ## Comandos
 
 | Comando | Qué hace |
