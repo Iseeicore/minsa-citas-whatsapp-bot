@@ -108,7 +108,7 @@ END $$;
 
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET categoria_id = 2 WHERE trace_id = 'trace-roles-B'$q$, '23514', 'R17 la categoria se corrige una sola vez');
 
-TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE AJUSTE DE ROLES PASARON

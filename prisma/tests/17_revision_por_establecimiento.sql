@@ -333,7 +333,7 @@ SELECT pg_temp.espera_error($q$UPDATE ia.entrenamiento_categoria SET texto_entre
 SELECT pg_temp.espera_error($q$UPDATE ia.entrenamiento_categoria SET apto_entrenamiento = false, categoria_final_id = 4$q$, '23001', 'C12 tampoco junto con otro cambio');
 SELECT pg_temp.espera_error($q$DELETE FROM ia.entrenamiento_categoria$q$, '23001', 'C13 las filas de entrenamiento no se borran');
 
-TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE REVISION POR ESTABLECIMIENTO PASARON

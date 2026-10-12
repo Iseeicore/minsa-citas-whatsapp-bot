@@ -118,6 +118,17 @@ COMMENT ON COLUMN catalogo.estado_mensaje.usuario_creacion IS 'Quién creó la f
 COMMENT ON COLUMN catalogo.estado_mensaje.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.estado_mensaje.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON TABLE catalogo.estado_mensaje IS 'Estado de entrega de un mensaje enviado por WhatsApp (pendiente, enviado, entregado, leído, fallido).';
+COMMENT ON COLUMN catalogo.etiqueta.id IS 'Identificador numérico de la fila, generado por la base.';
+COMMENT ON COLUMN catalogo.etiqueta.nombre IS 'Nombre de la etiqueta, el que se muestra en pantalla. De 2 a 40 caracteres, sin espacios al inicio ni al final. Es único sin distinguir mayúsculas de minúsculas y contando también las etiquetas retiradas: para reusar un nombre retirado se reactiva esa etiqueta.';
+COMMENT ON COLUMN catalogo.etiqueta.descripcion IS 'Explicación opcional de cuándo usar la etiqueta. Hasta 200 caracteres.';
+COMMENT ON COLUMN catalogo.etiqueta.tono IS 'Tono visual con que la interfaz pinta la etiqueta. Uno de: neutral, primary, success, warning o danger.';
+COMMENT ON COLUMN catalogo.etiqueta.activo IS 'Indica si la etiqueta se puede asignar. Falso significa retirada: ya no se ofrece ni se puede asignar, pero las incidencias que la tenían la conservan.';
+COMMENT ON COLUMN catalogo.etiqueta.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN catalogo.etiqueta.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN catalogo.etiqueta.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN catalogo.etiqueta.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN catalogo.etiqueta.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE catalogo.etiqueta IS 'Etiqueta con que el personal de gestión marca las incidencias para agruparlas a su criterio (por ejemplo «Urgente» o «Falta documento»). La administran los administradores desde la plataforma de gestión: se crea, se renombra, se le cambia la descripción o el tono y se retira con activo en falso; nunca se borra. Retirar una etiqueta no quita las asignaciones que ya tiene: las incidencias la conservan y solo deja de ofrecerse para asignaciones nuevas. No trae valores iniciales.';
 COMMENT ON COLUMN catalogo.motivo_archivo.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.motivo_archivo.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.motivo_archivo.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -246,6 +257,22 @@ COMMENT ON TABLE chatbot.incidencia_analisis IS 'Análisis automático de una in
 Relaciones:
 - area_mencionada_id → catalogo.area: Garantiza que el área mencionada sea una del catálogo. Sirve para ubicar el área señalada.
 - incidencia_paciente_id → chatbot.incidencia_paciente: Cada análisis pertenece a una incidencia. Sirve para unir el análisis con el caso.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.incidencia_paciente_id IS 'Incidencia que lleva la etiqueta. No cambia. Debe estar activa (no eliminada) al asignar.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.etiqueta_id IS 'Etiqueta asignada. No cambia. Debe estar activa (no retirada) al asignar.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.activo IS 'Indica si la asignación está vigente. Falso significa que la etiqueta se quitó de la incidencia; una asignación quitada no se reactiva ni se modifica.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.eliminado_en IS 'Fecha y hora (UTC) en que se quitó la etiqueta. La llena la base al poner activo en falso. Nulo mientras la asignación está vigente.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.eliminado_por IS 'Quién quitó la etiqueta. La llena la base con el actor declarado al poner activo en falso. Nulo mientras la asignación está vigente.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.version_fila IS 'Número de versión de la fila: empieza en 1 y sube en cada modificación real. Sirve para detectar cambios simultáneos.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON TABLE chatbot.incidencia_etiqueta IS 'Asignación de una etiqueta a una incidencia. Cada fila es un periodo en que la incidencia tuvo la etiqueta: quién la puso y cuándo (creación) y, si se quitó, quién y cuándo (borrado lógico). Una incidencia tiene cada etiqueta vigente a lo más una vez y hasta 10 etiquetas vigentes. Quitar la etiqueta es poner activo en falso; volver a ponerla es insertar una fila nueva, así queda el historial completo. Nunca se borra. No escribe en el historial de la incidencia.
+
+Relaciones:
+- etiqueta_id → catalogo.etiqueta: Garantiza que la etiqueta sea una del catálogo. Sirve para listar y contar las incidencias que llevan una etiqueta.
+- incidencia_paciente_id → chatbot.incidencia_paciente: Cada asignación pertenece a una incidencia. Sirve para listar las etiquetas de un caso.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.canal_origen_id IS 'Canal por el que llegó (WhatsApp o web).';
 COMMENT ON COLUMN chatbot.incidencia_paciente.usuario_id IS 'Usuario que presentó el reporte.';
@@ -381,6 +408,7 @@ COMMENT ON COLUMN chatbot.usuario.fecha_creacion IS 'Fecha y hora (UTC) en que s
 COMMENT ON COLUMN chatbot.usuario.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN chatbot.usuario.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN chatbot.usuario.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
+COMMENT ON COLUMN chatbot.usuario.consentimiento_aceptado_en IS 'Momento en que la persona autorizo el tratamiento de datos para reportar una incidencia. NULL significa que nunca lo acepto (o lo rechazo): se le vuelve a preguntar.';
 COMMENT ON TABLE chatbot.usuario IS 'Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. Reúne sus datos de contacto y el estado de su conversación. Nunca se borra: se desactiva.
 
 Relaciones:

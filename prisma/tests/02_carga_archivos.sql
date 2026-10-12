@@ -123,7 +123,7 @@ END $$;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET cerrada_en = NULL WHERE hash_token = 'hash-1'$q$, '23514', 'C27 no se reabre');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET cerrada_en = cerrada_en + interval '1 second' WHERE hash_token = 'hash-1'$q$, '23514', 'C28 no se cierra dos veces');
 
-TRUNCATE chatbot.archivo_recibido, chatbot.evidencia, chatbot.solicitud_carga, chatbot.incidencia_paciente_auditoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.evidencia, chatbot.solicitud_carga, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE CARGA PASARON

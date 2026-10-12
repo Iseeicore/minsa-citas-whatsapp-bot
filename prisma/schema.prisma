@@ -409,6 +409,7 @@ model IncidenciaPaciente {
   auditoria           IncidenciaPacienteAuditoria[]
   entrenamientos      EntrenamientoCategoria[]
   solicitudesCarga    SolicitudCarga[]
+  etiquetas           IncidenciaEtiqueta[]
 
   // Índices parciales (bandeja por área destino, abiertas) y CHECK de derivación, toma, archivo, reapertura y resolución: solo en la migración.
   @@index([establecimientoId, fechaCreacion], map: "ix_incidencia_paciente_origen_fecha")
@@ -689,4 +690,44 @@ model RolCategoria {
   @@id([rolId, categoriaIncidenciaId], map: "pk_rol_categoria")
   @@map("rol_categoria")
   @@schema("gestion")
+}
+
+model Etiqueta {
+  id                  Int      @id(map: "pk_etiqueta") @default(autoincrement())
+  nombre              String
+  descripcion         String?
+  tono                String
+  activo              Boolean  @default(true)
+  versionFila         Int      @default(1) @map("version_fila")
+  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidencias IncidenciaEtiqueta[]
+
+  // Único sin distinguir mayúsculas (uq_etiqueta_nombre sobre lower(nombre)) y CHECK de nombre, descripción y tono: solo en la migración.
+  @@map("etiqueta")
+  @@schema("catalogo")
+}
+
+model IncidenciaEtiqueta {
+  id                   String    @id(map: "pk_incidencia_etiqueta") @default(dbgenerated("uuidv7()")) @db.Uuid
+  incidenciaPacienteId String    @map("incidencia_paciente_id") @db.Uuid
+  etiquetaId           Int       @map("etiqueta_id")
+  activo               Boolean   @default(true)
+  eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor         String?   @map("eliminado_por")
+  versionFila          Int       @default(1) @map("version_fila")
+  fechaCreacion        DateTime  @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion      String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion    DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion  String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+
+  incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_incidencia_etiqueta_incidencia_paciente")
+  etiqueta           Etiqueta           @relation(fields: [etiquetaId], references: [id], map: "fk_incidencia_etiqueta_etiqueta")
+
+  // Índices parciales de las asignaciones vigentes (uq_incidencia_etiqueta_activa e ix_incidencia_etiqueta_etiqueta_activa) y CHECK del borrado lógico: solo en la migración.
+  @@map("incidencia_etiqueta")
+  @@schema("chatbot")
 }

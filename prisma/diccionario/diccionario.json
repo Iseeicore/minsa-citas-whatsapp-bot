@@ -66,7 +66,8 @@
         "dni": "DNI del usuario, cuando lo da y se valida. No es único: una misma persona puede escribir desde dos chats.",
         "nombre_completo": "Nombre completo devuelto por RENIEC al validar el DNI.",
         "estado_conversacion_id": "Estado de la conversación (abierta o cerrada).",
-        "ultimo_mensaje_en": "Fecha y hora (UTC) del último mensaje, entrante o saliente. Ordena la bandeja de conversaciones."
+        "ultimo_mensaje_en": "Fecha y hora (UTC) del último mensaje, entrante o saliente. Ordena la bandeja de conversaciones.",
+        "consentimiento_aceptado_en": "Momento en que la persona autorizo el tratamiento de datos para reportar una incidencia. NULL significa que nunca lo acepto (o lo rechazo): se le vuelve a preguntar."
       }
     },
     "chatbot.mensaje": {
@@ -309,6 +310,26 @@
         "red": "Red de salud a la que pertenece el establecimiento.",
         "area_id": "Área propia del establecimiento, a la que se le derivan sus incidencias. Cada establecimiento tiene una sola área y cada área sirve a un solo establecimiento."
       }
+    },
+    "catalogo.etiqueta": {
+      "descripcion": "Etiqueta con que el personal de gestión marca las incidencias para agruparlas a su criterio (por ejemplo «Urgente» o «Falta documento»). La administran los administradores desde la plataforma de gestión: se crea, se renombra, se le cambia la descripción o el tono y se retira con activo en falso; nunca se borra. Retirar una etiqueta no quita las asignaciones que ya tiene: las incidencias la conservan y solo deja de ofrecerse para asignaciones nuevas. No trae valores iniciales.",
+      "columnas": {
+        "id": "Identificador numérico de la fila, generado por la base.",
+        "nombre": "Nombre de la etiqueta, el que se muestra en pantalla. De 2 a 40 caracteres, sin espacios al inicio ni al final. Es único sin distinguir mayúsculas de minúsculas y contando también las etiquetas retiradas: para reusar un nombre retirado se reactiva esa etiqueta.",
+        "descripcion": "Explicación opcional de cuándo usar la etiqueta. Hasta 200 caracteres.",
+        "tono": "Tono visual con que la interfaz pinta la etiqueta. Uno de: neutral, primary, success, warning o danger.",
+        "activo": "Indica si la etiqueta se puede asignar. Falso significa retirada: ya no se ofrece ni se puede asignar, pero las incidencias que la tenían la conservan."
+      }
+    },
+    "chatbot.incidencia_etiqueta": {
+      "descripcion": "Asignación de una etiqueta a una incidencia. Cada fila es un periodo en que la incidencia tuvo la etiqueta: quién la puso y cuándo (creación) y, si se quitó, quién y cuándo (borrado lógico). Una incidencia tiene cada etiqueta vigente a lo más una vez y hasta 10 etiquetas vigentes. Quitar la etiqueta es poner activo en falso; volver a ponerla es insertar una fila nueva, así queda el historial completo. Nunca se borra. No escribe en el historial de la incidencia.",
+      "columnas": {
+        "incidencia_paciente_id": "Incidencia que lleva la etiqueta. No cambia. Debe estar activa (no eliminada) al asignar.",
+        "etiqueta_id": "Etiqueta asignada. No cambia. Debe estar activa (no retirada) al asignar.",
+        "activo": "Indica si la asignación está vigente. Falso significa que la etiqueta se quitó de la incidencia; una asignación quitada no se reactiva ni se modifica.",
+        "eliminado_en": "Fecha y hora (UTC) en que se quitó la etiqueta. La llena la base al poner activo en falso. Nulo mientras la asignación está vigente.",
+        "eliminado_por": "Quién quitó la etiqueta. La llena la base con el actor declarado al poner activo en falso. Nulo mientras la asignación está vigente."
+      }
     }
   },
   "llaves_foraneas": {
@@ -351,7 +372,9 @@
     "fk_incidencia_paciente_motivo_archivo": "Garantiza que el motivo sea uno del catálogo. Sirve para saber por qué se archivó un caso.",
     "fk_incidencia_paciente_resultado_resolucion": "Garantiza que el resultado de la resolución sea uno del catálogo (atendido o cerrado). Sirve para contar los casos por cómo se resolvieron.",
     "fk_rol_tipo_area": "Garantiza que el tipo de área del rol sea uno del catálogo. Sirve para exigir que el área del usuario sea de ese tipo.",
-    "fk_usuario_interno_area": "Ubica al usuario interno en un área del catálogo. Sirve para dirigirle los casos de su área."
+    "fk_usuario_interno_area": "Ubica al usuario interno en un área del catálogo. Sirve para dirigirle los casos de su área.",
+    "fk_incidencia_etiqueta_incidencia_paciente": "Cada asignación pertenece a una incidencia. Sirve para listar las etiquetas de un caso.",
+    "fk_incidencia_etiqueta_etiqueta": "Garantiza que la etiqueta sea una del catálogo. Sirve para listar y contar las incidencias que llevan una etiqueta."
   },
   "disparadores_por_funcion": {
     "fn_auditoria_mutable": "Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.",
@@ -373,6 +396,7 @@
     "fn_reglas_usuario_interno_area": "Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área, y quitarle el área si tiene alguno de esos roles.",
     "fn_marcar_entrenamiento_archivo": "Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.",
     "fn_reglas_entrenamiento_categoria": "Hace de solo inserción la tabla de entrenamiento: impide borrar y modificar, salvo apto_entrenamiento, que solo cambia desde el disparador de la incidencia al archivar o reabrir el caso.",
-    "fn_limitar_usuarios_establecimiento": "Al insertar un usuario interno, reactivarlo o cambiarle el área, impide que un establecimiento tenga más de 3 usuarios activos (de cualquier rol). Las áreas que no son de un establecimiento, como OTRANS, no tienen tope."
+    "fn_limitar_usuarios_establecimiento": "Al insertar un usuario interno, reactivarlo o cambiarle el área, impide que un establecimiento tenga más de 3 usuarios activos (de cualquier rol). Las áreas que no son de un establecimiento, como OTRANS, no tienen tope.",
+    "fn_reglas_incidencia_etiqueta": "Hace cumplir las reglas de la asignación de etiquetas: no se asigna una etiqueta retirada ni a una incidencia eliminada, una incidencia tiene como máximo 10 etiquetas vigentes, la incidencia y la etiqueta de la asignación no cambian, quién y cuándo la quitó lo llena la base y una asignación quitada no se modifica ni se reactiva."
   }
 }

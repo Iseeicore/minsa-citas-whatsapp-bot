@@ -120,7 +120,7 @@ BEGIN
 END $$;
 SELECT pg_temp.espera_error($q$DELETE FROM chatbot.incidencia_paciente WHERE trace_id = 'trace-estados-D'$q$, '23001', 'E23 la incidencia no se borra fisicamente');
 
-TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE ESTADOS PASARON

@@ -11,6 +11,8 @@ erDiagram
     tipo_evidencia ||--o{ evidencia : "tipo_evidencia_id"
     area |o--o{ incidencia_analisis : "area_mencionada_id"
     incidencia_paciente ||--o{ incidencia_analisis : "incidencia_paciente_id"
+    etiqueta ||--o{ incidencia_etiqueta : "etiqueta_id"
+    incidencia_paciente ||--o{ incidencia_etiqueta : "incidencia_paciente_id"
     area |o--o{ incidencia_paciente : "area_destino_id"
     canal_origen ||--o{ incidencia_paciente : "canal_origen_id"
     categoria_incidencia |o--o{ incidencia_paciente : "categoria_id"
@@ -121,6 +123,14 @@ erDiagram
         boolean activo
         bloque auditoria
     }
+    etiqueta {
+        int id PK
+        text nombre
+        text descripcion
+        text tono
+        boolean activo
+        bloque auditoria
+    }
     motivo_archivo {
         smallint id PK
         text codigo
@@ -212,6 +222,15 @@ erDiagram
         text cargo_mencionado
         int area_mencionada_id FK
         text nombre_mencionado
+        bloque auditoria
+    }
+    incidencia_etiqueta {
+        uuid id PK
+        uuid incidencia_paciente_id FK
+        int etiqueta_id FK
+        boolean activo
+        timestamptz eliminado_en
+        text eliminado_por
         bloque auditoria
     }
     incidencia_paciente {
@@ -312,6 +331,7 @@ erDiagram
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
+        timestamptz consentimiento_aceptado_en
         bloque auditoria
     }
     rol {

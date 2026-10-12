@@ -49,6 +49,15 @@ Todo lo que define la base vive aquí y se versiona con el código.
 - **Tope:** como máximo 3 usuarios **activos** por establecimiento (de cualquier rol), al insertar, reactivar o cambiar de área; el error es `check_violation` con el mensaje `usuario_interno: el establecimiento ya tiene 3 usuarios activos`. OTRANS y las demás áreas no tienen tope.
 - Las pruebas de esto están en `tests/12_*` a `tests/19_*` (`17_*` revisión por establecimiento: archivado manual, reapertura, resolución y entrenamiento; `18_*` tope de usuarios; `19_*` destino al clasificar).
 
+## Etiquetas de incidencia
+
+- `catalogo.etiqueta` es el catálogo de etiquetas que administra la plataforma de gestión (el bot no las usa): `nombre` (2 a 40 caracteres, sin espacios al inicio ni al final, único sin distinguir mayúsculas y **contando las retiradas**: un nombre retirado se reactiva, no se duplica), `descripcion` opcional (hasta 200) y `tono` (`neutral`, `primary`, `success`, `warning` o `danger`). No tiene `codigo` ni ids fijos ni semilla: sus filas las crea el administrador, así que no lleva enum en `lib/enums`. Se retira con `activo = false` y no se borra.
+- `chatbot.incidencia_etiqueta` es la asignación de una etiqueta a una incidencia. Cada fila es un periodo: quién y cuándo la puso (`usuario_creacion`, `fecha_creacion`) y quién y cuándo la quitó (`eliminado_por`, `eliminado_en`, que llena la base al poner `activo = false`). Volver a asignar es **insertar una fila nueva**; una asignación quitada no se modifica ni se reactiva, y la incidencia y la etiqueta de una fila no cambian. Tampoco se borra.
+- **Reglas** (`check_violation`, con mensaje estable): no se asigna una etiqueta retirada (`incidencia_etiqueta: la etiqueta esta retirada y no se puede asignar`), ni a una incidencia eliminada (`incidencia_etiqueta: la incidencia esta eliminada y no admite etiquetas nuevas`), y una incidencia tiene como máximo 10 etiquetas vigentes (`incidencia_etiqueta: la incidencia ya tiene 10 etiquetas`). Repetir una etiqueta vigente en la misma incidencia lo rechaza el índice único `uq_incidencia_etiqueta_activa` (`unique_violation`).
+- Retirar una etiqueta **no** quita las asignaciones que ya tiene: las incidencias la conservan y solo deja de poder asignarse. Asignar o quitar etiquetas no modifica la incidencia ni escribe en `chatbot.incidencia_paciente_auditoria`.
+- Quien vacíe `chatbot.incidencia_paciente` con `TRUNCATE` debe incluir `chatbot.incidencia_etiqueta` en la misma sentencia.
+- Las pruebas están en `tests/20_etiquetas_incidencia.sql`.
+
 ## Enums de ids y pruebas de humo
 
 - Los enums de `lib/enums/*-id.ts` espejan los ids fijos de las tablas `catalogo.*` (los fija la migración o la semilla) (incluidos `tipo-area-id`, `nivel-atencion-id`, `motivo-archivo-id` y `resultado-resolucion-id`) y hay que mantenerlos sincronizados: lo comprueba `tests/smoke/catalogos-contrato.postgres.test.ts`. Los enums `conversation-status`, `message-direction`, `message-status` y `message-type` son el contrato de la bandeja web y `lib/inbox/dto.ts` los traduce desde esos ids.

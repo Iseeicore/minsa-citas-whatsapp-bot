@@ -130,7 +130,7 @@ END $$;
 -- El destino puesto por la base cuenta para derivar y para el CHECK de sensibles
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET area_destino_id = (SELECT id FROM catalogo.area WHERE codigo = 'T19-EESS-1') WHERE trace_id = 't19-q-c'$q$, '23514', 'N19 un caso de corrupcion no se reasigna a un establecimiento');
 
-TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE DESTINO AL CLASIFICAR PASARON
