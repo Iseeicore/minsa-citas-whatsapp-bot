@@ -242,7 +242,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /webhook/whatsapp, páginas del Sandbox
   components/                UI de la bandeja y del Sandbox; Sandbox.tsx es el contenedor del chat
     sandbox-chat/            piezas de presentación del chat (cabecera, composer, burbujas, tarjeta de DNI, panel de depuración)
-    ui/                      componentes de UI compartidos (IconButton, OptionButton, Badge, ErrorBanner)
+    ui/                      componentes de UI compartidos (Button es el único botón nativo; IconButton, ListPicker, TextInput, Banner, Card, Badge)
     icons/                   todos los íconos SVG de la app, centralizados
 lib/
   enums/                     enums reales para estados y tipos que antes eran texto suelto (SendType, ApiErrorCode)

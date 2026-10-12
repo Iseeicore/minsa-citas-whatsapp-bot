@@ -1,5 +1,9 @@
 import { PaperclipIcon, SendIcon } from "@/app/components/icons";
 import { IconButton } from "@/app/components/ui/IconButton";
+import { TextInput } from "@/app/components/ui/TextInput";
+import { ButtonSize } from "@/lib/enums/button-size";
+import { ButtonVariant } from "@/lib/enums/button-variant";
+import { TextInputVariant } from "@/lib/enums/text-input-variant";
 
 export function Composer({
   from,
@@ -36,26 +40,22 @@ export function Composer({
         />
       </label>
       <div className="flex flex-1 items-center rounded-xl border border-sb-bubble-border bg-sb-panel px-3 py-2 transition-colors focus-within:border-sb-navy focus-within:bg-white">
-        <input
-          type="text"
+        <TextInput
+          variant={TextInputVariant.INLINE}
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSend();
-          }}
+          onValueChange={setInputText}
+          onEnter={handleSend}
           disabled={!from || loading}
           placeholder="Escribe un mensaje o consulta..."
-          className="flex-1 border-none bg-transparent text-sm outline-none disabled:cursor-not-allowed"
         />
       </div>
       <IconButton
-        variant="solid"
+        variant={ButtonVariant.ICON_SOLID_NAVY}
+        size={ButtonSize.ICON_MD}
         icon={<SendIcon className="h-4 w-4" />}
         onClick={handleSend}
         disabled={!from || loading || !inputText.trim()}
         ariaLabel="Enviar mensaje"
-        size="h-9 w-9"
-        toneClassName="bg-sb-navy hover:bg-sb-navy-dark"
       />
     </div>
   );
