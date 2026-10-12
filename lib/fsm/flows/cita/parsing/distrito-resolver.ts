@@ -19,8 +19,10 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 
+const PLAUSIBLE_PLACE_NAME = /^[\p{L}][\p{L}\s.'-]{2,59}$/u;
+
 export function looksLikePlaceName(text: string): boolean {
-  return /^[\p{L}][\p{L}\s.'-]{2,59}$/u.test(text);
+  return PLAUSIBLE_PLACE_NAME.test(text);
 }
 
 export type DistritoAiCandidateResult = {

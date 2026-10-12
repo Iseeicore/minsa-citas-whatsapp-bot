@@ -1,4 +1,5 @@
 import { SlotKey } from "@/lib/enums/slot-key";
+import { ALL_WHITESPACE_RUNS } from "@/lib/fsm/parsing/text/text-patterns";
 
 const SENSITIVE_KEY = /bearer|token|authorization|secret|password|api[_-]?key|twofa|otp|code$/i;
 const DNI_KEY = /dni|documento/i;
@@ -16,19 +17,26 @@ const MAX_ITEMS = 20;
 
 export const tail = (value: string): string => `...${value.slice(-4)}`;
 
+const ALREADY_MASKED_DNI = /^\*{4}\d{0,4}$/;
+const NON_DIGIT = /\D/g;
+const URL_WITH_QUERY_STRING = /(https?:\/\/[^\s?#]+)\?[^\s#]*/gi;
+const BEARER_CREDENTIAL = /Bearer\s+[A-Za-z0-9._~+/=-]+/gi;
+const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
+const LONG_DIGIT_RUN = /\d{7,}/g;
+
 export function maskDni(value: string): string {
-  if (/^\*{4}\d{0,4}$/.test(value)) return value;
-  const digits = value.replace(/\D/g, "");
+  if (ALREADY_MASKED_DNI.test(value)) return value;
+  const digits = value.replace(NON_DIGIT, "");
   return digits.length > 4 ? `****${digits.slice(-4)}` : "****";
 }
 
 /** Oculta query strings de URLs, series de 7+ dígitos (DNI, teléfono, OTP), cabeceras Bearer y JWT en cualquier texto. */
 export function redactString(value: string): string {
   return value
-    .replace(/(https?:\/\/[^\s?#]+)\?[^\s#]*/gi, "$1?[redacted]")
-    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
-    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, "[jwt]")
-    .replace(/\d{7,}/g, (run) => `****${run.slice(-4)}`);
+    .replace(URL_WITH_QUERY_STRING, "$1?[redacted]")
+    .replace(BEARER_CREDENTIAL, "Bearer [redacted]")
+    .replace(JWT, "[jwt]")
+    .replace(LONG_DIGIT_RUN, (run) => `****${run.slice(-4)}`);
 }
 
 export function sanitizeValue(key: string, value: unknown, depth = 0): unknown {
@@ -64,7 +72,7 @@ const PREVIEW_CHARS = 40;
 export function previewInput(state: string, text: string | undefined): Record<string, unknown> {
   if (text === undefined) return {};
   if (NEVER_PREVIEW_STATE.test(state)) return { inputLength: text.length };
-  const flat = redactString(text.replace(/\s+/g, " ").trim());
+  const flat = redactString(text.replace(ALL_WHITESPACE_RUNS, " ").trim());
   return {
     inputLength: text.length,
     inputPreview: flat.length > PREVIEW_CHARS ? `${flat.slice(0, PREVIEW_CHARS)}…` : flat,

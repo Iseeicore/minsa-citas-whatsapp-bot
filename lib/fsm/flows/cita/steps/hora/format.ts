@@ -1,3 +1,4 @@
+import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
 import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
@@ -37,7 +38,7 @@ export function slotToRow(slot: HoraSlot): OfferedRow {
 
 export function rowToSlot(row: OfferedRow): HoraSlot | undefined {
   const [start, end] = row.id.split("|");
-  return /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "")
+  return CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "")
     ? { start, end, cupos: 0 }
     : undefined;
 }

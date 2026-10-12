@@ -21,7 +21,7 @@ const PAGER_BUTTON_IDS: ReadonlySet<string> = new Set([
   HoraPageButtonId.NEXT,
 ]);
 
-const PAGE_LABEL = /P[áa]gina\s+(\d+)\s+de\s+(\d+)/i;
+const TARGET_PAGE_OF_TOTAL = /P[áa]gina\s+(\d+)\s+de\s+(\d+)/i;
 
 export function filterRows(rows: ListRow[], query: string): ListRow[] {
   const tokens = normalizeText(query).split(" ").filter(Boolean);
@@ -39,7 +39,7 @@ const toAction = (row: ListRow | undefined): PagerAction | undefined =>
 /** El MINSA pagina los establecimientos con filas «anterior/siguiente» cuya descripción apunta a la página destino; de ahí se deduce la página actual. */
 function currentPageLabel(prevRow: ListRow | undefined, nextRow: ListRow | undefined): string | undefined {
   const source = nextRow ?? prevRow;
-  const match = source?.description ? PAGE_LABEL.exec(source.description) : null;
+  const match = source?.description ? TARGET_PAGE_OF_TOTAL.exec(source.description) : null;
   if (!match) return undefined;
 
   const target = Number(match[1]);

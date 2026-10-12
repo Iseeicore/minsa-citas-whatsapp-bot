@@ -1,3 +1,4 @@
+import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/fsm/parsing/text/text-patterns";
 import { Confirmation } from "@/lib/enums/confirmation";
 
 export type { Confirmation };
@@ -62,9 +63,9 @@ function toWords(text: string): string[] {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/(.)\1{2,}/g, "$1")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(COMBINING_ACCENT_MARKS, "")
+    .replace(STRETCHED_CHARACTER, "$1")
+    .replace(WORD_SEPARATORS, " ")
     .trim()
     .split(" ")
     .filter((word) => word !== "" && !COURTESY_WORDS.has(word));

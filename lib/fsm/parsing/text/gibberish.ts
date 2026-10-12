@@ -1,3 +1,4 @@
+import { COMBINING_ACCENT_MARKS, NON_LETTER_RUN } from "@/lib/fsm/parsing/text/text-patterns";
 export const UNRECOGNIZED_DISTRITO_TEXT =
   "No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:";
 
@@ -24,7 +25,7 @@ function stripAccents(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+    .replace(COMBINING_ACCENT_MARKS, "");
 }
 
 function hasKeyboardRun(word: string): boolean {
@@ -66,7 +67,7 @@ function isImplausibleWord(word: string): boolean {
 
 export function isGibberishPlaceText(text: string): boolean {
   const words = stripAccents(text)
-    .split(/[^a-z]+/)
+    .split(NON_LETTER_RUN)
     .filter(Boolean);
 
   if (words.join("").length < MIN_USEFUL_LETTERS) return true;

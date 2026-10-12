@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+const NOMBRE_DE_BASE_DESECHABLE = /_(desechable|dev|local)$/;
+
 const url = process.env.DATABASE_URL;
 if (!url) {
   console.error("Falta DATABASE_URL (por ejemplo postgresql://postgres:clave@127.0.0.1:5432/gestion_desechable).");
@@ -13,7 +15,7 @@ const base = decodeURIComponent(parsed.pathname.slice(1));
 // Misma guardia que db:seed:dev. Para cargar el padron en una base real (OGTI) hay que repetir su nombre exacto a mano:
 //   npm run db:seed:eess -- --base-real=<nombre de la base>
 const baseReal = process.argv.find((argumento) => argumento.startsWith("--base-real="))?.slice("--base-real=".length);
-if (!/_(desechable|dev|local)$/.test(base) && baseReal !== base) {
+if (!NOMBRE_DE_BASE_DESECHABLE.test(base) && baseReal !== base) {
   console.error(
     `Me niego a sembrar en "${base}": el nombre de la base debe terminar en _desechable, _dev o _local, o repetirse con --base-real=${base}.`,
   );

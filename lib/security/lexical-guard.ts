@@ -10,6 +10,7 @@ import {
   PROTECTED_WORDS,
 } from "@/lib/security/lexicon";
 import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
+import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
 
 export type LexicalAction = "ALLOW" | "DROP_AND_WARN" | "CITA_WITH_WARNING" | "FORCE_INCIDENCIA";
 
@@ -43,13 +44,17 @@ const LEET_MAP: Record<string, string> = {
 const HAS_LETTER = /[a-z]/;
 const HAS_LEET_CHAR = /[01345789@$!]/;
 const NON_TOKEN_CHARS = /[^a-z0-9@$!]+/;
+const EDGE_EXCLAMATION_MARKS = /^!+|!+$/g;
+const EVERY_LEET_CHAR = /[01345789@$!]/g;
+const SYMBOL_LEFT_IN_TOKEN = /[^a-z0-9]/g;
+const DOUBLED_CONSONANT = /([b-df-hj-np-tv-z])\1+/g;
 
 const MIN_SPACED_RUN = 3;
 
 const MIN_FUZZY_TOKEN_LENGTH = 5;
 
 function stripAccents(text: string): string {
-  return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return text.toLowerCase().normalize("NFD").replace(COMBINING_ACCENT_MARKS, "");
 }
 
 const SEPARATED_WORD = /^[\p{L}\p{N}@$!]+(?:[.\-_*·][\p{L}\p{N}@$!]+)+[.\-_*·]*$/u;
@@ -57,10 +62,10 @@ const MAX_JOINED_LENGTH = 40;
 
 function toPieces(normalized: string): string[] {
   const pieces: string[] = [];
-  for (const chunk of normalized.split(/\s+/)) {
+  for (const chunk of normalized.split(WHITESPACE_RUN)) {
     const chunkPieces: string[] = [];
     for (const piece of chunk.split(NON_TOKEN_CHARS)) {
-      const cleaned = piece.replace(/^!+|!+$/g, "");
+      const cleaned = piece.replace(EDGE_EXCLAMATION_MARKS, "");
       if (cleaned) chunkPieces.push(cleaned);
     }
     pieces.push(...chunkPieces);
@@ -100,20 +105,22 @@ function finalizeToken(piece: string): string {
   let token = piece;
 
   if (HAS_LETTER.test(token) && HAS_LEET_CHAR.test(token)) {
-    token = token.replace(/[01345789@$!]/g, (char) => LEET_MAP[char] ?? char);
+    token = token.replace(EVERY_LEET_CHAR, (char) => LEET_MAP[char] ?? char);
   }
 
-  token = token.replace(/[^a-z0-9]/g, "");
+  token = token.replace(SYMBOL_LEFT_IN_TOKEN, "");
 
-  if (HAS_LETTER.test(token)) token = token.replace(/(.)\1{2,}/g, "$1");
+  if (HAS_LETTER.test(token)) token = token.replace(STRETCHED_CHARACTER, "$1");
 
   return token;
 }
 
+const PROTECTED_PHRASE_PATTERNS: readonly RegExp[] = PROTECTED_PHRASES.map((phrase) => new RegExp(`\\b${phrase}\\b`, "g"));
+
 function removeProtectedPhrases(tokens: string[]): string[] {
   let joined = tokens.join(" ");
-  for (const phrase of PROTECTED_PHRASES) {
-    joined = joined.replace(new RegExp(`\\b${phrase}\\b`, "g"), " ");
+  for (const protectedPhrase of PROTECTED_PHRASE_PATTERNS) {
+    joined = joined.replace(protectedPhrase, " ");
   }
   return joined.split(" ").filter(Boolean);
 }
@@ -163,7 +170,7 @@ function findFuzzyInsult(token: string): { target: string; distance: number } | 
 }
 
 function collapseDoubledConsonants(token: string): string {
-  return token.replace(/([b-df-hj-np-tv-z])\1+/g, "$1");
+  return token.replace(DOUBLED_CONSONANT, "$1");
 }
 
 function matchesInsultPattern(token: string): boolean {

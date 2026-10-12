@@ -1,21 +1,26 @@
+import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS, WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+
+const WORD_INITIAL = /(^|[\s(-])(\p{L})/gu;
+const CAPITALIZED_CONNECTOR = /(?<=\s)(De|Del|La|Las|Los|Y)(?=\s|$)/g;
+
 export function normalizeText(value: string): string {
   return value
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(COMBINING_ACCENT_MARKS, "")
     .toUpperCase()
     .trim()
-    .replace(/\s+/g, " ");
+    .replace(ALL_WHITESPACE_RUNS, " ");
 }
 
 export function toDisplayPlace(name: string): string {
   return name
     .toLowerCase()
-    .replace(/(^|[\s(-])(\p{L})/gu, (_match, separator: string, letter: string) => separator + letter.toUpperCase())
-    .replace(/(?<=\s)(De|Del|La|Las|Los|Y)(?=\s|$)/g, (word) => word.toLowerCase());
+    .replace(WORD_INITIAL, (_match, separator: string, letter: string) => separator + letter.toUpperCase())
+    .replace(CAPITALIZED_CONNECTOR, (word) => word.toLowerCase());
 }
 
 function normalizeName(value: string): Set<string> {
-  return new Set(normalizeText(value).split(/\s+/).filter(Boolean));
+  return new Set(normalizeText(value).split(WHITESPACE_RUN).filter(Boolean));
 }
 
 export function namesMatch(typedName: string, officialFullName: string): boolean {

@@ -1,6 +1,9 @@
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { searchDistrito } from "@/lib/fsm/flows/cita/data/ubigeo-data";
 import { isAllowedDepartamento } from "@/lib/fsm/flows/cita/pilot-scope";
+import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/fsm/parsing/text/text-patterns";
+
+const MEDICINA_GENERAL_PHRASE = /\bMEDIC(?:INA|O) GENERAL\b/;
 
 const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
   [/^odontolog/, "Odontología"],
@@ -21,13 +24,13 @@ export type CitaHints = { especialidad?: string; distrito?: string };
 
 export function extractCitaHints(message: string): CitaHints {
   const words = normalizeText(message)
-    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
     .split(" ")
     .filter(Boolean);
 
   const hints: CitaHints = {};
 
-  if (/\bMEDIC(?:INA|O) GENERAL\b/.test(words.join(" "))) hints.especialidad = "Medicina General";
+  if (MEDICINA_GENERAL_PHRASE.test(words.join(" "))) hints.especialidad = "Medicina General";
 
   for (const word of hints.especialidad ? [] : words) {
     const lower = word.toLowerCase();
@@ -58,7 +61,7 @@ const STRONG_PLACE_PREPOSITIONS = new Set(["EN", "CERCA", "DESDE"]);
 
 export function mentionsPlacePreposition(message: string): boolean {
   const words = normalizeText(message)
-    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
     .split(" ")
     .filter(Boolean);
   return words.some((word) => STRONG_PLACE_PREPOSITIONS.has(word));

@@ -42,12 +42,15 @@ export function resumeStateFor(waitingState: string, slots: Session["slots"] = {
   return guarded ? (RESUME_STATE_BY_WAITING_STATE[guarded] ?? undefined) : undefined;
 }
 
+const BASE64URL_MINUS = /-/g;
+const BASE64URL_UNDERSCORE = /_/g;
+
 export function decodeJwtExp(token: string): number | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
 
   try {
-    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const base64 = parts[1].replace(BASE64URL_MINUS, "+").replace(BASE64URL_UNDERSCORE, "/");
     const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const payload: unknown = JSON.parse(atob(padded));
     if (typeof payload !== "object" || payload === null) return null;

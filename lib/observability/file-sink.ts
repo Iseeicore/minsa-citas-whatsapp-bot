@@ -3,6 +3,8 @@ import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
 
 export const LOG_TIME_ZONE = LIMA_TIME_ZONE;
 
+const DATE_SLASHES = /\//g;
+
 export function dateFolder(at: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: LOG_TIME_ZONE,
@@ -11,7 +13,7 @@ export function dateFolder(at: Date): string {
     year: "numeric",
   })
     .format(at)
-    .replace(/\//g, "-");
+    .replace(DATE_SLASHES, "-");
 }
 
 export type FileSystemPort = {

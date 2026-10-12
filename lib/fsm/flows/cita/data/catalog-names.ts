@@ -1,4 +1,5 @@
 import { toDisplayPlace } from "@/lib/fsm/parsing/text/text";
+import { ALL_WHITESPACE_RUNS } from "@/lib/fsm/parsing/text/text-patterns";
 import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
 import { type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
@@ -15,13 +16,20 @@ const ESTABLECIMIENTO_ABBREVIATIONS: ReadonlyArray<[RegExp, string]> = [
   [/\bHospital\b/i, "Hosp."],
 ];
 
-const collapseSpaces = (value: string): string => value.replace(/\s+/g, " ").trim();
+const DOTTED_ABBREVIATION = /(?<!\p{L})(?:\p{L}\.){2,}/gu;
+const TITLE_CASED_ROMAN_NUMERAL = /(?<!\p{L})(?:Ii|Iii|Iv|Vi|Vii|Viii|Ix|Xi|Xii)(?!\p{L})/gu;
+const CONSONANT_ONLY_ACRONYM = /(?<!\p{L})[b-df-hj-np-tv-z]{2,3}(?!\p{L})/giu;
+const CONSULTA_EXTERNA_PREFIX = /^CONSULTA\s+EXTERNA\s*-\s*/i;
+const EDGE_SPACES_AND_HYPHENS = /^[\s-]+|[\s-]+$/g;
+const NAME_SEGMENT_SEPARATOR = /\s*\/\s*|-/;
+
+const collapseSpaces = (value: string): string => value.replace(ALL_WHITESPACE_RUNS, " ").trim();
 
 const keepAcronyms = (value: string): string =>
   value
-    .replace(/(?<!\p{L})(?:\p{L}\.){2,}/gu, (abbreviation) => abbreviation.toUpperCase())
-    .replace(/(?<!\p{L})(?:Ii|Iii|Iv|Vi|Vii|Viii|Ix|Xi|Xii)(?!\p{L})/gu, (numeral) => numeral.toUpperCase())
-    .replace(/(?<!\p{L})[b-df-hj-np-tv-z]{2,3}(?!\p{L})/giu, (acronym) => acronym.toUpperCase());
+    .replace(DOTTED_ABBREVIATION, (abbreviation) => abbreviation.toUpperCase())
+    .replace(TITLE_CASED_ROMAN_NUMERAL, (numeral) => numeral.toUpperCase())
+    .replace(CONSONANT_ONLY_ACRONYM, (acronym) => acronym.toUpperCase());
 
 const toCatalogDisplay = (value: string): string => keepAcronyms(toDisplayPlace(value));
 
@@ -39,10 +47,10 @@ function cutAtWord(text: string, max: number): string {
 /** Nombre legible de la especialidad de MINSA: sin el prefijo «CONSULTA EXTERNA-», con título corto y nombre completo. */
 export function formatEspecialidadName(raw: string): CatalogName {
   const cleaned = collapseSpaces(raw)
-    .replace(/^CONSULTA\s+EXTERNA\s*-\s*/i, "")
-    .replace(/^[\s-]+|[\s-]+$/g, "");
+    .replace(CONSULTA_EXTERNA_PREFIX, "")
+    .replace(EDGE_SPACES_AND_HYPHENS, "");
   const full = toCatalogDisplay(cleaned || collapseSpaces(raw));
-  const firstSegment = full.split(/\s*\/\s*|-/)[0].trim() || full;
+  const firstSegment = full.split(NAME_SEGMENT_SEPARATOR)[0].trim() || full;
   return { title: cutAtWord(firstSegment, WHATSAPP_ROW_TITLE_MAX), full };
 }
 

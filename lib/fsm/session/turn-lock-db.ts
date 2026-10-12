@@ -55,12 +55,14 @@ function createSemaphore(size: number) {
   };
 }
 
+const LOCK_TIMEOUT_MESSAGE = /lock timeout|55P03/i;
+
 function isLockTimeout(error: unknown): boolean {
   const candidate = error as { code?: unknown; meta?: { code?: unknown }; message?: unknown } | null;
   return (
     candidate?.code === "55P03" ||
     candidate?.meta?.code === "55P03" ||
-    /lock timeout|55P03/i.test(String(candidate?.message ?? ""))
+    LOCK_TIMEOUT_MESSAGE.test(String(candidate?.message ?? ""))
   );
 }
 

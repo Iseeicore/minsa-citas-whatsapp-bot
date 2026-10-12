@@ -5,6 +5,8 @@ import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
 const BOOKING_LOG_BODY_LIMIT = 300;
 
+const ACTIVE_CITA_MESSAGE = /ya tiene una cita activa/i;
+
 function minsaMessageOf(body: string): string | undefined {
   try {
     const message = (JSON.parse(body) as { message?: unknown }).message;
@@ -52,7 +54,7 @@ export async function bookAppointment(
     const rawBody = await response.text().catch(() => "");
 
     const duplicateMessage = minsaMessageOf(rawBody);
-    if (duplicateMessage && /ya tiene una cita activa/i.test(duplicateMessage)) {
+    if (duplicateMessage && ACTIVE_CITA_MESSAGE.test(duplicateMessage)) {
       return { status: "duplicate", message: duplicateMessage };
     }
 

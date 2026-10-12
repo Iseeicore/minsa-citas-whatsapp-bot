@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
+const NOMBRE_DE_BASE_DESECHABLE = /_(desechable|dev|local)$/;
+
 const url = process.env.DATABASE_URL;
 if (!url) {
   console.error("Falta DATABASE_URL (por ejemplo postgresql://postgres:clave@127.0.0.1:5432/gestion_desechable).");
@@ -9,7 +11,7 @@ if (!url) {
 
 const parsed = new URL(url);
 const base = decodeURIComponent(parsed.pathname.slice(1));
-if (!/_(desechable|dev|local)$/.test(base)) {
+if (!NOMBRE_DE_BASE_DESECHABLE.test(base)) {
   console.error(`Me niego a sembrar en "${base}": el nombre de la base debe terminar en _desechable, _dev o _local.`);
   process.exit(2);
 }

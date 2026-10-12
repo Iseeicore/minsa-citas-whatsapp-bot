@@ -57,6 +57,7 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   return offerEspecialidades(next, items);
 }
 
+const SUBSTANTIAL_WORD = /\p{L}{5,}/u;
 const HINT_MAX_LENGTH = 80;
 
 function askSelectionHints(
@@ -64,7 +65,7 @@ function askSelectionHints(
   step: "especialidad" | "establecimiento",
   typed: string,
 ): HandlerResult | undefined {
-  if (!/\p{L}{5,}/u.test(typed) || !readOffered(session.slots)) return undefined;
+  if (!SUBSTANTIAL_WORD.test(typed) || !readOffered(session.slots)) return undefined;
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_SELECTION_HINTS_PENDING;

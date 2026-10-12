@@ -1,3 +1,4 @@
+import { ALL_WHITESPACE_RUNS, SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/fsm/parsing/text/text-patterns";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
@@ -121,8 +122,8 @@ const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
 
 const toPlainWords = (text: string): string =>
   normalizeText(text)
-    .replace(/[^A-Z0-9 ]/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
+    .replace(ALL_WHITESPACE_RUNS, " ")
     .trim();
 
 export function detectOutOfScope(text: string): OosCategory | undefined {
