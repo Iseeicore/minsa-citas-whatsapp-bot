@@ -1,3 +1,4 @@
+import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
 import { buildResult, cloneSession, offerList, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
 import { unpackHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -10,6 +11,8 @@ import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+
+const SLOT_STARTING_WITH_CLOCK_TIME = /^\d{2}:\d{2}\|/;
 
 export function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
   const slotA = String(session.slots[SlotKey.CITA_HORA_CHOICE_A] ?? "");
@@ -29,7 +32,7 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
   const reply =
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
 
-  if (reply === HORA_CHOICE_A_ID && /^\d{2}:\d{2}\|/.test(slotA)) {
+  if (reply === HORA_CHOICE_A_ID && SLOT_STARTING_WITH_CLOCK_TIME.test(slotA)) {
     return startBooking(back(), slotA.split("|")[0]);
   }
 
@@ -44,7 +47,7 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
 
   const [startA] = slotA.split("|");
   const first = slotsB[0];
-  if (!/^\d{2}:\d{2}$/.test(startA ?? "") || !first) return reshowOffered(back(), offered);
+  if (!CLOCK_TIME.test(startA ?? "") || !first) return reshowOffered(back(), offered);
 
   return buildResult(session, [
     sendButtons("Elige una de las dos opciones:", [

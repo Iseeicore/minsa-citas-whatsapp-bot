@@ -1,3 +1,4 @@
+import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
 import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { isSlotAcceptance, resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
@@ -46,7 +47,7 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
     return reshowOffered(restored, offered, "Sin problema. Elige otro horario:");
   };
 
-  if (!/^\d{2}:\d{2}$/.test(start ?? "")) return backToList();
+  if (!CLOCK_TIME.test(start ?? "")) return backToList();
 
   const reply =
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;

@@ -1,3 +1,5 @@
+import { WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+
 export type InicioIncidencia = {
   origen: "qr" | "texto" | "ia";
   codigoRenipress?: string;
@@ -9,29 +11,34 @@ const MAX_CODIGO_LENGTH = 8;
 const MAX_NOMBRE_LENGTH = 100;
 const MAX_NOMBRE_WORDS = 14;
 
-const LABEL = /codigo[-\s]?ipress\s*:?\s*/i;
+const CODIGO_IPRESS_LABEL = /codigo[-\s]?ipress\s*:?\s*/i;
 const INCIDENCIA_WORD = /\bincidencia\b/i;
 const INICIO_SENTENCE = /^\s*(?:hola\b[\s,!.]*)?(?:buen[oa]s\s+\p{L}+[\s,!.]*)?quiero\s+(?:presentar|reportar|registrar)\s+una\s+incidencia\b/iu;
-const NUMERIC_TOKEN = /^(\d+)(?![\p{L}\d_])/u;
+const LEADING_NUMERIC_TOKEN = /^(\d+)(?![\p{L}\d_])/u;
 const LEADING_PREPOSITIONS = /^(?:(?:en|de|del|el|la|los|las|sobre|por)\s+)+/i;
+const LEADING_ZEROS = /^0+/;
+const POSITIVE_INTEGER = /^[1-9]\d*$/;
+const LEADING_SPACES_AND_PUNCTUATION = /^[\s.,;:!?-]+/;
+const TRAILING_SPACES_AND_HYPHENS = /[\s-]+$/;
+const LEADING_TOKEN = /^\S+/;
 
 function fold(text: string): string {
   return Array.from(text, (char) => (char.length === 1 ? char.normalize("NFD")[0] : char)).join("");
 }
 
 function normalizeCodigo(raw: string): string | undefined {
-  const withoutZeros = raw.replace(/^0+/, "");
-  if (!/^[1-9]\d*$/.test(withoutZeros) || withoutZeros.length > MAX_CODIGO_LENGTH) return undefined;
+  const withoutZeros = raw.replace(LEADING_ZEROS, "");
+  if (!POSITIVE_INTEGER.test(withoutZeros) || withoutZeros.length > MAX_CODIGO_LENGTH) return undefined;
   return withoutZeros;
 }
 
 function tidy(value: string): string | undefined {
-  const cleaned = value.replace(/^[\s.,;:!?-]+/, "").replace(/[\s-]+$/, "").trim();
+  const cleaned = value.replace(LEADING_SPACES_AND_PUNCTUATION, "").replace(TRAILING_SPACES_AND_HYPHENS, "").trim();
   return cleaned || undefined;
 }
 
 function plausibleNombre(value: string | undefined): string | undefined {
-  if (!value || value.length > MAX_NOMBRE_LENGTH || value.split(/\s+/).length > MAX_NOMBRE_WORDS) return undefined;
+  if (!value || value.length > MAX_NOMBRE_LENGTH || value.split(WHITESPACE_RUN).length > MAX_NOMBRE_WORDS) return undefined;
   return value;
 }
 
@@ -41,8 +48,8 @@ function fromQr(text: string, labelIndex: number, labelLength: number): InicioIn
   if (!word) return null;
 
   const after = text.slice(labelIndex + labelLength);
-  const numeric = NUMERIC_TOKEN.exec(after);
-  const token = numeric ? numeric[1] : (/^\S+/.exec(after)?.[0] ?? "");
+  const numeric = LEADING_NUMERIC_TOKEN.exec(after);
+  const token = numeric ? numeric[1] : (LEADING_TOKEN.exec(after)?.[0] ?? "");
   if (!token) return null;
 
   const result: InicioIncidencia = { origen: "qr" };
@@ -71,7 +78,7 @@ function fromSentence(text: string, sentenceLength: number): InicioIncidencia {
  */
 export function parseInicioIncidencia(text: string): InicioIncidencia | null {
   const folded = fold(text);
-  const label = LABEL.exec(folded);
+  const label = CODIGO_IPRESS_LABEL.exec(folded);
   const qr = label ? fromQr(text, label.index, label[0].length) : null;
   if (qr) return qr;
 

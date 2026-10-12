@@ -3,6 +3,8 @@ import { randomBytes } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
+const LINEA_DE_FALLO = /ERROR|PRUEBA/;
+
 const url = process.env.DATABASE_URL;
 if (!url) {
   console.error("Falta DATABASE_URL (por ejemplo postgresql://postgres:clave@127.0.0.1:5432/postgres).");
@@ -54,7 +56,7 @@ try {
       console.log(`  OK    ${archivo}${resumen ? ` — ${resumen}` : ""}`);
     } catch (error) {
       falló = true;
-      const detalle = String(error.stderr || error.message).split("\n").filter((l) => /ERROR|PRUEBA/.test(l)).slice(0, 3).join("\n          ");
+      const detalle = String(error.stderr || error.message).split("\n").filter((l) => LINEA_DE_FALLO.test(l)).slice(0, 3).join("\n          ");
       console.error(`  FALLO ${archivo}\n          ${detalle}`);
     }
   }

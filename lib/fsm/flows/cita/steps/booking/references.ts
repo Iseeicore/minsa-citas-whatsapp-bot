@@ -1,3 +1,4 @@
+import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { formatHora12 } from "@/lib/fsm/flows/cita/steps/hora/format";
 import {
@@ -39,7 +40,7 @@ const ESTADO_LABEL: Record<number, string> = {
 /** "DD/MM/YYYY HH:MM" (24h) -> "DD/MM/YYYY H:MM AM/PM", reutilizando formatHora12 solo sobre la parte de hora. */
 function formatFechaHora12(fechaHora: string): string {
   const [fecha, hora] = fechaHora.split(" ");
-  if (!fecha || !hora || !/^\d{2}:\d{2}$/.test(hora)) return fechaHora;
+  if (!fecha || !hora || !CLOCK_TIME.test(hora)) return fechaHora;
   return `${fecha} ${formatHora12(hora)}`;
 }
 

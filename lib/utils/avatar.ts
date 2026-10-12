@@ -1,3 +1,5 @@
+import { WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+
 const AVATAR_COLORS = [
   "bg-teal-500",
   "bg-blue-500",
@@ -14,7 +16,7 @@ export function avatarColor(seed: string): string {
 }
 
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const parts = name.trim().split(WHITESPACE_RUN).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();

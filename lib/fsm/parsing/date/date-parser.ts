@@ -1,4 +1,5 @@
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS } from "@/lib/fsm/parsing/text/text-patterns";
 
 export type DateParts = { year: number; month: number; day: number };
 
@@ -8,11 +9,14 @@ export type FechaMatch =
   | { kind: "unavailable"; label: string }
   | { kind: "unparsed" };
 
+const DAY_MONTH_YEAR_ID = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+const YEAR_MONTH_DAY_ID = /^(\d{4})(\d{2})(\d{2})$/;
+
 export function parseOfferedDate(id: string): DateParts | undefined {
-  let match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(id);
+  let match = DAY_MONTH_YEAR_ID.exec(id);
   if (match) return { day: Number(match[1]), month: Number(match[2]), year: Number(match[3]) };
 
-  match = /^(\d{4})(\d{2})(\d{2})$/.exec(id);
+  match = YEAR_MONTH_DAY_ID.exec(id);
   if (match) return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 
   return undefined;
@@ -59,13 +63,15 @@ const WEEKDAYS: Record<string, number> = {
   domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6,
 };
 
+const SYMBOLS_OUTSIDE_DATE_TEXT = /[^a-z0-9/ -]+/g;
+
 function normalize(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9/ -]+/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(COMBINING_ACCENT_MARKS, "")
+    .replace(SYMBOLS_OUTSIDE_DATE_TEXT, " ")
+    .replace(ALL_WHITESPACE_RUNS, " ")
     .trim();
 }
 
@@ -90,6 +96,16 @@ function fromRows(rows: OfferedRow[], label: string): FechaMatch {
 const MONTH_NAMES = Object.keys(MONTHS).join("|");
 const WEEKDAY_NAMES = Object.keys(WEEKDAYS).join("|");
 
+const EARLIEST_DATE_REQUEST =
+  /\b(?:lo|la) mas (?:pronto|antes|cercan[oa])\b|\bcualquiera\b|\bcuanto antes\b|\bprimera (?:disponible|fecha)\b/;
+const DAY_MONTH_AND_OPTIONAL_YEAR = /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/;
+const DAY_AND_MONTH_NAME = new RegExp(`\\b(\\d{1,2})\\s+(?:de\\s+)?(${MONTH_NAMES})\\b`);
+const DAY_AFTER_TOMORROW = /\bpasado manana\b/;
+const TOMORROW = /\bmanana\b/;
+const TODAY = /\bhoy\b/;
+const WEEKDAY_NAME = new RegExp(`\\b(${WEEKDAY_NAMES})\\b`);
+const DAY_OF_MONTH = /\b(?:dia|el)\s+(\d{1,2})\b/;
+
 export function matchFechaText(text: string, rows: OfferedRow[], today: DateParts): FechaMatch {
   const normalized = normalize(text);
   if (!normalized) return { kind: "unparsed" };
@@ -100,12 +116,12 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
   });
   if (dated.length === 0) return { kind: "unparsed" };
 
-  if (/\b(?:lo|la) mas (?:pronto|antes|cercan[oa])\b|\bcualquiera\b|\bcuanto antes\b|\bprimera (?:disponible|fecha)\b/.test(normalized)) {
+  if (EARLIEST_DATE_REQUEST.test(normalized)) {
     const earliest = [...dated].sort((a, b) => sortKey(a.date) - sortKey(b.date))[0];
     return { kind: "match", row: earliest.row };
   }
 
-  const numeric = /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/.exec(normalized);
+  const numeric = DAY_MONTH_AND_OPTIONAL_YEAR.exec(normalized);
   if (numeric) {
     const day = Number(numeric[1]);
     const month = Number(numeric[2]);
@@ -114,7 +130,7 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
     return pickByDate(dated, { year, month, day });
   }
 
-  const named = new RegExp(`\\b(\\d{1,2})\\s+(?:de\\s+)?(${MONTH_NAMES})\\b`).exec(normalized);
+  const named = DAY_AND_MONTH_NAME.exec(normalized);
   if (named) {
     const day = Number(named[1]);
     const month = MONTHS[named[2]];
@@ -122,11 +138,11 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
     return pickByDate(dated, { year: resolveYear(day, month, today), month, day });
   }
 
-  if (/\bpasado manana\b/.test(normalized)) return pickByDate(dated, addDays(today, 2));
-  if (/\bmanana\b/.test(normalized)) return pickByDate(dated, addDays(today, 1));
-  if (/\bhoy\b/.test(normalized)) return pickByDate(dated, today);
+  if (DAY_AFTER_TOMORROW.test(normalized)) return pickByDate(dated, addDays(today, 2));
+  if (TOMORROW.test(normalized)) return pickByDate(dated, addDays(today, 1));
+  if (TODAY.test(normalized)) return pickByDate(dated, today);
 
-  const weekday = new RegExp(`\\b(${WEEKDAY_NAMES})\\b`).exec(normalized);
+  const weekday = WEEKDAY_NAME.exec(normalized);
   if (weekday) {
     const wanted = WEEKDAYS[weekday[1]];
     const matches = dated
@@ -135,7 +151,7 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
     return fromRows(matches, `el ${weekday[1]}`);
   }
 
-  const dayOfMonth = /\b(?:dia|el)\s+(\d{1,2})\b/.exec(normalized);
+  const dayOfMonth = DAY_OF_MONTH.exec(normalized);
   if (dayOfMonth) {
     const day = Number(dayOfMonth[1]);
     const matches = dated.filter((entry) => entry.date.day === day).map((entry) => entry.row);

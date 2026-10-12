@@ -1,3 +1,4 @@
+import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import {
   buildResult,
@@ -67,7 +68,7 @@ Horario de atención: ${DEMO_HORA_INICIO} - ${DEMO_HORA_FIN} (turnos de 25 minut
 function askDemoConfirmation(session: Session, codigo: string, horaId: string): HandlerResult {
   const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
   const [start, end] = horaId.split("|");
-  const turno = /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "") ? formatHoraRange(start, end) : horaId;
+  const turno = CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? formatHoraRange(start, end) : horaId;
   const resumen = `Especialidad: ${referencia?.especialidad ?? ""}
 Turno seleccionado: ${turno}
 
@@ -111,7 +112,7 @@ export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent)
     const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
     const [start, end] = horaId.split("|");
     const turno =
-      /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "") ? formatHoraRange(start, end) : horaId;
+      CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? formatHoraRange(start, end) : horaId;
     const next = cloneSession(session);
     next.state = SessionState.CITA_BOOKED;
     const constanciaText = `*MINISTERIO DE SALUD DEL PERÚ*

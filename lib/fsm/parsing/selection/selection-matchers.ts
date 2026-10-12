@@ -1,3 +1,4 @@
+import { COMBINING_ACCENT_MARKS, WORD_SEPARATORS } from "@/lib/fsm/parsing/text/text-patterns";
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 
@@ -46,8 +47,8 @@ function normalize(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(COMBINING_ACCENT_MARKS, "")
+    .replace(WORD_SEPARATORS, " ")
     .trim();
 }
 
@@ -64,6 +65,9 @@ const ORDINAL_WORDS: Record<string, number> = {
   diez: 10, decimo: 10, decima: 10,
 };
 
+const OPTION_NUMBER = /^\d{1,2}$/;
+const DIGITS_ONLY = /^\d+$/;
+
 const ORDINAL_FILLER =
   /^(?:(?:quiero|quisiera|elijo|escojo|prefiero|selecciono|me quedo con|la|el|lo|opcion|numero|nro|num)\s+)+/;
 
@@ -71,7 +75,7 @@ function parseOrdinal(normalized: string, count: number): number | undefined {
   const rest = normalized.replace(ORDINAL_FILLER, "");
 
   let position: number | undefined;
-  if (/^\d{1,2}$/.test(rest)) position = Number(rest);
+  if (OPTION_NUMBER.test(rest)) position = Number(rest);
   else if (rest === "ultimo" || rest === "ultima") position = count;
   else position = ORDINAL_WORDS[rest];
 
@@ -88,7 +92,7 @@ type HayToken = { word: string; truncated: boolean };
 
 const QUOTA_WORDS = new Set(["cupo", "cupos"]);
 
-const isDescriptionNameWord = (word: string): boolean => word !== "" && !/^\d+$/.test(word) && !QUOTA_WORDS.has(word);
+const isDescriptionNameWord = (word: string): boolean => word !== "" && !DIGITS_ONLY.test(word) && !QUOTA_WORDS.has(word);
 
 function rowTokens(row: OfferedRow, includeDescription: boolean): HayToken[] {
   const titleWords = normalize(row.title).split(" ").filter(Boolean);

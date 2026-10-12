@@ -1,9 +1,10 @@
+import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/fsm/parsing/text/text-patterns";
 import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 
 function words(text: string): string[] {
   return normalizeText(text)
-    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
     .split(" ")
     .filter(Boolean);
 }

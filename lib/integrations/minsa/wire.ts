@@ -11,8 +11,10 @@ function minsaHost(): string {
 
 export const MINSA_DIGITAL_LOGIN_PATH = "/login";
 
+const TRAILING_SLASHES = /\/+$/;
+
 export function minsaDigitalAppUrl(): string {
-  return (process.env.MINSA_DIGITAL_APP_URL ?? "").trim().replace(/\/+$/, "");
+  return (process.env.MINSA_DIGITAL_APP_URL ?? "").trim().replace(TRAILING_SLASHES, "");
 }
 
 export function minsaDigitalUrl(path = ""): string | null {

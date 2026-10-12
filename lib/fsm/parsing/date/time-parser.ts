@@ -1,4 +1,5 @@
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
+import { ALL_WHITESPACE_RUNS, CLOCK_TIME, COMBINING_ACCENT_MARKS } from "@/lib/fsm/parsing/text/text-patterns";
 
 export type HoraSlot = { start: string; end: string; cupos: number };
 
@@ -18,7 +19,7 @@ export function unpackHoraSlots(raw: unknown): HoraSlot[] {
   const slots: HoraSlot[] = [];
   for (const part of raw.split(";")) {
     const [start, end, cupos] = part.split("|");
-    if (!/^\d{2}:\d{2}$/.test(start ?? "") || !/^\d{2}:\d{2}$/.test(end ?? "")) return [];
+    if (!CLOCK_TIME.test(start ?? "") || !CLOCK_TIME.test(end ?? "")) return [];
     slots.push({ start, end, cupos: Number(cupos) || 0 });
   }
   return slots;
@@ -31,14 +32,17 @@ const NUMBER_WORDS: Record<string, number> = {
   veintidos: 22, veintitres: 23, veinticinco: 25, treinta: 30,
 };
 
+const DOTTED_MERIDIEM = /\b([ap])\.\s?m\.?/g;
+const SYMBOLS_OUTSIDE_TIME_TEXT = /[^a-z0-9: ]+/g;
+
 function normalize(raw: string): string {
   const text = raw
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\b([ap])\.\s?m\.?/g, " $1m ")
-    .replace(/[^a-z0-9: ]+/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(COMBINING_ACCENT_MARKS, "")
+    .replace(DOTTED_MERIDIEM, " $1m ")
+    .replace(SYMBOLS_OUTSIDE_TIME_TEXT, " ")
+    .replace(ALL_WHITESPACE_RUNS, " ")
     .trim();
 
   return text
@@ -54,20 +58,34 @@ type Parsed =
   | { kind: "latest" }
   | { kind: "none" };
 
+const MORNING_WORD = /\b(?:am|manana|madrugada)\b/;
+const AFTERNOON_OR_NIGHT_WORD = /\b(?:pm|tarde|noche)\b/;
+const EARLIEST_TIME_REQUEST = /\blo mas (?:pronto|temprano)\b|\bcuanto antes\b|\bla mas temprano\b/;
+const LATEST_TIME_REQUEST = /\b(?:lo|la) mas tarde\b/;
+const NOON = /\bmediodia\b/;
+const MIDNIGHT = /\bmedianoche\b/;
+const HOUR_COLON_MINUTE = /\b(\d{1,2}):(\d{2})\b/;
+const HOUR_MINUS_MINUTES = /\b(\d{1,2}) menos (cuarto|\d{1,2})\b/;
+const HOUR_PLUS_MINUTES = /\b(\d{1,2}) (?:y|con) (media|cuarto|\d{1,2})\b/;
+const HOUR_ON_THE_DOT = /\b(\d{1,2}) en punto\b/;
+const COMPACT_HOUR_AND_MINUTE = /\b(\d{3,4})\b/;
+const BARE_HOUR = /\b(\d{1,2})\b/;
+const HOUR_MARKER = /\ba las?\b|\blas \d|\bhoras?\b|\bhrs?\b/;
+
 function detectPeriod(text: string): MeridiemPeriod | null {
-  if (/\b(?:am|manana|madrugada)\b/.test(text)) return MeridiemPeriod.AM;
-  if (/\b(?:pm|tarde|noche)\b/.test(text)) return MeridiemPeriod.PM;
+  if (MORNING_WORD.test(text)) return MeridiemPeriod.AM;
+  if (AFTERNOON_OR_NIGHT_WORD.test(text)) return MeridiemPeriod.PM;
   return null;
 }
 
 function parse(text: string): Parsed {
-  if (/\blo mas (?:pronto|temprano)\b|\bcuanto antes\b|\bla mas temprano\b/.test(text)) {
+  if (EARLIEST_TIME_REQUEST.test(text)) {
     return { kind: "earliest" };
   }
-  if (/\b(?:lo|la) mas tarde\b/.test(text)) return { kind: "latest" };
+  if (LATEST_TIME_REQUEST.test(text)) return { kind: "latest" };
 
-  if (/\bmediodia\b/.test(text)) return { kind: "time", hour: 12, minute: 0, period: null };
-  if (/\bmedianoche\b/.test(text)) return { kind: "time", hour: 0, minute: 0, period: null };
+  if (NOON.test(text)) return { kind: "time", hour: 12, minute: 0, period: null };
+  if (MIDNIGHT.test(text)) return { kind: "time", hour: 0, minute: 0, period: null };
 
   const period = detectPeriod(text);
 
@@ -76,32 +94,32 @@ function parse(text: string): Parsed {
   let hasHourMarker = false;
   let match: RegExpExecArray | null;
 
-  if ((match = /\b(\d{1,2}):(\d{2})\b/.exec(text))) {
+  if ((match = HOUR_COLON_MINUTE.exec(text))) {
     hour = Number(match[1]);
     minute = Number(match[2]);
     hasHourMarker = true;
-  } else if ((match = /\b(\d{1,2}) menos (cuarto|\d{1,2})\b/.exec(text))) {
+  } else if ((match = HOUR_MINUS_MINUTES.exec(text))) {
     const back = match[2] === "cuarto" ? 15 : Number(match[2]);
     if (back < 1 || back > 59) return { kind: "none" };
     hour = (Number(match[1]) + 23) % 24;
     minute = 60 - back;
     hasHourMarker = true;
-  } else if ((match = /\b(\d{1,2}) (?:y|con) (media|cuarto|\d{1,2})\b/.exec(text))) {
+  } else if ((match = HOUR_PLUS_MINUTES.exec(text))) {
     hour = Number(match[1]);
     minute = match[2] === "media" ? 30 : match[2] === "cuarto" ? 15 : Number(match[2]);
     hasHourMarker = true;
-  } else if ((match = /\b(\d{1,2}) en punto\b/.exec(text))) {
+  } else if ((match = HOUR_ON_THE_DOT.exec(text))) {
     hour = Number(match[1]);
     minute = 0;
     hasHourMarker = true;
-  } else if ((match = /\b(\d{3,4})\b/.exec(text))) {
+  } else if ((match = COMPACT_HOUR_AND_MINUTE.exec(text))) {
     const digits = match[1].padStart(4, "0");
     hour = Number(digits.slice(0, 2));
     minute = Number(digits.slice(2));
     hasHourMarker = true;
-  } else if ((match = /\b(\d{1,2})\b/.exec(text))) {
+  } else if ((match = BARE_HOUR.exec(text))) {
     hour = Number(match[1]);
-    hasHourMarker = /\ba las?\b|\blas \d|\bhoras?\b|\bhrs?\b/.test(text) || period !== null;
+    hasHourMarker = HOUR_MARKER.test(text) || period !== null;
   }
 
   if (hour === undefined) return period ? { kind: "period", period } : { kind: "none" };

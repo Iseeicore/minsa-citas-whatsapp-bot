@@ -5,7 +5,8 @@ import { join } from "node:path";
 
 const SANDBOX_URL = process.env.SANDBOX_URL ?? "http://localhost:3000/api/sandbox";
 const WEBHOOK_URL = new URL("/webhook/whatsapp", SANDBOX_URL).toString();
-const RUN_ID = new Date().toISOString().replace(/[:.]/g, "-");
+const TIMESTAMP_PUNCTUATION = /[:.]/g;
+const RUN_ID = new Date().toISOString().replace(TIMESTAMP_PUNCTUATION, "-");
 const LOG_DIR = "scripts/playbook-runs";
 const LOG_FILE = join(LOG_DIR, `${RUN_ID}.ndjson`);
 

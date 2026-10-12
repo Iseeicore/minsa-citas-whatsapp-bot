@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text";
+import { CHAT_FORMAT_MARK, splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text";
 import { ChatIconName } from "@/lib/enums/chat-icon-name";
 import { ChatTokenKind } from "@/lib/enums/chat-token-kind";
 
@@ -49,6 +49,35 @@ describe("tokenizeChatText", () => {
 
   it("deja intactos los emojis que no tienen icono propio", () => {
     expect(tokenizeChatText("¡Hola! 👋")).toEqual([{ kind: ChatTokenKind.TEXT, value: "¡Hola! 👋" }]);
+  });
+});
+
+describe("CHAT_FORMAT_MARK", () => {
+  const ORIGINAL =
+    /\*([^\s*](?:[^*\n]*[^\s*])?)\*|(?<![\p{L}\p{N}_])_([^\s_](?:[^_\n]*[^\s_])?)_(?![\p{L}\p{N}_])|(\u{1F1F5}\u{1F1EA})|(\u26A0\uFE0F?)/gu;
+
+  it("armado por partes tiene la misma fuente y las mismas banderas que el patrón único de antes", () => {
+    expect(CHAT_FORMAT_MARK.source).toBe(ORIGINAL.source);
+    expect(CHAT_FORMAT_MARK.flags).toBe(ORIGINAL.flags);
+    expect(CHAT_FORMAT_MARK.source).toContain("\\u26A0\\uFE0F?");
+  });
+
+  it("cada alternativa conserva su grupo: negrita, cursiva, bandera y advertencia, en ese orden", () => {
+    const match = [..."*a* _b_ 🇵🇪 ⚠️".matchAll(CHAT_FORMAT_MARK)];
+    expect(match.map((found) => [found[1], found[2], found[3], found[4]])).toEqual([
+      ["a", undefined, undefined, undefined],
+      [undefined, "b", undefined, undefined],
+      [undefined, undefined, "🇵🇪", undefined],
+      [undefined, undefined, undefined, "⚠️"],
+    ]);
+  });
+
+  it("no arrastra la posición entre dos llamadas seguidas", () => {
+    const first = tokenizeChatText("*uno* y _dos_");
+    const second = tokenizeChatText("*uno* y _dos_");
+    expect(second).toEqual(first);
+    expect(second).toHaveLength(3);
+    expect(CHAT_FORMAT_MARK.lastIndex).toBe(0);
   });
 });
 
