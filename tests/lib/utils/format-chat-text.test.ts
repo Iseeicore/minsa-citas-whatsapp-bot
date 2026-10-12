@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHAT_FORMAT_MARK, splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text";
+import { CHAT_FORMAT_MARK } from "@/lib/constants/regex/chat-format";
+import { splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text";
 import { ChatIconName } from "@/lib/enums/chat-icon-name";
 import { ChatTokenKind } from "@/lib/enums/chat-token-kind";
 

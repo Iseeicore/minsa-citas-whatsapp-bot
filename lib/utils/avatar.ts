@@ -1,4 +1,4 @@
-import { WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+import { WHITESPACE_RUN } from "@/lib/constants/regex/text";
 
 const AVATAR_COLORS = [
   "bg-teal-500",

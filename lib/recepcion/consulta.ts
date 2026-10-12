@@ -2,8 +2,7 @@ import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { logger } from "@/lib/observability/logger";
 import type { ConsultaIncidenciaResult, IdentidadConsulta, ListarIncidenciasResult } from "@/lib/recepcion/consulta-dto";
 import { buscarIncidenciaDeQuienConsulta, listarIncidenciasDeQuienConsulta } from "@/lib/recepcion/repositorio";
-
-const CODIGO_VALIDO = /^MINSA-\d{4}-\d{6}$/;
+import { CODIGO_VALIDO } from "@/lib/constants/regex/incidencia";
 
 export async function consultarIncidencia(codigo: string, identidad: IdentidadConsulta): Promise<ConsultaIncidenciaResult> {
   if (!isDatabaseEnabled()) {

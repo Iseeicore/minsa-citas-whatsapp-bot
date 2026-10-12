@@ -7,8 +7,8 @@ import { formatHora12, slotToRow, rowToSlot, formatHourGroup } from "@/lib/fsm/f
 import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { BARE_SMALL_NUMBER } from "@/lib/constants/regex/selection";
 
-const BARE_SMALL_NUMBER = /^(?:[1-9]|10)$/;
 export const HORA_CHOICE_A_ID = HoraChoiceButtonId.A;
 export const HORA_CHOICE_B_ID = HoraChoiceButtonId.B;
 export const BUTTON_TITLE_MAX = 20;

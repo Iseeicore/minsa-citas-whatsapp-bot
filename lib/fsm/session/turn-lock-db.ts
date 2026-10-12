@@ -2,6 +2,7 @@ import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { TurnLockTimeoutError, type DbTurnLock } from "@/lib/fsm/session/turn-lock";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
+import { LOCK_TIMEOUT_MESSAGE } from "@/lib/constants/regex/integrations";
 
 type Tx = { $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number> };
 
@@ -54,8 +55,6 @@ function createSemaphore(size: number) {
     },
   };
 }
-
-const LOCK_TIMEOUT_MESSAGE = /lock timeout|55P03/i;
 
 function isLockTimeout(error: unknown): boolean {
   const candidate = error as { code?: unknown; meta?: { code?: unknown }; message?: unknown } | null;

@@ -1,5 +1,6 @@
-import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/fsm/parsing/text/text-patterns";
+import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/constants/regex/text";
 import { Confirmation } from "@/lib/enums/confirmation";
+import { SUITS_ME, TAKING_IT, TAKING_THAT } from "@/lib/constants/regex/selection";
 
 export type { Confirmation };
 
@@ -70,13 +71,6 @@ function toWords(text: string): string[] {
     .split(" ")
     .filter((word) => word !== "" && !COURTESY_WORDS.has(word));
 }
-
-const LEADING_YES = "(?:(?:si|ok|okey|dale|vale|claro|listo)\\s+)?";
-const TAKING_THAT = new RegExp(
-  `^${LEADING_YES}(?:(?:quiero|tomo|acepto|confirmo|me quedo con)\\s+)?(?:esa|ese)(?:\\s+(?:misma|mismo))?(?:\\s+(?:hora|horario|cita))?$`,
-);
-const SUITS_ME = new RegExp(`^${LEADING_YES}(?:(?:esa|ese)\\s+)?me\\s+(?:sirve|conviene)$`);
-const TAKING_IT = new RegExp(`^${LEADING_YES}(?:la|lo)\\s+(?:tomo|quiero|acepto|confirmo)$`);
 
 export function isSlotAcceptance(text: string): boolean {
   const phrase = toWords(text).join(" ");

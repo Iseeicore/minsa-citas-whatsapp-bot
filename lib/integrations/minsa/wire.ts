@@ -2,6 +2,7 @@ import { timedFetch } from "@/lib/observability/http";
 import { logger } from "@/lib/observability/logger";
 import { signMinsaRequest } from "@/lib/integrations/minsa/signature";
 import { nowInLima, todayInLima } from "@/lib/time/lima-clock";
+import { TRAILING_SLASHES } from "@/lib/constants/regex/integrations";
 
 const HTTP_SERVICE_UNAVAILABLE = 503;
 
@@ -10,8 +11,6 @@ function minsaHost(): string {
 }
 
 export const MINSA_DIGITAL_LOGIN_PATH = "/login";
-
-const TRAILING_SLASHES = /\/+$/;
 
 export function minsaDigitalAppUrl(): string {
   return (process.env.MINSA_DIGITAL_APP_URL ?? "").trim().replace(TRAILING_SLASHES, "");

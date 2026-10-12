@@ -1,4 +1,4 @@
-import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
+import { CLOCK_TIME } from "@/lib/constants/regex/text";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { formatHora12 } from "@/lib/fsm/flows/cita/steps/hora/format";
 import {

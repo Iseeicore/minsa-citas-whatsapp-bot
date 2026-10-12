@@ -6,12 +6,12 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { SLOT_TAKEN_MESSAGE } from "@/lib/constants/regex/integrations";
 
 const MAX_BOOKING_FAILURES = 3;
 const APPOINTMENT_DETAILS_TEXT =
   "Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):";
 const APPOINTMENT_BUTTON_TEXT = "Ver mi cita";
-const SLOT_TAKEN_MESSAGE = /cupo|horario|disponib|agotad|ocupad|tomad/i;
 
 export function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; url?: string; message?: string };

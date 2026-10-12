@@ -6,6 +6,7 @@ import type {
   UbigeoItem,
 } from "@/lib/integrations/minsa/types";
 import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
+import { ISO_DATE_HYPHENS } from "@/lib/constants/regex/date-time";
 
 export const FAKE_DNI = "12345678";
 export const FAKE_CARNET_EXTRANJERIA = "123456789";
@@ -39,7 +40,7 @@ export function limaDatePlus(daysAhead: number): string {
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
 
   const date = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + daysAhead));
-  return date.toISOString().slice(0, 10).replace(/-/g, "");
+  return date.toISOString().slice(0, 10).replace(ISO_DATE_HYPHENS, "");
 }
 
 export const SINGLE_HORARIO_DAYS_AHEAD = 3;

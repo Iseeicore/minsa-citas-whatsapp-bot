@@ -1,4 +1,4 @@
-import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
+import { CLOCK_TIME } from "@/lib/constants/regex/text";
 import { buildResult, cloneSession, offerList, sendButtons, truncateForRow, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
 import { unpackHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -11,8 +11,7 @@ import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-const SLOT_STARTING_WITH_CLOCK_TIME = /^\d{2}:\d{2}\|/;
+import { SLOT_STARTING_WITH_CLOCK_TIME } from "@/lib/constants/regex/date-time";
 
 export function handleHoraChoice(session: Session, event: InboundEvent): HandlerResult {
   const slotA = String(session.slots[SlotKey.CITA_HORA_CHOICE_A] ?? "");

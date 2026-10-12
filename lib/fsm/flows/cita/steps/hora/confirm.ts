@@ -1,4 +1,4 @@
-import { CLOCK_TIME } from "@/lib/fsm/parsing/text/text-patterns";
+import { CLOCK_TIME } from "@/lib/constants/regex/text";
 import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { isSlotAcceptance, resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
@@ -14,8 +14,7 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-const NEGATION_WORD = /\b(?:no|ni|nunca|tampoco)\b/;
+import { NEGATION_WORD } from "@/lib/constants/regex/selection";
 
 function acceptsPendingHora(typed: string, slotId: string): boolean {
   const plain = normalizeText(typed).toLowerCase();

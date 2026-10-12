@@ -1,4 +1,4 @@
-import { COMBINING_ACCENT_MARKS, NON_LETTER_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+import { COMBINING_ACCENT_MARKS, NON_LETTER_RUN } from "@/lib/constants/regex/text";
 import distritos from "@/data/peru-distritos.json";
 
 type PlaceRow = { departamento: string; provincia: string; distrito: string };

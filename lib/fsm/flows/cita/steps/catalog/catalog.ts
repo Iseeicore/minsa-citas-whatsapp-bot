@@ -36,6 +36,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
 import { SessionState } from "@/lib/enums/session-state";
+import { SUBSTANTIAL_WORD } from "@/lib/constants/regex/catalog";
 
 export function handleEspecialidadPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: EspecialidadResultItem[] };
@@ -57,7 +58,6 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   return offerEspecialidades(next, items);
 }
 
-const SUBSTANTIAL_WORD = /\p{L}{5,}/u;
 const HINT_MAX_LENGTH = 80;
 
 function askSelectionHints(

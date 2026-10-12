@@ -1,8 +1,17 @@
 import { SlotKey } from "@/lib/enums/slot-key";
-import { ALL_WHITESPACE_RUNS } from "@/lib/fsm/parsing/text/text-patterns";
+import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
+import {
+  ALREADY_MASKED_DNI,
+  BEARER_CREDENTIAL,
+  DNI_KEY,
+  JWT,
+  LONG_DIGIT_RUN,
+  NEVER_PREVIEW_STATE,
+  NON_DIGIT,
+  SENSITIVE_KEY,
+  URL_WITH_QUERY_STRING,
+} from "@/lib/constants/regex/observability";
 
-const SENSITIVE_KEY = /bearer|token|authorization|secret|password|api[_-]?key|twofa|otp|code$/i;
-const DNI_KEY = /dni|documento/i;
 const LENGTH_ONLY_KEYS = new Set<string>([
   SlotKey.CITA_OFFERED,
   SlotKey.CITA_OFFERED_NAMES,
@@ -16,13 +25,6 @@ const MAX_DEPTH = 4;
 const MAX_ITEMS = 20;
 
 export const tail = (value: string): string => `...${value.slice(-4)}`;
-
-const ALREADY_MASKED_DNI = /^\*{4}\d{0,4}$/;
-const NON_DIGIT = /\D/g;
-const URL_WITH_QUERY_STRING = /(https?:\/\/[^\s?#]+)\?[^\s#]*/gi;
-const BEARER_CREDENTIAL = /Bearer\s+[A-Za-z0-9._~+/=-]+/gi;
-const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
-const LONG_DIGIT_RUN = /\d{7,}/g;
 
 export function maskDni(value: string): string {
   if (ALREADY_MASKED_DNI.test(value)) return value;
@@ -65,7 +67,6 @@ export function sanitizeSlots(slots: Record<string, unknown>): Record<string, un
   return Object.fromEntries(Object.entries(slots).map(([key, value]) => [key, sanitizeValue(key, value)]));
 }
 
-const NEVER_PREVIEW_STATE = /^(cita_awaiting_(dni|otp)|incidencia_)/;
 const PREVIEW_CHARS = 40;
 
 export function previewInput(state: string, text: string | undefined): Record<string, unknown> {

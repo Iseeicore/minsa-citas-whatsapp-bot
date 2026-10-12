@@ -1,6 +1,7 @@
-import { COMBINING_ACCENT_MARKS, WORD_SEPARATORS } from "@/lib/fsm/parsing/text/text-patterns";
+import { COMBINING_ACCENT_MARKS, WORD_SEPARATORS } from "@/lib/constants/regex/text";
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
 
 export type OfferedRow = { id: string; title: string; description?: string };
 export type OfferedList = { text: string; rows: OfferedRow[] };
@@ -64,12 +65,6 @@ const ORDINAL_WORDS: Record<string, number> = {
   nueve: 9, noveno: 9, novena: 9,
   diez: 10, decimo: 10, decima: 10,
 };
-
-const OPTION_NUMBER = /^\d{1,2}$/;
-const DIGITS_ONLY = /^\d+$/;
-
-const ORDINAL_FILLER =
-  /^(?:(?:quiero|quisiera|elijo|escojo|prefiero|selecciono|me quedo con|la|el|lo|opcion|numero|nro|num)\s+)+/;
 
 function parseOrdinal(normalized: string, count: number): number | undefined {
   const rest = normalized.replace(ORDINAL_FILLER, "");

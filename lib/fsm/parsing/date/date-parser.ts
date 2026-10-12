@@ -1,5 +1,16 @@
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS } from "@/lib/fsm/parsing/text/text-patterns";
+import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS } from "@/lib/constants/regex/text";
+import {
+  DAY_AFTER_TOMORROW,
+  DAY_MONTH_AND_OPTIONAL_YEAR,
+  DAY_MONTH_YEAR_ID,
+  DAY_OF_MONTH,
+  EARLIEST_DATE_REQUEST,
+  SYMBOLS_OUTSIDE_DATE_TEXT,
+  TODAY,
+  TOMORROW,
+  YEAR_MONTH_DAY_ID,
+} from "@/lib/constants/regex/date-time";
 
 export type DateParts = { year: number; month: number; day: number };
 
@@ -8,9 +19,6 @@ export type FechaMatch =
   | { kind: "ambiguous"; rows: OfferedRow[] }
   | { kind: "unavailable"; label: string }
   | { kind: "unparsed" };
-
-const DAY_MONTH_YEAR_ID = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-const YEAR_MONTH_DAY_ID = /^(\d{4})(\d{2})(\d{2})$/;
 
 export function parseOfferedDate(id: string): DateParts | undefined {
   let match = DAY_MONTH_YEAR_ID.exec(id);
@@ -63,8 +71,6 @@ const WEEKDAYS: Record<string, number> = {
   domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6,
 };
 
-const SYMBOLS_OUTSIDE_DATE_TEXT = /[^a-z0-9/ -]+/g;
-
 function normalize(text: string): string {
   return text
     .toLowerCase()
@@ -96,15 +102,8 @@ function fromRows(rows: OfferedRow[], label: string): FechaMatch {
 const MONTH_NAMES = Object.keys(MONTHS).join("|");
 const WEEKDAY_NAMES = Object.keys(WEEKDAYS).join("|");
 
-const EARLIEST_DATE_REQUEST =
-  /\b(?:lo|la) mas (?:pronto|antes|cercan[oa])\b|\bcualquiera\b|\bcuanto antes\b|\bprimera (?:disponible|fecha)\b/;
-const DAY_MONTH_AND_OPTIONAL_YEAR = /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/;
 const DAY_AND_MONTH_NAME = new RegExp(`\\b(\\d{1,2})\\s+(?:de\\s+)?(${MONTH_NAMES})\\b`);
-const DAY_AFTER_TOMORROW = /\bpasado manana\b/;
-const TOMORROW = /\bmanana\b/;
-const TODAY = /\bhoy\b/;
 const WEEKDAY_NAME = new RegExp(`\\b(${WEEKDAY_NAMES})\\b`);
-const DAY_OF_MONTH = /\b(?:dia|el)\s+(\d{1,2})\b/;
 
 export function matchFechaText(text: string, rows: OfferedRow[], today: DateParts): FechaMatch {
   const normalized = normalize(text);

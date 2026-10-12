@@ -1,27 +1,22 @@
 import { toDisplayPlace } from "@/lib/fsm/parsing/text/text";
-import { ALL_WHITESPACE_RUNS } from "@/lib/fsm/parsing/text/text-patterns";
+import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
 import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
 import { type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import {
+  CONSONANT_ONLY_ACRONYM,
+  CONSULTA_EXTERNA_PREFIX,
+  DOTTED_ABBREVIATION,
+  EDGE_SPACES_AND_HYPHENS,
+  ESTABLECIMIENTO_ABBREVIATIONS,
+  NAME_SEGMENT_SEPARATOR,
+  TITLE_CASED_ROMAN_NUMERAL,
+} from "@/lib/constants/regex/catalog";
 
 export type CatalogName = { title: string; full: string };
 
 const FULL_NAME_SEPARATOR = " · ";
-
-const ESTABLECIMIENTO_ABBREVIATIONS: ReadonlyArray<[RegExp, string]> = [
-  [/\bCentro Materno Infantil\b/i, "C.M.I."],
-  [/\bCentro de Salud\b/i, "C.S."],
-  [/\bPuesto de Salud\b/i, "P.S."],
-  [/\bHospital\b/i, "Hosp."],
-];
-
-const DOTTED_ABBREVIATION = /(?<!\p{L})(?:\p{L}\.){2,}/gu;
-const TITLE_CASED_ROMAN_NUMERAL = /(?<!\p{L})(?:Ii|Iii|Iv|Vi|Vii|Viii|Ix|Xi|Xii)(?!\p{L})/gu;
-const CONSONANT_ONLY_ACRONYM = /(?<!\p{L})[b-df-hj-np-tv-z]{2,3}(?!\p{L})/giu;
-const CONSULTA_EXTERNA_PREFIX = /^CONSULTA\s+EXTERNA\s*-\s*/i;
-const EDGE_SPACES_AND_HYPHENS = /^[\s-]+|[\s-]+$/g;
-const NAME_SEGMENT_SEPARATOR = /\s*\/\s*|-/;
 
 const collapseSpaces = (value: string): string => value.replace(ALL_WHITESPACE_RUNS, " ").trim();
 

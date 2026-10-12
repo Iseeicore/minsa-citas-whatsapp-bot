@@ -1,4 +1,4 @@
-import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS } from "@/lib/fsm/parsing/text/text-patterns";
+import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS, SENTENCE_PUNCTUATION } from "@/lib/constants/regex/text";
 const OMIT_PHRASES = new Set([
   "omitir",
   "omito",
@@ -17,8 +17,6 @@ const OMIT_PHRASES = new Set([
   "sin establecimiento",
   "no tengo",
 ]);
-
-const SENTENCE_PUNCTUATION = /[.,;:!?¿¡]/g;
 
 function fold(text: string): string {
   return text.normalize("NFD").replace(COMBINING_ACCENT_MARKS, "");

@@ -1,4 +1,4 @@
-import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/fsm/parsing/text/text-patterns";
+import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/constants/regex/text";
 import { extractCitaHints, type CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 

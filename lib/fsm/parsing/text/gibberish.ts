@@ -1,4 +1,4 @@
-import { COMBINING_ACCENT_MARKS, NON_LETTER_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+import { COMBINING_ACCENT_MARKS, NON_LETTER_RUN, VOWELS } from "@/lib/constants/regex/text";
 export const UNRECOGNIZED_DISTRITO_TEXT =
   "No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:";
 
@@ -18,8 +18,6 @@ const KEYBOARD_SEGMENTS = new Set(
     );
   }),
 );
-
-const VOWELS = /[aeiouy]/;
 
 function stripAccents(text: string): string {
   return text

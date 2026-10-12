@@ -1,4 +1,4 @@
-const LETTER = /\p{L}/gu;
+import { LETTER } from "@/lib/constants/regex/security";
 
 export const NOISE_LETTER_RATIO = 0.3;
 

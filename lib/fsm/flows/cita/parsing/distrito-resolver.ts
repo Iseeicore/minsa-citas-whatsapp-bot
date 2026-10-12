@@ -18,8 +18,7 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-const PLAUSIBLE_PLACE_NAME = /^[\p{L}][\p{L}\s.'-]{2,59}$/u;
+import { PLAUSIBLE_PLACE_NAME } from "@/lib/constants/regex/catalog";
 
 export function looksLikePlaceName(text: string): boolean {
   return PLAUSIBLE_PLACE_NAME.test(text);

@@ -1,9 +1,8 @@
 import type { LogLevel, LogSink } from "@/lib/observability/types";
 import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
+import { DATE_SLASHES } from "@/lib/constants/regex/observability";
 
 export const LOG_TIME_ZONE = LIMA_TIME_ZONE;
-
-const DATE_SLASHES = /\//g;
 
 export function dateFolder(at: Date): string {
   return new Intl.DateTimeFormat("en-GB", {

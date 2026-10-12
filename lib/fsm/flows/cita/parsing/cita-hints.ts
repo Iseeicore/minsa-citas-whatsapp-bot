@@ -1,21 +1,8 @@
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { searchDistrito } from "@/lib/fsm/flows/cita/data/ubigeo-data";
 import { isAllowedDepartamento } from "@/lib/fsm/flows/cita/pilot-scope";
-import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/fsm/parsing/text/text-patterns";
-
-const MEDICINA_GENERAL_PHRASE = /\bMEDIC(?:INA|O) GENERAL\b/;
-
-const ESPECIALIDAD_ROOTS: Array<[RegExp, string]> = [
-  [/^odontolog/, "Odontología"],
-  [/^pediatr/, "Pediatría"],
-  [/^ginecolog/, "Ginecología"],
-  [/^cardiolog/, "Cardiología"],
-  [/^dermatolog/, "Dermatología"],
-  [/^oftalmolog/, "Oftalmología"],
-  [/^traumatolog/, "Traumatología"],
-  [/^psicolog/, "Psicología"],
-  [/^nutricion/, "Nutrición"],
-];
+import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/constants/regex/text";
+import { ESPECIALIDAD_ROOTS, MEDICINA_GENERAL_PHRASE } from "@/lib/constants/regex/catalog";
 
 const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);
 const MAX_PLACE_WORDS = 4;

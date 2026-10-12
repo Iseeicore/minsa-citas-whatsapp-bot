@@ -1,4 +1,17 @@
-import { WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+import { WHITESPACE_RUN } from "@/lib/constants/regex/text";
+import {
+  BARE_CODIGO,
+  CODIGO_IPRESS_LABEL,
+  INCIDENCIA_WORD,
+  INICIO_SENTENCE,
+  LEADING_NUMERIC_TOKEN,
+  LEADING_PREPOSITIONS,
+  LEADING_SPACES_AND_PUNCTUATION,
+  LEADING_TOKEN,
+  LEADING_ZEROS,
+  POSITIVE_INTEGER,
+  TRAILING_SPACES_AND_HYPHENS,
+} from "@/lib/constants/regex/incidencia";
 
 export type InicioIncidencia = {
   origen: "qr" | "texto" | "ia";
@@ -10,17 +23,6 @@ export type InicioIncidencia = {
 const MAX_CODIGO_LENGTH = 8;
 const MAX_NOMBRE_LENGTH = 100;
 const MAX_NOMBRE_WORDS = 14;
-
-const CODIGO_IPRESS_LABEL = /codigo[-\s]?ipress\s*:?\s*/i;
-const INCIDENCIA_WORD = /\bincidencia\b/i;
-const INICIO_SENTENCE = /^\s*(?:hola\b[\s,!.]*)?(?:buen[oa]s\s+\p{L}+[\s,!.]*)?quiero\s+(?:presentar|reportar|registrar)\s+una\s+incidencia\b/iu;
-const LEADING_NUMERIC_TOKEN = /^(\d+)(?![\p{L}\d_])/u;
-const LEADING_PREPOSITIONS = /^(?:(?:en|de|del|el|la|los|las|sobre|por)\s+)+/i;
-const LEADING_ZEROS = /^0+/;
-const POSITIVE_INTEGER = /^[1-9]\d*$/;
-const LEADING_SPACES_AND_PUNCTUATION = /^[\s.,;:!?-]+/;
-const TRAILING_SPACES_AND_HYPHENS = /[\s-]+$/;
-const LEADING_TOKEN = /^\S+/;
 
 function fold(text: string): string {
   return Array.from(text, (char) => (char.length === 1 ? char.normalize("NFD")[0] : char)).join("");
@@ -81,8 +83,6 @@ export function parseInicioIncidencia(text: string): InicioIncidencia | null {
   if (sentence) return fromSentence(text, sentence[0].length);
   return null;
 }
-
-const BARE_CODIGO = /^\s*(?:codigo[-\s]?ipress\s*:?\s*)?(\d{1,9})\s*[.!]?\s*$/i;
 
 export function parseCodigoSuelto(text: string): string | undefined {
   const match = BARE_CODIGO.exec(fold(text));

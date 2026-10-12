@@ -25,6 +25,7 @@ import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { TEMPORAL_PHRASE } from "@/lib/constants/regex/date-time";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -85,9 +86,6 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
 
   return searchOtherEstablecimiento(next);
 }
-
-const TEMPORAL_PHRASE =
-  /\b(semana|mes|proxim[oa]s?|siguiente|dias?|fin|final|inicio|principios?|quincena|luego|despues|pronto|temprano|urgente|antes|cuando|fecha)\b/;
 
 function askFechaAi(session: Session, typed: string): HandlerResult | undefined {
   if (!TEMPORAL_PHRASE.test(normalizeText(typed).toLowerCase())) return undefined;

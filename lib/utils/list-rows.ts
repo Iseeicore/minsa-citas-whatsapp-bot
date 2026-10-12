@@ -4,6 +4,7 @@ import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { PagerDirection } from "@/lib/enums/pager-direction";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { ListRow } from "@/lib/fsm/core/types";
+import { TARGET_PAGE_OF_TOTAL } from "@/lib/constants/regex/chat-format";
 
 export type PagerAction = Pick<ListRow, "id" | "title">;
 
@@ -20,8 +21,6 @@ const PAGER_BUTTON_IDS: ReadonlySet<string> = new Set([
   HoraPageButtonId.PREV,
   HoraPageButtonId.NEXT,
 ]);
-
-const TARGET_PAGE_OF_TOTAL = /P[áa]gina\s+(\d+)\s+de\s+(\d+)/i;
 
 export function filterRows(rows: ListRow[], query: string): ListRow[] {
   const tokens = normalizeText(query).split(" ").filter(Boolean);

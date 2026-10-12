@@ -1,5 +1,12 @@
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { RejectReason } from "@/lib/enums/reject-reason";
+import {
+  BARE_DOMAIN,
+  LINK_MARKERS,
+  NOT_EMOJI_NOR_SPACE,
+  PICTOGRAPH,
+  REPEATED_CHARACTER,
+} from "@/lib/constants/regex/security";
 
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
 export const NOISE_MIN_LENGTH = 12;
@@ -18,13 +25,7 @@ export type { RejectReason };
 
 const MEDIA_TYPES = new Set(["image", "audio", "video", "document"]);
 
-const LINK_MARKERS = /(?:https?:\/\/|\bwww\.|\bwa\.me\b|\bt\.me\b|\bbit\.ly\b|\btinyurl\.com\b)/i;
-const BARE_DOMAIN = /\b[a-z0-9][a-z0-9-]*\.(?:com|net|org|info|xyz|io|me|co|pe|gob\.pe|edu\.pe)\b/i;
-
-const REPEATED_CHARACTER = /(\S)\1{9,}/u;
 const MIN_EMOJIS_WITHOUT_WORDS = 6;
-const PICTOGRAPH = /\p{Extended_Pictographic}/gu;
-const NOT_EMOJI_NOR_SPACE = /[^\p{Extended_Pictographic}\uFE0F\u200D\u{1F3FB}-\u{1F3FF}\s]/u;
 
 function isRepetitionSpam(body: string): boolean {
   if (REPEATED_CHARACTER.test(body)) return true;

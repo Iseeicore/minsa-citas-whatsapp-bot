@@ -2,10 +2,9 @@ import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
 import { minsaDigitalUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { ACTIVE_CITA_MESSAGE } from "@/lib/constants/regex/integrations";
 
 const BOOKING_LOG_BODY_LIMIT = 300;
-
-const ACTIVE_CITA_MESSAGE = /ya tiene una cita activa/i;
 
 function minsaMessageOf(body: string): string | undefined {
   try {

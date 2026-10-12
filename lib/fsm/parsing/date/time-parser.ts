@@ -1,5 +1,22 @@
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
-import { ALL_WHITESPACE_RUNS, CLOCK_TIME, COMBINING_ACCENT_MARKS } from "@/lib/fsm/parsing/text/text-patterns";
+import { ALL_WHITESPACE_RUNS, CLOCK_TIME, COMBINING_ACCENT_MARKS } from "@/lib/constants/regex/text";
+import {
+  AFTERNOON_OR_NIGHT_WORD,
+  BARE_HOUR,
+  COMPACT_HOUR_AND_MINUTE,
+  DOTTED_MERIDIEM,
+  EARLIEST_TIME_REQUEST,
+  HOUR_COLON_MINUTE,
+  HOUR_MARKER,
+  HOUR_MINUS_MINUTES,
+  HOUR_ON_THE_DOT,
+  HOUR_PLUS_MINUTES,
+  LATEST_TIME_REQUEST,
+  MIDNIGHT,
+  MORNING_WORD,
+  NOON,
+  SYMBOLS_OUTSIDE_TIME_TEXT,
+} from "@/lib/constants/regex/date-time";
 
 export type HoraSlot = { start: string; end: string; cupos: number };
 
@@ -32,9 +49,6 @@ const NUMBER_WORDS: Record<string, number> = {
   veintidos: 22, veintitres: 23, veinticinco: 25, treinta: 30,
 };
 
-const DOTTED_MERIDIEM = /\b([ap])\.\s?m\.?/g;
-const SYMBOLS_OUTSIDE_TIME_TEXT = /[^a-z0-9: ]+/g;
-
 function normalize(raw: string): string {
   const text = raw
     .toLowerCase()
@@ -57,20 +71,6 @@ type Parsed =
   | { kind: "earliest" }
   | { kind: "latest" }
   | { kind: "none" };
-
-const MORNING_WORD = /\b(?:am|manana|madrugada)\b/;
-const AFTERNOON_OR_NIGHT_WORD = /\b(?:pm|tarde|noche)\b/;
-const EARLIEST_TIME_REQUEST = /\blo mas (?:pronto|temprano)\b|\bcuanto antes\b|\bla mas temprano\b/;
-const LATEST_TIME_REQUEST = /\b(?:lo|la) mas tarde\b/;
-const NOON = /\bmediodia\b/;
-const MIDNIGHT = /\bmedianoche\b/;
-const HOUR_COLON_MINUTE = /\b(\d{1,2}):(\d{2})\b/;
-const HOUR_MINUS_MINUTES = /\b(\d{1,2}) menos (cuarto|\d{1,2})\b/;
-const HOUR_PLUS_MINUTES = /\b(\d{1,2}) (?:y|con) (media|cuarto|\d{1,2})\b/;
-const HOUR_ON_THE_DOT = /\b(\d{1,2}) en punto\b/;
-const COMPACT_HOUR_AND_MINUTE = /\b(\d{3,4})\b/;
-const BARE_HOUR = /\b(\d{1,2})\b/;
-const HOUR_MARKER = /\ba las?\b|\blas \d|\bhoras?\b|\bhrs?\b/;
 
 function detectPeriod(text: string): MeridiemPeriod | null {
   if (MORNING_WORD.test(text)) return MeridiemPeriod.AM;

@@ -2,6 +2,7 @@ import type { HandleEvent, Session } from "@/lib/fsm/core/types";
 import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { BASE64URL_MINUS, BASE64URL_UNDERSCORE } from "@/lib/constants/regex/integrations";
 
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
@@ -41,9 +42,6 @@ export function resumeStateFor(waitingState: string, slots: Session["slots"] = {
   const guarded = guardedStateOf(waitingState, slots);
   return guarded ? (RESUME_STATE_BY_WAITING_STATE[guarded] ?? undefined) : undefined;
 }
-
-const BASE64URL_MINUS = /-/g;
-const BASE64URL_UNDERSCORE = /_/g;
 
 export function decodeJwtExp(token: string): number | null {
   const parts = token.split(".");

@@ -1,7 +1,10 @@
-import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS, WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
-
-const WORD_INITIAL = /(^|[\s(-])(\p{L})/gu;
-const CAPITALIZED_CONNECTOR = /(?<=\s)(De|Del|La|Las|Los|Y)(?=\s|$)/g;
+import {
+  ALL_WHITESPACE_RUNS,
+  CAPITALIZED_CONNECTOR,
+  COMBINING_ACCENT_MARKS,
+  WHITESPACE_RUN,
+  WORD_INITIAL,
+} from "@/lib/constants/regex/text";
 
 export function normalizeText(value: string): string {
   return value

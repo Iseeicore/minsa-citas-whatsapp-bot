@@ -1,19 +1,5 @@
-import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/fsm/parsing/text/text-patterns";
-const EXIT_PATTERNS: readonly RegExp[] = [
-  /^(ya )?(me )?(quiero|deseo|necesito) salir( de (aqui|esto|la cita|el chat|este chat))?$/,
-  /^salir( de (aqui|esto|la cita|el chat|este chat))?$/,
-  /\bya no quiero( (nada|seguir|continuar|la cita|mas|esto))?$/,
-  /\bno quiero (nada|seguir|continuar|mas nada)\b/,
-  /\bno (voy a|quiero) (seguir|continuar)\b/,
-  /\bya no (sigo|continuo)\b/,
-  /\bme aburri\b/,
-  /\b(que aburrido|estoy aburrid[oa])\b/,
-  /\bolvidalo\b/,
-  /\bolvidate\b/,
-  /\bdejalo( asi)?$/,
-  /\bcancela(r)? (la|mi) cita\b/,
-  /\bme (canse|harte|rindo)\b/,
-];
+import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WORD_SEPARATORS } from "@/lib/constants/regex/text";
+import { EXIT_PATTERNS } from "@/lib/constants/regex/selection";
 
 export function normalizeIntentPhrase(text: string): string {
   return text
