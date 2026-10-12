@@ -251,6 +251,7 @@ lib/
   constants/prompts/         los prompts de las tareas de IA, un archivo por tarea
   constants/palabras-clave.ts  palabras y frases que escribe el ciudadano y que el bot reconoce
   utils/                     funciones puras que no dependen de React ni del render
+  errors/                    clases de error propias, una por archivo (UnknownStateError, TurnLockTimeoutError)
   db/                        cliente Prisma (carga diferida) y el flag DATABASE_ENABLED
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
     webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
@@ -337,8 +338,21 @@ El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca
 | Configuración | `lib/config/config-errors.ts` (`CONFIG_ERRORS`) | `instrumentation.ts` revisa la configuración al arrancar y registra cada problema como `config.invalid`; `/api/health` pasa a `degraded`. El bot no se detiene |
 | Textos al ciudadano | `lib/constants/textos/fallas.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
 | Respuestas HTTP | `lib/http/api-error.ts` (`API_ERRORS`, `apiError`) | Toda respuesta de error es `{ error: CÓDIGO, message }` (más `detail` opcional), con el status del catálogo y el mensaje en español. Los `403` del webhook siguen en texto plano porque Meta no lee el cuerpo |
+| Excepciones | `lib/errors/` (una clase por archivo, sin archivo índice) | Nada en `lib/` ni en `app/` lanza un `Error` genérico: cada falla tiene su clase, que arma el mensaje a partir de sus datos y los expone como campos de solo lectura. Quien la atrapa la reconoce con `instanceof`, nunca por el texto del mensaje. `tests/integration/errores-location.test.ts` lo hace cumplir |
 
-Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usarlo desde ahí; nunca un string suelto.
+| Clase | Cuándo se lanza |
+|---|---|
+| `UnknownStateError` | La sesión está en un estado que ningún flujo atiende |
+| `UnhandledQueryKindError` | El ejecutor recibe una consulta que no sabe resolver |
+| `MultipleQueryEffectsError` | Un paso devuelve más de una consulta en la misma pasada |
+| `MaxPassesExceededError` | Un turno supera el tope de pasadas del ejecutor |
+| `DatabaseDisabledError` | Se usa Prisma con la base de datos apagada |
+| `ImageStorageError` | El servicio de imágenes responde con error o sin ruta |
+| `TurnLockTimeoutError` | Se agota la espera del candado de turno; el Sandbox responde `BUSY` y el webhook registra `turn.lock_timeout` |
+
+Un resultado esperado (por ejemplo, una reserva rechazada) no es una excepción: la función devuelve su estado como enum.
+
+Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su clase a `lib/errors/` con su test, y usarlo desde ahí; nunca un string suelto.
 
 ## Pruebas
 

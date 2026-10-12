@@ -25,6 +25,7 @@ import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SessionState } from "@/lib/enums/session-state";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
@@ -107,5 +108,5 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
     return handleCita(session, event);
   }
 
-  throw new Error(`handle: unknown state "${session.state}"`);
+  throw new UnknownStateError("handle", session.state);
 }

@@ -1,6 +1,7 @@
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
-import { TurnLockTimeoutError, type DbTurnLock } from "@/lib/fsm/session/turn-lock";
+import type { DbTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { LOCK_TIMEOUT_MESSAGE } from "@/lib/constants/regex/integrations";
 import { toText } from "@/lib/utils/text-values";

@@ -31,7 +31,9 @@ vi.mock("@/lib/fsm/session/session-store", () => {
   };
 });
 import { createRunTurn, runTurn, runTurnUnlocked } from "@/lib/fsm/core/executor";
-import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { createPrismaAdvisoryLock, type AdvisoryLockClient } from "@/lib/fsm/session/turn-lock-db";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
@@ -229,7 +231,9 @@ describe("two server instances sharing one Postgres", () => {
     const b = instance(postgres);
     db.sessions.set("wa-crash", { state: "no_such_state", slots: {}, counters: {} });
 
-    await expect(a("wa-crash", text("wa-crash", "hola"))).rejects.toThrow(/unknown state/);
+    const crashed = await a("wa-crash", text("wa-crash", "hola")).catch((caught: unknown) => caught);
+    expect(crashed).toBeInstanceOf(UnknownStateError);
+    expect(crashed).toMatchObject({ handler: "handle", state: "no_such_state", message: 'handle: unknown state "no_such_state"' });
 
     db.sessions.set("wa-crash", { state: "main_menu", slots: {}, counters: {} });
     const result = await b("wa-crash", text("wa-crash", "hola"));

@@ -29,6 +29,7 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import {
   IDENTITY_QUESTION_TEXT,
@@ -104,7 +105,7 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
     case SessionState.INCIDENCIA_SUBMIT_PENDING:
       return handleSubmitPending(session, event as QueryResultEvent);
     default:
-      throw new Error(`handleIncidencia: unknown state "${session.state}"`);
+      throw new UnknownStateError("handleIncidencia", session.state);
   }
 }
 

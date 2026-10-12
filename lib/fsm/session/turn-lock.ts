@@ -2,18 +2,9 @@ import { logger } from "@/lib/observability/logger";
 import { tail as maskWaId } from "@/lib/observability/mask";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 
 export type { TurnLockLayer };
-
-export class TurnLockTimeoutError extends Error {
-  constructor(
-    readonly waId: string,
-    readonly layer: TurnLockLayer,
-  ) {
-    super(`Timed out waiting for the ${layer} turn lock of ${waId}`);
-    this.name = "TurnLockTimeoutError";
-  }
-}
 
 export { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 

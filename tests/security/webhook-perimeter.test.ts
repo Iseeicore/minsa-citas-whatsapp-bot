@@ -72,7 +72,8 @@ vi.mock("@/lib/fsm/session/turn-lock", async (importOriginal) => ({
 }));
 
 import { POST } from "@/app/webhook/whatsapp/route";
-import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TURN_FAILURE_TEXT } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { configureLogger } from "@/lib/observability/logger";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";

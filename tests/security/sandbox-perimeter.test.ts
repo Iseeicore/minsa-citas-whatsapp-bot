@@ -21,7 +21,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { POST } from "@/app/api/sandbox/route";
-import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 

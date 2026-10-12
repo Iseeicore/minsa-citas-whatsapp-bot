@@ -1,6 +1,6 @@
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
-import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";

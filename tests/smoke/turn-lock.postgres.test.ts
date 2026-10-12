@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
 import { prisma } from "@/lib/db/prisma";
 

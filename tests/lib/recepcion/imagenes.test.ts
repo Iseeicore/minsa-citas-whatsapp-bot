@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_IMAGE_BYTES, parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
 import { guardarImagenHttp } from "@/lib/recepcion/imagenes/almacen-http";
 import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
+import { ImageStorageError } from "@/lib/errors/image-storage-error";
+import { ImageStorageFailure } from "@/lib/enums/image-storage-failure";
 
 const PNG_BASE64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]).toString("base64");
 
@@ -70,9 +72,20 @@ describe("the image storage service", () => {
 
   it("fails when the service answers an error or no path", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("boom", { status: 503 })));
-    await expect(guardarImagenHttp(Buffer.from("a"), "image/png")).rejects.toThrow(/503/);
+    const rejected = await guardarImagenHttp(Buffer.from("a"), "image/png").catch((caught: unknown) => caught);
+    expect(rejected).toBeInstanceOf(ImageStorageError);
+    expect(rejected).toMatchObject({
+      message: "El servicio de imágenes respondió 503",
+      failure: ImageStorageFailure.BAD_STATUS,
+      status: 503,
+    });
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })));
-    await expect(guardarImagenHttp(Buffer.from("a"), "image/png")).rejects.toThrow(/ruta/);
+    const withoutPath = await guardarImagenHttp(Buffer.from("a"), "image/png").catch((caught: unknown) => caught);
+    expect(withoutPath).toBeInstanceOf(ImageStorageError);
+    expect(withoutPath).toMatchObject({
+      message: "El servicio de imágenes no devolvió una ruta",
+      failure: ImageStorageFailure.MISSING_PATH,
+    });
   });
 });

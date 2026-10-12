@@ -39,6 +39,9 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { slotText, payloadText } from "@/lib/fsm/core/slot-readers";
 import { MAX_PASSES } from "@/lib/constants/limits/engine";
+import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-error";
+import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
+import { UnhandledQueryKindError } from "@/lib/errors/unhandled-query-kind-error";
 
 export type TurnResult = {
   sent: SendEffect[];
@@ -92,7 +95,7 @@ export async function runTurnUnlocked(
         return { sent, session: currentSession };
       }
       if (queries.length > 1) {
-        throw new Error("runTurn: handle() returned more than one query effect in a single pass");
+        throw new MultipleQueryEffectsError(queries.length);
       }
 
       const [queryEffect] = queries;
@@ -110,9 +113,7 @@ export async function runTurnUnlocked(
       currentEvent = resultEvent;
     }
 
-    throw new Error(
-      `runTurn: exceeded ${MAX_PASSES} query-resolution passes in a single turn — state machine bug`,
-    );
+    throw new MaxPassesExceededError(MAX_PASSES);
   });
 }
 
@@ -265,7 +266,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     }
 
     default:
-      throw new Error(`resolveQuery: unhandled query kind "${effect.kind}"`);
+      throw new UnhandledQueryKindError(effect.kind);
   }
 }
 

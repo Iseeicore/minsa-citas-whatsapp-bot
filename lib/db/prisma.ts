@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
+import { DatabaseDisabledError } from "@/lib/errors/database-disabled-error";
 
 function createPrismaClient() {
   return new PrismaClient();
@@ -13,7 +14,7 @@ let instance = globalForPrisma.prisma;
 
 function getPrismaClient(): PrismaClient {
   if (!isDatabaseEnabled()) {
-    throw new Error("Prisma was used while DATABASE_ENABLED=false; this code path must not touch the database");
+    throw new DatabaseDisabledError();
   }
   if (!instance) {
     instance = createPrismaClient();

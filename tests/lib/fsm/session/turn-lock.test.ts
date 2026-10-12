@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createTurnLock, defaultDbLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createTurnLock, defaultDbLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

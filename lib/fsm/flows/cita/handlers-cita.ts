@@ -46,6 +46,7 @@ import {
   handleReferencesPending,
 } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { SessionState } from "@/lib/enums/session-state";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -128,6 +129,6 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
     case SessionState.CITA_AWAITING_REFERENCIA_CONFIRM:
       return handleAwaitingReferenciaConfirm(session, event as InboundEvent);
     default:
-      throw new Error(`handleCita: unknown state "${session.state}"`);
+      throw new UnknownStateError("handleCita", session.state);
   }
 }

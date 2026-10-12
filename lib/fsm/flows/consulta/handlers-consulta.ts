@@ -21,6 +21,7 @@ import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channe
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import {
   ASK_CODIGO_TEXT,
   ASK_CODIGO_O_LISTAR_TEXT,
@@ -267,6 +268,6 @@ export function handleConsulta(session: Session, event: HandleEvent): HandlerRes
     case SessionState.CONSULTA_AWAITING_LISTADO:
       return handleAwaitingListado(session, event as InboundEvent);
     default:
-      throw new Error(`handleConsulta: unknown state "${session.state}"`);
+      throw new UnknownStateError("handleConsulta", session.state);
   }
 }
