@@ -18,7 +18,10 @@ import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
 import { TypingIndicator } from "@/app/components/sandbox-chat/TypingIndicator";
 import { DniCard } from "@/app/components/sandbox-chat/DniCard";
 import { DebugPanel } from "@/app/components/sandbox-chat/DebugPanel";
-import { ErrorBanner } from "@/app/components/ui/ErrorBanner";
+import { Banner } from "@/app/components/ui/Banner";
+import { Button } from "@/app/components/ui/Button";
+import { BannerTone } from "@/lib/enums/banner-tone";
+import { ButtonVariant } from "@/lib/enums/button-variant";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
@@ -211,12 +214,9 @@ export default function Sandbox({
 
           {showDebugPanel && (
             <div className="flex items-center justify-end px-4 pt-2">
-              <button
-                onClick={handleReset}
-                className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-              >
+              <Button variant={ButtonVariant.PILL_NEUTRAL} onClick={handleReset}>
                 Reiniciar todas las pruebas
-              </button>
+              </Button>
             </div>
           )}
 
@@ -234,7 +234,7 @@ export default function Sandbox({
             <div ref={bottomRef} />
           </div>
 
-          {error && <ErrorBanner>{error}</ErrorBanner>}
+          {error && <Banner tone={BannerTone.ERROR}>{error}</Banner>}
 
           <Composer
             from={from}

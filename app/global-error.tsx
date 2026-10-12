@@ -1,5 +1,8 @@
 "use client";
 
+import { Button } from "@/app/components/ui/Button";
+import { ButtonVariant } from "@/lib/enums/button-variant";
+
 export default function GlobalError({
   reset,
 }: {
@@ -11,7 +14,9 @@ export default function GlobalError({
       <body>
         <div style={{ padding: 24, fontFamily: "sans-serif" }}>
           <h2>Something went wrong.</h2>
-          <button onClick={() => reset()}>Try again</button>
+          <Button variant={ButtonVariant.UNSTYLED} onClick={() => reset()}>
+            Try again
+          </Button>
         </div>
       </body>
     </html>

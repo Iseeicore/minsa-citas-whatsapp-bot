@@ -5,7 +5,9 @@ import MinsaDigitalBackdrop from "@/app/components/MinsaDigitalBackdrop";
 import Sandbox from "@/app/components/Sandbox";
 import { clearStoredChat } from "@/app/components/sandbox-chat/storage";
 import { AssistantCard } from "@/app/components/ui/AssistantCard";
+import { Button } from "@/app/components/ui/Button";
 import { ConfirmDialog } from "@/app/components/ui/ConfirmDialog";
+import { ButtonVariant } from "@/lib/enums/button-variant";
 import { WidgetMode } from "@/lib/enums/widget-mode";
 import {
   INITIAL_WIDGET_STATE,
@@ -113,8 +115,8 @@ export default function SandboxWidgetDemo() {
         </div>
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant={ButtonVariant.UNSTYLED}
         onClick={openChat}
         aria-label="Abrir el asistente virtual MINS IA"
         className={`fixed right-4 z-20 transition duration-200 hover:scale-105 ${
@@ -123,7 +125,7 @@ export default function SandboxWidgetDemo() {
         style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         <AssistantCard />
-      </button>
+      </Button>
 
       {confirmingClose && (
         <ConfirmDialog

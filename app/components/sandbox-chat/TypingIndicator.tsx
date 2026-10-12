@@ -1,9 +1,8 @@
-import { BotAvatarBadge } from "@/app/components/ui/BotAvatarBadge";
+import { BotMessageRow } from "@/app/components/sandbox-chat/BotMessageRow";
 
 export function TypingIndicator() {
   return (
-    <div className="mb-3 flex items-start gap-2">
-      <BotAvatarBadge />
+    <BotMessageRow>
       <div className="flex items-center gap-1 rounded-2xl rounded-tl-none border border-gray-100 bg-sb-bubble-bot px-3 py-2.5 shadow-sm">
         {[0, 1, 2].map((i) => (
           <span
@@ -13,6 +12,6 @@ export function TypingIndicator() {
           />
         ))}
       </div>
-    </div>
+    </BotMessageRow>
   );
 }

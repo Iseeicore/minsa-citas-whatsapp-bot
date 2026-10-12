@@ -1,0 +1,16 @@
+export enum ButtonVariant {
+  PRIMARY = "primary",
+  OUTLINE = "outline",
+  OPTION = "option",
+  LIST_OPTION = "list_option",
+  ACCENT = "accent",
+  PILL_ON_DARK = "pill_on_dark",
+  PILL_NEUTRAL = "pill_neutral",
+  ROW = "row",
+  ICON_PLAIN = "icon_plain",
+  ICON_CONTROL = "icon_control",
+  ICON_SOLID_NAVY = "icon_solid_navy",
+  ICON_SOLID_WHATSAPP = "icon_solid_whatsapp",
+  SWITCH_TRACK = "switch_track",
+  UNSTYLED = "unstyled",
+}

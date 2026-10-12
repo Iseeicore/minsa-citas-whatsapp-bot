@@ -1,6 +1,12 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "@/app/components/icons";
+import { Button } from "@/app/components/ui/Button";
+import { ButtonSize } from "@/lib/enums/button-size";
+import { ButtonVariant } from "@/lib/enums/button-variant";
+import { ButtonWidth } from "@/lib/enums/button-width";
 import { PagerDirection } from "@/lib/enums/pager-direction";
 import type { PagerAction } from "@/lib/utils/list-rows";
+
+const CHEVRON_CLASS_NAME = "h-3.5 w-3.5 shrink-0";
 
 function PagerButton({
   action,
@@ -12,18 +18,18 @@ function PagerButton({
   onSelect: (id: string, title: string) => void;
 }) {
   const isPrev = direction === PagerDirection.PREV;
-  const Chevron = isPrev ? ChevronLeftIcon : ChevronRightIcon;
 
   return (
-    <button
-      type="button"
+    <Button
+      variant={ButtonVariant.OUTLINE}
+      size={ButtonSize.SM}
+      width={ButtonWidth.GROW}
       onClick={() => onSelect(action.id, action.title)}
-      className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-sb-navy bg-white px-3 py-1.5 text-xs font-semibold text-sb-navy transition-colors hover:bg-sb-panel"
+      iconStart={isPrev ? <ChevronLeftIcon className={CHEVRON_CLASS_NAME} /> : undefined}
+      iconEnd={isPrev ? undefined : <ChevronRightIcon className={CHEVRON_CLASS_NAME} />}
     >
-      {isPrev && <Chevron className="h-3.5 w-3.5 shrink-0" />}
       {action.title}
-      {!isPrev && <Chevron className="h-3.5 w-3.5 shrink-0" />}
-    </button>
+    </Button>
   );
 }
 

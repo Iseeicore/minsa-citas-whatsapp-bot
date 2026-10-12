@@ -6,6 +6,11 @@ import ConversationView from "@/app/components/ConversationView";
 import Sandbox from "@/app/components/Sandbox";
 import type { Conversation } from "@/app/components/types";
 import { ChatPlaceholderIcon, SandboxGlyph, WhatsAppGlyph } from "@/app/components/icons";
+import { Avatar } from "@/app/components/ui/Avatar";
+import { Button } from "@/app/components/ui/Button";
+import { EmptyState } from "@/app/components/ui/EmptyState";
+import { ButtonVariant } from "@/lib/enums/button-variant";
+import { ButtonWidth } from "@/lib/enums/button-width";
 import { type SandboxMode as Mode, initialModeFromQuery } from "@/lib/utils/sandbox-mode";
 
 export default function Home() {
@@ -27,23 +32,7 @@ export default function Home() {
         </aside>
 
         <main className="h-full overflow-hidden">
-          {mode === "real" ? (
-            selectedConversation ? (
-              <ConversationView
-                key={selectedConversation.id}
-                conversationId={selectedConversation.id}
-                profileName={selectedConversation.profileName}
-                waId={selectedConversation.waId}
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 bg-wa-panel text-sm text-gray-500">
-                <ChatPlaceholderIcon />
-                <p>Selecciona una conversación para ver los mensajes.</p>
-              </div>
-            )
-          ) : (
-            <Sandbox />
-          )}
+          {mode === "real" ? <ConversationPane conversation={selectedConversation} /> : <Sandbox />}
         </main>
       </div>
 
@@ -70,20 +59,7 @@ export default function Home() {
         ) : (
           <div className="flex-1 overflow-hidden">
             {mode === "real" ? (
-              selectedConversation ? (
-                <ConversationView
-                  key={selectedConversation.id}
-                  conversationId={selectedConversation.id}
-                  profileName={selectedConversation.profileName}
-                  waId={selectedConversation.waId}
-                  onBack={() => setMobileShowingDetail(false)}
-                />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-3 bg-wa-panel text-sm text-gray-500">
-                  <ChatPlaceholderIcon />
-                  <p>Selecciona una conversación para ver los mensajes.</p>
-                </div>
-              )
+              <ConversationPane conversation={selectedConversation} onBack={() => setMobileShowingDetail(false)} />
             ) : (
               <Sandbox onBack={() => setMobileShowingDetail(false)} />
             )}
@@ -94,19 +70,29 @@ export default function Home() {
   );
 }
 
+function ConversationPane({ conversation, onBack }: { conversation: Conversation | null; onBack?: () => void }) {
+  if (!conversation) {
+    return <EmptyState icon={<ChatPlaceholderIcon />}>Selecciona una conversación para ver los mensajes.</EmptyState>;
+  }
+
+  return (
+    <ConversationView
+      key={conversation.id}
+      conversationId={conversation.id}
+      profileName={conversation.profileName}
+      waId={conversation.waId}
+      onBack={onBack}
+    />
+  );
+}
+
 function SandboxListRow({ onSelect }: { onSelect: () => void }) {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <ul>
         <li>
-          <button
-            type="button"
-            onClick={onSelect}
-            className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-50"
-          >
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-sb-header-from to-sb-header-to text-sm font-bold text-white">
-              MD
-            </span>
+          <Button variant={ButtonVariant.ROW} width={ButtonWidth.FULL} onClick={onSelect}>
+            <Avatar className="bg-gradient-to-r from-sb-header-from to-sb-header-to font-bold">MD</Avatar>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-gray-900">
                 Asistente MINSA Digital
@@ -115,7 +101,7 @@ function SandboxListRow({ onSelect }: { onSelect: () => void }) {
                 Toca para iniciar una conversación de prueba
               </span>
             </span>
-          </button>
+          </Button>
         </li>
       </ul>
     </div>
@@ -128,12 +114,12 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => 
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Panel</span>
-      <button
-        type="button"
+      <Button
+        variant={ButtonVariant.SWITCH_TRACK}
+        width={ButtonWidth.FULL}
         role="switch"
         aria-checked={isSandbox}
         onClick={() => onChange(isSandbox ? "real" : "sandbox")}
-        className="relative flex h-10 w-full items-center rounded-full bg-gray-200 p-1 transition-colors"
       >
         <span
           className={`absolute top-1 h-8 w-[calc(50%-4px)] rounded-full bg-white shadow transition-transform duration-200 ${
@@ -156,7 +142,7 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => 
           <SandboxGlyph className="h-3.5 w-3.5" />
           Sandbox
         </span>
-      </button>
+      </Button>
     </div>
   );
 }
