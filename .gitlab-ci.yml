@@ -3,6 +3,11 @@ stages:          # List of stages for jobs, and their order of execution
 #  - test
   - deploy
 
+image: reposdocker.minsa.gob.pe/python-lint:3.12
+variables:
+  ANSIBLE_STDOUT_CALLBACK: yaml
+  ANSIBLE_FORCE_COLOR: 'true'
+
 deploy desarrollo:
   stage: deploy
   image: registry.minsa.gob.pe/oidt/images/ansible:2.15
