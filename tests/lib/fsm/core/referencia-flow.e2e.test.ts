@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import type { ListReferencesResult } from "@/lib/integrations/minsa/types";
 
 const store = vi.hoisted(() => new Map<string, unknown>());
 const bookingCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>);
+const referencias = vi.hoisted(() => ({ result: { status: "empty", items: [] } as ListReferencesResult }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
   getSession: async (from: string) =>
@@ -23,9 +25,33 @@ vi.mock("@/lib/integrations/minsa/booking", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/integrations/minsa/references", () => ({
+  listReferences: async (): Promise<ListReferencesResult> => referencias.result,
+}));
+
 import { runTurn } from "@/lib/fsm/core/executor";
 
 const FROM = "sandbox-referencia-e2e";
+const DOCUMENTO = "12345678";
+
+const SIN_REFERENCIAS: ListReferencesResult = { status: "empty", items: [] };
+const UNA_REFERENCIA: ListReferencesResult = {
+  status: "found",
+  items: [
+    {
+      idReferencia: "1364486",
+      numero: "00123",
+      fechaInicio: "24/07/2024 23:03",
+      ipressOrigen: "SAN FERNANDO",
+      ipressDestino: "HOSPITAL MARIA AUXILIADORA",
+      upsOrigen: "MEDICINA GENERAL",
+      upsDestino: "GASTROENTEROLOGÍA",
+      codigoIpressDestino: "5987",
+      codigoUpsDestino: "222800",
+      estado: 7,
+    },
+  ],
+};
 
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
@@ -42,19 +68,20 @@ function describeEffect(effect: SendEffect): string {
   return effect.text;
 }
 
-async function loginWith(dni: string) {
+async function login() {
   await say(text("Hola"));
   const intent = await say(text("quiero una cita de odontología"));
   expect(intent.session.state).toBe("cita_awaiting_dni");
-  const withDni = await say(text(dni));
+  const withDni = await say(text(DOCUMENTO));
   expect(withDni.session.state).toBe("cita_awaiting_otp");
   return say(text("1234"));
 }
 
-describe("cita por referencia médica de punta a punta (adaptadores simulados)", () => {
+describe("cita por referencia médica de punta a punta (adaptadores simulados, referencias inyectadas)", () => {
   beforeEach(() => {
     store.clear();
     bookingCalls.length = 0;
+    referencias.result = SIN_REFERENCIAS;
     delete process.env.SANDBOX_USE_REAL_MINSA;
     delete process.env.SANDBOX_USE_REAL_RENIEC;
     delete process.env.SANDBOX_USE_REAL_AI;
@@ -66,8 +93,9 @@ describe("cita por referencia médica de punta a punta (adaptadores simulados)",
     vi.useRealTimers();
   });
 
-  it("el DNI de prueba elige una referencia, salta distrito/establecimiento/especialidad y agenda enviando referencia_id", async () => {
-    const otp = await loginWith("32028036");
+  it("con una referencia, la elige, salta distrito/establecimiento/especialidad y agenda enviando referencia_id", async () => {
+    referencias.result = UNA_REFERENCIA;
+    const otp = await login();
     expect(otp.session.state).toBe("cita_awaiting_references_offer");
 
     const offer = await say(text("sí"));
@@ -93,13 +121,13 @@ describe("cita por referencia médica de punta a punta (adaptadores simulados)",
     expect(bookingCalls[0]).toMatchObject({
       codigoRenipress: "5987",
       codigoUps: "222800",
-      numeroDocumentoPaciente: "32028036",
+      numeroDocumentoPaciente: DOCUMENTO,
       referenciaId: "1364486",
     });
   });
 
-  it("una cita normal (otro DNI) se agenda sin referenciaId", async () => {
-    const otp = await loginWith("12345678");
+  it("sin referencias, la cita normal se agenda sin referenciaId", async () => {
+    const otp = await login();
     expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
 
     await say(text("en Lurigancho"));

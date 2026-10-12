@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TipoDocumento } from "@/lib/enums/tipo-documento";
-import {
-  FAKE_CARNET_EXTRANJERIA,
-  FAKE_DNI,
-  FAKE_REFERENCIAS_DNI,
-  FAKE_TWOFA_ID,
-} from "@/lib/integrations/minsa/fake-data";
-import { validateUser } from "@/lib/integrations/minsa/identity";
+import { FAKE_CARNET_EXTRANJERIA, FAKE_DNI, FAKE_TWOFA_ID } from "@/lib/integrations/minsa/fake-data";
+import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 
 describe("fake validateUser", () => {
   beforeEach(() => {
@@ -15,13 +10,6 @@ describe("fake validateUser", () => {
 
   it("valida el DNI de prueba", async () => {
     await expect(validateUser(FAKE_DNI, TipoDocumento.DNI)).resolves.toEqual({ status: "valid", twofaId: FAKE_TWOFA_ID });
-  });
-
-  it("valida el DNI de prueba de referencias médicas, para poder recorrer ese flujo en el sandbox", async () => {
-    await expect(validateUser(FAKE_REFERENCIAS_DNI, TipoDocumento.DNI)).resolves.toEqual({
-      status: "valid",
-      twofaId: FAKE_TWOFA_ID,
-    });
   });
 
   it("valida el carnet de extranjería de prueba, con 9 dígitos", async () => {
@@ -75,5 +63,76 @@ describe("real MINSA: validateUser respeta el contrato de validar-usuario", () =
     vi.stubGlobal("fetch", minsaResponding({}, 404));
 
     await expect(validateUser("123456789", TipoDocumento.CARNET_EXTRANJERIA)).resolves.toEqual({ status: "not_valid" });
+  });
+
+  it.each([
+    ["success con twofa_id en la raíz", { success: true, twofa_id: "tw-1" }],
+    ["is_valid", { is_valid: true, twofa_id: "tw-1" }],
+    ["valido y twofa_id dentro de data", { data: { valido: true, twofa_id: "tw-1" } }],
+  ])("forma alterna pendiente de confirmar con MINSA: %s", async (_forma, body) => {
+    vi.stubGlobal("fetch", minsaResponding(body));
+
+    await expect(validateUser("10684750", TipoDocumento.DNI)).resolves.toEqual({ status: "valid", twofaId: "tw-1" });
+  });
+
+  it.each([
+    ["valido en false", { valido: false, twofa_id: "tw-1" }, { status: "not_valid" }],
+    ["un cuerpo vacío", {}, { status: "not_valid" }],
+    ["un cuerpo que no es objeto", null, { status: "not_valid" }],
+    ["válido sin twofa_id", { valido: true }, { status: "error" }],
+    ["twofa_id que no es texto", { valido: true, twofa_id: 7 }, { status: "error" }],
+  ])("%s", async (_caso, body, esperado) => {
+    vi.stubGlobal("fetch", minsaResponding(body));
+
+    await expect(validateUser("10684750", TipoDocumento.DNI)).resolves.toEqual(esperado);
+  });
+
+  it("un 500 es error", async () => {
+    vi.stubGlobal("fetch", minsaResponding({}, 500));
+
+    await expect(validateUser("10684750", TipoDocumento.DNI)).resolves.toEqual({ status: "error" });
+  });
+});
+
+describe("real MINSA: verifyCode", () => {
+  const minsaResponding = (body: unknown, status = 200) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status }));
+
+  beforeEach(() => {
+    vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
+    vi.stubEnv("MINSA_INTEGRATION_SECRET", "test-secret");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["token en la raíz", { success: true, token: "jwt" }],
+    ["token dentro de data", { success: true, data: { token: "jwt" } }],
+  ])("verifica con %s (ninguna de las dos formas está confirmada con MINSA)", async (_forma, body) => {
+    vi.stubGlobal("fetch", minsaResponding(body));
+
+    await expect(verifyCode("tw-1", "1234")).resolves.toEqual({ status: "verified", token: "jwt" });
+  });
+
+  it.each([
+    ["success en false", { success: false, token: "jwt" }],
+    ["sin token", { success: true }],
+    ["un cuerpo que no es objeto", null],
+  ])("%s es invalid", async (_caso, body) => {
+    vi.stubGlobal("fetch", minsaResponding(body));
+
+    await expect(verifyCode("tw-1", "1234")).resolves.toEqual({ status: "invalid" });
+  });
+
+  it.each([
+    [401, { status: "invalid" }],
+    [500, { status: "error" }],
+  ])("un %i es %o", async (httpStatus, esperado) => {
+    vi.stubGlobal("fetch", minsaResponding({}, httpStatus));
+
+    await expect(verifyCode("tw-1", "1234")).resolves.toEqual(esperado);
   });
 });

@@ -1,77 +1,94 @@
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { FAKE_REFERENCIAS, FAKE_REFERENCIAS_DNI } from "@/lib/integrations/minsa/fake-data";
+import { isRawRow, parseRows, readNumber, readString, type RawRow } from "@/lib/integrations/minsa/row-readers";
 import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { ReferenceStatus } from "@/lib/enums/reference-status";
 
-const ESTADOS_VISIBLES = new Set([3, 5, 7]);
+const ESTADOS_VISIBLES: ReadonlySet<number> = new Set([3, 5, 7]);
+const STATUS_CONOCIDOS: ReadonlySet<string> = new Set(Object.values(ReferenceStatus));
 
-function isEstadoVisible(estado: unknown): estado is 3 | 5 | 7 {
-  return typeof estado === "number" && ESTADOS_VISIBLES.has(estado);
+/**
+ * Respuesta de `/references` ya leída. El servicio devuelve hoy un arreglo suelto de filas; el sobre acordado
+ * con el backend es `{ status_reference, message, data }`. `statusReference` y `message` solo existen en el sobre.
+ */
+type ReferenciasResponse = {
+  statusReference?: string;
+  message?: string;
+  rows: readonly unknown[];
+};
+
+type ReferenciaRow = Omit<ReferenciaItem, "estado"> & { estado: number };
+
+function readResponse(body: unknown): ReferenciasResponse | undefined {
+  if (Array.isArray(body)) return { rows: body };
+  if (!isRawRow(body)) return undefined;
+
+  const rows = body.data ?? [];
+  if (!Array.isArray(rows)) return undefined;
+  return { statusReference: readString(body, "status_reference"), message: readString(body, "message"), rows };
 }
 
-/** `estado` llega como objeto `{codigo, descripcion}`, con `codigo` en texto (ej. "7"), no como número suelto. */
-function estadoCodigoDe(raw: Record<string, unknown>): unknown {
-  const estado = raw.estado;
-  if (typeof estado === "object" && estado !== null) {
-    const codigo = (estado as { codigo?: unknown }).codigo;
-    return typeof codigo === "string" ? Number(codigo) : codigo;
-  }
-  return typeof estado === "string" ? Number(estado) : estado;
+function descripcionDe(value: unknown): string {
+  return isRawRow(value) ? (readString(value, "descripcion") ?? "") : "";
 }
 
-function parseReferencia(raw: Record<string, unknown>): ReferenciaItem | undefined {
-  const estado = estadoCodigoDe(raw);
-  if (!isEstadoVisible(estado)) return undefined;
+function codigoDe(value: unknown): string {
+  return isRawRow(value) ? (readString(value, "codigo") ?? "") : "";
+}
 
-  const ipressOrigen = raw.ipress_origen as { descripcion?: unknown } | string | undefined;
-  const ipressDestino = raw.ipress_destino as { codigo?: unknown; descripcion?: unknown } | string | undefined;
-  const upsOrigen = raw.ups_origen as { descripcion?: unknown } | string | undefined;
-  const upsDestino = raw.ups_destino as { codigo?: unknown; descripcion?: unknown } | string | undefined;
-
-  const descripcionDe = (value: { descripcion?: unknown } | string | undefined): string =>
-    typeof value === "string" ? value : typeof value?.descripcion === "string" ? value.descripcion : "";
-
-  const codigoDe = (value: { codigo?: unknown } | string | undefined): string => {
-    const codigo = typeof value === "object" && value !== null ? value.codigo : undefined;
-    return typeof codigo === "string" || typeof codigo === "number" ? String(codigo) : "";
-  };
-
-  const idReferencia = raw.id_referencia ?? raw.idReferencia;
-  if (typeof idReferencia !== "string" && typeof idReferencia !== "number") return undefined;
+/** Una fila es válida con `id_referencia` y `estado.codigo`; el resto de campos puede llegar vacío. */
+function parseReferencia(row: RawRow): ReferenciaRow | undefined {
+  const idReferencia = readString(row, "id_referencia");
+  const estado = isRawRow(row.estado) ? readNumber(row.estado, "codigo") : undefined;
+  if (!idReferencia || estado === undefined) return undefined;
 
   return {
-    idReferencia: String(idReferencia),
-    numero: String(raw.nro_referencia ?? raw.numero ?? ""),
-    fechaInicio: String(raw.fecha_inicio ?? ""),
-    ipressOrigen: descripcionDe(ipressOrigen),
-    ipressDestino: descripcionDe(ipressDestino),
-    upsOrigen: descripcionDe(upsOrigen),
-    upsDestino: descripcionDe(upsDestino),
-    codigoIpressDestino: codigoDe(ipressDestino),
-    codigoUpsDestino: codigoDe(upsDestino),
+    idReferencia,
+    numero: readString(row, "nro_referencia") ?? "",
+    fechaInicio: readString(row, "fecha_inicio") ?? "",
+    ipressOrigen: descripcionDe(row.ipress_origen),
+    ipressDestino: descripcionDe(row.ipress_destino),
+    upsOrigen: descripcionDe(row.ups_origen),
+    upsDestino: descripcionDe(row.ups_destino),
+    codigoIpressDestino: codigoDe(row.ipress_destino),
+    codigoUpsDestino: codigoDe(row.ups_destino),
     estado,
   };
 }
 
+function isVisible(row: ReferenciaRow): row is ReferenciaItem {
+  return ESTADOS_VISIBLES.has(row.estado);
+}
+
+/**
+ * Único punto que decide el estado. Manda el `status_reference` del backend; si no viene, sale de las filas.
+ * `found` exige al menos una referencia visible; una respuesta ilegible, un estado desconocido o filas que no
+ * pasan la validación dan `error`.
+ */
+function toResult(response: ReferenciasResponse | undefined): ListReferencesResult {
+  if (!response) return { status: "error", items: [] };
+
+  const rows = parseRows(MinsaEndpoint.REFERENCIAS, response.rows, parseReferencia);
+  const items = rows.filter(isVisible);
+  const status = response.statusReference ?? (items.length > 0 ? ReferenceStatus.FOUND : ReferenceStatus.EMPTY);
+  const allRowsInvalid = response.rows.length > 0 && rows.length === 0;
+  if (allRowsInvalid || !STATUS_CONOCIDOS.has(status)) return { status: "error", items: [] };
+
+  const message = response.message ? { message: response.message } : {};
+  return status === ReferenceStatus.FOUND && items.length > 0
+    ? { status: "found", items, ...message }
+    : { status: "empty", items: [], ...message };
+}
+
 export async function listReferences(numeroDocumento: string, tipoDocumento: string): Promise<ListReferencesResult> {
-  if (isRealMinsaEnabled()) {
-    const response = await postSigned(MinsaEndpoint.REFERENCIAS, {
-      numero_documento: numeroDocumento,
-      tipo_documento: tipoDocumento,
-    });
+  if (!isRealMinsaEnabled()) return { status: "empty", items: [] };
 
-    if (!response.ok) return { status: "error" };
+  const response = await postSigned(MinsaEndpoint.REFERENCIAS, {
+    numero_documento: numeroDocumento,
+    tipo_documento: tipoDocumento,
+  });
+  if (!response.ok) return toResult(undefined);
 
-    const body = await response.json();
-    const rawItems = body?.data ?? body?.referencias ?? body?.items ?? (Array.isArray(body) ? body : []);
-    if (!Array.isArray(rawItems)) return { status: "error" };
-
-    const items = rawItems
-      .map((raw) => (typeof raw === "object" && raw !== null ? parseReferencia(raw as Record<string, unknown>) : undefined))
-      .filter((item): item is ReferenciaItem => item !== undefined);
-
-    return items.length > 0 ? { status: "found", items } : { status: "empty" };
-  }
-
-  return numeroDocumento === FAKE_REFERENCIAS_DNI ? { status: "found", items: FAKE_REFERENCIAS } : { status: "empty" };
+  const body: unknown = await response.json().catch(() => undefined);
+  return toResult(readResponse(body));
 }

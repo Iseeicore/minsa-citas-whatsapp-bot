@@ -109,7 +109,7 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
   const result = event.result as ListReferencesResult;
   const next = cloneSession(session);
 
-  if (result.status !== "found" || result.items.length === 0) {
+  if (result.status !== "found") {
     return continueCitaAfterVerification(next);
   }
 
