@@ -7,10 +7,6 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 const ESTADOS_VISIBLES: ReadonlySet<number> = new Set([3, 5, 7]);
 const STATUS_CONOCIDOS: ReadonlySet<string> = new Set(Object.values(ReferenceStatus));
 
-/**
- * Respuesta de `/references` ya leída. El servicio devuelve hoy un arreglo suelto de filas; el sobre acordado
- * con el backend es `{ status_reference, message, data }`. `statusReference` y `message` solo existen en el sobre.
- */
 type ReferenciasResponse = {
   statusReference?: string;
   message?: string;
@@ -36,7 +32,6 @@ function codigoDe(value: unknown): string {
   return isRawRow(value) ? (readString(value, "codigo") ?? "") : "";
 }
 
-/** Una fila es válida con `id_referencia` y `estado.codigo`; el resto de campos puede llegar vacío. */
 function parseReferencia(row: RawRow): ReferenciaRow | undefined {
   const idReferencia = readString(row, "id_referencia");
   const estado = isRawRow(row.estado) ? readNumber(row.estado, "codigo") : undefined;
@@ -60,11 +55,6 @@ function isVisible(row: ReferenciaRow): row is ReferenciaItem {
   return ESTADOS_VISIBLES.has(row.estado);
 }
 
-/**
- * Único punto que decide el estado. Manda el `status_reference` del backend; si no viene, sale de las filas.
- * `found` exige al menos una referencia visible; una respuesta ilegible, un estado desconocido o filas que no
- * pasan la validación dan `error`.
- */
 function toResult(response: ReferenciasResponse | undefined): ListReferencesResult {
   if (!response) return { status: "error", items: [] };
 

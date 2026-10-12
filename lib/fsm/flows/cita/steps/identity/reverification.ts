@@ -5,7 +5,6 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 
-/** Ante un token del MINSA vencido (401) vuelve a pedir el documento sin perder los datos de la cita, y luego retoma el paso donde estaba. */
 export function beginReverification(session: Session, resumeState: string): HandlerResult {
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_RESUME_STATE] = resumeState;

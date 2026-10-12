@@ -37,7 +37,6 @@ const ESTADO_LABEL: Record<number, string> = {
   7: "PACIENTE CITADO",
 };
 
-/** "DD/MM/YYYY HH:MM" (24h) -> "DD/MM/YYYY H:MM AM/PM", reutilizando formatHora12 solo sobre la parte de hora. */
 function formatFechaHora12(fechaHora: string): string {
   const [fecha, hora] = fechaHora.split(" ");
   if (!fecha || !hora || !CLOCK_TIME.test(hora)) return fechaHora;

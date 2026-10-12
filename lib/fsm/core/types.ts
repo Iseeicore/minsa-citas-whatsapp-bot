@@ -92,7 +92,6 @@ export type InboundEvent = {
   mediaId?: string;
   mediaDataUri?: string;
   messageId?: string;
-  /** Canal por donde llegó el turno; lo fija el servidor (webhook o sandbox), nunca el cliente. */
   channel?: SessionChannel;
 };
 

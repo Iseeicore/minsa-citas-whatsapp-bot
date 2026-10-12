@@ -4,7 +4,6 @@ import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 
-/** Separado de exit.ts para que identity.ts pueda usar askToLeave sin crear un ciclo de imports. */
 export const EXIT_CONFIRM_STATE = SessionState.CITA_AWAITING_EXIT_CONFIRM;
 
 export const EXIT_YES_ID = ExitButtonId.YES;

@@ -5,10 +5,6 @@ import { buscarIncidenciaDeQuienConsulta, listarIncidenciasDeQuienConsulta } fro
 
 const CODIGO_VALIDO = /^MINSA-\d{4}-\d{6}$/;
 
-/**
- * Consulta de solo lectura. La base apagada o caída es `error` (se avisa «inténtalo más tarde»); una incidencia ajena, borrada o
- * inexistente es siempre `not_found`, sin diferencias observables entre ellas. Solo devuelve código, estado y fecha de registro.
- */
 export async function consultarIncidencia(codigo: string, identidad: IdentidadConsulta): Promise<ConsultaIncidenciaResult> {
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.consulta_unavailable", { reason: "DATABASE_ENABLED=false" });
@@ -26,7 +22,6 @@ export async function consultarIncidencia(codigo: string, identidad: IdentidadCo
   }
 }
 
-/** Todas las incidencias de quien consulta, de la más reciente a la más antigua. Solo lectura, mismo criterio de pertenencia. */
 export async function listarIncidencias(identidad: IdentidadConsulta): Promise<ListarIncidenciasResult> {
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.listado_unavailable", { reason: "DATABASE_ENABLED=false" });

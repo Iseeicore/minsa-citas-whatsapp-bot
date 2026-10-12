@@ -36,7 +36,6 @@ export function filterRows(rows: ListRow[], query: string): ListRow[] {
 const toAction = (row: ListRow | undefined): PagerAction | undefined =>
   row ? { id: row.id, title: row.title } : undefined;
 
-/** El MINSA pagina los establecimientos con filas «anterior/siguiente» cuya descripción apunta a la página destino; de ahí se deduce la página actual. */
 function currentPageLabel(prevRow: ListRow | undefined, nextRow: ListRow | undefined): string | undefined {
   const source = nextRow ?? prevRow;
   const match = source?.description ? TARGET_PAGE_OF_TOTAL.exec(source.description) : null;

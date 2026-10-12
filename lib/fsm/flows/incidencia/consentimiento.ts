@@ -21,10 +21,6 @@ export const AVISO_PRIVACIDAD_TEXT =
 export const NO_AUTORIZO_TEXT =
   "Entendido. No se registrará tu incidencia por este canal. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
 
-/**
- * Entrada común antes del relato: si ese wa_id ya autorizó el tratamiento de datos alguna vez, no se le vuelve a preguntar.
- * Reemplaza la llamada directa a `enterDescripcion` una vez resuelta la identidad (con nombre, anónimo, o con/sin RENIEC).
- */
 export function askConsentimiento(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_CONSENT_CHECK_PENDING;
@@ -45,7 +41,6 @@ export function handleConsentCheckPending(session: Session, event: QueryResultEv
   return buildResult(next, consentimientoPrompt());
 }
 
-/** Reanudación tras un reauth propio de incidencia: re-muestra el aviso y los botones sin volver a consultar la base. */
 export function resendConsentimiento(session: Session): HandlerResult {
   return buildResult(cloneSession(session), consentimientoPrompt());
 }

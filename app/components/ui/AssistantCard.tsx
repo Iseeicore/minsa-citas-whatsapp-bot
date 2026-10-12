@@ -7,8 +7,6 @@ const SIZE_CLASSES = {
     title: "text-base sm:text-xl",
     subtitle: "mt-0.5 text-xs sm:mt-1 sm:text-sm",
   },
-  // Todo escala con el ancho del contenedor (cqw): la ilustración queda pegada a la izquierda y la burbuja ocupa el resto
-  // del ancho, con una colita "<" hacia la ilustración. Los topes del clamp evitan que crezca de más en pantallas anchas.
   fluid: {
     image: "h-[clamp(6rem,30cqw,10rem)]",
     panel:

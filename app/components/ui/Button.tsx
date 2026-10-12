@@ -15,7 +15,6 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> 
   iconEnd?: ReactNode;
 };
 
-/** Único `button` nativo de la interfaz. El aspecto sale de `variant`, `size` y `width`; `className` queda solo para la posición que decide el contenedor. */
 export function Button({
   variant = ButtonVariant.PRIMARY,
   size,

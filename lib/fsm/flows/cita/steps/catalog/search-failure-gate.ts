@@ -5,7 +5,6 @@ import { SessionState } from "@/lib/enums/session-state";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 
-/** Resuelve los estados `unauthorized` y `error` de una consulta de catálogo; devuelve undefined si el resultado es utilizable. */
 export function searchFailureGate(
   next: Session,
   status: string,

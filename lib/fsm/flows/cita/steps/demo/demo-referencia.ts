@@ -80,7 +80,6 @@ function toHHMM(totalMinutes: number): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-/** Genera los turnos de 25 min entre 8:00 am y 3:00 pm; es pura para poder probarla sin fijar la lista a mano. */
 export function demoHoraSlots(): HoraSlot[] {
   const limite = toMinutes(DEMO_HORA_FIN_24);
   const slots: HoraSlot[] = [];

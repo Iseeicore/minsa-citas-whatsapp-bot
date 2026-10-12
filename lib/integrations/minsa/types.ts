@@ -84,7 +84,6 @@ export type BookAppointmentResult =
   | { status: "error" }
   | { status: "unauthorized" };
 
-/** Solo 3/5/7 llegan hasta acá: el filtro de estado ya se aplicó en listReferences. */
 export type ReferenciaItem = {
   idReferencia: string;
   numero: string;
@@ -98,7 +97,6 @@ export type ReferenciaItem = {
   estado: 3 | 5 | 7;
 };
 
-/** `items` siempre es un arreglo: con elementos solo en `found`, vacío en `empty` y `error`. `message` es el del backend, si lo envió. */
 export type ListReferencesResult = {
   status: "found" | "empty" | "error";
   items: ReferenciaItem[];

@@ -21,7 +21,6 @@ import type { LatencyMarks } from "@/lib/observability/inbound-latency";
 
 const TYPING_DELAY_MS = 1000;
 
-/** Marca el turno y el primer envío una sola vez, aunque el turno mande varios efectos. */
 function firstSendMarker(marks: LatencyMarks | undefined) {
   let marked = false;
   return {
@@ -42,7 +41,6 @@ function sleep(ms: number): Promise<void> {
 function deliverTo(message: WhatsAppMessage, conversationId: string | null, marks: LatencyMarks | undefined) {
   const first = firstSendMarker(marks);
   return async (effect: SendEffect) => {
-    // Primer contacto: la bienvenida sale de inmediato, sin la pausa de "escribiendo…".
     first.beforeSend();
     await sendTypingIndicator(message.id);
     await sendAndRecordEffect(conversationId, message.from_user_id, effect);

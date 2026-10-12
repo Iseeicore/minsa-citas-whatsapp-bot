@@ -14,7 +14,6 @@ export function isValidDocumentoFormat(value: string): boolean {
   return DNI_OR_CARNET_DIGITS.test(value.trim());
 }
 
-/** El largo decide el tipo: 9 dígitos es carnet de extranjería y 8 es DNI. Se llama solo con un documento ya validado. */
 export function tipoDocumentoDe(numero: string): TipoDocumento {
   return numero.trim().length === CARNET_EXTRANJERIA_LENGTH ? TipoDocumento.CARNET_EXTRANJERIA : TipoDocumento.DNI;
 }

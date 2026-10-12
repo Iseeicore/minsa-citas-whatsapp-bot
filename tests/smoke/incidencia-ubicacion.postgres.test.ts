@@ -191,7 +191,6 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
   it("the daily maximum: the sixth incidencia of the same phone is refused, the first five were saved", async () => {
     const p = person();
 
-    // Autoriza el tratamiento de datos una vez (sin guardar nada); el resto de registros ya no vuelve a preguntar.
     await p.start("quiero presentar una incidencia");
     await p.say("omitir");
     await p.tap("incidencia_omitir_si");

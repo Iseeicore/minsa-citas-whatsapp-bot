@@ -11,7 +11,6 @@ export function todayInLima(): DateParts {
   };
 }
 
-/** Lee la hora de America/Lima con Intl (UTC-5, sin horario de verano): la zona horaria del servidor no es confiable. */
 export function nowInLima(): { fecha: string; hora: string } {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: LIMA_TIME_ZONE,

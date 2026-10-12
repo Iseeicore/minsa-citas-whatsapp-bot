@@ -24,7 +24,6 @@ function reauthPrompt() {
   return sendButtons(REAUTH_PROMPT_TEXT, REAUTH_BUTTONS);
 }
 
-/** Dispara cuando una incidencia quedó inactiva en un estado que espera al usuario: guarda dónde estaba y pide confirmar que sigue ahí. */
 export function beginIncidenciaReauth(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.slots[SlotKey.INCIDENCIA_RESUME_STATE] = session.state;
@@ -32,10 +31,6 @@ export function beginIncidenciaReauth(session: Session): HandlerResult {
   return buildResult(next, [reauthPrompt()]);
 }
 
-/**
- * Vuelve exactamente al paso donde se quedó, re-mostrando su pregunta a partir de lo que ya hay en los slots — nada se vuelve a
- * buscar ni a consultar. A diferencia del reauth de citas, incidencia no usa DNI/RENIEC/2FA: no hay nada que revalidar.
- */
 function resumeIncidencia(session: Session): HandlerResult {
   const resumeState = session.slots[SlotKey.INCIDENCIA_RESUME_STATE];
   const next = cloneSession(session);

@@ -10,7 +10,6 @@ const CHANGE_DISTRITO_PATTERNS: readonly RegExp[] = [
   new RegExp(String.raw`\b(ese|este|esa|esta) no es (mi|el|la) ${PLACE}\b`),
 ];
 
-/** Frases claras de querer otro distrito o ubicación ("ya no quiero esta ubicación", "otro distrito"); no cubre fechas ni establecimientos. */
 export function detectChangeDistritoIntent(text: string): boolean {
   const phrase = normalizeIntentPhrase(text);
   if (!phrase) return false;

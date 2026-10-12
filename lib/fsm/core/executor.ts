@@ -41,7 +41,6 @@ export type TurnResult = {
   session: Session;
 };
 
-/** Entrega cada mensaje apenas se produce y avisa antes de cada consulta externa, para que el ciudadano no espere en silencio. */
 export type TurnHooks = {
   onSend(effect: SendEffect): Promise<void>;
   onWaitingForQuery(): Promise<void>;
@@ -59,10 +58,6 @@ export function createRunTurn(lock: TurnLock) {
     lock(from, () => runTurnUnlocked(from, event));
 }
 
-/**
- * Ejecuta el turno sin tomar el candado; solo para quien ya lo tiene tomado (el webhook). Con `start` el primer paso ya viene
- * calculado (el primer contacto, que no tiene sesión): sus consultas se resuelven igual que las de cualquier turno.
- */
 export async function runTurnUnlocked(
   from: string,
   event: InboundEvent,
@@ -140,7 +135,6 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   }
 }
 
-/** `from` es la identidad que el servidor ya conoce del turno (el usuario de WhatsApp verificado por el webhook), no un dato del mensaje. */
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
   const bearer = String(session.slots[SlotKey.CITA_BEARER] ?? "");
 

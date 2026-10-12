@@ -36,7 +36,6 @@ function severityOf(code: ConfigErrorCode, env: Env): Severity {
 
 const issue = (code: ConfigErrorCode, value: string): ConfigIssue => ({ code, value, message: CONFIG_ERRORS[code].message });
 
-/** Revisa las variables que el bot tolera mal escritas (sigue funcionando con su respaldo) y devuelve cada problema; no tiene efectos. */
 export function checkConfig(env: Env = process.env): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
 

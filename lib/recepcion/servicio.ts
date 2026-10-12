@@ -12,7 +12,6 @@ import { buscarCodigoPorTrace, contarDelDia, insertarIncidencia, type DatosEvide
 const isUniqueViolation = (error: unknown) =>
   typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 
-/** Sube la foto antes de tocar la base: si el servicio de imágenes falla no queda nada a medias y el ciudadano puede reintentar. */
 async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | RegistrarIncidenciaResult> {
   const image = parseImageDataUri(mediaDataUri);
   if (image === null) return { status: "rejected", reason: "other" };
@@ -29,7 +28,6 @@ async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | Re
 
 const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult => (codigo ? { status: "accepted", codigo } : { status: "accepted" });
 
-/** Una reentrega del mismo turno no duplica la incidencia: se responde con el código de la que ya existe. */
 async function codigoYaGuardado(traceId: string): Promise<string | null> {
   try {
     return await buscarCodigoPorTrace(traceId);
@@ -40,7 +38,6 @@ async function codigoYaGuardado(traceId: string): Promise<string | null> {
 
 const isEvidencia = (value: DatosEvidencia | RegistrarIncidenciaResult): value is DatosEvidencia => "ruta" in value;
 
-/** Registra la incidencia directo en la base. Nunca simula un éxito; si el trace id ya existía, responde aceptada. */
 export async function registrarIncidencia(input: unknown): Promise<RegistrarIncidenciaResult> {
   const parsed = registrarIncidenciaSchema.safeParse(input);
   if (!parsed.success) {

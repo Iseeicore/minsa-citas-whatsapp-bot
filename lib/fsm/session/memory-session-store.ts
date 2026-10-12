@@ -12,7 +12,6 @@ type Stored = { state: string; slots: Session["slots"]; counters: Session["count
 
 export type MemorySessionStore = ReturnType<typeof createMemorySessionStore>;
 
-/** Sesiones en memoria del proceso; se descartan tras 1 h sin actividad. Exige una sola instancia. */
 export function createMemorySessionStore(options: { now?: () => number; ttlMs?: number } = {}) {
   const now = options.now ?? Date.now;
   const ttlMs = options.ttlMs ?? MEMORY_SESSION_TTL_MS;

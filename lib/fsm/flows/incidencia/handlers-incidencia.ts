@@ -46,7 +46,6 @@ const CANCELLED_TEXT =
 
 const DAILY_LIMIT_TEXT = "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
 
-/** «Quiero cerrar» (mensaje completo) cancela desde cualquier paso: no se guarda nada y la conversación termina. */
 function cancel(): HandlerResult {
   return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(CANCELLED_TEXT)]);
 }
@@ -112,10 +111,6 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   ]));
 }
 
-/**
- * Por ahora solo se valida el DNI en RENIEC. Un carnet de extranjería (9 dígitos) se reconoce para no decirle «inválido», pero
- * no se acepta: puede escribir un DNI o seguir de forma anónima.
- */
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
   if (readReply(event) === IncidenciaButtonId.ANONIMO) return askConsentimiento(cloneSession(session));
 
@@ -132,7 +127,6 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
   return buildResult(next, [sendText("Verificando tu documento…"), query(QueryKind.RENIEC_LOOKUP, { dni: documento })]);
 }
 
-/** El nombre sale de RENIEC. Si no lo encuentra o no responde, se pide un nombre o alias y se sigue sin detener a la persona. */
 function handleReniecPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; nombreCompleto?: string };
   const next = cloneSession(session);
@@ -150,7 +144,6 @@ function withGreeting(result: HandlerResult, nombre: string): HandlerResult {
   return { ...result, effects: [sendText(`Gracias, ${nombre}.`), ...result.effects] };
 }
 
-/** Nombre o alias tal cual lo escribe la persona; no se verifica: es lo que se usa cuando RENIEC no pudo darlo. */
 function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
   const nombre = (event.text ?? "").trim();
 
@@ -184,10 +177,6 @@ function isFile(event: InboundEvent): boolean {
   return event.type === InboundEventType.IMAGE || event.type === InboundEventType.DOCUMENT;
 }
 
-/**
- * Pide la evidencia, que es opcional. Si llega un archivo (imagen o PDF) se reconoce pero no se descarga ni se guarda: se acusa
- * recibo y se registra la incidencia. Lo que no es un archivo (sticker, audio) ni siquiera llega aquí.
- */
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
   if (isFile(event)) return withAck(askConfirmRegistro(session));
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR) return askConfirmRegistro(session);
@@ -226,10 +215,6 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
   return buildResult(next, [askFoto()]);
 }
 
-/**
- * Con establecimiento se entrega el código de seguimiento; sin él, solo se agradece. Además, el texto final distingue si la
- * persona se identificó (tiene DNI verificado en la sesión) o fue anónima.
- */
 function confirmationText(session: Session, codigo: string | undefined): string {
   const hasEstablecimiento = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] !== undefined;
   const identificado = session.slots[SlotKey.DNI] !== undefined;

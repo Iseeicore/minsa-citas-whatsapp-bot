@@ -71,11 +71,6 @@ function fromSentence(text: string, sentenceLength: number): InicioIncidencia {
   return result;
 }
 
-/**
- * Reconoce cómo empieza una incidencia. Con la etiqueta CODIGO-IPRESS (mensaje que precarga el QR) lee el código y el nombre;
- * sin ella, si el texto abre con «quiero presentar una incidencia», toma lo que sigue como nombre candidato, que quien lo use
- * debe buscar en el padrón y confirmar. Lo que se agregue después del código queda en resto. Si no es ninguno, devuelve null.
- */
 export function parseInicioIncidencia(text: string): InicioIncidencia | null {
   const folded = fold(text);
   const label = CODIGO_IPRESS_LABEL.exec(folded);
@@ -89,16 +84,11 @@ export function parseInicioIncidencia(text: string): InicioIncidencia | null {
 
 const BARE_CODIGO = /^\s*(?:codigo[-\s]?ipress\s*:?\s*)?(\d{1,9})\s*[.!]?\s*$/i;
 
-/** Reconoce un código IPRESS escrito solo («6206» o «CODIGO-IPRESS 6206») y lo devuelve sin ceros; si no lo es, undefined. */
 export function parseCodigoSuelto(text: string): string | undefined {
   const match = BARE_CODIGO.exec(fold(text));
   return match ? normalizeCodigo(match[1]) : undefined;
 }
 
-/**
- * Lo que de verdad escribió la persona. Del mensaje del QR solo cuenta lo que agregó después del código: el nombre del
- * establecimiento viene precargado y no debe pasar por los filtros de insultos ni de emergencia (hay centros que se llaman «C.S.M.»).
- */
 export function textoDeLaPersona(text: string): string {
   const inicio = parseInicioIncidencia(text);
   return inicio?.origen === "qr" ? (inicio.resto ?? "") : text;

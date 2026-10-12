@@ -24,11 +24,6 @@ Escríbeme lo que necesitas y te ayudo.`;
 
 export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
 
-/**
- * El botón «Continuar mi cita» solo aplica a WhatsApp: en el widget web el ciudadano ya está dentro de MINSA Digital.
- * Si falta MINSA_DIGITAL_APP_URL (config del deploy incompleta), no armamos un botón roto: mostramos el menú
- * directamente, igual que si el ciudadano ya hubiera pasado el saludo (ver checkConfig para la alerta de arranque).
- */
 export function buildWelcomeEffect(channel: SessionChannel): SendEffect {
   if (channel === SessionChannelEnum.WEB) return sendText(WEB_WELCOME_MESSAGE_TEXT);
 

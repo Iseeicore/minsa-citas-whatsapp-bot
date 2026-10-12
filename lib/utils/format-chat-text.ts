@@ -17,10 +17,6 @@ export const CHAT_FORMAT_MARK = new RegExp(
 
 const PARAGRAPH_BREAK = /\n{2,}/;
 
-/**
- * Convierte el texto que el bot escribe para WhatsApp (*negrita*, _cursiva_ y emojis sin glifo en Windows)
- * en fichas que la vista dibuja con etiquetas HTML e iconos propios.
- */
 export function tokenizeChatText(text: string): ChatToken[] {
   const tokens: ChatToken[] = [];
   let cursor = 0;

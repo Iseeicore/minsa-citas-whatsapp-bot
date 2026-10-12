@@ -13,7 +13,6 @@ export const FOTO_BUTTONS = [{ id: IncidenciaButtonId.FOTO_OMITIR, title: "Omiti
 export const EVIDENCIA_ACK_TEXT = "Ok, se registró tu evidencia.";
 export const UNREADABLE_TEXT_RETRY = "No pudimos leer eso — ¿podrías escribirlo de nuevo?";
 
-/** Pide la evidencia con un botón Omitir; escribir OMITIR sigue valiendo. */
 export function askFoto() {
   return sendButtons(FOTO_REQUEST_TEXT, FOTO_BUTTONS);
 }
@@ -37,7 +36,6 @@ export function submitIncidencia(session: Session, from: string): HandlerResult 
   return buildResult(next, [sendText("Enviando tu incidencia…"), query(QueryKind.INCIDENCIA_REGISTER, { submission })]);
 }
 
-/** Con el relato ya guardado en el slot: ofrece enviar una evidencia. Ningún archivo se guarda en esta instancia. */
 export function afterDescripcion(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_AWAITING_FOTO;
@@ -71,7 +69,6 @@ function resumenRegistro(session: Session): string {
   return lineas.filter((linea) => linea !== undefined).join("\n");
 }
 
-/** Punto entre la evidencia y el registro: muestra un resumen y exige confirmación explícita antes de enviar algo que ya no tiene vuelta atrás. */
 export function askConfirmRegistro(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_CONFIRM_REGISTRO;

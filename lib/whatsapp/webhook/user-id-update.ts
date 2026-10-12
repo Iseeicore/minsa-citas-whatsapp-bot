@@ -6,15 +6,10 @@ import type { WhatsAppValue } from "@/lib/whatsapp/webhook/payload";
 
 export type BsuidChange = { previous: string; current: string };
 
-/** `migrated`: se renombró; `unchanged`: ya estaba aplicado o no hay nada que mover; `conflict`: el nuevo ya existe, no se fusiona. */
 export type BsuidChangeOutcome = "migrated" | "unchanged" | "conflict";
 
 const isId = (value: unknown): value is string => typeof value === "string" && value.length > 0;
 
-/**
- * Cambios de BSUID que trae un valor del webhook: el campo `user_id_update` y, si Meta manda el identificador anterior, el mensaje
- * de sistema `user_changed_user_id`. Tolerante: lo que no tiene la forma esperada se ignora.
- */
 export function extractBsuidChanges(value: WhatsAppValue): BsuidChange[] {
   const changes: BsuidChange[] = [];
 
@@ -32,11 +27,6 @@ export function extractBsuidChanges(value: WhatsAppValue): BsuidChange[] {
   return changes;
 }
 
-/**
- * Si Meta cambia el BSUID (la persona cambió de número), el usuario conserva su fila y sus incidencias y solo cambia su `wa_id`,
- * junto con su sesión de conversación. Idempotente: una reentrega ya no encuentra el identificador anterior. Si el identificador
- * nuevo ya tiene usuario propio NO se fusionan (no se mezclan historiales): queda como está y se avisa en el log.
- */
 export async function applyBsuidChange({ previous, current }: BsuidChange): Promise<BsuidChangeOutcome> {
   return prisma.$transaction(async (tx) => {
     await declararActorEn(tx, ACTOR_EXTERNO_META);
@@ -62,7 +52,6 @@ export async function applyBsuidChange({ previous, current }: BsuidChange): Prom
   });
 }
 
-/** Aplica todos los cambios de un valor del webhook; un fallo se registra y no afecta al resto ni a los mensajes. */
 export async function processBsuidChanges(value: WhatsAppValue): Promise<void> {
   for (const change of extractBsuidChanges(value)) {
     try {

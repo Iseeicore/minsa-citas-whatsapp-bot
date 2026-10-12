@@ -10,7 +10,6 @@ function graphApiUrl(): string {
   return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
 }
 
-/** Esta cuenta usa BSUID: el destinatario va en `recipient`; con `to` Graph API acepta la petición pero no entrega el mensaje. */
 function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknown> {
   const base = {
     messaging_product: "whatsapp",

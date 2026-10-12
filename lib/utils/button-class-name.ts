@@ -24,7 +24,6 @@ const VARIANT_CLASS_NAME: Record<ButtonVariant, string> = {
   [ButtonVariant.UNSTYLED]: "",
 };
 
-/** Disposición del contenido que la variante trae fija; las que no figuran solo se vuelven flex cuando llevan ícono. */
 const VARIANT_LAYOUT_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
   [ButtonVariant.OPTION]: "flex items-center justify-center gap-2",
   [ButtonVariant.LIST_OPTION]: "flex items-center gap-2.5",

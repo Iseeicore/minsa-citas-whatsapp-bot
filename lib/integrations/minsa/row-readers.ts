@@ -7,7 +7,6 @@ export function isRawRow(value: unknown): value is RawRow {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Texto no vacío; un número finito se acepta y se convierte a texto. Cualquier otra cosa es ausente. */
 export function readString(row: RawRow, key: string): string | undefined {
   const value = row[key];
   if (typeof value === "string") return value.trim() === "" ? undefined : value;
@@ -15,7 +14,6 @@ export function readString(row: RawRow, key: string): string | undefined {
   return undefined;
 }
 
-/** Número finito; un texto numérico se acepta. NaN, Infinity, null y vacío son ausentes. */
 export function readNumber(row: RawRow, key: string): number | undefined {
   const value = row[key];
   if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
@@ -26,7 +24,6 @@ export function readNumber(row: RawRow, key: string): number | undefined {
   return undefined;
 }
 
-/** Valida cada fila cruda con `parseRow`, descarta las inválidas y deja constancia de cuántas se perdieron. */
 export function parseRows<T>(
   endpoint: MinsaEndpoint,
   rawRows: readonly unknown[],

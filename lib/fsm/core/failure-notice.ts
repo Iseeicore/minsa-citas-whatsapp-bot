@@ -2,7 +2,6 @@ export type FailureNoticeThrottle = {
   shouldNotify(waId: string): boolean;
 };
 
-/** Limita el aviso de falla a uno cada 30 s por número (C4.2 de la auditoría); cada falla se sigue registrando en el log. */
 export function createFailureNoticeThrottle(
   options: { now?: () => number; windowMs?: number } = {},
 ): FailureNoticeThrottle {

@@ -12,10 +12,6 @@ function rootAndData(body: unknown): { root: RawRow; data: RawRow } {
   return { root, data: isRawRow(root.data) ? root.data : {} };
 }
 
-/**
- * Único punto que lee la respuesta de validate-user. La forma respaldada por las pruebas es `{ valido, twofa_id }`.
- * `success`, `is_valid`, `data.valido` y `data.twofa_id` se toleran sin evidencia: pendientes de confirmar con MINSA.
- */
 function parseValidateUser(body: unknown): ValidateUserResult {
   const { root, data } = rootAndData(body);
   const valid = root.valido === true || root.success === true || data.valido === true || root.is_valid === true;
@@ -25,10 +21,6 @@ function parseValidateUser(body: unknown): ValidateUserResult {
   return typeof twofaId === "string" ? { status: "valid", twofaId } : { status: "error" };
 }
 
-/**
- * Único punto que lee la respuesta de verify-code: exige `success` y un `token`.
- * El token se busca en la raíz y en `data`; cuál de las dos envía MINSA está pendiente de confirmar.
- */
 function parseVerifyCode(body: unknown): VerifyCodeResult {
   const { root, data } = rootAndData(body);
   const token = root.token ?? data.token;

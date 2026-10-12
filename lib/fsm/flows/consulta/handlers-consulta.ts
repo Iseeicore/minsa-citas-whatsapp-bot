@@ -39,16 +39,10 @@ export const ASK_OTP_TEXT = "Te enviamos un código a tu teléfono registrado. E
 export const INVALID_OTP_TEXT = "Código inválido. Debe tener entre 4 y 8 dígitos.";
 export const NO_VERIFICADO_TEXT = "No pudimos verificar tu identidad. Revisa tu número de documento o inténtalo más tarde.";
 export const OTP_BLOQUEADO_TEXT = "Superaste el número de intentos permitidos. Inténtalo nuevamente más tarde.";
-/** Una incidencia inexistente, ajena, anónima (en la web) o borrada recibe EXACTAMENTE este texto: no se distingue entre ellas. */
 export const NO_UBICADA_TEXT = "No se logró ubicar el registro de la incidencia.";
 export const CONSULTA_FALLA_TEXT = "Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.";
 export const SIN_INCIDENCIAS_TEXT = "No tienes incidencias registradas.";
 
-/**
- * Punto de extensión para la identidad en la web: hoy se verifica con DNI + código OTP de MINSA Digital (los mismos pasos que el
- * flujo de citas). Cuando el portal entregue la especificación de su JWT (firma, emisor, vencimiento y campo del documento),
- * esta es la única parte a cambiar: validar el token y dejar el documento verificado en `CONSULTA_DNI`.
- */
 const canalDe = (channel: SessionChannel | undefined): string => (channel === SessionChannelEnum.WEB ? CANAL_WEB : CANAL_WHATSAPP);
 
 function closed(state: SessionState.CONSULTA_COMPLETED | SessionState.CONSULTA_FAILED, text: string): HandlerResult {
@@ -69,7 +63,6 @@ function startSearch(session: Session): HandlerResult {
   ]);
 }
 
-/** Pide DNI+OTP antes de avanzar solo en la web; en WhatsApp sigue directo, como ya era antes de requerirlo también ahí. */
 function afterIdentityCheck(session: Session, next: SessionState): HandlerResult {
   const web = session.slots[SlotKey.CONSULTA_CANAL] === CANAL_WEB;
   if (!web || session.slots[SlotKey.CONSULTA_DNI]) {
@@ -111,7 +104,6 @@ function askCodigoOrListar(session: Session): HandlerResult {
   ]);
 }
 
-/** Entrada a la consulta; con `codigo` ya reconocido en el mensaje salta directo a la búsqueda (o a verificar la identidad en la web). */
 export function beginConsulta(channel: SessionChannel | undefined, codigo?: string): HandlerResult {
   const session: Session = {
     state: SessionState.CONSULTA_AWAITING_CODIGO,
@@ -199,7 +191,6 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
   return buildResult(next, [sendText(`Código incorrecto. Te quedan ${MAX_INTENTOS_OTP - attempts} intento(s).`)]);
 }
 
-/** Solo código, estado y fecha de registro: nunca la descripción ni datos de quien reportó. */
 export function foundText(result: Extract<ConsultaIncidenciaResult, { status: "found" }>): string {
   const fecha = fechaLegible(result.fechaRegistro);
   return [`Incidencia ${result.codigo}`, `Estado: ${estadoLegible(result.estado)}`, ...(fecha ? [`Fecha de registro: ${fecha}`] : [])].join("\n");

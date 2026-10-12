@@ -21,7 +21,6 @@ import { SessionState } from "@/lib/enums/session-state";
 
 const warnedInvalidOrigins = new Set<string>();
 
-/** Reduce cada entrada a su origen: la cabecera Origin del navegador nunca trae ruta ni barra final. */
 function allowedOrigins(): string[] {
   const { origins, invalid } = parseAllowedOrigins(process.env.SANDBOX_ALLOWED_ORIGINS);
   for (const entry of invalid) {
@@ -95,7 +94,6 @@ export async function POST(request: NextRequest) {
   }
   marks.mark("reset");
 
-  // Tras un reinicio la sesión acaba de borrarse: no hace falta otro viaje a la base para comprobarlo.
   const hadExistingSession = reset || resetAll ? false : await sessionRowExists(from);
   marks.mark("exists");
 

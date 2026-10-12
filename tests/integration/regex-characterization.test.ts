@@ -27,7 +27,6 @@ import { splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text"
 import { splitPagerRows } from "@/lib/utils/list-rows";
 import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
 
-/** Ejecuta dos veces seguidas y exige el mismo resultado: un patrón global compartido no puede arrastrar posición entre llamadas. */
 function twice<T>(run: () => T): T {
   const first = run();
   expect(run()).toEqual(first);

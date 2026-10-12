@@ -12,8 +12,6 @@ if (!url) {
 
 const parsed = new URL(url);
 const base = decodeURIComponent(parsed.pathname.slice(1));
-// Misma guardia que db:seed:dev. Para cargar el padron en una base real (OGTI) hay que repetir su nombre exacto a mano:
-//   npm run db:seed:eess -- --base-real=<nombre de la base>
 const baseReal = process.argv.find((argumento) => argumento.startsWith("--base-real="))?.slice("--base-real=".length);
 if (!NOMBRE_DE_BASE_DESECHABLE.test(base) && baseReal !== base) {
   console.error(
@@ -43,8 +41,6 @@ if (!Array.isArray(filas) || filas.length === 0) {
 const literal = (texto) => `'${texto.replaceAll("'", "''")}'`;
 const cargador = join(carpeta, "cargar_establecimientos.sql").replaceAll("\\", "/");
 
-// Todo en una sola transaccion: si algo falla, la base queda como estaba. El JSON viaja como un literal que la base
-// convierte en filas (no hay limite de argumentos ni se arma una sentencia por fila).
 const guion = `\\set ON_ERROR_STOP on
 BEGIN;
 CREATE TEMP TABLE eess_antes AS

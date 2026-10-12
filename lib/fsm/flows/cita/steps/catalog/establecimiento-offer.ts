@@ -28,7 +28,6 @@ export function establecimientoPaging(counters: Session["counters"]): { page: nu
   };
 }
 
-/** Filas de la página actual; si el MINSA tiene más páginas, agrega las filas «Ver anteriores» y «Ver más establecimientos». */
 export function establecimientoPageRows(items: EstablecimientoResultItem[], counters: Session["counters"]): ListRow[] {
   const { page, totalPages } = establecimientoPaging(counters);
   const rows = establecimientoRows(items);
@@ -55,7 +54,6 @@ export function searchEstablecimientosPage(next: Session, page: number, announce
 export const establecimientoFullName = (item: EstablecimientoResultItem): string =>
   formatEstablecimientoName(item.establishmentName).full;
 
-/** Devuelve el establecimiento que coincide con el texto sugerido, o undefined si no hay coincidencia. */
 export function detectEstablecimiento(
   hint: string | undefined,
   items: EstablecimientoResultItem[],

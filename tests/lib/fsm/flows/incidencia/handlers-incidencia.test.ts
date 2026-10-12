@@ -24,7 +24,6 @@ const consentCheckResult = (aceptado: boolean): QueryResultEvent => ({
 });
 const consentRegisterResult = (): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind: "registrar_consentimiento", result: { ok: true } });
 
-/** Para tests que no les importa el consentimiento: simula que nunca lo dio y lo autoriza ahora, hasta llegar al relato. */
 function throughConsent(step: HandlerResult): HandlerResult {
   let next = handleIncidencia(step.session, consentCheckResult(false));
   next = handleIncidencia(next.session, tap("incidencia_consent_si"));
@@ -211,7 +210,6 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
 
 describe("el registro final: con la persona o anónimo", () => {
   const submission = (step: HandlerResult) => queries(step)[0].payload.submission as { dni: string | null; nombreCompleto: string | null; mediaDataUri?: string };
-  /** Tras llegar al checklist final, confirma «Registrar» para que dispare la query real. */
   const confirmar = (step: HandlerResult) => handleIncidencia(step.session, tap("incidencia_confirmar_registro_si"));
 
   it("con DNI: lleva el documento y el nombre de RENIEC", () => {

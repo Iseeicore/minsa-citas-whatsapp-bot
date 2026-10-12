@@ -22,7 +22,6 @@ function getPrismaClient(): PrismaClient {
   return instance;
 }
 
-/** Cliente creado solo al primer uso y nunca con DATABASE_ENABLED=false; usa el motor por defecto de Prisma y su pool de conexiones. */
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, property) {
     const client = getPrismaClient();

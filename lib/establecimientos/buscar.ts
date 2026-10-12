@@ -7,7 +7,6 @@ export type BuscarEstablecimientoResult =
   | { by: "nombre"; status: "ok"; candidatos: Candidato[] }
   | { by: "codigo" | "nombre"; status: "unavailable" };
 
-/** Resuelve la consulta del flujo: por código si lo trae, y si no por nombre. Nunca lanza. */
 export async function buscarEstablecimiento(payload: { codigo?: unknown; nombre?: unknown }): Promise<BuscarEstablecimientoResult> {
   const codigo = typeof payload.codigo === "string" ? payload.codigo : "";
   if (codigo) {

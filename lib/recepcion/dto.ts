@@ -5,7 +5,6 @@ export const MAX_DESCRIPCION_LENGTH = 1000;
 export const MIN_DESCRIPCION_LENGTH = 20;
 export const MAX_INCIDENCIAS_POR_DIA = 5;
 
-/** Frontera del módulo: lo que no valida acá no llega a la base. */
 export const registrarIncidenciaSchema = z.object({
   waId: z.string().min(1),
   dni: z.string().refine(isValidDniFormat, "DNI inválido").nullable().default(null),

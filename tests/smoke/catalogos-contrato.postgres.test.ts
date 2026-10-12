@@ -16,7 +16,6 @@ import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 
 type Fila = { id: number; codigo: string };
 
-/** Un enum numérico de TypeScript trae también el mapeo inverso (valor → nombre): se queda solo con nombre → id. */
 const comoMapa = (enumeracion: Record<string, string | number>): Record<string, number> =>
   Object.fromEntries(Object.entries(enumeracion).filter(([, valor]) => typeof valor === "number")) as Record<string, number>;
 

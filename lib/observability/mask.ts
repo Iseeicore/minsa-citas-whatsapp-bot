@@ -30,7 +30,6 @@ export function maskDni(value: string): string {
   return digits.length > 4 ? `****${digits.slice(-4)}` : "****";
 }
 
-/** Oculta query strings de URLs, series de 7+ dígitos (DNI, teléfono, OTP), cabeceras Bearer y JWT en cualquier texto. */
 export function redactString(value: string): string {
   return value
     .replace(URL_WITH_QUERY_STRING, "$1?[redacted]")

@@ -21,7 +21,6 @@ export type UbigeoResultItem = {
   departamento: string;
 };
 
-/** Devuelve el ubigeo único: el único resultado, o el que coincide exactamente con distrito, provincia y departamento ya conocidos. */
 export function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoResultItem | undefined {
   if (items.length === 1) return items[0];
 

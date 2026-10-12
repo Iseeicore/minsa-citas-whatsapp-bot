@@ -21,7 +21,6 @@ export type LlmJsonOutcome =
   | { ok: false; failure: "no_text" }
   | { ok: false; failure: "invalid_json" };
 
-/** Puerto de IA: cada proveedor (Gemini, Claude, OpenAI) implementa generateJson; las tareas no conocen al proveedor. */
 export interface LlmClient {
   readonly provider: LlmProvider;
   generateJson(request: LlmJsonRequest): Promise<LlmJsonOutcome>;

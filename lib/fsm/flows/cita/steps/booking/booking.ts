@@ -13,7 +13,6 @@ const APPOINTMENT_DETAILS_TEXT =
 const APPOINTMENT_BUTTON_TEXT = "Ver mi cita";
 const SLOT_TAKEN_MESSAGE = /cupo|horario|disponib|agotad|ocupad|tomad/i;
 
-/** Un error del MINSA no se presenta como «horario tomado»: no se inventa una causa que el MINSA no dio. */
 export function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; url?: string; message?: string };
   const next = cloneSession(session);

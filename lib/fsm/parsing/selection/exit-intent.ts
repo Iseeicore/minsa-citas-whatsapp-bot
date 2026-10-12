@@ -25,7 +25,6 @@ export function normalizeIntentPhrase(text: string): string {
     .trim();
 }
 
-/** Frases claras de abandono ("quiero salir", "me aburrí", "ya no quiero nada"); "no" o "cancelar" solos no cuentan. */
 export function detectExitIntent(text: string): boolean {
   const phrase = normalizeIntentPhrase(text);
   if (!phrase) return false;

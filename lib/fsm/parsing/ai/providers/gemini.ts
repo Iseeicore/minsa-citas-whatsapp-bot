@@ -20,7 +20,6 @@ export type GeminiJsonRequest = {
 
 export type GeminiJsonOutcome = LlmJsonOutcome;
 
-/** La API key viaja en la cabecera x-goog-api-key, nunca en la URL, para que no llegue a mensajes de error ni logs. */
 export async function requestGeminiJson(request: GeminiJsonRequest): Promise<GeminiJsonOutcome> {
   const model = process.env.GOOGLE_AI_MODEL || DEFAULT_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;

@@ -10,7 +10,6 @@ export type LatencyMarks = {
   finish: (event: LatencyEvent, fields: { waId: string; channel: "whatsapp" | "web"; traceId?: string }) => void;
 };
 
-/** Mide cuánto dura cada etapa desde que el mensaje entra hasta que se responde; una sola línea de log por mensaje. */
 export function createLatencyMarks(now: () => number = Date.now): LatencyMarks {
   const startedAt = now();
   let previousAt = startedAt;

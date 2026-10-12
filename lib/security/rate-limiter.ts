@@ -20,7 +20,6 @@ export type RateLimiterOptions = {
   onMute?: (key: string) => void;
 };
 
-/** Contadores en memoria por instancia (no compartidos entre instancias): más de 20 mensajes en 60 s bloquean el número por 1 hora. */
 export function createRateLimiter(options: RateLimiterOptions = {}) {
   const now = options.now ?? Date.now;
   const enabled = options.enabled ?? true;

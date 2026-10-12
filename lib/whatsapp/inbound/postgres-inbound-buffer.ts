@@ -15,7 +15,6 @@ type ClaimedRow = {
 
 const ENTRANTE = DireccionMensajeId.ENTRANTE;
 
-/** Cola de entrada sobre la tabla mensaje: pendiente es procesado_en NULL; tomar es un solo UPDATE ... RETURNING, sin sondeo. */
 export function createPostgresInboundBuffer(): InboundBuffer {
   return {
     async summarize(usuarioId: string): Promise<PendingSummary> {

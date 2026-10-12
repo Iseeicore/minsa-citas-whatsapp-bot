@@ -44,7 +44,6 @@ function cutAtWord(text: string, max: number): string {
   return cut || truncateForRow(text, max);
 }
 
-/** Nombre legible de la especialidad de MINSA: sin el prefijo «CONSULTA EXTERNA-», con título corto y nombre completo. */
 export function formatEspecialidadName(raw: string): CatalogName {
   const cleaned = collapseSpaces(raw)
     .replace(CONSULTA_EXTERNA_PREFIX, "")

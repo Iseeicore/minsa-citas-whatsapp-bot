@@ -35,7 +35,6 @@ export function toggleMinimize(state: WidgetState): WidgetState {
   return { ...state, mode: WidgetMode.MINIMIZED, restoreMode: state.mode };
 }
 
-/** Recuerda desde qué estado se cerró para que el panel se desvanezca con esa misma geometría y no salte de tamaño. */
 export function closeWidget(state: WidgetState): WidgetState {
   const closedFrom = state.mode === WidgetMode.LAUNCHER ? state.closedFrom : state.mode;
   return { mode: WidgetMode.LAUNCHER, restoreMode: WidgetMode.NORMAL, closedFrom };

@@ -64,10 +64,6 @@ function searching(next: Session, payload: { codigo?: string; nombre?: string })
   return buildResult(next, [query(QueryKind.BUSCAR_ESTABLECIMIENTO, payload)]);
 }
 
-/**
- * Entrada común a la incidencia: desde el QR, desde un texto que la anuncia, desde la IA, desde el menú o desde un atajo. Si trae
- * código o nombre del establecimiento los busca de inmediato; si no, pide la ubicación. Lo que la persona ya escribió queda de borrador.
- */
 export function beginIncidencia(slots: Session["slots"], lead: string, inicio: InicioIncidencia | null = null): HandlerResult {
   const next: Session = { state: SessionState.INCIDENCIA_AWAITING_UBICACION, slots: { ...slots }, counters: {} };
   next.slots[SlotKey.INCIDENCIA_ORIGEN] = inicio?.origen ?? "menu";
@@ -111,11 +107,6 @@ function confirmUbicacion(next: Session, establecimiento: Establecimiento): Hand
   ]);
 }
 
-/**
- * Resultado de buscar el establecimiento. Solo se le propone uno cuando hay un solo candidato claro: nunca una lista, porque si la
- * persona no sabe dónde ocurrió, ella decide si lo escribe o sigue sin él. El origen solo cuenta para la primera búsqueda: si el texto
- * de inicio resultó ser un nombre, no era su historia; las búsquedas posteriores no tocan el borrador.
- */
 export function handleUbicacionPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as BuscarEstablecimientoResult;
   const next = cloneSession(session);
@@ -188,12 +179,10 @@ export function handleConfirmUbicacion(session: Session, event: InboundEvent): H
   return withRejectionNotice(buildResult(session, [sendButtons("¿Es ese el establecimiento donde ocurrió? Toca Sí o No.", UBICACION_BUTTONS)]));
 }
 
-/** Reanudación tras un reauth propio de incidencia: re-pregunta la ubicación sin perder el estado ya construido. */
 export function askUbicacionAgain(session: Session): HandlerResult {
   return buildResult(cloneSession(session), [sendText(PEDIR_OTRO)]);
 }
 
-/** Igual que `confirmUbicacion`, pero a partir de lo ya guardado en el slot — para reanudar sin volver a buscar. */
 export function resendConfirmUbicacion(session: Session): HandlerResult {
   const propuesto = readPropuesto(session);
   if (!propuesto) return askUbicacionAgain(session);

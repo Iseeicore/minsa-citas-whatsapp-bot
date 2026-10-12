@@ -19,7 +19,6 @@ export const BORRADOR_BUTTONS = [
 const isUsable = (borrador: string | undefined): borrador is string =>
   typeof borrador === "string" && borrador.length >= MIN_DESCRIPCION_LENGTH && borrador.length <= MAX_DESCRIPCION_LENGTH && !looksLikeNoise(borrador);
 
-/** Punto donde se pide el relato: si la persona ya escribió algo aprovechable, se lo muestra y le pregunta; si no, se lo pide. */
 export function enterDescripcion(session: Session): HandlerResult {
   const next = cloneSession(session);
   const borrador = next.slots[SlotKey.INCIDENCIA_BORRADOR];

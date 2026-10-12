@@ -32,7 +32,6 @@ const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((eff
 const queries = (result: HandlerResult): QueryEffect[] => result.effects.filter(isQueryEffect);
 const at = (state: Session["state"], slots: Session["slots"] = {}, counters: Session["counters"] = {}): Session => ({ state, slots, counters });
 
-/** Para tests que no les importa el consentimiento: simula que nunca lo dio y lo autoriza ahora, hasta llegar al relato. */
 function throughConsent(step: HandlerResult): HandlerResult {
   const checked: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "verificar_consentimiento", result: { aceptado: false } };
   const registered: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "registrar_consentimiento", result: { ok: true } };

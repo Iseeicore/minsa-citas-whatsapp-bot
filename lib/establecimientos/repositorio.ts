@@ -14,7 +14,6 @@ export type ResultadoPorNombre = { status: "ok"; candidatos: Candidato[] } | { s
 
 const DEFAULT_LIMIT = 8;
 
-/** Busca un establecimiento activo por su código RENIPRESS (ya sin ceros). Si la base no responde, devuelve unavailable en vez de lanzar. */
 export async function buscarPorCodigo(codigoRenipress: string): Promise<ResultadoPorCodigo> {
   if (!isDatabaseEnabled()) return { status: "unavailable" };
   try {
@@ -29,7 +28,6 @@ export async function buscarPorCodigo(codigoRenipress: string): Promise<Resultad
   }
 }
 
-/** Busca por parecido de nombre (pg_trgm sobre nombre_busqueda) con el texto tal cual y con los sinónimos del padrón; toma la mejor de las dos. Trae solo los que pasan el umbral. */
 export async function buscarPorNombre(texto: string, limite: number = DEFAULT_LIMIT): Promise<ResultadoPorNombre> {
   if (!isDatabaseEnabled()) return { status: "unavailable" };
   const [original, expandida] = variantesConsulta(texto);

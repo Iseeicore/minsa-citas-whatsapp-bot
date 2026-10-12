@@ -1,10 +1,6 @@
 import { timedFetch } from "@/lib/observability/http";
 import { mediaStorageConfig } from "@/lib/recepcion/imagenes/config";
 
-/**
- * Adaptador HTTP del servicio de imágenes (contrato a confirmar con OGTI): POST con los bytes y su mime type,
- * `Authorization: Bearer` si hay token; responde `{ "ruta": "..." }`.
- */
 export async function guardarImagenHttp(bytes: Buffer, mimeType: string): Promise<{ ruta: string }> {
   const { baseUrl, token, timeoutMs } = mediaStorageConfig();
 

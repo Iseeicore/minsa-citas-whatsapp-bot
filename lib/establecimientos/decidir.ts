@@ -21,10 +21,6 @@ export type Decision =
 
 const esCandidato = (fila: Candidato) => fila.similitud >= MIN_SIMILITUD || fila.similitudPalabra >= MIN_SIMILITUD_PALABRA;
 
-/**
- * Decide qué hacer con los resultados de buscar un nombre: uno solo (confirmar), varios (pedir el nombre completo) o ninguno.
- * Un nombre casi exacto, o con clara ventaja sobre el siguiente, gana aunque otros se parezcan. Nunca devuelve una lista para elegir.
- */
 export function decidirCandidatos(filas: Candidato[]): Decision {
   const candidatos = filas
     .filter(esCandidato)

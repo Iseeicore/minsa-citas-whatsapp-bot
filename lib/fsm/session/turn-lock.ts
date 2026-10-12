@@ -48,7 +48,6 @@ function waitFor(promise: Promise<unknown>, timeoutMs: number, onTimeout: () => 
   });
 }
 
-/** Serializa los turnos de un mismo ciudadano: cola en memoria del proceso y, con base de datos, advisory lock de Postgres entre instancias. */
 export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
   const timeoutMs = options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS;
   const slowWaitMs = options.slowWaitMs ?? DEFAULT_SLOW_WAIT_MS;

@@ -37,7 +37,6 @@ function minsaDigitalBrowserHeaders(): Record<string, string> {
   return origin ? { Origin: origin, Referer: `${origin}/` } : {};
 }
 
-/** Interruptor compartido: fuera del sandbox real, todas las integraciones MINSA usan datos simulados. */
 export function isRealMinsaEnabled(): boolean {
   return process.env.SANDBOX_USE_REAL_MINSA === "true";
 }

@@ -38,7 +38,6 @@ const inboundCoalescer = createInboundCoalescer({
   now: Date.now,
 });
 
-/** Un solo INSERT decide quién responde: el índice único de waMessageId (P2002) descarta la reentrega concurrente de Meta. */
 async function claimInboundMessage(
   message: WhatsAppMessage,
   usuarioId: string,
@@ -66,7 +65,6 @@ async function claimInboundMessage(
   }
 }
 
-/** Guarda el mensaje y devuelve cómo responderlo; la espera de la ventana va aparte para que los mensajes de un mismo envío se junten. */
 async function stageInboundMessage(
   message: WhatsAppMessage,
   contact: WhatsAppContact | undefined,
@@ -87,7 +85,6 @@ async function stageInboundMessage(
   const timestamp = new Date(Number(message.timestamp) * 1000);
   const { content, mediaId } = extractContentAndMedia(message);
 
-  // La sesión no depende del usuario: se consulta en paralelo para ahorrar un viaje a la base.
   const [[, usuario], session] = await Promise.all([
     prisma.$transaction([
       declararActor(actorCiudadano(message.from_user_id)),
@@ -127,7 +124,6 @@ export async function processValue(value: WhatsAppValue) {
   if (isDatabaseEnabled()) await processBsuidChanges(value);
 
   for (const message of value.messages ?? []) {
-    // Los mensajes de sistema de Meta (p. ej. cambio de número) no son texto de la persona: no pasan por el perímetro ni se responden.
     if (message.type === "system") continue;
 
     const marks = createLatencyMarks();
@@ -142,7 +138,6 @@ export async function processValue(value: WhatsAppValue) {
     }
     marks.mark("perimeter");
 
-    // Solo lo que pasó el perímetro recibe el "leído / escribiendo…", y lo recibe antes de tocar la base o esperar la ventana.
     void sendTypingIndicator(message.id);
 
     try {

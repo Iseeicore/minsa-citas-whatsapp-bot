@@ -7,7 +7,6 @@ import { SessionState } from "@/lib/enums/session-state";
 
 const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global";
 
-/** Alcance del piloto: CITA_ALLOWED_DEPARTAMENTOS, separados por comas; vacía o sin definir desactiva el filtro (todo el Perú). */
 export function allowedDepartamentos(): string[] {
   return (process.env.CITA_ALLOWED_DEPARTAMENTOS ?? "")
     .split(",")

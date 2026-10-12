@@ -123,7 +123,6 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   ]);
 }
 
-/** Cola común tras el paso de referencias: usar la pista de distrito ya dicha o preguntarlo (el resume por reverificación ya se resolvió antes, en handleVerifyPending). */
 export function continueCitaAfterVerification(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
