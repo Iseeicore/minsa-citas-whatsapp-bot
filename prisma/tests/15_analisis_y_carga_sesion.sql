@@ -151,7 +151,7 @@ BEGIN
   ASSERT NOT EXISTS (SELECT 1 FROM chatbot.barrer_archivos_huerfanos(1000)), 'W10 una segunda pasada no devuelve nada';
 END $$;
 
-TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE ANALISIS Y CARGA POR SESION PASARON

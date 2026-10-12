@@ -4,6 +4,7 @@ erDiagram
     incidencia_paciente ||--o{ evidencia : "incidencia_paciente_id"
     mensaje |o--o{ evidencia : "mensaje_id"
     incidencia_paciente ||--o{ incidencia_analisis : "incidencia_paciente_id"
+    incidencia_paciente ||--o{ incidencia_etiqueta : "incidencia_paciente_id"
     mensaje |o--o{ incidencia_paciente : "mensaje_id"
     usuario ||--o{ incidencia_paciente : "usuario_id"
     incidencia_paciente ||--o{ incidencia_paciente_auditoria : "incidencia_paciente_id"
@@ -58,6 +59,15 @@ erDiagram
         text cargo_mencionado
         int area_mencionada_id FK "catalogo area"
         text nombre_mencionado
+        bloque auditoria
+    }
+    incidencia_etiqueta {
+        uuid id PK
+        uuid incidencia_paciente_id FK
+        int etiqueta_id FK "catalogo etiqueta"
+        boolean activo
+        timestamptz eliminado_en
+        text eliminado_por
         bloque auditoria
     }
     incidencia_paciente {
@@ -158,6 +168,7 @@ erDiagram
         boolean activo
         timestamptz eliminado_en
         text eliminado_por
+        timestamptz consentimiento_aceptado_en
         bloque auditoria
     }
     rol {

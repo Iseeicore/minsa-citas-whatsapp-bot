@@ -279,7 +279,7 @@ BEGIN
   ASSERT (SELECT bool_and(archivado_en IS NOT NULL) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 't14-lote-%'), 'Z20 la base llena la fecha de archivado';
 END $$;
 
-TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria,
          ia.entrenamiento_categoria, chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS DE DERIVACION Y ARCHIVO PASARON

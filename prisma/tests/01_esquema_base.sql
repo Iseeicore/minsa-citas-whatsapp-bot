@@ -211,7 +211,7 @@ INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_
 SELECT 1, id, wa_id, true, 'Sin IA todavia', 'trace-4' FROM chatbot.usuario LIMIT 1;
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET categoria_confirmada_en = now() WHERE trace_id = 'trace-4'$q$, '23514', 'T29 no se confirma lo que la IA no clasifico');
 
-TRUNCATE chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria, ia.entrenamiento_categoria,
+TRUNCATE chatbot.incidencia_etiqueta, chatbot.archivo_recibido, chatbot.solicitud_carga, chatbot.evidencia, chatbot.incidencia_paciente_auditoria, ia.entrenamiento_categoria,
          chatbot.incidencia_analisis, chatbot.incidencia_paciente, chatbot.mensaje, chatbot.usuario, chatbot.sesion_conversacion;
 
 \echo TODAS LAS PRUEBAS PASARON
