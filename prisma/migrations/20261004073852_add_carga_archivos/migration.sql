@@ -1,4 +1,3 @@
--- CreateTable
 CREATE TABLE "catalogo"."estado_archivo" (
     "id" SMALLSERIAL NOT NULL,
     "codigo" TEXT NOT NULL,
@@ -14,10 +13,10 @@ CREATE TABLE "catalogo"."estado_archivo" (
     CONSTRAINT "pk_estado_archivo" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "chatbot"."solicitud_carga" (
     "id" UUID NOT NULL DEFAULT uuidv7(),
-    "incidencia_paciente_id" UUID NOT NULL,
+    "incidencia_paciente_id" UUID,
+    "sesion_id" UUID,
     "usuario_id" UUID NOT NULL,
     "hash_token" TEXT NOT NULL,
     "vence_en" TIMESTAMPTZ(3) NOT NULL,
@@ -33,7 +32,6 @@ CREATE TABLE "chatbot"."solicitud_carga" (
     CONSTRAINT "pk_solicitud_carga" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "chatbot"."archivo_recibido" (
     "id" UUID NOT NULL DEFAULT uuidv7(),
     "solicitud_carga_id" UUID NOT NULL,
@@ -56,41 +54,30 @@ CREATE TABLE "chatbot"."archivo_recibido" (
     CONSTRAINT "pk_archivo_recibido" PRIMARY KEY ("id")
 );
 
--- CreateIndex
 CREATE UNIQUE INDEX "uq_estado_archivo_codigo" ON "catalogo"."estado_archivo"("codigo");
 
--- CreateIndex
 CREATE UNIQUE INDEX "uq_solicitud_carga_hash_token" ON "chatbot"."solicitud_carga"("hash_token");
 
--- CreateIndex
 CREATE INDEX "ix_solicitud_carga_incidencia_paciente" ON "chatbot"."solicitud_carga"("incidencia_paciente_id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "uq_archivo_recibido_evidencia" ON "chatbot"."archivo_recibido"("evidencia_id");
 
--- CreateIndex
 CREATE INDEX "ix_archivo_recibido_solicitud_estado" ON "chatbot"."archivo_recibido"("solicitud_carga_id", "estado_archivo_id");
 
--- AddForeignKey
 ALTER TABLE "chatbot"."solicitud_carga" ADD CONSTRAINT "fk_solicitud_carga_incidencia_paciente" FOREIGN KEY ("incidencia_paciente_id") REFERENCES "chatbot"."incidencia_paciente"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."solicitud_carga" ADD CONSTRAINT "fk_solicitud_carga_usuario" FOREIGN KEY ("usuario_id") REFERENCES "chatbot"."usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."archivo_recibido" ADD CONSTRAINT "fk_archivo_recibido_solicitud_carga" FOREIGN KEY ("solicitud_carga_id") REFERENCES "chatbot"."solicitud_carga"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."archivo_recibido" ADD CONSTRAINT "fk_archivo_recibido_estado_archivo" FOREIGN KEY ("estado_archivo_id") REFERENCES "catalogo"."estado_archivo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "chatbot"."archivo_recibido" ADD CONSTRAINT "fk_archivo_recibido_evidencia" FOREIGN KEY ("evidencia_id") REFERENCES "chatbot"."evidencia"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-
--- Restricciones e indices parciales que Prisma no expresa.
 ALTER TABLE chatbot.solicitud_carga
   ADD CONSTRAINT ck_solicitud_carga_vencimiento CHECK (vence_en > fecha_creacion),
-  ADD CONSTRAINT ck_solicitud_carga_limites CHECK (max_archivos > 0 AND max_bytes_archivo > 0);
+  ADD CONSTRAINT ck_solicitud_carga_limites CHECK (max_archivos > 0 AND max_bytes_archivo > 0),
+  ADD CONSTRAINT ck_solicitud_carga_destino CHECK (incidencia_paciente_id IS NOT NULL OR sesion_id IS NOT NULL);
 
 ALTER TABLE chatbot.archivo_recibido
   ADD CONSTRAINT ck_archivo_recibido_tamano CHECK (tamano > 0),
@@ -103,15 +90,24 @@ CREATE INDEX ix_solicitud_carga_abierta
   ON chatbot.solicitud_carga (vence_en)
   WHERE cerrada_en IS NULL;
 
+CREATE INDEX ix_solicitud_carga_sesion_sin_incidencia
+  ON chatbot.solicitud_carga (sesion_id)
+  WHERE incidencia_paciente_id IS NULL AND cerrada_en IS NULL;
+
 CREATE INDEX ix_archivo_recibido_pendiente
   ON chatbot.archivo_recibido (fecha_creacion)
   WHERE estado_archivo_id IN (1, 2);
 
--- Reglas de la solicitud: los datos de emision no cambian y se cierra una sola vez (la fecha de cierre la fija la base).
 CREATE OR REPLACE FUNCTION public.fn_reglas_solicitud_carga() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.incidencia_paciente_id IS DISTINCT FROM OLD.incidencia_paciente_id
+     AND (OLD.incidencia_paciente_id IS NOT NULL OR NEW.incidencia_paciente_id IS NULL) THEN
+    RAISE EXCEPTION 'solicitud_carga: la incidencia se enlaza una sola vez y no se cambia'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.sesion_id IS DISTINCT FROM OLD.sesion_id
      OR NEW.usuario_id IS DISTINCT FROM OLD.usuario_id
      OR NEW.hash_token IS DISTINCT FROM OLD.hash_token
      OR NEW.vence_en IS DISTINCT FROM OLD.vence_en
@@ -133,7 +129,6 @@ BEGIN
 END;
 $$;
 
--- Reglas del archivo: recibido -> verificando -> verificado o rechazado; los estados finales no cambian.
 CREATE OR REPLACE FUNCTION public.fn_reglas_archivo_recibido() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -210,7 +205,6 @@ INSERT INTO catalogo.estado_archivo (id, codigo, nombre, descripcion) VALUES
   (4, 'RECHAZADO', 'Rechazado', 'No pasó una verificación; se indica el motivo');
 SELECT setval(pg_get_serial_sequence('catalogo.estado_archivo', 'id'), 4);
 
--- Descripcion de cada tabla y columna nueva (diccionario de datos dentro de la base).
 COMMENT ON COLUMN catalogo.estado_archivo.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 
 COMMENT ON COLUMN catalogo.estado_archivo.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
@@ -276,7 +270,9 @@ Relaciones:
 
 COMMENT ON COLUMN chatbot.solicitud_carga.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
 
-COMMENT ON COLUMN chatbot.solicitud_carga.incidencia_paciente_id IS 'Incidencia a la que se le agregarán los archivos.';
+COMMENT ON COLUMN chatbot.solicitud_carga.incidencia_paciente_id IS 'Incidencia a la que se le agregarán los archivos. Nulo mientras el ciudadano aún está armando el reporte en el chat; se enlaza una sola vez cuando la incidencia se crea.';
+
+COMMENT ON COLUMN chatbot.solicitud_carga.sesion_id IS 'Sesión de conversación (borrador del reporte) para la que se emitió el enlace antes de que existiera la incidencia. Sin llave foránea a propósito: la purga de sesiones inactivas borra la sesión. Obligatoria mientras no haya incidencia.';
 
 COMMENT ON COLUMN chatbot.solicitud_carga.usuario_id IS 'Usuario (ciudadano) al que se le emitió el enlace.';
 
@@ -303,5 +299,5 @@ COMMENT ON COLUMN chatbot.solicitud_carga.usuario_modificacion IS 'Quién hizo l
 COMMENT ON TABLE chatbot.solicitud_carga IS 'Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. Cada fila corresponde a un enlace firmado emitido por el bot: guarda a qué incidencia pertenece, cuándo vence y cuántos archivos y bytes se permiten. Nunca guarda el token, solo su huella. No se borra: se cierra.
 
 Relaciones:
-- incidencia_paciente_id → chatbot.incidencia_paciente: Cada solicitud de carga pertenece a una incidencia. Sirve para saber qué archivos corresponden a qué reclamo.
+- incidencia_paciente_id → chatbot.incidencia_paciente: Cada solicitud de carga termina perteneciendo a una incidencia (hasta entonces queda nula y se identifica por la sesión). Sirve para saber qué archivos corresponden a qué reclamo.
 - usuario_id → chatbot.usuario: Cada solicitud se emite a un usuario. Sirve para vincular el enlace con el ciudadano que escribió al bot.';

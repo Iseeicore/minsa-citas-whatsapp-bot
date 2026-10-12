@@ -13,6 +13,7 @@
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "smoke:postgres": "vitest run --config vitest.smoke.config.ts",
     "db:test": "node scripts/db-test.mjs",
+    "db:seed:eess": "node scripts/db-seed-eess.mjs",
     "db:seed:dev": "node scripts/db-seed-dev.mjs",
     "db:diccionario": "node prisma/diccionario/generar.mjs",
     "postinstall": "prisma generate",
