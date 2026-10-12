@@ -25,7 +25,7 @@ function fechaPending(withReferencia: boolean): Session {
     state: "cita_fecha_pending",
     slots: {
       [SlotKey.CITA_BEARER]: "token",
-      [SlotKey.CITA_DNI]: "32028036",
+      [SlotKey.CITA_DNI]: "12345678",
       [SlotKey.CITA_COD_EESS]: "5987",
       [SlotKey.CITA_ESPECIALIDAD_ID]: "222800",
       ...(withReferencia ? { [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: "1364486" } : {}),
@@ -87,7 +87,7 @@ describe("referencia médica: al agendar", () => {
     expect(bookingPayload(session)).toMatchObject({
       codigoRenipress: "5987",
       codigoUps: "222800",
-      numeroDocumentoPaciente: "32028036",
+      numeroDocumentoPaciente: "12345678",
       referenciaId: "1364486",
     });
   });

@@ -98,7 +98,9 @@ export type ReferenciaItem = {
   estado: 3 | 5 | 7;
 };
 
-export type ListReferencesResult =
-  | { status: "found"; items: ReferenciaItem[] }
-  | { status: "empty" }
-  | { status: "error" };
+/** `items` siempre es un arreglo: con elementos solo en `found`, vacío en `empty` y `error`. `message` es el del backend, si lo envió. */
+export type ListReferencesResult = {
+  status: "found" | "empty" | "error";
+  items: ReferenciaItem[];
+  message?: string;
+};

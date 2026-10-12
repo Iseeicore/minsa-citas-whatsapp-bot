@@ -4,7 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { SlotKey } from "@/lib/enums/slot-key";
-
+
 const FROM = "sandbox-references";
 
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -48,14 +48,14 @@ function referencesPending(): Session {
 
 describe("handleReferencesPending", () => {
   it("sin referencias (empty), sigue directo al flujo normal sin preguntar nada", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "empty" }));
+    const result = handle(referencesPending(), queryResult("list_references", { status: "empty", items: [] }));
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
     expect(texts(result).join(" ")).toContain("Cuéntanos en qué distrito");
   });
 
   it("con error, también sigue directo al flujo normal", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "error" }));
+    const result = handle(referencesPending(), queryResult("list_references", { status: "error", items: [] }));
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
   });
 

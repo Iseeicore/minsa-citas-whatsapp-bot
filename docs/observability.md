@@ -34,7 +34,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
 | `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
-| `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total` |
+| `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total`. Filas de un catálogo o de las referencias médicas que no pasaron la validación de la frontera |
 | `minsa.request_blocked` | error | `path`, `reason`. Una llamada autenticada al MINSA real no se envió porque falta `MINSA_DIGITAL_APP_URL` y no se puede armar `Origin` ni `Referer`; quien llamó recibe un 503 sin cuerpo y lo trata como error del MINSA |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
 | `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el texto fijo «Ocurrió un inconveniente temporal…», **como mucho una vez cada 30 s por número** (C4.2: una ráfaga que falla entera no manda un aviso por mensaje) |
