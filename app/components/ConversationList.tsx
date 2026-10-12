@@ -6,6 +6,7 @@ import { Avatar } from "@/app/components/ui/Avatar";
 import { Badge } from "@/app/components/ui/Badge";
 import { Button } from "@/app/components/ui/Button";
 import { avatarColor, initials } from "@/lib/utils/avatar";
+import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
@@ -63,7 +64,7 @@ export default function ConversationList({
                 selected={active}
                 onClick={() => onSelect(conversation)}
               >
-                <Avatar className={`font-semibold ${avatarColor(conversation.waId)}`}>{initials(label)}</Avatar>
+                <Avatar className={cn("font-semibold", avatarColor(conversation.waId))}>{initials(label)}</Avatar>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium text-gray-900">{label}</span>

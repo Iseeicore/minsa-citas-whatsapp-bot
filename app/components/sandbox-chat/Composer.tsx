@@ -4,6 +4,7 @@ import { TextInput } from "@/app/components/ui/TextInput";
 import { ButtonSize } from "@/lib/enums/button-size";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { TextInputVariant } from "@/lib/enums/text-input-variant";
+import { cn } from "@/lib/utils/cn";
 
 export function Composer({
   from,
@@ -23,9 +24,10 @@ export function Composer({
   return (
     <div className="flex items-center gap-2 border-t border-gray-200 bg-white p-3">
       <label
-        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-sb-navy ${
-          !from || loading ? "pointer-events-none opacity-50" : "cursor-pointer"
-        }`}
+        className={cn(
+          "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-sb-navy",
+          !from || loading ? "pointer-events-none opacity-50" : "cursor-pointer",
+        )}
       >
         <PaperclipIcon className="h-5 w-5" ariaLabel="Adjuntar imagen" />
         <input

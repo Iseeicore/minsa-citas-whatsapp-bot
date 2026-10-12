@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult } from "@/lib/integrations/minsa/types";
+import { ReferenceStatus } from "@/lib/enums/reference-status";
 
 const store = vi.hoisted(() => new Map<string, unknown>());
 const bookingCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-const referencias = vi.hoisted(() => ({ result: { status: "empty", items: [] } as ListReferencesResult }));
+const referencias = vi.hoisted(() => ({ result: { statusReference: "empty", message: "", data: [] } as ListReferencesResult }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
   getSession: async (from: string) =>
@@ -34,10 +35,11 @@ import { runTurn } from "@/lib/fsm/core/executor";
 const FROM = "sandbox-referencia-e2e";
 const DOCUMENTO = "12345678";
 
-const SIN_REFERENCIAS: ListReferencesResult = { status: "empty", items: [] };
+const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const UNA_REFERENCIA: ListReferencesResult = {
-  status: "found",
-  items: [
+  statusReference: ReferenceStatus.FOUND,
+  message: "",
+  data: [
     {
       idReferencia: "1364486",
       numero: "00123",

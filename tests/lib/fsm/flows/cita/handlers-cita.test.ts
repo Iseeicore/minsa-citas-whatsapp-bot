@@ -114,7 +114,7 @@ describe("OTP verification — proactive district resolution from the opening me
     expect(verified.session.state).toBe("cita_references_pending");
     expect(queries(verified).some((effect) => effect.kind === "list_references")).toBe(true);
 
-    return handle(verified.session, queryResult("list_references", { status: "empty" }));
+    return handle(verified.session, queryResult("list_references", { statusReference: "empty", message: "", data: [] }));
   }
 
   it("tries to resolve the district from initialMessageText when the deterministic hint failed but a place preposition was used", () => {

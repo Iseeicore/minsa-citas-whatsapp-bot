@@ -1,3 +1,5 @@
+import type { ReferenceStatus } from "@/lib/enums/reference-status";
+
 export type ValidateUserResult =
   | { status: "valid"; twofaId: string }
   | { status: "not_valid" }
@@ -94,11 +96,11 @@ export type ReferenciaItem = {
   upsDestino: string;
   codigoIpressDestino: string;
   codigoUpsDestino: string;
-  estado: 3 | 5 | 7;
+  estado: number;
 };
 
 export type ListReferencesResult = {
-  status: "found" | "empty" | "error";
-  items: ReferenciaItem[];
-  message?: string;
+  statusReference: ReferenceStatus;
+  message: string;
+  data: ReferenciaItem[];
 };

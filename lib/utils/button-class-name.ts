@@ -1,6 +1,7 @@
 import { ButtonSize } from "@/lib/enums/button-size";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
+import { cn } from "@/lib/utils/cn";
 
 const ICON_SOLID_SHAPE = "rounded-full text-white transition-opacity disabled:opacity-40";
 
@@ -18,8 +19,8 @@ const VARIANT_CLASS_NAME: Record<ButtonVariant, string> = {
   [ButtonVariant.ROW]: "border-b border-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-50",
   [ButtonVariant.ICON_PLAIN]: "text-white/90 hover:text-white",
   [ButtonVariant.ICON_CONTROL]: "rounded p-1.5 text-white/80 hover:bg-white/10 hover:text-white",
-  [ButtonVariant.ICON_SOLID_NAVY]: `${ICON_SOLID_SHAPE} bg-sb-navy hover:bg-sb-navy-dark`,
-  [ButtonVariant.ICON_SOLID_WHATSAPP]: `${ICON_SOLID_SHAPE} bg-wa-accent`,
+  [ButtonVariant.ICON_SOLID_NAVY]: cn(ICON_SOLID_SHAPE, "bg-sb-navy hover:bg-sb-navy-dark"),
+  [ButtonVariant.ICON_SOLID_WHATSAPP]: cn(ICON_SOLID_SHAPE, "bg-wa-accent"),
   [ButtonVariant.SWITCH_TRACK]: "h-10 rounded-full bg-gray-200 p-1 transition-colors",
   [ButtonVariant.UNSTYLED]: "",
 };
@@ -90,7 +91,8 @@ export function defaultButtonSize(variant: ButtonVariant): ButtonSize {
 function contentLayout(variant: ButtonVariant, size: ButtonSize, withIcon: boolean): string {
   const fixed = VARIANT_LAYOUT_CLASS_NAME[variant];
   if (fixed !== undefined) return fixed;
-  return withIcon ? `flex items-center justify-center ${ICON_GAP_CLASS_NAME[size]}` : "";
+  if (!withIcon) return "";
+  return cn("flex items-center justify-center", ICON_GAP_CLASS_NAME[size]);
 }
 
 export function buttonClassName({
@@ -108,14 +110,12 @@ export function buttonClassName({
   selected?: boolean;
   className?: string;
 }): string {
-  const parts = [
+  return cn(
     WIDTH_CLASS_NAME[width],
     contentLayout(variant, size, withIcon),
     VARIANT_CLASS_NAME[variant],
     SIZE_CLASS_NAME[size],
-    selected ? (SELECTED_CLASS_NAME[variant] ?? "") : "",
+    selected && SELECTED_CLASS_NAME[variant],
     className,
-  ];
-
-  return [...new Set(parts.join(" ").split(" ").filter(Boolean))].join(" ");
+  );
 }

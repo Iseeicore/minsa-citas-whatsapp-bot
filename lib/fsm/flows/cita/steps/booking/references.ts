@@ -18,6 +18,7 @@ import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/sel
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
+import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { ReferencesOfferButtonId } from "@/lib/enums/references-offer-button-id";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -109,11 +110,11 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
   const result = event.result as ListReferencesResult;
   const next = cloneSession(session);
 
-  if (result.status !== "found") {
+  if (result.statusReference !== ReferenceStatus.FOUND) {
     return continueCitaAfterVerification(next);
   }
 
-  next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.items);
+  next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.data);
   next.state = SessionState.CITA_AWAITING_REFERENCES_OFFER;
   return buildResult(next, [
     sendText("Tienes una referencia médica registrada.\n¿Deseas revisar tus referencias?"),

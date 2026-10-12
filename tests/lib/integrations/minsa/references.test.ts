@@ -4,8 +4,8 @@ import { configureLogger } from "@/lib/observability/logger";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 
-const SIN_REFERENCIAS = { status: "empty", items: [] };
-const ERROR = { status: "error", items: [] };
+const SIN_REFERENCIAS = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
+const SIN_RESPUESTA = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
 
 describe("MINSA simulado — listReferences", () => {
   beforeEach(() => {
@@ -61,7 +61,7 @@ describe("MINSA real — listReferences", () => {
     },
   ];
 
-  const ITEMS = [
+  const REFERENCIAS = [
     {
       idReferencia: "1364486",
       numero: "00123",
@@ -88,126 +88,90 @@ describe("MINSA real — listReferences", () => {
     },
   ];
 
-  const fueraDeEstado = { ...FILAS[0], id_referencia: "999", estado: { codigo: "1", descripcion: "REGISTRADO" } };
-
-  describe("respuesta actual: arreglo suelto, sin estado del backend", () => {
-    it("con filas visibles devuelve found y los items normalizados", async () => {
-      vi.stubGlobal("fetch", minsaResponding(FILAS));
-
-      await expect(listReferences("40488601", "01")).resolves.toEqual({ status: "found", items: ITEMS });
-    });
-
-    it("un arreglo vacío es empty con la colección vacía", async () => {
-      vi.stubGlobal("fetch", minsaResponding([]));
-
-      await expect(listReferences("12345678", "01")).resolves.toEqual(SIN_REFERENCIAS);
-    });
-
-    it("una referencia en un estado fuera de 3, 5 y 7 no se ofrece", async () => {
-      vi.stubGlobal("fetch", minsaResponding([fueraDeEstado]));
-
-      await expect(listReferences("40488601", "01")).resolves.toEqual(SIN_REFERENCIAS);
-    });
-  });
-
-  describe("sobre acordado: { status_reference, message, data }", () => {
-    it("usa el estado y el mensaje del backend", async () => {
+  describe("sobre del backend: { status_reference, message, data }", () => {
+    it("entrega el estado, el mensaje y las referencias tal como los envía el backend", async () => {
       vi.stubGlobal(
         "fetch",
         minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "Referencias encontradas", data: FILAS }),
       );
 
       await expect(listReferences("40488601", "01")).resolves.toEqual({
-        status: "found",
-        items: ITEMS,
+        statusReference: ReferenceStatus.FOUND,
         message: "Referencias encontradas",
+        data: REFERENCIAS,
       });
     });
 
-    it("si el backend dice empty, es empty aunque no mande data", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, message: "Sin referencias", data: null }));
+    it("empty llega como empty con la colección vacía", async () => {
+      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, message: "Sin referencias", data: [] }));
 
       await expect(listReferences("40488601", "01")).resolves.toEqual({
-        status: "empty",
-        items: [],
+        statusReference: ReferenceStatus.EMPTY,
         message: "Sin referencias",
+        data: [],
       });
     });
 
-    it("si el backend dice empty, no se ofrecen las filas que acompañen", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, data: FILAS }));
+    it("sin data ni message, la colección queda vacía y el mensaje en blanco", async () => {
+      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, data: null }));
 
       await expect(listReferences("40488601", "01")).resolves.toEqual(SIN_REFERENCIAS);
     });
 
-    it("found sin ninguna referencia visible queda en empty: no hay nada que ofrecer", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "ok", data: [fueraDeEstado] }));
+    it("el estado no se deduce de las filas: manda el del backend", async () => {
+      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, message: "", data: FILAS }));
 
-      await expect(listReferences("40488601", "01")).resolves.toEqual({ status: "empty", items: [], message: "ok" });
+      const result = await listReferences("40488601", "01");
+
+      expect(result.statusReference).toBe(ReferenceStatus.EMPTY);
     });
 
-    it("sin status_reference, el estado sale de data", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ data: FILAS }));
-      await expect(listReferences("40488601", "01")).resolves.toEqual({ status: "found", items: ITEMS });
+    it("no filtra por estado de la referencia: entrega las que manda el backend", async () => {
+      const registrada = { ...FILAS[0], id_referencia: "999", estado: { codigo: "1", descripcion: "REGISTRADO" } };
+      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "", data: [registrada] }));
 
-      vi.stubGlobal("fetch", minsaResponding({ data: [] }));
-      await expect(listReferences("40488601", "01")).resolves.toEqual(SIN_REFERENCIAS);
-    });
+      const result = await listReferences("40488601", "01");
 
-    it("un status_reference desconocido es error", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: "otra_cosa", data: FILAS }));
-
-      await expect(listReferences("40488601", "01")).resolves.toEqual(ERROR);
+      expect(result.data).toEqual([{ ...REFERENCIAS[0], idReferencia: "999", estado: 1 }]);
     });
   });
 
-  describe("formas que ya no se toleran", () => {
+  describe("respuestas fuera del sobre", () => {
     it.each([
-      ["referencias", { referencias: FILAS }],
-      ["items", { items: FILAS }],
-    ])("las filas bajo %s no se leen", async (_clave, body) => {
+      ["un arreglo suelto", FILAS],
+      ["las filas bajo referencias", { referencias: FILAS }],
+      ["data sin status_reference", { data: FILAS }],
+      ["un status_reference desconocido", { status_reference: "otra_cosa", data: FILAS }],
+      ["un cuerpo nulo", "null"],
+    ])("%s es error", async (_caso, body) => {
       vi.stubGlobal("fetch", minsaResponding(body));
 
-      await expect(listReferences("40488601", "01")).resolves.toEqual(SIN_REFERENCIAS);
-    });
-
-    it("data que no es un arreglo es error", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ data: { referencias: FILAS } }));
-
-      await expect(listReferences("40488601", "01")).resolves.toEqual(ERROR);
-    });
-
-    it.each([
-      ["idReferencia en camelCase", { ...FILAS[0], id_referencia: undefined, idReferencia: "1364486" }],
-      ["estado como número suelto", { ...FILAS[0], estado: 7 }],
-      ["sin id_referencia", { ...FILAS[0], id_referencia: null }],
-    ])("una fila con %s se descarta", async (_caso, fila) => {
-      vi.stubGlobal("fetch", minsaResponding([fila, FILAS[1]]));
-
-      await expect(listReferences("40488601", "01")).resolves.toEqual({ status: "found", items: [ITEMS[1]] });
+      await expect(listReferences("40488601", "01")).resolves.toEqual(SIN_RESPUESTA);
     });
   });
 
   describe("filas inválidas", () => {
-    it("deja constancia de las descartadas", async () => {
+    it("se descartan y queda constancia", async () => {
       const records: Array<Record<string, unknown>> = [];
       const restore = configureLogger({
         level: "warn",
         sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>),
       });
-      vi.stubGlobal("fetch", minsaResponding([{ nro_referencia: "sin id" }, "texto", FILAS[0]]));
+      vi.stubGlobal(
+        "fetch",
+        minsaResponding({
+          status_reference: ReferenceStatus.FOUND,
+          message: "",
+          data: [{ nro_referencia: "sin id" }, "texto", FILAS[0]],
+        }),
+      );
 
-      await listReferences("40488601", "01");
+      const result = await listReferences("40488601", "01");
       restore();
 
+      expect(result.data).toEqual([REFERENCIAS[0]]);
       const discarded = records.find((record) => record.event === "minsa.catalog.rows_discarded");
       expect(discarded).toMatchObject({ endpoint: MinsaEndpoint.REFERENCIAS, discarded: 2, total: 3 });
-    });
-
-    it("si llegaron filas y ninguna es válida, es error y no empty", async () => {
-      vi.stubGlobal("fetch", minsaResponding([{ nro_referencia: "sin id" }]));
-
-      await expect(listReferences("40488601", "01")).resolves.toEqual(ERROR);
     });
   });
 
@@ -215,19 +179,13 @@ describe("MINSA real — listReferences", () => {
     it("un HTTP no-ok es error", async () => {
       vi.stubGlobal("fetch", minsaResponding("", 500));
 
-      await expect(listReferences("12345678", "01")).resolves.toEqual(ERROR);
+      await expect(listReferences("12345678", "01")).resolves.toEqual(SIN_RESPUESTA);
     });
 
     it("un cuerpo que no es JSON es error", async () => {
       vi.stubGlobal("fetch", minsaResponding("<html>", 200));
 
-      await expect(listReferences("12345678", "01")).resolves.toEqual(ERROR);
-    });
-
-    it("un cuerpo que no es arreglo ni objeto es error", async () => {
-      vi.stubGlobal("fetch", minsaResponding("null", 200));
-
-      await expect(listReferences("12345678", "01")).resolves.toEqual(ERROR);
+      await expect(listReferences("12345678", "01")).resolves.toEqual(SIN_RESPUESTA);
     });
   });
 });
