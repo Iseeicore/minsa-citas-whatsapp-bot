@@ -1,0 +1,26 @@
+stages:          # List of stages for jobs, and their order of execution
+#  - build
+#  - test
+  - deploy
+
+deploy desarrollo:
+  stage: deploy
+  image: registry.minsa.gob.pe/oidt/images/ansible:2.15
+
+  script:
+    - cd /playbooks/k8s
+    - ansible-playbook dminsadigital-boot.yml -vv
+
+  only:
+    - develop
+
+deploy calidad:
+  stage: deploy
+  image: registry.minsa.gob.pe/oidt/images/ansible:2.15
+
+  script:
+    - cd /playbooks/k8s
+    - ansible-playbook qminsadigital-boot.yml -vv
+
+  only:
+    - /^release\/.*$/
