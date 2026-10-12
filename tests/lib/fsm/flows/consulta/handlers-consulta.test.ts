@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import {
-  ASK_CODIGO_O_LISTAR_TEXT,
   ASK_CODIGO_TEXT,
-  ASK_DOCUMENTO_TEXT,
-  ASK_OTP_TEXT,
-  CODIGO_NO_RECONOCIDO_TEXT,
-  CONSULTA_FALLA_TEXT,
+  ASK_CODIGO_O_LISTAR_TEXT,
   INVALID_CODIGO_TEXT,
-  NO_UBICADA_TEXT,
+  CODIGO_NO_RECONOCIDO_TEXT,
+  CONSULTA_ASK_DOCUMENTO_TEXT,
   NO_VERIFICADO_TEXT,
   OTP_BLOQUEADO_TEXT,
-} from "@/lib/fsm/flows/consulta/handlers-consulta";
-import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+  NO_UBICADA_TEXT,
+  CONSULTA_FALLA_TEXT,
+} from "@/lib/constants/textos/consulta";
+import { ASK_OTP_TEXT } from "@/lib/constants/textos/identidad";
 
 const FROM = "bsuid-ana";
 const CODIGO = "MINSA-2026-000003";
@@ -42,7 +42,7 @@ describe("el código en el primer mensaje", () => {
 
     expect(first.session.state).toBe("consulta_awaiting_dni");
     expect(queries(first)).toEqual([]);
-    expect(texts(first)).toEqual([ASK_DOCUMENTO_TEXT]);
+    expect(texts(first)).toEqual([CONSULTA_ASK_DOCUMENTO_TEXT]);
   });
 
   it("la palabra «incidencia» no lo manda a registrar una nueva", () => {

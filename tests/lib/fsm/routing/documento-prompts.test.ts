@@ -6,10 +6,10 @@ import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverif
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handleAwaitingFlowStart } from "@/lib/fsm/routing/main-menu";
 import { handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
-import { RESPECT_REMINDER_TEXT } from "@/lib/security/lexical-guard";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 
 const FROM = "sandbox-documento-prompts";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });

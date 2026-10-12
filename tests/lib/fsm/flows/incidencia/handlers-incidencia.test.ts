@@ -3,6 +3,7 @@ import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { INCIDENCIA_CANCELADA_TEXT } from "@/lib/constants/textos/incidencia";
 
 const FROM = "51999999999";
 
@@ -535,7 +536,7 @@ describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
 
     expect(result.session).toEqual({ state: "incidencia_cancelled", slots: {}, counters: {} });
     expect(queries(result)).toHaveLength(0);
-    expect(texts(result)[0]).toContain("no se registró tu incidencia");
+    expect(texts(result)[0]).toBe(INCIDENCIA_CANCELADA_TEXT);
   });
 
   it("una respuesta ambigua avisa que no se entendió y repite el resumen con los botones", () => {

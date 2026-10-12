@@ -1,0 +1,15 @@
+export const noPudimosLeerText = (pregunta: string): string => `No pudimos leer eso. ${pregunta}`;
+export const FALLBACK_TEXT = "No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.";
+export const LIST_PAGE_PREV_BUTTON_TEXT = "Anteriores";
+export const LIST_PAGE_NEXT_BUTTON_TEXT = "Ver más opciones";
+export const listPageSummaryText = (first: number, last: number, total: number): string => `Mostrando ${first} a ${last} de ${total} opciones.`;
+export const pageOfText = (page: number, totalPages: number): string => `Página ${page} de ${totalPages}`;
+export const SELECTION_REJECTION_TEXT = "Selecciona una opción de la lista.";
+export const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona una:";
+export const OPTION_NOT_IDENTIFIED_TEXT = `No pudimos identificar esa opción. ${SELECTION_REJECTION_TEXT}`;
+export const REVIEWING_ANSWER_TEXT = "Un momento, estamos revisando tu respuesta…";
+export const NO_SALIR_BUTTON_TEXT = "No, salir";
+export const SI_CONFIRMAR_BUTTON_TEXT = "Sí, confirmar";
+export const SI_BUTTON_TEXT = "Sí";
+export const NO_BUTTON_TEXT = "No";
+export const joinWithConjunctionText = (head: string, last: string): string => `${head} y ${last}`;

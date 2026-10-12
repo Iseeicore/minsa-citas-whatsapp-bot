@@ -4,18 +4,14 @@ import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { nowInLima } from "@/lib/time/lima-clock";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
-import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
+import { cuposDisponiblesText } from "@/lib/constants/textos/cita-fecha-hora";
 
 export type HoraResultItem = {
   horaInicio: string;
   horaFin: string;
   cantidadCupos: number;
 };
-
-export const HORA_PAGE_NEXT_ID = HoraPageButtonId.NEXT;
-export const HORA_PAGE_PREV_ID = HoraPageButtonId.PREV;
 
 export function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): HoraResultItem[] {
   const sorted = [...items].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
@@ -24,15 +20,13 @@ export function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): H
   return sorted.filter((item) => item.horaInicio > now.hora);
 }
 
-export const HORA_CONFIRM_YES_ID = HoraConfirmButtonId.YES;
-export const HORA_CONFIRM_NO_ID = HoraConfirmButtonId.NO;
 export const ONLY_HORA_FLAG = "1";
 
 export function slotToRow(slot: HoraSlot): OfferedRow {
   return {
     id: `${slot.start}|${slot.end}`,
     title: truncateForRow(formatHoraRange(slot.start, slot.end), WHATSAPP_ROW_TITLE_MAX),
-    description: truncateForRow(`${slot.cupos} cupo(s) disponibles`, WHATSAPP_ROW_DESCRIPTION_MAX),
+    description: truncateForRow(cuposDisponiblesText(slot.cupos), WHATSAPP_ROW_DESCRIPTION_MAX),
   };
 }
 

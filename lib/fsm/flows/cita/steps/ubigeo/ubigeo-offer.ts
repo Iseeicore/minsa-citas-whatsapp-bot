@@ -13,6 +13,7 @@ import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { searchingCatalogInText, SELECT_UBIGEO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 
 export type UbigeoResultItem = {
   ubigeoInei: string;
@@ -37,7 +38,7 @@ export function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): 
 }
 
 export const searchingCatalogText = (distrito: string) =>
-  `Entendido. Buscando especialidades y citas disponibles en *${toDisplayPlace(distrito)}*…`;
+  searchingCatalogInText(toDisplayPlace(distrito));
 
 export function ubigeoRows(items: UbigeoResultItem[]): ListRow[] {
   return items.map((item) => ({
@@ -61,5 +62,5 @@ export function acceptSettledUbigeo(next: Session, settled: UbigeoResultItem): H
 
 export function offerUbigeos(next: Session, items: UbigeoResultItem[]): HandlerResult {
   next.state = SessionState.CITA_AWAITING_UBIGEO_SELECT;
-  return buildResult(next, [offerList(next, "Selecciona tu ubigeo:", ubigeoRows(items))]);
+  return buildResult(next, [offerList(next, SELECT_UBIGEO_TEXT, ubigeoRows(items))]);
 }

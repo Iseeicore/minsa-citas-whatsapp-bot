@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EMERGENCY_CLOSED_STATE } from "@/lib/fsm/flows/emergency/emergency";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { IN_FLOW_MAX_CHARS, isEmergency, isEmergencyInFlow } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
+import { SessionState } from "@/lib/enums/session-state";
 
 const FROM = "sandbox-emergency-cut";
 
@@ -25,7 +25,7 @@ const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const oosNote = (result: HandlerResult) => result.notes?.find((note) => note.kind === "out_of_scope");
 
 const CUT = { kind: "send_text", text: OOS_MESSAGES["OOS-01"] };
-const CLOSED = { state: EMERGENCY_CLOSED_STATE, slots: {}, counters: {} };
+const CLOSED = { state: SessionState.EMERGENCY_CLOSED, slots: {}, counters: {} };
 const EMERGENCY = "mi hijo no respira";
 
 const STATES: Array<[string, Session["slots"]]> = [
@@ -123,7 +123,7 @@ describe("it comes before everything else the citizen wrote", () => {
 
 describe("the conversation can start again after the cut", () => {
   it("the closed state is terminal", () => {
-    expect(TERMINAL_STATES.has(EMERGENCY_CLOSED_STATE)).toBe(true);
+    expect(TERMINAL_STATES.has(SessionState.EMERGENCY_CLOSED)).toBe(true);
   });
 
   it("a greeting afterwards gets the welcome, as after any finished flow", () => {

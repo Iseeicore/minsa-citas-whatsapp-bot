@@ -3,6 +3,7 @@ import { searchDistrito } from "@/lib/fsm/flows/cita/data/ubigeo-data";
 import { isAllowedDepartamento } from "@/lib/fsm/flows/cita/pilot-scope";
 import { SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/constants/regex/text";
 import { ESPECIALIDAD_ROOTS, MEDICINA_GENERAL_PHRASE } from "@/lib/constants/regex/catalog";
+import { MEDICINA_GENERAL_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
 
 const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", "PARA"]);
 const MAX_PLACE_WORDS = 4;
@@ -17,7 +18,7 @@ export function extractCitaHints(message: string): CitaHints {
 
   const hints: CitaHints = {};
 
-  if (MEDICINA_GENERAL_PHRASE.test(words.join(" "))) hints.especialidad = "Medicina General";
+  if (MEDICINA_GENERAL_PHRASE.test(words.join(" "))) hints.especialidad = MEDICINA_GENERAL_ESPECIALIDAD_TEXT;
 
   for (const word of hints.especialidad ? [] : words) {
     const lower = word.toLowerCase();

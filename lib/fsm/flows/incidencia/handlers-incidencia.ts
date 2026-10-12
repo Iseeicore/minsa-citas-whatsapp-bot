@@ -1,4 +1,3 @@
-import { INVALID_DNI_TEXT } from "@/lib/fsm/core/failure-texts";
 import { handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
 import {
   askConsentimiento,
@@ -9,10 +8,8 @@ import {
 import {
   afterDescripcion,
   askConfirmRegistro,
-  EVIDENCIA_ACK_TEXT,
   askFoto,
   handleConfirmRegistro,
-  UNREADABLE_TEXT_RETRY,
 } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import {
   handleAwaitingUbicacion,
@@ -27,27 +24,44 @@ import { MAX_DESCRIPCION_LENGTH, MIN_DESCRIPCION_LENGTH } from "@/lib/recepcion/
 import { quiereCerrar } from "@/lib/fsm/parsing/text/cerrar-incidencia";
 import { buildResult, cloneSession, query, readReply, sendButtons, sendText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
-import { INCIDENCIA_NOMBRE_BUTTONS } from "@/lib/fsm/routing/flow-entry";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
+import {
+  IDENTITY_QUESTION_TEXT,
+  INCIDENCIA_NOMBRE_BUTTONS,
+  ONLY_DNI_TEXT,
+  ONLY_DNI_BUTTONS,
+  VERIFICANDO_DOCUMENTO_TEXT,
+  RENIEC_FAILED_TEXT,
+  ASK_NOMBRE_TEXT,
+  UNREADABLE_TEXT_RETRY,
+  EVIDENCIA_ACK_TEXT,
+  INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT,
+  SEGUIMIENTO_IDENTIFICADO_TEXT,
+  SEGUIMIENTO_ANONIMO_TEXT,
+  DAILY_LIMIT_TEXT,
+  REGISTRO_FALLIDO_TEXT,
+  graciasNombreText,
+  descripcionTooLongText,
+  descripcionTooShortText,
+  OMITIR_KEYWORD,
+  incidenciaRegistradaText,
+  INCIDENCIA_CANCELADA_TEXT,
+} from "@/lib/constants/textos/incidencia";
+import { INVALID_DNI_TEXT } from "@/lib/constants/textos/fallas";
+import { LookupStatus } from "@/lib/enums/lookup-status";
+import { RegistrationStatus } from "@/lib/enums/registration-status";
+import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
 
 const FOTO_INTENT_MAX_LENGTH = 200;
-const ASK_DOCUMENTO_TEXT = "Ingresa tu número de documento.";
-const RENIEC_FAILED_TEXT = "Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias.";
-const ONLY_DNI_TEXT = "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.";
-const ONLY_DNI_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, title: "Continuar anónimo" }];
-
-const CANCELLED_TEXT =
-  "Entendido, cerramos esta conversación y no se registró ninguna incidencia. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
-
-const DAILY_LIMIT_TEXT = "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
 
 function cancel(): HandlerResult {
-  return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(CANCELLED_TEXT)]);
+  return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(INCIDENCIA_CANCELADA_TEXT)]);
 }
 
 export function handleIncidencia(session: Session, event: HandleEvent): HandlerResult {
@@ -107,7 +121,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   if (replyId === IncidenciaButtonId.ANONIMO) return askConsentimiento(next);
 
   return withRejectionNotice(buildResult(session, [
-    sendButtons("¿Deseas registrar tu nombre, o prefieres que sea anónimo?", INCIDENCIA_NOMBRE_BUTTONS),
+    sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_NOMBRE_BUTTONS),
   ]));
 }
 
@@ -124,14 +138,14 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
   const next = cloneSession(session);
   next.slots[SlotKey.DNI] = documento;
   next.state = SessionState.INCIDENCIA_RENIEC_PENDING;
-  return buildResult(next, [sendText("Verificando tu documento…"), query(QueryKind.RENIEC_LOOKUP, { dni: documento })]);
+  return buildResult(next, [sendText(VERIFICANDO_DOCUMENTO_TEXT), query(QueryKind.RENIEC_LOOKUP, { dni: documento })]);
 }
 
 function handleReniecPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; nombreCompleto?: string };
   const next = cloneSession(session);
 
-  if (result.status === "found" && typeof result.nombreCompleto === "string" && result.nombreCompleto.trim() !== "") {
+  if (result.status === LookupStatus.FOUND && typeof result.nombreCompleto === "string" && result.nombreCompleto.trim() !== "") {
     next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto.trim();
     return withGreeting(askConsentimiento(next), result.nombreCompleto.trim());
   }
@@ -141,13 +155,13 @@ function handleReniecPending(session: Session, event: QueryResultEvent): Handler
 }
 
 function withGreeting(result: HandlerResult, nombre: string): HandlerResult {
-  return { ...result, effects: [sendText(`Gracias, ${nombre}.`), ...result.effects] };
+  return { ...result, effects: [sendText(graciasNombreText(nombre)), ...result.effects] };
 }
 
 function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
   const nombre = (event.text ?? "").trim();
 
-  if (!nombre) return buildResult(session, [sendText("Por favor, ingresa tu nombre.")]);
+  if (!nombre) return buildResult(session, [sendText(ASK_NOMBRE_TEXT)]);
   if (looksLikeNoise(nombre)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
 
   const next = cloneSession(session);
@@ -159,13 +173,13 @@ function handleAwaitingDescripcion(session: Session, event: InboundEvent): Handl
   const descripcion = (event.text ?? "").trim();
 
   if (!descripcion || descripcion.length > MAX_DESCRIPCION_LENGTH) {
-    return buildResult(session, [sendText(`Escribe tu incidencia en hasta ${MAX_DESCRIPCION_LENGTH} caracteres.`)]);
+    return buildResult(session, [sendText(descripcionTooLongText(MAX_DESCRIPCION_LENGTH))]);
   }
 
   if (looksLikeNoise(descripcion)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
 
   if (descripcion.length < MIN_DESCRIPCION_LENGTH) {
-    return buildResult(session, [sendText(`Cuéntanos un poco más: escribe al menos ${MIN_DESCRIPCION_LENGTH} caracteres para poder entender lo que pasó.`)]);
+    return buildResult(session, [sendText(descripcionTooShortText(MIN_DESCRIPCION_LENGTH))]);
   }
 
   const next = cloneSession(session);
@@ -184,7 +198,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   const typed = (event.text ?? "").trim();
   if (!typed) return withRejectionNotice(buildResult(session, [askFoto()]));
 
-  if (typed.toUpperCase() === "OMITIR" || resolveConfirmation(typed) === Confirmation.NO) {
+  if (typed.toUpperCase() === OMITIR_KEYWORD || resolveConfirmation(typed) === Confirmation.NO) {
     return askConfirmRegistro(session);
   }
 
@@ -219,12 +233,12 @@ function confirmationText(session: Session, codigo: string | undefined): string 
   const hasEstablecimiento = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] !== undefined;
   const identificado = session.slots[SlotKey.DNI] !== undefined;
 
-  if (!(hasEstablecimiento && codigo)) return "Gracias por tu reporte de incidencia, ya se registró.";
+  if (!(hasEstablecimiento && codigo)) return INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT;
 
-  const base = `¡Gracias! Tu incidencia quedó registrada con el código ${codigo}. Guárdalo para darle seguimiento.`;
+  const base = incidenciaRegistradaText(codigo);
   const adicional = identificado
-    ? "Si el área responsable necesita información adicional, se comunicará contigo."
-    : "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.";
+    ? SEGUIMIENTO_IDENTIFICADO_TEXT
+    : SEGUIMIENTO_ANONIMO_TEXT;
   return `${base} ${adicional}`;
 }
 
@@ -232,12 +246,12 @@ function handleSubmitPending(session: Session, event: QueryResultEvent): Handler
   const result = event.result as { status: string; reason?: string; codigo?: string };
   const next = cloneSession(session);
 
-  if (result.status === "accepted") {
+  if (result.status === RegistrationStatus.ACCEPTED) {
     next.state = SessionState.INCIDENCIA_CONFIRMED;
     return buildResult(next, [sendText(confirmationText(next, result.codigo))]);
   }
 
   next.state = SessionState.INCIDENCIA_FAILED;
-  const message = result.reason === "daily_limit" ? DAILY_LIMIT_TEXT : "No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.";
+  const message = result.reason === RegistrationRejectReason.DAILY_LIMIT ? DAILY_LIMIT_TEXT : REGISTRO_FALLIDO_TEXT;
   return buildResult(next, [sendText(message)]);
 }

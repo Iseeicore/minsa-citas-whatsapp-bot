@@ -1,4 +1,4 @@
-import { afterDescripcion, askDescripcion, UNREADABLE_TEXT_RETRY } from "@/lib/fsm/flows/incidencia/pasos-comunes";
+import { afterDescripcion, askDescripcion } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import { buildResult, cloneSession, omitSlot, readReply, sendButtons, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
@@ -8,13 +8,16 @@ import { Confirmation } from "@/lib/enums/confirmation";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import {
+  UNREADABLE_TEXT_RETRY,
+  BORRADOR_BUTTONS,
+  ASK_BORRADOR_EXTRA_TEXT,
+  BORRADOR_QUESTION_TEXT,
+  borradorConfirmText,
+  borradorTooLongText,
+} from "@/lib/constants/textos/incidencia";
 
 const SHOWN_BORRADOR_MAX = 800;
-
-export const BORRADOR_BUTTONS = [
-  { id: IncidenciaButtonId.BORRADOR_USAR, title: "Usar así" },
-  { id: IncidenciaButtonId.BORRADOR_AGREGAR, title: "Agregar más" },
-];
 
 const isUsable = (borrador: string | undefined): borrador is string =>
   typeof borrador === "string" && borrador.length >= MIN_DESCRIPCION_LENGTH && borrador.length <= MAX_DESCRIPCION_LENGTH && !looksLikeNoise(borrador);
@@ -27,7 +30,7 @@ export function enterDescripcion(session: Session): HandlerResult {
     next.state = SessionState.INCIDENCIA_CONFIRM_BORRADOR;
     return buildResult(next, [
       sendButtons(
-        `Esto es lo que escribiste:\n\n«${truncateForRow(borrador, SHOWN_BORRADOR_MAX)}»\n\n¿Lo usamos tal cual o quieres agregar más?`,
+        borradorConfirmText(truncateForRow(borrador, SHOWN_BORRADOR_MAX)),
         BORRADOR_BUTTONS,
       ),
     ]);
@@ -49,7 +52,7 @@ function appendExtra(session: Session, extra: string): HandlerResult {
   const borrador = session.slots[SlotKey.INCIDENCIA_BORRADOR] ?? "";
   const combined = `${borrador}\n${extra}`.trim();
   if (combined.length > MAX_DESCRIPCION_LENGTH) {
-    return buildResult(session, [sendText(`Con lo que ya escribiste, el texto no puede pasar de ${MAX_DESCRIPCION_LENGTH} caracteres. Escribe algo más corto.`)]);
+    return buildResult(session, [sendText(borradorTooLongText(MAX_DESCRIPCION_LENGTH))]);
   }
   return applyText(session, combined);
 }
@@ -57,7 +60,7 @@ function appendExtra(session: Session, extra: string): HandlerResult {
 function askExtra(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_AWAITING_BORRADOR_EXTRA;
-  return buildResult(next, [sendText("Escribe lo que quieras agregar.")]);
+  return buildResult(next, [sendText(ASK_BORRADOR_EXTRA_TEXT)]);
 }
 
 export function handleConfirmBorrador(session: Session, event: InboundEvent): HandlerResult {
@@ -69,7 +72,7 @@ export function handleConfirmBorrador(session: Session, event: InboundEvent): Ha
   if (reply === IncidenciaButtonId.BORRADOR_AGREGAR) return askExtra(session);
 
   const typed = (event.text ?? "").trim();
-  if (!typed) return buildResult(session, [sendButtons("¿Usamos tu texto tal cual o quieres agregar más?", BORRADOR_BUTTONS)]);
+  if (!typed) return buildResult(session, [sendButtons(BORRADOR_QUESTION_TEXT, BORRADOR_BUTTONS)]);
 
   const confirmation = resolveConfirmation(typed);
   if (confirmation === Confirmation.YES) return applyText(session, borrador);
@@ -80,7 +83,7 @@ export function handleConfirmBorrador(session: Session, event: InboundEvent): Ha
 
 export function handleAwaitingBorradorExtra(session: Session, event: InboundEvent): HandlerResult {
   const extra = (event.text ?? "").trim();
-  if (!extra) return buildResult(session, [sendText("Escribe lo que quieras agregar.")]);
+  if (!extra) return buildResult(session, [sendText(ASK_BORRADOR_EXTRA_TEXT)]);
   if (looksLikeNoise(extra)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
   return appendExtra(session, extra);
 }

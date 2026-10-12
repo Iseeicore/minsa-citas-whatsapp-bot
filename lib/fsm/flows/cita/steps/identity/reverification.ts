@@ -4,6 +4,10 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { REVERIFICATION_PROMPT_TEXT, reverifiedText } from "@/lib/constants/textos/cita-identidad";
+import { SEARCHING_UBIGEO_TEXT, SEARCHING_ESPECIALIDADES_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import { SEARCHING_FECHAS_TEXT, SEARCHING_HORARIOS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
+import { SEARCHING_ESTABLECIMIENTOS_TEXT } from "@/lib/constants/textos/cita-catalogo";
 
 export function beginReverification(session: Session, resumeState: string): HandlerResult {
   const next = cloneSession(session);
@@ -12,7 +16,7 @@ export function beginReverification(session: Session, resumeState: string): Hand
   next.state = SessionState.CITA_AWAITING_DNI;
   return buildResult(next, [
     sendText(
-      "Tu verificación anterior expiró por inactividad. No te preocupes, no perdimos los datos de tu cita — ingresa tu número de documento para continuar justo donde quedaste.",
+      REVERIFICATION_PROMPT_TEXT,
     ),
   ]);
 }
@@ -24,7 +28,7 @@ export function resumeAfterReverification(session: Session, resumeState: string)
   switch (resumeState) {
     case SessionState.CITA_UBIGEO_PENDING:
       return buildResult(next, [
-        sendText("¡Listo! Continuemos con tu cita. Buscando tu ubigeo…"),
+        sendText(reverifiedText(SEARCHING_UBIGEO_TEXT)),
         query(QueryKind.SEARCH_UBIGEO, {
           departamento: String(next.slots[SlotKey.CITA_DEPARTAMENTO] ?? ""),
           provincia: String(next.slots[SlotKey.CITA_PROVINCIA] ?? ""),
@@ -34,13 +38,13 @@ export function resumeAfterReverification(session: Session, resumeState: string)
 
     case SessionState.CITA_ESPECIALIDAD_PENDING:
       return buildResult(next, [
-        sendText("¡Listo! Continuemos con tu cita. Buscando especialidades disponibles…"),
+        sendText(reverifiedText(SEARCHING_ESPECIALIDADES_TEXT)),
         query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? "") }),
       ]);
 
     case SessionState.CITA_ESTABLECIMIENTO_PENDING:
       return buildResult(next, [
-        sendText("¡Listo! Continuemos con tu cita. Buscando establecimientos…"),
+        sendText(reverifiedText(SEARCHING_ESTABLECIMIENTOS_TEXT)),
         query(QueryKind.LIST_ESTABLECIMIENTOS, {
           especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
           ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
@@ -50,7 +54,7 @@ export function resumeAfterReverification(session: Session, resumeState: string)
 
     case SessionState.CITA_FECHA_PENDING:
       return buildResult(next, [
-        sendText("¡Listo! Continuemos con tu cita. Buscando fechas disponibles…"),
+        sendText(reverifiedText(SEARCHING_FECHAS_TEXT)),
         query(QueryKind.LIST_FECHAS, {
           codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
           especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
@@ -60,7 +64,7 @@ export function resumeAfterReverification(session: Session, resumeState: string)
     case SessionState.CITA_HORA_PENDING:
     default:
       return buildResult(next, [
-        sendText("¡Listo! Continuemos con tu cita. Buscando horarios disponibles…"),
+        sendText(reverifiedText(SEARCHING_HORARIOS_TEXT)),
         query(QueryKind.LIST_HORAS, {
           codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
           especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),

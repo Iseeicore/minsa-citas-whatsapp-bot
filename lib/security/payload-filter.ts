@@ -7,19 +7,15 @@ import {
   PICTOGRAPH,
   REPEATED_CHARACTER,
 } from "@/lib/constants/regex/security";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { PayloadVerdictKind } from "@/lib/enums/payload-verdict-kind";
 
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
 export const NOISE_MIN_LENGTH = 12;
 
-export const FIRST_MESSAGE_REJECTION_TEXT =
-  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.";
-
-export const MEDIA_WITHOUT_SESSION_TEXT =
-  "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.";
-
 export type PayloadVerdict =
-  | { kind: "ok" }
-  | { kind: "rejected"; reason: RejectReason; reply: string };
+  | { kind: `${PayloadVerdictKind.OK}` }
+  | { kind: `${PayloadVerdictKind.REJECTED}`; reason: RejectReason; reply: string };
 
 export type { RejectReason };
 
@@ -36,30 +32,30 @@ function isRepetitionSpam(body: string): boolean {
 
 export function checkFirstMessagePayload(message: { type: string; text?: string }): PayloadVerdict {
   if (message.type === "sticker") {
-    return { kind: "rejected", reason: RejectReason.STICKER, reply: "" };
+    return { kind: PayloadVerdictKind.REJECTED, reason: RejectReason.STICKER, reply: "" };
   }
 
   if (MEDIA_TYPES.has(message.type)) {
-    return { kind: "rejected", reason: RejectReason.MEDIA, reply: MEDIA_WITHOUT_SESSION_TEXT };
+    return { kind: PayloadVerdictKind.REJECTED, reason: RejectReason.MEDIA, reply: MEDIA_WITHOUT_SESSION_TEXT };
   }
 
   const body = message.text ?? "";
 
   if ([...body].length > MAX_FIRST_MESSAGE_LENGTH) {
-    return { kind: "rejected", reason: RejectReason.TOO_LONG, reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: PayloadVerdictKind.REJECTED, reason: RejectReason.TOO_LONG, reply: FIRST_MESSAGE_REJECTION_TEXT };
   }
 
   if (LINK_MARKERS.test(body) || BARE_DOMAIN.test(body)) {
-    return { kind: "rejected", reason: RejectReason.LINK, reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: PayloadVerdictKind.REJECTED, reason: RejectReason.LINK, reply: FIRST_MESSAGE_REJECTION_TEXT };
   }
 
   if (isRepetitionSpam(body)) {
-    return { kind: "rejected", reason: RejectReason.REPEAT, reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: PayloadVerdictKind.REJECTED, reason: RejectReason.REPEAT, reply: FIRST_MESSAGE_REJECTION_TEXT };
   }
 
   if (body.length >= NOISE_MIN_LENGTH && looksLikeNoise(body)) {
-    return { kind: "rejected", reason: RejectReason.NOISE, reply: "" };
+    return { kind: PayloadVerdictKind.REJECTED, reason: RejectReason.NOISE, reply: "" };
   }
 
-  return { kind: "ok" };
+  return { kind: PayloadVerdictKind.OK };
 }

@@ -1,10 +1,11 @@
 import { ALL_WHITESPACE_RUNS, SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/constants/regex/text";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import type { OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import type { OosCategory } from "@/lib/enums/oos-category";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 import { OUT_OF_SCOPE_RULES } from "@/lib/constants/regex/out-of-scope";
+import { CITA_KEYWORD, CITAS_KEYWORD, CONTINUAR_KEYWORD } from "@/lib/constants/palabras-clave";
 
-export { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+export type { OosCategory };
 
 const toPlainWords = (text: string): string =>
   normalizeText(text)
@@ -34,7 +35,7 @@ const single = (text: string): string | undefined => {
 
 export const isCitaKeyword = (text: string): boolean => {
   const word = single(text);
-  return word === "CITA" || word === "CITAS";
+  return word === CITA_KEYWORD || word === CITAS_KEYWORD;
 };
 
-export const isContinueKeyword = (text: string): boolean => single(text) === "CONTINUAR";
+export const isContinueKeyword = (text: string): boolean => single(text) === CONTINUAR_KEYWORD;

@@ -26,6 +26,7 @@ import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/sess
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SessionState } from "@/lib/enums/session-state";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
   if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, textoDeLaPersona(event.text))) {
@@ -35,11 +36,11 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
-  if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== "query_result") {
+  if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== InternalEventType.QUERY_RESULT) {
     return handleAwaitingReauth(session, event as InboundEvent);
   }
 
-  if (session.state === SessionState.INCIDENCIA_AWAITING_REAUTH && event.type !== "query_result") {
+  if (session.state === SessionState.INCIDENCIA_AWAITING_REAUTH && event.type !== InternalEventType.QUERY_RESULT) {
     return handleAwaitingIncidenciaReauth(session, event as InboundEvent);
   }
 
@@ -75,7 +76,7 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
   const guarded = applyLexicalGuard(session, event);
   if (guarded) return guarded;
 
-  if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
+  if (TERMINAL_STATES.has(session.state) && event.type !== InternalEventType.QUERY_RESULT) {
     return handleFirstContact(
       event.type === InboundEventType.TEXT ? event.text : undefined,
       (event as InboundEvent).channel ?? session.channel ?? SessionChannel.WHATSAPP,

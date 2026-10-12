@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { handleMainMenuIntentPending, OUT_OF_SCOPE_REQUEST_TEXT } from "@/lib/fsm/routing/main-menu";
+import { handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import type { QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { OUT_OF_SCOPE_REQUEST_TEXT } from "@/lib/constants/textos/menu";
 
 const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "dame código" }, counters: {} };
 

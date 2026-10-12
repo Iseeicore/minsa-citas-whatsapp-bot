@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RESPECT_REMINDER_TEXT } from "@/lib/security/lexical-guard";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import {
@@ -19,6 +18,7 @@ import type {
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 
 const FROM = "sandbox-test";
 

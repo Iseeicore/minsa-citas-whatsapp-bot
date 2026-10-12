@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleDistritoAiPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
-import { UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
-import { DISTRITO_MANUAL_FALLBACK_TEXT } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { DISTRITO_MANUAL_FALLBACK_TEXT, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 
 beforeEach(() => {
   vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");

@@ -1,7 +1,5 @@
-import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
 import { OosCategory } from "@/lib/enums/oos-category";
-
-export type { OosCategory };
+import { CHANNELS } from "@/lib/constants/textos/canales-oficiales";
 
 export const OOS_MESSAGES: Record<OosCategory, string> = {
   [OosCategory.OOS_01]: `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS
@@ -21,3 +19,5 @@ Acuda ahora mismo al establecimiento de salud más cercano.`,
   "OOS-08": `Seguimiento de Reclamos:\n\nEste asistente registra nuevas incidencias.\n\nDe acuerdo a la normativa de SUSALUD, el establecimiento tiene un plazo de hasta 30 días hábiles para emitir respuesta formal al correo o teléfono consignado.\n\nSi venció el plazo o requiere consultar el estado de su caso, puede acudir a la Plataforma de Atención al Usuario (PAUS) de su centro de salud o comunicarse con SUSALUD al ${CHANNELS.linea113} (${CHANNELS.susaludOption}).\n\nPara registrar una nueva incidencia, escriba INCIDENCIA.`,
   "OOS-09": "Trámites Documentarios y Certificados:\n\nEstos trámites son presenciales y están a cargo de las áreas administrativas del establecimiento:\n\n- Descansos médicos / Canjes: Acérquese al área de Personal/Admisión con su receta y certificado original emitido por el médico tratante.\n\n- Certificados de discapacidad: Requieren evaluación presencial por un médico certificador autorizado.\n\n- SISFOH: Trámite exclusivo de la Unidad Local de Empadronamiento (ULE) de su municipalidad distrital.\n\nSi necesita una consulta médica previa, escriba CITAS.",
 };
+
+export const AVISO_EMERGENCIA_TEXT = OOS_MESSAGES[OosCategory.OOS_01];

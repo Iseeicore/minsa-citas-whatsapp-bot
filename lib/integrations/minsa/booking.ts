@@ -3,6 +3,7 @@ import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integra
 import { minsaDigitalUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ACTIVE_CITA_MESSAGE } from "@/lib/constants/regex/integrations";
+import { BookingStatus } from "@/lib/enums/booking-status";
 
 const BOOKING_LOG_BODY_LIMIT = 300;
 
@@ -48,18 +49,18 @@ export async function bookAppointment(
       },
       bearer,
     );
-    if (response.status === 401) return { status: "unauthorized" };
+    if (response.status === 401) return { status: BookingStatus.UNAUTHORIZED };
 
     const rawBody = await response.text().catch(() => "");
 
     const duplicateMessage = minsaMessageOf(rawBody);
     if (duplicateMessage && ACTIVE_CITA_MESSAGE.test(duplicateMessage)) {
-      return { status: "duplicate", message: duplicateMessage };
+      return { status: BookingStatus.DUPLICATE, message: duplicateMessage };
     }
 
     if (!response.ok) {
       logBookingFailure(params, response.status, rawBody);
-      return { status: "error" };
+      return { status: BookingStatus.ERROR };
     }
 
     let body: { data?: { url?: string }; message?: string } = {};
@@ -70,14 +71,14 @@ export async function bookAppointment(
     const message = typeof body?.message === "string" ? body.message : "";
 
     if (body?.data?.url) {
-      return { status: "booked", url: body.data.url, message };
+      return { status: BookingStatus.BOOKED, url: body.data.url, message };
     }
     logBookingFailure(params, response.status, rawBody);
-    return { status: "rejected", message };
+    return { status: BookingStatus.REJECTED, message };
   }
 
   return {
-    status: "booked",
+    status: BookingStatus.BOOKED,
     url: minsaDigitalUrl("/citas/confirmacion/FAKE123") ?? "",
     message: "Cita registrada correctamente",
   };

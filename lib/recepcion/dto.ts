@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
+import type { RegistrationStatus } from "@/lib/enums/registration-status";
+import type { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
 
 export const MAX_DESCRIPCION_LENGTH = 1000;
 export const MIN_DESCRIPCION_LENGTH = 20;
@@ -17,6 +19,6 @@ export const registrarIncidenciaSchema = z.object({
 export type RegistrarIncidenciaInput = z.infer<typeof registrarIncidenciaSchema>;
 
 export type RegistrarIncidenciaResult =
-  | { status: "accepted"; codigo?: string }
-  | { status: "rejected"; reason: "media_too_large" | "daily_limit" | "other" }
-  | { status: "error" };
+  | { status: `${RegistrationStatus.ACCEPTED}`; codigo?: string }
+  | { status: `${RegistrationStatus.REJECTED}`; reason: `${RegistrationRejectReason.MEDIA_TOO_LARGE}` | `${RegistrationRejectReason.DAILY_LIMIT}` | `${RegistrationRejectReason.OTHER}` }
+  | { status: `${RegistrationStatus.ERROR}` };

@@ -247,6 +247,9 @@ app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /
 lib/
   enums/                     enums reales para estados y tipos que antes eran texto suelto (SendType, ApiErrorCode)
   constants/regex/           todas las expresiones regulares del proyecto, como constantes con nombre, un archivo por dominio
+  constants/textos/          todos los textos, botones y filas que recibe el ciudadano, un archivo por flujo
+  constants/prompts/         los prompts de las tareas de IA, un archivo por tarea
+  constants/palabras-clave.ts  palabras y frases que escribe el ciudadano y que el bot reconoce
   utils/                     funciones puras que no dependen de React ni del render
   db/                        cliente Prisma (carga diferida) y el flag DATABASE_ENABLED
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
@@ -304,6 +307,7 @@ Convenciones (ESLint las hace cumplir donde se indica):
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
 | **Comentarios** | El código, las migraciones y las pruebas SQL no llevan comentarios ni docstrings: la intención va en los nombres y la explicación en este README y en `docs/`. La única excepción son las directivas que necesita una herramienta (por ejemplo `eslint-disable`). |
 | **Estados y tipos como enums** | Los textos fijos que representan un estado o un tipo (`SendType`, `ApiErrorCode`) son un `enum` en `lib/enums/`, nunca un string suelto comparado a mano. |
+| **Textos y prompts en un solo lugar** | Los textos al ciudadano (constantes `*_TEXT`, botones `*_BUTTONS` y funciones cuando el texto lleva datos) viven en `lib/constants/textos/`, y los prompts de IA en `lib/constants/prompts/`, sin archivo índice. Un texto repetido es una sola constante. `tests/integration/textos-location.test.ts` lo hace cumplir. |
 | **Expresiones regulares en un solo lugar** | Viven en `lib/constants/regex/` como constantes con nombre, sin archivo índice: se importa el archivo del dominio. `tests/integration/regex-location.test.ts` lo hace cumplir. |
 | **Sin valores arbitrarios de Tailwind** | Nada de `bg-[var(--x)]`, `bg-[#hex]` ni `text-[10px]`. Los colores y tamaños se declaran como tokens en `@theme` (`app/globals.css`, Tailwind v4) y se usan con clases estándar. `tests/integration/ui-design-rules.test.ts` lo hace cumplir. |
 | **Sin emojis en las vistas** | Se reemplazan por un ícono de `app/components/icons/`. El mismo test de arriba los detecta. |
@@ -331,7 +335,7 @@ El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca
 |---|---|---|
 | Eventos de log | `lib/observability/events.ts` (`LogEvent`, `TurnNoteKind`) | TypeScript rechaza un nombre que no esté en el catálogo; un test exige que cada evento figure en `docs/observability.md`. Nada del servidor escribe en la consola directamente |
 | Configuración | `lib/config/config-errors.ts` (`CONFIG_ERRORS`) | `instrumentation.ts` revisa la configuración al arrancar y registra cada problema como `config.invalid`; `/api/health` pasa a `degraded`. El bot no se detiene |
-| Textos al ciudadano | `lib/fsm/core/failure-texts.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
+| Textos al ciudadano | `lib/constants/textos/fallas.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
 | Respuestas HTTP | `lib/http/api-error.ts` (`API_ERRORS`, `apiError`) | Toda respuesta de error es `{ error: CÓDIGO, message }` (más `detail` opcional), con el status del catálogo y el mensaje en español. Los `403` del webhook siguen en texto plano porque Meta no lee el cuerpo |
 
 Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usarlo desde ahí; nunca un string suelto.

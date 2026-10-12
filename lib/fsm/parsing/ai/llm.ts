@@ -1,3 +1,5 @@
+import type { LlmFailure } from "@/lib/enums/llm-failure";
+
 export type LlmProvider = "gemini";
 
 type JsonScalarType = "string" | "number" | "boolean";
@@ -16,10 +18,10 @@ export type LlmJsonRequest = {
 
 export type LlmJsonOutcome =
   | { ok: true; json: unknown }
-  | { ok: false; failure: "request_failed"; errorName: string }
-  | { ok: false; failure: "http_error"; status: number; model: string }
-  | { ok: false; failure: "no_text" }
-  | { ok: false; failure: "invalid_json" };
+  | { ok: false; failure: `${LlmFailure.REQUEST_FAILED}`; errorName: string }
+  | { ok: false; failure: `${LlmFailure.HTTP_ERROR}`; status: number; model: string }
+  | { ok: false; failure: `${LlmFailure.NO_TEXT}` }
+  | { ok: false; failure: `${LlmFailure.INVALID_JSON}` };
 
 export interface LlmClient {
   readonly provider: LlmProvider;

@@ -12,9 +12,10 @@ import {
   POSITIVE_INTEGER,
   TRAILING_SPACES_AND_HYPHENS,
 } from "@/lib/constants/regex/incidencia";
+import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 
 export type InicioIncidencia = {
-  origen: "qr" | "texto" | "ia";
+  origen: `${IncidenciaOrigen.QR}` | `${IncidenciaOrigen.TEXTO}` | `${IncidenciaOrigen.IA}`;
   codigoRenipress?: string;
   nombre?: string;
   resto?: string;
@@ -54,7 +55,7 @@ function fromQr(text: string, labelIndex: number, labelLength: number): InicioIn
   const token = numeric ? numeric[1] : (LEADING_TOKEN.exec(after)?.[0] ?? "");
   if (!token) return null;
 
-  const result: InicioIncidencia = { origen: "qr" };
+  const result: InicioIncidencia = { origen: IncidenciaOrigen.QR };
   const codigoRenipress = numeric ? normalizeCodigo(numeric[1]) : undefined;
   if (codigoRenipress) result.codigoRenipress = codigoRenipress;
   const nombre = plausibleNombre(tidy(before.slice(word.index + word[0].length)));
@@ -65,7 +66,7 @@ function fromQr(text: string, labelIndex: number, labelLength: number): InicioIn
 }
 
 function fromSentence(text: string, sentenceLength: number): InicioIncidencia {
-  const result: InicioIncidencia = { origen: "texto" };
+  const result: InicioIncidencia = { origen: IncidenciaOrigen.TEXTO };
   const written = tidy(text.slice(sentenceLength));
   const nombre = plausibleNombre(tidy(written?.replace(LEADING_PREPOSITIONS, "") ?? ""));
   if (nombre) result.nombre = nombre;
@@ -91,5 +92,5 @@ export function parseCodigoSuelto(text: string): string | undefined {
 
 export function textoDeLaPersona(text: string): string {
   const inicio = parseInicioIncidencia(text);
-  return inicio?.origen === "qr" ? (inicio.resto ?? "") : text;
+  return inicio?.origen === IncidenciaOrigen.QR ? (inicio.resto ?? "") : text;
 }

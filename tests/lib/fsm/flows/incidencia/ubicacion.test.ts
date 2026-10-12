@@ -11,10 +11,10 @@ import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { OosCategory } from "@/lib/enums/oos-category";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const AVISO_EMERGENCIA_TEXT = OOS_MESSAGES[OosCategory.OOS_01];
 

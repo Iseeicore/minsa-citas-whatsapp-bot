@@ -1,29 +1,21 @@
+import { ESTADO_LEGIBLE_TEXTS, ESTADO_EN_PROCESO_TEXT } from "@/lib/constants/textos/consulta";
+import type { SessionChannel } from "@/lib/enums/session-channel";
+import { LookupStatus } from "@/lib/enums/lookup-status";
+import { ReferenceStatus } from "@/lib/enums/reference-status";
 export type ConsultaIncidenciaResult =
-  | { status: "found"; codigo: string; estado: string; fechaRegistro: string }
-  | { status: "not_found" }
-  | { status: "error" };
+  | { status: `${LookupStatus.FOUND}`; codigo: string; estado: string; fechaRegistro: string }
+  | { status: `${LookupStatus.NOT_FOUND}` }
+  | { status: `${LookupStatus.ERROR}` };
 
-export type IdentidadConsulta = { canal: "whatsapp"; waId: string } | { canal: "web"; dni: string };
+export type IdentidadConsulta = { canal: `${SessionChannel.WHATSAPP}`; waId: string } | { canal: `${SessionChannel.WEB}`; dni: string };
 
 export type ListarIncidenciasResult =
-  | { status: "found"; items: Array<{ codigo: string; estado: string; fechaRegistro: string }> }
-  | { status: "empty" }
-  | { status: "error" };
-
-const ESTADO_RECIBIDA = "Recibida, pendiente de revisión";
-
-const ESTADO_LEGIBLE: Record<string, string> = {
-  REGISTRADO: ESTADO_RECIBIDA,
-  CLASIFICADO: ESTADO_RECIBIDA,
-  DERIVADO: "Derivada al área responsable",
-  EN_GESTION: "En atención por el área responsable",
-  RESUELTO: "Resuelta",
-  ARCHIVADO: "Archivada",
-  ANULADO: "Cerrada",
-};
+  | { status: `${ReferenceStatus.FOUND}`; items: Array<{ codigo: string; estado: string; fechaRegistro: string }> }
+  | { status: `${ReferenceStatus.EMPTY}` }
+  | { status: `${ReferenceStatus.ERROR}` };
 
 export function estadoLegible(codigoEstado: string): string {
-  return ESTADO_LEGIBLE[codigoEstado] ?? "En proceso";
+  return ESTADO_LEGIBLE_TEXTS[codigoEstado] ?? ESTADO_EN_PROCESO_TEXT;
 }
 
 export function fechaLegible(iso: string): string {

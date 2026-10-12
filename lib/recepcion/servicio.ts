@@ -8,25 +8,27 @@ import { guardarImagenHttp } from "@/lib/recepcion/imagenes/almacen-http";
 import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
 import { buscarCodigoPorTrace, contarDelDia, insertarIncidencia, type DatosEvidencia } from "@/lib/recepcion/repositorio";
+import { RegistrationStatus } from "@/lib/enums/registration-status";
+import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
 
 const isUniqueViolation = (error: unknown) =>
   typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 
 async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | RegistrarIncidenciaResult> {
   const image = parseImageDataUri(mediaDataUri);
-  if (image === null) return { status: "rejected", reason: "other" };
-  if ("tooLarge" in image) return { status: "rejected", reason: "media_too_large" };
+  if (image === null) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.OTHER };
+  if ("tooLarge" in image) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.MEDIA_TOO_LARGE };
 
   try {
     const { ruta } = await guardarImagenHttp(image.bytes, image.mimeType);
     return { mimeType: image.mimeType, tamano: image.bytes.length, ruta };
   } catch (error) {
     logger.error("incidencia.media_upload_failed", { error });
-    return { status: "error" };
+    return { status: RegistrationStatus.ERROR };
   }
 }
 
-const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult => (codigo ? { status: "accepted", codigo } : { status: "accepted" });
+const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult => (codigo ? { status: RegistrationStatus.ACCEPTED, codigo } : { status: RegistrationStatus.ACCEPTED });
 
 async function codigoYaGuardado(traceId: string): Promise<string | null> {
   try {
@@ -42,24 +44,24 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
   const parsed = registrarIncidenciaSchema.safeParse(input);
   if (!parsed.success) {
     logger.error("incidencia.invalid_submission", { fields: parsed.error.issues.map((issue) => issue.path.join(".")) });
-    return { status: "error" };
+    return { status: RegistrationStatus.ERROR };
   }
   const { waId, dni, nombreCompleto, establecimientoId, descripcion, mediaDataUri } = parsed.data;
 
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.not_persisted", { reason: "DATABASE_ENABLED=false" });
-    return { status: "error" };
+    return { status: RegistrationStatus.ERROR };
   }
 
   const traceId = currentTraceId() ?? randomUUID();
   try {
     if ((await contarDelDia(waId, traceId)) >= MAX_INCIDENCIAS_POR_DIA) {
       logger.warn("incidencia.daily_limit_reached", { limit: MAX_INCIDENCIAS_POR_DIA });
-      return { status: "rejected", reason: "daily_limit" };
+      return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.DAILY_LIMIT };
     }
   } catch (error) {
     logger.error("incidencia.persist_failed", { error });
-    return { status: "error" };
+    return { status: RegistrationStatus.ERROR };
   }
 
   let evidencia: DatosEvidencia | null = null;
@@ -83,6 +85,6 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
   } catch (error) {
     if (isUniqueViolation(error)) return accepted(await codigoYaGuardado(traceId));
     logger.error("incidencia.persist_failed", { error });
-    return { status: "error" };
+    return { status: RegistrationStatus.ERROR };
   }
 }

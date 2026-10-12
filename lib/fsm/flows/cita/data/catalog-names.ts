@@ -13,6 +13,7 @@ import {
   NAME_SEGMENT_SEPARATOR,
   TITLE_CASED_ROMAN_NUMERAL,
 } from "@/lib/constants/regex/catalog";
+import { cuposText } from "@/lib/constants/textos/cita-catalogo";
 
 export type CatalogName = { title: string; full: string };
 
@@ -55,7 +56,7 @@ export function formatEstablecimientoName(raw: string): CatalogName {
 }
 
 export function catalogRowDescription(name: CatalogName, cupos: number): string {
-  const quota = cupos === 1 ? "1 cupo" : `${cupos} cupos`;
+  const quota = cuposText(cupos);
   if (name.full === name.title) return quota;
   const suffix = `${FULL_NAME_SEPARATOR}${quota}`;
   return `${truncateForRow(name.full, WHATSAPP_ROW_DESCRIPTION_MAX - suffix.length)}${suffix}`;

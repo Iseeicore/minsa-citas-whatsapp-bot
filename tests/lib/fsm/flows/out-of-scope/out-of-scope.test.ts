@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { detectOutOfScope, isEmergency, isCitaKeyword, isContinueKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import { type OosCategory } from "@/lib/enums/oos-category";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const EXAMPLES: Array<[OosCategory, string[]]> = [
   [OosCategoryEnum.OOS_01, [

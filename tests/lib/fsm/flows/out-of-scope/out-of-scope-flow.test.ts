@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import { type OosCategory } from "@/lib/enums/oos-category";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const FROM = "sandbox-oos";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });

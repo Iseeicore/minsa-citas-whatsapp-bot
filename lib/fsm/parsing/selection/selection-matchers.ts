@@ -2,6 +2,7 @@ import { COMBINING_ACCENT_MARKS, WORD_SEPARATORS } from "@/lib/constants/regex/t
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
+import { MatchKind } from "@/lib/enums/match-kind";
 
 export type OfferedRow = { id: string; title: string; description?: string };
 export type OfferedList = { text: string; rows: OfferedRow[] };
@@ -36,9 +37,9 @@ export function readOffered(slots: Session["slots"]): OfferedList | undefined {
 }
 
 export type SelectionMatch =
-  | { kind: "match"; row: OfferedRow }
-  | { kind: "ambiguous"; rows: OfferedRow[] }
-  | { kind: "none" };
+  | { kind: `${MatchKind.MATCH}`; row: OfferedRow }
+  | { kind: `${MatchKind.AMBIGUOUS}`; rows: OfferedRow[] }
+  | { kind: `${MatchKind.NONE}` };
 
 export type MatchOptions = {
   includeDescription?: boolean;
@@ -119,13 +120,13 @@ export function matchSelection(
   options: MatchOptions = {},
 ): SelectionMatch {
   const normalized = normalize(text);
-  if (!normalized || rows.length === 0) return { kind: "none" };
+  if (!normalized || rows.length === 0) return { kind: MatchKind.NONE };
 
   const position = parseOrdinal(normalized, rows.length);
-  if (position !== undefined) return { kind: "match", row: rows[position - 1] };
+  if (position !== undefined) return { kind: MatchKind.MATCH, row: rows[position - 1] };
 
   const typedTokens = normalized.split(" ").filter((token) => token.length >= 2 && !STOP_WORDS.has(token));
-  if (typedTokens.length === 0) return { kind: "none" };
+  if (typedTokens.length === 0) return { kind: MatchKind.NONE };
 
   const scored = rows.map((row) => {
     const hay = rowTokens(row, options.includeDescription ?? false);
@@ -134,10 +135,10 @@ export function matchSelection(
   });
 
   const best = Math.max(...scored.map((entry) => entry.score));
-  if (best === 0) return { kind: "none" };
+  if (best === 0) return { kind: MatchKind.NONE };
 
   const winners = scored.filter((entry) => entry.score === best).map((entry) => entry.row);
-  return winners.length === 1 ? { kind: "match", row: winners[0] } : { kind: "ambiguous", rows: winners };
+  return winners.length === 1 ? { kind: MatchKind.MATCH, row: winners[0] } : { kind: MatchKind.AMBIGUOUS, rows: winners };
 }
 
 const HINT_NOISE_WORDS = new Set([

@@ -9,33 +9,29 @@ import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import {
   askToLeave,
-  EXIT_CONFIRM_STATE,
-  EXIT_NO_ID,
-  EXIT_YES_ID,
   exitButtons,
 } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
-import { REAUTH_STATE, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
+import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { ASK_OTP_TEXT, ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
+import { ASK_DISTRITO_NOMBRE_TEXT, ASK_DEPARTAMENTO_TEXT, ASK_PROVINCIA_TEXT, ASK_DISTRITO_MANUAL_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import { CITA_ABANDONED_TEXT } from "@/lib/constants/textos/cita-salida";
+import { LEAVE_ANSWERS, STAY_ANSWERS } from "@/lib/constants/palabras-clave";
+import { ExitButtonId } from "@/lib/enums/exit-button-id";
 
-export { askToLeave, EXIT_CONFIRM_STATE };
-export const ABANDONED_STATE = SessionState.CITA_ABANDONED;
-
-const GOODBYE = "Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋";
-
-const LEAVE_ANSWERS = new Set(["SALIR", "SI SALIR", "QUIERO SALIR"]);
-const STAY_ANSWERS = new Set(["CONTINUAR", "SEGUIR", "NO CONTINUAR", "QUIERO CONTINUAR", "QUIERO SEGUIR"]);
+export { askToLeave };
 
 const TEXT_PROMPTS: Readonly<Record<string, string>> = {
-  [SessionState.CITA_AWAITING_DNI]: "Ingresa tu número de documento.",
-  [SessionState.CITA_AWAITING_OTP]: "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).",
-  [SessionState.CITA_AWAITING_DISTRITO_AI]: "Cuéntanos el nombre del distrito.",
-  [SessionState.CITA_AWAITING_DEPARTAMENTO]: "Indícanos el departamento.",
-  [SessionState.CITA_AWAITING_PROVINCIA]: "Indícanos la provincia.",
-  [SessionState.CITA_AWAITING_DISTRITO]: "Indícanos el distrito.",
+  [SessionState.CITA_AWAITING_DNI]: ASK_DOCUMENTO_TEXT,
+  [SessionState.CITA_AWAITING_OTP]: ASK_OTP_TEXT,
+  [SessionState.CITA_AWAITING_DISTRITO_AI]: ASK_DISTRITO_NOMBRE_TEXT,
+  [SessionState.CITA_AWAITING_DEPARTAMENTO]: ASK_DEPARTAMENTO_TEXT,
+  [SessionState.CITA_AWAITING_PROVINCIA]: ASK_PROVINCIA_TEXT,
+  [SessionState.CITA_AWAITING_DISTRITO]: ASK_DISTRITO_MANUAL_TEXT,
 };
 
 const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
@@ -52,10 +48,8 @@ const CHANGE_DISTRITO_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT,
 ]);
 
-const REGISTRATION_WAIT_STATE = SessionState.CITA_REGISTRATION_WAIT;
-
 const canLeaveFrom = (state: string): boolean =>
-  state in TEXT_PROMPTS || LIST_STATES.has(state) || state === REGISTRATION_WAIT_STATE;
+  state in TEXT_PROMPTS || LIST_STATES.has(state) || state === SessionState.CITA_REGISTRATION_WAIT;
 
 export function offerExitIfRequested(session: Session, event: HandleEvent): HandlerResult | undefined {
   if (event.type !== InboundEventType.TEXT || !event.text || !canLeaveFrom(session.state)) return undefined;
@@ -71,10 +65,10 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
   restored.state = String(session.slots[SlotKey.CITA_EXIT_RESUME_STATE] ?? SessionState.CITA_AWAITING_DNI) as Session["state"];
   delete restored.slots[SlotKey.CITA_EXIT_RESUME_STATE];
 
-  if (restored.state === REAUTH_STATE) return buildResult(restored, [reauthPrompt()]);
+  if (restored.state === SessionState.CITA_AWAITING_REAUTH) return buildResult(restored, [reauthPrompt()]);
   const prompt = TEXT_PROMPTS[restored.state];
   if (prompt) return buildResult(restored, [sendText(prompt)]);
-  if (restored.state === REGISTRATION_WAIT_STATE)
+  if (restored.state === SessionState.CITA_REGISTRATION_WAIT)
     return handleRegistrationWait(restored, { ...event, type: InboundEventType.TEXT, text: "" });
   return reshowOffered(restored, readOffered(restored.slots));
 }
@@ -91,14 +85,14 @@ export function handleExitConfirm(session: Session, event: InboundEvent): Handle
         ? Confirmation.NO
         : resolveConfirmation(typed);
 
-  if (tapped === EXIT_YES_ID || answer === Confirmation.YES) {
-    return withNote(buildResult({ state: ABANDONED_STATE, slots: {}, counters: {} }, [sendText(GOODBYE)]), {
+  if (tapped === ExitButtonId.YES || answer === Confirmation.YES) {
+    return withNote(buildResult({ state: SessionState.CITA_ABANDONED, slots: {}, counters: {} }, [sendText(CITA_ABANDONED_TEXT)]), {
       kind: "cita_closed",
       detail: { reason: "abandoned", from: String(session.slots[SlotKey.CITA_EXIT_RESUME_STATE] ?? "") },
     });
   }
 
-  if (tapped === EXIT_NO_ID || answer === Confirmation.NO) return resume(session, event);
+  if (tapped === ExitButtonId.NO || answer === Confirmation.NO) return resume(session, event);
 
   return withNote(buildResult(session, [exitButtons()]), {
     kind: "confirmation_unknown",

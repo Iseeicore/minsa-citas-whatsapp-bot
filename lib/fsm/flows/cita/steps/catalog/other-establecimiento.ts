@@ -8,7 +8,6 @@ import {
   sendText,
   withNote,
 } from "@/lib/fsm/core/handlers-shared";
-import { DECLINED_CLOSED_STATE, FAREWELL } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
@@ -19,22 +18,23 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { CITA_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
+import { SEARCHING_FECHAS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
+import {
+  SELECT_ESTABLECIMIENTO_TEXT,
+  otherEstablecimientoQuestionText,
+  noFechasProposeText,
+  noFechasAlternativesText,
+  THAT_ESTABLECIMIENTO_TEXT,
+  THAT_ESPECIALIDAD_TEXT,
+  OTHER_ESTABLECIMIENTO_BUTTONS,
+} from "@/lib/constants/textos/cita-catalogo";
 
-export const OTHER_ESTABLECIMIENTO_STATE = SessionState.CITA_AWAITING_OTHER_ESTABLECIMIENTO;
-
-
-const YES_ID = OtherEstablecimientoButtonId.YES;
-const NO_ID = OtherEstablecimientoButtonId.NO;
 
 export type AlternativeEstablecimiento = { id: string; name: string };
 
-const question = (proposed: string) => `¿Quieres buscar en *${proposed}*?`;
-
 const questionButtons = (text: string) =>
-  sendButtons(text, [
-    { id: YES_ID, title: "Sí, buscar ahí" },
-    { id: NO_ID, title: "No, salir" },
-  ]);
+  sendButtons(text, OTHER_ESTABLECIMIENTO_BUTTONS);
 
 export function discardedEstablecimientos(slots: Session["slots"]): string[] {
   return String(slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS] ?? "")
@@ -77,7 +77,7 @@ export function offerOtherEstablecimiento(
   const next = cloneSession(session);
   const emptyName = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS] ?? "");
   delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS];
-  const where = emptyName ? `*${emptyName}*` : "ese establecimiento";
+  const where = emptyName ? `*${emptyName}*` : THAT_ESTABLECIMIENTO_TEXT;
 
   if (remaining.length === 0) return offerOtherDistrito(next, SearchSubject.ESTABLECIMIENTOS);
 
@@ -85,15 +85,15 @@ export function offerOtherEstablecimiento(
     const [proposed] = remaining;
     next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO] = proposed.id;
     next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] = proposed.name;
-    next.state = OTHER_ESTABLECIMIENTO_STATE;
-    return buildResult(next, [questionButtons(`No hay fechas disponibles en ${where}. ${question(proposed.name)}`)]);
+    next.state = SessionState.CITA_AWAITING_OTHER_ESTABLECIMIENTO;
+    return buildResult(next, [questionButtons(noFechasProposeText(where, otherEstablecimientoQuestionText(proposed.name)))]);
   }
 
-  const especialidad = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : "esa especialidad";
+  const especialidad = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : THAT_ESPECIALIDAD_TEXT;
   next.state = SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT;
   return buildResult(next, [
-    sendText(`No hay fechas disponibles en ${where}. Estos establecimientos también atienden ${especialidad}:`),
-    ...offerPagedList(next, "Selecciona el establecimiento:", rows),
+    sendText(noFechasAlternativesText(where, especialidad)),
+    ...offerPagedList(next, SELECT_ESTABLECIMIENTO_TEXT, rows),
   ]);
 }
 
@@ -102,7 +102,7 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
   const answer = resolveConfirmation(event.type === InboundEventType.TEXT ? (event.text ?? "") : "");
 
-  if (tapped === YES_ID || answer === Confirmation.YES) {
+  if (tapped === OtherEstablecimientoButtonId.YES || answer === Confirmation.YES) {
     const next = cloneSession(session);
     const proposed = String(next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO] ?? "");
     next.slots[SlotKey.CITA_COD_EESS] = proposed;
@@ -111,7 +111,7 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE];
     next.state = SessionState.CITA_FECHA_PENDING;
     return buildResult(next, [
-      sendText("Buscando fechas disponibles…"),
+      sendText(SEARCHING_FECHAS_TEXT),
       query(QueryKind.LIST_FECHAS, {
         codEess: proposed,
         especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
@@ -119,14 +119,14 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     ]);
   }
 
-  if (tapped === NO_ID || answer === Confirmation.NO) {
-    return withNote(buildResult({ state: DECLINED_CLOSED_STATE, slots: {}, counters: {} }, [sendText(FAREWELL)]), {
+  if (tapped === OtherEstablecimientoButtonId.NO || answer === Confirmation.NO) {
+    return withNote(buildResult({ state: SessionState.CITA_DECLINED_CLOSED, slots: {}, counters: {} }, [sendText(CITA_FAREWELL_TEXT)]), {
       kind: "cita_closed",
       detail: { reason: "no_other_establecimiento" },
     });
   }
 
-  return withNote(buildResult(session, [questionButtons(question(String(session.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] ?? "")))]), {
+  return withNote(buildResult(session, [questionButtons(otherEstablecimientoQuestionText(String(session.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE] ?? "")))]), {
     kind: "confirmation_unknown",
     level: "warn",
     detail: { step: "other_establecimiento" },

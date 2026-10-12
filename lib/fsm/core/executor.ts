@@ -35,6 +35,8 @@ import type {
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 export type TurnResult = {
   sent: SendEffect[];
@@ -100,7 +102,7 @@ export async function runTurnUnlocked(
 
       const resultEvent: QueryResultEvent = {
         from,
-        type: "query_result",
+        type: InternalEventType.QUERY_RESULT,
         queryKind: queryEffect.kind,
         result: queryResult,
       };
@@ -152,18 +154,18 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       const codigo = String(effect.payload.codigo ?? "");
       return consultarIncidencia(
         codigo,
-        effect.payload.canal === "web"
-          ? { canal: "web", dni: String(effect.payload.dni ?? "") }
-          : { canal: "whatsapp", waId: from },
+        effect.payload.canal === SessionChannel.WEB
+          ? { canal: SessionChannel.WEB, dni: String(effect.payload.dni ?? "") }
+          : { canal: SessionChannel.WHATSAPP, waId: from },
       );
     }
 
     case QueryKind.LISTAR_INCIDENCIAS: {
       const { listarIncidencias } = await import("@/lib/recepcion/consulta");
       return listarIncidencias(
-        effect.payload.canal === "web"
-          ? { canal: "web", dni: String(effect.payload.dni ?? "") }
-          : { canal: "whatsapp", waId: from },
+        effect.payload.canal === SessionChannel.WEB
+          ? { canal: SessionChannel.WEB, dni: String(effect.payload.dni ?? "") }
+          : { canal: SessionChannel.WHATSAPP, waId: from },
       );
     }
 

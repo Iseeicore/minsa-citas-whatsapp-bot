@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 
 const FROM = "sandbox-documento";
 

@@ -1,7 +1,6 @@
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
 import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
-import { TURN_FAILURE_TEXT } from "@/lib/fsm/core/failure-texts";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
@@ -18,6 +17,7 @@ import type { SendEffect } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
 import { SessionState } from "@/lib/enums/session-state";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
+import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 
 const TYPING_DELAY_MS = 1000;
 

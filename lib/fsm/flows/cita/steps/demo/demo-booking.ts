@@ -25,13 +25,17 @@ import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-const DEMO_ANALYZING_TEXT = "Un momento, estamos analizando tu cuenta… cuenta con referencias:";
-const DEMO_CONFIRM_YES_ID = DemoConfirmButtonId.YES;
-const DEMO_CONFIRM_NO_ID = DemoConfirmButtonId.NO;
-
-const DESPEDIDA_TEXT =
-  "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita o realizar una consulta, escríbenos nuevamente cuando lo necesites. ¡Que tengas un buen día! 👋";
+import { CITA_BOOKED_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
+import {
+  DEMO_HORAS_LIST_TEXT,
+  DEMO_CONFIRM_QUESTION_TEXT,
+  DEMO_ANALYZING_TEXT,
+  demoHorasIntroText,
+  demoResumenText,
+  demoConstanciaDetalleText,
+  DEMO_CONFIRM_BUTTONS,
+} from "@/lib/constants/textos/cita-demo";
+import { constanciaCitaText } from "@/lib/constants/textos/cita-reserva";
 
 function referenciaRows(dni: string): ListRow[] {
   return demoReferenciasForDni(dni).map((referencia) => ({
@@ -55,30 +59,19 @@ function offerDemoHoras(session: Session, codigo: string): HandlerResult {
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO] = codigo;
   next.state = SessionState.CITA_DEMO_AWAITING_HORA_SELECT;
-  const intro = `Listo, el establecimiento *${referencia?.hospital ?? ""}* cuenta con una referencia para ti.
-
-Especialidad: ${referencia?.especialidad ?? ""}
-Horario de atención: ${DEMO_HORA_INICIO} - ${DEMO_HORA_FIN} (turnos de 25 minutos)
-
-¿A qué hora deseas tu cita? Elige un horario:`;
+  const intro = demoHorasIntroText(referencia?.hospital ?? "", referencia?.especialidad ?? "", DEMO_HORA_INICIO, DEMO_HORA_FIN);
   const rows = demoHoraSlots().map(slotToRow);
-  return buildResult(next, [sendText(intro), ...offerPagedList(next, "Horarios disponibles:", rows)]);
+  return buildResult(next, [sendText(intro), ...offerPagedList(next, DEMO_HORAS_LIST_TEXT, rows)]);
 }
 
 function askDemoConfirmation(session: Session, codigo: string, horaId: string): HandlerResult {
   const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
   const [start, end] = horaId.split("|");
   const turno = CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? formatHoraRange(start, end) : horaId;
-  const resumen = `Especialidad: ${referencia?.especialidad ?? ""}
-Turno seleccionado: ${turno}
-
-¿Confirmas tu cita?`;
+  const resumen = demoResumenText(referencia?.especialidad ?? "", turno);
   return buildResult(session, [
     sendText(resumen),
-    sendButtons("¿Confirmas tu cita?", [
-      { id: DEMO_CONFIRM_YES_ID, title: "Sí, confirmar" },
-      { id: DEMO_CONFIRM_NO_ID, title: "No, elegir otra" },
-    ]),
+    sendButtons(DEMO_CONFIRM_QUESTION_TEXT, DEMO_CONFIRM_BUTTONS),
   ]);
 }
 
@@ -108,26 +101,18 @@ export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent)
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (reply === DEMO_CONFIRM_YES_ID || typed === Confirmation.YES) {
+  if (reply === DemoConfirmButtonId.YES || typed === Confirmation.YES) {
     const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
     const [start, end] = horaId.split("|");
     const turno =
       CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? formatHoraRange(start, end) : horaId;
     const next = cloneSession(session);
     next.state = SessionState.CITA_BOOKED;
-    const constanciaText = `*MINISTERIO DE SALUD DEL PERÚ*
-*Constancia de Registro de Cita*
-
-Estimado(a) usuario(a), su solicitud ha sido procesada con éxito:
-Establecimiento: ${referencia?.hospital ?? ""}
-Especialidad: ${referencia?.especialidad ?? ""}
-Turno: ${turno}
-
-Nota: Recuerde acudir a su cita portando su DNI o documento de identidad físico.`;
-    return buildResult(next, [sendText(constanciaText), sendText(DESPEDIDA_TEXT)]);
+    const constanciaText = constanciaCitaText(demoConstanciaDetalleText(referencia?.hospital ?? "", referencia?.especialidad ?? "", turno));
+    return buildResult(next, [sendText(constanciaText), sendText(CITA_BOOKED_FAREWELL_TEXT)]);
   }
 
-  if (reply === DEMO_CONFIRM_NO_ID || typed === Confirmation.NO) {
+  if (reply === DemoConfirmButtonId.NO || typed === Confirmation.NO) {
     const next = cloneSession(session);
     delete next.slots[SlotKey.CITA_DEMO_HORA_ID];
     return offerDemoHoras(next, codigo);

@@ -8,9 +8,9 @@ import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { BARE_SMALL_NUMBER } from "@/lib/constants/regex/selection";
+import { hourGroupSeeHorasText, numberedHoraOptionText, bareNumberQuestionText, HORA_UNAVAILABLE_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
+import { MatchKind } from "@/lib/enums/match-kind";
 
-export const HORA_CHOICE_A_ID = HoraChoiceButtonId.A;
-export const HORA_CHOICE_B_ID = HoraChoiceButtonId.B;
 export const BUTTON_TITLE_MAX = 20;
 
 function resolveBareHoraNumber(
@@ -27,21 +27,21 @@ function resolveBareHoraNumber(
   const otherHourSlots = positionRow ? hourSlots.filter((slot) => slotToRow(slot).id !== positionRow.id) : hourSlots;
 
   if (otherHourSlots.length === 0) {
-    return positionRow ? { kind: "match", row: positionRow } : undefined;
+    return positionRow ? { kind: MatchKind.MATCH, row: positionRow } : undefined;
   }
 
   if (!positionRow) {
     return otherHourSlots.length === 1
-      ? { kind: "match", row: slotToRow(otherHourSlots[0]) }
-      : { kind: "ambiguous", rows: otherHourSlots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
+      ? { kind: MatchKind.MATCH, row: slotToRow(otherHourSlots[0]) }
+      : { kind: MatchKind.AMBIGUOUS, rows: otherHourSlots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
   }
 
   const positionSlot = rowToSlot(positionRow);
-  if (!positionSlot) return { kind: "match", row: positionRow };
+  if (!positionSlot) return { kind: MatchKind.MATCH, row: positionRow };
 
   const first = otherHourSlots[0];
   const single = otherHourSlots.length === 1;
-  const hourLabel = single ? formatHora12(first.start) : `${formatHourGroup(first.start)}: ver horas`;
+  const hourLabel = single ? formatHora12(first.start) : hourGroupSeeHorasText(formatHourGroup(first.start));
   const hourDescription = single
     ? formatHora12(first.start)
     : `${formatHourGroup(first.start)} (${otherHourSlots.map((slot) => formatHora12(slot.start)).join(", ")})`;
@@ -52,11 +52,11 @@ function resolveBareHoraNumber(
   next.slots[SlotKey.CITA_HORA_CHOICE_B] = packHoraSlots(otherHourSlots);
 
   return {
-    kind: "handled",
+    kind: MatchKind.HANDLED,
     result: buildResult(next, [
-      sendButtons(`¿A qué te refieres con "${number}"? Opción ${number}: ${formatHora12(positionSlot.start)}, o ${hourDescription}.`, [
-        { id: HORA_CHOICE_A_ID, title: truncateForRow(`Opción ${number}: ${formatHora12(positionSlot.start)}`, BUTTON_TITLE_MAX) },
-        { id: HORA_CHOICE_B_ID, title: truncateForRow(hourLabel, BUTTON_TITLE_MAX) },
+      sendButtons(bareNumberQuestionText(number, formatHora12(positionSlot.start), hourDescription), [
+        { id: HoraChoiceButtonId.A, title: truncateForRow(numberedHoraOptionText(number, formatHora12(positionSlot.start)), BUTTON_TITLE_MAX) },
+        { id: HoraChoiceButtonId.B, title: truncateForRow(hourLabel, BUTTON_TITLE_MAX) },
       ]),
     ]),
   };
@@ -74,13 +74,13 @@ export function matchHoraTyped(session: Session, typed: string, rows: OfferedRow
 
   const match = matchHoraText(typed, slots);
   switch (match.kind) {
-    case "exact":
-      return { kind: "match", row: slotToRow(match.slot) };
-    case "several":
-      return { kind: "ambiguous", rows: match.slots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
-    case "unavailable":
-      return { kind: "notice", text: "No hay horarios disponibles a esa hora. Elige uno de la lista:" };
-    case "unparsed":
+    case MatchKind.EXACT:
+      return { kind: MatchKind.MATCH, row: slotToRow(match.slot) };
+    case MatchKind.SEVERAL:
+      return { kind: MatchKind.AMBIGUOUS, rows: match.slots.slice(0, WHATSAPP_LIST_MAX_ROWS).map(slotToRow) };
+    case MatchKind.UNAVAILABLE:
+      return { kind: MatchKind.NOTICE, text: HORA_UNAVAILABLE_TEXT };
+    case MatchKind.UNPARSED:
       return undefined;
   }
 }

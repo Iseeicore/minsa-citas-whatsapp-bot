@@ -5,6 +5,7 @@ import { buildResult, offerPagedList, query, sendText } from "@/lib/fsm/core/han
 import { catalogRowDescription, formatEspecialidadName, rememberFullNames } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
+import { especialidadNotAvailableText, especialidadDetectedText, SELECT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
 
 export type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -27,7 +28,7 @@ export function offerEspecialidadesWithoutHint(next: Session, items: Especialida
   return {
     ...offered,
     effects: [
-      sendText(`La especialidad que mencionaste (${hint}) no está disponible por ahora, pero puedes elegir entre estas:`),
+      sendText(especialidadNotAvailableText(hint)),
       ...offered.effects,
     ],
   };
@@ -40,7 +41,7 @@ export function acceptDetectedEspecialidad(next: Session, matched: EspecialidadR
   next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = name.full;
   next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
   return buildResult(next, [
-    sendText(`Especialidad detectada: ${name.full}. Buscando establecimientos…`),
+    sendText(especialidadDetectedText(name.full)),
     query(QueryKind.LIST_ESTABLECIMIENTOS, {
       especialidadId: matched.codigoEspecialidad,
       ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
@@ -56,5 +57,5 @@ export function offerEspecialidades(next: Session, items: EspecialidadResultItem
     const { name } = names[index];
     return { id: item.codigoEspecialidad, title: name.title, description: catalogRowDescription(name, item.cantidadCupos) };
   });
-  return buildResult(next, offerPagedList(next, "Selecciona la especialidad:", rows));
+  return buildResult(next, offerPagedList(next, SELECT_ESPECIALIDAD_TEXT, rows));
 }

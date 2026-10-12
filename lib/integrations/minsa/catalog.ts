@@ -23,6 +23,7 @@ import { fetchCatalogItems } from "@/lib/integrations/minsa/catalog-pipeline";
 import { isRawRow, readNumber, readString, type RawRow } from "@/lib/integrations/minsa/row-readers";
 import { endOfMonthYYYYMMDD, todayYYYYMMDD, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { CatalogStatus } from "@/lib/enums/catalog-status";
 
 function parseUbigeo(row: RawRow): UbigeoItem | undefined {
   const ubigeoInei = readString(row, "ubigeo_inei");
@@ -91,7 +92,7 @@ export async function searchUbigeo(
   }
 
   const matches = distrito.trim().toUpperCase() === FAKE_UBIGEO.distrito;
-  return matches ? { status: "found", items: [FAKE_UBIGEO] } : { status: "empty" };
+  return matches ? { status: CatalogStatus.FOUND, items: [FAKE_UBIGEO] } : { status: CatalogStatus.EMPTY };
 }
 
 export async function listEspecialidades(
@@ -108,7 +109,7 @@ export async function listEspecialidades(
     });
   }
 
-  return { status: "found", items: FAKE_ESPECIALIDADES };
+  return { status: CatalogStatus.FOUND, items: FAKE_ESPECIALIDADES };
 }
 
 export async function listEstablecimientos(
@@ -128,7 +129,7 @@ export async function listEstablecimientos(
     });
   }
 
-  return { status: "found", items: FAKE_ESTABLECIMIENTOS };
+  return { status: CatalogStatus.FOUND, items: FAKE_ESTABLECIMIENTOS };
 }
 
 export async function listFechas(
@@ -146,7 +147,7 @@ export async function listFechas(
     });
   }
 
-  return { status: "found", items: fakeFechas() };
+  return { status: CatalogStatus.FOUND, items: fakeFechas() };
 }
 
 export async function listHoras(
@@ -165,6 +166,6 @@ export async function listHoras(
     });
   }
 
-  if (fecha === limaDatePlus(SINGLE_HORARIO_DAYS_AHEAD)) return { status: "found", items: [FAKE_HORAS[2]] };
-  return { status: "found", items: FAKE_HORAS };
+  if (fecha === limaDatePlus(SINGLE_HORARIO_DAYS_AHEAD)) return { status: CatalogStatus.FOUND, items: [FAKE_HORAS[2]] };
+  return { status: CatalogStatus.FOUND, items: FAKE_HORAS };
 }

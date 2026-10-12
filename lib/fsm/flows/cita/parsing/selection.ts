@@ -1,8 +1,6 @@
 import {
   buildResult,
   cloneSession,
-  LIST_PAGE_NEXT_ID,
-  LIST_PAGE_PREV_ID,
   offerPagedList,
   pageCount,
   pageEffects,
@@ -19,9 +17,9 @@ import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
-
-export const SELECTION_REJECTION = "Selecciona una opción de la lista.";
-export const NARROWED_LIST_TEXT = "Encontramos varias coincidencias. Selecciona una:";
+import { SELECTION_REJECTION_TEXT, NARROWED_LIST_TEXT } from "@/lib/constants/textos/comunes";
+import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { MatchKind } from "@/lib/enums/match-kind";
 
 export function clearOffered(session: Session): Session {
   const next = cloneSession(session);
@@ -34,7 +32,7 @@ export function clearOffered(session: Session): Session {
 export function reshowOffered(
   session: Session,
   offered: OfferedList | undefined,
-  message: string = SELECTION_REJECTION,
+  message: string = SELECTION_REJECTION_TEXT,
 ): HandlerResult {
   const effects: SendEffect[] = [sendText(message)];
   if (offered) effects.push(...pageEffects(offered.text, offered.rows, session.counters[CounterKey.CITA_LIST_PAGE] ?? 0));
@@ -49,7 +47,7 @@ function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
 function turnPage(session: Session, offered: OfferedList, id: string): HandlerResult {
   const next = cloneSession(session);
   const current = next.counters[CounterKey.CITA_LIST_PAGE] ?? 0;
-  const target = id === LIST_PAGE_NEXT_ID ? current + 1 : current - 1;
+  const target = id === ListPageButtonId.NEXT ? current + 1 : current - 1;
   const page = Math.min(Math.max(target, 0), pageCount(offered.rows.length) - 1);
   if (page === 0) delete next.counters[CounterKey.CITA_LIST_PAGE];
   else next.counters[CounterKey.CITA_LIST_PAGE] = page;
@@ -58,8 +56,8 @@ function turnPage(session: Session, offered: OfferedList, id: string): HandlerRe
 
 export type CustomMatch =
   | SelectionMatch
-  | { kind: "notice"; text: string }
-  | { kind: "handled"; result: HandlerResult };
+  | { kind: `${MatchKind.NOTICE}`; text: string }
+  | { kind: `${MatchKind.HANDLED}`; result: HandlerResult };
 
 type SelectionOptions = {
   customMatch?: (typed: string, rows: OfferedRow[]) => CustomMatch | undefined;
@@ -80,7 +78,7 @@ export function resolveSelection(
   if (event.type === InboundEventType.LIST || event.type === InboundEventType.BUTTON) {
     const id = event.listId;
     if (!id) return { result: reshowOffered(session, offered) };
-    if (offered && (id === LIST_PAGE_NEXT_ID || id === LIST_PAGE_PREV_ID)) return { result: turnPage(session, offered, id) };
+    if (offered && (id === ListPageButtonId.NEXT || id === ListPageButtonId.PREV)) return { result: turnPage(session, offered, id) };
 
     const valid =
       !offered || offered.rows.some((row) => row.id === id) || options.passthroughIds?.includes(id);
@@ -93,14 +91,14 @@ export function resolveSelection(
   }
 
   const custom = options.customMatch?.(typed, offered.rows);
-  if (custom?.kind === "match") return { replyId: custom.row.id, typed };
-  if (custom?.kind === "ambiguous") return { result: narrowOffered(session, custom.rows) };
-  if (custom?.kind === "notice") return { result: reshowOffered(session, offered, custom.text) };
-  if (custom?.kind === "handled") return { result: custom.result };
+  if (custom?.kind === MatchKind.MATCH) return { replyId: custom.row.id, typed };
+  if (custom?.kind === MatchKind.AMBIGUOUS) return { result: narrowOffered(session, custom.rows) };
+  if (custom?.kind === MatchKind.NOTICE) return { result: reshowOffered(session, offered, custom.text) };
+  if (custom?.kind === MatchKind.HANDLED) return { result: custom.result };
 
   const match = matchSelection(typed, offered.rows, { includeDescription: options.includeDescription });
-  if (match.kind === "match") return { replyId: match.row.id, typed };
-  if (match.kind === "ambiguous") return { result: narrowOffered(session, match.rows) };
+  if (match.kind === MatchKind.MATCH) return { replyId: match.row.id, typed };
+  if (match.kind === MatchKind.AMBIGUOUS) return { result: narrowOffered(session, match.rows) };
 
   return { result: options.onNoMatchText?.(typed) ?? reshowOffered(session, offered) };
 }

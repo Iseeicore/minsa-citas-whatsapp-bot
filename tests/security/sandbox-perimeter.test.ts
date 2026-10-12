@@ -23,7 +23,7 @@ vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 import { POST } from "@/app/api/sandbox/route";
 import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
-import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 
 async function send(body: Record<string, unknown>) {
   const request = new NextRequest("http://localhost/api/sandbox", {

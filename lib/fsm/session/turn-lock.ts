@@ -15,7 +15,7 @@ export class TurnLockTimeoutError extends Error {
   }
 }
 
-export { TURN_FAILURE_TEXT } from "@/lib/fsm/core/failure-texts";
+export { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 
 export type TurnTask<T> = () => Promise<T>;
 export type TurnLock = <T>(waId: string, task: TurnTask<T>) => Promise<T>;

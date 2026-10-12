@@ -1,5 +1,4 @@
 import {
-  DISTRITO_MANUAL_FALLBACK_TEXT,
   enterManualDistritoFlow,
   looksLikePlaceName,
   resolveDistritoCandidates,
@@ -13,7 +12,7 @@ import {
   query,
   sendText,
 } from "@/lib/fsm/core/handlers-shared";
-import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
+import { isGibberishPlaceText } from "@/lib/fsm/parsing/text/gibberish";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
@@ -34,11 +33,29 @@ import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import {
+  ASK_DISTRITO_NOMBRE_TEXT,
+  ASK_DEPARTAMENTO_TEXT,
+  ASK_PROVINCIA_TEXT,
+  ASK_PROVINCIA_QUESTION_TEXT,
+  ASK_DISTRITO_MANUAL_TEXT,
+  ASK_DISTRITO_QUESTION_TEXT,
+  UNREADABLE_DEPARTAMENTO_TEXT,
+  UNREADABLE_PROVINCIA_TEXT,
+  UNREADABLE_DISTRITO_TEXT,
+  SEARCHING_UBIGEO_TEXT,
+  UBIGEO_ERROR_TEXT,
+  UBIGEO_NOT_FOUND_TEXT,
+  SEARCHING_ESPECIALIDADES_TEXT,
+  DISTRITO_MANUAL_FALLBACK_TEXT,
+  UNRECOGNIZED_DISTRITO_TEXT,
+} from "@/lib/constants/textos/cita-ubicacion";
+import { CatalogStatus } from "@/lib/enums/catalog-status";
 
 export function handleAwaitingDistritoAi(session: Session, event: InboundEvent): HandlerResult {
   const rawText = (event.text ?? "").trim();
   if (!rawText) {
-    return buildResult(session, [sendText("Cuéntanos el nombre del distrito.")]);
+    return buildResult(session, [sendText(ASK_DISTRITO_NOMBRE_TEXT)]);
   }
 
   const initialMessageText = session.slots[SlotKey.INITIAL_MESSAGE_TEXT];
@@ -108,7 +125,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
   next.slots[SlotKey.CITA_DISTRITO] = distrito;
   next.state = SessionState.CITA_UBIGEO_PENDING;
   return buildResult(next, [
-    sendText("Buscando tu ubigeo…"),
+    sendText(SEARCHING_UBIGEO_TEXT),
     query(QueryKind.SEARCH_UBIGEO, { departamento, provincia, distrito }),
   ]);
 }
@@ -116,50 +133,50 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
 export function handleAwaitingDepartamento(session: Session, event: InboundEvent): HandlerResult {
   const departamento = (event.text ?? "").trim();
   if (!departamento) {
-    return buildResult(session, [sendText("Indícanos el departamento.")]);
+    return buildResult(session, [sendText(ASK_DEPARTAMENTO_TEXT)]);
   }
 
   if (isGibberishPlaceText(departamento)) {
-    return buildResult(session, [sendText("No pudimos leer eso. Indícanos el departamento.")]);
+    return buildResult(session, [sendText(UNREADABLE_DEPARTAMENTO_TEXT)]);
   }
 
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DEPARTAMENTO] = departamento;
   next.state = SessionState.CITA_AWAITING_PROVINCIA;
-  return buildResult(next, [sendText("¿En qué provincia?")]);
+  return buildResult(next, [sendText(ASK_PROVINCIA_QUESTION_TEXT)]);
 }
 
 export function handleAwaitingProvincia(session: Session, event: InboundEvent): HandlerResult {
   const provincia = (event.text ?? "").trim();
   if (!provincia) {
-    return buildResult(session, [sendText("Indícanos la provincia.")]);
+    return buildResult(session, [sendText(ASK_PROVINCIA_TEXT)]);
   }
 
   if (isGibberishPlaceText(provincia)) {
-    return buildResult(session, [sendText("No pudimos leer eso. ¿En qué provincia?")]);
+    return buildResult(session, [sendText(UNREADABLE_PROVINCIA_TEXT)]);
   }
 
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_PROVINCIA] = provincia;
   next.state = SessionState.CITA_AWAITING_DISTRITO;
-  return buildResult(next, [sendText("¿En qué distrito?")]);
+  return buildResult(next, [sendText(ASK_DISTRITO_QUESTION_TEXT)]);
 }
 
 export function handleAwaitingDistrito(session: Session, event: InboundEvent): HandlerResult {
   const distrito = (event.text ?? "").trim();
   if (!distrito) {
-    return buildResult(session, [sendText("Indícanos el distrito.")]);
+    return buildResult(session, [sendText(ASK_DISTRITO_MANUAL_TEXT)]);
   }
 
   if (isGibberishPlaceText(distrito)) {
-    return buildResult(session, [sendText("No pudimos leer eso. Indícanos el distrito.")]);
+    return buildResult(session, [sendText(UNREADABLE_DISTRITO_TEXT)]);
   }
 
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DISTRITO] = distrito;
   next.state = SessionState.CITA_UBIGEO_PENDING;
   return buildResult(next, [
-    sendText("Buscando tu ubigeo…"),
+    sendText(SEARCHING_UBIGEO_TEXT),
     query(QueryKind.SEARCH_UBIGEO, {
       departamento: String(next.slots[SlotKey.CITA_DEPARTAMENTO] ?? ""),
       provincia: String(next.slots[SlotKey.CITA_PROVINCIA] ?? ""),
@@ -172,30 +189,30 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
   const result = event.result as { status: string; items?: UbigeoResultItem[] };
   const next = cloneSession(session);
 
-  if (result.status === "unauthorized") {
+  if (result.status === CatalogStatus.UNAUTHORIZED) {
     return beginReverification(next, SessionState.CITA_UBIGEO_PENDING);
   }
 
-  if (result.status === "error") {
+  if (result.status === CatalogStatus.ERROR) {
     next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
     return buildResult(next, [
-      sendText("Ocurrió un error al buscar tu ubigeo. Indícanos nuevamente el departamento."),
+      sendText(UBIGEO_ERROR_TEXT),
     ]);
   }
 
   const items = result.items?.filter((item) => isAllowedDepartamento(item.departamento));
-  if (result.status === "found" && result.items && result.items.length > 0 && items?.length === 0) {
+  if (result.status === CatalogStatus.FOUND && result.items && result.items.length > 0 && items?.length === 0) {
     return redirectToNationalSite(next);
   }
 
-  const settled = result.status === "found" && items ? pickSettledUbigeo(next, items) : undefined;
+  const settled = result.status === CatalogStatus.FOUND && items ? pickSettledUbigeo(next, items) : undefined;
   if (settled) return acceptSettledUbigeo(next, settled);
 
-  if (result.status === "found" && items && isOfferableUbigeoList(items)) return offerUbigeos(next, items);
+  if (result.status === CatalogStatus.FOUND && items && isOfferableUbigeoList(items)) return offerUbigeos(next, items);
 
   next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
   return buildResult(next, [
-    sendText("No encontramos ese ubigeo. Indícanos nuevamente el departamento."),
+    sendText(UBIGEO_NOT_FOUND_TEXT),
   ]);
 }
 
@@ -209,7 +226,7 @@ export function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent
   next.slots[SlotKey.CITA_UBIGEO] = replyId;
   next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
   return buildResult(next, [
-    sendText(chosen ? searchingCatalogText(chosen.title) : "Buscando especialidades disponibles…"),
+    sendText(chosen ? searchingCatalogText(chosen.title) : SEARCHING_ESPECIALIDADES_TEXT),
     query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: replyId }),
   ]);
 }

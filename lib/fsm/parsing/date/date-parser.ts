@@ -11,14 +11,23 @@ import {
   TOMORROW,
   YEAR_MONTH_DAY_ID,
 } from "@/lib/constants/regex/date-time";
+import { MatchKind } from "@/lib/enums/match-kind";
+import {
+  WEEKDAY_NAMES_LONG,
+  WEEKDAY_NAMES_SHORT,
+  MONTH_NAMES_LONG,
+  MONTH_NAMES_SHORT,
+  longDateText,
+  dayLabelText,
+} from "@/lib/constants/textos/cita-fecha-hora";
 
 export type DateParts = { year: number; month: number; day: number };
 
 export type FechaMatch =
-  | { kind: "match"; row: OfferedRow }
-  | { kind: "ambiguous"; rows: OfferedRow[] }
-  | { kind: "unavailable"; label: string }
-  | { kind: "unparsed" };
+  | { kind: `${MatchKind.MATCH}`; row: OfferedRow }
+  | { kind: `${MatchKind.AMBIGUOUS}`; rows: OfferedRow[] }
+  | { kind: `${MatchKind.UNAVAILABLE}`; label: string }
+  | { kind: `${MatchKind.UNPARSED}` };
 
 export function parseOfferedDate(id: string): DateParts | undefined {
   let match = DAY_MONTH_YEAR_ID.exec(id);
@@ -46,16 +55,8 @@ function formatDate(date: DateParts): string {
   return `${pad(date.day)}/${pad(date.month)}/${date.year}`;
 }
 
-const WEEKDAY_NAMES_LONG = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-const WEEKDAY_NAMES_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
-const MONTH_NAMES_LONG = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-];
-const MONTH_NAMES_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-
 export function formatDateLong(date: DateParts): string {
-  return `${WEEKDAY_NAMES_LONG[weekdayOf(date)]} ${date.day} de ${MONTH_NAMES_LONG[date.month - 1]}`;
+  return longDateText(WEEKDAY_NAMES_LONG[weekdayOf(date)], date.day, MONTH_NAMES_LONG[date.month - 1]);
 }
 
 export function formatDateShort(date: DateParts): string {
@@ -90,13 +91,13 @@ type Dated = { row: OfferedRow; date: DateParts };
 
 function pickByDate(dated: Dated[], target: DateParts): FechaMatch {
   const found = dated.find((entry) => sortKey(entry.date) === sortKey(target));
-  return found ? { kind: "match", row: found.row } : { kind: "unavailable", label: formatDate(target) };
+  return found ? { kind: MatchKind.MATCH, row: found.row } : { kind: MatchKind.UNAVAILABLE, label: formatDate(target) };
 }
 
 function fromRows(rows: OfferedRow[], label: string): FechaMatch {
-  if (rows.length === 1) return { kind: "match", row: rows[0] };
-  if (rows.length > 1) return { kind: "ambiguous", rows };
-  return { kind: "unavailable", label };
+  if (rows.length === 1) return { kind: MatchKind.MATCH, row: rows[0] };
+  if (rows.length > 1) return { kind: MatchKind.AMBIGUOUS, rows };
+  return { kind: MatchKind.UNAVAILABLE, label };
 }
 
 const MONTH_NAMES = Object.keys(MONTHS).join("|");
@@ -107,24 +108,24 @@ const WEEKDAY_NAME = new RegExp(`\\b(${WEEKDAY_NAMES})\\b`);
 
 export function matchFechaText(text: string, rows: OfferedRow[], today: DateParts): FechaMatch {
   const normalized = normalize(text);
-  if (!normalized) return { kind: "unparsed" };
+  if (!normalized) return { kind: MatchKind.UNPARSED };
 
   const dated: Dated[] = rows.flatMap((row) => {
     const date = parseOfferedDate(row.id);
     return date ? [{ row, date }] : [];
   });
-  if (dated.length === 0) return { kind: "unparsed" };
+  if (dated.length === 0) return { kind: MatchKind.UNPARSED };
 
   if (EARLIEST_DATE_REQUEST.test(normalized)) {
     const earliest = [...dated].sort((a, b) => sortKey(a.date) - sortKey(b.date))[0];
-    return { kind: "match", row: earliest.row };
+    return { kind: MatchKind.MATCH, row: earliest.row };
   }
 
   const numeric = DAY_MONTH_AND_OPTIONAL_YEAR.exec(normalized);
   if (numeric) {
     const day = Number(numeric[1]);
     const month = Number(numeric[2]);
-    if (day < 1 || day > 31 || month < 1 || month > 12) return { kind: "unparsed" };
+    if (day < 1 || day > 31 || month < 1 || month > 12) return { kind: MatchKind.UNPARSED };
     const year = resolveYear(day, month, today, numeric[3] ? Number(numeric[3]) : undefined);
     return pickByDate(dated, { year, month, day });
   }
@@ -133,7 +134,7 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
   if (named) {
     const day = Number(named[1]);
     const month = MONTHS[named[2]];
-    if (day < 1 || day > 31) return { kind: "unparsed" };
+    if (day < 1 || day > 31) return { kind: MatchKind.UNPARSED };
     return pickByDate(dated, { year: resolveYear(day, month, today), month, day });
   }
 
@@ -147,15 +148,15 @@ export function matchFechaText(text: string, rows: OfferedRow[], today: DatePart
     const matches = dated
       .filter((entry) => weekdayOf(entry.date) === wanted && sortKey(entry.date) >= sortKey(today))
       .map((entry) => entry.row);
-    return fromRows(matches, `el ${weekday[1]}`);
+    return fromRows(matches, dayLabelText(weekday[1]));
   }
 
   const dayOfMonth = DAY_OF_MONTH.exec(normalized);
   if (dayOfMonth) {
     const day = Number(dayOfMonth[1]);
     const matches = dated.filter((entry) => entry.date.day === day).map((entry) => entry.row);
-    if (matches.length > 0) return fromRows(matches, `el ${day}`);
+    if (matches.length > 0) return fromRows(matches, dayLabelText(day));
   }
 
-  return { kind: "unparsed" };
+  return { kind: MatchKind.UNPARSED };
 }

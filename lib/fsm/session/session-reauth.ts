@@ -4,12 +4,14 @@ import { resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
-import { REAUTH_NO_ID, REAUTH_STATE, REAUTH_YES_ID, reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
+import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { REAUTH_ASK_DOCUMENTO_TEXT, REAUTH_SENDING_CODIGO_TEXT } from "@/lib/constants/textos/cita-identidad";
+import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
 
 const TRANSIENT_BOOKING_SLOTS = [
   SlotKey.CITA_BEARER,
@@ -24,7 +26,7 @@ const TRANSIENT_BOOKING_SLOTS = [
 
 export function beginSessionReauth(session: Session): HandlerResult {
   const next: Session = {
-    state: REAUTH_STATE,
+    state: SessionState.CITA_AWAITING_REAUTH,
     slots: { ...session.slots },
     counters: { ...session.counters },
   };
@@ -43,19 +45,19 @@ export function handleAwaitingReauth(session: Session, event: InboundEvent): Han
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (tapped === REAUTH_NO_ID || typed === Confirmation.NO) return askToLeave(session, "reauth");
+  if (tapped === ReauthButtonId.NO || typed === Confirmation.NO) return askToLeave(session, "reauth");
 
-  if (tapped === REAUTH_YES_ID || typed === Confirmation.YES) {
+  if (tapped === ReauthButtonId.YES || typed === Confirmation.YES) {
     const dni = session.slots[SlotKey.CITA_DNI];
     const next: Session = { state: SessionState.CITA_AWAITING_DNI, slots: { ...session.slots }, counters: { ...session.counters } };
 
     if (typeof dni !== "string" || dni === "") {
-      return buildResult(next, [sendText("Para enviarte un nuevo código, ingresa tu número de documento.")]);
+      return buildResult(next, [sendText(REAUTH_ASK_DOCUMENTO_TEXT)]);
     }
 
     next.state = SessionState.CITA_VALIDATE_PENDING;
     next.slots[SlotKey.CITA_DNI_PENDING] = dni;
-    return buildResult(next, [sendText("Enviándote un nuevo código de verificación…"), validateUserQuery(dni)]);
+    return buildResult(next, [sendText(REAUTH_SENDING_CODIGO_TEXT), validateUserQuery(dni)]);
   }
 
   return withNote(buildResult(session, [reauthPrompt()]), {

@@ -3,6 +3,7 @@ import { SendType } from "@/lib/enums/send-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import type { SessionState } from "@/lib/enums/session-state";
+import type { InternalEventType } from "@/lib/enums/internal-event-type";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -97,7 +98,7 @@ export type InboundEvent = {
 
 export type QueryResultEvent = {
   from: string;
-  type: "query_result";
+  type: `${InternalEventType.QUERY_RESULT}`;
   queryKind: QueryEffectKind;
   result: unknown;
 };

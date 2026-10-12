@@ -7,7 +7,7 @@ import { matchHoraText } from "@/lib/fsm/parsing/date/time-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
-import { ONLY_HORA_FLAG, HORA_CONFIRM_YES_ID, HORA_CONFIRM_NO_ID } from "@/lib/fsm/flows/cita/steps/hora/format";
+import { ONLY_HORA_FLAG } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -15,6 +15,9 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { NEGATION_WORD } from "@/lib/constants/regex/selection";
+import { CHOOSE_OTHER_HORA_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
+import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
+import { MatchKind } from "@/lib/enums/match-kind";
 
 function acceptsPendingHora(typed: string, slotId: string): boolean {
   const plain = normalizeText(typed).toLowerCase();
@@ -22,7 +25,7 @@ function acceptsPendingHora(typed: string, slotId: string): boolean {
   if (isSlotAcceptance(typed)) return true;
 
   const [start, end] = slotId.split("|");
-  return matchHoraText(typed, [{ start, end, cupos: 0 }]).kind === "exact";
+  return matchHoraText(typed, [{ start, end, cupos: 0 }]).kind === MatchKind.EXACT;
 }
 
 export function handleHoraConfirm(session: Session, event: InboundEvent): HandlerResult {
@@ -43,7 +46,7 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
     }
 
     restored.state = SessionState.CITA_AWAITING_HORA_SELECT;
-    return reshowOffered(restored, offered, "Sin problema. Elige otro horario:");
+    return reshowOffered(restored, offered, CHOOSE_OTHER_HORA_TEXT);
   };
 
   if (!CLOCK_TIME.test(start ?? "")) return backToList();
@@ -55,8 +58,8 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
   const takesThatHora =
     typed === Confirmation.UNKNOWN && event.type === InboundEventType.TEXT && acceptsPendingHora(typedText, slotId);
 
-  if (reply === HORA_CONFIRM_YES_ID || typed === Confirmation.YES || takesThatHora) return startBooking(session, start);
-  if (reply === HORA_CONFIRM_NO_ID || typed === Confirmation.NO) return backToList();
+  if (reply === HoraConfirmButtonId.YES || typed === Confirmation.YES || takesThatHora) return startBooking(session, start);
+  if (reply === HoraConfirmButtonId.NO || typed === Confirmation.NO) return backToList();
 
   return withNote(askHoraConfirmation(session, slotId, { only }), {
     kind: "confirmation_unknown",

@@ -3,6 +3,7 @@ import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { BASE64URL_MINUS, BASE64URL_UNDERSCORE } from "@/lib/constants/regex/integrations";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
@@ -30,10 +31,8 @@ const RESUME_STATE_BY_WAITING_STATE: Readonly<Record<string, string | null>> = {
 
 export const AUTHENTICATED_WAITING_STATES: readonly string[] = Object.keys(RESUME_STATE_BY_WAITING_STATE);
 
-const EXIT_CONFIRM_STATE = SessionState.CITA_AWAITING_EXIT_CONFIRM;
-
 function guardedStateOf(state: string, slots: Session["slots"]): string | undefined {
-  if (state !== EXIT_CONFIRM_STATE) return state in RESUME_STATE_BY_WAITING_STATE ? state : undefined;
+  if (state !== SessionState.CITA_AWAITING_EXIT_CONFIRM) return state in RESUME_STATE_BY_WAITING_STATE ? state : undefined;
   const before = slots[SlotKey.CITA_EXIT_RESUME_STATE];
   return typeof before === "string" && before in RESUME_STATE_BY_WAITING_STATE ? before : undefined;
 }
@@ -64,7 +63,7 @@ export function detectSessionExpiry(
   event: HandleEvent,
   now: number,
 ): SessionExpiryReason | null {
-  if (event.type === "query_result") return null;
+  if (event.type === InternalEventType.QUERY_RESULT) return null;
   if (!guardedStateOf(session.state, session.slots)) return null;
 
   const bearer = session.slots[SlotKey.CITA_BEARER];
@@ -96,7 +95,7 @@ const INCIDENCIA_RESUMABLE_STATES: ReadonlySet<string> = new Set<string>([
 ]);
 
 export function detectIncidenciaExpiry(session: Session, event: HandleEvent, now: number): SessionExpiryReason | null {
-  if (event.type === "query_result") return null;
+  if (event.type === InternalEventType.QUERY_RESULT) return null;
   if (!INCIDENCIA_RESUMABLE_STATES.has(session.state)) return null;
   if (session.updatedAt && now - session.updatedAt.getTime() > SESSION_IDLE_TIMEOUT_MS) {
     return SessionExpiryReason.IDLE;

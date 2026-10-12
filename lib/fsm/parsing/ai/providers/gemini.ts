@@ -1,5 +1,6 @@
 import { timedFetch } from "@/lib/observability/http";
 import type { JsonSchema, LlmClient, LlmJsonOutcome } from "@/lib/fsm/parsing/ai/llm";
+import { LlmFailure } from "@/lib/enums/llm-failure";
 
 export const REQUEST_TIMEOUT_MS = 8_000;
 
@@ -42,20 +43,20 @@ export async function requestGeminiJson(request: GeminiJsonRequest): Promise<Gem
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
-    return { ok: false, failure: "request_failed", errorName: error instanceof Error ? error.name : "unknown" };
+    return { ok: false, failure: LlmFailure.REQUEST_FAILED, errorName: error instanceof Error ? error.name : "unknown" };
   }
 
   if (!response.ok) {
-    return { ok: false, failure: "http_error", status: response.status, model };
+    return { ok: false, failure: LlmFailure.HTTP_ERROR, status: response.status, model };
   }
 
   try {
     const envelope = (await response.json()) as GeminiGenerateContentBody;
     const text = envelope.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (typeof text !== "string") return { ok: false, failure: "no_text" };
+    if (typeof text !== "string") return { ok: false, failure: LlmFailure.NO_TEXT };
     return { ok: true, json: JSON.parse(text) as unknown };
   } catch {
-    return { ok: false, failure: "invalid_json" };
+    return { ok: false, failure: LlmFailure.INVALID_JSON };
   }
 }
 

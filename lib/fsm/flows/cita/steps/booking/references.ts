@@ -26,17 +26,18 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-const REFERENCES_OFFER_YES_ID = ReferencesOfferButtonId.YES;
-const REFERENCES_OFFER_NO_ID = ReferencesOfferButtonId.NO;
-const REFERENCIA_CONFIRM_YES_ID = ReferenciaConfirmButtonId.YES;
-const REFERENCIA_CONFIRM_NO_ID = ReferenciaConfirmButtonId.NO;
-
-const ESTADO_LABEL: Record<number, string> = {
-  3: "ACEPTADO",
-  5: "PACIENTE RECIBIDO",
-  7: "PACIENTE CITADO",
-};
+import {
+  REFERENCIA_ESTADO_LABELS,
+  REFERENCIAS_LIST_TEXT,
+  REFERENCIA_CONFIRM_QUESTION_TEXT,
+  REFERENCIAS_OFFER_QUESTION_TEXT,
+  REFERENCIAS_DECLINED_TEXT,
+  searchingFechasForReferenciaText,
+  referenciaDetalleText,
+  REFERENCIAS_FOUND_TEXT,
+  REFERENCIA_CONFIRM_BUTTONS,
+  REFERENCIAS_OFFER_BUTTONS,
+} from "@/lib/constants/textos/cita-reserva";
 
 function formatFechaHora12(fechaHora: string): string {
   const [fecha, hora] = fechaHora.split(" ");
@@ -67,7 +68,7 @@ function offerReferenciasList(session: Session): HandlerResult {
   const next = cloneSession(session);
   delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
   next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
-  return buildResult(next, offerPagedList(next, "Estas son tus referencias:", referenciaRows(readReferencias(next))));
+  return buildResult(next, offerPagedList(next, REFERENCIAS_LIST_TEXT, referenciaRows(readReferencias(next))));
 }
 
 function continueWithReferencia(session: Session, item: ReferenciaItem | undefined): HandlerResult {
@@ -84,25 +85,24 @@ function continueWithReferencia(session: Session, item: ReferenciaItem | undefin
   if (item.upsDestino) next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = item.upsDestino;
   next.state = SessionState.CITA_FECHA_PENDING;
   return buildResult(next, [
-    sendText(`Perfecto. Buscando fechas disponibles para tu referencia en *${item.ipressDestino}*…`),
+    sendText(searchingFechasForReferenciaText(item.ipressDestino)),
     query(QueryKind.LIST_FECHAS, { codEess: item.codigoIpressDestino, especialidadId: item.codigoUpsDestino }),
   ]);
 }
 
 function askReferenciaConfirmation(session: Session, item: ReferenciaItem | undefined): HandlerResult {
-  const detalle = `N° : ${item?.numero ?? ""}
-Fecha: ${formatFechaHora12(item?.fechaInicio ?? "")}
-Origen: ${item?.ipressOrigen ?? ""} (${item?.upsOrigen ?? ""})
-Destino: ${item?.ipressDestino ?? ""} (${item?.upsDestino ?? ""})
-Estado: ${ESTADO_LABEL[item?.estado ?? 0] ?? ""}
-
-¿Es esta tu referencia?`;
+  const detalle = referenciaDetalleText({
+    numero: item?.numero ?? "",
+    fecha: formatFechaHora12(item?.fechaInicio ?? ""),
+    origen: item?.ipressOrigen ?? "",
+    upsOrigen: item?.upsOrigen ?? "",
+    destino: item?.ipressDestino ?? "",
+    upsDestino: item?.upsDestino ?? "",
+    estado: REFERENCIA_ESTADO_LABELS[item?.estado ?? 0] ?? "",
+  });
   return buildResult(session, [
     sendText(detalle),
-    sendButtons("¿Es esta tu referencia?", [
-      { id: REFERENCIA_CONFIRM_YES_ID, title: "Sí" },
-      { id: REFERENCIA_CONFIRM_NO_ID, title: "No, ver otra" },
-    ]),
+    sendButtons(REFERENCIA_CONFIRM_QUESTION_TEXT, REFERENCIA_CONFIRM_BUTTONS),
   ]);
 }
 
@@ -117,11 +117,8 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
   next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.data);
   next.state = SessionState.CITA_AWAITING_REFERENCES_OFFER;
   return buildResult(next, [
-    sendText("Tienes una referencia médica registrada.\n¿Deseas revisar tus referencias?"),
-    sendButtons("¿Deseas revisar tus referencias?", [
-      { id: REFERENCES_OFFER_YES_ID, title: "Sí" },
-      { id: REFERENCES_OFFER_NO_ID, title: "No" },
-    ]),
+    sendText(REFERENCIAS_FOUND_TEXT),
+    sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS),
   ]);
 }
 
@@ -130,19 +127,16 @@ export function handleAwaitingReferenciasOffer(session: Session, event: InboundE
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (reply === REFERENCES_OFFER_YES_ID || typed === Confirmation.YES) {
+  if (reply === ReferencesOfferButtonId.YES || typed === Confirmation.YES) {
     return offerReferenciasList(session);
   }
 
-  if (reply === REFERENCES_OFFER_NO_ID || typed === Confirmation.NO) {
-    return withLeadingText(continueCitaAfterVerification(session), "Entendido, continuamos con tu cita médica.");
+  if (reply === ReferencesOfferButtonId.NO || typed === Confirmation.NO) {
+    return withLeadingText(continueCitaAfterVerification(session), REFERENCIAS_DECLINED_TEXT);
   }
 
   return withRejectionNotice(buildResult(session, [
-    sendButtons("¿Deseas revisar tus referencias?", [
-      { id: REFERENCES_OFFER_YES_ID, title: "Sí" },
-      { id: REFERENCES_OFFER_NO_ID, title: "No" },
-    ]),
+    sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS),
   ]));
 }
 
@@ -162,14 +156,14 @@ export function handleAwaitingReferenciaConfirm(session: Session, event: Inbound
     event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
 
-  if (reply === REFERENCIA_CONFIRM_NO_ID || typed === Confirmation.NO) {
+  if (reply === ReferenciaConfirmButtonId.NO || typed === Confirmation.NO) {
     return offerReferenciasList(session);
   }
 
   const selectedId = String(session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] ?? "");
   const item = readReferencias(session).find((r) => r.idReferencia === selectedId);
 
-  if (reply === REFERENCIA_CONFIRM_YES_ID || typed === Confirmation.YES) {
+  if (reply === ReferenciaConfirmButtonId.YES || typed === Confirmation.YES) {
     return continueWithReferencia(session, item);
   }
 

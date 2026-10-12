@@ -21,7 +21,6 @@ import {
   detectOutOfScope,
   isCitaKeyword,
   isContinueKeyword,
-  OOS_MESSAGES,
   type OosCategory,
 } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { looksLikeNoise } from "@/lib/security/text-noise";
@@ -31,15 +30,17 @@ import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
+import {
+  NUMERIC_MENU_CHOICES,
+  REVIEWING_MESSAGE_TEXT,
+  OUT_OF_SCOPE_REQUEST_TEXT,
+  CITA_INTENT_DETECTED_TEXT,
+  CONTINUE_BUTTON_ID,
+} from "@/lib/constants/textos/menu";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
+import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 
-export const CONTINUE_BUTTON_ID = "continuar_menu";
-
-
-const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
-  "1": MenuChoice.AGENDAR_CITA,
-  "2": MenuChoice.REGISTRAR_INCIDENCIA,
-  "3": MenuChoice.CONSULTAR_INCIDENCIA,
-};
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
   return buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
@@ -56,7 +57,7 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
 
   if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) {
     next.state = SessionState.CITA_AWAITING_DNI;
-    return buildResult(next, [sendText("Ingresa tu número de documento.")]);
+    return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
   }
 
   return enterMainMenu();
@@ -82,7 +83,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
   if (inicio) {
     return withNote(beginIncidencia(session.slots, "", inicio), {
       kind: "shortcut",
-      detail: { name: inicio.origen === "qr" ? "incidencia_qr" : "incidencia_start" },
+      detail: { name: inicio.origen === IncidenciaOrigen.QR ? "incidencia_qr" : "incidencia_start" },
     });
   }
 
@@ -152,7 +153,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
         counters: {},
       };
       return buildResult(next, [
-        sendText("Un momento, estamos revisando tu mensaje…"),
+        sendText(REVIEWING_MESSAGE_TEXT),
         query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text }),
       ]);
     }
@@ -168,15 +169,12 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
   return handleAwaitingFlowStart(next);
 }
 
-export const OUT_OF_SCOPE_REQUEST_TEXT =
-  "Solo puedo ayudarte a agendar una cita médica o a registrar una incidencia. Elige una opción:";
-
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
   const slots = omitSlot(session.slots, SlotKey.INCIDENCIA_BORRADOR);
 
   if (result.intent === MainMenuIntent.INCIDENCIA) {
-    return withNote(beginIncidencia(slots, "", { origen: "ia", resto: session.slots[SlotKey.INCIDENCIA_BORRADOR] }), {
+    return withNote(beginIncidencia(slots, "", { origen: IncidenciaOrigen.IA, resto: session.slots[SlotKey.INCIDENCIA_BORRADOR] }), {
       kind: "shortcut",
       detail: { name: "incidencia_ai" },
     });
@@ -208,7 +206,7 @@ function beginCitaFromIntent(
   return beginCita(
     slots,
     hints,
-    "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento.",
+    CITA_INTENT_DETECTED_TEXT,
   );
 }
 

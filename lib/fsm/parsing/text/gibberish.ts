@@ -1,6 +1,4 @@
 import { COMBINING_ACCENT_MARKS, NON_LETTER_RUN, VOWELS } from "@/lib/constants/regex/text";
-export const UNRECOGNIZED_DISTRITO_TEXT =
-  "No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:";
 
 const MIN_USEFUL_LETTERS = 4;
 const MIN_WORD_LENGTH = 4;

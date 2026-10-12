@@ -30,11 +30,6 @@ export type LexicalResult = {
   matchedReason?: string;
 };
 
-export const RESPECT_REMINDER_TEXT =
-  "Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto.";
-
-export const INSTITUTIONAL_WARNING_TEXT = `${RESPECT_REMINDER_TEXT} Si desea registrar una incidencia sobre un mal servicio de salud, escriba INCIDENCIA para iniciar el trámite oficial.`;
-
 const LEET_MAP: Record<string, string> = {
   "0": "o",
   "1": "i",

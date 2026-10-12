@@ -3,6 +3,7 @@ import { declararActorEn } from "@/lib/db/actor";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 export type DatosIncidencia = {
   waId: string;
@@ -76,7 +77,7 @@ export async function buscarIncidenciaDeQuienConsulta(
       codigo,
       activo: true,
       eliminadoEn: null,
-      ...(identidad.canal === "whatsapp"
+      ...(identidad.canal === SessionChannel.WHATSAPP
         ? { usuario: { waId: identidad.waId } }
         : { esAnonimo: false, dniReclamante: identidad.dni }),
     },
@@ -90,7 +91,7 @@ export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsu
     where: {
       activo: true,
       eliminadoEn: null,
-      ...(identidad.canal === "whatsapp"
+      ...(identidad.canal === SessionChannel.WHATSAPP
         ? { usuario: { waId: identidad.waId } }
         : { esAnonimo: false, dniReclamante: identidad.dni }),
     },

@@ -72,12 +72,12 @@ vi.mock("@/lib/fsm/session/turn-lock", async (importOriginal) => ({
 }));
 
 import { POST } from "@/app/webhook/whatsapp/route";
-import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { configureLogger } from "@/lib/observability/logger";
-import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const SECRET = "test-app-secret";
 const NOW_SECONDS = () => String(Math.floor(Date.now() / 1000));

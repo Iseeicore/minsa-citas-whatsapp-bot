@@ -4,7 +4,6 @@ import { ACTOR_EXTERNO_META, actorCiudadano, declararActor } from "@/lib/db/acto
 import { DireccionMensajeId } from "@/lib/enums/direccion-mensaje-id";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
-import { INTERRUPTION_NOTICE_TEXT } from "@/lib/fsm/core/failure-texts";
 import { findSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import { screenInbound } from "@/lib/security/perimeter";
 import { inboundRateLimiter } from "@/lib/security/rate-limiter";
@@ -26,6 +25,7 @@ import { processBsuidChanges } from "@/lib/whatsapp/webhook/user-id-update";
 import { createInboundCoalescer } from "@/lib/whatsapp/inbound/inbound-coalescer";
 import { createPostgresInboundBuffer } from "@/lib/whatsapp/inbound/postgres-inbound-buffer";
 import { resolveWindowMs } from "@/lib/whatsapp/inbound/inbound-policy";
+import { INTERRUPTION_NOTICE_TEXT } from "@/lib/constants/textos/fallas";
 
 const inboundCoalescer = createInboundCoalescer({
   buffer: createPostgresInboundBuffer(),

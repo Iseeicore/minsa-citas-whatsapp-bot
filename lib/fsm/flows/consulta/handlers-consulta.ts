@@ -1,4 +1,3 @@
-import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import {
   buildResult,
   cloneSession,
@@ -23,27 +22,36 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import {
+  ASK_CODIGO_TEXT,
+  ASK_CODIGO_O_LISTAR_TEXT,
+  INVALID_CODIGO_TEXT,
+  CODIGO_NO_RECONOCIDO_TEXT,
+  CONSULTA_ASK_DOCUMENTO_TEXT,
+  NO_VERIFICADO_TEXT,
+  OTP_BLOQUEADO_TEXT,
+  BUSCANDO_INCIDENCIA_TEXT,
+  BUSCANDO_INCIDENCIAS_TEXT,
+  incidenciaCodigoLineText,
+  incidenciaEstadoLineText,
+  incidenciaFechaLineText,
+  NO_UBICADA_TEXT,
+  SIN_INCIDENCIAS_TEXT,
+  INCIDENCIAS_LIST_TEXT,
+  CONSULTA_FALLA_TEXT,
+  LISTAR_BUTTONS,
+} from "@/lib/constants/textos/consulta";
+import { ASK_OTP_TEXT, INVALID_OTP_TEXT, VALIDANDO_DOCUMENTO_TEXT, VERIFICANDO_CODIGO_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
+import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
+import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
+import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
+import { LookupStatus } from "@/lib/enums/lookup-status";
+import { ReferenceStatus } from "@/lib/enums/reference-status";
 
 const MAX_INTENTOS_CODIGO = 3;
 const MAX_INTENTOS_OTP = 3;
-const CANAL_WEB = "web";
-const CANAL_WHATSAPP = "whatsapp";
-const LISTAR_ID = ConsultaCodigoButtonId.LISTAR;
 
-export const ASK_CODIGO_TEXT = "Escribe el código de tu incidencia (por ejemplo, MINSA-2026-000001).";
-export const ASK_CODIGO_O_LISTAR_TEXT = "¿Tienes el código, o prefieres ver todas tus incidencias registradas?";
-export const INVALID_CODIGO_TEXT = "El código no tiene el formato correcto. Debe verse así: MINSA-2026-000001. Intenta de nuevo.";
-export const CODIGO_NO_RECONOCIDO_TEXT = "No pudimos reconocer el código. Revísalo e inicia la consulta nuevamente.";
-export const ASK_DOCUMENTO_TEXT = "Para consultar tu incidencia necesito verificar tu identidad. Ingresa tu número de documento.";
-export const ASK_OTP_TEXT = "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).";
-export const INVALID_OTP_TEXT = "Código inválido. Debe tener entre 4 y 8 dígitos.";
-export const NO_VERIFICADO_TEXT = "No pudimos verificar tu identidad. Revisa tu número de documento o inténtalo más tarde.";
-export const OTP_BLOQUEADO_TEXT = "Superaste el número de intentos permitidos. Inténtalo nuevamente más tarde.";
-export const NO_UBICADA_TEXT = "No se logró ubicar el registro de la incidencia.";
-export const CONSULTA_FALLA_TEXT = "Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.";
-export const SIN_INCIDENCIAS_TEXT = "No tienes incidencias registradas.";
-
-const canalDe = (channel: SessionChannel | undefined): string => (channel === SessionChannelEnum.WEB ? CANAL_WEB : CANAL_WHATSAPP);
+const canalDe = (channel: SessionChannel | undefined): string => (channel === SessionChannelEnum.WEB ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP);
 
 function closed(state: SessionState.CONSULTA_COMPLETED | SessionState.CONSULTA_FAILED, text: string): HandlerResult {
   return buildResult({ state, slots: {}, counters: {} }, [sendText(text)]);
@@ -52,26 +60,26 @@ function closed(state: SessionState.CONSULTA_COMPLETED | SessionState.CONSULTA_F
 function startSearch(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CONSULTA_QUERY_PENDING;
-  const web = next.slots[SlotKey.CONSULTA_CANAL] === CANAL_WEB;
+  const web = next.slots[SlotKey.CONSULTA_CANAL] === SessionChannelEnum.WEB;
   return buildResult(next, [
-    sendText("Buscando tu incidencia…"),
+    sendText(BUSCANDO_INCIDENCIA_TEXT),
     query(QueryKind.CONSULTAR_INCIDENCIA, {
       codigo: String(next.slots[SlotKey.CONSULTA_CODIGO] ?? ""),
-      canal: web ? CANAL_WEB : CANAL_WHATSAPP,
+      canal: web ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP,
       ...(web ? { dni: String(next.slots[SlotKey.CONSULTA_DNI] ?? "") } : {}),
     }),
   ]);
 }
 
 function afterIdentityCheck(session: Session, next: SessionState): HandlerResult {
-  const web = session.slots[SlotKey.CONSULTA_CANAL] === CANAL_WEB;
+  const web = session.slots[SlotKey.CONSULTA_CANAL] === SessionChannelEnum.WEB;
   if (!web || session.slots[SlotKey.CONSULTA_DNI]) {
     return next === SessionState.CONSULTA_QUERY_PENDING ? startSearch(session) : startListado(session);
   }
 
   const pending = cloneSession(session);
   pending.state = SessionState.CONSULTA_AWAITING_DNI;
-  return buildResult(pending, [sendText(ASK_DOCUMENTO_TEXT)]);
+  return buildResult(pending, [sendText(CONSULTA_ASK_DOCUMENTO_TEXT)]);
 }
 
 function afterCodigo(session: Session): HandlerResult {
@@ -87,11 +95,11 @@ function afterListarChoice(session: Session): HandlerResult {
 function startListado(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CONSULTA_LISTAR_PENDING;
-  const web = next.slots[SlotKey.CONSULTA_CANAL] === CANAL_WEB;
+  const web = next.slots[SlotKey.CONSULTA_CANAL] === SessionChannelEnum.WEB;
   return buildResult(next, [
-    sendText("Buscando tus incidencias…"),
+    sendText(BUSCANDO_INCIDENCIAS_TEXT),
     query(QueryKind.LISTAR_INCIDENCIAS, {
-      canal: web ? CANAL_WEB : CANAL_WHATSAPP,
+      canal: web ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP,
       ...(web ? { dni: String(next.slots[SlotKey.CONSULTA_DNI] ?? "") } : {}),
     }),
   ]);
@@ -100,7 +108,7 @@ function startListado(session: Session): HandlerResult {
 function askCodigoOrListar(session: Session): HandlerResult {
   return buildResult(session, [
     sendText(ASK_CODIGO_TEXT),
-    sendButtons(ASK_CODIGO_O_LISTAR_TEXT, [{ id: LISTAR_ID, title: "Ver todas mis incidencias" }]),
+    sendButtons(ASK_CODIGO_O_LISTAR_TEXT, LISTAR_BUTTONS),
   ]);
 }
 
@@ -115,7 +123,7 @@ export function beginConsulta(channel: SessionChannel | undefined, codigo?: stri
 
 function handleAwaitingCodigo(session: Session, event: InboundEvent): HandlerResult {
   const reply = event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
-  if (reply === LISTAR_ID) return afterListarChoice(session);
+  if (reply === ConsultaCodigoButtonId.LISTAR) return afterListarChoice(session);
 
   const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
   if (codigo) {
@@ -140,19 +148,19 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
   const next = cloneSession(session);
   next.slots[SlotKey.CONSULTA_DNI_PENDING] = documento;
   next.state = SessionState.CONSULTA_VALIDATE_PENDING;
-  return buildResult(next, [sendText("Validando tu documento…"), validateUserQuery(documento)]);
+  return buildResult(next, [sendText(VALIDANDO_DOCUMENTO_TEXT), validateUserQuery(documento)]);
 }
 
 function handleValidatePending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status?: string; twofaId?: string };
 
-  if (result.status === "valid" && typeof result.twofaId === "string") {
+  if (result.status === ValidateUserStatus.VALID && typeof result.twofaId === "string") {
     const next = cloneSession(session);
     next.slots[SlotKey.CONSULTA_TWOFA_ID] = result.twofaId;
     next.state = SessionState.CONSULTA_AWAITING_OTP;
     return buildResult(next, [sendText(ASK_OTP_TEXT)]);
   }
-  return closed(SessionState.CONSULTA_FAILED, result.status === "not_valid" ? NO_VERIFICADO_TEXT : CONSULTA_FALLA_TEXT);
+  return closed(SessionState.CONSULTA_FAILED, result.status === ValidateUserStatus.NOT_VALID ? NO_VERIFICADO_TEXT : CONSULTA_FALLA_TEXT);
 }
 
 function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
@@ -162,7 +170,7 @@ function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult
   const next = cloneSession(session);
   next.state = SessionState.CONSULTA_VERIFY_PENDING;
   return buildResult(next, [
-    sendText("Verificando código…"),
+    sendText(VERIFICANDO_CODIGO_TEXT),
     query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots[SlotKey.CONSULTA_TWOFA_ID] ?? ""), code }),
   ]);
 }
@@ -171,7 +179,7 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
   const result = event.result as { status?: string; token?: string };
   const next = cloneSession(session);
 
-  if (result.status === "verified" && typeof result.token === "string") {
+  if (result.status === VerifyCodeStatus.VERIFIED && typeof result.token === "string") {
     next.slots[SlotKey.CONSULTA_DNI] = String(next.slots[SlotKey.CONSULTA_DNI_PENDING] ?? "");
     delete next.slots[SlotKey.CONSULTA_DNI_PENDING];
     delete next.slots[SlotKey.CONSULTA_TWOFA_ID];
@@ -181,25 +189,25 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
     return listando ? startListado(next) : startSearch(next);
   }
 
-  if (result.status !== "invalid") return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
+  if (result.status !== VerifyCodeStatus.INVALID) return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 
   const attempts = (next.counters[CounterKey.CONSULTA_INTENTOS_OTP] ?? 0) + 1;
   next.counters[CounterKey.CONSULTA_INTENTOS_OTP] = attempts;
   if (attempts >= MAX_INTENTOS_OTP) return closed(SessionState.CONSULTA_FAILED, OTP_BLOQUEADO_TEXT);
 
   next.state = SessionState.CONSULTA_AWAITING_OTP;
-  return buildResult(next, [sendText(`Código incorrecto. Te quedan ${MAX_INTENTOS_OTP - attempts} intento(s).`)]);
+  return buildResult(next, [sendText(codigoIncorrectoText(MAX_INTENTOS_OTP - attempts))]);
 }
 
-export function foundText(result: Extract<ConsultaIncidenciaResult, { status: "found" }>): string {
+export function foundText(result: Extract<ConsultaIncidenciaResult, { status: `${LookupStatus.FOUND}` }>): string {
   const fecha = fechaLegible(result.fechaRegistro);
-  return [`Incidencia ${result.codigo}`, `Estado: ${estadoLegible(result.estado)}`, ...(fecha ? [`Fecha de registro: ${fecha}`] : [])].join("\n");
+  return [incidenciaCodigoLineText(result.codigo), incidenciaEstadoLineText(estadoLegible(result.estado)), ...(fecha ? [incidenciaFechaLineText(fecha)] : [])].join("\n");
 }
 
 function handleQueryPending(event: QueryResultEvent): HandlerResult {
   const result = event.result as ConsultaIncidenciaResult | undefined;
-  if (result?.status === "found") return closed(SessionState.CONSULTA_COMPLETED, foundText(result));
-  if (result?.status === "not_found") return closed(SessionState.CONSULTA_COMPLETED, NO_UBICADA_TEXT);
+  if (result?.status === LookupStatus.FOUND) return closed(SessionState.CONSULTA_COMPLETED, foundText(result));
+  if (result?.status === LookupStatus.NOT_FOUND) return closed(SessionState.CONSULTA_COMPLETED, NO_UBICADA_TEXT);
   return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 }
 
@@ -226,12 +234,12 @@ function listadoRows(items: IncidenciaListada[]): ListRow[] {
 
 function handleListarPending(event: QueryResultEvent): HandlerResult {
   const result = event.result as ListarIncidenciasResult | undefined;
-  if (result?.status === "empty") return closed(SessionState.CONSULTA_COMPLETED, SIN_INCIDENCIAS_TEXT);
-  if (result?.status !== "found") return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
+  if (result?.status === ReferenceStatus.EMPTY) return closed(SessionState.CONSULTA_COMPLETED, SIN_INCIDENCIAS_TEXT);
+  if (result?.status !== ReferenceStatus.FOUND) return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 
   const next: Session = { state: SessionState.CONSULTA_AWAITING_LISTADO, slots: {}, counters: {} };
   next.slots[SlotKey.CONSULTA_LISTADO_DATA] = JSON.stringify(result.items);
-  return buildResult(next, offerPagedList(next, "Estas son tus incidencias:", listadoRows(result.items)));
+  return buildResult(next, offerPagedList(next, INCIDENCIAS_LIST_TEXT, listadoRows(result.items)));
 }
 
 function handleAwaitingListado(session: Session, event: InboundEvent): HandlerResult {
@@ -240,7 +248,7 @@ function handleAwaitingListado(session: Session, event: InboundEvent): HandlerRe
 
   const item = readListado(session).find((i) => i.codigo === outcome.replyId);
   if (!item) return closed(SessionState.CONSULTA_COMPLETED, NO_UBICADA_TEXT);
-  return closed(SessionState.CONSULTA_COMPLETED, foundText({ status: "found", ...item }));
+  return closed(SessionState.CONSULTA_COMPLETED, foundText({ status: LookupStatus.FOUND, ...item }));
 }
 
 export function handleConsulta(session: Session, event: HandleEvent): HandlerResult {

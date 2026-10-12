@@ -16,6 +16,8 @@ import type {
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { FALLBACK_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, LIST_PAGE_NEXT_BUTTON_TEXT, listPageSummaryText } from "@/lib/constants/textos/comunes";
+import { AFFIRMATIVE_REPLIES } from "@/lib/constants/palabras-clave";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
@@ -54,8 +56,6 @@ export function sendText(text: string): SendEffect {
 export function withLeadingText(result: HandlerResult, text: string): HandlerResult {
   return { ...result, effects: [sendText(text), ...result.effects] };
 }
-
-export const FALLBACK_TEXT = "No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.";
 
 export function withRejectionNotice(result: HandlerResult, text: string = FALLBACK_TEXT): HandlerResult {
   return withLeadingText(result, text);
@@ -121,9 +121,6 @@ export function offerList(next: Session, text: string, rows: ListRow[]): SendEff
   return sendList(text, rows);
 }
 
-export const LIST_PAGE_NEXT_ID = ListPageButtonId.NEXT;
-export const LIST_PAGE_PREV_ID = ListPageButtonId.PREV;
-
 export function pageCount(rowCount: number): number {
   return Math.max(1, Math.ceil(rowCount / WHATSAPP_LIST_MAX_ROWS));
 }
@@ -135,12 +132,12 @@ export function pageEffects(text: string, rows: ListRow[], page: number): SendEf
   const start = current * WHATSAPP_LIST_MAX_ROWS;
   const visible = rows.slice(start, start + WHATSAPP_LIST_MAX_ROWS);
   const buttons: ButtonOption[] = [];
-  if (current > 0) buttons.push({ id: LIST_PAGE_PREV_ID, title: "Anteriores" });
-  if (start + visible.length < rows.length) buttons.push({ id: LIST_PAGE_NEXT_ID, title: "Ver más opciones" });
+  if (current > 0) buttons.push({ id: ListPageButtonId.PREV, title: LIST_PAGE_PREV_BUTTON_TEXT });
+  if (start + visible.length < rows.length) buttons.push({ id: ListPageButtonId.NEXT, title: LIST_PAGE_NEXT_BUTTON_TEXT });
 
   return [
     sendList(text, visible),
-    sendButtons(`Mostrando ${start + 1} a ${start + visible.length} de ${rows.length} opciones.`, buttons),
+    sendButtons(listPageSummaryText(start + 1, start + visible.length, rows.length), buttons),
   ];
 }
 
@@ -149,24 +146,6 @@ export function offerPagedList(next: Session, text: string, rows: ListRow[]): Se
   delete next.counters[CounterKey.CITA_LIST_PAGE];
   return pageEffects(text, rows, 0);
 }
-
-const AFFIRMATIVE_REPLIES = new Set([
-  "si",
-  "sí",
-  "s",
-  "yes",
-  "y",
-  "ese",
-  "esa",
-  "eso",
-  "correcto",
-  "exacto",
-  "confirmo",
-  "afirmativo",
-  "claro",
-  "asi es",
-  "así es",
-]);
 
 export function isAffirmativeReply(text: string): boolean {
   return AFFIRMATIVE_REPLIES.has(text.trim().toLowerCase());
