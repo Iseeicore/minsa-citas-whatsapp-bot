@@ -14,7 +14,7 @@ deploy desarrollo:
 
   script:
     - cd /playbooks/k8s
-    - ansible-playbook dminsadigital-boot.yml -vv
+    - ansible-playbook dminsadigital-bot.yml -vv
 
   only:
     - develop
@@ -25,7 +25,7 @@ deploy calidad:
 
   script:
     - cd /playbooks/k8s
-    - ansible-playbook qminsadigital-boot.yml -vv
+    - ansible-playbook qminsadigital-bot.yml -vv
 
   only:
     - /^release\/.*$/
