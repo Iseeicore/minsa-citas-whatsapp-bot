@@ -5,14 +5,7 @@ import {
   resolveDistritoText,
   type DistritoAiCandidateResult,
 } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
-import {
-  buildResult,
-  cloneSession,
-  isAffirmativeReply,
-  query,
-  sendText,
-  readTrimmedText,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, isAffirmativeReply, query, sendText, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import { isGibberishPlaceText } from "@/lib/fsm/parsing/text/gibberish";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
@@ -63,8 +56,7 @@ export function handleAwaitingDistritoAi(session: Session, event: InboundEvent):
 
   const initialMessageText = session.slots[SlotKey.INITIAL_MESSAGE_TEXT];
 
-  const distritoText =
-    isAffirmativeReply(rawText) && initialMessageText ? initialMessageText : rawText;
+  const distritoText = isAffirmativeReply(rawText) && initialMessageText ? initialMessageText : rawText;
   const contextText = distritoText === rawText ? initialMessageText : undefined;
 
   return resolveDistritoText(session, distritoText, contextText);
@@ -105,11 +97,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
       if (isGibberishPlaceText(typed)) {
         return reshowOffered(session, readOffered(session.slots), UNRECOGNIZED_DISTRITO_TEXT);
       }
-      return resolveDistritoText(
-        clearOffered(session),
-        typed,
-        session.slots[SlotKey.INITIAL_MESSAGE_TEXT],
-      );
+      return resolveDistritoText(clearOffered(session), typed, session.slots[SlotKey.INITIAL_MESSAGE_TEXT]);
     },
   });
   if ("result" in outcome) return outcome.result;
@@ -125,10 +113,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
   next.slots[SlotKey.CITA_PROVINCIA] = provincia;
   next.slots[SlotKey.CITA_DISTRITO] = distrito;
   next.state = SessionState.CITA_UBIGEO_PENDING;
-  return buildResult(next, [
-    sendText(SEARCHING_UBIGEO_TEXT),
-    query(QueryKind.SEARCH_UBIGEO, { departamento, provincia, distrito }),
-  ]);
+  return buildResult(next, [sendText(SEARCHING_UBIGEO_TEXT), query(QueryKind.SEARCH_UBIGEO, { departamento, provincia, distrito })]);
 }
 
 export function handleAwaitingDepartamento(session: Session, event: InboundEvent): HandlerResult {
@@ -196,9 +181,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
 
   if (result.status === CatalogStatus.ERROR) {
     next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
-    return buildResult(next, [
-      sendText(UBIGEO_ERROR_TEXT),
-    ]);
+    return buildResult(next, [sendText(UBIGEO_ERROR_TEXT)]);
   }
 
   const items = result.items?.filter((item) => isAllowedDepartamento(item.departamento));
@@ -212,9 +195,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
   if (result.status === CatalogStatus.FOUND && items && isOfferableUbigeoList(items)) return offerUbigeos(next, items);
 
   next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
-  return buildResult(next, [
-    sendText(UBIGEO_NOT_FOUND_TEXT),
-  ]);
+  return buildResult(next, [sendText(UBIGEO_NOT_FOUND_TEXT)]);
 }
 
 export function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent): HandlerResult {

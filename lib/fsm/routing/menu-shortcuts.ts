@@ -15,10 +15,7 @@ import {
 import { MAX_CONTINUE_WORDS, MAX_INCIDENCIA_KEYWORD_WORDS } from "@/lib/constants/limits/menu";
 
 function words(text: string): string[] {
-  return normalizeText(text)
-    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
-    .split(" ")
-    .filter(Boolean);
+  return normalizeText(text).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").split(" ").filter(Boolean);
 }
 
 export function isGreeting(text: string): boolean {

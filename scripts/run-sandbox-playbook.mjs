@@ -14,9 +14,7 @@ let seq = 0;
 const tally = { "✅": 0, "❓": 0, "🛑": 0, "•": 0 };
 
 function textsOf(sent = []) {
-  return sent
-    .map((effect) => [effect.text, effect.buttonText].filter(Boolean).join(" ") || effect.kind)
-    .join(" | ");
+  return sent.map((effect) => [effect.text, effect.buttonText].filter(Boolean).join(" ") || effect.kind).join(" | ");
 }
 
 async function sendRaw(from, action, { caseId, section, expect, expectAbsent, note } = {}) {
@@ -114,11 +112,17 @@ async function section1() {
     const long383 =
       "Hola buenas tardes, quiero agendar una cita médica de odontología en el distrito de San Borja para mañana por la tarde porque tengo un dolor de muela muy fuerte desde hace tres días y no puedo dormir ni comer bien, ya intenté con pastillas pero no se me quita, además necesito que sea en un centro de salud cercano a mi casa, por favor ayúdenme lo más rápido posible, muchas gracias.";
     await ctx.send({ type: "text", text: long383, reset: true }, { expect: REJECT_TEXT });
-    await ctx.send({ type: "text", text: "Hola" }, { caseId: "1.1d", section: s, expect: "asistente virtual de MINSA Digital", note: "el rechazo no debe dejar sesión" });
+    await ctx.send(
+      { type: "text", text: "Hola" },
+      { caseId: "1.1d", section: s, expect: "asistente virtual de MINSA Digital", note: "el rechazo no debe dejar sesión" },
+    );
   })();
 
   await ctxFor("1.1b", s).send({ type: "text", text: "a".repeat(301), reset: true }, { expect: REJECT_TEXT });
-  await ctxFor("1.1c", s).send({ type: "text", text: "hola ".repeat(60), reset: true }, { expect: MENU_TEXT, note: "300 caracteres exactos, no debe rechazarse" });
+  await ctxFor("1.1c", s).send(
+    { type: "text", text: "hola ".repeat(60), reset: true },
+    { expect: MENU_TEXT, note: "300 caracteres exactos, no debe rechazarse" },
+  );
 
   await (async () => {
     const c1 = ctxFor("1.1g-cita", s);
@@ -148,7 +152,10 @@ async function section1() {
   await (async () => {
     const ctx = ctxFor("1.3d", s);
     await welcome(ctx);
-    await ctx.send({ type: "text", text: "🔥🔥🔥💰💰💰" }, { expect: MENU_TEXT, note: "con sesión abierta, no se rechaza; en modo real gasta 1 llamada a Gemini" });
+    await ctx.send(
+      { type: "text", text: "🔥🔥🔥💰💰💰" },
+      { expect: MENU_TEXT, note: "con sesión abierta, no se rechaza; en modo real gasta 1 llamada a Gemini" },
+    );
   })();
   await ctxFor("1.3e", s).send({ type: "text", text: "👍", reset: true }, { expect: MENU_TEXT });
 }
@@ -214,18 +221,24 @@ async function section2() {
   await (async () => {
     const ctx = ctxFor("2.4abc", s);
     await welcome(ctx);
-    await ctx.send({ type: "text", text: "Apúrense cojudos quiero cita de odontología en Lurigancho" }, {
-      caseId: "2.4a",
-      section: s,
-      expect: "ingresa tu número de documento",
-    });
+    await ctx.send(
+      { type: "text", text: "Apúrense cojudos quiero cita de odontología en Lurigancho" },
+      {
+        caseId: "2.4a",
+        section: s,
+        expect: "ingresa tu número de documento",
+      },
+    );
     await ctx.send({ type: "text", text: "12345678" }, { caseId: "2.4b", section: s, note: "DNI válido (fake)" });
     await ctx.send({ type: "text", text: "1234" }, { caseId: "2.4c", section: s, expect: "Selecciona la especialidad" });
   })();
   await (async () => {
     const ctx = ctxFor("2.4d", s);
     await welcome(ctx);
-    await ctx.send({ type: "text", text: "Apúrense cojudos quiero cita de odontología en San Borja" }, { expect: "ingresa tu número de documento" });
+    await ctx.send(
+      { type: "text", text: "Apúrense cojudos quiero cita de odontología en San Borja" },
+      { expect: "ingresa tu número de documento" },
+    );
     await ctx.send({ type: "text", text: "12345678" }, { note: "DNI válido (fake)" });
     await ctx.send({ type: "text", text: "1234" }, { expect: "No encontramos ese ubigeo", note: "catálogo fake no conoce San Borja" });
   })();
@@ -247,10 +260,13 @@ async function section2_5Stress() {
     ["2.5.2b", "imbeciles denme cita en vmt"],
     ["2.5.2c", "cojudos cita en sjm"],
   ]) {
-    await ctxFor(id, s).send({ type: "text", text, reset: true }, {
-      expect: "ingresa tu número de documento",
-      note: "revisar a mano en el panel Debug: no debe existir citaDistritoHintText",
-    });
+    await ctxFor(id, s).send(
+      { type: "text", text, reset: true },
+      {
+        expect: "ingresa tu número de documento",
+        note: "revisar a mano en el panel Debug: no debe existir citaDistritoHintText",
+      },
+    );
   }
 
   for (const [id, text] of [
@@ -271,28 +287,37 @@ async function section2_5Stress() {
   await (async () => {
     const ctx = ctxFor("2.5.4b", s);
     await reachDistritoPrompt(ctx);
-    await ctx.send({ type: "text", text: "cojudos apurense, cita en surco" }, {
-      expect: WARNING_A,
-      note: "internamente sería CITA_WITH_WARNING, pero en medio del flujo se descarta igual",
-    });
+    await ctx.send(
+      { type: "text", text: "cojudos apurense, cita en surco" },
+      {
+        expect: WARNING_A,
+        note: "internamente sería CITA_WITH_WARNING, pero en medio del flujo se descarta igual",
+      },
+    );
   })();
   await (async () => {
     const ctx = ctxFor("2.5.4c", s);
     await reachDistritoPrompt(ctx);
-    await ctx.send({ type: "text", text: "posta de mrda, en comas" }, {
-      expect: WARNING_A,
-      note: "internamente sería FORCE_INCIDENCIA, pero en medio del flujo NO deriva a Incidencias — decisión de producto a revisar",
-    });
+    await ctx.send(
+      { type: "text", text: "posta de mrda, en comas" },
+      {
+        expect: WARNING_A,
+        note: "internamente sería FORCE_INCIDENCIA, pero en medio del flujo NO deriva a Incidencias — decisión de producto a revisar",
+      },
+    );
   })();
 
   await (async () => {
     const ctx = ctxFor("2.5.5a", s);
     await reachHorarioList(ctx);
     await ctx.send({ type: "text", text: "8" }, { expect: "Confirmas el horario" });
-    await ctx.send({ type: "text", text: "a las 8 pe hdp" }, {
-      expect: "Agendando tu cita",
-      note: "si pasa: confirmó la cita con un insulto en el mensaje y SIN mostrar el recordatorio",
-    });
+    await ctx.send(
+      { type: "text", text: "a las 8 pe hdp" },
+      {
+        expect: "Agendando tu cita",
+        note: "si pasa: confirmó la cita con un insulto en el mensaje y SIN mostrar el recordatorio",
+      },
+    );
   })();
   await (async () => {
     const ctx = ctxFor("2.5.5b", s);
@@ -304,16 +329,22 @@ async function section2_5Stress() {
   await (async () => {
     const ctx = ctxFor("2.5.6a", s);
     await reachHorarioList(ctx);
-    await ctx.send({ type: "text", text: "después del almuerzo" }, {
-      note: "sin expect: confirmar a mano qué responde (predicción: no resuelve una hora)",
-    });
+    await ctx.send(
+      { type: "text", text: "después del almuerzo" },
+      {
+        note: "sin expect: confirmar a mano qué responde (predicción: no resuelve una hora)",
+      },
+    );
   })();
   await (async () => {
     const ctx = ctxFor("2.5.6b", s);
     await reachFechaList(ctx);
-    await ctx.send({ type: "text", text: "pal 15" }, {
-      note: "sin expect: confirmar a mano (predicción: no expande 'pal' a 'para el', no resuelve fecha)",
-    });
+    await ctx.send(
+      { type: "text", text: "pal 15" },
+      {
+        note: "sin expect: confirmar a mano (predicción: no expande 'pal' a 'para el', no resuelve fecha)",
+      },
+    );
   })();
 }
 
@@ -343,7 +374,10 @@ async function section3HappyPath() {
   await ctx.send({ type: "text", text: "1" }, { caseId: "3.12", section: s, expect: "horario" });
   await ctx.send({ type: "text", text: "1 pm" }, { caseId: "3.13f", section: s, expect: "Confirmas el horario" });
   await ctx.send({ type: "text", text: "sí" }, { caseId: "3.14a", section: s, expect: "MINISTERIO DE SALUD DEL PERÚ" });
-  await ctx.send({ type: "text", text: "Hola" }, { caseId: "3.14c", section: s, expect: "asistente virtual de MINSA Digital", note: "reinicio tras estado terminal" });
+  await ctx.send(
+    { type: "text", text: "Hola" },
+    { caseId: "3.14c", section: s, expect: "asistente virtual de MINSA Digital", note: "reinicio tras estado terminal" },
+  );
 }
 
 async function section3_13Variants() {

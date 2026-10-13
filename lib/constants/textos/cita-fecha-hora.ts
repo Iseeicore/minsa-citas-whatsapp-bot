@@ -13,7 +13,8 @@ export const noCuposForFechaText = (fecha: string): string => `No hay cupos para
 export const OTHER_FECHA_DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${CITA_FAREWELL_TEXT}`;
 export const OTHER_FECHA_NO_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${CITA_FAREWELL_TEXT}`;
 export const REFERENCIA_SIN_CUPOS_TEXT = `Lo sentimos mucho. Para tu referencia médica no encontramos cupos disponibles en nuestro canal en este momento. Te recomendamos comunicarte con tu centro de salud principal para que te derive a otra área. ${CITA_FAREWELL_TEXT}`;
-export const OTHER_FECHA_ONLY_DECLINED_INTRO_TEXT = "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
+export const OTHER_FECHA_ONLY_DECLINED_INTRO_TEXT =
+  "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
 export const OTHER_FECHA_NO_HORARIOS_INTRO_TEXT = "No hay horarios disponibles para esa fecha.";
 export const OTHER_FECHA_QUESTION_TEXT = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 export const OTHER_FECHA_YES_BUTTON_TEXT = "Sí, otra fecha";
@@ -58,8 +59,18 @@ export const WEEKDAY_NAMES_LONG = ["domingo", "lunes", "martes", "miércoles", "
 export const WEEKDAY_NAMES_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
 export const MONTH_NAMES_LONG = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
 ];
 
 export const MONTH_NAMES_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];

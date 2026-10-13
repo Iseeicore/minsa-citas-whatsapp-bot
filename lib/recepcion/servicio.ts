@@ -13,8 +13,7 @@ import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason
 import { isObject } from "@/lib/utils/type-guards";
 import { MAX_INCIDENCIAS_POR_DIA } from "@/lib/constants/limits/incidencia";
 
-const isUniqueViolation = (error: unknown) =>
-  isObject(error) && "code" in error && error.code === "P2002";
+const isUniqueViolation = (error: unknown) => isObject(error) && "code" in error && error.code === "P2002";
 
 async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | RegistrarIncidenciaResult> {
   const image = parseImageDataUri(mediaDataUri);
@@ -30,7 +29,8 @@ async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | Re
   }
 }
 
-const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult => (codigo ? { status: RegistrationStatus.ACCEPTED, codigo } : { status: RegistrationStatus.ACCEPTED });
+const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult =>
+  codigo ? { status: RegistrationStatus.ACCEPTED, codigo } : { status: RegistrationStatus.ACCEPTED };
 
 async function codigoYaGuardado(traceId: string): Promise<string | null> {
   try {

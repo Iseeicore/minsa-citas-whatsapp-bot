@@ -6,7 +6,8 @@ import type { InboundEvent, SendEffect } from "@/lib/fsm/core/types";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { SlotKey } from "@/lib/enums/slot-key";
 
-const QR = (nombre: string, codigo: string, extra = "") => `Hola quiero presentar una incidencia ${nombre} - CODIGO-IPRESS ${codigo}${extra}`;
+const QR = (nombre: string, codigo: string, extra = "") =>
+  `Hola quiero presentar una incidencia ${nombre} - CODIGO-IPRESS ${codigo}${extra}`;
 
 describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the real executor, session and padron", () => {
   const created: string[] = [];

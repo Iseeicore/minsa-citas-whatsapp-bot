@@ -1,26 +1,20 @@
-import {
-  buildResult,
-  omitSlot,
-  pageEffects,
-  sendButtons,
-  sendText,
-  TERMINAL_STATES,
-  withNote,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, omitSlot, pageEffects, sendButtons, sendText, TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import {
-  evaluateLexicalGuard,
-  type LexicalAction,
-} from "@/lib/security/lexical-guard";
+import { evaluateLexicalGuard, type LexicalAction } from "@/lib/security/lexical-guard";
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
-import { ASK_DISTRITO_TEXT, ASK_DEPARTAMENTO_TEXT, ASK_PROVINCIA_QUESTION_TEXT, ASK_DISTRITO_QUESTION_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import {
+  ASK_DISTRITO_TEXT,
+  ASK_DEPARTAMENTO_TEXT,
+  ASK_PROVINCIA_QUESTION_TEXT,
+  ASK_DISTRITO_QUESTION_TEXT,
+} from "@/lib/constants/textos/cita-ubicacion";
 import {
   RESPECT_REMINDER_TEXT,
   INSTITUTIONAL_WARNING_TEXT,
@@ -47,11 +41,7 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_HORA_CHOICE,
 ]);
 
-export function routeLexicalAction(
-  session: Session,
-  action: Exclude<LexicalAction, "ALLOW">,
-  message?: string,
-): HandlerResult {
+export function routeLexicalAction(session: Session, action: Exclude<LexicalAction, "ALLOW">, message?: string): HandlerResult {
   const slots = session.state === SessionState.MAIN_MENU ? omitSlot(session.slots, SlotKey.AWAITING_CONTINUE) : {};
 
   switch (action) {
@@ -68,9 +58,7 @@ export function routeLexicalAction(
         ...(hints.distrito ? { [SlotKey.CITA_DISTRITO_HINT_TEXT]: hints.distrito } : {}),
       };
 
-      return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [
-        sendText(CITA_WITH_WARNING_TEXT),
-      ]);
+      return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [sendText(CITA_WITH_WARNING_TEXT)]);
     }
 
     case "FORCE_INCIDENCIA":

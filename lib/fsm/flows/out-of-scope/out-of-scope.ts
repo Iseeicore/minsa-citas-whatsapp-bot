@@ -9,10 +9,7 @@ import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
 export type { OosCategory };
 
 const toPlainWords = (text: string): string =>
-  normalizeText(text)
-    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
-    .replace(ALL_WHITESPACE_RUNS, " ")
-    .trim();
+  normalizeText(text).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").replace(ALL_WHITESPACE_RUNS, " ").trim();
 
 export function detectOutOfScope(text: string): OosCategory | undefined {
   const plain = toPlainWords(text);

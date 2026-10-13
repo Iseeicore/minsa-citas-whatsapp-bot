@@ -7,6 +7,7 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { SlotKey } from "@/lib/enums/slot-key";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 import { SessionState } from "@/lib/enums/session-state";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
 
 const FROM = "sandbox-emergency-cut";
@@ -35,8 +36,19 @@ const STATES: Array<[string, Session["slots"]]> = [
   ["cita_awaiting_dni", {}],
   ["cita_awaiting_otp", { [SlotKey.CITA_TWOFA_ID]: "t", [SlotKey.CITA_DNI]: "12345678" }],
   ["cita_awaiting_distrito_ai", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }],
-  ["cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" }],
-  ["cita_awaiting_other_fecha", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }],
+  [
+    "cita_awaiting_hora_confirm",
+    {
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30",
+      [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1",
+    },
+  ],
+  [
+    "cita_awaiting_other_fecha",
+    { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" },
+  ],
   ["cita_awaiting_reauth", { [SlotKey.CITA_DNI]: "12345678" }],
   ["incidencia_awaiting_dni", {}],
   ["incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }],
@@ -68,7 +80,10 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it("with an expired session the citizen still gets the numbers, not the re-verification question", () => {
-    const stale: Session = { ...at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }), updatedAt: new Date(0) };
+    const stale: Session = {
+      ...at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }),
+      updatedAt: new Date(0),
+    };
     const result = handle(stale, text(EMERGENCY), 60 * 60 * 1000);
 
     expect(sent(result)).toEqual([CUT]);
@@ -76,7 +91,10 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it("the verification the citizen had is gone with the session", () => {
-    const result = handle(at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }), text(EMERGENCY));
+    const result = handle(
+      at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }),
+      text(EMERGENCY),
+    );
 
     expect(result.session.slots).toEqual({});
   });
@@ -224,13 +242,21 @@ describe("inside a flow only a short text is read as an emergency", () => {
 
 describe("only typed text is read", () => {
   it("a tap is never taken for an emergency", () => {
-    const result = handle(at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30" }), { from: FROM, type: "button", listId: "hora_confirm_no" });
+    const result = handle(
+      at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30" }),
+      { from: FROM, type: "button", listId: "hora_confirm_no" },
+    );
 
     expect(oosNote(result)).toBeUndefined();
   });
 
   it("neither is the result of a query", () => {
-    const result: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "list_fechas", result: { status: "error" } };
+    const result: QueryResultEvent = {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "list_fechas",
+      result: { status: "error" },
+    };
 
     expect(oosNote(handle(at("cita_fecha_pending", { [SlotKey.CITA_BEARER]: "token" }), result))).toBeUndefined();
   });

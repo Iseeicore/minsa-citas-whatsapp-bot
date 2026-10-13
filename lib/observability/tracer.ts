@@ -30,25 +30,16 @@ export type TurnTrace = {
 type TraceOptions = { now?: () => number; log?: AppLogger };
 
 const statusOf = (result: unknown): string | undefined =>
-  isObject(result) && isString((result as { status?: unknown }).status)
-    ? (result as { status: string }).status
-    : undefined;
+  isObject(result) && isString((result as { status?: unknown }).status) ? (result as { status: string }).status : undefined;
 
 function diffSlots(before: Record<string, unknown>, after: Record<string, unknown>) {
   const added = Object.keys(after).filter((key) => !(key in before));
   const removed = Object.keys(before).filter((key) => !(key in after));
-  const changed = Object.keys(after).filter(
-    (key) => key in before && JSON.stringify(before[key]) !== JSON.stringify(after[key]),
-  );
+  const changed = Object.keys(after).filter((key) => key in before && JSON.stringify(before[key]) !== JSON.stringify(after[key]));
   return { added, removed, changed };
 }
 
-export function createTurnTrace(
-  waId: string,
-  event: TraceEvent,
-  session: TraceSession,
-  options: TraceOptions = {},
-): TurnTrace {
+export function createTurnTrace(waId: string, event: TraceEvent, session: TraceSession, options: TraceOptions = {}): TurnTrace {
   const now = options.now ?? Date.now;
   const log = options.log ?? appLogger;
   const startedAt = now();
@@ -115,8 +106,7 @@ export function createTurnTrace(
       const stateAfter = outcome?.session.state;
       const stalled = stateAfter !== undefined && stateAfter === session.state && event.type === "text";
       const answeredByShortcut = notes.some((note) => note.kind === "shortcut" || note.kind === "first_contact");
-      const friction =
-        stalled && !answeredByShortcut ? (stateAfter === SessionState.MAIN_MENU ? "menu_loop" : "no_progress") : undefined;
+      const friction = stalled && !answeredByShortcut ? (stateAfter === SessionState.MAIN_MENU ? "menu_loop" : "no_progress") : undefined;
 
       log[friction === "menu_loop" ? "warn" : "info"]("turn.end", {
         traceId,
@@ -127,7 +117,13 @@ export function createTurnTrace(
         durationMs: now() - startedAt,
         externalCalls,
         externalMs,
-        ...(outcome ? { sentCount: outcome.sentCount, slots: sanitizeSlots(outcome.session.slots), slotsChanged: diffSlots(slotsBefore, outcome.session.slots) } : {}),
+        ...(outcome
+          ? {
+              sentCount: outcome.sentCount,
+              slots: sanitizeSlots(outcome.session.slots),
+              slotsChanged: diffSlots(slotsBefore, outcome.session.slots),
+            }
+          : {}),
         notes: notes.map((note) => note.kind),
         ...(friction ? { friction } : {}),
       });

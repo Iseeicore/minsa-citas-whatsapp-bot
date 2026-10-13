@@ -11,14 +11,22 @@ const message = (extra: Partial<WhatsAppMessage> & { type: string }): WhatsAppMe
 
 describe("toInboundEvent: what reaches the flow when an incidencia asks for evidence", () => {
   it("an image while the evidence is asked becomes an image event, and it is never downloaded", async () => {
-    const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1", caption: "el cobro" } }), "incidencia_awaiting_foto");
+    const event = await toInboundEvent(
+      WA,
+      message({ type: "image", image: { id: "m1", caption: "el cobro" } }),
+      "incidencia_awaiting_foto",
+    );
 
     expect(event).toEqual({ from: WA, type: "image", text: "el cobro" });
     expect(media.download).not.toHaveBeenCalled();
   });
 
   it("a document (a PDF) while the evidence is asked becomes a document event, with no download and without its file name", async () => {
-    const event = await toInboundEvent(WA, message({ type: "document", document: { id: "m2", filename: "recibo-juan-quispe.pdf" } }), "incidencia_awaiting_foto");
+    const event = await toInboundEvent(
+      WA,
+      message({ type: "document", document: { id: "m2", filename: "recibo-juan-quispe.pdf" } }),
+      "incidencia_awaiting_foto",
+    );
 
     expect(event).toEqual({ from: WA, type: "document" });
     expect(media.download).not.toHaveBeenCalled();
@@ -44,9 +52,17 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
   );
 
   it("text and taps keep working in any state", async () => {
-    await expect(toInboundEvent(WA, message({ type: "text", text: { body: "hola" } }), "main_menu")).resolves.toEqual({ from: WA, type: "text", text: "hola" });
+    await expect(toInboundEvent(WA, message({ type: "text", text: { body: "hola" } }), "main_menu")).resolves.toEqual({
+      from: WA,
+      type: "text",
+      text: "hola",
+    });
     await expect(
-      toInboundEvent(WA, message({ type: "interactive", interactive: { button_reply: { id: "incidencia_anonimo" } } }), "incidencia_identity_choice"),
+      toInboundEvent(
+        WA,
+        message({ type: "interactive", interactive: { button_reply: { id: "incidencia_anonimo" } } }),
+        "incidencia_identity_choice",
+      ),
     ).resolves.toEqual({ from: WA, type: "button", listId: "incidencia_anonimo" });
   });
 });

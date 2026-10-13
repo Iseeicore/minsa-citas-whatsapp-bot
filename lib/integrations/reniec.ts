@@ -2,9 +2,7 @@ import { timedFetch } from "@/lib/observability/http";
 import { LookupStatus } from "@/lib/enums/lookup-status";
 
 export type ReniecLookupResult =
-  | { status: `${LookupStatus.FOUND}`; nombreCompleto: string }
-  | { status: `${LookupStatus.NOT_FOUND}` }
-  | { status: `${LookupStatus.ERROR}` };
+  { status: LookupStatus.FOUND; nombreCompleto: string } | { status: LookupStatus.NOT_FOUND } | { status: LookupStatus.ERROR };
 
 const FAKE_DNI = "12345678";
 const FAKE_NOMBRE_COMPLETO = "JUAN CARLOS QUISPE PEREZ";

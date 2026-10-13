@@ -41,7 +41,8 @@ export const firstContactCitaRequestText = (what: string, where: string): string
 export const FIRST_CONTACT_CITA_TEXT = "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:";
 export const REVIEWING_MESSAGE_TEXT = "Un momento, estamos revisando tu mensaje…";
 export const OUT_OF_SCOPE_REQUEST_TEXT = "Solo puedo ayudarte a agendar una cita médica o a registrar una incidencia. Elige una opción:";
-export const CITA_INTENT_DETECTED_TEXT = "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento.";
+export const CITA_INTENT_DETECTED_TEXT =
+  "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento.";
 export const CONTINUE_BUTTON_ID = "continuar_menu";
 export const citaRequestEspecialidadText = (especialidad: string): string => ` de ${especialidad}`;
 export const citaRequestDistritoText = (distrito: string): string => ` en ${distrito}`;

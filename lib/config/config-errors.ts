@@ -19,7 +19,8 @@ export const CONFIG_ERRORS = {
   [ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING]: {
     severity: "warn",
     severityWithRealMinsa: "error",
-    message: "MINSA_DIGITAL_APP_URL no está configurada: la bienvenida de WhatsApp muestra el menú principal, los avisos que llevaban botón hacia MINSA Digital salen como texto sin enlace y, con el MINSA real, las llamadas autenticadas se cortan con un 503 porque no se puede armar Origin ni Referer.",
+    message:
+      "MINSA_DIGITAL_APP_URL no está configurada: la bienvenida de WhatsApp muestra el menú principal, los avisos que llevaban botón hacia MINSA Digital salen como texto sin enlace y, con el MINSA real, las llamadas autenticadas se cortan con un 503 porque no se puede armar Origin ni Referer.",
   },
 } as const satisfies Record<ConfigErrorCode, ConfigErrorEntry>;
 
@@ -42,7 +43,8 @@ export function checkConfig(env: Env = process.env): ConfigIssue[] {
   const provider = env.AI_PROVIDER;
   if (provider && !isRegisteredLlmProvider(provider)) issues.push(issue(ConfigErrorCode.AI_PROVIDER_UNKNOWN, provider));
 
-  for (const entry of parseAllowedOrigins(env.SANDBOX_ALLOWED_ORIGINS).invalid) issues.push(issue(ConfigErrorCode.SANDBOX_ORIGIN_INVALID, entry));
+  for (const entry of parseAllowedOrigins(env.SANDBOX_ALLOWED_ORIGINS).invalid)
+    issues.push(issue(ConfigErrorCode.SANDBOX_ORIGIN_INVALID, entry));
 
   if (!env.MINSA_DIGITAL_APP_URL) issues.push(issue(ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING, env.MINSA_DIGITAL_APP_URL ?? ""));
 
@@ -51,6 +53,7 @@ export function checkConfig(env: Env = process.env): ConfigIssue[] {
 
 export function reportConfigIssues(env: Env = process.env): ConfigIssue[] {
   const issues = checkConfig(env);
-  for (const found of issues) logger[severityOf(found.code, env)]("config.invalid", { issue: found.code, value: found.value, message: found.message });
+  for (const found of issues)
+    logger[severityOf(found.code, env)]("config.invalid", { issue: found.code, value: found.value, message: found.message });
   return issues;
 }

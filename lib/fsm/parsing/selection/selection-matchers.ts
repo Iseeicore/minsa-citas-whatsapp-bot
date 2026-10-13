@@ -11,19 +11,13 @@ import { MIN_PREFIX_MATCH_LENGTH, MIN_TOKEN_LENGTH } from "@/lib/constants/limit
 export type OfferedRow = { id: string; title: string; description?: string };
 export type OfferedList = { text: string; rows: OfferedRow[] };
 
-
-
 export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
 }
 
 function isOfferedRow(value: unknown): value is OfferedRow {
   const row = value as Partial<OfferedRow> | null;
-  return (
-    isString(row?.id) &&
-    isString(row?.title) &&
-    (row.description === undefined || isString(row.description))
-  );
+  return isString(row?.id) && isString(row?.title) && (row.description === undefined || isString(row.description));
 }
 
 export function readOffered(slots: Session["slots"]): OfferedList | undefined {
@@ -37,31 +31,47 @@ export function readOffered(slots: Session["slots"]): OfferedList | undefined {
 }
 
 export type SelectionMatch =
-  | { kind: `${MatchKind.MATCH}`; row: OfferedRow }
-  | { kind: `${MatchKind.AMBIGUOUS}`; rows: OfferedRow[] }
-  | { kind: `${MatchKind.NONE}` };
+  { kind: MatchKind.MATCH; row: OfferedRow } | { kind: MatchKind.AMBIGUOUS; rows: OfferedRow[] } | { kind: MatchKind.NONE };
 
 export type MatchOptions = {
   includeDescription?: boolean;
 };
 
 function normalize(text: string): string {
-  return stripAccents(text.toLowerCase())
-    .replace(WORD_SEPARATORS, " ")
-    .trim();
+  return stripAccents(text.toLowerCase()).replace(WORD_SEPARATORS, " ").trim();
 }
 
 const ORDINAL_WORDS: Record<string, number> = {
-  uno: 1, primero: 1, primera: 1,
-  dos: 2, segundo: 2, segunda: 2,
-  tres: 3, tercero: 3, tercera: 3,
-  cuatro: 4, cuarto: 4, cuarta: 4,
-  cinco: 5, quinto: 5, quinta: 5,
-  seis: 6, sexto: 6, sexta: 6,
-  siete: 7, septimo: 7, septima: 7,
-  ocho: 8, octavo: 8, octava: 8,
-  nueve: 9, noveno: 9, novena: 9,
-  diez: 10, decimo: 10, decima: 10,
+  uno: 1,
+  primero: 1,
+  primera: 1,
+  dos: 2,
+  segundo: 2,
+  segunda: 2,
+  tres: 3,
+  tercero: 3,
+  tercera: 3,
+  cuatro: 4,
+  cuarto: 4,
+  cuarta: 4,
+  cinco: 5,
+  quinto: 5,
+  quinta: 5,
+  seis: 6,
+  sexto: 6,
+  sexta: 6,
+  siete: 7,
+  septimo: 7,
+  septima: 7,
+  ocho: 8,
+  octavo: 8,
+  octava: 8,
+  nueve: 9,
+  noveno: 9,
+  novena: 9,
+  diez: 10,
+  decimo: 10,
+  decima: 10,
 };
 
 function parseOrdinal(normalized: string, count: number): number | undefined {
@@ -76,9 +86,37 @@ function parseOrdinal(normalized: string, count: number): number | undefined {
 }
 
 const STOP_WORDS = new Set([
-  "el", "la", "los", "las", "de", "del", "en", "un", "una", "unos", "unas", "y", "a", "al", "lo",
-  "que", "quiero", "quisiera", "necesito", "por", "favor", "para", "con", "mi", "me", "es", "ese",
-  "esa", "eso", "opcion", "numero",
+  "el",
+  "la",
+  "los",
+  "las",
+  "de",
+  "del",
+  "en",
+  "un",
+  "una",
+  "unos",
+  "unas",
+  "y",
+  "a",
+  "al",
+  "lo",
+  "que",
+  "quiero",
+  "quisiera",
+  "necesito",
+  "por",
+  "favor",
+  "para",
+  "con",
+  "mi",
+  "me",
+  "es",
+  "ese",
+  "esa",
+  "eso",
+  "opcion",
+  "numero",
 ]);
 
 type HayToken = { word: string; truncated: boolean };
@@ -111,11 +149,7 @@ function tokenMatches(typed: string, hay: HayToken): boolean {
   return hay.truncated && hay.word.length >= MIN_PREFIX_MATCH_LENGTH && typed.startsWith(hay.word);
 }
 
-export function matchSelection(
-  text: string,
-  rows: OfferedRow[],
-  options: MatchOptions = {},
-): SelectionMatch {
+export function matchSelection(text: string, rows: OfferedRow[], options: MatchOptions = {}): SelectionMatch {
   const normalized = normalize(text);
   if (!normalized || rows.length === 0) return { kind: MatchKind.NONE };
 
@@ -139,8 +173,17 @@ export function matchSelection(
 }
 
 const HINT_NOISE_WORDS = new Set([
-  "cita", "citas", "atencion", "agendar", "consulta", "medico", "medica", "doctor", "doctora",
-  "reservar", "turno",
+  "cita",
+  "citas",
+  "atencion",
+  "agendar",
+  "consulta",
+  "medico",
+  "medica",
+  "doctor",
+  "doctora",
+  "reservar",
+  "turno",
 ]);
 
 function significantTokens(text: string): string[] {
@@ -160,11 +203,7 @@ export function hintText(text: string): string {
   return significantTokens(text).join(" ");
 }
 
-export function matchAllTokens(
-  hint: string,
-  rows: OfferedRow[],
-  options: MatchOptions = {},
-): OfferedRow | undefined {
+export function matchAllTokens(hint: string, rows: OfferedRow[], options: MatchOptions = {}): OfferedRow | undefined {
   const tokens = significantTokens(hint);
   if (tokens.length === 0) return undefined;
 

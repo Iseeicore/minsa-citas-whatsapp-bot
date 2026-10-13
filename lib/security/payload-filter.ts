@@ -1,21 +1,13 @@
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { RejectReason } from "@/lib/enums/reject-reason";
-import {
-  BARE_DOMAIN,
-  LINK_MARKERS,
-  NOT_EMOJI_NOR_SPACE,
-  PICTOGRAPH,
-  REPEATED_CHARACTER,
-} from "@/lib/constants/regex/security";
+import { BARE_DOMAIN, LINK_MARKERS, NOT_EMOJI_NOR_SPACE, PICTOGRAPH, REPEATED_CHARACTER } from "@/lib/constants/regex/security";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 import { PayloadVerdictKind } from "@/lib/enums/payload-verdict-kind";
 
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
 export const NOISE_MIN_LENGTH = 12;
 
-export type PayloadVerdict =
-  | { kind: `${PayloadVerdictKind.OK}` }
-  | { kind: `${PayloadVerdictKind.REJECTED}`; reason: RejectReason; reply: string };
+export type PayloadVerdict = { kind: PayloadVerdictKind.OK } | { kind: PayloadVerdictKind.REJECTED; reason: RejectReason; reply: string };
 
 export type { RejectReason };
 

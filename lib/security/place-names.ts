@@ -7,9 +7,6 @@ type PlaceRow = { departamento: string; provincia: string; distrito: string };
 export const PLACE_NAME_WORDS: ReadonlySet<string> = new Set(
   (distritos as PlaceRow[])
     .flatMap((row) => [row.departamento, row.provincia, row.distrito])
-    .flatMap((name) =>
-      stripAccents(name.toLowerCase())
-        .split(NON_LETTER_RUN),
-    )
+    .flatMap((name) => stripAccents(name.toLowerCase()).split(NON_LETTER_RUN))
     .filter((word) => word.length >= 5),
 );

@@ -32,8 +32,7 @@ export function filterRows(rows: ListRow[], query: string): ListRow[] {
   });
 }
 
-const toAction = (row: ListRow | undefined): PagerAction | undefined =>
-  row ? { id: row.id, title: row.title } : undefined;
+const toAction = (row: ListRow | undefined): PagerAction | undefined => (row ? { id: row.id, title: row.title } : undefined);
 
 function currentPageLabel(prevRow: ListRow | undefined, nextRow: ListRow | undefined): string | undefined {
   const source = nextRow ?? prevRow;

@@ -67,11 +67,14 @@ describe("caracterización de los patrones: enmascarado de logs", () => {
           "GET HTTPS://api.minsa.gob.pe/v1/citas?dni=12345678&x=1#frag bearer abc.DEF-123/x= eyJhbGciOi.eyJzdWIi.sig_1 tel 987654321 y 123456 y http://a.pe/b?c",
         ),
       ),
-    ).toMatchInlineSnapshot(`"GET HTTPS://api.minsa.gob.pe/v1/citas?[redacted]#frag Bearer [redacted] [jwt] tel ****4321 y 123456 y http://a.pe/b?[redacted]"`);
+    ).toMatchInlineSnapshot(
+      `"GET HTTPS://api.minsa.gob.pe/v1/citas?[redacted]#frag Bearer [redacted] [jwt] tel ****4321 y 123456 y http://a.pe/b?[redacted]"`,
+    );
   });
 
   it("maskDni deja solo los cuatro últimos dígitos y no vuelve a enmascarar lo ya enmascarado", () => {
-    expect(twice(() => [maskDni("12.345.678"), maskDni("****5678"), maskDni("123"), maskDni("****"), maskDni("*****1")])).toMatchInlineSnapshot(`
+    expect(twice(() => [maskDni("12.345.678"), maskDni("****5678"), maskDni("123"), maskDni("****"), maskDni("*****1")]))
+      .toMatchInlineSnapshot(`
       [
         "****5678",
         "****5678",
@@ -296,7 +299,8 @@ describe("caracterización de los patrones: lectura de lo que escribe la persona
   });
 
   it("isGreeting y detectCitaRequest", () => {
-    expect(twice(() => [isGreeting("¡Hola!!"), isGreeting("hola, quiero algo"), detectCitaRequest("quiero una cita, en comas")])).toMatchInlineSnapshot(`
+    expect(twice(() => [isGreeting("¡Hola!!"), isGreeting("hola, quiero algo"), detectCitaRequest("quiero una cita, en comas")]))
+      .toMatchInlineSnapshot(`
       [
         true,
         false,
@@ -526,7 +530,8 @@ describe("caracterización de los patrones: fechas y horas", () => {
   });
 
   it("matchFechaText: la más próxima", () => {
-    expect([fecha("lo más pronto"), fecha("la mas cercana"), fecha("cualquiera"), fecha("cuanto antes!!"), fecha("primera disponible")]).toMatchInlineSnapshot(`
+    expect([fecha("lo más pronto"), fecha("la mas cercana"), fecha("cualquiera"), fecha("cuanto antes!!"), fecha("primera disponible")])
+      .toMatchInlineSnapshot(`
       [
         {
           "kind": "match",
@@ -568,7 +573,8 @@ describe("caracterización de los patrones: fechas y horas", () => {
   });
 
   it("matchFechaText: fecha numérica", () => {
-    expect([fecha("el 15/10"), fecha("15-10-26"), fecha("13/10/2026"), fecha("32/10"), fecha("15/13"), fecha("16/10"), fecha("1/1")]).toMatchInlineSnapshot(`
+    expect([fecha("el 15/10"), fecha("15-10-26"), fecha("13/10/2026"), fecha("32/10"), fecha("15/13"), fecha("16/10"), fecha("1/1")])
+      .toMatchInlineSnapshot(`
       [
         {
           "kind": "match",
@@ -610,7 +616,14 @@ describe("caracterización de los patrones: fechas y horas", () => {
   });
 
   it("matchFechaText: día y nombre del mes", () => {
-    expect([fecha("15 de octubre"), fecha("14 OCTUBRE"), fecha("el 13   de  octubre por favor"), fecha("40 de octubre"), fecha("3 de setiembre"), fecha("15 de octubres")]).toMatchInlineSnapshot(`
+    expect([
+      fecha("15 de octubre"),
+      fecha("14 OCTUBRE"),
+      fecha("el 13   de  octubre por favor"),
+      fecha("40 de octubre"),
+      fecha("3 de setiembre"),
+      fecha("15 de octubres"),
+    ]).toMatchInlineSnapshot(`
       [
         {
           "kind": "match",
@@ -683,7 +696,16 @@ describe("caracterización de los patrones: fechas y horas", () => {
   });
 
   it("matchFechaText: día de la semana y día del mes", () => {
-    expect([fecha("el jueves"), fecha("miércoles"), fecha("sábado"), fecha("día 14"), fecha("el 22"), fecha("el 30"), fecha("xyz"), fecha("")]).toMatchInlineSnapshot(`
+    expect([
+      fecha("el jueves"),
+      fecha("miércoles"),
+      fecha("sábado"),
+      fecha("día 14"),
+      fecha("el 22"),
+      fecha("el 30"),
+      fecha("xyz"),
+      fecha(""),
+    ]).toMatchInlineSnapshot(`
       [
         {
           "kind": "ambiguous",

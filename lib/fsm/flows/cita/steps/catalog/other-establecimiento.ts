@@ -32,16 +32,12 @@ import {
 } from "@/lib/constants/textos/cita-catalogo";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
-
 export type AlternativeEstablecimiento = { id: string; name: string };
 
-const questionButtons = (text: string) =>
-  sendButtons(text, OTHER_ESTABLECIMIENTO_BUTTONS);
+const questionButtons = (text: string) => sendButtons(text, OTHER_ESTABLECIMIENTO_BUTTONS);
 
 export function discardedEstablecimientos(slots: Session["slots"]): string[] {
-  return slotText(slots, SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS)
-    .split(",")
-    .filter(Boolean);
+  return slotText(slots, SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS).split(",").filter(Boolean);
 }
 
 export function isSearchingOtherEstablecimiento(slots: Session["slots"]): boolean {
@@ -71,11 +67,7 @@ export function searchOtherEstablecimiento(session: Session): HandlerResult {
   );
 }
 
-export function offerOtherEstablecimiento(
-  session: Session,
-  remaining: AlternativeEstablecimiento[],
-  rows: ListRow[],
-): HandlerResult {
+export function offerOtherEstablecimiento(session: Session, remaining: AlternativeEstablecimiento[], rows: ListRow[]): HandlerResult {
   const next = cloneSession(session);
   const emptyName = slotText(next.slots, SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS);
   delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS];
@@ -91,7 +83,9 @@ export function offerOtherEstablecimiento(
     return buildResult(next, [questionButtons(noFechasProposeText(where, otherEstablecimientoQuestionText(proposed.name)))]);
   }
 
-  const especialidad = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : THAT_ESPECIALIDAD_TEXT;
+  const especialidad = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]
+    ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*`
+    : THAT_ESPECIALIDAD_TEXT;
   next.state = SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT;
   return buildResult(next, [
     sendText(noFechasAlternativesText(where, especialidad)),
@@ -127,9 +121,14 @@ export function handleOtherEstablecimiento(session: Session, event: InboundEvent
     });
   }
 
-  return withNote(buildResult(session, [questionButtons(otherEstablecimientoQuestionText(slotText(session.slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE)))]), {
-    kind: "confirmation_unknown",
-    level: "warn",
-    detail: { step: "other_establecimiento" },
-  });
+  return withNote(
+    buildResult(session, [
+      questionButtons(otherEstablecimientoQuestionText(slotText(session.slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE))),
+    ]),
+    {
+      kind: "confirmation_unknown",
+      level: "warn",
+      detail: { step: "other_establecimiento" },
+    },
+  );
 }

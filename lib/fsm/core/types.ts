@@ -98,7 +98,7 @@ export type InboundEvent = {
 
 export type QueryResultEvent = {
   from: string;
-  type: `${InternalEventType.QUERY_RESULT}`;
+  type: InternalEventType.QUERY_RESULT;
   queryKind: QueryEffectKind;
   result: unknown;
 };
@@ -140,11 +140,7 @@ export type SendCtaUrlEffect = {
   url: string;
 };
 
-export type SendEffect =
-  | SendTextEffect
-  | SendInteractiveListEffect
-  | SendButtonsEffect
-  | SendCtaUrlEffect;
+export type SendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect | SendCtaUrlEffect;
 
 export type QueryEffectKind =
   | "reniec_lookup"

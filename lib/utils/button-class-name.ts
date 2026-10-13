@@ -7,14 +7,11 @@ const ICON_SOLID_SHAPE = "rounded-full text-white transition-opacity disabled:op
 
 const VARIANT_CLASS_NAME: Record<ButtonVariant, string> = {
   [ButtonVariant.PRIMARY]: "rounded-xl bg-sb-navy font-semibold text-white transition-colors hover:bg-sb-navy-dark",
-  [ButtonVariant.OUTLINE]:
-    "rounded-xl border border-sb-navy bg-white font-semibold text-sb-navy transition-colors hover:bg-sb-panel",
-  [ButtonVariant.OPTION]:
-    "rounded-xl border border-sb-navy bg-sb-navy font-semibold text-white transition-colors hover:bg-sb-navy-dark",
+  [ButtonVariant.OUTLINE]: "rounded-xl border border-sb-navy bg-white font-semibold text-sb-navy transition-colors hover:bg-sb-panel",
+  [ButtonVariant.OPTION]: "rounded-xl border border-sb-navy bg-sb-navy font-semibold text-white transition-colors hover:bg-sb-navy-dark",
   [ButtonVariant.LIST_OPTION]: "rounded-xl bg-sb-navy text-left text-white transition-colors hover:bg-sb-navy-dark",
   [ButtonVariant.ACCENT]: "rounded-lg bg-sb-accent font-medium text-white transition-opacity disabled:opacity-40",
-  [ButtonVariant.PILL_ON_DARK]:
-    "rounded-full border border-white/40 font-medium text-white/90 hover:bg-white/10 disabled:opacity-50",
+  [ButtonVariant.PILL_ON_DARK]: "rounded-full border border-white/40 font-medium text-white/90 hover:bg-white/10 disabled:opacity-50",
   [ButtonVariant.PILL_NEUTRAL]: "rounded-full border border-gray-300 bg-white font-medium text-gray-600 hover:bg-gray-50",
   [ButtonVariant.ROW]: "border-b border-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-50",
   [ButtonVariant.ICON_PLAIN]: "text-white/90 hover:text-white",

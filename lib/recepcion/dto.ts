@@ -16,6 +16,9 @@ export const registrarIncidenciaSchema = z.object({
 export type RegistrarIncidenciaInput = z.infer<typeof registrarIncidenciaSchema>;
 
 export type RegistrarIncidenciaResult =
-  | { status: `${RegistrationStatus.ACCEPTED}`; codigo?: string }
-  | { status: `${RegistrationStatus.REJECTED}`; reason: `${RegistrationRejectReason.MEDIA_TOO_LARGE}` | `${RegistrationRejectReason.DAILY_LIMIT}` | `${RegistrationRejectReason.OTHER}` }
-  | { status: `${RegistrationStatus.ERROR}` };
+  | { status: RegistrationStatus.ACCEPTED; codigo?: string }
+  | {
+      status: RegistrationStatus.REJECTED;
+      reason: RegistrationRejectReason.MEDIA_TOO_LARGE | RegistrationRejectReason.DAILY_LIMIT | RegistrationRejectReason.OTHER;
+    }
+  | { status: RegistrationStatus.ERROR };

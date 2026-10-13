@@ -46,10 +46,7 @@ function unclearIntent(reason: string): MainMenuIntentResult {
   return { intent: MainMenuIntent.UNCLEAR };
 }
 
-export async function analyzeMainMenuIntent(
-  text: string,
-  llm: LlmClient | null = getLlmClient(),
-): Promise<MainMenuIntentResult> {
+export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null = getLlmClient()): Promise<MainMenuIntentResult> {
   if (llm) {
     const outcome = await llm.generateJson({
       operation: "analyze_main_menu_intent",
@@ -65,7 +62,7 @@ export async function analyzeMainMenuIntent(
           return unclearIntent(`HTTP ${outcome.status} from model ${outcome.model}`);
         case LlmFailure.NO_TEXT:
           return unclearIntent("no text in the response");
-        default:
+        case LlmFailure.INVALID_JSON:
           return unclearIntent("response was not valid JSON");
       }
     }

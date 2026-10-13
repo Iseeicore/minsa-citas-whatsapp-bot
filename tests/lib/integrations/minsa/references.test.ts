@@ -90,10 +90,7 @@ describe("MINSA real — listReferences", () => {
 
   describe("sobre del backend: { status_reference, message, data }", () => {
     it("entrega el estado, el mensaje y las referencias tal como los envía el backend", async () => {
-      vi.stubGlobal(
-        "fetch",
-        minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "Referencias encontradas", data: FILAS }),
-      );
+      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "Referencias encontradas", data: FILAS }));
 
       await expect(listReferences("40488601", "01")).resolves.toEqual({
         statusReference: ReferenceStatus.FOUND,

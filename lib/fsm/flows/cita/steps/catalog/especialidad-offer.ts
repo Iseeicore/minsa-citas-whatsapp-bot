@@ -17,9 +17,7 @@ export type EspecialidadResultItem = {
 export function especialidadHintMatches(hint: string, items: EspecialidadResultItem[]): EspecialidadResultItem[] {
   const hintTokens = normalizeText(hint);
   return items.filter(
-    (item) =>
-      normalizeText(item.nombreEspecialidad).includes(hintTokens) ||
-      hintTokens.includes(normalizeText(item.nombreEspecialidad)),
+    (item) => normalizeText(item.nombreEspecialidad).includes(hintTokens) || hintTokens.includes(normalizeText(item.nombreEspecialidad)),
   );
 }
 
@@ -28,10 +26,7 @@ export function offerEspecialidadesWithoutHint(next: Session, items: Especialida
   const offered = offerEspecialidades(next, items);
   return {
     ...offered,
-    effects: [
-      sendText(especialidadNotAvailableText(hint)),
-      ...offered.effects,
-    ],
+    effects: [sendText(especialidadNotAvailableText(hint)), ...offered.effects],
   };
 }
 
@@ -53,7 +48,10 @@ export function acceptDetectedEspecialidad(next: Session, matched: EspecialidadR
 export function offerEspecialidades(next: Session, items: EspecialidadResultItem[]): HandlerResult {
   next.state = SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
   const names = items.map((item) => ({ id: item.codigoEspecialidad, name: formatEspecialidadName(item.nombreEspecialidad) }));
-  rememberFullNames(next.slots, names.map(({ id, name }) => ({ id, full: name.full })));
+  rememberFullNames(
+    next.slots,
+    names.map(({ id, name }) => ({ id, full: name.full })),
+  );
   const rows: ListRow[] = items.map((item, index) => {
     const { name } = names[index];
     return { id: item.codigoEspecialidad, title: name.title, description: catalogRowDescription(name, item.cantidadCupos) };

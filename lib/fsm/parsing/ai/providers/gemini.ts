@@ -62,9 +62,7 @@ export async function requestGeminiJson(request: GeminiJsonRequest): Promise<Gem
 
 export function toGeminiSchema(schema: JsonSchema): Record<string, unknown> {
   if (schema.type === "object") {
-    const properties = Object.fromEntries(
-      Object.entries(schema.properties).map(([name, property]) => [name, toGeminiSchema(property)]),
-    );
+    const properties = Object.fromEntries(Object.entries(schema.properties).map(([name, property]) => [name, toGeminiSchema(property)]));
     return schema.required ? { type: "OBJECT", properties, required: schema.required } : { type: "OBJECT", properties };
   }
   if (schema.type === "array") return { type: "ARRAY", items: toGeminiSchema(schema.items) };

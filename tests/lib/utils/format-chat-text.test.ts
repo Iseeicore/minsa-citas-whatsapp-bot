@@ -43,9 +43,7 @@ describe("tokenizeChatText", () => {
   });
 
   it("no toca los asteriscos sueltos ni los guiones bajos dentro de una palabra", () => {
-    expect(tokenizeChatText("2 * 3 y snake_case_word")).toEqual([
-      { kind: ChatTokenKind.TEXT, value: "2 * 3 y snake_case_word" },
-    ]);
+    expect(tokenizeChatText("2 * 3 y snake_case_word")).toEqual([{ kind: ChatTokenKind.TEXT, value: "2 * 3 y snake_case_word" }]);
   });
 
   it("deja intactos los emojis que no tienen icono propio", () => {

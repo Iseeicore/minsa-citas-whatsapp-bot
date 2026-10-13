@@ -25,10 +25,10 @@ import { stripAccents } from "@/lib/utils/text-values";
 export type DateParts = { year: number; month: number; day: number };
 
 export type FechaMatch =
-  | { kind: `${MatchKind.MATCH}`; row: OfferedRow }
-  | { kind: `${MatchKind.AMBIGUOUS}`; rows: OfferedRow[] }
-  | { kind: `${MatchKind.UNAVAILABLE}`; label: string }
-  | { kind: `${MatchKind.UNPARSED}` };
+  | { kind: MatchKind.MATCH; row: OfferedRow }
+  | { kind: MatchKind.AMBIGUOUS; rows: OfferedRow[] }
+  | { kind: MatchKind.UNAVAILABLE; label: string }
+  | { kind: MatchKind.UNPARSED };
 
 export function parseOfferedDate(id: string): DateParts | undefined {
   let match = DAY_MONTH_YEAR_ID.exec(id);
@@ -65,19 +65,33 @@ export function formatDateShort(date: DateParts): string {
 }
 
 const MONTHS: Record<string, number> = {
-  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8,
-  septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+  enero: 1,
+  febrero: 2,
+  marzo: 3,
+  abril: 4,
+  mayo: 5,
+  junio: 6,
+  julio: 7,
+  agosto: 8,
+  septiembre: 9,
+  setiembre: 9,
+  octubre: 10,
+  noviembre: 11,
+  diciembre: 12,
 };
 
 const WEEKDAYS: Record<string, number> = {
-  domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6,
+  domingo: 0,
+  lunes: 1,
+  martes: 2,
+  miercoles: 3,
+  jueves: 4,
+  viernes: 5,
+  sabado: 6,
 };
 
 function normalize(text: string): string {
-  return stripAccents(text.toLowerCase())
-    .replace(SYMBOLS_OUTSIDE_DATE_TEXT, " ")
-    .replace(ALL_WHITESPACE_RUNS, " ")
-    .trim();
+  return stripAccents(text.toLowerCase()).replace(SYMBOLS_OUTSIDE_DATE_TEXT, " ").replace(ALL_WHITESPACE_RUNS, " ").trim();
 }
 
 function resolveYear(day: number, month: number, today: DateParts, explicitYear?: number): number {

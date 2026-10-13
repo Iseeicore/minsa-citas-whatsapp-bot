@@ -49,15 +49,18 @@ afterEach(() => {
 });
 
 describe("web inbox routes without SANDBOX_PAGE_ENABLED", () => {
-  it.each(Object.entries(handlers))("%s answers 404 and never reads the database or calls Meta, even with the database enabled", async (_name, call) => {
-    vi.stubEnv("DATABASE_ENABLED", "true");
+  it.each(Object.entries(handlers))(
+    "%s answers 404 and never reads the database or calls Meta, even with the database enabled",
+    async (_name, call) => {
+      vi.stubEnv("DATABASE_ENABLED", "true");
 
-    const response = await call();
+      const response = await call();
 
-    expect(response.status).toBe(404);
-    Object.values(mocks).forEach((mock) => expect(mock).not.toHaveBeenCalled());
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(404);
+      Object.values(mocks).forEach((mock) => expect(mock).not.toHaveBeenCalled());
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["", "false", "TRUE", "1"])("stays closed when SANDBOX_PAGE_ENABLED is %j", async (value) => {
     vi.stubEnv("DATABASE_ENABLED", "true");

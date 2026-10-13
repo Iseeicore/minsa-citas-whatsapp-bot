@@ -8,11 +8,12 @@ import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 
 export type ResultadoPorCodigo =
-  | { status: `${EstablecimientoSearchStatus.FOUND}`; establecimiento: Establecimiento }
-  | { status: `${EstablecimientoSearchStatus.NOT_FOUND}` }
-  | { status: `${EstablecimientoSearchStatus.UNAVAILABLE}` };
+  | { status: EstablecimientoSearchStatus.FOUND; establecimiento: Establecimiento }
+  | { status: EstablecimientoSearchStatus.NOT_FOUND }
+  | { status: EstablecimientoSearchStatus.UNAVAILABLE };
 
-export type ResultadoPorNombre = { status: `${EstablecimientoSearchStatus.OK}`; candidatos: Candidato[] } | { status: `${EstablecimientoSearchStatus.UNAVAILABLE}` };
+export type ResultadoPorNombre =
+  { status: EstablecimientoSearchStatus.OK; candidatos: Candidato[] } | { status: EstablecimientoSearchStatus.UNAVAILABLE };
 
 const DEFAULT_LIMIT = 8;
 

@@ -99,10 +99,7 @@ export function withNote(result: HandlerResult, note: TurnNote): HandlerResult {
   return { ...result, notes: [...(result.notes ?? []), note] };
 }
 
-export function buildResult(
-  session: Session,
-  effects: (SendEffect | QueryEffect)[],
-): HandlerResult {
+export function buildResult(session: Session, effects: (SendEffect | QueryEffect)[]): HandlerResult {
   const outcome: HandlerOutcome = effects.some(isQueryEffect)
     ? HandlerOutcome.AWAITING_QUERY
     : TERMINAL_STATES.has(session.state)
@@ -145,10 +142,7 @@ export function pageEffects(text: string, rows: ListRow[], page: number): SendEf
   if (current > 0) buttons.push({ id: ListPageButtonId.PREV, title: LIST_PAGE_PREV_BUTTON_TEXT });
   if (start + visible.length < rows.length) buttons.push({ id: ListPageButtonId.NEXT, title: LIST_PAGE_NEXT_BUTTON_TEXT });
 
-  return [
-    sendList(text, visible),
-    sendButtons(listPageSummaryText(start + 1, start + visible.length, rows.length), buttons),
-  ];
+  return [sendList(text, visible), sendButtons(listPageSummaryText(start + 1, start + visible.length, rows.length), buttons)];
 }
 
 export function offerPagedList(next: Session, text: string, rows: ListRow[]): SendEffect[] {

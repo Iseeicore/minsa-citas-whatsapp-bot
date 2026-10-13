@@ -11,10 +11,7 @@ const PLACE_PREPOSITIONS = new Set(["EN", "POR", "DE", "DEL", "CERCA", "DESDE", 
 export type CitaHints = { especialidad?: string; distrito?: string };
 
 export function extractCitaHints(message: string): CitaHints {
-  const words = normalizeText(message)
-    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
-    .split(" ")
-    .filter(Boolean);
+  const words = normalizeText(message).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").split(" ").filter(Boolean);
 
   const hints: CitaHints = {};
 
@@ -48,9 +45,6 @@ export function extractCitaHints(message: string): CitaHints {
 const STRONG_PLACE_PREPOSITIONS = new Set(["EN", "CERCA", "DESDE"]);
 
 export function mentionsPlacePreposition(message: string): boolean {
-  const words = normalizeText(message)
-    .replace(SYMBOLS_IN_UPPERCASE_TEXT, " ")
-    .split(" ")
-    .filter(Boolean);
+  const words = normalizeText(message).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").split(" ").filter(Boolean);
   return words.some((word) => STRONG_PLACE_PREPOSITIONS.has(word));
 }

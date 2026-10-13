@@ -46,7 +46,8 @@ export const VERIFICANDO_DOCUMENTO_TEXT = "Verificando tu documento…";
 export const RENIEC_FAILED_TEXT = "Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias.";
 export const graciasNombreText = (nombre: string): string => `Gracias, ${nombre}.`;
 export const ASK_NOMBRE_TEXT = "Por favor, ingresa tu nombre.";
-export const AVISO_PRIVACIDAD_TEXT = "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu incidencia.";
+export const AVISO_PRIVACIDAD_TEXT =
+  "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu incidencia.";
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
 
 export const CONSENT_BUTTONS = [
@@ -75,7 +76,8 @@ export const borradorTooLongText = (maximo: number): string =>
 
 export const ASK_BORRADOR_EXTRA_TEXT = "Escribe lo que quieras agregar.";
 export const BORRADOR_QUESTION_TEXT = "¿Usamos tu texto tal cual o quieres agregar más?";
-export const FOTO_REQUEST_TEXT = "¿Quieres enviar una imagen o un archivo como evidencia? Es opcional: envíalo ahora, o toca Omitir (o escribe OMITIR) para continuar sin él.";
+export const FOTO_REQUEST_TEXT =
+  "¿Quieres enviar una imagen o un archivo como evidencia? Es opcional: envíalo ahora, o toca Omitir (o escribe OMITIR) para continuar sin él.";
 export const FOTO_BUTTONS = [{ id: IncidenciaButtonId.FOTO_OMITIR, title: "Omitir" }];
 export const EVIDENCIA_ACK_TEXT = "Ok, se registró tu evidencia.";
 export const OMITIR_KEYWORD = "OMITIR";
@@ -84,7 +86,8 @@ export const resumenEstablecimientoText = (establecimiento: string): string => `
 export const resumenRelatoText = (descripcion: string): string => `Relato: «${descripcion}»`;
 export const resumenNombreText = (nombre: string): string => `A nombre de: ${nombre}`;
 export const RESUMEN_ANONIMO_TEXT = "De forma anónima";
-export const RESUMEN_DECLARACION_TEXT = "Al continuar, confirmas que la información es verdadera según tu conocimiento y que podrá ser revisada por el personal autorizado para gestionar tu incidencia.";
+export const RESUMEN_DECLARACION_TEXT =
+  "Al continuar, confirmas que la información es verdadera según tu conocimiento y que podrá ser revisada por el personal autorizado para gestionar tu incidencia.";
 
 export const CONFIRM_REGISTRO_BUTTONS = [
   { id: IncidenciaButtonId.CONFIRM_REGISTRO_SI, title: "Registrar" },
@@ -99,9 +102,11 @@ export const incidenciaRegistradaText = (codigo: string): string =>
 
 export const SEGUIMIENTO_IDENTIFICADO_TEXT = "Si el área responsable necesita información adicional, se comunicará contigo.";
 export const SEGUIMIENTO_ANONIMO_TEXT = "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.";
-export const DAILY_LIMIT_TEXT = "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
+export const DAILY_LIMIT_TEXT =
+  "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
 export const REGISTRO_FALLIDO_TEXT = "No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.";
-export const INCIDENCIA_REAUTH_PROMPT_TEXT = "⏳ Tu incidencia quedó inactiva por un tiempo. ¿Deseas continuar donde la dejaste?\n\n[1] Sí, continuar\n[2] Cancelar";
+export const INCIDENCIA_REAUTH_PROMPT_TEXT =
+  "⏳ Tu incidencia quedó inactiva por un tiempo. ¿Deseas continuar donde la dejaste?\n\n[1] Sí, continuar\n[2] Cancelar";
 
 export const INCIDENCIA_REAUTH_BUTTONS = [
   { id: IncidenciaButtonId.REAUTH_SI, title: "Sí, continuar" },
@@ -109,5 +114,7 @@ export const INCIDENCIA_REAUTH_BUTTONS = [
 ];
 
 export const INCIDENCIA_RETOMADA_TEXT = "¡Listo! Continuemos donde quedaste.";
-export const INCIDENCIA_CANCELADA_TEXT = "Entendido, no se registró ninguna incidencia. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
-export const NO_AUTORIZO_TEXT = "Entendido. No se registrará tu incidencia por este canal. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+export const INCIDENCIA_CANCELADA_TEXT =
+  "Entendido, no se registró ninguna incidencia. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+export const NO_AUTORIZO_TEXT =
+  "Entendido. No se registrará tu incidencia por este canal. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";

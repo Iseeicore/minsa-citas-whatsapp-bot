@@ -19,7 +19,7 @@ describe("slotText", () => {
     expect(slotText({}, SlotKey.CITA_BEARER)).toBe("");
   });
 
-  it("convierte a texto un slot numérico o booleano, igual que String(valor ?? \"\")", () => {
+  it('convierte a texto un slot numérico o booleano, igual que String(valor ?? "")', () => {
     const slots: Slots = { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 0, [SlotKey.AWAITING_CONTINUE]: false };
 
     expect(slotText(slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID)).toBe("0");

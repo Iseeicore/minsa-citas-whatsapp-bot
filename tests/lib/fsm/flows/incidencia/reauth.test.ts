@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { detectIncidenciaExpiry, SESSION_IDLE_TIMEOUT_MS } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-incidencia-reauth";
 const NOW = Date.parse("2026-10-11T15:00:00Z");
@@ -21,8 +22,7 @@ function waiting(state: Session["state"], options: { idleMs?: number; slots?: Se
   };
 }
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
 describe("detectIncidenciaExpiry", () => {
@@ -37,7 +37,7 @@ describe("detectIncidenciaExpiry", () => {
   });
 
   it("never fires on synthetic query results, mid-turn", () => {
-    const result: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "buscar_establecimiento", result: {} };
+    const result: QueryResultEvent = { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "buscar_establecimiento", result: {} };
     expect(detectIncidenciaExpiry(waiting("incidencia_ubicacion_pending", { idleMs: minutes(60) }), result, NOW)).toBeNull();
   });
 
@@ -145,7 +145,13 @@ describe("incidencia_awaiting_reauth", () => {
   });
 
   it("resumes at the location confirmation with the establecimiento it had proposed, without searching again", () => {
-    const propuesto = JSON.stringify({ id: 1, areaId: 1, codigoRenipress: "6206", nombre: "HOSPITAL NACIONAL DOS DE MAYO", distrito: "Lima" });
+    const propuesto = JSON.stringify({
+      id: 1,
+      areaId: 1,
+      codigoRenipress: "6206",
+      nombre: "HOSPITAL NACIONAL DOS DE MAYO",
+      distrito: "Lima",
+    });
     const session = waiting("incidencia_awaiting_reauth", {
       slots: {
         [SlotKey.INCIDENCIA_RESUME_STATE]: "incidencia_confirm_ubicacion",

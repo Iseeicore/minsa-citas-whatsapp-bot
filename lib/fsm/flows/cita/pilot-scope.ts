@@ -32,7 +32,5 @@ export function nationalRedirectText(): string {
 export function redirectToNationalSite(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CITA_NATIONAL_REDIRECT;
-  return buildResult(next, [
-    sendMinsaDigitalCta(nationalRedirectText(), NATIONAL_REDIRECT_BUTTON_TEXT, MINSA_DIGITAL_LOGIN_PATH),
-  ]);
+  return buildResult(next, [sendMinsaDigitalCta(nationalRedirectText(), NATIONAL_REDIRECT_BUTTON_TEXT, MINSA_DIGITAL_LOGIN_PATH)]);
 }

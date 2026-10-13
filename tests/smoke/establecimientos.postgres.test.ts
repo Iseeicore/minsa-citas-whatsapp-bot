@@ -37,12 +37,19 @@ describe.skipIf(!process.env.DATABASE_URL)("search of establecimientos against t
     for (const fila of PADRON.filter((f) => !repetidos.has(f.nombre.toUpperCase()))) {
       const result = await buscarPorNombre(fila.nombre);
       expect(result.status).toBe("ok");
-      if (result.status === "ok") expect(result.candidatos.map((c) => c.codigoRenipress), fila.nombre).toContain(fila.codigo_renipress);
+      if (result.status === "ok")
+        expect(
+          result.candidatos.map((c) => c.codigoRenipress),
+          fila.nombre,
+        ).toContain(fila.codigo_renipress);
     }
   });
 
   it("the full name of the Hospital Dos de Mayo is the single answer", async () => {
-    await expect(decidir("HOSPITAL NACIONAL DOS DE MAYO")).resolves.toMatchObject({ kind: "uno", establecimiento: { codigoRenipress: "6206" } });
+    await expect(decidir("HOSPITAL NACIONAL DOS DE MAYO")).resolves.toMatchObject({
+      kind: "uno",
+      establecimiento: { codigoRenipress: "6206" },
+    });
   });
 
   it("tolerates typos and accents", async () => {

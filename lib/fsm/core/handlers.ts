@@ -9,18 +9,8 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { emergencyCut, isEmergencyTurn } from "@/lib/fsm/flows/emergency/emergency";
-import type {
-  HandleEvent,
-  HandlerResult,
-  InboundEvent,
-  QueryResultEvent,
-  Session,
-} from "@/lib/fsm/core/types";
-import {
-  handleAwaitingFlowStart,
-  handleMainMenu,
-  handleMainMenuIntentPending,
-} from "@/lib/fsm/routing/main-menu";
+import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { handleAwaitingFlowStart, handleMainMenu, handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
 import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";

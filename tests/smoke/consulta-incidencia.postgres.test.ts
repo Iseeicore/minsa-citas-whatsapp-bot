@@ -43,7 +43,13 @@ describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la b
   });
 
   const registrar = async (waId: string, extra: { dni?: string | null; nombreCompleto?: string | null } = {}) => {
-    const result = await registrarIncidencia({ waId, dni: null, nombreCompleto: null, descripcion: "El consultorio estaba cerrado sin aviso", ...extra });
+    const result = await registrarIncidencia({
+      waId,
+      dni: null,
+      nombreCompleto: null,
+      descripcion: "El consultorio estaba cerrado sin aviso",
+      ...extra,
+    });
     if (result.status !== "accepted" || !result.codigo) throw new Error("no se registró la incidencia de prueba");
     return result.codigo;
   };

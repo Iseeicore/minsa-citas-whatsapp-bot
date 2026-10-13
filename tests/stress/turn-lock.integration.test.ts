@@ -11,8 +11,7 @@ const db = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => {
-  const wait = () =>
-    new Promise<void>((resolve) => setTimeout(resolve, db.minMs + Math.random() * (db.maxMs - db.minMs)));
+  const wait = () => new Promise<void>((resolve) => setTimeout(resolve, db.minMs + Math.random() * (db.maxMs - db.minMs)));
 
   return {
     getSession: async (from: string) => {
@@ -58,10 +57,7 @@ function createFakePostgres(): AdvisoryLockClient {
 
             for (let current = held.get(key); current; current = held.get(key)) {
               const remaining = deadline - Date.now();
-              const timedOut = await Promise.race([
-                current.then(() => false),
-                sleep(Math.max(0, remaining)).then(() => true),
-              ]);
+              const timedOut = await Promise.race([current.then(() => false), sleep(Math.max(0, remaining)).then(() => true)]);
               if (timedOut) {
                 throw Object.assign(new Error("canceling statement due to lock timeout"), { code: "55P03" });
               }

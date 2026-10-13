@@ -55,10 +55,7 @@ function turnPage(session: Session, offered: OfferedList, id: string): HandlerRe
   return buildResult(next, pageEffects(offered.text, offered.rows, page));
 }
 
-export type CustomMatch =
-  | SelectionMatch
-  | { kind: `${MatchKind.NOTICE}`; text: string }
-  | { kind: `${MatchKind.HANDLED}`; result: HandlerResult };
+export type CustomMatch = SelectionMatch | { kind: MatchKind.NOTICE; text: string } | { kind: MatchKind.HANDLED; result: HandlerResult };
 
 type SelectionOptions = {
   customMatch?: (typed: string, rows: OfferedRow[]) => CustomMatch | undefined;
@@ -69,11 +66,7 @@ type SelectionOptions = {
 
 type SelectionOutcome = { replyId: string; typed?: string } | { result: HandlerResult };
 
-export function resolveSelection(
-  session: Session,
-  event: InboundEvent,
-  options: SelectionOptions = {},
-): SelectionOutcome {
+export function resolveSelection(session: Session, event: InboundEvent, options: SelectionOptions = {}): SelectionOutcome {
   const offered = readOffered(session.slots);
 
   if (event.type === InboundEventType.LIST || event.type === InboundEventType.BUTTON) {
@@ -81,8 +74,7 @@ export function resolveSelection(
     if (!id) return { result: reshowOffered(session, offered) };
     if (offered && (id === ListPageButtonId.NEXT || id === ListPageButtonId.PREV)) return { result: turnPage(session, offered, id) };
 
-    const valid =
-      !offered || offered.rows.some((row) => row.id === id) || options.passthroughIds?.includes(id);
+    const valid = !offered || offered.rows.some((row) => row.id === id) || options.passthroughIds?.includes(id);
     return valid ? { replyId: id } : { result: reshowOffered(session, offered) };
   }
 

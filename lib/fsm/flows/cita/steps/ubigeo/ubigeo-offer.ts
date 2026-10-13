@@ -1,11 +1,5 @@
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
-import {
-  buildResult,
-  offerList,
-  query,
-  sendText,
-  truncateForRow,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, offerList, query, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -24,8 +18,7 @@ export type UbigeoResultItem = {
 export function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): UbigeoResultItem | undefined {
   if (items.length === 1) return items[0];
 
-  const same = (found: string, known: unknown) =>
-    !isString(known) || known === "" || normalizeText(found) === normalizeText(known);
+  const same = (found: string, known: unknown) => !isString(known) || known === "" || normalizeText(found) === normalizeText(known);
   const exact = items.filter(
     (item) =>
       isString(session.slots[SlotKey.CITA_DISTRITO]) &&
@@ -36,8 +29,7 @@ export function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): 
   return exact.length === 1 ? exact[0] : undefined;
 }
 
-export const searchingCatalogText = (distrito: string) =>
-  searchingCatalogInText(toDisplayPlace(distrito));
+export const searchingCatalogText = (distrito: string) => searchingCatalogInText(toDisplayPlace(distrito));
 
 export function ubigeoRows(items: UbigeoResultItem[]): ListRow[] {
   return items.map((item) => ({
@@ -47,8 +39,7 @@ export function ubigeoRows(items: UbigeoResultItem[]): ListRow[] {
   }));
 }
 
-export const isOfferableUbigeoList = (items: UbigeoResultItem[]): boolean =>
-  items.length > 1 && items.length <= WHATSAPP_LIST_MAX_ROWS;
+export const isOfferableUbigeoList = (items: UbigeoResultItem[]): boolean => items.length > 1 && items.length <= WHATSAPP_LIST_MAX_ROWS;
 
 export function acceptSettledUbigeo(next: Session, settled: UbigeoResultItem): HandlerResult {
   next.slots[SlotKey.CITA_UBIGEO] = settled.ubigeoInei;

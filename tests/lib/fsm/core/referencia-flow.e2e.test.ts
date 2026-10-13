@@ -8,8 +8,7 @@ const bookingCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 const referencias = vi.hoisted(() => ({ result: { statusReference: "empty", message: "", data: [] } as ListReferencesResult }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
-  getSession: async (from: string) =>
-    (store.get(from) as Session | undefined) ?? { state: "main_menu", slots: {}, counters: {} },
+  getSession: async (from: string) => (store.get(from) as Session | undefined) ?? { state: "main_menu", slots: {}, counters: {} },
   saveSession: async (from: string, session: Session) => {
     store.set(from, structuredClone(session));
   },

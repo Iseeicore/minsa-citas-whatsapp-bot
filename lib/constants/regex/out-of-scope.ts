@@ -77,31 +77,12 @@ export const OUT_OF_SCOPE_RULES: ReadonlyArray<readonly [OosCategory, readonly R
   ],
   [
     OosCategory.OOS_02,
-    [
-      /\bSIS\b/,
-      /\bSEGURO INTEGRAL\b/,
-      /\bAFILI\w*/,
-      /\bMI SEGURO\b.{0,40}\b(?:ACTIVO|CANCELADO|VIGENTE|VENCIDO|SUSPENDIDO)\b/,
-    ],
+    [/\bSIS\b/, /\bSEGURO INTEGRAL\b/, /\bAFILI\w*/, /\bMI SEGURO\b.{0,40}\b(?:ACTIVO|CANCELADO|VIGENTE|VENCIDO|SUSPENDIDO)\b/],
   ],
-  [
-    OosCategory.OOS_03,
-    [
-      /\b(?<!PUNTO DE )REFERENCIAS?\b/,
-      /\bCONTRARREFERENCIAS?\b/,
-      /\bREFCON\b/,
-    ],
-  ],
+  [OosCategory.OOS_03, [/\b(?<!PUNTO DE )REFERENCIAS?\b/, /\bCONTRARREFERENCIAS?\b/, /\bREFCON\b/]],
   [
     OosCategory.OOS_09,
-    [
-      /\bDESCANSOS? MEDICOS?\b/,
-      /\bCERTIFICADOS?\b/,
-      /\bDISCAPACIDAD\b/,
-      /\bSISFOH\b/,
-      /\bCANJE\b/,
-      /\bSELL(?:EN|AR|O|OS)\b/,
-    ],
+    [/\bDESCANSOS? MEDICOS?\b/, /\bCERTIFICADOS?\b/, /\bDISCAPACIDAD\b/, /\bSISFOH\b/, /\bCANJE\b/, /\bSELL(?:EN|AR|O|OS)\b/],
   ],
   [
     OosCategory.OOS_07,

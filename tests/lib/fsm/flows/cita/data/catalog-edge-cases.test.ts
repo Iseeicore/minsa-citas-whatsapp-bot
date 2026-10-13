@@ -5,18 +5,18 @@ import { formatEspecialidadName, formatEstablecimientoName } from "@/lib/fsm/flo
 import { matchSelection, type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-catalog-edge";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
 const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
 });
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const pending = (state: Session["state"], slots: Session["slots"] = {}): Session => ({
   state,
@@ -66,7 +66,11 @@ describe("typed numbers never match a row's quota count", () => {
       queryResult("list_especialidades", {
         status: "found",
         items: [
-          { codigoEspecialidad: "222400", nombreEspecialidad: "CONSULTA EXTERNA-MEDICINA GENERAL / ATENCIÓN DEL ADULTO-", cantidadCupos: 1312 },
+          {
+            codigoEspecialidad: "222400",
+            nombreEspecialidad: "CONSULTA EXTERNA-MEDICINA GENERAL / ATENCIÓN DEL ADULTO-",
+            cantidadCupos: 1312,
+          },
           { codigoEspecialidad: "221900", nombreEspecialidad: "CONSULTA EXTERNA-ODONTOLOGÍA GENERAL-", cantidadCupos: 27 },
         ],
       }),
@@ -103,7 +107,10 @@ describe("the stored full name is never cut by the row description limit", () =>
     const full = formatEstablecimientoName(LONG_ESTABLECIMIENTO).full;
     expect(full.length).toBeGreaterThan(70);
 
-    const base = pending("cita_establecimiento_pending", { [SlotKey.CITA_ESPECIALIDAD_ID]: "222400", [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO" });
+    const base = pending("cita_establecimiento_pending", {
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "222400",
+      [SlotKey.CITA_DISTRITO]: "SAN JUAN DE LURIGANCHO",
+    });
     const items = [
       { renipressCode: "0009", establishmentName: LONG_ESTABLECIMIENTO, quotasOnline: 4 },
       { renipressCode: "0002", establishmentName: "CENTRO DE SALUD SAN FERNANDO", quotasOnline: 3 },

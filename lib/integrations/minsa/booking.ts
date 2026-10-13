@@ -29,10 +29,7 @@ function logBookingFailure(params: BookAppointmentParams, httpStatus: number, bo
   });
 }
 
-export async function bookAppointment(
-  params: BookAppointmentParams,
-  bearer: string,
-): Promise<BookAppointmentResult> {
+export async function bookAppointment(params: BookAppointmentParams, bearer: string): Promise<BookAppointmentResult> {
   if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
       MinsaEndpoint.CITAS,

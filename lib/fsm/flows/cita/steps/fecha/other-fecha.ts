@@ -1,6 +1,15 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { buildResult, cloneSession, query, sendButtons, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  query,
+  sendButtons,
+  sendText,
+  withNote,
+  readTappedId,
+  readTypedText,
+} from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
 import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
@@ -22,15 +31,18 @@ import {
 import { CHANGE_DATE_ANSWERS } from "@/lib/constants/palabras-clave";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
-const DATE_BOUND_SLOTS = [SlotKey.CITA_FECHA, SlotKey.CITA_HORA_CONFIRM_ID, SlotKey.CITA_HORA_CONFIRM_ONLY, SlotKey.CITA_HORAS_DIA, SlotKey.CITA_OFFERED];
+const DATE_BOUND_SLOTS = [
+  SlotKey.CITA_FECHA,
+  SlotKey.CITA_HORA_CONFIRM_ID,
+  SlotKey.CITA_HORA_CONFIRM_ONLY,
+  SlotKey.CITA_HORAS_DIA,
+  SlotKey.CITA_OFFERED,
+];
 
-const questionButtons = (text: string) =>
-  sendButtons(text, OTHER_FECHA_BUTTONS);
+const questionButtons = (text: string) => sendButtons(text, OTHER_FECHA_BUTTONS);
 
 export function discardedDates(slots: Session["slots"]): string[] {
-  return slotText(slots, SlotKey.CITA_FECHAS_DESCARTADAS)
-    .split(",")
-    .filter(Boolean);
+  return slotText(slots, SlotKey.CITA_FECHAS_DESCARTADAS).split(",").filter(Boolean);
 }
 
 type CloseReason = "declined" | "no_other_dates" | "referencia_sin_cupos";
@@ -60,10 +72,7 @@ const STEP_BY_REASON: Record<OfferOtherFechaReason, string> = {
   [OfferOtherFechaReason.NO_HORARIOS]: "hora_pending",
 };
 
-export function offerOtherFecha(
-  session: Session,
-  reason: OfferOtherFechaReason = OfferOtherFechaReason.ONLY_DECLINED,
-): HandlerResult {
+export function offerOtherFecha(session: Session, reason: OfferOtherFechaReason = OfferOtherFechaReason.ONLY_DECLINED): HandlerResult {
   const next = cloneSession(session);
 
   const declined = slotText(next.slots, SlotKey.CITA_FECHA);

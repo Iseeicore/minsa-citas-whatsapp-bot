@@ -16,16 +16,14 @@ export const VENTAJA_CLARA = 0.25;
 export const SIMILITUD_CON_VENTAJA = 0.5;
 
 export type Decision =
-  | { kind: `${EstablecimientoDecision.NINGUNO}` }
-  | { kind: `${EstablecimientoDecision.UNO}`; establecimiento: Candidato }
-  | { kind: `${EstablecimientoDecision.VARIOS}`; total: number };
+  | { kind: EstablecimientoDecision.NINGUNO }
+  | { kind: EstablecimientoDecision.UNO; establecimiento: Candidato }
+  | { kind: EstablecimientoDecision.VARIOS; total: number };
 
 const esCandidato = (fila: Candidato) => fila.similitud >= MIN_SIMILITUD || fila.similitudPalabra >= MIN_SIMILITUD_PALABRA;
 
 export function decidirCandidatos(filas: Candidato[]): Decision {
-  const candidatos = filas
-    .filter(esCandidato)
-    .sort((a, b) => b.similitud - a.similitud || b.similitudPalabra - a.similitudPalabra);
+  const candidatos = filas.filter(esCandidato).sort((a, b) => b.similitud - a.similitud || b.similitudPalabra - a.similitudPalabra);
   if (candidatos.length === 0) return { kind: EstablecimientoDecision.NINGUNO };
 
   const [primero, segundo] = candidatos;

@@ -1,16 +1,8 @@
-import {
-  ALL_WHITESPACE_RUNS,
-  CAPITALIZED_CONNECTOR,
-  WHITESPACE_RUN,
-  WORD_INITIAL,
-} from "@/lib/constants/regex/text";
+import { ALL_WHITESPACE_RUNS, CAPITALIZED_CONNECTOR, WHITESPACE_RUN, WORD_INITIAL } from "@/lib/constants/regex/text";
 import { stripAccents } from "@/lib/utils/text-values";
 
 export function normalizeText(value: string): string {
-  return stripAccents(value)
-    .toUpperCase()
-    .trim()
-    .replace(ALL_WHITESPACE_RUNS, " ");
+  return stripAccents(value).toUpperCase().trim().replace(ALL_WHITESPACE_RUNS, " ");
 }
 
 export function toDisplayPlace(name: string): string {
@@ -30,10 +22,7 @@ export function namesMatch(typedName: string, officialFullName: string): boolean
 
   if (typedTokens.size === 0 || officialTokens.size === 0) return false;
 
-  const [smaller, larger] =
-    typedTokens.size <= officialTokens.size
-      ? [typedTokens, officialTokens]
-      : [officialTokens, typedTokens];
+  const [smaller, larger] = typedTokens.size <= officialTokens.size ? [typedTokens, officialTokens] : [officialTokens, typedTokens];
 
   for (const token of smaller) {
     if (!larger.has(token)) return false;

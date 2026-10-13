@@ -5,15 +5,7 @@ import { resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resol
 import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
-import {
-  buildResult,
-  cloneSession,
-  query,
-  readReply,
-  sendText,
-  sendButtons,
-  readTrimmedText,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query, readReply, sendText, sendButtons, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import { sendMinsaDigitalCta } from "@/lib/fsm/core/minsa-digital-cta";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
@@ -36,7 +28,13 @@ import {
   VERIFIED_ASK_DISTRITO_TEXT,
   REGISTRATION_BUTTONS,
 } from "@/lib/constants/textos/cita-identidad";
-import { VALIDANDO_DOCUMENTO_TEXT, ASK_OTP_TEXT, INVALID_OTP_TEXT, VERIFICANDO_CODIGO_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
+import {
+  VALIDANDO_DOCUMENTO_TEXT,
+  ASK_OTP_TEXT,
+  INVALID_OTP_TEXT,
+  VERIFICANDO_CODIGO_TEXT,
+  codigoIncorrectoText,
+} from "@/lib/constants/textos/identidad";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
@@ -69,9 +67,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
   if (result.status === ValidateUserStatus.VALID && isString(result.twofaId)) {
     next.slots[SlotKey.CITA_TWOFA_ID] = result.twofaId;
     next.state = SessionState.CITA_AWAITING_OTP;
-    return buildResult(next, [
-      sendText(ASK_OTP_TEXT),
-    ]);
+    return buildResult(next, [sendText(ASK_OTP_TEXT)]);
   }
 
   const checks = (next.counters[CounterKey.CITA_REGISTRATION_CHECKS] ?? 0) + 1;
@@ -79,18 +75,11 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
 
   if (checks >= MAX_REGISTRATION_CHECKS) {
     next.state = SessionState.CITA_REGISTRATION_REJECTED;
-    return buildResult(next, [
-      sendText(
-        REGISTRATION_REJECTED_TEXT,
-      ),
-    ]);
+    return buildResult(next, [sendText(REGISTRATION_REJECTED_TEXT)]);
   }
 
   next.state = SessionState.CITA_REGISTRATION_WAIT;
-  const introText =
-    checks === 1
-      ? REGISTRATION_FIRST_MISS_TEXT
-      : REGISTRATION_SECOND_MISS_TEXT;
+  const introText = checks === 1 ? REGISTRATION_FIRST_MISS_TEXT : REGISTRATION_SECOND_MISS_TEXT;
   return buildResult(next, [
     sendMinsaDigitalCta(introText, MINSADIGITAL_BUTTON_TEXT, MINSA_DIGITAL_LOGIN_PATH),
     registrationRetryButtons(REGISTRATION_WAIT_TEXT),
@@ -105,17 +94,12 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   const isRetry = replyId === RegistrationButtonId.RETRY;
 
   if (!isRetry) {
-    return buildResult(session, [
-      registrationRetryButtons(REGISTRATION_RETRY_PROMPT_TEXT),
-    ]);
+    return buildResult(session, [registrationRetryButtons(REGISTRATION_RETRY_PROMPT_TEXT)]);
   }
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_VALIDATE_PENDING;
-  return buildResult(next, [
-    sendText(VALIDATING_AGAIN_TEXT),
-    validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING)),
-  ]);
+  return buildResult(next, [sendText(VALIDATING_AGAIN_TEXT), validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING))]);
 }
 
 export function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
@@ -140,11 +124,7 @@ export function continueCitaAfterVerification(session: Session): HandlerResult {
   const distritoHint = next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
   if (distritoHint) {
     delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
-    return resolveDistritoText(
-      next,
-      distritoHint,
-      next.slots[SlotKey.INITIAL_MESSAGE_TEXT],
-    );
+    return resolveDistritoText(next, distritoHint, next.slots[SlotKey.INITIAL_MESSAGE_TEXT]);
   }
 
   const initialMessageText = next.slots[SlotKey.INITIAL_MESSAGE_TEXT];
@@ -152,9 +132,7 @@ export function continueCitaAfterVerification(session: Session): HandlerResult {
     return resolveDistritoText(next, initialMessageText, undefined);
   }
 
-  return buildResult(next, [
-    sendText(VERIFIED_ASK_DISTRITO_TEXT),
-  ]);
+  return buildResult(next, [sendText(VERIFIED_ASK_DISTRITO_TEXT)]);
 }
 
 export function handleVerifyPending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -196,13 +174,9 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
 
   if (attempts >= MAX_OTP_ATTEMPTS) {
     next.state = SessionState.CITA_OTP_LOCKED;
-    return buildResult(next, [
-      sendText(OTP_LOCKED_TEXT),
-    ]);
+    return buildResult(next, [sendText(OTP_LOCKED_TEXT)]);
   }
 
   next.state = SessionState.CITA_AWAITING_OTP;
-  return buildResult(next, [
-    sendText(codigoIncorrectoText(MAX_OTP_ATTEMPTS - attempts)),
-  ]);
+  return buildResult(next, [sendText(codigoIncorrectoText(MAX_OTP_ATTEMPTS - attempts))]);
 }

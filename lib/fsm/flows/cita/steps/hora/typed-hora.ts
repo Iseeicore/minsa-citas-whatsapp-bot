@@ -8,16 +8,16 @@ import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { BARE_SMALL_NUMBER } from "@/lib/constants/regex/selection";
-import { hourGroupSeeHorasText, numberedHoraOptionText, bareNumberQuestionText, HORA_UNAVAILABLE_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
+import {
+  hourGroupSeeHorasText,
+  numberedHoraOptionText,
+  bareNumberQuestionText,
+  HORA_UNAVAILABLE_TEXT,
+} from "@/lib/constants/textos/cita-fecha-hora";
 import { MatchKind } from "@/lib/enums/match-kind";
 import { WHATSAPP_LIST_MAX_ROWS, BUTTON_TITLE_MAX } from "@/lib/constants/limits/whatsapp";
 
-function resolveBareHoraNumber(
-  session: Session,
-  number: number,
-  visibleRows: OfferedRow[],
-  daySlots: HoraSlot[],
-): CustomMatch | undefined {
+function resolveBareHoraNumber(session: Session, number: number, visibleRows: OfferedRow[], daySlots: HoraSlot[]): CustomMatch | undefined {
   const positionRow = number <= visibleRows.length ? visibleRows[number - 1] : undefined;
   const hourSlots = daySlots.filter((slot) => {
     const hour = Number(slot.start.slice(0, 2));
@@ -54,13 +54,15 @@ function resolveBareHoraNumber(
     kind: MatchKind.HANDLED,
     result: buildResult(next, [
       sendButtons(bareNumberQuestionText(number, formatHora12(positionSlot.start), hourDescription), [
-        { id: HoraChoiceButtonId.A, title: truncateForRow(numberedHoraOptionText(number, formatHora12(positionSlot.start)), BUTTON_TITLE_MAX) },
+        {
+          id: HoraChoiceButtonId.A,
+          title: truncateForRow(numberedHoraOptionText(number, formatHora12(positionSlot.start)), BUTTON_TITLE_MAX),
+        },
         { id: HoraChoiceButtonId.B, title: truncateForRow(hourLabel, BUTTON_TITLE_MAX) },
       ]),
     ]),
   };
 }
-
 
 export function matchHoraTyped(session: Session, typed: string, rows: OfferedRow[]): CustomMatch | undefined {
   const day = unpackHoraSlots(session.slots[SlotKey.CITA_HORAS_DIA]);

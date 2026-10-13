@@ -1,28 +1,11 @@
-import {
-  buildResult,
-  omitSlot,
-  query,
-  readReply,
-  sendText,
-  withNote,
-} from "@/lib/fsm/core/handlers-shared";
-import {
-  detectCitaRequest,
-  isContinueReply,
-  isGreeting,
-  isIncidenciaKeyword,
-} from "@/lib/fsm/routing/menu-shortcuts";
+import { buildResult, omitSlot, query, readReply, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { detectCitaRequest, isContinueReply, isGreeting, isIncidenciaKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { beginCita, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import {
-  detectOutOfScope,
-  isCitaKeyword,
-  isContinueKeyword,
-  type OosCategory,
-} from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { detectOutOfScope, isCitaKeyword, isContinueKeyword, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { MenuChoice } from "@/lib/enums/menu-choice";
@@ -40,7 +23,6 @@ import {
 } from "@/lib/constants/textos/menu";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
-
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
   return buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
@@ -131,9 +113,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     if (outOfScope) return outOfScopeReply(outOfScope, session.slots);
 
     const preservedSlots =
-      !session.slots[SlotKey.INITIAL_MESSAGE_TEXT] && event.text
-        ? { [SlotKey.INITIAL_MESSAGE_TEXT]: event.text }
-        : session.slots;
+      !session.slots[SlotKey.INITIAL_MESSAGE_TEXT] && event.text ? { [SlotKey.INITIAL_MESSAGE_TEXT]: event.text } : session.slots;
 
     const cita = event.text ? detectCitaRequest(event.text) : undefined;
     if (cita) return withNote(beginCitaFromIntent(preservedSlots, cita), { kind: "shortcut", detail: { name: "cita_request" } });
@@ -152,10 +132,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
         slots: { ...preservedSlots, [SlotKey.INCIDENCIA_BORRADOR]: event.text },
         counters: {},
       };
-      return buildResult(next, [
-        sendText(REVIEWING_MESSAGE_TEXT),
-        query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text }),
-      ]);
+      return buildResult(next, [sendText(REVIEWING_MESSAGE_TEXT), query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text })]);
     }
 
     return enterMainMenu(preservedSlots);
@@ -184,10 +161,7 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
 
   if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
-      buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [
-        sendText(OUT_OF_SCOPE_REQUEST_TEXT),
-        buildMenuEffect(),
-      ]),
+      buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(OUT_OF_SCOPE_REQUEST_TEXT), buildMenuEffect()]),
       { kind: "out_of_scope", detail: { reason: "ai_request" } },
     );
   }
@@ -199,15 +173,8 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
   });
 }
 
-function beginCitaFromIntent(
-  slots: Session["slots"],
-  hints: { especialidad?: string; distrito?: string },
-): HandlerResult {
-  return beginCita(
-    slots,
-    hints,
-    CITA_INTENT_DETECTED_TEXT,
-  );
+function beginCitaFromIntent(slots: Session["slots"], hints: { especialidad?: string; distrito?: string }): HandlerResult {
+  return beginCita(slots, hints, CITA_INTENT_DETECTED_TEXT);
 }
 
 function outOfScopeReply(category: OosCategory, slots: Session["slots"] = {}): HandlerResult {

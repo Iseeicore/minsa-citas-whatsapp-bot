@@ -6,20 +6,20 @@ import { serializeOffered, type OfferedRow } from "@/lib/fsm/parsing/selection/s
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-single-horario";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const horasResult = (items: Array<{ horaInicio: string; horaFin: string }>): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "list_horas",
   result: { status: "found", items: items.map((item) => ({ ...item, cantidadCupos: 1 })) },
 });
 
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const BASE_SLOTS = {
   [SlotKey.CITA_BEARER]: "token",
@@ -45,12 +45,10 @@ const PREVIOUS_PAGE: OfferedRow[] = Array.from({ length: 10 }, (_, index) => {
 });
 const previousPageList = () => serializeOffered({ text: "Selecciona el horario:", rows: PREVIOUS_PAGE });
 
-const isBooking = (result: HandlerResult) =>
-  queries(result).length === 1 && queries(result)[0].kind === "book_appointment";
+const isBooking = (result: HandlerResult) => queries(result).length === 1 && queries(result)[0].kind === "book_appointment";
 
 describe("a day with ONE horario asks before booking", () => {
-  const asked = () =>
-    handle({ state: "cita_hora_pending", slots: { ...BASE_SLOTS }, counters: {} }, horasResult(LONE));
+  const asked = () => handle({ state: "cita_hora_pending", slots: { ...BASE_SLOTS }, counters: {} }, horasResult(LONE));
 
   it("goes to the confirmation step, never straight to book_appointment", () => {
     const result = asked();
@@ -81,7 +79,11 @@ describe("a day with ONE horario asks before booking", () => {
     });
 
     const result = handle(
-      { state: "cita_hora_page_pending", slots: { ...BASE_SLOTS, [SlotKey.CITA_OFFERED]: previousPageList() }, counters: { [CounterKey.CITA_HORA_PAGE]: 1 } },
+      {
+        state: "cita_hora_page_pending",
+        slots: { ...BASE_SLOTS, [SlotKey.CITA_OFFERED]: previousPageList() },
+        counters: { [CounterKey.CITA_HORA_PAGE]: 1 },
+      },
       horasResult(eleven),
     );
 
@@ -103,7 +105,7 @@ describe("a day with ONE horario asks before booking", () => {
   it("a booking retry that leaves one horario also asks instead of booking again", () => {
     const rejected = handle(
       { state: "cita_booking_pending", slots: { ...BASE_SLOTS }, counters: {} },
-      { from: FROM, type: "query_result", queryKind: "book_appointment", result: { status: "error" } },
+      { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "book_appointment", result: { status: "error" } },
     );
     expect(rejected.session.state).toBe("cita_hora_pending");
 
@@ -184,17 +186,18 @@ describe("yes: the button or any way of taking that hour", () => {
 });
 
 describe("no, with nothing to go back to: another date is offered (see other-fecha.test.ts)", () => {
-  it.each([["the button", tap("hora_confirm_no")], ["typed no", text("no")], ["typed «otro horario»", text("otro horario")]])(
-    "%s does not book and does not close: it asks about another date",
-    (_label, event) => {
-      const result = handle(confirmingLone(), event);
+  it.each([
+    ["the button", tap("hora_confirm_no")],
+    ["typed no", text("no")],
+    ["typed «otro horario»", text("otro horario")],
+  ])("%s does not book and does not close: it asks about another date", (_label, event) => {
+    const result = handle(confirmingLone(), event);
 
-      expect(queries(result)).toHaveLength(0);
-      expect(result.session.state).toBe("cita_awaiting_other_fecha");
-      expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
-      expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
-    },
-  );
+    expect(queries(result)).toHaveLength(0);
+    expect(result.session.state).toBe("cita_awaiting_other_fecha");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
+  });
 });
 
 describe("no, with the previous page's list still there: back to that list", () => {

@@ -99,10 +99,7 @@ function askReferenciaConfirmation(session: Session, item: ReferenciaItem | unde
     upsDestino: item?.upsDestino ?? "",
     estado: REFERENCIA_ESTADO_LABELS[item?.estado ?? 0] ?? "",
   });
-  return buildResult(session, [
-    sendText(detalle),
-    sendButtons(REFERENCIA_CONFIRM_QUESTION_TEXT, REFERENCIA_CONFIRM_BUTTONS),
-  ]);
+  return buildResult(session, [sendText(detalle), sendButtons(REFERENCIA_CONFIRM_QUESTION_TEXT, REFERENCIA_CONFIRM_BUTTONS)]);
 }
 
 export function handleReferencesPending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -115,10 +112,7 @@ export function handleReferencesPending(session: Session, event: QueryResultEven
 
   next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.data);
   next.state = SessionState.CITA_AWAITING_REFERENCES_OFFER;
-  return buildResult(next, [
-    sendText(REFERENCIAS_FOUND_TEXT),
-    sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS),
-  ]);
+  return buildResult(next, [sendText(REFERENCIAS_FOUND_TEXT), sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS)]);
 }
 
 export function handleAwaitingReferenciasOffer(session: Session, event: InboundEvent): HandlerResult {
@@ -133,9 +127,7 @@ export function handleAwaitingReferenciasOffer(session: Session, event: InboundE
     return withLeadingText(continueCitaAfterVerification(session), REFERENCIAS_DECLINED_TEXT);
   }
 
-  return withRejectionNotice(buildResult(session, [
-    sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS),
-  ]));
+  return withRejectionNotice(buildResult(session, [sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS)]));
 }
 
 export function handleAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {

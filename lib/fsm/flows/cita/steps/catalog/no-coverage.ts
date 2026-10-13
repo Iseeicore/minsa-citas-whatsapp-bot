@@ -1,7 +1,16 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import { looksLikePlaceName, resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
-import { buildResult, cloneSession, omitSlot, sendButtons, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  omitSlot,
+  sendButtons,
+  sendText,
+  withNote,
+  readTappedId,
+  readTypedText,
+} from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -41,8 +50,7 @@ const DISTRICT_BOUND_SLOTS = [
   SlotKey.CITA_OFFERED_NAMES,
 ];
 
-const questionButtons = (text: string) =>
-  sendButtons(text, OTHER_DISTRITO_BUTTONS);
+const questionButtons = (text: string) => sendButtons(text, OTHER_DISTRITO_BUTTONS);
 
 export function offerOtherDistrito(
   session: Session,
@@ -55,36 +63,32 @@ export function offerOtherDistrito(
   const where = distrito ? noCoverageInPlaceText(toDisplayPlace(distrito)) : NO_COVERAGE_IN_YOUR_AREA_TEXT;
   const what = missing === SearchSubject.ESPECIALIDADES ? NO_COVERAGE_ESPECIALIDADES_TEXT : NO_COVERAGE_ESTABLECIMIENTOS_TEXT;
 
-  return withNote(
-    buildResult(next, [questionButtons(noCoverageText(what, where))]),
-    { kind: "no_coverage", level: "warn", detail: { missing, distrito: distrito || "unknown" } },
-  );
+  return withNote(buildResult(next, [questionButtons(noCoverageText(what, where))]), {
+    kind: "no_coverage",
+    level: "warn",
+    detail: { missing, distrito: distrito || "unknown" },
+  });
 }
 
 export function offerChangeDistrito(session: Session, source: "local" | "ai"): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CITA_AWAITING_OTHER_DISTRITO;
-  return withNote(
-    buildResult(next, [
-      questionButtons(CHANGE_DISTRITO_TEXT),
-    ]),
-    { kind: "change_distrito", detail: { state: session.state, source } },
-  );
+  return withNote(buildResult(next, [questionButtons(CHANGE_DISTRITO_TEXT)]), {
+    kind: "change_distrito",
+    detail: { state: session.state, source },
+  });
 }
 
 export function handleOtherDistrito(session: Session, event: InboundEvent): HandlerResult {
   const tapped = readTappedId(event);
   const typed = readTypedText(event);
-  const answer =
-    typed && CHANGE_DISTRICT_ANSWERS.has(normalizeText(typed)) ? Confirmation.YES : resolveConfirmation(typed);
+  const answer = typed && CHANGE_DISTRICT_ANSWERS.has(normalizeText(typed)) ? Confirmation.YES : resolveConfirmation(typed);
 
   if (tapped === OtherDistritoButtonId.YES || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.slots = DISTRICT_BOUND_SLOTS.reduce(omitSlot, next.slots);
     next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
-    return buildResult(next, [
-      sendText(ASK_OTHER_DISTRITO_TEXT),
-    ]);
+    return buildResult(next, [sendText(ASK_OTHER_DISTRITO_TEXT)]);
   }
 
   if (tapped === OtherDistritoButtonId.NO || answer === Confirmation.NO) {

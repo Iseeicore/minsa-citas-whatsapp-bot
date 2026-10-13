@@ -3,6 +3,7 @@ import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { INCIDENCIA_CANCELADA_TEXT } from "@/lib/constants/textos/incidencia";
 
 const FROM = "51999999999";
@@ -10,20 +11,30 @@ const FROM = "51999999999";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const file = (type: "image" | "document"): InboundEvent => ({ from: FROM, type, text: type === "image" ? "foto del cobro" : undefined });
-const reniecResult = (result: unknown): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind: "reniec_lookup", result });
+const reniecResult = (result: unknown): QueryResultEvent => ({
+  from: FROM,
+  type: InternalEventType.QUERY_RESULT,
+  queryKind: "reniec_lookup",
+  result,
+});
 const fotoIntentResult = (quiereOmitir: boolean): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "analyze_incidencia_foto_intent",
   result: { quiereOmitir },
 });
 const consentCheckResult = (aceptado: boolean): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "verificar_consentimiento",
   result: { aceptado },
 });
-const consentRegisterResult = (): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind: "registrar_consentimiento", result: { ok: true } });
+const consentRegisterResult = (): QueryResultEvent => ({
+  from: FROM,
+  type: InternalEventType.QUERY_RESULT,
+  queryKind: "registrar_consentimiento",
+  result: { ok: true },
+});
 
 function throughConsent(step: HandlerResult): HandlerResult {
   let next = handleIncidencia(step.session, consentCheckResult(false));
@@ -31,8 +42,7 @@ function throughConsent(step: HandlerResult): HandlerResult {
   return handleIncidencia(next.session, consentRegisterResult());
 }
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] => sent(result).map((effect) => ("text" in effect ? effect.text : ""));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
@@ -86,7 +96,11 @@ describe("incidencia_awaiting_dni: el largo decide el documento", () => {
     expect(result.session.state).toBe("incidencia_awaiting_dni");
     expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
     expect(queries(result)).toHaveLength(0);
-    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", text: "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.", buttons: [{ id: "incidencia_anonimo" }] });
+    expect(sent(result)[0]).toMatchObject({
+      kind: "send_buttons",
+      text: "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.",
+      buttons: [{ id: "incidencia_anonimo" }],
+    });
   });
 
   it("tocar «Continuar anónimo» desde ahí sigue a verificar el consentimiento, sin documento ni nombre", () => {
@@ -116,19 +130,23 @@ describe("incidencia_reniec_pending: el nombre sale de RENIEC", () => {
     expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
   });
 
-  it.each([["no lo encuentra", { status: "not_found" }], ["no responde", { status: "error" }], ["trae un nombre vacío", { status: "found", nombreCompleto: "  " }]])(
-    "RENIEC %s: se disculpa y pide un nombre o alias, sin detener a la persona",
-    (_label, result) => {
-      const step = handleIncidencia(pending(), reniecResult(result));
+  it.each([
+    ["no lo encuentra", { status: "not_found" }],
+    ["no responde", { status: "error" }],
+    ["trae un nombre vacío", { status: "found", nombreCompleto: "  " }],
+  ])("RENIEC %s: se disculpa y pide un nombre o alias, sin detener a la persona", (_label, result) => {
+    const step = handleIncidencia(pending(), reniecResult(result));
 
-      expect(step.session.state).toBe("incidencia_awaiting_nombre_libre");
-      expect(texts(step)).toEqual(["Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias."]);
-      expect(step.session.slots[SlotKey.DNI]).toBe("12345678");
-    },
-  );
+    expect(step.session.state).toBe("incidencia_awaiting_nombre_libre");
+    expect(texts(step)).toEqual(["Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias."]);
+    expect(step.session.slots[SlotKey.DNI]).toBe("12345678");
+  });
 
   it("con un borrador ya escrito, lo ofrece usar después de saludar y de que autorice el tratamiento de datos", () => {
-    const session: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." } };
+    const session: Session = {
+      ...pending(),
+      slots: { ...pending().slots, [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." },
+    };
     let result = handleIncidencia(session, reniecResult({ status: "found", nombreCompleto: "ANA RIOS" }));
 
     expect(result.session.state).toBe("incidencia_consent_check_pending");
@@ -202,7 +220,9 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
     const previous = process.env.MEDIA_STORAGE_BASE_URL;
     delete process.env.MEDIA_STORAGE_BASE_URL;
     try {
-      expect(handleIncidencia(awaitingDescripcion(), text("El consultorio estaba cerrado.")).session.state).toBe("incidencia_awaiting_foto");
+      expect(handleIncidencia(awaitingDescripcion(), text("El consultorio estaba cerrado.")).session.state).toBe(
+        "incidencia_awaiting_foto",
+      );
     } finally {
       if (previous !== undefined) process.env.MEDIA_STORAGE_BASE_URL = previous;
     }
@@ -210,7 +230,8 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
 });
 
 describe("el registro final: con la persona o anónimo", () => {
-  const submission = (step: HandlerResult) => queries(step)[0].payload.submission as { dni: string | null; nombreCompleto: string | null; mediaDataUri?: string };
+  const submission = (step: HandlerResult) =>
+    queries(step)[0].payload.submission as { dni: string | null; nombreCompleto: string | null; mediaDataUri?: string };
   const confirmar = (step: HandlerResult) => handleIncidencia(step.session, tap("incidencia_confirmar_registro_si"));
 
   it("con DNI: lleva el documento y el nombre de RENIEC", () => {
@@ -223,7 +244,13 @@ describe("el registro final: con la persona o anónimo", () => {
     expect(step.session.state).toBe("incidencia_confirm_registro");
     step = confirmar(step);
 
-    expect(submission(step)).toEqual({ waId: FROM, dni: "12345678", nombreCompleto: "JUAN CARLOS QUISPE PEREZ", descripcion: "El consultorio estaba cerrado.", establecimientoId: null });
+    expect(submission(step)).toEqual({
+      waId: FROM,
+      dni: "12345678",
+      nombreCompleto: "JUAN CARLOS QUISPE PEREZ",
+      descripcion: "El consultorio estaba cerrado.",
+      establecimientoId: null,
+    });
   });
 
   it("con RENIEC caído: lleva el documento y el alias que escribió", () => {
@@ -256,7 +283,13 @@ describe("el registro final: con la persona o anónimo", () => {
     step = handleIncidencia(step.session, text("OMITIR"));
     step = confirmar(step);
 
-    expect(submission(step)).toEqual({ waId: FROM, dni: null, nombreCompleto: null, descripcion: "El consultorio estaba cerrado.", establecimientoId: null });
+    expect(submission(step)).toEqual({
+      waId: FROM,
+      dni: null,
+      nombreCompleto: null,
+      descripcion: "El consultorio estaba cerrado.",
+      establecimientoId: null,
+    });
   });
 });
 
@@ -265,14 +298,17 @@ function awaitingFoto(): Session {
 }
 
 describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", () => {
-  it.each(["image", "document"] as const)("un archivo (%s) se reconoce, se acusa y pide confirmar el registro (sin guardarlo todavía)", (type) => {
-    const result = handleIncidencia(awaitingFoto(), file(type));
+  it.each(["image", "document"] as const)(
+    "un archivo (%s) se reconoce, se acusa y pide confirmar el registro (sin guardarlo todavía)",
+    (type) => {
+      const result = handleIncidencia(awaitingFoto(), file(type));
 
-    expect(result.session.state).toBe("incidencia_confirm_registro");
-    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
-    expect(queries(result)).toHaveLength(0);
-    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
-  });
+      expect(result.session.state).toBe("incidencia_confirm_registro");
+      expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
+      expect(queries(result)).toHaveLength(0);
+      expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+    },
+  );
 
   it("'OMITIR' sigue funcionando como atajo determinístico (sin IA): pide confirmar, sin acuse", () => {
     const result = handleIncidencia(awaitingFoto(), text("OMITIR"));
@@ -347,13 +383,23 @@ describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", ()
 describe("«quiero cerrar» cancela desde cualquier paso", () => {
   const steps: [string, Session][] = [
     ["pedir ubicación", { state: "incidencia_awaiting_ubicacion", slots: {}, counters: {} }],
-    ["confirmar ubicación", { state: "incidencia_confirm_ubicacion", slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO]: "{}" }, counters: {} }],
+    [
+      "confirmar ubicación",
+      { state: "incidencia_confirm_ubicacion", slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO]: "{}" }, counters: {} },
+    ],
     ["omitir ubicación", { state: "incidencia_confirm_omitir", slots: {}, counters: {} }],
     ["nombre o anónimo", identityChoice()],
     ["documento", { state: "incidencia_awaiting_dni", slots: {}, counters: {} }],
     ["nombre libre", { state: "incidencia_awaiting_nombre_libre", slots: { [SlotKey.DNI]: "12345678" }, counters: {} }],
     ["relato", { state: "incidencia_awaiting_descripcion", slots: { [SlotKey.NOMBRE_COMPLETO]: "Ana" }, counters: {} }],
-    ["borrador", { state: "incidencia_confirm_borrador", slots: { [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." }, counters: {} }],
+    [
+      "borrador",
+      {
+        state: "incidencia_confirm_borrador",
+        slots: { [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." },
+        counters: {},
+      },
+    ],
     ["evidencia", awaitingFoto()],
   ];
 
@@ -366,9 +412,12 @@ describe("«quiero cerrar» cancela desde cualquier paso", () => {
     expect(result.outcome).toBe("closed");
   });
 
-  it.each(["quiero cerrar", "QUIERO CERRAR.", "  Quiero   cerrar!! ", "cerrar", "cerrar sesión", "terminar la sesión"])("%j cierra", (frase) => {
-    expect(handleIncidencia(awaitingFoto(), text(frase)).session.state).toBe("incidencia_cancelled");
-  });
+  it.each(["quiero cerrar", "QUIERO CERRAR.", "  Quiero   cerrar!! ", "cerrar", "cerrar sesión", "terminar la sesión"])(
+    "%j cierra",
+    (frase) => {
+      expect(handleIncidencia(awaitingFoto(), text(frase)).session.state).toBe("incidencia_cancelled");
+    },
+  );
 
   it("un relato que solo menciona la frase no cancela", () => {
     const relato = "El doctor me dijo que quiero cerrar mi cuenta pero me cobraron sin recibo";
@@ -384,7 +433,11 @@ describe("«quiero cerrar» cancela desde cualquier paso", () => {
 });
 
 describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
-  const pending = (): Session => ({ state: "incidencia_foto_intent_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} });
+  const pending = (): Session => ({
+    state: "incidencia_foto_intent_pending",
+    slots: { descripcionIncidencia: "Mala atención" },
+    counters: {},
+  });
 
   it("si la IA dice que quiere omitir, pide confirmar el registro", () => {
     const result = handleIncidencia(pending(), fotoIntentResult(true));
@@ -404,7 +457,7 @@ describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
 describe("incidencia_submit_pending: el resultado del registro", () => {
   const submitResult = (result: { status: string; reason?: string; codigo?: string }): QueryResultEvent => ({
     from: FROM,
-    type: "query_result",
+    type: InternalEventType.QUERY_RESULT,
     queryKind: "incidencia_register",
     result,
   });
@@ -441,7 +494,9 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
 
   it("aceptado con establecimiento pero sin código (una reentrega que no lo pudo leer): solo agradece", () => {
     const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
-    expect(texts(handleIncidencia(withPlace, submitResult({ status: "accepted" })))).toEqual(["Gracias por tu reporte de incidencia, ya se registró."]);
+    expect(texts(handleIncidencia(withPlace, submitResult({ status: "accepted" })))).toEqual([
+      "Gracias por tu reporte de incidencia, ya se registró.",
+    ]);
   });
   it("tope diario alcanzado: avisa que podrá registrar otra mañana y cierra", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "rejected", reason: "daily_limit" }));
@@ -459,7 +514,11 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
 });
 
 describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
-  const checkPending = (): Session => ({ state: "incidencia_consent_check_pending", slots: { [SlotKey.NOMBRE_COMPLETO]: "Ana" }, counters: {} });
+  const checkPending = (): Session => ({
+    state: "incidencia_consent_check_pending",
+    slots: { [SlotKey.NOMBRE_COMPLETO]: "Ana" },
+    counters: {},
+  });
   const choice = (): Session => ({ state: "incidencia_consent_choice", slots: {}, counters: {} });
   const registerPending = (): Session => ({ state: "incidencia_consent_register_pending", slots: {}, counters: {} });
 
@@ -528,7 +587,9 @@ describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
     const result = handleIncidencia(confirming(), tap("incidencia_confirmar_registro_si"));
 
     expect(result.session.state).toBe("incidencia_submit_pending");
-    expect(queries(result)).toEqual([{ kind: "incidencia_register", payload: { submission: expect.objectContaining({ descripcion: "Me cobraron sin recibo." }) } }]);
+    expect(queries(result)).toEqual([
+      { kind: "incidencia_register", payload: { submission: expect.objectContaining({ descripcion: "Me cobraron sin recibo." }) } },
+    ]);
   });
 
   it("«Cancelar» cierra sin registrar nada", () => {

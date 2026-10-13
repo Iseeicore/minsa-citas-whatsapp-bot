@@ -1,6 +1,15 @@
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { buildResult, cloneSession, query, sendButtons, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  query,
+  sendButtons,
+  sendText,
+  withNote,
+  readTappedId,
+  readTypedText,
+} from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -11,7 +20,12 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { CITA_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
 import { THAT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
-import { DUPLICATE_QUESTION_TEXT, duplicateActiveText, SEARCHING_OTHER_ESPECIALIDADES_TEXT, DUPLICATE_BUTTONS } from "@/lib/constants/textos/cita-reserva";
+import {
+  DUPLICATE_QUESTION_TEXT,
+  duplicateActiveText,
+  SEARCHING_OTHER_ESPECIALIDADES_TEXT,
+  DUPLICATE_BUTTONS,
+} from "@/lib/constants/textos/cita-reserva";
 import { OTHER_ESPECIALIDAD_ANSWERS, DUPLICATE_EXIT_ANSWERS } from "@/lib/constants/palabras-clave";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
@@ -28,19 +42,18 @@ const BOOKING_BOUND_SLOTS = [
   SlotKey.CITA_OFFERED_NAMES,
 ];
 
-const questionButtons = (text: string) =>
-  sendButtons(text, DUPLICATE_BUTTONS);
+const questionButtons = (text: string) => sendButtons(text, DUPLICATE_BUTTONS);
 
 export function discardedEspecialidades(slots: Session["slots"]): string[] {
-  return slotText(slots, SlotKey.CITA_ESPECIALIDADES_DESCARTADAS)
-    .split(",")
-    .filter(Boolean);
+  return slotText(slots, SlotKey.CITA_ESPECIALIDADES_DESCARTADAS).split(",").filter(Boolean);
 }
 
 export function offerOtherEspecialidad(session: Session): HandlerResult {
   const next = cloneSession(session);
   const taken = slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID);
-  const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*` : THAT_ESPECIALIDAD_TEXT;
+  const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]
+    ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*`
+    : THAT_ESPECIALIDAD_TEXT;
 
   const discarded = taken ? [...new Set([...discardedEspecialidades(next.slots), taken])] : discardedEspecialidades(next.slots);
   if (discarded.length > 0) next.slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS] = discarded.join(",");

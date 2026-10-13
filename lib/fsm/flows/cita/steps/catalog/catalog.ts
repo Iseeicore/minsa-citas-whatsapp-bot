@@ -71,31 +71,34 @@ export function handleEspecialidadPending(session: Session, event: QueryResultEv
   return offerEspecialidades(next, items);
 }
 
-function askSelectionHints(
-  session: Session,
-  step: SelectionStep,
-  typed: string,
-): HandlerResult | undefined {
+function askSelectionHints(session: Session, step: SelectionStep, typed: string): HandlerResult | undefined {
   if (!SUBSTANTIAL_WORD.test(typed) || !readOffered(session.slots)) return undefined;
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_SELECTION_HINTS_PENDING;
   next.slots[SlotKey.CITA_SELECTION_STEP] = step;
-  return buildResult(next, [
-    sendText(REVIEWING_ANSWER_TEXT),
-    query(QueryKind.EXTRACT_SELECTION_HINTS, { step, text: typed }),
-  ]);
+  return buildResult(next, [sendText(REVIEWING_ANSWER_TEXT), query(QueryKind.EXTRACT_SELECTION_HINTS, { step, text: typed })]);
 }
 
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { especialidad?: unknown; establecimiento?: unknown; quiereSalir?: boolean; quiereCambiarDistrito?: boolean };
-  const step = session.slots[SlotKey.CITA_SELECTION_STEP] === SelectionStep.ESTABLECIMIENTO ? SelectionStep.ESTABLECIMIENTO : SelectionStep.ESPECIALIDAD;
+  const result = event.result as {
+    especialidad?: unknown;
+    establecimiento?: unknown;
+    quiereSalir?: boolean;
+    quiereCambiarDistrito?: boolean;
+  };
+  const step =
+    session.slots[SlotKey.CITA_SELECTION_STEP] === SelectionStep.ESTABLECIMIENTO
+      ? SelectionStep.ESTABLECIMIENTO
+      : SelectionStep.ESPECIALIDAD;
   const offered = readOffered(session.slots);
 
   const restored = cloneSession(session);
   delete restored.slots[SlotKey.CITA_SELECTION_STEP];
   restored.state =
-    step === SelectionStep.ESTABLECIMIENTO ? SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT : SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
+    step === SelectionStep.ESTABLECIMIENTO
+      ? SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT
+      : SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
 
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
   if (result.quiereCambiarDistrito === true) return offerChangeDistrito(restored, "ai");
@@ -170,7 +173,10 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   if (result.status === CatalogStatus.FOUND && items.length === 0 && page < totalPages) return searchEstablecimientosPage(next, page + 1);
 
   if (items.length > 0) {
-    rememberFullNames(next.slots, items.map((item) => ({ id: item.renipressCode, full: establecimientoFullName(item) })));
+    rememberFullNames(
+      next.slots,
+      items.map((item) => ({ id: item.renipressCode, full: establecimientoFullName(item) })),
+    );
   }
 
   if (isSearchingOtherEstablecimiento(next.slots)) {

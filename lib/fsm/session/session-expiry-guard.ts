@@ -59,11 +59,7 @@ export function decodeJwtExp(token: string): number | null {
   }
 }
 
-export function detectSessionExpiry(
-  session: Session,
-  event: HandleEvent,
-  now: number,
-): SessionExpiryReason | null {
+export function detectSessionExpiry(session: Session, event: HandleEvent, now: number): SessionExpiryReason | null {
   if (event.type === InternalEventType.QUERY_RESULT) return null;
   if (!guardedStateOf(session.state, session.slots)) return null;
 

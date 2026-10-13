@@ -1,8 +1,7 @@
 export const OPTION_NUMBER = /^\d{1,2}$/;
 export const DIGITS_ONLY = /^\d+$/;
 
-export const ORDINAL_FILLER =
-  /^(?:(?:quiero|quisiera|elijo|escojo|prefiero|selecciono|me quedo con|la|el|lo|opcion|numero|nro|num)\s+)+/;
+export const ORDINAL_FILLER = /^(?:(?:quiero|quisiera|elijo|escojo|prefiero|selecciono|me quedo con|la|el|lo|opcion|numero|nro|num)\s+)+/;
 
 const LEADING_YES = "(?:(?:si|ok|okey|dale|vale|claro|listo)\\s+)?";
 

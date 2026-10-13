@@ -4,8 +4,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { EXIT_QUESTION_TEXT, EXIT_BUTTONS } from "@/lib/constants/textos/cita-salida";
 
-export const exitButtons = () =>
-  sendButtons(EXIT_QUESTION_TEXT, EXIT_BUTTONS);
+export const exitButtons = () => sendButtons(EXIT_QUESTION_TEXT, EXIT_BUTTONS);
 
 export function askToLeave(session: Session, source: "local" | "ai" | "reauth"): HandlerResult {
   const next = cloneSession(session);

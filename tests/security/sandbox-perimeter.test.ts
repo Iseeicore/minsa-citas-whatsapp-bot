@@ -84,10 +84,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent).toHaveLength(1);
     expect(json.sent[0].text).toContain("Medicina General en San Juan de Lurigancho");
-    expect(mocks.saveSession).toHaveBeenCalledWith(
-      "sandbox-qa",
-      expect.objectContaining({ state: "cita_awaiting_dni" }),
-    );
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "cita_awaiting_dni" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 

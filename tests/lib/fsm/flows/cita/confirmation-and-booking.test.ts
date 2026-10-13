@@ -6,20 +6,20 @@ import { serializeOffered, type OfferedRow } from "@/lib/fsm/parsing/selection/s
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-confirmation";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const bookingResult = (result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "book_appointment",
   result,
 });
 
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const HORA_ROWS: OfferedRow[] = [
   { id: "13:00|13:05", title: "13:00 - 13:05" },
@@ -145,9 +145,7 @@ describe("a booking that MINSA does not accept", () => {
   });
 
   it("leaves successes as they were", () => {
-    expect(handle(booking(), bookingResult({ status: "booked", url: "https://x.test", message: "ok" })).session.state).toBe(
-      "cita_booked",
-    );
+    expect(handle(booking(), bookingResult({ status: "booked", url: "https://x.test", message: "ok" })).session.state).toBe("cita_booked");
   });
 
   it("a duplicate booking asks for another especialidad instead of a dead-end state", () => {

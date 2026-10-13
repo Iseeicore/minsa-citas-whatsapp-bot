@@ -1,7 +1,17 @@
 import type { BuscarEstablecimientoResult } from "@/lib/establecimientos/buscar";
 import { decidirCandidatos, type Establecimiento } from "@/lib/establecimientos/decidir";
 import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
-import { buildResult, cloneSession, omitSlot, query, sendButtons, sendText, withLeadingText, withRejectionNotice, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  omitSlot,
+  query,
+  sendButtons,
+  sendText,
+  withLeadingText,
+  withRejectionNotice,
+  readTrimmedText,
+} from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { parseCodigoSuelto, type InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { quiereOmitirUbicacion } from "@/lib/fsm/parsing/text/omitir-ubicacion";
@@ -106,10 +116,7 @@ function confirmUbicacion(next: Session, establecimiento: Establecimiento): Hand
   next.state = SessionState.INCIDENCIA_CONFIRM_UBICACION;
   const distrito = establecimiento.distrito ? ubicacionDistritoLineText(establecimiento.distrito) : "";
   return buildResult(next, [
-    sendButtons(
-      confirmUbicacionText(establecimiento.nombre, establecimiento.codigoRenipress, distrito),
-      UBICACION_BUTTONS,
-    ),
+    sendButtons(confirmUbicacionText(establecimiento.nombre, establecimiento.codigoRenipress, distrito), UBICACION_BUTTONS),
   ]);
 }
 
@@ -133,7 +140,8 @@ export function handleUbicacionPending(session: Session, event: QueryResultEvent
     return failedAttempt(next, CODIGO_NO_ENCONTRADO_TEXT);
   }
 
-  if (result.by !== EstablecimientoSearchBy.NOMBRE || result.status !== EstablecimientoSearchStatus.OK) return failedAttempt(next, UBICACION_ILEGIBLE_TEXT);
+  if (result.by !== EstablecimientoSearchBy.NOMBRE || result.status !== EstablecimientoSearchStatus.OK)
+    return failedAttempt(next, UBICACION_ILEGIBLE_TEXT);
 
   const decision = decidirCandidatos(result.candidatos);
   if (fromTexto && decision.kind !== EstablecimientoDecision.NINGUNO) next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);
@@ -173,7 +181,6 @@ function askAgain(next: Session, message: string): HandlerResult {
   return buildResult(next, [sendText(message)]);
 }
 
-
 export function handleConfirmUbicacion(session: Session, event: InboundEvent): HandlerResult {
   const propuesto = readPropuesto(session);
   const answer = propuesto ? readConfirmation(event, IncidenciaButtonId.UBICACION_SI, IncidenciaButtonId.UBICACION_NO) : Confirmation.NO;
@@ -194,10 +201,7 @@ export function resendConfirmUbicacion(session: Session): HandlerResult {
   if (!propuesto) return askUbicacionAgain(session);
   const distrito = propuesto.distrito ? ubicacionDistritoLineText(propuesto.distrito) : "";
   return buildResult(cloneSession(session), [
-    sendButtons(
-      confirmUbicacionText(propuesto.nombre, propuesto.codigoRenipress, distrito),
-      UBICACION_BUTTONS,
-    ),
+    sendButtons(confirmUbicacionText(propuesto.nombre, propuesto.codigoRenipress, distrito), UBICACION_BUTTONS),
   ]);
 }
 
@@ -216,7 +220,11 @@ export function handleConfirmOmitir(session: Session, event: InboundEvent): Hand
   const next = cloneSession(session);
 
   if (answer === Confirmation.YES) {
-    for (const key of [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID, SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO, SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]) {
+    for (const key of [
+      SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID,
+      SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO,
+      SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE,
+    ]) {
       next.slots = omitSlot(next.slots, key);
     }
     return continueAfterUbicacion(next, OMITIR_ACEPTADO_TEXT);

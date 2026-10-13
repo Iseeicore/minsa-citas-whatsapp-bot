@@ -115,11 +115,7 @@ export function extractContentAndMedia(message: WhatsAppMessage): {
   }
 }
 
-export async function toInboundEvent(
-  waId: string,
-  message: WhatsAppMessage,
-  sessionState: string,
-): Promise<InboundEvent | null> {
+export async function toInboundEvent(waId: string, message: WhatsAppMessage, sessionState: string): Promise<InboundEvent | null> {
   if (message.type === "text") {
     return { from: waId, type: "text", text: message.text?.body };
   }

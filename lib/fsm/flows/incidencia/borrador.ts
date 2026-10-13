@@ -1,5 +1,14 @@
 import { afterDescripcion, askDescripcion } from "@/lib/fsm/flows/incidencia/pasos-comunes";
-import { buildResult, cloneSession, omitSlot, readReply, sendButtons, sendText, truncateForRow, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  omitSlot,
+  readReply,
+  sendButtons,
+  sendText,
+  truncateForRow,
+  readTrimmedText,
+} from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
@@ -27,12 +36,7 @@ export function enterDescripcion(session: Session): HandlerResult {
 
   if (isUsable(borrador)) {
     next.state = SessionState.INCIDENCIA_CONFIRM_BORRADOR;
-    return buildResult(next, [
-      sendButtons(
-        borradorConfirmText(truncateForRow(borrador, SHOWN_BORRADOR_MAX)),
-        BORRADOR_BUTTONS,
-      ),
-    ]);
+    return buildResult(next, [sendButtons(borradorConfirmText(truncateForRow(borrador, SHOWN_BORRADOR_MAX)), BORRADOR_BUTTONS)]);
   }
 
   next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);

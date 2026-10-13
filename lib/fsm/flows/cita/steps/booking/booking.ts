@@ -35,9 +35,7 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
     return buildResult(next, [
       sendText(constanciaText),
       result.url ? sendCtaUrl(APPOINTMENT_DETAILS_TEXT, APPOINTMENT_BUTTON_TEXT, result.url) : sendText(APPOINTMENT_DETAILS_TEXT),
-      sendText(
-        CITA_BOOKED_FAREWELL_TEXT,
-      ),
+      sendText(CITA_BOOKED_FAREWELL_TEXT),
     ]);
   }
 
@@ -47,38 +45,35 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
 
   const failures = (next.counters[CounterKey.CITA_BOOKING_FAILURES] ?? 0) + 1;
   const isRawError = result.status === BookingStatus.ERROR;
-  const isAmbiguousRejection =
-    result.status === BookingStatus.REJECTED && (!result.message || SLOT_TAKEN_MESSAGE.test(result.message));
+  const isAmbiguousRejection = result.status === BookingStatus.REJECTED && (!result.message || SLOT_TAKEN_MESSAGE.test(result.message));
   const slotMayBeGone = isRawError || isAmbiguousRejection;
 
   if (slotMayBeGone && failures < MAX_BOOKING_FAILURES) {
     next.counters[CounterKey.CITA_BOOKING_FAILURES] = failures;
     delete next.counters[CounterKey.CITA_HORA_PAGE];
     next.state = SessionState.CITA_HORA_PENDING;
-    const retryText = isRawError
-      ? BOOKING_TECHNICAL_RETRY_TEXT
-      : BOOKING_SLOT_TAKEN_RETRY_TEXT;
-    return withNote(buildResult(next, [
-      sendText(retryText),
-      query(QueryKind.LIST_HORAS, {
-        codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
-        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
-        fecha: slotText(next.slots, SlotKey.CITA_FECHA),
-      }),
-    ]), {
-      kind: "booking_retry",
-      level: "warn",
-      detail: { failures, status: result.status, reason: isRawError ? "http_error" : "ambiguous_rejection" },
-    });
+    const retryText = isRawError ? BOOKING_TECHNICAL_RETRY_TEXT : BOOKING_SLOT_TAKEN_RETRY_TEXT;
+    return withNote(
+      buildResult(next, [
+        sendText(retryText),
+        query(QueryKind.LIST_HORAS, {
+          codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+          especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+          fecha: slotText(next.slots, SlotKey.CITA_FECHA),
+        }),
+      ]),
+      {
+        kind: "booking_retry",
+        level: "warn",
+        detail: { failures, status: result.status, reason: isRawError ? "http_error" : "ambiguous_rejection" },
+      },
+    );
   }
 
   next.state = SessionState.CITA_BOOKING_REJECTED;
-  return withNote(
-    buildResult(next, [sendText(result.message ?? BOOKING_REJECTED_TEXT)]),
-    {
-      kind: "booking_rejected",
-      level: "warn",
-      detail: { failures, status: result.status, reason: isRawError ? "http_error" : "ambiguous_rejection" },
-    },
-  );
+  return withNote(buildResult(next, [sendText(result.message ?? BOOKING_REJECTED_TEXT)]), {
+    kind: "booking_rejected",
+    level: "warn",
+    detail: { failures, status: result.status, reason: isRawError ? "http_error" : "ambiguous_rejection" },
+  });
 }

@@ -9,14 +9,14 @@ import { handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 
 const FROM = "sandbox-documento-prompts";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const firstText = (result: HandlerResult): string => {
   const [effect] = sent(result);
   return effect.kind === "send_text" ? effect.text : "";
@@ -55,7 +55,7 @@ describe("toda petición del documento dice solo «número de documento»", () =
     const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "x" }, counters: {} };
     const answer: QueryResultEvent = {
       from: FROM,
-      type: "query_result",
+      type: InternalEventType.QUERY_RESULT,
       queryKind: "analyze_main_menu_intent",
       result: { intent: "cita" },
     };

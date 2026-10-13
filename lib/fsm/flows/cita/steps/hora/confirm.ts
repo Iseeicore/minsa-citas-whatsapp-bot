@@ -55,8 +55,7 @@ export function handleHoraConfirm(session: Session, event: InboundEvent): Handle
   const reply = readTappedId(event);
   const typedText = readTypedText(event);
   const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(typedText) : Confirmation.UNKNOWN;
-  const takesThatHora =
-    typed === Confirmation.UNKNOWN && event.type === InboundEventType.TEXT && acceptsPendingHora(typedText, slotId);
+  const takesThatHora = typed === Confirmation.UNKNOWN && event.type === InboundEventType.TEXT && acceptsPendingHora(typedText, slotId);
 
   if (reply === HoraConfirmButtonId.YES || typed === Confirmation.YES || takesThatHora) return startBooking(session, start);
   if (reply === HoraConfirmButtonId.NO || typed === Confirmation.NO) return backToList();

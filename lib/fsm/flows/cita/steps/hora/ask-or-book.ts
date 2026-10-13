@@ -6,7 +6,12 @@ import { formatHoraRange, ONLY_HORA_FLAG } from "@/lib/fsm/flows/cita/steps/hora
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-import { onlyHoraConfirmText, horaConfirmText, ONLY_HORA_CONFIRM_BUTTONS, HORA_CONFIRM_BUTTONS } from "@/lib/constants/textos/cita-fecha-hora";
+import {
+  onlyHoraConfirmText,
+  horaConfirmText,
+  ONLY_HORA_CONFIRM_BUTTONS,
+  HORA_CONFIRM_BUTTONS,
+} from "@/lib/constants/textos/cita-fecha-hora";
 import { BOOKING_IN_PROGRESS_TEXT } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 

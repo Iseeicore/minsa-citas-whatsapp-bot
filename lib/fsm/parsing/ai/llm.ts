@@ -18,10 +18,10 @@ export type LlmJsonRequest = {
 
 export type LlmJsonOutcome =
   | { ok: true; json: unknown }
-  | { ok: false; failure: `${LlmFailure.REQUEST_FAILED}`; errorName: string }
-  | { ok: false; failure: `${LlmFailure.HTTP_ERROR}`; status: number; model: string }
-  | { ok: false; failure: `${LlmFailure.NO_TEXT}` }
-  | { ok: false; failure: `${LlmFailure.INVALID_JSON}` };
+  | { ok: false; failure: LlmFailure.REQUEST_FAILED; errorName: string }
+  | { ok: false; failure: LlmFailure.HTTP_ERROR; status: number; model: string }
+  | { ok: false; failure: LlmFailure.NO_TEXT }
+  | { ok: false; failure: LlmFailure.INVALID_JSON };
 
 export interface LlmClient {
   readonly provider: LlmProvider;

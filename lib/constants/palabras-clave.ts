@@ -39,16 +39,7 @@ export const GREETING_WORDS = new Set([
   "HI",
 ]);
 
-export const CITA_INTENT_WORDS = new Set([
-  "CITA",
-  "CITAS",
-  "AGENDAR",
-  "AGENDARME",
-  "RESERVAR",
-  "TURNO",
-  "ATENDERME",
-  "ATENCION",
-]);
+export const CITA_INTENT_WORDS = new Set(["CITA", "CITAS", "AGENDAR", "AGENDARME", "RESERVAR", "TURNO", "ATENDERME", "ATENCION"]);
 
 export const NOT_A_NEW_CITA_WORDS = new Set([
   "CANCELAR",
@@ -122,7 +113,13 @@ export const INCIDENCIA_FILLER_WORDS = new Set([
   "PARA",
 ]);
 
-export const OTHER_ESPECIALIDAD_ANSWERS = new Set(["OTRA ESPECIALIDAD", "OTRA", "CAMBIAR", "CAMBIAR DE ESPECIALIDAD", "SI OTRA ESPECIALIDAD"]);
+export const OTHER_ESPECIALIDAD_ANSWERS = new Set([
+  "OTRA ESPECIALIDAD",
+  "OTRA",
+  "CAMBIAR",
+  "CAMBIAR DE ESPECIALIDAD",
+  "SI OTRA ESPECIALIDAD",
+]);
 export const DUPLICATE_EXIT_ANSWERS = new Set(["SALIR", "NO SALIR"]);
 export const CHANGE_DISTRICT_ANSWERS = new Set(["CAMBIAR", "CAMBIAR DE DISTRITO", "OTRO DISTRITO", "OTRO", "BUSCAR OTRO DISTRITO"]);
 
@@ -160,4 +157,11 @@ export const OMITIR_UBICACION_PHRASES = new Set([
   "no tengo",
 ]);
 
-export const CERRAR_INCIDENCIA_PHRASES = new Set(["quiero cerrar", "cerrar", "cerrar sesion", "quiero cerrar la sesion", "terminar la sesion", "quiero terminar la sesion"]);
+export const CERRAR_INCIDENCIA_PHRASES = new Set([
+  "quiero cerrar",
+  "cerrar",
+  "cerrar sesion",
+  "quiero cerrar la sesion",
+  "terminar la sesion",
+  "quiero terminar la sesion",
+]);

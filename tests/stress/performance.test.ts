@@ -7,22 +7,35 @@ type Row = { departamento: string; provincia: string; distrito: string };
 const districtNames = (distritos as Row[]).map((row) => row.distrito);
 
 const CLEAN = [
-  "Buenas tardes, quiero agendar una cita", "necesito atención por dolor de muela", "mi DNI es 45781239",
-  "quiero cita de pediatría para mi hijo", "el doctor se tarda mucho en atender", "gracias por su atención",
-  "a las 8 y 45 por favor", "el lunes por la tarde", "odontología en el hospital de Lurigancho",
-  "Solicito una cita para el 22 de septiembre", "no me atendieron en la posta, quiero hacer un reclamo",
+  "Buenas tardes, quiero agendar una cita",
+  "necesito atención por dolor de muela",
+  "mi DNI es 45781239",
+  "quiero cita de pediatría para mi hijo",
+  "el doctor se tarda mucho en atender",
+  "gracias por su atención",
+  "a las 8 y 45 por favor",
+  "el lunes por la tarde",
+  "odontología en el hospital de Lurigancho",
+  "Solicito una cita para el 22 de septiembre",
+  "no me atendieron en la posta, quiero hacer un reclamo",
 ];
 const SPAM = [
-  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "!!!!!!!!!!!!!!!!!!!!!!!!!!!!", "http://spam.example.com/?q=" + "x".repeat(60),
-  "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉", "GANA DINERO FACIL ".repeat(8), "1 2 3 4 5 6 7 8 9 0 ".repeat(6), ".,;:-_/\\|".repeat(20),
-  "hola ".repeat(50), "ñañañañañañañaña ".repeat(10), "́́́́a".repeat(30),
+  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+  "http://spam.example.com/?q=" + "x".repeat(60),
+  "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉",
+  "GANA DINERO FACIL ".repeat(8),
+  "1 2 3 4 5 6 7 8 9 0 ".repeat(6),
+  ".,;:-_/\\|".repeat(20),
+  "hola ".repeat(50),
+  "ñañañañañañañaña ".repeat(10),
+  "́́́́a".repeat(30),
 ];
 const INSULTS = ["idiota", "imbecil", "estupido", "cojudo", "mierda", "hdp", "csm", "ctm", "huevon", "pendejo", "malparido"];
 const CONTEXT = ["doctora", "posta", "cita", "medicina", "reclamo", "hospital", "turno", "atencion"];
 
 const LEET: Record<string, string> = { a: "4", e: "3", i: "1", o: "0", s: "5", t: "7" };
-const leet = (word: string, random: () => number) =>
-  [...word].map((char) => (LEET[char] && random() < 0.7 ? LEET[char] : char)).join("");
+const leet = (word: string, random: () => number) => [...word].map((char) => (LEET[char] && random() < 0.7 ? LEET[char] : char)).join("");
 const stretch = (word: string, random: () => number) =>
   [...word].map((char) => (random() < 0.3 ? char.repeat(3 + Math.floor(random() * 3)) : char)).join("");
 const spaced = (word: string) => [...word].join(random_separator());

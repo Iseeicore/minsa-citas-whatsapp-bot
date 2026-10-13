@@ -5,12 +5,7 @@ import {
   handleConsentimiento,
   handleConsentRegisterPending,
 } from "@/lib/fsm/flows/incidencia/consentimiento";
-import {
-  afterDescripcion,
-  askConfirmRegistro,
-  askFoto,
-  handleConfirmRegistro,
-} from "@/lib/fsm/flows/incidencia/pasos-comunes";
+import { afterDescripcion, askConfirmRegistro, askFoto, handleConfirmRegistro } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import {
   handleAwaitingUbicacion,
   handleConfirmOmitir,
@@ -21,7 +16,16 @@ import { isValidDniFormat, isValidDocumentoFormat } from "@/lib/fsm/parsing/text
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { quiereCerrar } from "@/lib/fsm/parsing/text/cerrar-incidencia";
-import { buildResult, cloneSession, query, readReply, sendButtons, sendText, withRejectionNotice, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  query,
+  readReply,
+  sendButtons,
+  sendText,
+  withRejectionNotice,
+  readTrimmedText,
+} from "@/lib/fsm/core/handlers-shared";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -120,9 +124,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
 
   if (replyId === IncidenciaButtonId.ANONIMO) return askConsentimiento(next);
 
-  return withRejectionNotice(buildResult(session, [
-    sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_NOMBRE_BUTTONS),
-  ]));
+  return withRejectionNotice(buildResult(session, [sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_NOMBRE_BUTTONS)]));
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
@@ -202,11 +204,7 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
     return askConfirmRegistro(session);
   }
 
-  if (
-    resolveConfirmation(typed) === Confirmation.YES ||
-    typed.length > FOTO_INTENT_MAX_LENGTH ||
-    looksLikeNoise(typed)
-  ) {
+  if (resolveConfirmation(typed) === Confirmation.YES || typed.length > FOTO_INTENT_MAX_LENGTH || looksLikeNoise(typed)) {
     return withRejectionNotice(buildResult(session, [askFoto()]));
   }
 
@@ -236,9 +234,7 @@ function confirmationText(session: Session, codigo: string | undefined): string 
   if (!(hasEstablecimiento && codigo)) return INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT;
 
   const base = incidenciaRegistradaText(codigo);
-  const adicional = identificado
-    ? SEGUIMIENTO_IDENTIFICADO_TEXT
-    : SEGUIMIENTO_ANONIMO_TEXT;
+  const adicional = identificado ? SEGUIMIENTO_IDENTIFICADO_TEXT : SEGUIMIENTO_ANONIMO_TEXT;
   return `${base} ${adicional}`;
 }
 

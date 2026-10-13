@@ -33,9 +33,7 @@ export function slotToRow(slot: HoraSlot): OfferedRow {
 
 export function rowToSlot(row: OfferedRow): HoraSlot | undefined {
   const [start, end] = row.id.split("|");
-  return CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "")
-    ? { start, end, cupos: 0 }
-    : undefined;
+  return CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? { start, end, cupos: 0 } : undefined;
 }
 
 function clock12(time: string): { clock: string; period: MeridiemPeriod } {
@@ -54,9 +52,7 @@ export function formatHora12(start: string): string {
 export function formatHoraRange(start: string, end: string): string {
   const from = clock12(start);
   const to = clock12(end);
-  return from.period === to.period
-    ? `${from.clock} - ${to.clock} ${to.period}`
-    : `${from.clock} ${from.period} - ${to.clock} ${to.period}`;
+  return from.period === to.period ? `${from.clock} - ${to.clock} ${to.period}` : `${from.clock} ${from.period} - ${to.clock} ${to.period}`;
 }
 
 export function formatHourGroup(start: string): string {

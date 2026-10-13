@@ -68,11 +68,7 @@ const FAKE_DISTRITO_CANDIDATES: Record<string, DistritoAiCandidate[]> = {
 
 function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
   const candidate = value as Partial<DistritoAiCandidate> | null;
-  return (
-    isString(candidate?.departamento) &&
-    isString(candidate?.provincia) &&
-    isString(candidate?.distrito)
-  );
+  return isString(candidate?.departamento) && isString(candidate?.provincia) && isString(candidate?.distrito);
 }
 
 export async function resolveDistritoAiDetailed(
@@ -81,10 +77,7 @@ export async function resolveDistritoAiDetailed(
   llm: LlmClient | null = getLlmClient(),
 ): Promise<ResolveDistritoAiDetailedResult> {
   if (llm) {
-    const userTurn = [
-      distritoDirectAnswerLine(distritoText),
-      contextText ? distritoInitialMessageLine(contextText) : null,
-    ]
+    const userTurn = [distritoDirectAnswerLine(distritoText), contextText ? distritoInitialMessageLine(contextText) : null]
       .filter(Boolean)
       .join("\n");
 

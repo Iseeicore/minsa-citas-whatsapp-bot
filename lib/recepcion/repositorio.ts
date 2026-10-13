@@ -68,10 +68,7 @@ export async function buscarCodigoPorTrace(traceId: string): Promise<string | nu
 
 export type IncidenciaConsultada = { codigo: string; fechaCreacion: Date; estadoCodigo: string };
 
-export async function buscarIncidenciaDeQuienConsulta(
-  codigo: string,
-  identidad: IdentidadConsulta,
-): Promise<IncidenciaConsultada | null> {
+export async function buscarIncidenciaDeQuienConsulta(codigo: string, identidad: IdentidadConsulta): Promise<IncidenciaConsultada | null> {
   const fila = await prisma.incidenciaPaciente.findFirst({
     where: {
       codigo,

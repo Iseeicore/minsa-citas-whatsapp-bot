@@ -17,8 +17,10 @@ export const UBIGEO_NOT_FOUND_TEXT = "No encontramos ese ubigeo. Indícanos nuev
 export const SEARCHING_ESPECIALIDADES_TEXT = "Buscando especialidades disponibles…";
 export const searchingCatalogInText = (lugar: string): string => `Entendido. Buscando especialidades y citas disponibles en *${lugar}*…`;
 export const SELECT_UBIGEO_TEXT = "Selecciona tu ubigeo:";
-export const DISTRITO_MANUAL_FALLBACK_TEXT = "No pudimos identificar tu distrito en este momento. Vamos por partes: indícanos el departamento donde buscas atención.";
-export const DISTRITO_TOO_MANY_MATCHES_TEXT = "Encontramos demasiadas coincidencias para mostrarlas en una lista, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.";
+export const DISTRITO_MANUAL_FALLBACK_TEXT =
+  "No pudimos identificar tu distrito en este momento. Vamos por partes: indícanos el departamento donde buscas atención.";
+export const DISTRITO_TOO_MANY_MATCHES_TEXT =
+  "Encontramos demasiadas coincidencias para mostrarlas en una lista, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.";
 export const DISTRITO_DISAMBIGUATION_TEXT = "Encontramos varias opciones. ¿Cuál es tu distrito?";
 export const searchingDistritoText = (distrito: string): string => `Buscando tu distrito: "${distrito}"…`;
 export const UNRECOGNIZED_DISTRITO_TEXT = "No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:";
@@ -28,7 +30,8 @@ export const nationalRedirectForText = (places: string): string =>
   `Por el momento el agendamiento automático por este canal solo está disponible en ${places}. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.`;
 
 export const OTHER_DISTRITO_QUESTION_TEXT = "¿Deseas buscar en otro distrito cercano?\n\n[1] Sí, buscar otro distrito\n[2] No, salir";
-export const noCoverageText = (what: string, where: string): string => `No encontramos ${what} disponibles ${where} en este momento.\n${OTHER_DISTRITO_QUESTION_TEXT}`;
+export const noCoverageText = (what: string, where: string): string =>
+  `No encontramos ${what} disponibles ${where} en este momento.\n${OTHER_DISTRITO_QUESTION_TEXT}`;
 
 export const CHANGE_DISTRITO_TEXT = `Entiendo que esa ubicación no te sirve, a veces las cosas no salen como esperamos.
 ${OTHER_DISTRITO_QUESTION_TEXT}`;

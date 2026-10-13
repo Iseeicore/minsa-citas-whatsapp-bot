@@ -102,8 +102,6 @@ export type RateLimiter = ReturnType<typeof createRateLimiter>;
 
 export const inboundRateLimiter: RateLimiter = createRateLimiter({
   enabled: process.env.INBOUND_RATE_LIMIT !== "off",
-  onBan: (key) =>
-    logger.warn("perimeter.banned", { waId: tail(key), duration: "1 hour", limit: "more than 20 messages in 60 s" }),
-  onMute: (key) =>
-    logger.warn("perimeter.muted", { waId: tail(key), duration: "2 minutes", limit: "more than 5 messages in 10 s" }),
+  onBan: (key) => logger.warn("perimeter.banned", { waId: tail(key), duration: "1 hour", limit: "more than 20 messages in 60 s" }),
+  onMute: (key) => logger.warn("perimeter.muted", { waId: tail(key), duration: "2 minutes", limit: "more than 5 messages in 10 s" }),
 });

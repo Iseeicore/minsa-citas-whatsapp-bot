@@ -307,6 +307,7 @@ Convenciones (ESLint las hace cumplir donde se indica):
 | **Tests en estructura espejo, no colocalizados** | `lib/<ruta>/x.ts` tiene su test en `tests/lib/<la-misma-ruta>/x.test.ts`. Los tests de escenario de un flujo van en la misma ruta espejo (por ejemplo, `tests/lib/fsm/flows/cita/hora-choice.test.ts`). El alias `@/` resuelve igual sin importar dónde viva el test, así que nunca hace falta un import relativo (`../../`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
 | **Comentarios** | El código, las migraciones y las pruebas SQL no llevan comentarios ni docstrings: la intención va en los nombres y la explicación en este README y en `docs/`. La única excepción son las directivas que necesita una herramienta (por ejemplo `eslint-disable`). |
+| **Formato único con Prettier** | Líneas de hasta 140 caracteres, dos espacios, comillas dobles, punto y coma y coma final (`.prettierrc.json`). `npm run format` lo aplica y el CI lo exige con `npm run format:check`. Por ahora cubre `lib/`, `tests/`, `scripts/` y los archivos de configuración de la raíz; `app/` y `tests/app/` todavía no se formatean (`.prettierignore`). |
 | **Estados y tipos como enums** | Los textos fijos que representan un estado o un tipo (`SendType`, `ApiErrorCode`) son un `enum` en `lib/enums/`, nunca un string suelto comparado a mano. |
 | **Textos y prompts en un solo lugar** | Los textos al ciudadano (constantes `*_TEXT`, botones `*_BUTTONS` y funciones cuando el texto lleva datos) viven en `lib/constants/textos/`, y los prompts de IA en `lib/constants/prompts/`, sin archivo índice. Un texto repetido es una sola constante. `tests/integration/textos-location.test.ts` lo hace cumplir. |
 | **Expresiones regulares en un solo lugar** | Viven en `lib/constants/regex/` como constantes con nombre, sin archivo índice: se importa el archivo del dominio. `tests/integration/regex-location.test.ts` lo hace cumplir. |
@@ -364,8 +365,10 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
 | `npm run db:test` | Arma una base desechable solo con las migraciones y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
 | `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas de la base desde una base ya migrada |
+| `npm run format` | Aplica el formato de Prettier al código |
+| `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
-El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
+El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
 
 ## Despliegue en Vercel (con base de datos)
 

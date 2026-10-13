@@ -3,14 +3,7 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { closeWithApology, discardedDates } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import {
-  buildResult,
-  cloneSession,
-  offerPagedList,
-  query,
-  sendText,
-  truncateForRow,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, offerPagedList, query, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "@/lib/fsm/parsing/date/date-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -86,10 +79,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     const rows: ListRow[] = dates.map((item) => ({
       id: item.fechaCupo,
       title: truncateForRow(displayFechaShort(item.fechaCupo), WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        cuposDisponiblesText(item.cantidadCupos),
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
+      description: truncateForRow(cuposDisponiblesText(item.cantidadCupos), WHATSAPP_ROW_DESCRIPTION_MAX),
     }));
     return buildResult(next, offerPagedList(next, SELECT_FECHA_TEXT, rows));
   }

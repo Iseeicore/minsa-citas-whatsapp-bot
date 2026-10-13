@@ -20,7 +20,7 @@ describe("toText", () => {
     expect(toText(true)).toBe("true");
   });
 
-  it("da el mismo resultado que String(valor ?? \"\") para cualquier valor", () => {
+  it('da el mismo resultado que String(valor ?? "") para cualquier valor', () => {
     for (const value of ["x", "", 0, 1.5, Number.NaN, true, false, null, undefined, {}, [], [1, 2], { a: 1 }]) {
       expect(toText(value)).toBe(String(value ?? ""));
     }

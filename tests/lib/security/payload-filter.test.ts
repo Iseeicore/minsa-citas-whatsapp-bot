@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkFirstMessagePayload,
-} from "@/lib/security/payload-filter";
+import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 
 const text = (body: string) => checkFirstMessagePayload({ type: "text", text: body });

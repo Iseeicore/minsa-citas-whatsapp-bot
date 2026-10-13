@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createInboundCoalescer,
-  type InboundCoalescerDeps,
-} from "@/lib/whatsapp/inbound/inbound-coalescer";
+import { createInboundCoalescer, type InboundCoalescerDeps } from "@/lib/whatsapp/inbound/inbound-coalescer";
 import type { InboundBuffer, PendingInbound } from "@/lib/whatsapp/inbound/inbound-buffer";
 import { INBOUND_MAX_AGE_MS, INBOUND_MAX_BATCH, INBOUND_MAX_WAIT_MS } from "@/lib/whatsapp/inbound/inbound-policy";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";

@@ -17,7 +17,10 @@ describe("the fixed texts are exactly the ones approved", () => {
 describe("the channels file is the single source of every contact", () => {
   it("every channel is used by at least one text (no dead entry)", () => {
     for (const [name, value] of Object.entries(CHANNELS)) {
-      expect(allTexts.some((text) => text.includes(value)), name).toBe(true);
+      expect(
+        allTexts.some((text) => text.includes(value)),
+        name,
+      ).toBe(true);
     }
   });
 

@@ -7,10 +7,7 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { buildResult, cloneSession, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
-import {
-  askToLeave,
-  exitButtons,
-} from "@/lib/fsm/flows/cita/steps/exit/exit-core";
+import { askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -18,7 +15,12 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { ASK_OTP_TEXT, ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
-import { ASK_DISTRITO_NOMBRE_TEXT, ASK_DEPARTAMENTO_TEXT, ASK_PROVINCIA_TEXT, ASK_DISTRITO_MANUAL_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import {
+  ASK_DISTRITO_NOMBRE_TEXT,
+  ASK_DEPARTAMENTO_TEXT,
+  ASK_PROVINCIA_TEXT,
+  ASK_DISTRITO_MANUAL_TEXT,
+} from "@/lib/constants/textos/cita-ubicacion";
 import { CITA_ABANDONED_TEXT } from "@/lib/constants/textos/cita-salida";
 import { LEAVE_ANSWERS, STAY_ANSWERS } from "@/lib/constants/palabras-clave";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";

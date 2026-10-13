@@ -11,17 +11,17 @@ const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 
 const IDIOMS: ReadonlyArray<{ name: string; pattern: RegExp; owners: string[] }> = [
   {
-    name: "typeof x === \"string\"",
+    name: 'typeof x === "string"',
     pattern: /typeof\s+[^\n=!]+?\s*[!=]==\s*"string"/,
     owners: ["lib/utils/type-guards.ts", "lib/utils/text-values.ts"],
   },
   {
-    name: "String(x ?? \"\")",
+    name: 'String(x ?? "")',
     pattern: /String\([^()\n]*\?\?\s*""\s*\)/,
     owners: ["lib/utils/text-values.ts"],
   },
   {
-    name: "typeof x === \"object\" && x !== null",
+    name: 'typeof x === "object" && x !== null',
     pattern: /typeof\s+[\w.?[\]]+\s*===\s*"object"\s*&&\s*[\w.?[\]]+\s*!==\s*null/,
     owners: ["lib/utils/type-guards.ts"],
   },
@@ -31,12 +31,12 @@ const IDIOMS: ReadonlyArray<{ name: string; pattern: RegExp; owners: string[] }>
     owners: ["lib/fsm/core/handlers-shared.ts"],
   },
   {
-    name: "(event.text ?? \"\").trim()",
+    name: '(event.text ?? "").trim()',
     pattern: /\(\s*event\.text\s*\?\?\s*""\s*\)\.trim\(\)/,
     owners: ["lib/fsm/core/handlers-shared.ts"],
   },
   {
-    name: "normalize(\"NFD\")",
+    name: 'normalize("NFD")',
     pattern: /\.normalize\("NFD"\)/,
     owners: ["lib/utils/text-values.ts", "lib/fsm/parsing/text/inicio-incidencia.ts"],
   },

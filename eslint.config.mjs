@@ -15,12 +15,7 @@ const eslintConfig = defineConfig([
       "import/no-cycle": ["error", { allowUnsafeDynamicCyclicDependency: true }],
     },
   },
-  globalIgnores([
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
 ]);
 
 export default eslintConfig;

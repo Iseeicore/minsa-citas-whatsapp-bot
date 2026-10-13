@@ -7,13 +7,7 @@ import { configuredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { bookAppointment } from "@/lib/integrations/minsa/booking";
-import {
-  listEspecialidades,
-  listEstablecimientos,
-  listFechas,
-  listHoras,
-  searchUbigeo,
-} from "@/lib/integrations/minsa/catalog";
+import { listEspecialidades, listEstablecimientos, listFechas, listHoras, searchUbigeo } from "@/lib/integrations/minsa/catalog";
 import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
@@ -24,15 +18,7 @@ import type { ExternalService } from "@/lib/observability/types";
 import { getSession, saveSession } from "@/lib/fsm/session/session-store";
 import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
 import { QueryKind } from "@/lib/enums/query-kind";
-import type {
-  HandleEvent,
-  HandlerResult,
-  InboundEvent,
-  QueryEffect,
-  QueryResultEvent,
-  SendEffect,
-  Session,
-} from "@/lib/fsm/core/types";
+import type { HandleEvent, HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
@@ -60,16 +46,10 @@ export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> 
 }
 
 export function createRunTurn(lock: TurnLock) {
-  return (from: string, event: InboundEvent): Promise<TurnResult> =>
-    lock(from, () => runTurnUnlocked(from, event));
+  return (from: string, event: InboundEvent): Promise<TurnResult> => lock(from, () => runTurnUnlocked(from, event));
 }
 
-export async function runTurnUnlocked(
-  from: string,
-  event: InboundEvent,
-  hooks?: TurnHooks,
-  start?: HandlerResult,
-): Promise<TurnResult> {
+export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?: TurnHooks, start?: HandlerResult): Promise<TurnResult> {
   const session = start ? FRESH_SESSION : await getSession(from);
 
   return traceTurn(from, event, session, async (trace) => {
@@ -192,10 +172,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return analyzeMainMenuIntent(payloadText(effect.payload, "text"));
 
     case QueryKind.RESOLVE_DISTRITO_AI:
-      return resolveDistritoAiDetailed(
-        payloadText(effect.payload, "distritoText"),
-        effect.payload.contextText as string | undefined,
-      );
+      return resolveDistritoAiDetailed(payloadText(effect.payload, "distritoText"), effect.payload.contextText as string | undefined);
 
     case QueryKind.RESOLVE_FECHA_AI:
       return resolveFechaAi(
@@ -227,11 +204,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       );
 
     case QueryKind.LIST_FECHAS:
-      return listFechas(
-        payloadText(effect.payload, "codEess"),
-        payloadText(effect.payload, "especialidadId"),
-        bearer,
-      );
+      return listFechas(payloadText(effect.payload, "codEess"), payloadText(effect.payload, "especialidadId"), bearer);
 
     case QueryKind.LIST_HORAS:
       return listHoras(

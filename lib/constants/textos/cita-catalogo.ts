@@ -14,7 +14,8 @@ export const especialidadDetectedText = (nombre: string): string => `Especialida
 export const SELECT_ESPECIALIDAD_TEXT = "Selecciona la especialidad:";
 export const ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT = "Ver anteriores";
 export const ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT = "Ver más establecimientos";
-export const establecimientoChosenText = (label: string, nombre: string): string => `Establecimiento ${label}: ${nombre}. ${SEARCHING_FECHAS_TEXT}`;
+export const establecimientoChosenText = (label: string, nombre: string): string =>
+  `Establecimiento ${label}: ${nombre}. ${SEARCHING_FECHAS_TEXT}`;
 export const SELECT_ESTABLECIMIENTO_TEXT = "Selecciona el establecimiento:";
 export const otherEstablecimientoQuestionText = (proposed: string): string => `¿Quieres buscar en *${proposed}*?`;
 export const noFechasProposeText = (where: string, question: string): string => `No hay fechas disponibles en ${where}. ${question}`;

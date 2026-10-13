@@ -1,10 +1,4 @@
-import type {
-  EspecialidadItem,
-  EstablecimientoItem,
-  FechaItem,
-  HoraItem,
-  UbigeoItem,
-} from "@/lib/integrations/minsa/types";
+import type { EspecialidadItem, EstablecimientoItem, FechaItem, HoraItem, UbigeoItem } from "@/lib/integrations/minsa/types";
 import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
 import { ISO_DATE_HYPHENS } from "@/lib/constants/regex/date-time";
 

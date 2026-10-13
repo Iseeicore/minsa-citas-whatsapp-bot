@@ -205,8 +205,7 @@ export function evaluateLexicalGuard(message: string): LexicalResult {
   const hasCitaContext = anyTokenMatches(tokens, CITA_TOKEN_PATTERNS);
   const hasHealthContext = anyTokenMatches(tokens, HEALTH_TOKEN_PATTERNS);
   const hasComplaintContext =
-    anyTokenMatches(tokens, COMPLAINT_TOKEN_PATTERNS) ||
-    COMPLAINT_PHRASE_PATTERNS.some((pattern) => pattern.test(joined));
+    anyTokenMatches(tokens, COMPLAINT_TOKEN_PATTERNS) || COMPLAINT_PHRASE_PATTERNS.some((pattern) => pattern.test(joined));
 
   const base = { isOffensive, hasCitaContext, hasComplaintContext, matchedReason };
 

@@ -1,14 +1,4 @@
-export const FUZZY_TARGETS: string[] = [
-  "idiota",
-  "imbecil",
-  "estupido",
-  "tarado",
-  "cojudo",
-  "huevon",
-  "mierda",
-  "pendejo",
-  "malparido",
-];
+export const FUZZY_TARGETS: string[] = ["idiota", "imbecil", "estupido", "tarado", "cojudo", "huevon", "mierda", "pendejo", "malparido"];
 
 export const PROTECTED_WORDS = new Set([
   "tarde",
@@ -35,4 +25,3 @@ export const PROTECTED_WORDS = new Set([
 ]);
 
 export const PROTECTED_PHRASES = ["ladron de guevara"];
-

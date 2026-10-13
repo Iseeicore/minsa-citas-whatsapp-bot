@@ -3,9 +3,7 @@ import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-e
 
 describe("MultipleQueryEffectsError", () => {
   it("keeps the message byte for byte", () => {
-    expect(new MultipleQueryEffectsError(2).message).toBe(
-      "runTurn: handle() returned more than one query effect in a single pass",
-    );
+    expect(new MultipleQueryEffectsError(2).message).toBe("runTurn: handle() returned more than one query effect in a single pass");
   });
 
   it("is an Error named after its class that carries how many queries came back", () => {

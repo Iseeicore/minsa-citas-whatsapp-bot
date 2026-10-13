@@ -1,6 +1,12 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { FECHA_AI_SYSTEM_PROMPT, FECHA_OPTIONS_HEADER, fechaTodayLine, fechaOptionLine, fechaRequestLine } from "@/lib/constants/prompts/fecha";
+import {
+  FECHA_AI_SYSTEM_PROMPT,
+  FECHA_OPTIONS_HEADER,
+  fechaTodayLine,
+  fechaOptionLine,
+  fechaRequestLine,
+} from "@/lib/constants/prompts/fecha";
 import { isString } from "@/lib/utils/type-guards";
 
 export type FechaAiOption = { id: string; label: string };

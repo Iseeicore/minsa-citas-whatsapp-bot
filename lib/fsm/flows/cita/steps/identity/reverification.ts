@@ -15,11 +15,7 @@ export function beginReverification(session: Session, resumeState: string): Hand
   next.slots[SlotKey.CITA_RESUME_STATE] = resumeState;
   delete next.slots[SlotKey.CITA_BEARER];
   next.state = SessionState.CITA_AWAITING_DNI;
-  return buildResult(next, [
-    sendText(
-      REVERIFICATION_PROMPT_TEXT,
-    ),
-  ]);
+  return buildResult(next, [sendText(REVERIFICATION_PROMPT_TEXT)]);
 }
 
 export function resumeAfterReverification(session: Session, resumeState: string): HandlerResult {

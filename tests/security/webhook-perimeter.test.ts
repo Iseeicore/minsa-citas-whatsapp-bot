@@ -311,7 +311,13 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
   it.each(["image", "audio"])("a %s as the first message gets the text-only reminder and is never downloaded", async (type) => {
     const waId = freshWaId();
-    const message: Message = { id: `wamid.${++messageCounter}`, from_user_id: waId, timestamp: NOW_SECONDS(), type, image: { id: "media-1" } };
+    const message: Message = {
+      id: `wamid.${++messageCounter}`,
+      from_user_id: waId,
+      timestamp: NOW_SECONDS(),
+      type,
+      image: { id: "media-1" },
+    };
 
     await deliver([message]);
 
@@ -323,7 +329,13 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
   it("a sticker as the first message is silenced completely: no reply, never downloaded", async () => {
     const waId = freshWaId();
-    const message: Message = { id: `wamid.${++messageCounter}`, from_user_id: waId, timestamp: NOW_SECONDS(), type: "sticker", image: { id: "media-1" } };
+    const message: Message = {
+      id: `wamid.${++messageCounter}`,
+      from_user_id: waId,
+      timestamp: NOW_SECONDS(),
+      type: "sticker",
+      image: { id: "media-1" },
+    };
 
     await deliver([message]);
 

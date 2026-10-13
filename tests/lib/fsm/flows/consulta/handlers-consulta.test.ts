@@ -15,13 +15,29 @@ import {
   CONSULTA_FALLA_TEXT,
 } from "@/lib/constants/textos/consulta";
 import { ASK_OTP_TEXT } from "@/lib/constants/textos/identidad";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "bsuid-ana";
 const CODIGO = "MINSA-2026-000003";
 
-const text = (value: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({ from: FROM, type: "text", text: value, channel });
-const pick = (id: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({ from: FROM, type: "list", listId: id, channel });
-const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind, result: value });
+const text = (value: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({
+  from: FROM,
+  type: "text",
+  text: value,
+  channel,
+});
+const pick = (id: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({
+  from: FROM,
+  type: "list",
+  listId: id,
+  channel,
+});
+const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({
+  from: FROM,
+  type: InternalEventType.QUERY_RESULT,
+  queryKind,
+  result: value,
+});
 
 const sent = (r: HandlerResult): SendEffect[] => r.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (r: HandlerResult): string[] => sent(r).map((effect) => ("text" in effect ? effect.text : ""));
@@ -165,7 +181,14 @@ describe("consulta_query_pending: el resultado", () => {
   it("encontrada: código, estado y fecha; nunca descripción ni datos de la persona; termina la sesión", () => {
     const step = handle(
       pending("whatsapp"),
-      result("consultar_incidencia", { status: "found", codigo: CODIGO, estado: "DERIVADO", fechaRegistro: "2026-10-10T03:30:00.000Z", descripcion: "secreta", dni: "12345678" }),
+      result("consultar_incidencia", {
+        status: "found",
+        codigo: CODIGO,
+        estado: "DERIVADO",
+        fechaRegistro: "2026-10-10T03:30:00.000Z",
+        descripcion: "secreta",
+        dni: "12345678",
+      }),
     );
 
     expect(step.session.state).toBe("consulta_completed");

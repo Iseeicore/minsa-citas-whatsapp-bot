@@ -1,14 +1,7 @@
 import { SearchSubject } from "@/lib/enums/search-subject";
 import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
 import { offerOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
-import {
-  buildResult,
-  cloneSession,
-  offerList,
-  sendText,
-  sendButtons,
-  truncateForRow,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, offerList, sendText, sendButtons, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import type { HandlerResult, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { type HoraResultItem, formatHoraRange, orderHorasFromNow } from "@/lib/fsm/flows/cita/steps/hora/format";
@@ -43,10 +36,7 @@ function resolveHoraCandidates(session: Session, items: HoraResultItem[]): Handl
     const rows: ListRow[] = items.map((item) => ({
       id: `${item.horaInicio}|${item.horaFin}`,
       title: truncateForRow(formatHoraRange(item.horaInicio, item.horaFin), WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        cuposDisponiblesText(item.cantidadCupos),
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
+      description: truncateForRow(cuposDisponiblesText(item.cantidadCupos), WHATSAPP_ROW_DESCRIPTION_MAX),
     }));
     return buildResult(next, [offerList(next, SELECT_HORA_TEXT, rows)]);
   }
@@ -88,11 +78,7 @@ export function handleHoraPending(session: Session, event: QueryResultEvent): Ha
   if (result.status === CatalogStatus.ERROR) {
     const next = cloneSession(session);
     next.state = SessionState.CITA_BOOKING_REJECTED;
-    return buildResult(next, [
-      sendText(
-        searchFailureText(SearchSubject.HORARIOS),
-      ),
-    ]);
+    return buildResult(next, [sendText(searchFailureText(SearchSubject.HORARIOS))]);
   }
 
   const ordered = orderHorasFromNow(slotText(session.slots, SlotKey.CITA_FECHA), result.items ?? []);
@@ -109,11 +95,7 @@ export function handleHoraPagePending(session: Session, event: QueryResultEvent)
   if (result.status === CatalogStatus.ERROR) {
     const next = cloneSession(session);
     next.state = SessionState.CITA_BOOKING_REJECTED;
-    return buildResult(next, [
-      sendText(
-        searchFailureText(SearchSubject.HORARIOS),
-      ),
-    ]);
+    return buildResult(next, [sendText(searchFailureText(SearchSubject.HORARIOS))]);
   }
 
   const ordered = orderHorasFromNow(slotText(session.slots, SlotKey.CITA_FECHA), result.items ?? []);

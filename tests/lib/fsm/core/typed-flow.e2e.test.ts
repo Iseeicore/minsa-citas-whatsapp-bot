@@ -4,8 +4,7 @@ import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 const store = vi.hoisted(() => new Map<string, unknown>());
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
-  getSession: async (from: string) =>
-    (store.get(from) as Session | undefined) ?? { state: "main_menu", slots: {}, counters: {} },
+  getSession: async (from: string) => (store.get(from) as Session | undefined) ?? { state: "main_menu", slots: {}, counters: {} },
   saveSession: async (from: string, session: Session) => {
     store.set(from, structuredClone(session));
   },

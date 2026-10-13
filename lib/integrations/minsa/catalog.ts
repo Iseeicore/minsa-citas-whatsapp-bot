@@ -76,12 +76,7 @@ function establecimientosPageInfo(body: unknown): { page: number; totalPages: nu
   return page === undefined || totalPages === undefined ? undefined : { page, totalPages };
 }
 
-export async function searchUbigeo(
-  departamento: string,
-  provincia: string,
-  distrito: string,
-  bearer: string,
-): Promise<SearchUbigeoResult> {
+export async function searchUbigeo(departamento: string, provincia: string, distrito: string, bearer: string): Promise<SearchUbigeoResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.UBIGEO,
@@ -96,10 +91,7 @@ export async function searchUbigeo(
   return matches ? { status: CatalogStatus.FOUND, items: [FAKE_UBIGEO] } : { status: CatalogStatus.EMPTY };
 }
 
-export async function listEspecialidades(
-  ubigeo: string,
-  bearer: string,
-): Promise<ListEspecialidadesResult> {
+export async function listEspecialidades(ubigeo: string, bearer: string): Promise<ListEspecialidadesResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.ESPECIALIDADES,
@@ -133,11 +125,7 @@ export async function listEstablecimientos(
   return { status: CatalogStatus.FOUND, items: FAKE_ESTABLECIMIENTOS };
 }
 
-export async function listFechas(
-  codEess: string,
-  especialidadId: string,
-  bearer: string,
-): Promise<ListFechasResult> {
+export async function listFechas(codEess: string, especialidadId: string, bearer: string): Promise<ListFechasResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.FECHAS,
@@ -151,12 +139,7 @@ export async function listFechas(
   return { status: CatalogStatus.FOUND, items: fakeFechas() };
 }
 
-export async function listHoras(
-  codEess: string,
-  especialidadId: string,
-  fecha: string,
-  bearer: string,
-): Promise<ListHorasResult> {
+export async function listHoras(codEess: string, especialidadId: string, fecha: string, bearer: string): Promise<ListHorasResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.HORAS,

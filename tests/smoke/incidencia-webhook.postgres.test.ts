@@ -29,14 +29,19 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     const waId = `smoke-${randomUUID()}`;
     const send = async (message: Pick<WhatsAppMessage, "type"> & Partial<WhatsAppMessage>) => {
       sender.delivered.length = 0;
-      await processValue({ messages: [{ id: `wamid.${randomUUID()}`, from_user_id: waId, timestamp: String(Math.floor(Date.now() / 1000)), ...message }] });
+      await processValue({
+        messages: [{ id: `wamid.${randomUUID()}`, from_user_id: waId, timestamp: String(Math.floor(Date.now() / 1000)), ...message }],
+      });
       return sender.delivered.filter((item) => item.waId === waId).map((item) => item.effect);
     };
     return {
       waId,
       text: (body: string) => send({ type: "text", text: { body } }),
       tap: (id: string) => send({ type: "interactive", interactive: { button_reply: { id } } }),
-      file: (type: "image" | "document" | "sticker") => send(type === "document" ? { type, document: { id: "media-1" } } : type === "image" ? { type, image: { id: "media-1" } } : { type }),
+      file: (type: "image" | "document" | "sticker") =>
+        send(
+          type === "document" ? { type, document: { id: "media-1" } } : type === "image" ? { type, image: { id: "media-1" } } : { type },
+        ),
       state: async () => (await prisma.sesionConversacion.findUniqueOrThrow({ where: { waId } })).estado,
     };
   };
@@ -68,10 +73,7 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     await expect(p.state()).resolves.toBe("incidencia_confirm_registro");
 
     const done = await p.tap("incidencia_confirmar_registro_si");
-    expect(done.map((effect) => effect.text)).toEqual([
-      "Enviando tu incidencia…",
-      expect.stringMatching(/código MINSA-\d{4}-\d{6,}/),
-    ]);
+    expect(done.map((effect) => effect.text)).toEqual(["Enviando tu incidencia…", expect.stringMatching(/código MINSA-\d{4}-\d{6,}/)]);
 
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.waId }, include: { establecimiento: true } });
     expect(saved.establecimiento?.codigoRenipress).toBe("6206");

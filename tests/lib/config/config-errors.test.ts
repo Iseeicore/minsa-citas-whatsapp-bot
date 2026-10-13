@@ -21,9 +21,7 @@ describe("checkConfig", () => {
   });
 
   it("reports each SANDBOX_ALLOWED_ORIGINS entry that is not a URL", () => {
-    expect(
-      checkConfig({ ...HEALTHY_ENV, SANDBOX_ALLOWED_ORIGINS: "dminsadigital.minsa.gob.pe, https://ok.example.org" }),
-    ).toEqual([
+    expect(checkConfig({ ...HEALTHY_ENV, SANDBOX_ALLOWED_ORIGINS: "dminsadigital.minsa.gob.pe, https://ok.example.org" })).toEqual([
       {
         code: "SANDBOX_ORIGIN_INVALID",
         value: "dminsadigital.minsa.gob.pe",

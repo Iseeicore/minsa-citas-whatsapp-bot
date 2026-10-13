@@ -57,9 +57,7 @@ function isImplausibleWord(word: string): boolean {
 }
 
 export function isGibberishPlaceText(text: string): boolean {
-  const words = stripAccents(text.toLowerCase())
-    .split(NON_LETTER_RUN)
-    .filter(Boolean);
+  const words = stripAccents(text.toLowerCase()).split(NON_LETTER_RUN).filter(Boolean);
 
   if (words.join("").length < GIBBERISH_MIN_USEFUL_LETTERS) return true;
 

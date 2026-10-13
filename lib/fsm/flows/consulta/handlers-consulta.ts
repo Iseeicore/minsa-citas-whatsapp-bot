@@ -41,7 +41,13 @@ import {
   CONSULTA_FALLA_TEXT,
   LISTAR_BUTTONS,
 } from "@/lib/constants/textos/consulta";
-import { ASK_OTP_TEXT, INVALID_OTP_TEXT, VALIDANDO_DOCUMENTO_TEXT, VERIFICANDO_CODIGO_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
+import {
+  ASK_OTP_TEXT,
+  INVALID_OTP_TEXT,
+  VALIDANDO_DOCUMENTO_TEXT,
+  VERIFICANDO_CODIGO_TEXT,
+  codigoIncorrectoText,
+} from "@/lib/constants/textos/identidad";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
@@ -54,7 +60,8 @@ import { arrayOr } from "@/lib/utils/array-values";
 import { MAX_INTENTOS_CODIGO, MAX_INTENTOS_OTP } from "@/lib/constants/limits/consulta";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
-const canalDe = (channel: SessionChannel | undefined): string => (channel === SessionChannelEnum.WEB ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP);
+const canalDe = (channel: SessionChannel | undefined): string =>
+  channel === SessionChannelEnum.WEB ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP;
 
 function closed(state: SessionState.CONSULTA_COMPLETED | SessionState.CONSULTA_FAILED, text: string): HandlerResult {
   return buildResult({ state, slots: {}, counters: {} }, [sendText(text)]);
@@ -109,10 +116,7 @@ function startListado(session: Session): HandlerResult {
 }
 
 function askCodigoOrListar(session: Session): HandlerResult {
-  return buildResult(session, [
-    sendText(ASK_CODIGO_TEXT),
-    sendButtons(ASK_CODIGO_O_LISTAR_TEXT, LISTAR_BUTTONS),
-  ]);
+  return buildResult(session, [sendText(ASK_CODIGO_TEXT), sendButtons(ASK_CODIGO_O_LISTAR_TEXT, LISTAR_BUTTONS)]);
 }
 
 export function beginConsulta(channel: SessionChannel | undefined, codigo?: string): HandlerResult {
@@ -202,9 +206,13 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
   return buildResult(next, [sendText(codigoIncorrectoText(MAX_INTENTOS_OTP - attempts))]);
 }
 
-export function foundText(result: Extract<ConsultaIncidenciaResult, { status: `${LookupStatus.FOUND}` }>): string {
+export function foundText(result: Extract<ConsultaIncidenciaResult, { status: LookupStatus.FOUND }>): string {
   const fecha = fechaLegible(result.fechaRegistro);
-  return [incidenciaCodigoLineText(result.codigo), incidenciaEstadoLineText(estadoLegible(result.estado)), ...(fecha ? [incidenciaFechaLineText(fecha)] : [])].join("\n");
+  return [
+    incidenciaCodigoLineText(result.codigo),
+    incidenciaEstadoLineText(estadoLegible(result.estado)),
+    ...(fecha ? [incidenciaFechaLineText(fecha)] : []),
+  ].join("\n");
 }
 
 function handleQueryPending(event: QueryResultEvent): HandlerResult {

@@ -1,13 +1,6 @@
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { isGibberishPlaceText } from "@/lib/fsm/parsing/text/gibberish";
-import {
-  buildResult,
-  cloneSession,
-  offerList,
-  query,
-  sendText,
-  truncateForRow,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, offerList, query, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "@/lib/fsm/flows/cita/data/ubigeo-data";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
@@ -42,9 +35,7 @@ export function enterManualDistritoFlow(session: Session, text: string): Handler
   return buildResult(next, [sendText(text)]);
 }
 
-function filterToPilotScope(
-  candidates: DistritoAiCandidateResult[],
-): DistritoAiCandidateResult[] {
+function filterToPilotScope(candidates: DistritoAiCandidateResult[]): DistritoAiCandidateResult[] {
   return candidates.filter((candidate) => isAllowedDepartamento(candidate.departamento));
 }
 
@@ -61,10 +52,7 @@ function trailingWordGroupAttempts(text: string): Array<() => DistritoAiCandidat
   return attempts;
 }
 
-function resolveLocalDistritoCandidates(
-  distritoText: string,
-  contextText: string | undefined,
-): DistritoAiCandidateResult[] {
+function resolveLocalDistritoCandidates(distritoText: string, contextText: string | undefined): DistritoAiCandidateResult[] {
   const attempts = [
     () => searchDistrito(distritoText),
     () => (contextText ? searchDistrito(contextText) : []),
@@ -82,10 +70,7 @@ function resolveLocalDistritoCandidates(
   return [];
 }
 
-export function resolveDistritoCandidates(
-  session: Session,
-  rawCandidates: DistritoAiCandidateResult[],
-): HandlerResult {
+export function resolveDistritoCandidates(session: Session, rawCandidates: DistritoAiCandidateResult[]): HandlerResult {
   const candidates = filterToPilotScope(rawCandidates);
   const next = cloneSession(session);
 
@@ -107,11 +92,7 @@ export function resolveDistritoCandidates(
 
   if (candidates.length > WHATSAPP_LIST_MAX_ROWS) {
     next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
-    return buildResult(next, [
-      sendText(
-        DISTRITO_TOO_MANY_MATCHES_TEXT,
-      ),
-    ]);
+    return buildResult(next, [sendText(DISTRITO_TOO_MANY_MATCHES_TEXT)]);
   }
 
   if (candidates.length > 1) {
@@ -119,10 +100,7 @@ export function resolveDistritoCandidates(
     const rows: ListRow[] = candidates.map((candidate) => ({
       id: `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`,
       title: truncateForRow(candidate.distrito, WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        `${candidate.provincia} — ${candidate.departamento}`,
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
+      description: truncateForRow(`${candidate.provincia} — ${candidate.departamento}`, WHATSAPP_ROW_DESCRIPTION_MAX),
     }));
     return buildResult(next, [offerList(next, DISTRITO_DISAMBIGUATION_TEXT, rows)]);
   }
@@ -130,11 +108,7 @@ export function resolveDistritoCandidates(
   return redirectToNationalSite(next);
 }
 
-export function resolveDistritoText(
-  session: Session,
-  distritoText: string,
-  contextText: string | undefined,
-): HandlerResult {
+export function resolveDistritoText(session: Session, distritoText: string, contextText: string | undefined): HandlerResult {
   const localCandidates = resolveLocalDistritoCandidates(distritoText, contextText);
 
   if (localCandidates.length > 0) {

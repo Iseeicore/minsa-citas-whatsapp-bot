@@ -42,10 +42,18 @@ export function establecimientoPageRows(items: EstablecimientoResultItem[], coun
   const { page, totalPages } = establecimientoPaging(counters);
   const rows = establecimientoRows(items);
   if (page > 1) {
-    rows.push({ id: EstablecimientoPageRowId.PREV, title: ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT, description: pageOfText(page - 1, totalPages) });
+    rows.push({
+      id: EstablecimientoPageRowId.PREV,
+      title: ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT,
+      description: pageOfText(page - 1, totalPages),
+    });
   }
   if (page < totalPages) {
-    rows.push({ id: EstablecimientoPageRowId.NEXT, title: ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT, description: pageOfText(page + 1, totalPages) });
+    rows.push({
+      id: EstablecimientoPageRowId.NEXT,
+      title: ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT,
+      description: pageOfText(page + 1, totalPages),
+    });
   }
   return rows;
 }
@@ -61,13 +69,9 @@ export function searchEstablecimientosPage(next: Session, page: number, announce
   return buildResult(next, announcement ? [sendText(announcement), search] : [search]);
 }
 
-export const establecimientoFullName = (item: EstablecimientoResultItem): string =>
-  formatEstablecimientoName(item.establishmentName).full;
+export const establecimientoFullName = (item: EstablecimientoResultItem): string => formatEstablecimientoName(item.establishmentName).full;
 
-export function detectEstablecimiento(
-  hint: string | undefined,
-  items: EstablecimientoResultItem[],
-): EstablecimientoResultItem | undefined {
+export function detectEstablecimiento(hint: string | undefined, items: EstablecimientoResultItem[]): EstablecimientoResultItem | undefined {
   if (!hint) return undefined;
   const matched = matchAllTokens(
     hint,

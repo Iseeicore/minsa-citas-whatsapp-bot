@@ -46,7 +46,9 @@ describe("the image storage service", () => {
   });
 
   it("posts the bytes with their mime type and the bearer token, with a timeout, and returns the stored path", async () => {
-    const fetchMock = vi.fn<(...args: unknown[]) => Promise<Response>>(async () => new Response(JSON.stringify({ ruta: "2026/10/abc.png" }), { status: 201 }));
+    const fetchMock = vi.fn<(...args: unknown[]) => Promise<Response>>(
+      async () => new Response(JSON.stringify({ ruta: "2026/10/abc.png" }), { status: 201 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const bytes = Buffer.from(PNG_BASE64, "base64");
 
@@ -62,7 +64,9 @@ describe("the image storage service", () => {
 
   it("sends no Authorization header when no token is configured", async () => {
     vi.stubEnv("MEDIA_STORAGE_TOKEN", "");
-    const fetchMock = vi.fn<(...args: unknown[]) => Promise<Response>>(async () => new Response(JSON.stringify({ ruta: "x" }), { status: 200 }));
+    const fetchMock = vi.fn<(...args: unknown[]) => Promise<Response>>(
+      async () => new Response(JSON.stringify({ ruta: "x" }), { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await guardarImagenHttp(Buffer.from("a"), "image/png");
@@ -71,7 +75,10 @@ describe("the image storage service", () => {
   });
 
   it("fails when the service answers an error or no path", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("boom", { status: 503 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("boom", { status: 503 })),
+    );
     const rejected = await guardarImagenHttp(Buffer.from("a"), "image/png").catch((caught: unknown) => caught);
     expect(rejected).toBeInstanceOf(ImageStorageError);
     expect(rejected).toMatchObject({
@@ -80,7 +87,10 @@ describe("the image storage service", () => {
       status: 503,
     });
 
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),
+    );
     const withoutPath = await guardarImagenHttp(Buffer.from("a"), "image/png").catch((caught: unknown) => caught);
     expect(withoutPath).toBeInstanceOf(ImageStorageError);
     expect(withoutPath).toMatchObject({

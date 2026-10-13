@@ -70,10 +70,7 @@ function askDemoConfirmation(session: Session, codigo: string, horaId: string): 
   const [start, end] = horaId.split("|");
   const turno = CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? formatHoraRange(start, end) : horaId;
   const resumen = demoResumenText(referencia?.especialidad ?? "", turno);
-  return buildResult(session, [
-    sendText(resumen),
-    sendButtons(DEMO_CONFIRM_QUESTION_TEXT, DEMO_CONFIRM_BUTTONS),
-  ]);
+  return buildResult(session, [sendText(resumen), sendButtons(DEMO_CONFIRM_QUESTION_TEXT, DEMO_CONFIRM_BUTTONS)]);
 }
 
 export function handleDemoAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {
@@ -104,8 +101,7 @@ export function handleDemoAwaitingConfirm(session: Session, event: InboundEvent)
   if (reply === DemoConfirmButtonId.YES || typed === Confirmation.YES) {
     const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === codigo);
     const [start, end] = horaId.split("|");
-    const turno =
-      CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? formatHoraRange(start, end) : horaId;
+    const turno = CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? formatHoraRange(start, end) : horaId;
     const next = cloneSession(session);
     next.state = SessionState.CITA_BOOKED;
     const constanciaText = constanciaCitaText(demoConstanciaDetalleText(referencia?.hospital ?? "", referencia?.especialidad ?? "", turno));

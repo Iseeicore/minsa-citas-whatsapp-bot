@@ -98,7 +98,10 @@ describe("registering an incident directly in the database", () => {
   it("saves the establecimiento the citizen confirmed, and answers with the code the database gave", async () => {
     db.incidenciaCreate.mockResolvedValueOnce({ id: "i-1", codigo: "MINSA-2026-000123" });
 
-    await expect(registrarIncidencia({ ...base, establecimientoId: 7 })).resolves.toEqual({ status: "accepted", codigo: "MINSA-2026-000123" });
+    await expect(registrarIncidencia({ ...base, establecimientoId: 7 })).resolves.toEqual({
+      status: "accepted",
+      codigo: "MINSA-2026-000123",
+    });
 
     expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ establecimientoId: 7 }) });
   });

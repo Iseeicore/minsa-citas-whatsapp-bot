@@ -26,10 +26,10 @@ import { HIGHEST_AMBIGUOUS_BARE_HOUR } from "@/lib/constants/limits/date-time";
 export type HoraSlot = { start: string; end: string; cupos: number };
 
 export type HoraMatch =
-  | { kind: `${MatchKind.EXACT}`; slot: HoraSlot }
-  | { kind: `${MatchKind.SEVERAL}`; slots: HoraSlot[] }
-  | { kind: `${MatchKind.UNAVAILABLE}` }
-  | { kind: `${MatchKind.UNPARSED}` };
+  | { kind: MatchKind.EXACT; slot: HoraSlot }
+  | { kind: MatchKind.SEVERAL; slots: HoraSlot[] }
+  | { kind: MatchKind.UNAVAILABLE }
+  | { kind: MatchKind.UNPARSED };
 
 export function packHoraSlots(slots: HoraSlot[]): string {
   return slots.map((slot) => `${slot.start}|${slot.end}|${slot.cupos}`).join(";");
@@ -48,10 +48,34 @@ export function unpackHoraSlots(raw: unknown): HoraSlot[] {
 }
 
 const NUMBER_WORDS: Record<string, number> = {
-  un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8,
-  nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16,
-  diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiuno: 21, veintiun: 21,
-  veintidos: 22, veintitres: 23, veinticinco: 25, treinta: 30,
+  un: 1,
+  una: 1,
+  uno: 1,
+  dos: 2,
+  tres: 3,
+  cuatro: 4,
+  cinco: 5,
+  seis: 6,
+  siete: 7,
+  ocho: 8,
+  nueve: 9,
+  diez: 10,
+  once: 11,
+  doce: 12,
+  trece: 13,
+  catorce: 14,
+  quince: 15,
+  dieciseis: 16,
+  diecisiete: 17,
+  dieciocho: 18,
+  diecinueve: 19,
+  veinte: 20,
+  veintiuno: 21,
+  veintiun: 21,
+  veintidos: 22,
+  veintitres: 23,
+  veinticinco: 25,
+  treinta: 30,
 };
 
 function normalize(raw: string): string {
@@ -173,9 +197,7 @@ export function matchHoraText(text: string, offered: HoraSlot[]): HoraMatch {
 
     case TimeRequestKind.PERIOD:
       return toMatch(
-        chronological.filter((slot) =>
-          parsed.period === MeridiemPeriod.AM ? startOf(slot).hour < 12 : startOf(slot).hour >= 12,
-        ),
+        chronological.filter((slot) => (parsed.period === MeridiemPeriod.AM ? startOf(slot).hour < 12 : startOf(slot).hour >= 12)),
       );
 
     case TimeRequestKind.TIME: {

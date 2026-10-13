@@ -3,13 +3,14 @@ import { handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import type { QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { OUT_OF_SCOPE_REQUEST_TEXT } from "@/lib/constants/textos/menu";
 
 const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "dame código" }, counters: {} };
 
 const aiSays = (result: unknown): QueryResultEvent => ({
   from: "wa-1",
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "analyze_main_menu_intent",
   result,
 });

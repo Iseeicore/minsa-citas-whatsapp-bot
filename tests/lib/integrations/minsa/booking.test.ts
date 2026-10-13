@@ -11,8 +11,7 @@ describe("real MINSA — bookAppointment", () => {
     numeroDocumentoPaciente: "12345678",
   };
 
-  const minsaResponding = (body: string, status: number) =>
-    vi.fn().mockResolvedValue(new Response(body, { status }));
+  const minsaResponding = (body: string, status: number) => vi.fn().mockResolvedValue(new Response(body, { status }));
 
   beforeEach(() => {
     vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
@@ -55,10 +54,7 @@ describe("real MINSA — bookAppointment", () => {
   it("a duplicate-booking rejection arriving as a raw HTTP 500 is still classified as 'duplicate', not 'error'", async () => {
     const minsaMessage =
       "Error al generar la cita en el servicio externo: El paciente ya tiene una cita activa en el mismo turno o servicio.";
-    vi.stubGlobal(
-      "fetch",
-      minsaResponding(JSON.stringify({ success: false, data: null, message: minsaMessage }), 500),
-    );
+    vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, data: null, message: minsaMessage }), 500));
 
     await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({
       status: "duplicate",
@@ -97,7 +93,11 @@ describe("real MINSA — bookAppointment", () => {
     vi.stubGlobal(
       "fetch",
       minsaResponding(
-        JSON.stringify({ success: true, data: { url: "https://dminsadigital.minsa.gob.pe/citas/confirmacion/ABC" }, message: "Cita creada correctamente" }),
+        JSON.stringify({
+          success: true,
+          data: { url: "https://dminsadigital.minsa.gob.pe/citas/confirmacion/ABC" },
+          message: "Cita creada correctamente",
+        }),
         200,
       ),
     );

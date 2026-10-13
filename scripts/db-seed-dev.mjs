@@ -37,12 +37,12 @@ function sql(...argumentos) {
 
 try {
   const reiniciar = process.argv.includes("--reiniciar");
-  const existentes = Number(
-    sql("-tA", "-c", "SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'seed-dev-%'").trim(),
-  );
+  const existentes = Number(sql("-tA", "-c", "SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'seed-dev-%'").trim());
 
   if (existentes > 0 && !reiniciar) {
-    console.log(`Ya hay ${existentes} incidencias de prueba en ${base}. Usa --reiniciar para volver a sembrar (los usuarios de ejemplo se conservan).`);
+    console.log(
+      `Ya hay ${existentes} incidencias de prueba en ${base}. Usa --reiniciar para volver a sembrar (los usuarios de ejemplo se conservan).`,
+    );
     process.exit(0);
   }
 
@@ -64,6 +64,12 @@ try {
   const archivo = join(import.meta.dirname, "..", "prisma", "seeds", "dev", "incidencias_sinteticas.sql");
   console.log(sql(...variables, "-f", archivo).trim());
 } catch (error) {
-  console.error(String(error.stderr || error.message).split("\n").filter((linea) => linea.trim() !== "").slice(0, 6).join("\n"));
+  console.error(
+    String(error.stderr || error.message)
+      .split("\n")
+      .filter((linea) => linea.trim() !== "")
+      .slice(0, 6)
+      .join("\n"),
+  );
   process.exit(1);
 }

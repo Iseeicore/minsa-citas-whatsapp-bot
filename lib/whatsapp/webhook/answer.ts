@@ -83,21 +83,16 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
     return;
   }
 
-  await traceTurn(
-    waId,
-    { type: message.type, text: firstContactText, messageId: message.id },
-    fresh,
-    async (trace) => {
-      for (const note of first.notes ?? []) trace.note(note);
-      await saveSession(waId, first.session);
+  await traceTurn(waId, { type: message.type, text: firstContactText, messageId: message.id }, fresh, async (trace) => {
+    for (const note of first.notes ?? []) trace.note(note);
+    await saveSession(waId, first.session);
 
-      const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-      trace.complete({ session: first.session, sentCount: toSend.length });
+    const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+    trace.complete({ session: first.session, sentCount: toSend.length });
 
-      const deliver = deliverTo(message, conversationId, marks);
-      for (const effect of toSend) await deliver(effect);
-    },
-  );
+    const deliver = deliverTo(message, conversationId, marks);
+    for (const effect of toSend) await deliver(effect);
+  });
 }
 
 export async function answerMessage(message: WhatsAppMessage, conversationId: string | null, marks?: LatencyMarks): Promise<void> {

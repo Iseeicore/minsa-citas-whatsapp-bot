@@ -17,10 +17,7 @@ export const INCIDENCIA_FOTO_INTENT_RESPONSE_SCHEMA: JsonSchema = {
 
 const FAKE_OMITIR_KEYWORDS = [OMITIR_KEYWORD, "NO QUIERO", "NO DESEO", "NO TENGO", "PREFIERO NO", "PASO", "SIN FOTO", "NO HACE FALTA"];
 
-export async function analyzeFotoIntent(
-  text: string,
-  llm: LlmClient | null = getLlmClient(),
-): Promise<FotoIntentResult> {
+export async function analyzeFotoIntent(text: string, llm: LlmClient | null = getLlmClient()): Promise<FotoIntentResult> {
   if (llm) {
     const outcome = await llm.generateJson({
       operation: "analyze_incidencia_foto_intent",

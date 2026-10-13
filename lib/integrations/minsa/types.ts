@@ -5,14 +5,10 @@ import type { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import type { CatalogStatus } from "@/lib/enums/catalog-status";
 
 export type ValidateUserResult =
-  | { status: `${ValidateUserStatus.VALID}`; twofaId: string }
-  | { status: `${ValidateUserStatus.NOT_VALID}` }
-  | { status: `${ValidateUserStatus.ERROR}` };
+  { status: ValidateUserStatus.VALID; twofaId: string } | { status: ValidateUserStatus.NOT_VALID } | { status: ValidateUserStatus.ERROR };
 
 export type VerifyCodeResult =
-  | { status: `${VerifyCodeStatus.VERIFIED}`; token: string }
-  | { status: `${VerifyCodeStatus.INVALID}` }
-  | { status: `${VerifyCodeStatus.ERROR}` };
+  { status: VerifyCodeStatus.VERIFIED; token: string } | { status: VerifyCodeStatus.INVALID } | { status: VerifyCodeStatus.ERROR };
 
 export type UbigeoItem = {
   ubigeoInei: string;
@@ -22,10 +18,10 @@ export type UbigeoItem = {
 };
 
 export type SearchUbigeoResult =
-  | { status: `${CatalogStatus.FOUND}`; items: UbigeoItem[] }
-  | { status: `${CatalogStatus.EMPTY}` }
-  | { status: `${CatalogStatus.ERROR}` }
-  | { status: `${CatalogStatus.UNAUTHORIZED}` };
+  | { status: CatalogStatus.FOUND; items: UbigeoItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type EspecialidadItem = {
   codigoEspecialidad: string;
@@ -34,10 +30,10 @@ export type EspecialidadItem = {
 };
 
 export type ListEspecialidadesResult =
-  | { status: `${CatalogStatus.FOUND}`; items: EspecialidadItem[] }
-  | { status: `${CatalogStatus.EMPTY}` }
-  | { status: `${CatalogStatus.ERROR}` }
-  | { status: `${CatalogStatus.UNAUTHORIZED}` };
+  | { status: CatalogStatus.FOUND; items: EspecialidadItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type EstablecimientoItem = {
   renipressCode: string;
@@ -46,10 +42,10 @@ export type EstablecimientoItem = {
 };
 
 export type ListEstablecimientosResult =
-  | { status: `${CatalogStatus.FOUND}`; items: EstablecimientoItem[]; page?: number; totalPages?: number }
-  | { status: `${CatalogStatus.EMPTY}` }
-  | { status: `${CatalogStatus.ERROR}` }
-  | { status: `${CatalogStatus.UNAUTHORIZED}` };
+  | { status: CatalogStatus.FOUND; items: EstablecimientoItem[]; page?: number; totalPages?: number }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type FechaItem = {
   fechaCupo: string;
@@ -57,10 +53,10 @@ export type FechaItem = {
 };
 
 export type ListFechasResult =
-  | { status: `${CatalogStatus.FOUND}`; items: FechaItem[] }
-  | { status: `${CatalogStatus.EMPTY}` }
-  | { status: `${CatalogStatus.ERROR}` }
-  | { status: `${CatalogStatus.UNAUTHORIZED}` };
+  | { status: CatalogStatus.FOUND; items: FechaItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type HoraItem = {
   horaInicio: string;
@@ -69,10 +65,10 @@ export type HoraItem = {
 };
 
 export type ListHorasResult =
-  | { status: `${CatalogStatus.FOUND}`; items: HoraItem[] }
-  | { status: `${CatalogStatus.EMPTY}` }
-  | { status: `${CatalogStatus.ERROR}` }
-  | { status: `${CatalogStatus.UNAUTHORIZED}` };
+  | { status: CatalogStatus.FOUND; items: HoraItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type BookAppointmentParams = {
   codigoRenipress: string;
@@ -84,11 +80,11 @@ export type BookAppointmentParams = {
 };
 
 export type BookAppointmentResult =
-  | { status: `${BookingStatus.BOOKED}`; url: string; message: string }
-  | { status: `${BookingStatus.DUPLICATE}`; message: string }
-  | { status: `${BookingStatus.REJECTED}`; message: string }
-  | { status: `${BookingStatus.ERROR}` }
-  | { status: `${BookingStatus.UNAUTHORIZED}` };
+  | { status: BookingStatus.BOOKED; url: string; message: string }
+  | { status: BookingStatus.DUPLICATE; message: string }
+  | { status: BookingStatus.REJECTED; message: string }
+  | { status: BookingStatus.ERROR }
+  | { status: BookingStatus.UNAUTHORIZED };
 
 export type ReferenciaItem = {
   idReferencia: string;

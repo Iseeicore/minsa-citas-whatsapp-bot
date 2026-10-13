@@ -13,10 +13,14 @@ import {
   TRAILING_SPACES_AND_HYPHENS,
 } from "@/lib/constants/regex/incidencia";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
-import { MAX_CODIGO_RENIPRESS_LENGTH, MAX_NOMBRE_ESTABLECIMIENTO_LENGTH, MAX_NOMBRE_ESTABLECIMIENTO_WORDS } from "@/lib/constants/limits/incidencia";
+import {
+  MAX_CODIGO_RENIPRESS_LENGTH,
+  MAX_NOMBRE_ESTABLECIMIENTO_LENGTH,
+  MAX_NOMBRE_ESTABLECIMIENTO_WORDS,
+} from "@/lib/constants/limits/incidencia";
 
 export type InicioIncidencia = {
-  origen: `${IncidenciaOrigen.QR}` | `${IncidenciaOrigen.TEXTO}` | `${IncidenciaOrigen.IA}`;
+  origen: IncidenciaOrigen.QR | IncidenciaOrigen.TEXTO | IncidenciaOrigen.IA;
   codigoRenipress?: string;
   nombre?: string;
   resto?: string;
@@ -38,7 +42,8 @@ function tidy(value: string): string | undefined {
 }
 
 function plausibleNombre(value: string | undefined): string | undefined {
-  if (!value || value.length > MAX_NOMBRE_ESTABLECIMIENTO_LENGTH || value.split(WHITESPACE_RUN).length > MAX_NOMBRE_ESTABLECIMIENTO_WORDS) return undefined;
+  if (!value || value.length > MAX_NOMBRE_ESTABLECIMIENTO_LENGTH || value.split(WHITESPACE_RUN).length > MAX_NOMBRE_ESTABLECIMIENTO_WORDS)
+    return undefined;
   return value;
 }
 

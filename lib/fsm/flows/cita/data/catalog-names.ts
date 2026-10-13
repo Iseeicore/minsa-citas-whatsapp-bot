@@ -44,9 +44,7 @@ function cutAtWord(text: string, max: number): string {
 }
 
 export function formatEspecialidadName(raw: string): CatalogName {
-  const cleaned = collapseSpaces(raw)
-    .replace(CONSULTA_EXTERNA_PREFIX, "")
-    .replace(EDGE_SPACES_AND_HYPHENS, "");
+  const cleaned = collapseSpaces(raw).replace(CONSULTA_EXTERNA_PREFIX, "").replace(EDGE_SPACES_AND_HYPHENS, "");
   const full = toCatalogDisplay(cleaned || collapseSpaces(raw));
   const firstSegment = full.split(NAME_SEGMENT_SEPARATOR)[0].trim() || full;
   return { title: cutAtWord(firstSegment, WHATSAPP_ROW_TITLE_MAX), full };

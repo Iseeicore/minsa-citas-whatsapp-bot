@@ -60,7 +60,8 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
   if (NUMERIC_MENU_CHOICES[message] === MenuChoice.AGENDAR_CITA || isCitaKeyword(message)) {
     return routed("cita", beginCita({}, {}, FIRST_CONTACT_CITA_TEXT));
   }
-  if (NUMERIC_MENU_CHOICES[message] === MenuChoice.REGISTRAR_INCIDENCIA) return routed("incidencia", beginIncidencia({}, FIRST_CONTACT_LEAD_TEXT));
+  if (NUMERIC_MENU_CHOICES[message] === MenuChoice.REGISTRAR_INCIDENCIA)
+    return routed("incidencia", beginIncidencia({}, FIRST_CONTACT_LEAD_TEXT));
   if (NUMERIC_MENU_CHOICES[message] === MenuChoice.CONSULTAR_INCIDENCIA) return routed("consulta", beginConsulta(channel));
 
   const cita = detectCitaRequest(message);

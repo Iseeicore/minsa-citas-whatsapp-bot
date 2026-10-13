@@ -7,10 +7,10 @@ import { isRecord } from "@/lib/utils/type-guards";
 const HTTP_UNAUTHORIZED = 401;
 
 export type CatalogFetchResult<T> =
-  | { status: `${CatalogStatus.FOUND}`; items: T[]; page?: number; totalPages?: number }
-  | { status: `${CatalogStatus.EMPTY}` }
-  | { status: `${CatalogStatus.ERROR}` }
-  | { status: `${CatalogStatus.UNAUTHORIZED}` };
+  | { status: CatalogStatus.FOUND; items: T[]; page?: number; totalPages?: number }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 type CatalogFetchParams<T> = {
   endpoint: MinsaEndpoint;
