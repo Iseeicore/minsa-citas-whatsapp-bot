@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { INVALID_DNI_TEXT, INVALID_DOCUMENT_TEXT, TURN_FAILURE_TEXT, searchFailureText } from "@/lib/fsm/core/failure-texts";
 import { TURN_FAILURE_TEXT as TURN_FAILURE_TEXT_FROM_LOCK } from "@/lib/fsm/session/turn-lock";
+import { TURN_FAILURE_TEXT, INVALID_DOCUMENT_TEXT, INVALID_DNI_TEXT, searchFailureText } from "@/lib/constants/textos/fallas";
 
 describe("failure texts sent to the citizen", () => {
   it("keeps every text byte for byte as it was before the catalog", () => {

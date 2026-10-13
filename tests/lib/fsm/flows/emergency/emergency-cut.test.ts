@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EMERGENCY_CLOSED_STATE } from "@/lib/fsm/flows/emergency/emergency";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
-import { IN_FLOW_MAX_CHARS, isEmergency, isEmergencyInFlow } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import { isEmergency, isEmergencyInFlow } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
+import { SessionState } from "@/lib/enums/session-state";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
 
 const FROM = "sandbox-emergency-cut";
 
@@ -25,7 +27,7 @@ const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const oosNote = (result: HandlerResult) => result.notes?.find((note) => note.kind === "out_of_scope");
 
 const CUT = { kind: "send_text", text: OOS_MESSAGES["OOS-01"] };
-const CLOSED = { state: EMERGENCY_CLOSED_STATE, slots: {}, counters: {} };
+const CLOSED = { state: SessionState.EMERGENCY_CLOSED, slots: {}, counters: {} };
 const EMERGENCY = "mi hijo no respira";
 
 const STATES: Array<[string, Session["slots"]]> = [
@@ -34,11 +36,22 @@ const STATES: Array<[string, Session["slots"]]> = [
   ["cita_awaiting_dni", {}],
   ["cita_awaiting_otp", { [SlotKey.CITA_TWOFA_ID]: "t", [SlotKey.CITA_DNI]: "12345678" }],
   ["cita_awaiting_distrito_ai", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }],
-  ["cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" }],
-  ["cita_awaiting_other_fecha", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }],
+  [
+    "cita_awaiting_hora_confirm",
+    {
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30",
+      [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1",
+    },
+  ],
+  [
+    "cita_awaiting_other_fecha",
+    { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" },
+  ],
   ["cita_awaiting_reauth", { [SlotKey.CITA_DNI]: "12345678" }],
-  ["reclamo_awaiting_dni", {}],
-  ["reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }],
+  ["incidencia_awaiting_dni", {}],
+  ["incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }],
 ];
 
 describe("a medical emergency ends the conversation cleanly, wherever it is typed", () => {
@@ -67,7 +80,10 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it("with an expired session the citizen still gets the numbers, not the re-verification question", () => {
-    const stale: Session = { ...at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }), updatedAt: new Date(0) };
+    const stale: Session = {
+      ...at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }),
+      updatedAt: new Date(0),
+    };
     const result = handle(stale, text(EMERGENCY), 60 * 60 * 1000);
 
     expect(sent(result)).toEqual([CUT]);
@@ -75,7 +91,10 @@ describe("a medical emergency ends the conversation cleanly, wherever it is type
   });
 
   it("the verification the citizen had is gone with the session", () => {
-    const result = handle(at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }), text(EMERGENCY));
+    const result = handle(
+      at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" }),
+      text(EMERGENCY),
+    );
 
     expect(result.session.slots).toEqual({});
   });
@@ -123,7 +142,7 @@ describe("it comes before everything else the citizen wrote", () => {
 
 describe("the conversation can start again after the cut", () => {
   it("the closed state is terminal", () => {
-    expect(TERMINAL_STATES.has(EMERGENCY_CLOSED_STATE)).toBe(true);
+    expect(TERMINAL_STATES.has(SessionState.EMERGENCY_CLOSED)).toBe(true);
   });
 
   it("a greeting afterwards gets the welcome, as after any finished flow", () => {
@@ -198,12 +217,12 @@ describe("inside a flow only a short text is read as an emergency", () => {
       "El dia martes esperamos mas de tres horas una ambulancia que nunca llego al centro de salud, el personal no supo explicar por que y nadie se hizo responsable de la demora en la atencion de mi familiar";
     expect(narrative.length).toBeGreaterThan(IN_FLOW_MAX_CHARS);
 
-    const result = handle(at("reclamo_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text(narrative));
+    const result = handle(at("incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text(narrative));
 
     expect(sent(result)[0]).not.toEqual(CUT);
     expect(oosNote(result)).toBeUndefined();
-    expect(result.session.state).toBe("reclamo_awaiting_foto");
-    expect(result.session.slots[SlotKey.QUEJA]).toBe(narrative);
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(narrative);
   });
 
   it("at the menu there is no length limit: the citizen is not in the middle of anything", () => {
@@ -223,13 +242,21 @@ describe("inside a flow only a short text is read as an emergency", () => {
 
 describe("only typed text is read", () => {
   it("a tap is never taken for an emergency", () => {
-    const result = handle(at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30" }), { from: FROM, type: "button", listId: "hora_confirm_no" });
+    const result = handle(
+      at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30" }),
+      { from: FROM, type: "button", listId: "hora_confirm_no" },
+    );
 
     expect(oosNote(result)).toBeUndefined();
   });
 
   it("neither is the result of a query", () => {
-    const result: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "list_fechas", result: { status: "error" } };
+    const result: QueryResultEvent = {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "list_fechas",
+      result: { status: "error" },
+    };
 
     expect(oosNote(handle(at("cita_fecha_pending", { [SlotKey.CITA_BEARER]: "token" }), result))).toBeUndefined();
   });

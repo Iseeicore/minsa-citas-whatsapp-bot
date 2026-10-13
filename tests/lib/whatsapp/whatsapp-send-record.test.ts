@@ -25,7 +25,10 @@ describe("recording what the bot sends", () => {
     vi.clearAllMocks();
     vi.stubEnv("META_PHONE_NUMBER_ID", "123");
     vi.stubEnv("META_ACCESS_TOKEN", "token");
-    vi.stubGlobal("fetch", vi.fn(async () => graphOk()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => graphOk()),
+    );
   });
 
   afterEach(() => {

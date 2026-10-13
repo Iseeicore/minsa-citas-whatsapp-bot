@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  INITIAL_WIDGET_STATE,
-  closeWidget,
-  openWidget,
-  toggleExpand,
-  toggleMinimize,
-  type WidgetState,
-} from "@/lib/utils/widget-state";
+import { INITIAL_WIDGET_STATE, closeWidget, openWidget, toggleExpand, toggleMinimize, type WidgetState } from "@/lib/utils/widget-state";
 import { WidgetMode } from "@/lib/enums/widget-mode";
 
 const state = (
@@ -27,15 +20,11 @@ describe("estado inicial y apertura", () => {
 
 describe("agrandar y reducir", () => {
   it("del popup normal pasa a agrandado y lo recuerda", () => {
-    expect(toggleExpand(state(WidgetMode.NORMAL, WidgetMode.NORMAL))).toEqual(
-      state(WidgetMode.EXPANDED, WidgetMode.EXPANDED),
-    );
+    expect(toggleExpand(state(WidgetMode.NORMAL, WidgetMode.NORMAL))).toEqual(state(WidgetMode.EXPANDED, WidgetMode.EXPANDED));
   });
 
   it("de agrandado vuelve al popup normal y lo recuerda", () => {
-    expect(toggleExpand(state(WidgetMode.EXPANDED, WidgetMode.EXPANDED))).toEqual(
-      state(WidgetMode.NORMAL, WidgetMode.NORMAL),
-    );
+    expect(toggleExpand(state(WidgetMode.EXPANDED, WidgetMode.EXPANDED))).toEqual(state(WidgetMode.NORMAL, WidgetMode.NORMAL));
   });
 
   it("no hace nada si está minimizado o es el lanzador", () => {
@@ -47,24 +36,16 @@ describe("agrandar y reducir", () => {
 
 describe("minimizar y restaurar", () => {
   it("minimizar desde el popup normal recuerda el popup normal", () => {
-    expect(toggleMinimize(state(WidgetMode.NORMAL, WidgetMode.NORMAL))).toEqual(
-      state(WidgetMode.MINIMIZED, WidgetMode.NORMAL),
-    );
+    expect(toggleMinimize(state(WidgetMode.NORMAL, WidgetMode.NORMAL))).toEqual(state(WidgetMode.MINIMIZED, WidgetMode.NORMAL));
   });
 
   it("minimizar desde agrandado recuerda agrandado", () => {
-    expect(toggleMinimize(state(WidgetMode.EXPANDED, WidgetMode.EXPANDED))).toEqual(
-      state(WidgetMode.MINIMIZED, WidgetMode.EXPANDED),
-    );
+    expect(toggleMinimize(state(WidgetMode.EXPANDED, WidgetMode.EXPANDED))).toEqual(state(WidgetMode.MINIMIZED, WidgetMode.EXPANDED));
   });
 
   it("restaurar vuelve al estado anterior, no siempre al popup normal", () => {
-    expect(toggleMinimize(state(WidgetMode.MINIMIZED, WidgetMode.EXPANDED))).toEqual(
-      state(WidgetMode.EXPANDED, WidgetMode.EXPANDED),
-    );
-    expect(toggleMinimize(state(WidgetMode.MINIMIZED, WidgetMode.NORMAL))).toEqual(
-      state(WidgetMode.NORMAL, WidgetMode.NORMAL),
-    );
+    expect(toggleMinimize(state(WidgetMode.MINIMIZED, WidgetMode.EXPANDED))).toEqual(state(WidgetMode.EXPANDED, WidgetMode.EXPANDED));
+    expect(toggleMinimize(state(WidgetMode.MINIMIZED, WidgetMode.NORMAL))).toEqual(state(WidgetMode.NORMAL, WidgetMode.NORMAL));
   });
 
   it("no hace nada desde el lanzador", () => {

@@ -35,8 +35,7 @@ function horaSession(day: HoraSlot[], visible: HoraSlot[] = day.slice(0, 10)): S
   };
 }
 
-const say = (session: Session, value: string): HandlerResult =>
-  handle(session, { from: FROM, type: "text", text: value });
+const say = (session: Session, value: string): HandlerResult => handle(session, { from: FROM, type: "text", text: value });
 
 const sent = (r: HandlerResult) => r.effects.filter((e): e is SendEffect => !isQueryEffect(e));
 const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
@@ -57,8 +56,7 @@ describe("C.1 bare numbers against the list [07:00, 08:00, 13:00]", () => {
     expect(result.session.state).toBe("cita_awaiting_hora_choice");
 
     const question = sent(result).find((e) => e.kind === "send_buttons") as
-      | { text: string; buttons: Array<{ id: string; title: string }> }
-      | undefined;
+      { text: string; buttons: Array<{ id: string; title: string }> } | undefined;
     expect(question?.text).toContain("7:00 AM");
     expect(question?.text).toContain("1:00 PM");
     expect(question?.buttons).toEqual([

@@ -3,27 +3,34 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { closeWithApology, discardedDates } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import {
-  buildResult,
-  cloneSession,
-  offerPagedList,
-  query,
-  sendText,
-  truncateForRow,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, offerPagedList, query, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "@/lib/fsm/parsing/date/date-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
-import { reshowOffered, SELECTION_REJECTION, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
+import { reshowOffered, resolveSelection, clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { todayInLima } from "@/lib/time/lima-clock";
 import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
+import { referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { TEMPORAL_PHRASE } from "@/lib/constants/regex/date-time";
+import { REVIEWING_ANSWER_TEXT } from "@/lib/constants/textos/comunes";
+import {
+  SEARCHING_HORARIOS_TEXT,
+  fechaFoundText,
+  FECHA_NOT_IDENTIFIED_TEXT,
+  cuposDisponiblesText,
+  noCuposForFechaText,
+  SELECT_FECHA_TEXT,
+} from "@/lib/constants/textos/cita-fecha-hora";
+import { CatalogStatus } from "@/lib/enums/catalog-status";
+import { MatchKind } from "@/lib/enums/match-kind";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { isString } from "@/lib/utils/type-guards";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 type FechaResultItem = {
   fechaCupo: string;
@@ -48,7 +55,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
   if (failure) return failure;
 
   const discarded = discardedDates(next.slots).map(formatFechaForApi);
-  const dates = (result.status === "found" ? (result.items ?? []) : []).filter(
+  const dates = (result.status === CatalogStatus.FOUND ? (result.items ?? []) : []).filter(
     (item) => !discarded.includes(formatFechaForApi(item.fechaCupo)),
   );
   if (discarded.length > 0 && dates.length === 0) return closeWithApology("no_other_dates");
@@ -58,10 +65,10 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     next.slots[SlotKey.CITA_FECHA] = item.fechaCupo;
     next.state = SessionState.CITA_HORA_PENDING;
     return buildResult(next, [
-      sendText(`Fecha encontrada: ${displayFechaLong(item.fechaCupo)}. Buscando horarios disponibles…`),
+      sendText(fechaFoundText(displayFechaLong(item.fechaCupo))),
       query(QueryKind.LIST_HORAS, {
-        codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-        especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+        codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
         fecha: item.fechaCupo,
       }),
     ]);
@@ -72,19 +79,15 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     const rows: ListRow[] = dates.map((item) => ({
       id: item.fechaCupo,
       title: truncateForRow(displayFechaShort(item.fechaCupo), WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        `${item.cantidadCupos} cupo(s) disponibles`,
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
+      description: truncateForRow(cuposDisponiblesText(item.cantidadCupos), WHATSAPP_ROW_DESCRIPTION_MAX),
     }));
-    return buildResult(next, offerPagedList(next, "Selecciona la fecha:", rows));
+    return buildResult(next, offerPagedList(next, SELECT_FECHA_TEXT, rows));
   }
+
+  if (referenciaSeleccionadaId(next.slots)) return closeWithApology("referencia_sin_cupos");
 
   return searchOtherEstablecimiento(next);
 }
-
-const TEMPORAL_PHRASE =
-  /\b(semana|mes|proxim[oa]s?|siguiente|dias?|fin|final|inicio|principios?|quincena|luego|despues|pronto|temprano|urgente|antes|cuando|fecha)\b/;
 
 function askFechaAi(session: Session, typed: string): HandlerResult | undefined {
   if (!TEMPORAL_PHRASE.test(normalizeText(typed).toLowerCase())) return undefined;
@@ -98,7 +101,7 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
   const next = cloneSession(session);
   next.state = SessionState.CITA_FECHA_AI_PENDING;
   return buildResult(next, [
-    sendText("Un momento, estamos revisando tu respuesta…"),
+    sendText(REVIEWING_ANSWER_TEXT),
     query(QueryKind.RESOLVE_FECHA_AI, {
       text: typed,
       today: `${today.year}-${pad(today.month)}-${pad(today.day)}`,
@@ -116,20 +119,20 @@ export function handleFechaAiPending(session: Session, event: QueryResultEvent):
 
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
-  if (typeof result.id === "string" && offered?.rows.some((row) => row.id === result.id)) {
+  if (isString(result.id) && offered?.rows.some((row) => row.id === result.id)) {
     return handleAwaitingFechaSelect(restored, { from: event.from, type: InboundEventType.LIST, listId: result.id });
   }
 
-  return reshowOffered(restored, offered, `No pudimos identificar esa fecha. ${SELECTION_REJECTION}`);
+  return reshowOffered(restored, offered, FECHA_NOT_IDENTIFIED_TEXT);
 }
 
 export function handleAwaitingFechaSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event, {
     customMatch: (typed, rows) => {
       const parsed = matchFechaText(typed, rows, todayInLima());
-      if (parsed.kind === "unparsed") return undefined;
-      if (parsed.kind === "unavailable") {
-        return { kind: "notice", text: `No hay cupos para ${parsed.label}. Elige una de las fechas disponibles:` };
+      if (parsed.kind === MatchKind.UNPARSED) return undefined;
+      if (parsed.kind === MatchKind.UNAVAILABLE) {
+        return { kind: MatchKind.NOTICE, text: noCuposForFechaText(parsed.label) };
       }
       return parsed;
     },
@@ -142,10 +145,10 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
   next.slots[SlotKey.CITA_FECHA] = replyId;
   next.state = SessionState.CITA_HORA_PENDING;
   return buildResult(next, [
-    sendText("Buscando horarios disponibles…"),
+    sendText(SEARCHING_HORARIOS_TEXT),
     query(QueryKind.LIST_HORAS, {
-      codEess: String(next.slots[SlotKey.CITA_COD_EESS] ?? ""),
-      especialidadId: String(next.slots[SlotKey.CITA_ESPECIALIDAD_ID] ?? ""),
+      codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
+      especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
       fecha: replyId,
     }),
   ]);

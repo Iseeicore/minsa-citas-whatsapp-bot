@@ -1,12 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  listEspecialidades,
-  listEstablecimientos,
-  listFechas,
-  listHoras,
-  searchUbigeo,
-} from "@/lib/integrations/minsa/catalog";
-import { readNumber, readString } from "@/lib/integrations/minsa/row-readers";
+import { listEspecialidades, listEstablecimientos, listFechas, listHoras, searchUbigeo } from "@/lib/integrations/minsa/catalog";
+import { readNumber, readString } from "@/lib/utils/record-readers";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 
 const minsaResponding = (body: unknown, status = 200) =>

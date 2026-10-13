@@ -37,12 +37,20 @@ describe.skipIf(!process.env.DATABASE_URL)("upload requests and received files a
   }
 
   const recibir = (solicitudCargaId: string, waId: string, nombre: string, mime: string) =>
-    prisma.$transaction([
-      declararActor(`ciudadano:${waId}`),
-      prisma.archivoRecibido.create({
-        data: { solicitudCargaId, nombreOriginal: nombre, mimeDeclarado: mime, tamano: BigInt(1024), rutaCuarentena: `cuarentena/${randomUUID()}` },
-      }),
-    ]).then(([, archivo]) => archivo);
+    prisma
+      .$transaction([
+        declararActor(`ciudadano:${waId}`),
+        prisma.archivoRecibido.create({
+          data: {
+            solicitudCargaId,
+            nombreOriginal: nombre,
+            mimeDeclarado: mime,
+            tamano: BigInt(1024),
+            rutaCuarentena: `cuarentena/${randomUUID()}`,
+          },
+        }),
+      ])
+      .then(([, archivo]) => archivo);
 
   it("issues a request signed by the citizen and receives files in the RECIBIDO state", async () => {
     const { waId, solicitud } = await nuevaSolicitud();
@@ -56,10 +64,16 @@ describe.skipIf(!process.env.DATABASE_URL)("upload requests and received files a
     const { waId, solicitud } = await nuevaSolicitud();
     const archivo = await recibir(solicitud.id, waId, "foto.png", "image/png");
 
-    await prisma.$transaction([declararActor("sistema:broker"), prisma.archivoRecibido.update({ where: { id: archivo.id }, data: { estadoArchivoId: VERIFICANDO } })]);
     await prisma.$transaction([
       declararActor("sistema:broker"),
-      prisma.archivoRecibido.update({ where: { id: archivo.id }, data: { estadoArchivoId: VERIFICADO, mimeDetectado: "image/png", hashArchivo: "sha256-xyz" } }),
+      prisma.archivoRecibido.update({ where: { id: archivo.id }, data: { estadoArchivoId: VERIFICANDO } }),
+    ]);
+    await prisma.$transaction([
+      declararActor("sistema:broker"),
+      prisma.archivoRecibido.update({
+        where: { id: archivo.id },
+        data: { estadoArchivoId: VERIFICADO, mimeDetectado: "image/png", hashArchivo: "sha256-xyz" },
+      }),
     ]);
 
     const final = await prisma.archivoRecibido.findUniqueOrThrow({ where: { id: archivo.id } });
@@ -73,11 +87,17 @@ describe.skipIf(!process.env.DATABASE_URL)("upload requests and received files a
 
     await prisma.$transaction([
       declararActor("sistema:broker"),
-      prisma.archivoRecibido.update({ where: { id: archivo.id }, data: { estadoArchivoId: RECHAZADO, motivoRechazo: "Tipo no permitido" } }),
+      prisma.archivoRecibido.update({
+        where: { id: archivo.id },
+        data: { estadoArchivoId: RECHAZADO, motivoRechazo: "Tipo no permitido" },
+      }),
     ]);
 
     await expect(
-      prisma.$transaction([declararActor("sistema:broker"), prisma.archivoRecibido.update({ where: { id: archivo.id }, data: { estadoArchivoId: VERIFICANDO } })]),
+      prisma.$transaction([
+        declararActor("sistema:broker"),
+        prisma.archivoRecibido.update({ where: { id: archivo.id }, data: { estadoArchivoId: VERIFICANDO } }),
+      ]),
     ).rejects.toThrow(/ya no cambia/);
     await expect(prisma.archivoRecibido.delete({ where: { id: archivo.id } })).rejects.toThrow(/no esta permitida/);
   });
@@ -97,7 +117,10 @@ describe.skipIf(!process.env.DATABASE_URL)("upload requests and received files a
       _count: { _all: true },
     });
 
-    expect(Object.fromEntries(porEstado.map((fila) => [fila.estadoArchivoId, fila._count._all]))).toEqual({ [RECIBIDO]: 1, [RECHAZADO]: 1 });
+    expect(Object.fromEntries(porEstado.map((fila) => [fila.estadoArchivoId, fila._count._all]))).toEqual({
+      [RECIBIDO]: 1,
+      [RECHAZADO]: 1,
+    });
   });
 
   it("closes a request once, with the database date, and never reopens it", async () => {

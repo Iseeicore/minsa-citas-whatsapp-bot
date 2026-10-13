@@ -2,20 +2,11 @@ import { logger } from "@/lib/observability/logger";
 import { tail as maskWaId } from "@/lib/observability/mask";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 
 export type { TurnLockLayer };
 
-export class TurnLockTimeoutError extends Error {
-  constructor(
-    readonly waId: string,
-    readonly layer: TurnLockLayer,
-  ) {
-    super(`Timed out waiting for the ${layer} turn lock of ${waId}`);
-    this.name = "TurnLockTimeoutError";
-  }
-}
-
-export { TURN_FAILURE_TEXT } from "@/lib/fsm/core/failure-texts";
+export { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 
 export type TurnTask<T> = () => Promise<T>;
 export type TurnLock = <T>(waId: string, task: TurnTask<T>) => Promise<T>;
@@ -48,7 +39,6 @@ function waitFor(promise: Promise<unknown>, timeoutMs: number, onTimeout: () => 
   });
 }
 
-/** Serializa los turnos de un mismo ciudadano: cola en memoria del proceso y, con base de datos, advisory lock de Postgres entre instancias. */
 export function createTurnLock(options: TurnLockOptions = {}): TurnLock {
   const timeoutMs = options.processTimeoutMs ?? DEFAULT_PROCESS_TIMEOUT_MS;
   const slowWaitMs = options.slowWaitMs ?? DEFAULT_SLOW_WAIT_MS;

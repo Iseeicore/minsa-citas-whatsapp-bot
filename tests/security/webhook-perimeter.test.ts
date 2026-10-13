@@ -51,20 +51,37 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   findSession: () => mocks.sessionFindUnique(),
 }));
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked }));
+vi.mock("@/lib/whatsapp/inbound/inbound-policy", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/whatsapp/inbound/inbound-policy")>()),
+  resolveWindowMs: () => 0,
+}));
+vi.mock("@/lib/whatsapp/inbound/postgres-inbound-buffer", () => ({
+  createPostgresInboundBuffer: () => ({
+    summarize: async () => ({ count: 0, newestWaMessageId: null, oldestArrivedAt: null }),
+    claim: async (usuarioId: string, _limit: number, owner: string) => [
+      { usuarioId, waMessageId: owner, contenido: "x", tipoMensajeId: 1, fechaHora: new Date(), arrivedAt: new Date() },
+    ],
+    discard: async () => undefined,
+    wasRepeated: async () => false,
+    expireStale: async () => 0,
+  }),
+}));
 vi.mock("@/lib/fsm/session/turn-lock", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/fsm/session/turn-lock")>()),
   withTurnLock: mocks.withTurnLock,
 }));
 
 import { POST } from "@/app/webhook/whatsapp/route";
-import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
-import { TURN_FAILURE_TEXT, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TURN_FAILURE_TEXT } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { configureLogger } from "@/lib/observability/logger";
-import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const SECRET = "test-app-secret";
+const NOW_SECONDS = () => String(Math.floor(Date.now() / 1000));
 let counter = 0;
 const freshWaId = () => `5191100${String(++counter).padStart(5, "0")}`;
 
@@ -74,7 +91,7 @@ let messageCounter = 0;
 const textMessage = (waId: string, body: string): Message => ({
   id: `wamid.${++messageCounter}`,
   from_user_id: waId,
-  timestamp: "1780000000",
+  timestamp: NOW_SECONDS(),
   type: "text",
   text: { body },
 });
@@ -294,7 +311,13 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
   it.each(["image", "audio"])("a %s as the first message gets the text-only reminder and is never downloaded", async (type) => {
     const waId = freshWaId();
-    const message: Message = { id: `wamid.${++messageCounter}`, from_user_id: waId, timestamp: "1780000000", type, image: { id: "media-1" } };
+    const message: Message = {
+      id: `wamid.${++messageCounter}`,
+      from_user_id: waId,
+      timestamp: NOW_SECONDS(),
+      type,
+      image: { id: "media-1" },
+    };
 
     await deliver([message]);
 
@@ -306,7 +329,13 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
   it("a sticker as the first message is silenced completely: no reply, never downloaded", async () => {
     const waId = freshWaId();
-    const message: Message = { id: `wamid.${++messageCounter}`, from_user_id: waId, timestamp: "1780000000", type: "sticker", image: { id: "media-1" } };
+    const message: Message = {
+      id: `wamid.${++messageCounter}`,
+      from_user_id: waId,
+      timestamp: NOW_SECONDS(),
+      type: "sticker",
+      image: { id: "media-1" },
+    };
 
     await deliver([message]);
 

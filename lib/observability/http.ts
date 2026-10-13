@@ -1,12 +1,7 @@
 import { logger } from "@/lib/observability/logger";
 import type { ExternalService } from "@/lib/observability/types";
 
-export async function timedFetch(
-  service: ExternalService,
-  operation: string,
-  url: string,
-  init?: RequestInit,
-): Promise<Response> {
+export async function timedFetch(service: ExternalService, operation: string, url: string, init?: RequestInit): Promise<Response> {
   const startedAt = Date.now();
   const method = init?.method ?? "GET";
   let path = "";

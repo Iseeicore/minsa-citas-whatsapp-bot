@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
+import { consoleDisabledResponse } from "@/lib/inbox/console-access";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
 import { toConversationStatus, toMessageDto } from "@/lib/inbox/dto";
 import { findLastInbound, findUserState, listMessages } from "@/lib/inbox/repository";
@@ -10,6 +11,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const closed = consoleDisabledResponse();
+  if (closed) return closed;
+
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
   const { id } = await params;

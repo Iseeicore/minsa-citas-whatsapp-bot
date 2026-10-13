@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createTurnLock, defaultDbLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createTurnLock, defaultDbLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -49,9 +50,7 @@ describe("level 1: in-process lock per waId", () => {
     const inside = tracker();
 
     const started = Date.now();
-    await Promise.all(
-      ["a", "b", "c", "d", "e"].map((waId) => lock(waId, () => inside.run(() => sleep(40)))),
-    );
+    await Promise.all(["a", "b", "c", "d", "e"].map((waId) => lock(waId, () => inside.run(() => sleep(40)))));
 
     expect(inside.max).toBe(5);
     expect(Date.now() - started).toBeLessThan(150);
@@ -138,7 +137,14 @@ function fakePrisma(options: { failOn?: (sql: string) => Error | undefined } = {
     },
   };
 
-  return { prisma, log, transactions, get maxOpen() { return maxOpen; } };
+  return {
+    prisma,
+    log,
+    transactions,
+    get maxOpen() {
+      return maxOpen;
+    },
+  };
 }
 
 describe("level 2: Postgres advisory lock", () => {

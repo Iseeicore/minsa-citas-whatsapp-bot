@@ -3,4 +3,5 @@ export enum InboundEventType {
   BUTTON = "button",
   LIST = "list",
   IMAGE = "image",
+  DOCUMENT = "document",
 }

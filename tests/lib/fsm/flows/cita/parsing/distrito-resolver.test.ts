@@ -18,17 +18,13 @@ const session = (extra: Session["slots"] = {}): Session => ({
   counters: {},
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
 describe("looksLikePlaceName: guards the local -> AI chain", () => {
-  it.each(["San Borja", "Miraflores", "San Juan de Lurigancho", "Ate", "O'Higgins", "Villa El Salvador"])(
-    "%j is",
-    (text) => {
-      expect(looksLikePlaceName(text)).toBe(true);
-    },
-  );
+  it.each(["San Borja", "Miraflores", "San Juan de Lurigancho", "Ate", "O'Higgins", "Villa El Salvador"])("%j is", (text) => {
+    expect(looksLikePlaceName(text)).toBe(true);
+  });
 
   it.each(["quee ?", "a|b|c", "12345", "no, mejor en Miraflores", "", "a"])("%j is not", (text) => {
     expect(looksLikePlaceName(text)).toBe(false);
@@ -112,7 +108,10 @@ describe("resolveDistritoCandidates: what to do with N candidates (shared by the
     ]);
 
     expect(result.session.state).toBe("cita_awaiting_distrito_disambiguation");
-    expect(sent(result)[0]).toMatchObject({ kind: "send_interactive_list", rows: expect.arrayContaining([expect.objectContaining({ title: "MIRAFLORES" })]) });
+    expect(sent(result)[0]).toMatchObject({
+      kind: "send_interactive_list",
+      rows: expect.arrayContaining([expect.objectContaining({ title: "MIRAFLORES" })]),
+    });
     const rows = (sent(result)[0] as { rows: Array<{ id: string }> }).rows;
     expect(rows).toHaveLength(2);
   });

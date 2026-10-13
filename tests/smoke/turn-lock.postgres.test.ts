@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { createPrismaAdvisoryLock } from "@/lib/fsm/session/turn-lock-db";
 import { prisma } from "@/lib/db/prisma";
 
@@ -17,9 +18,7 @@ const report: Record<string, unknown> = {};
 
 async function advisoryLocksNow(): Promise<number | null> {
   try {
-    const rows = await prisma.$queryRawUnsafe<Array<{ n: number }>>(
-      "SELECT count(*)::int AS n FROM pg_locks WHERE locktype = 'advisory'",
-    );
+    const rows = await prisma.$queryRawUnsafe<Array<{ n: number }>>("SELECT count(*)::int AS n FROM pg_locks WHERE locktype = 'advisory'");
     return rows[0]?.n ?? null;
   } catch {
     return null;
@@ -222,7 +221,11 @@ describe.skipIf(!process.env.DATABASE_URL)("turn lock against a real PostgreSQL 
     await nextInstance(same, async () => "free");
     const handoff = performance.now() - handoffStarted;
 
-    report.timeout = { abortedAfterMs: ms(abortedAfter), errorLayer: (error as TurnLockTimeoutError).layer, handoffAfterReleaseMs: ms(handoff) };
+    report.timeout = {
+      abortedAfterMs: ms(abortedAfter),
+      errorLayer: (error as TurnLockTimeoutError).layer,
+      handoffAfterReleaseMs: ms(handoff),
+    };
 
     expect(error).toBeInstanceOf(TurnLockTimeoutError);
     expect(error).toMatchObject({ layer: "database" });

@@ -1,47 +1,112 @@
 import { describe, expect, it } from "vitest";
 import { detectOutOfScope, isEmergency, isCitaKeyword, isContinueKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
-import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
+import { OosCategory } from "@/lib/enums/oos-category";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const EXAMPLES: Array<[OosCategory, string[]]> = [
-  [OosCategoryEnum.OOS_01, [
-    "Mi mamá no puede respirar", "Me duele el pecho fuerte", "Mi hijo se cayó y sangra la cabeza", "Necesito una ambulancia urgente",
-    "mi papa esta inconsciente", "se desmayó y no reacciona", "creo que es un infarto", "mi hija tiene convulsiones", "es una emergencia médica",
-    "dolor de pecho", "se está asfixiando", "mi bebé se asfixia", "me muero", "me estoy muriendo",
-    "mi hijo sigue sin respirar", "dejó de respirar", "no está respirando", "me falta el aire",
-  ]],
-  [OosCategoryEnum.OOS_02, [
-    "¿Mi SIS está activo?", "¿Cómo me afilio al SIS?", "Fui a atenderme y me dijeron que mi seguro está cancelado",
-    "quiero afiliarme al seguro integral de salud", "mi SIS no aparece",
-  ]],
-  [OosCategoryEnum.OOS_03, [
-    "Tengo mi hoja de referencia de mi posta para el Hospital Loayza", "¿Ya aceptaron mi referencia?",
-    "Quiero cita con especialista pero me piden hoja de referencia", "¿qué es la contrarreferencia?", "estado de mi REFCON",
-  ]],
-  [OosCategoryEnum.OOS_04, [
-    "¿Ya salieron mis análisis de sangre?", "Quiero recoger mi radiografía/tomografía", "Mándenme los resultados de mi biopsia por acá",
-    "necesito mi ecografía", "¿dónde queda el laboratorio?",
-  ]],
-  [OosCategoryEnum.OOS_05, [
-    "¿Tienen Paracetamol o Insulina en la posta?", "¿Llegó la medicina para la presión?", "Fui a la farmacia y no había mi receta",
-    "no me dieron mis medicamentos", "¿hay pastillas para la gastritis?",
-  ]],
-  [OosCategoryEnum.OOS_06, [
-    "¿Qué días vacunan contra la influenza?", "¿Dónde consigo mi carnet de vacunación?", "¿Tienen vacunas para el tétanos para mi bebé?",
-    "quiero una cita para vacunarme", "me falta la segunda dosis de la vacuna",
-  ]],
-  [OosCategoryEnum.OOS_07, [
-    "Doctor, me salieron unos granitos rojos, ¿qué tomo?", "¿Qué dosis le doy a mi hija de 5 años si tiene fiebre?", "Quiero hablar con un doctor ahorita",
-    "¿hacen teleconsulta?", "quiero hablar con una enfermera",
-  ]],
-  [OosCategoryEnum.OOS_08, [
-    "Ya puse un reclamo la semana pasada, ¿cuándo me responden?", "Mi reclamo N° 458-2026 sigue sin resolverse", "Quiero saber qué pasó con mi queja contra el doctor",
-    "¿cuál es el estado de mi reclamo?", "hice una queja hace un mes y nadie responde",
-  ]],
-  [OosCategoryEnum.OOS_09, [
-    "Necesito que me sellen mi descanso médico para mi trabajo", "¿Cómo saco el Certificado Médico de Discapacidad?",
-    "¿Dónde actualizo mi SISFOH para la clasificación socioeconómica?", "necesito un certificado", "¿me hacen el canje de mi descanso?",
-  ]],
+  [
+    OosCategory.OOS_01,
+    [
+      "Mi mamá no puede respirar",
+      "Me duele el pecho fuerte",
+      "Mi hijo se cayó y sangra la cabeza",
+      "Necesito una ambulancia urgente",
+      "mi papa esta inconsciente",
+      "se desmayó y no reacciona",
+      "creo que es un infarto",
+      "mi hija tiene convulsiones",
+      "es una emergencia médica",
+      "dolor de pecho",
+      "se está asfixiando",
+      "mi bebé se asfixia",
+      "me muero",
+      "me estoy muriendo",
+      "mi hijo sigue sin respirar",
+      "dejó de respirar",
+      "no está respirando",
+      "me falta el aire",
+    ],
+  ],
+  [
+    OosCategory.OOS_02,
+    [
+      "¿Mi SIS está activo?",
+      "¿Cómo me afilio al SIS?",
+      "Fui a atenderme y me dijeron que mi seguro está cancelado",
+      "quiero afiliarme al seguro integral de salud",
+      "mi SIS no aparece",
+    ],
+  ],
+  [
+    OosCategory.OOS_03,
+    [
+      "Tengo mi hoja de referencia de mi posta para el Hospital Loayza",
+      "¿Ya aceptaron mi referencia?",
+      "Quiero cita con especialista pero me piden hoja de referencia",
+      "¿qué es la contrarreferencia?",
+      "estado de mi REFCON",
+    ],
+  ],
+  [
+    OosCategory.OOS_04,
+    [
+      "¿Ya salieron mis análisis de sangre?",
+      "Quiero recoger mi radiografía/tomografía",
+      "Mándenme los resultados de mi biopsia por acá",
+      "necesito mi ecografía",
+      "¿dónde queda el laboratorio?",
+    ],
+  ],
+  [
+    OosCategory.OOS_05,
+    [
+      "¿Tienen Paracetamol o Insulina en la posta?",
+      "¿Llegó la medicina para la presión?",
+      "Fui a la farmacia y no había mi receta",
+      "no me dieron mis medicamentos",
+      "¿hay pastillas para la gastritis?",
+    ],
+  ],
+  [
+    OosCategory.OOS_06,
+    [
+      "¿Qué días vacunan contra la influenza?",
+      "¿Dónde consigo mi carnet de vacunación?",
+      "¿Tienen vacunas para el tétanos para mi bebé?",
+      "quiero una cita para vacunarme",
+      "me falta la segunda dosis de la vacuna",
+    ],
+  ],
+  [
+    OosCategory.OOS_07,
+    [
+      "Doctor, me salieron unos granitos rojos, ¿qué tomo?",
+      "¿Qué dosis le doy a mi hija de 5 años si tiene fiebre?",
+      "Quiero hablar con un doctor ahorita",
+      "¿hacen teleconsulta?",
+      "quiero hablar con una enfermera",
+    ],
+  ],
+  [
+    OosCategory.OOS_08,
+    [
+      "Ya puse un reclamo la semana pasada, ¿cuándo me responden?",
+      "Mi reclamo N° 458-2026 sigue sin resolverse",
+      "Quiero saber qué pasó con mi queja contra el doctor",
+      "¿cuál es el estado de mi reclamo?",
+      "hice una queja hace un mes y nadie responde",
+    ],
+  ],
+  [
+    OosCategory.OOS_09,
+    [
+      "Necesito que me sellen mi descanso médico para mi trabajo",
+      "¿Cómo saco el Certificado Médico de Discapacidad?",
+      "¿Dónde actualizo mi SISFOH para la clasificación socioeconómica?",
+      "necesito un certificado",
+      "¿me hacen el canje de mi descanso?",
+    ],
+  ],
 ];
 
 describe("detectOutOfScope: every example of the spreadsheet lands in its category", () => {
@@ -127,15 +192,15 @@ describe("the words the messages ask the citizen to type", () => {
 
 describe("the messages (spreadsheet texts) and their derivation channels", () => {
   const CHANNELS: Array<[OosCategory, string[]]> = [
-    [OosCategoryEnum.OOS_01, ["SAMU: 106", "Bomberos: 116"]],
-    [OosCategoryEnum.OOS_02, ["app.sis.gob.pe/ConsultaWeb", "941 988 565", "Línea 113"]],
-    [OosCategoryEnum.OOS_03, ["REFCON", "Hoja de Referencia", "Admisión/Referencias"]],
-    [OosCategoryEnum.OOS_04, ["Ley N° 26842", "de forma presencial"]],
-    [OosCategoryEnum.OOS_05, ["observatorio.digemid.minsa.gob.pe", "RECLAMO"]],
-    [OosCategoryEnum.OOS_06, ["carnetvacunacion.minsa.gob.pe", "Línea 113 (Opción 1)"]],
-    [OosCategoryEnum.OOS_07, ["Infosalud", "Línea 113"]],
-    [OosCategoryEnum.OOS_08, ["SUSALUD", "113 (Opción 7)", "PAUS", "30 días hábiles"]],
-    [OosCategoryEnum.OOS_09, ["Personal/Admisión", "ULE", "SISFOH"]],
+    [OosCategory.OOS_01, ["SAMU: 106", "Bomberos: 116"]],
+    [OosCategory.OOS_02, ["app.sis.gob.pe/ConsultaWeb", "941 988 565", "Línea 113"]],
+    [OosCategory.OOS_03, ["REFCON", "Hoja de Referencia", "Admisión/Referencias"]],
+    [OosCategory.OOS_04, ["Ley N° 26842", "de forma presencial"]],
+    [OosCategory.OOS_05, ["observatorio.digemid.minsa.gob.pe", "INCIDENCIA"]],
+    [OosCategory.OOS_06, ["carnetvacunacion.minsa.gob.pe", "Línea 113 (Opción 1)"]],
+    [OosCategory.OOS_07, ["Infosalud", "Línea 113"]],
+    [OosCategory.OOS_08, ["SUSALUD", "113 (Opción 7)", "PAUS", "30 días hábiles"]],
+    [OosCategory.OOS_09, ["Personal/Admisión", "ULE", "SISFOH"]],
   ];
 
   it("there is one message per category", () => {
@@ -148,8 +213,9 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
 
   it("each one tells the citizen how to go on, with a word the bot understands", () => {
     expect(OOS_MESSAGES["OOS-01"]).not.toMatch(/CONTINUAR|CITAS|RECLAMO/);
-    for (const category of [OosCategoryEnum.OOS_02, "OOS-03", "OOS-04", "OOS-07", "OOS-09"] as const) expect(OOS_MESSAGES[category]).toContain("CITAS");
-    for (const category of [OosCategoryEnum.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("RECLAMO");
+    for (const category of [OosCategory.OOS_02, "OOS-03", "OOS-04", "OOS-07", "OOS-09"] as const)
+      expect(OOS_MESSAGES[category]).toContain("CITAS");
+    for (const category of [OosCategory.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("INCIDENCIA");
   });
 
   it("all fit in a WhatsApp text and keep the spreadsheet's wording (no triple line breaks)", () => {

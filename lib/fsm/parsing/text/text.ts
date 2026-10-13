@@ -1,21 +1,19 @@
+import { ALL_WHITESPACE_RUNS, CAPITALIZED_CONNECTOR, WHITESPACE_RUN, WORD_INITIAL } from "@/lib/constants/regex/text";
+import { stripAccents } from "@/lib/utils/text-values";
+
 export function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .trim()
-    .replace(/\s+/g, " ");
+  return stripAccents(value).toUpperCase().trim().replace(ALL_WHITESPACE_RUNS, " ");
 }
 
 export function toDisplayPlace(name: string): string {
   return name
     .toLowerCase()
-    .replace(/(^|[\s(-])(\p{L})/gu, (_match, separator: string, letter: string) => separator + letter.toUpperCase())
-    .replace(/(?<=\s)(De|Del|La|Las|Los|Y)(?=\s|$)/g, (word) => word.toLowerCase());
+    .replace(WORD_INITIAL, (_match, separator: string, letter: string) => separator + letter.toUpperCase())
+    .replace(CAPITALIZED_CONNECTOR, (word) => word.toLowerCase());
 }
 
 function normalizeName(value: string): Set<string> {
-  return new Set(normalizeText(value).split(/\s+/).filter(Boolean));
+  return new Set(normalizeText(value).split(WHITESPACE_RUN).filter(Boolean));
 }
 
 export function namesMatch(typedName: string, officialFullName: string): boolean {
@@ -24,10 +22,7 @@ export function namesMatch(typedName: string, officialFullName: string): boolean
 
   if (typedTokens.size === 0 || officialTokens.size === 0) return false;
 
-  const [smaller, larger] =
-    typedTokens.size <= officialTokens.size
-      ? [typedTokens, officialTokens]
-      : [officialTokens, typedTokens];
+  const [smaller, larger] = typedTokens.size <= officialTokens.size ? [typedTokens, officialTokens] : [officialTokens, typedTokens];
 
   for (const token of smaller) {
     if (!larger.has(token)) return false;

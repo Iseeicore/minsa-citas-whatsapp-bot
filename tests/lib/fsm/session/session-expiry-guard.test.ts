@@ -11,6 +11,7 @@ import {
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-expiry";
 const NOW = Date.parse("2026-09-19T15:00:00Z");
@@ -44,8 +45,7 @@ function authenticated(
   };
 }
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
 describe("decodeJwtExp", () => {
@@ -95,13 +95,19 @@ describe("detectSessionExpiry", () => {
   });
 
   it("never fires on synthetic query results, mid-turn", () => {
-    const result: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "list_horas", result: {} };
+    const result: QueryResultEvent = { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "list_horas", result: {} };
     const session = authenticated("cita_hora_pending", { idleMs: minutes(60) });
     expect(detectSessionExpiry(session, result, NOW)).toBeNull();
   });
 
   it("only applies to the authenticated waiting states", () => {
-    for (const state of ["main_menu", "cita_awaiting_dni", "cita_awaiting_otp", "cita_awaiting_reauth", "reclamo_awaiting_descripcion"]) {
+    for (const state of [
+      "main_menu",
+      "cita_awaiting_dni",
+      "cita_awaiting_otp",
+      "cita_awaiting_reauth",
+      "incidencia_awaiting_descripcion",
+    ]) {
       expect(detectSessionExpiry(authenticated(state as Session["state"], { idleMs: minutes(60) }), text("x"), NOW)).toBeNull();
     }
     expect(AUTHENTICATED_WAITING_STATES).toContain("cita_awaiting_hora_confirm");
@@ -232,7 +238,7 @@ describe("cita_awaiting_reauth", () => {
 describe("after the citizen agrees to verify again", () => {
   const result = (queryKind: QueryResultEvent["queryKind"], body: unknown): QueryResultEvent => ({
     from: FROM,
-    type: "query_result",
+    type: InternalEventType.QUERY_RESULT,
     queryKind,
     result: body,
   });
@@ -256,9 +262,7 @@ describe("after the citizen agrees to verify again", () => {
     expect(step.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
     expect(step.session.slots[SlotKey.CITA_RESUME_STATE]).toBeUndefined();
     expect(step.session.state).toBe("cita_hora_pending");
-    expect(queries(step)).toEqual([
-      { kind: "list_horas", payload: { codEess: "0000123", especialidadId: "02", fecha: "31/12/2099" } },
-    ]);
+    expect(queries(step)).toEqual([{ kind: "list_horas", payload: { codEess: "0000123", especialidadId: "02", fecha: "31/12/2099" } }]);
   });
 
   it("still recovers reactively when MINSA answers 401 despite the proactive checks", () => {

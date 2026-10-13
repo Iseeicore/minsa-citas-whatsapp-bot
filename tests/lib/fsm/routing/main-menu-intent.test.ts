@@ -9,14 +9,14 @@ import { detectCitaRequest, isContinueReply } from "@/lib/fsm/routing/menu-short
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-main-menu";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const menu = (slots: Session["slots"] = {}): Session => ({ state: "main_menu", slots, counters: {} });
 
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const FIELD_TEST_MESSAGE = "Quiero una cita en San Juan de Lurigancho para poder atenderme en medicina general";
 
@@ -66,7 +66,7 @@ describe("an explicit cita request typed in the main menu", () => {
 describe("when the AI is used and answers cita", () => {
   const aiAnswer = (result: unknown): QueryResultEvent => ({
     from: FROM,
-    type: "query_result",
+    type: InternalEventType.QUERY_RESULT,
     queryKind: "analyze_main_menu_intent",
     result,
   });
@@ -104,7 +104,7 @@ describe("noise-looking text: silenced before ever asking the AI", () => {
     const pending: Session = { state: "main_menu_intent_pending", slots: {}, counters: {} };
     const result = handle(pending, {
       from: FROM,
-      type: "query_result",
+      type: InternalEventType.QUERY_RESULT,
       queryKind: "analyze_main_menu_intent",
       result: { intent: "unclear" },
     });
@@ -131,13 +131,18 @@ describe("analyzeMainMenuIntent against a real model", () => {
   });
 
   const geminiReplying = (body: string, status = 200) =>
-    vi.fn().mockResolvedValue(
-      new Response(status === 200 ? JSON.stringify({ candidates: [{ content: { parts: [{ text: body }] } }] }) : "{}", { status }),
-    );
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(status === 200 ? JSON.stringify({ candidates: [{ content: { parts: [{ text: body }] } }] }) : "{}", { status }),
+      );
 
   it("accepts the intent whatever its letter case", async () => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "true");
-    vi.stubGlobal("fetch", geminiReplying(JSON.stringify({ intent: "CITA", especialidad: "Medicina General", distrito: "San Juan de Lurigancho", detalle: "" })));
+    vi.stubGlobal(
+      "fetch",
+      geminiReplying(JSON.stringify({ intent: "CITA", especialidad: "Medicina General", distrito: "San Juan de Lurigancho", detalle: "" })),
+    );
 
     await expect(analyzeMainMenuIntent(FIELD_TEST_MESSAGE)).resolves.toEqual({
       intent: "cita",
@@ -226,19 +231,35 @@ describe("«Continuar» after the institutional warning", () => {
 describe("a flow that ended in an error", () => {
   const rejected = (): Session => ({
     state: "cita_booking_pending",
-    slots: { [SlotKey.CITA_BEARER]: "stale-token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02", [SlotKey.CITA_FECHA]: "31/12/2099" },
+    slots: {
+      [SlotKey.CITA_BEARER]: "stale-token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_COD_EESS]: "1",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+      [SlotKey.CITA_FECHA]: "31/12/2099",
+    },
     counters: { [CounterKey.CITA_BOOKING_FAILURES]: 2 },
   });
 
   it("does not keep MINSA's token once it is closed", () => {
-    const closed = handle(rejected(), { from: FROM, type: "query_result", queryKind: "book_appointment", result: { status: "error" } });
+    const closed = handle(rejected(), {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "book_appointment",
+      result: { status: "error" },
+    });
 
     expect(closed.session.state).toBe("cita_booking_rejected");
     expect(closed.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
   });
 
   it("starts the next message from a clean main_menu", () => {
-    const closed = handle(rejected(), { from: FROM, type: "query_result", queryKind: "book_appointment", result: { status: "error" } });
+    const closed = handle(rejected(), {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "book_appointment",
+      result: { status: "error" },
+    });
     const next = handle(closed.session, text("hola"));
 
     expect(next.session.state).toBe("main_menu");

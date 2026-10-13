@@ -6,13 +6,15 @@ import { DEFAULT_MUTE_MS, type RateLimiter } from "@/lib/security/rate-limiter";
 import { RateVerdict } from "@/lib/enums/rate-verdict";
 import { RejectReason as RejectReasonEnum } from "@/lib/enums/reject-reason";
 import { PerimeterAction } from "@/lib/enums/perimeter-action";
+import { muteNoticeText } from "@/lib/constants/textos/seguridad";
+import { PayloadVerdictKind } from "@/lib/enums/payload-verdict-kind";
 
 export type PerimeterDecision =
   | { action: PerimeterAction.DROP; reason: RateVerdict.THROTTLED | RateVerdict.BANNED | RejectReasonEnum.NOISE | RejectReasonEnum.STICKER }
   | { action: PerimeterAction.REJECT; reason: RejectReason | RateVerdict.MUTED; reply: string }
   | { action: PerimeterAction.CONTINUE };
 
-export const MUTE_NOTICE_TEXT = `Está enviando mensajes muy rápido. Por favor, espere ${DEFAULT_MUTE_MS / 60_000} minutos y vuelva a escribirnos.`;
+export const MUTE_NOTICE_TEXT = muteNoticeText(DEFAULT_MUTE_MS / 60_000);
 
 export type PerimeterDeps = {
   limiter: RateLimiter;
@@ -52,7 +54,7 @@ export async function screenInbound(
   }
 
   const payload = checkFirstMessagePayload(message);
-  if (payload.kind === "ok") return { action: PerimeterAction.CONTINUE };
+  if (payload.kind === PayloadVerdictKind.OK) return { action: PerimeterAction.CONTINUE };
 
   if (await deps.hasSession(message.waId)) return { action: PerimeterAction.CONTINUE };
 

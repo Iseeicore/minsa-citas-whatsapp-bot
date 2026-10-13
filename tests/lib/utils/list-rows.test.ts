@@ -29,10 +29,7 @@ describe("filterRows", () => {
 });
 
 describe("splitPagerRows", () => {
-  const withNext = [
-    ...rows,
-    { id: EstablecimientoPageRowId.NEXT, title: "Ver más establecimientos", description: "Página 3 de 5" },
-  ];
+  const withNext = [...rows, { id: EstablecimientoPageRowId.NEXT, title: "Ver más establecimientos", description: "Página 3 de 5" }];
 
   it("sin filas de paginación devuelve todas como opciones y ningún paginador", () => {
     expect(splitPagerRows(rows)).toEqual({ items: rows });
@@ -50,10 +47,7 @@ describe("splitPagerRows", () => {
   });
 
   it("calcula la página actual desde la anterior cuando solo hay anterior", () => {
-    const result = splitPagerRows([
-      ...rows,
-      { id: EstablecimientoPageRowId.PREV, title: "Ver anteriores", description: "Página 4 de 5" },
-    ]);
+    const result = splitPagerRows([...rows, { id: EstablecimientoPageRowId.PREV, title: "Ver anteriores", description: "Página 4 de 5" }]);
 
     expect(result.pager?.label).toBe("Página 5 de 5");
     expect(result.pager?.prev).toEqual({ id: EstablecimientoPageRowId.PREV, title: "Ver anteriores" });
@@ -95,7 +89,12 @@ describe("isPagerButtonSet y pagerDirection", () => {
 
   it("no trata como paginación un conjunto con botones de otra cosa, ni uno vacío", () => {
     expect(isPagerButtonSet([{ id: "cita_referencia_confirm_si", title: "Sí" }])).toBe(false);
-    expect(isPagerButtonSet([{ id: ListPageButtonId.NEXT, title: "Más" }, { id: "otro", title: "Otro" }])).toBe(false);
+    expect(
+      isPagerButtonSet([
+        { id: ListPageButtonId.NEXT, title: "Más" },
+        { id: "otro", title: "Otro" },
+      ]),
+    ).toBe(false);
     expect(isPagerButtonSet([])).toBe(false);
   });
 

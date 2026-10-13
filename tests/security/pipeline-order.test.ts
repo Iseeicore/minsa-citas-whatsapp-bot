@@ -3,14 +3,15 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
-import { FIRST_MESSAGE_REJECTION_TEXT } from "@/lib/security/payload-filter";
 import { screenInbound } from "@/lib/security/perimeter";
 import { createRateLimiter } from "@/lib/security/rate-limiter";
+import { FIRST_MESSAGE_REJECTION_TEXT } from "@/lib/constants/textos/seguridad";
 
 const WA_ID = "51999000111";
 const menu = (): Session => ({ state: "main_menu", slots: {}, counters: {} });
 const text = (body: string) => ({ from: WA_ID, type: "text" as const, text: body });
-const asksTheAi = (result: HandlerResult) => result.effects.filter(isQueryEffect).some((effect) => effect.kind === "analyze_main_menu_intent");
+const asksTheAi = (result: HandlerResult) =>
+  result.effects.filter(isQueryEffect).some((effect) => effect.kind === "analyze_main_menu_intent");
 
 function perimeter() {
   const hasSession = vi.fn(async () => false);

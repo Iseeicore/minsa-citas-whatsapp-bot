@@ -1,39 +1,38 @@
 import { handleCita } from "@/lib/fsm/flows/cita/handlers-cita";
-import { handleReclamo } from "@/lib/fsm/flows/reclamo/handlers-reclamo";
+import { handleConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
+import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
-import { detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
+import { detectIncidenciaExpiry, detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
+import { beginIncidenciaReauth, handleAwaitingIncidenciaReauth } from "@/lib/fsm/flows/incidencia/reauth";
 import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { emergencyCut, isEmergencyTurn } from "@/lib/fsm/flows/emergency/emergency";
-import type {
-  HandleEvent,
-  HandlerResult,
-  InboundEvent,
-  QueryResultEvent,
-  Session,
-} from "@/lib/fsm/core/types";
-import {
-  handleAwaitingFlowStart,
-  handleMainMenu,
-  handleMainMenuIntentPending,
-} from "@/lib/fsm/routing/main-menu";
+import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { handleAwaitingFlowStart, handleMainMenu, handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
 import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SessionState } from "@/lib/enums/session-state";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
+import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
-  if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, event.text)) {
+  if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, textoDeLaPersona(event.text))) {
     return emergencyCut(session.state);
   }
   return handleTurn(session, event, now);
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
-  if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== "query_result") {
+  if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== InternalEventType.QUERY_RESULT) {
     return handleAwaitingReauth(session, event as InboundEvent);
+  }
+
+  if (session.state === SessionState.INCIDENCIA_AWAITING_REAUTH && event.type !== InternalEventType.QUERY_RESULT) {
+    return handleAwaitingIncidenciaReauth(session, event as InboundEvent);
   }
 
   const expiry = detectSessionExpiry(session, event, now);
@@ -49,16 +48,29 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
     });
   }
 
+  const incidenciaExpiry = detectIncidenciaExpiry(session, event, now);
+  if (incidenciaExpiry) {
+    return withNote(beginIncidenciaReauth(session), {
+      kind: "session_expired",
+      level: "warn",
+      detail: {
+        reason: "IDLE_TIMEOUT",
+        state: session.state,
+        ...(session.updatedAt ? { idleMs: now - session.updatedAt.getTime() } : {}),
+      },
+    });
+  }
+
   const leaving = offerExitIfRequested(session, event);
   if (leaving) return leaving;
 
   const guarded = applyLexicalGuard(session, event);
   if (guarded) return guarded;
 
-  if (TERMINAL_STATES.has(session.state) && event.type !== "query_result") {
+  if (TERMINAL_STATES.has(session.state) && event.type !== InternalEventType.QUERY_RESULT) {
     return handleFirstContact(
       event.type === InboundEventType.TEXT ? event.text : undefined,
-      session.channel ?? SessionChannel.WHATSAPP,
+      (event as InboundEvent).channel ?? session.channel ?? SessionChannel.WHATSAPP,
     );
   }
 
@@ -74,13 +86,17 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
     return handleAwaitingFlowStart(session);
   }
 
-  if (session.state.startsWith("reclamo_")) {
-    return handleReclamo(session, event);
+  if (session.state.startsWith("incidencia_")) {
+    return handleIncidencia(session, event);
+  }
+
+  if (session.state.startsWith("consulta_")) {
+    return handleConsulta(session, event);
   }
 
   if (session.state.startsWith("cita_")) {
     return handleCita(session, event);
   }
 
-  throw new Error(`handle: unknown state "${session.state}"`);
+  throw new UnknownStateError("handle", session.state);
 }

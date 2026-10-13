@@ -52,9 +52,7 @@ describe("buttonClassName reproduce las clases que cada botón tenía escritas a
 
   it("píldoras: sobre fondo oscuro y neutra", () => {
     expect(classSet(buttonClassName({ variant: ButtonVariant.PILL_ON_DARK, size: ButtonSize.XS }))).toEqual(
-      classSet(
-        "rounded-full border border-white/40 px-3 py-1 text-xs font-medium text-white/90 hover:bg-white/10 disabled:opacity-50",
-      ),
+      classSet("rounded-full border border-white/40 px-3 py-1 text-xs font-medium text-white/90 hover:bg-white/10 disabled:opacity-50"),
     );
     expect(classSet(buttonClassName({ variant: ButtonVariant.PILL_NEUTRAL, size: ButtonSize.XS }))).toEqual(
       classSet("rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"),
@@ -92,16 +90,14 @@ describe("buttonClassName reproduce las clases que cada botón tenía escritas a
   });
 
   it("riel del interruptor de modo", () => {
-    expect(
-      classSet(buttonClassName({ variant: ButtonVariant.SWITCH_TRACK, size: ButtonSize.NONE, width: ButtonWidth.FULL })),
-    ).toEqual(classSet("relative flex h-10 w-full items-center rounded-full bg-gray-200 p-1 transition-colors"));
+    expect(classSet(buttonClassName({ variant: ButtonVariant.SWITCH_TRACK, size: ButtonSize.NONE, width: ButtonWidth.FULL }))).toEqual(
+      classSet("relative flex h-10 w-full items-center rounded-full bg-gray-200 p-1 transition-colors"),
+    );
   });
 
   it("sin estilo no agrega ninguna clase propia y conserva la que pone el contenedor", () => {
     expect(buttonClassName({ variant: ButtonVariant.UNSTYLED, size: ButtonSize.NONE })).toBe("");
-    expect(buttonClassName({ variant: ButtonVariant.UNSTYLED, size: ButtonSize.NONE, className: "fixed right-4" })).toBe(
-      "fixed right-4",
-    );
+    expect(buttonClassName({ variant: ButtonVariant.UNSTYLED, size: ButtonSize.NONE, className: "fixed right-4" })).toBe("fixed right-4");
   });
 
   it("no deja espacios dobles ni repite clases", () => {

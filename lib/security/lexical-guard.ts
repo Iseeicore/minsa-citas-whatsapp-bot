@@ -1,17 +1,27 @@
+import { FUZZY_TARGETS, PROTECTED_WORDS } from "@/lib/security/lexicon";
+import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
+import { STRETCHED_CHARACTER, WHITESPACE_RUN } from "@/lib/constants/regex/text";
 import {
+  CANONICAL_INITIALS,
   CITA_TOKEN_PATTERNS,
   COMPLAINT_PHRASE_PATTERNS,
   COMPLAINT_TOKEN_PATTERNS,
-  FUZZY_TARGETS,
+  DOUBLED_CONSONANT,
+  EDGE_EXCLAMATION_MARKS,
+  EVERY_LEET_CHAR,
+  HAS_LEET_CHAR,
+  HAS_LETTER,
   HEALTH_TOKEN_PATTERNS,
   INSULT_PHRASE_PATTERNS,
   INSULT_TOKEN_PATTERNS,
-  PROTECTED_PHRASES,
-  PROTECTED_WORDS,
-} from "@/lib/security/lexicon";
-import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
+  NON_TOKEN_CHARS,
+  PROTECTED_PHRASE_PATTERNS,
+  SEPARATED_WORD,
+  SYMBOL_LEFT_IN_TOKEN,
+} from "@/lib/constants/regex/security";
+import { stripAccents } from "@/lib/utils/text-values";
 
-export type LexicalAction = "ALLOW" | "DROP_AND_WARN" | "CITA_WITH_WARNING" | "FORCE_RECLAMO";
+export type LexicalAction = "ALLOW" | "DROP_AND_WARN" | "CITA_WITH_WARNING" | "FORCE_INCIDENCIA";
 
 export type LexicalResult = {
   action: LexicalAction;
@@ -20,11 +30,6 @@ export type LexicalResult = {
   hasComplaintContext: boolean;
   matchedReason?: string;
 };
-
-export const RESPECT_REMINDER_TEXT =
-  "Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto.";
-
-export const INSTITUTIONAL_WARNING_TEXT = `${RESPECT_REMINDER_TEXT} Si desea registrar una queja o denuncia formal sobre un mal servicio de salud, escriba RECLAMO para iniciar el trámite oficial.`;
 
 const LEET_MAP: Record<string, string> = {
   "0": "o",
@@ -40,27 +45,18 @@ const LEET_MAP: Record<string, string> = {
   "!": "i",
 };
 
-const HAS_LETTER = /[a-z]/;
-const HAS_LEET_CHAR = /[01345789@$!]/;
-const NON_TOKEN_CHARS = /[^a-z0-9@$!]+/;
-
 const MIN_SPACED_RUN = 3;
 
 const MIN_FUZZY_TOKEN_LENGTH = 5;
 
-function stripAccents(text: string): string {
-  return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-}
-
-const SEPARATED_WORD = /^[\p{L}\p{N}@$!]+(?:[.\-_*·][\p{L}\p{N}@$!]+)+[.\-_*·]*$/u;
 const MAX_JOINED_LENGTH = 40;
 
 function toPieces(normalized: string): string[] {
   const pieces: string[] = [];
-  for (const chunk of normalized.split(/\s+/)) {
+  for (const chunk of normalized.split(WHITESPACE_RUN)) {
     const chunkPieces: string[] = [];
     for (const piece of chunk.split(NON_TOKEN_CHARS)) {
-      const cleaned = piece.replace(/^!+|!+$/g, "");
+      const cleaned = piece.replace(EDGE_EXCLAMATION_MARKS, "");
       if (cleaned) chunkPieces.push(cleaned);
     }
     pieces.push(...chunkPieces);
@@ -100,28 +96,26 @@ function finalizeToken(piece: string): string {
   let token = piece;
 
   if (HAS_LETTER.test(token) && HAS_LEET_CHAR.test(token)) {
-    token = token.replace(/[01345789@$!]/g, (char) => LEET_MAP[char] ?? char);
+    token = token.replace(EVERY_LEET_CHAR, (char) => LEET_MAP[char] ?? char);
   }
 
-  token = token.replace(/[^a-z0-9]/g, "");
+  token = token.replace(SYMBOL_LEFT_IN_TOKEN, "");
 
-  if (HAS_LETTER.test(token)) token = token.replace(/(.)\1{2,}/g, "$1");
+  if (HAS_LETTER.test(token)) token = token.replace(STRETCHED_CHARACTER, "$1");
 
   return token;
 }
 
 function removeProtectedPhrases(tokens: string[]): string[] {
   let joined = tokens.join(" ");
-  for (const phrase of PROTECTED_PHRASES) {
-    joined = joined.replace(new RegExp(`\\b${phrase}\\b`, "g"), " ");
+  for (const protectedPhrase of PROTECTED_PHRASE_PATTERNS) {
+    joined = joined.replace(protectedPhrase, " ");
   }
   return joined.split(" ").filter(Boolean);
 }
 
-const CANONICAL_INITIALS = /(?<![\p{L}\p{N}])(?:\p{Lu}\.\s+){2,}\p{Lu}\.?(?![\p{L}\p{N}])/gu;
-
 function tokenize(text: string): string[] {
-  const pieces = joinSpacedRuns(toPieces(stripAccents(text.replace(CANONICAL_INITIALS, " "))));
+  const pieces = joinSpacedRuns(toPieces(stripAccents(text.replace(CANONICAL_INITIALS, " ").toLowerCase())));
   const tokens = pieces.map(finalizeToken).filter(Boolean);
   return removeProtectedPhrases(tokens);
 }
@@ -163,7 +157,7 @@ function findFuzzyInsult(token: string): { target: string; distance: number } | 
 }
 
 function collapseDoubledConsonants(token: string): string {
-  return token.replace(/([b-df-hj-np-tv-z])\1+/g, "$1");
+  return token.replace(DOUBLED_CONSONANT, "$1");
 }
 
 function matchesInsultPattern(token: string): boolean {
@@ -211,15 +205,14 @@ export function evaluateLexicalGuard(message: string): LexicalResult {
   const hasCitaContext = anyTokenMatches(tokens, CITA_TOKEN_PATTERNS);
   const hasHealthContext = anyTokenMatches(tokens, HEALTH_TOKEN_PATTERNS);
   const hasComplaintContext =
-    anyTokenMatches(tokens, COMPLAINT_TOKEN_PATTERNS) ||
-    COMPLAINT_PHRASE_PATTERNS.some((pattern) => pattern.test(joined));
+    anyTokenMatches(tokens, COMPLAINT_TOKEN_PATTERNS) || COMPLAINT_PHRASE_PATTERNS.some((pattern) => pattern.test(joined));
 
   const base = { isOffensive, hasCitaContext, hasComplaintContext, matchedReason };
 
   if (!isOffensive) return { ...base, action: "ALLOW" };
 
   if (hasComplaintContext || (hasHealthContext && !hasCitaContext)) {
-    return { ...base, action: "FORCE_RECLAMO" };
+    return { ...base, action: "FORCE_INCIDENCIA" };
   }
 
   if (hasCitaContext) return { ...base, action: "CITA_WITH_WARNING" };

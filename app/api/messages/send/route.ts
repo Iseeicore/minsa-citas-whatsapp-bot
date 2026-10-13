@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ACTOR_OPERADOR_BANDEJA } from "@/lib/db/actor";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
+import { consoleDisabledResponse } from "@/lib/inbox/console-access";
 import { toMessageDto } from "@/lib/inbox/dto";
 import { findLastInbound, findUser, recordOutboundMessage } from "@/lib/inbox/repository";
 import { apiError } from "@/lib/http/api-error";
@@ -16,6 +17,9 @@ const sendMessageSchema = z.object({
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
+  const closed = consoleDisabledResponse();
+  if (closed) return closed;
+
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
   const body = await request.json().catch(() => undefined);

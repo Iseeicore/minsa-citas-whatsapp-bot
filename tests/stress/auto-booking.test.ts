@@ -4,12 +4,13 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-auto-booking";
 
 const horasResult = (items: Array<{ horaInicio: string; horaFin: string }>): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "list_horas",
   result: { status: "found", items: items.map((item) => ({ ...item, cantidadCupos: 1 })) },
 });

@@ -1,0 +1,49 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const db = vi.hoisted(() => ({
+  findUnique: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
+  upsert: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
+}));
+
+vi.mock("@/lib/db/prisma", () => ({ prisma: { usuario: { findUnique: db.findUnique, upsert: db.upsert } } }));
+
+import { marcarConsentimientoAceptado, tieneConsentimientoAceptado } from "@/lib/recepcion/repositorio";
+
+describe("tieneConsentimientoAceptado", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("true cuando el usuario ya tiene una fecha de aceptación", async () => {
+    db.findUnique.mockResolvedValue({ consentimientoAceptadoEn: new Date("2026-10-10T00:00:00.000Z") });
+
+    await expect(tieneConsentimientoAceptado("bsuid-ana")).resolves.toBe(true);
+    expect(db.findUnique).toHaveBeenCalledWith({ where: { waId: "bsuid-ana" }, select: { consentimientoAceptadoEn: true } });
+  });
+
+  it("false cuando nunca aceptó", async () => {
+    db.findUnique.mockResolvedValue({ consentimientoAceptadoEn: null });
+
+    await expect(tieneConsentimientoAceptado("bsuid-ana")).resolves.toBe(false);
+  });
+
+  it("false cuando el usuario no existe todavía", async () => {
+    db.findUnique.mockResolvedValue(null);
+
+    await expect(tieneConsentimientoAceptado("bsuid-nueva")).resolves.toBe(false);
+  });
+});
+
+describe("marcarConsentimientoAceptado", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("crea el usuario si no existía, con la fecha de aceptación puesta", async () => {
+    await marcarConsentimientoAceptado("bsuid-ana");
+
+    expect(db.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { waId: "bsuid-ana" },
+        create: expect.objectContaining({ waId: "bsuid-ana", consentimientoAceptadoEn: expect.any(Date) }),
+        update: expect.objectContaining({ consentimientoAceptadoEn: expect.any(Date) }),
+      }),
+    );
+  });
+});

@@ -3,21 +3,22 @@ import { resolveDistritoAi, resolveDistritoAiDetailed } from "@/lib/fsm/parsing/
 import { resolveFechaAi } from "@/lib/fsm/parsing/ai/fecha";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
-import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/reclamo-foto-intent";
+import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/incidencia-foto-intent";
 import type { LlmClient, LlmJsonOutcome, LlmJsonRequest } from "@/lib/fsm/parsing/ai/llm";
+import { LlmFailure } from "@/lib/enums/llm-failure";
 
 function modelSays(json: unknown): Response {
-  return new Response(
-    JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(json) }] } }] }),
-    { status: 200 },
-  );
+  return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(json) }] } }] }), { status: 200 });
 }
 
 const FAILURES: Array<[string, () => Promise<Response>]> = [
   ["a thrown request", () => Promise.reject(new Error("network down"))],
   ["a non-2xx answer", async () => new Response("busy", { status: 503 })],
   ["an answer without text", async () => new Response(JSON.stringify({ candidates: [] }), { status: 200 })],
-  ["text that is not JSON", async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "hola" }] } }] }), { status: 200 })],
+  [
+    "text that is not JSON",
+    async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "hola" }] } }] }), { status: 200 }),
+  ],
   ["a JSON null answer", async () => modelSays(null)],
 ];
 
@@ -119,7 +120,12 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
 
   beforeEach(() => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "false");
-    vi.stubGlobal("fetch", vi.fn(() => { throw new Error("no HTTP call is expected"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        throw new Error("no HTTP call is expected");
+      }),
+    );
   });
 
   afterEach(() => {
@@ -142,7 +148,7 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
   });
 
   it("resolveFechaAi falls back when the client reports a failure", async () => {
-    const failing = clientAnswering({ ok: false, failure: "no_text" });
+    const failing = clientAnswering({ ok: false, failure: LlmFailure.NO_TEXT });
     await expect(resolveFechaAi("el martes", "2026-09-21", OPTIONS, failing.client)).resolves.toEqual({});
   });
 
@@ -158,7 +164,7 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
   });
 
   it("analyzeMainMenuIntent maps an injected client failure to unclear", async () => {
-    const { client } = clientAnswering({ ok: false, failure: "http_error", status: 503, model: "any" });
+    const { client } = clientAnswering({ ok: false, failure: LlmFailure.HTTP_ERROR, status: 503, model: "any" });
     await expect(analyzeMainMenuIntent("quiero una cita", client)).resolves.toEqual({ intent: "unclear" });
   });
 
@@ -176,7 +182,7 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
   });
 
   it("analyzeFotoIntent falls back to false (sigue esperando la foto) cuando el cliente falla", async () => {
-    const { client } = clientAnswering({ ok: false, failure: "no_text" });
+    const { client } = clientAnswering({ ok: false, failure: LlmFailure.NO_TEXT });
     await expect(analyzeFotoIntent("no deseo", client)).resolves.toEqual({ quiereOmitir: false });
   });
 
@@ -211,10 +217,10 @@ describe("resolveDistritoAiDetailed: tells a failure apart from 'no district fou
   });
 
   it.each<[string, LlmJsonOutcome]>([
-    ["a request failure", { ok: false, failure: "request_failed", errorName: "TimeoutError" }],
-    ["an HTTP error", { ok: false, failure: "http_error", status: 500, model: "m" }],
-    ["no text", { ok: false, failure: "no_text" }],
-    ["invalid JSON", { ok: false, failure: "invalid_json" }],
+    ["a request failure", { ok: false, failure: LlmFailure.REQUEST_FAILED, errorName: "TimeoutError" }],
+    ["an HTTP error", { ok: false, failure: LlmFailure.HTTP_ERROR, status: 500, model: "m" }],
+    ["no text", { ok: false, failure: LlmFailure.NO_TEXT }],
+    ["invalid JSON", { ok: false, failure: LlmFailure.INVALID_JSON }],
     ["a JSON null answer", { ok: true, json: null }],
     ["candidates that are not a list", { ok: true, json: { candidates: "Comas" } }],
   ])("reports failed on %s", async (_label, outcome) => {
@@ -240,25 +246,43 @@ describe("AI tasks report a citizen's wish to leave (quiere_salir)", () => {
   });
 
   it("resolveDistritoAiDetailed passes quiere_salir on as quiereSalir", async () => {
-    const result = await resolveDistritoAiDetailed("puff muchos pasos", undefined, answering({ candidates: [], detalle: "", quiere_salir: true }));
+    const result = await resolveDistritoAiDetailed(
+      "puff muchos pasos",
+      undefined,
+      answering({ candidates: [], detalle: "", quiere_salir: true }),
+    );
 
     expect(result).toEqual({ outcome: "not_found", candidates: [], quiereSalir: true });
   });
 
   it("resolveFechaAi passes quiere_salir on as quiereSalir", async () => {
-    const result = await resolveFechaAi("ya me cansé", "2099-09-20", [{ id: "a", label: "22/09/2099" }], answering({ id: null, detalle: "", quiere_salir: true }));
+    const result = await resolveFechaAi(
+      "ya me cansé",
+      "2099-09-20",
+      [{ id: "a", label: "22/09/2099" }],
+      answering({ id: null, detalle: "", quiere_salir: true }),
+    );
 
     expect(result).toEqual({ quiereSalir: true });
   });
 
   it("extractSelectionHints passes quiere_salir on as quiereSalir", async () => {
-    const result = await extractSelectionHints("especialidad", "mejor otro día", answering({ especialidad: null, establecimiento: null, detalle: "", quiere_salir: true }));
+    const result = await extractSelectionHints(
+      "especialidad",
+      "mejor otro día",
+      answering({ especialidad: null, establecimiento: null, detalle: "", quiere_salir: true }),
+    );
 
     expect(result).toEqual({ quiereSalir: true });
   });
 
   it("quiere_salir false adds nothing to the result", async () => {
-    const result = await resolveFechaAi("el lunes", "2099-09-20", [{ id: "a", label: "22/09/2099" }], answering({ id: "a", detalle: "", quiere_salir: false }));
+    const result = await resolveFechaAi(
+      "el lunes",
+      "2099-09-20",
+      [{ id: "a", label: "22/09/2099" }],
+      answering({ id: "a", detalle: "", quiere_salir: false }),
+    );
 
     expect(result).toEqual({ id: "a" });
   });
@@ -273,12 +297,14 @@ describe("AI tasks report a citizen's wish to leave (quiere_salir)", () => {
       provider: "gemini",
       generateJson: async (request: LlmJsonRequest): Promise<LlmJsonOutcome> => {
         prompts.push(request.systemPrompt);
-        return { ok: false, failure: "no_text" };
+        return { ok: false, failure: LlmFailure.NO_TEXT };
       },
     };
     const mod = (await load()) as Record<string, unknown>;
-    if ("resolveDistritoAiDetailed" in mod) await (mod.resolveDistritoAiDetailed as typeof resolveDistritoAiDetailed)("x", undefined, recording);
-    if ("resolveFechaAi" in mod) await (mod.resolveFechaAi as typeof resolveFechaAi)("x", "2099-09-20", [{ id: "a", label: "l" }], recording);
+    if ("resolveDistritoAiDetailed" in mod)
+      await (mod.resolveDistritoAiDetailed as typeof resolveDistritoAiDetailed)("x", undefined, recording);
+    if ("resolveFechaAi" in mod)
+      await (mod.resolveFechaAi as typeof resolveFechaAi)("x", "2099-09-20", [{ id: "a", label: "l" }], recording);
     if ("extractSelectionHints" in mod) await (mod.extractSelectionHints as typeof extractSelectionHints)("especialidad", "x", recording);
 
     expect(prompts[0]).toContain("quiere_salir");

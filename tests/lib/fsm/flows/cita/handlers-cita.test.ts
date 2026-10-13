@@ -1,13 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RESPECT_REMINDER_TEXT } from "@/lib/security/lexical-guard";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import {
-  readOffered,
-  serializeOffered,
-  type OfferedList,
-  type OfferedRow,
-} from "@/lib/fsm/parsing/selection/selection-matchers";
+import { readOffered, serializeOffered, type OfferedList, type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type {
   HandlerResult,
   InboundEvent,
@@ -19,6 +13,8 @@ import type {
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 
 const FROM = "sandbox-test";
 
@@ -26,7 +22,7 @@ const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text:
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
 const queryResult = (queryKind: QueryEffectKind, result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
 });
@@ -43,8 +39,7 @@ function at(state: Session["state"], offered?: OfferedList, slots: Session["slot
   };
 }
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const queries = (result: HandlerResult): QueryEffect[] => result.effects.filter(isQueryEffect);
 
@@ -334,7 +329,10 @@ describe("fecha select", () => {
   const state = "cita_awaiting_fecha_select";
 
   it("a tap proceeds to the horarios query", () => {
-    const result = handle(at(state, fechas, { [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }), tap("22/09/2026"));
+    const result = handle(
+      at(state, fechas, { [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }),
+      tap("22/09/2026"),
+    );
 
     expect(result.session.state).toBe("cita_hora_pending");
     expect(queries(result)[0]).toMatchObject({ kind: "list_horas", payload: { fecha: "22/09/2026" } });
@@ -715,8 +713,7 @@ describe("especialidad/establecimiento — hints from a message that names more 
 
 describe("hora select — typed times (12h/24h) resolved against the whole day", () => {
   const state = "cita_awaiting_hora_select";
-  const dayPacked =
-    "07:00|07:30|1;08:00|08:30|2;08:45|09:15|1;13:00|13:30|2;13:15|13:45|1;13:45|14:15|1;14:30|15:00|1;19:00|19:30|1";
+  const dayPacked = "07:00|07:30|1;08:00|08:30|2;08:45|09:15|1;13:00|13:30|2;13:15|13:45|1;13:45|14:15|1;14:30|15:00|1;19:00|19:30|1";
   const page: OfferedList = {
     text: "Selecciona el horario:",
     rows: [
@@ -776,13 +773,7 @@ describe("hora select — typed times (12h/24h) resolved against the whole day",
   it("'en la tarde' filters the day to the afternoon", () => {
     const result = handle(base(), text("en la tarde"));
 
-    expect(listRowsOf(result)?.map((row) => row.id)).toEqual([
-      "13:00|13:30",
-      "13:15|13:45",
-      "13:45|14:15",
-      "14:30|15:00",
-      "19:00|19:30",
-    ]);
+    expect(listRowsOf(result)?.map((row) => row.id)).toEqual(["13:00|13:30", "13:15|13:45", "13:45|14:15", "14:30|15:00", "19:00|19:30"]);
   });
 
   it("a time MINSA does not offer is explained and the list re-shown", () => {

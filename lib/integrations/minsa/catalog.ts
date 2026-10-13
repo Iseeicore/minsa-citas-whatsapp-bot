@@ -20,9 +20,13 @@ import {
   limaDatePlus,
 } from "@/lib/integrations/minsa/fake-data";
 import { fetchCatalogItems } from "@/lib/integrations/minsa/catalog-pipeline";
-import { isRawRow, readNumber, readString, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import type { RawRow } from "@/lib/integrations/minsa/row-readers";
 import { endOfMonthYYYYMMDD, todayYYYYMMDD, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { CatalogStatus } from "@/lib/enums/catalog-status";
+import { isRecord } from "@/lib/utils/type-guards";
+import { readString, readNumber } from "@/lib/utils/record-readers";
+import { ESTABLECIMIENTOS_PAGE_SIZE, UBIGEO_SEARCH_LIMIT } from "@/lib/constants/limits/minsa";
 
 function parseUbigeo(row: RawRow): UbigeoItem | undefined {
   const ubigeoInei = readString(row, "ubigeo_inei");
@@ -64,26 +68,19 @@ function parseHora(row: RawRow): HoraItem | undefined {
   return { horaInicio, horaFin, cantidadCupos };
 }
 
-export const ESTABLECIMIENTOS_PAGE_SIZE = 5;
-
 function establecimientosPageInfo(body: unknown): { page: number; totalPages: number } | undefined {
-  const data = isRawRow(body) ? body.data : undefined;
-  if (!isRawRow(data)) return undefined;
+  const data = isRecord(body) ? body.data : undefined;
+  if (!isRecord(data)) return undefined;
   const page = readNumber(data, "page");
   const totalPages = readNumber(data, "total_pages");
   return page === undefined || totalPages === undefined ? undefined : { page, totalPages };
 }
 
-export async function searchUbigeo(
-  departamento: string,
-  provincia: string,
-  distrito: string,
-  bearer: string,
-): Promise<SearchUbigeoResult> {
+export async function searchUbigeo(departamento: string, provincia: string, distrito: string, bearer: string): Promise<SearchUbigeoResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.UBIGEO,
-      body: { departamento, provincia, distrito, limite: 5 },
+      body: { departamento, provincia, distrito, limite: UBIGEO_SEARCH_LIMIT },
       bearer,
       rowsPath: ["data"],
       parseRow: parseUbigeo,
@@ -91,13 +88,10 @@ export async function searchUbigeo(
   }
 
   const matches = distrito.trim().toUpperCase() === FAKE_UBIGEO.distrito;
-  return matches ? { status: "found", items: [FAKE_UBIGEO] } : { status: "empty" };
+  return matches ? { status: CatalogStatus.FOUND, items: [FAKE_UBIGEO] } : { status: CatalogStatus.EMPTY };
 }
 
-export async function listEspecialidades(
-  ubigeo: string,
-  bearer: string,
-): Promise<ListEspecialidadesResult> {
+export async function listEspecialidades(ubigeo: string, bearer: string): Promise<ListEspecialidadesResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.ESPECIALIDADES,
@@ -108,7 +102,7 @@ export async function listEspecialidades(
     });
   }
 
-  return { status: "found", items: FAKE_ESPECIALIDADES };
+  return { status: CatalogStatus.FOUND, items: FAKE_ESPECIALIDADES };
 }
 
 export async function listEstablecimientos(
@@ -128,14 +122,10 @@ export async function listEstablecimientos(
     });
   }
 
-  return { status: "found", items: FAKE_ESTABLECIMIENTOS };
+  return { status: CatalogStatus.FOUND, items: FAKE_ESTABLECIMIENTOS };
 }
 
-export async function listFechas(
-  codEess: string,
-  especialidadId: string,
-  bearer: string,
-): Promise<ListFechasResult> {
+export async function listFechas(codEess: string, especialidadId: string, bearer: string): Promise<ListFechasResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.FECHAS,
@@ -146,15 +136,10 @@ export async function listFechas(
     });
   }
 
-  return { status: "found", items: fakeFechas() };
+  return { status: CatalogStatus.FOUND, items: fakeFechas() };
 }
 
-export async function listHoras(
-  codEess: string,
-  especialidadId: string,
-  fecha: string,
-  bearer: string,
-): Promise<ListHorasResult> {
+export async function listHoras(codEess: string, especialidadId: string, fecha: string, bearer: string): Promise<ListHorasResult> {
   if (isRealMinsaEnabled()) {
     return fetchCatalogItems({
       endpoint: MinsaEndpoint.HORAS,
@@ -165,6 +150,6 @@ export async function listHoras(
     });
   }
 
-  if (fecha === limaDatePlus(SINGLE_HORARIO_DAYS_AHEAD)) return { status: "found", items: [FAKE_HORAS[2]] };
-  return { status: "found", items: FAKE_HORAS };
+  if (fecha === limaDatePlus(SINGLE_HORARIO_DAYS_AHEAD)) return { status: CatalogStatus.FOUND, items: [FAKE_HORAS[2]] };
+  return { status: CatalogStatus.FOUND, items: FAKE_HORAS };
 }

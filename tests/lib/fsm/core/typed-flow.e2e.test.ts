@@ -4,8 +4,7 @@ import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 const store = vi.hoisted(() => new Map<string, unknown>());
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
-  getSession: async (from: string) =>
-    (store.get(from) as Session | undefined) ?? { state: "main_menu", slots: {}, counters: {} },
+  getSession: async (from: string) => (store.get(from) as Session | undefined) ?? { state: "main_menu", slots: {}, counters: {} },
   saveSession: async (from: string, session: Session) => {
     store.set(from, structuredClone(session));
   },
@@ -103,22 +102,22 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(otp.texts.some((line) => line.includes("Establecimiento encontrado"))).toBe(true);
   });
 
-  it("routes an angry complaint straight to the Reclamo flow with no AI step", async () => {
+  it("routes an angry complaint straight to the incidencia flow with no AI step", async () => {
     const result = await say("Doctora imbécil no me dio mi medicina");
 
-    expect(result.session.state).toBe("reclamo_identity_choice");
-    expect(result.texts.some((line) => line.includes("Libro de Reclamaciones"))).toBe(true);
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(result.texts.some((line) => line.includes("registrar tu incidencia"))).toBe(true);
   });
 
   it("answers a pure insult with the institutional warning and lets the citizen continue", async () => {
     const warning = await say("hdp");
     expect(warning.session.state).toBe("main_menu");
-    expect(warning.texts[0]).toContain("escriba RECLAMO");
+    expect(warning.texts[0]).toContain("escriba INCIDENCIA");
 
     const menu = await runTurn(FROM, { from: FROM, type: "button", listId: "continuar_menu" });
     expect(menu.sent[0].kind).toBe("send_interactive_list");
 
     const reclamo = await say("RECLAMO");
-    expect(reclamo.session.state).toBe("reclamo_identity_choice");
+    expect(reclamo.session.state).toBe("incidencia_awaiting_ubicacion");
   });
 });

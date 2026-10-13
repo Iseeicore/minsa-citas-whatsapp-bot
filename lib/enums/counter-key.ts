@@ -7,4 +7,7 @@ export enum CounterKey {
   CITA_LIST_PAGE = "citaListPage",
   CITA_ESTABLECIMIENTOS_PAGE = "citaEstablecimientosPage",
   CITA_ESTABLECIMIENTOS_TOTAL_PAGES = "citaEstablecimientosTotalPages",
+  INCIDENCIA_UBICACION_INTENTOS = "incidenciaUbicacionIntentos",
+  CONSULTA_INTENTOS_CODIGO = "consultaIntentosCodigo",
+  CONSULTA_INTENTOS_OTP = "consultaIntentosOtp",
 }

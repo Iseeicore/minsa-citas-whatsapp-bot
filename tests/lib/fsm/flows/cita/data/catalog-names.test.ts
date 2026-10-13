@@ -70,8 +70,8 @@ describe("fullNameFromRow", () => {
   it("reads the full name back from a row built with catalogRowDescription", () => {
     const name = { title: "Medicina General", full: "Medicina General / Atención del Adulto" };
     expect(fullNameFromRow({ id: "1", title: name.title, description: catalogRowDescription(name, 5) })).toBe(name.full);
-    expect(fullNameFromRow({ id: "2", title: "Pediatria", description: catalogRowDescription({ title: "Pediatria", full: "Pediatria" }, 5) })).toBe(
-      "Pediatria",
-    );
+    expect(
+      fullNameFromRow({ id: "2", title: "Pediatria", description: catalogRowDescription({ title: "Pediatria", full: "Pediatria" }, 5) }),
+    ).toBe("Pediatria");
   });
 });

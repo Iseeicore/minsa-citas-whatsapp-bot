@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { runTurn, type TurnResult } from "@/lib/fsm/core/executor";
+import { runTurn, runTurnUnlocked, type TurnResult } from "@/lib/fsm/core/executor";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { logger } from "@/lib/observability/logger";
 import { traceTurn } from "@/lib/observability/tracer";
-import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/session/turn-lock";
+import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
+import { withTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -19,7 +22,6 @@ import { SessionState } from "@/lib/enums/session-state";
 
 const warnedInvalidOrigins = new Set<string>();
 
-/** Reduce cada entrada a su origen: la cabecera Origin del navegador nunca trae ruta ni barra final. */
 function allowedOrigins(): string[] {
   const { origins, invalid } = parseAllowedOrigins(process.env.SANDBOX_ALLOWED_ORIGINS);
   for (const entry of invalid) {
@@ -59,7 +61,7 @@ export async function OPTIONS(request: NextRequest) {
 
 const sandboxEventSchema = z.object({
   from: z.string().min(1),
-  type: z.enum(["text", "button", "list", "image"]),
+  type: z.enum(["text", "button", "list", "image", "document"]),
   text: z.string().optional(),
   listId: z.string().optional(),
   mediaId: z.string().optional(),
@@ -84,14 +86,17 @@ export async function POST(request: NextRequest) {
   }
 
   const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll } = parsed.data;
+  const marks = createLatencyMarks();
 
   if (resetAll) {
     await resetAllSandboxTestSessions();
   } else if (reset) {
     await resetSession(from);
   }
+  marks.mark("reset");
 
-  const hadExistingSession = await sessionRowExists(from);
+  const hadExistingSession = reset || resetAll ? false : await sessionRowExists(from);
+  marks.mark("exists");
 
   if (!hadExistingSession && (type === "text" || type === "image")) {
     const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text });
@@ -107,20 +112,22 @@ export async function POST(request: NextRequest) {
   }
 
   const abusiveFirstMessage =
-    type === "text" && !!text && !isEmergency(text) && evaluateLexicalGuard(text).action !== "ALLOW";
+    type === "text" && !!text && !isEmergency(textoDeLaPersona(text)) && evaluateLexicalGuard(textoDeLaPersona(text)).action !== "ALLOW";
 
   let turn;
   try {
     turn =
       !hadExistingSession && !abusiveFirstMessage
-        ? await startConversation(from, type === "text" ? text : undefined)
-        : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri });
+        ? await startConversation(from, type === "text" ? text : undefined, marks)
+        : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri, channel: "web" });
   } catch (error) {
     if (error instanceof TurnLockTimeoutError) {
       return apiError(ApiErrorCode.BUSY, { headers: cors });
     }
     throw error;
   }
+  marks.mark("turn");
+  marks.finish("sandbox.latency", { waId: from, channel: "web" });
   const { sent, session } = turn;
 
   return NextResponse.json(
@@ -132,12 +139,14 @@ export async function POST(request: NextRequest) {
   );
 }
 
-async function startConversation(from: string, text?: string): Promise<TurnResult> {
+async function startConversation(from: string, text: string | undefined, marks: LatencyMarks): Promise<TurnResult> {
   return withTurnLock(from, async () => {
+    marks.mark("lock");
     const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "web" as const };
+    const first = handleFirstContact(text, "web");
+    if (first.effects.some(isQueryEffect)) return runTurnUnlocked(from, { from, type: "text", text }, undefined, first);
 
     return traceTurn(from, { type: text === undefined ? "other" : "text", text }, fresh, async (trace) => {
-      const first = handleFirstContact(text, "web");
       for (const note of first.notes ?? []) trace.note(note);
       await saveSession(from, first.session);
 

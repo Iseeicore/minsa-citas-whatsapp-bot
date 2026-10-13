@@ -5,6 +5,8 @@ import { buildResult, offerPagedList, query, sendText } from "@/lib/fsm/core/han
 import { catalogRowDescription, formatEspecialidadName, rememberFullNames } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
+import { especialidadNotAvailableText, especialidadDetectedText, SELECT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -15,9 +17,7 @@ export type EspecialidadResultItem = {
 export function especialidadHintMatches(hint: string, items: EspecialidadResultItem[]): EspecialidadResultItem[] {
   const hintTokens = normalizeText(hint);
   return items.filter(
-    (item) =>
-      normalizeText(item.nombreEspecialidad).includes(hintTokens) ||
-      hintTokens.includes(normalizeText(item.nombreEspecialidad)),
+    (item) => normalizeText(item.nombreEspecialidad).includes(hintTokens) || hintTokens.includes(normalizeText(item.nombreEspecialidad)),
   );
 }
 
@@ -26,10 +26,7 @@ export function offerEspecialidadesWithoutHint(next: Session, items: Especialida
   const offered = offerEspecialidades(next, items);
   return {
     ...offered,
-    effects: [
-      sendText(`La especialidad que mencionaste (${hint}) no está disponible por ahora, pero puedes elegir entre estas:`),
-      ...offered.effects,
-    ],
+    effects: [sendText(especialidadNotAvailableText(hint)), ...offered.effects],
   };
 }
 
@@ -40,10 +37,10 @@ export function acceptDetectedEspecialidad(next: Session, matched: EspecialidadR
   next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = name.full;
   next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
   return buildResult(next, [
-    sendText(`Especialidad detectada: ${name.full}. Buscando establecimientos…`),
+    sendText(especialidadDetectedText(name.full)),
     query(QueryKind.LIST_ESTABLECIMIENTOS, {
       especialidadId: matched.codigoEspecialidad,
-      ubigeo: String(next.slots[SlotKey.CITA_UBIGEO] ?? ""),
+      ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO),
     }),
   ]);
 }
@@ -51,10 +48,13 @@ export function acceptDetectedEspecialidad(next: Session, matched: EspecialidadR
 export function offerEspecialidades(next: Session, items: EspecialidadResultItem[]): HandlerResult {
   next.state = SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
   const names = items.map((item) => ({ id: item.codigoEspecialidad, name: formatEspecialidadName(item.nombreEspecialidad) }));
-  rememberFullNames(next.slots, names.map(({ id, name }) => ({ id, full: name.full })));
+  rememberFullNames(
+    next.slots,
+    names.map(({ id, name }) => ({ id, full: name.full })),
+  );
   const rows: ListRow[] = items.map((item, index) => {
     const { name } = names[index];
     return { id: item.codigoEspecialidad, title: name.title, description: catalogRowDescription(name, item.cantidadCupos) };
   });
-  return buildResult(next, offerPagedList(next, "Selecciona la especialidad:", rows));
+  return buildResult(next, offerPagedList(next, SELECT_ESPECIALIDAD_TEXT, rows));
 }

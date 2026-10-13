@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLogger } from "@/lib/observability/logger";
 import { register } from "@/instrumentation";
 
+vi.mock("@/lib/whatsapp/inbound/expire-stale-inbound", () => ({ expireStaleInbound: vi.fn(async () => undefined) }));
+
 describe("instrumentation register()", () => {
   afterEach(() => {
     vi.unstubAllEnvs();

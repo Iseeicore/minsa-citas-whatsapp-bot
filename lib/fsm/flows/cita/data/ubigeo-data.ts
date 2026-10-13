@@ -2,7 +2,6 @@ import distritos from "@/data/peru-distritos.json";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { DistritoAiCandidate } from "@/lib/fsm/parsing/ai/distrito";
 
-/** Datos de jmcastagnetto/ubigeo-peru-aumentado (MIT), incluidos en el repo para no depender de una consulta en tiempo de ejecución. */
 const DISTRITOS = distritos as DistritoAiCandidate[];
 
 const BY_DISTRITO_NAME = new Map<string, DistritoAiCandidate[]>();

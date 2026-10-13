@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ACTOR_OPERADOR_BANDEJA } from "@/lib/db/actor";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
+import { consoleDisabledResponse } from "@/lib/inbox/console-access";
 import { toConversationDto } from "@/lib/inbox/dto";
 import { closeUser, findUser } from "@/lib/inbox/repository";
 import { apiError } from "@/lib/http/api-error";
@@ -10,6 +11,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const closed = consoleDisabledResponse();
+  if (closed) return closed;
+
   if (!isDatabaseEnabled()) return persistenceDisabledResponse();
 
   const { id } = await params;
