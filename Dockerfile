@@ -3,13 +3,13 @@ RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm ci --no-audit --no-fund --fetch-timeout=60000 --fetch-retries=5
 
 FROM node:22-alpine AS prisma-cli
 RUN apk add --no-cache openssl
 ARG PRISMA_VERSION=6.19.3
 WORKDIR /opt/prisma
-RUN npm init -y > /dev/null && npm install --no-audit --no-fund prisma@${PRISMA_VERSION}
+RUN npm init -y > /dev/null && npm install --no-audit --no-fund --fetch-timeout=60000 --fetch-retries=5 prisma@${PRISMA_VERSION}
 
 FROM node:22-alpine AS build
 RUN apk add --no-cache libc6-compat openssl
