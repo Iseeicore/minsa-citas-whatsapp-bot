@@ -120,7 +120,9 @@ describe("hora select: a bare 1..10 that is both a list position and an hour", (
   });
 
   it("no collision means no question: a position that is also the only matching hour is just confirmed", () => {
-    const rows = Array.from({ length: 8 }, (_, index) => row(`${String(index + 1).padStart(2, "0")}:00`, `${String(index + 1).padStart(2, "0")}:30`));
+    const rows = Array.from({ length: 8 }, (_, index) =>
+      row(`${String(index + 1).padStart(2, "0")}:00`, `${String(index + 1).padStart(2, "0")}:30`),
+    );
     const day = rows.map((r) => `${r.id}|1`).join(";");
 
     const result = handle(horaSession(rows, day), text("8"));

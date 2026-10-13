@@ -5,6 +5,7 @@ import { nationalRedirectText, redirectToNationalSite } from "@/lib/fsm/flows/ci
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "wa-link";
 const PORTAL = "https://portal-prueba.example.test";
@@ -13,8 +14,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const kinds = (result: HandlerResult): string[] => sent(result).map((effect) => effect.kind);
 
@@ -45,7 +45,12 @@ describe("salto a MINSA Digital desde el alcance del piloto", () => {
 });
 
 describe("registro en MINSA Digital cuando el documento no se encuentra", () => {
-  const notValid: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "validate_user", result: { status: "not_valid" } };
+  const notValid: QueryResultEvent = {
+    from: FROM,
+    type: InternalEventType.QUERY_RESULT,
+    queryKind: "validate_user",
+    result: { status: "not_valid" },
+  };
   const firstAttempt: Session = { ...base, counters: { [CounterKey.CITA_REGISTRATION_CHECKS]: 0 } };
 
   it("con la variable definida ofrece el botón hacia /login del portal configurado", () => {
@@ -72,7 +77,7 @@ describe("constancia de la cita reservada", () => {
   const booking: Session = { state: "cita_booking_pending", slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} };
   const booked = (url: string): QueryResultEvent => ({
     from: FROM,
-    type: "query_result",
+    type: InternalEventType.QUERY_RESULT,
     queryKind: "book_appointment",
     result: { status: "booked", url, message: "Cita creada" },
   });

@@ -2,18 +2,20 @@ import { prisma } from "@/lib/db/prisma";
 import { declararActorEn } from "@/lib/db/actor";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
+import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 export type DatosIncidencia = {
   waId: string;
   dni: string | null;
   nombreCompleto: string | null;
+  establecimientoId: number | null;
   descripcion: string;
   traceId: string;
 };
 
 export type DatosEvidencia = { mimeType: string; tamano: number; ruta: string };
 
-/** Único punto que escribe la incidencia; exige quién la firma. Asegura el usuario y guarda todo en una sola transacción. */
 export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvidencia | null, actor: string) {
   return prisma.$transaction(async (tx) => {
     await declararActorEn(tx, actor);
@@ -28,6 +30,7 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
         dniReclamante: datos.dni,
         nombreReclamante: datos.nombreCompleto,
         descripcion: datos.descripcion,
+        establecimientoId: datos.establecimientoId,
         traceId: datos.traceId,
       },
     });
@@ -45,5 +48,65 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
     }
 
     return incidencia;
+  });
+}
+
+export async function contarDelDia(waId: string, excluirTraceId: string): Promise<number> {
+  const filas = await prisma.$queryRaw<{ total: bigint }[]>`
+    SELECT count(*) AS total
+      FROM chatbot.incidencia_paciente
+     WHERE wa_id = ${waId}
+       AND trace_id <> ${excluirTraceId}
+       AND (fecha_creacion AT TIME ZONE 'America/Lima')::date = (now() AT TIME ZONE 'America/Lima')::date`;
+  return Number(filas[0]?.total ?? 0);
+}
+
+export async function buscarCodigoPorTrace(traceId: string): Promise<string | null> {
+  const fila = await prisma.incidenciaPaciente.findUnique({ where: { traceId }, select: { codigo: true } });
+  return fila?.codigo ?? null;
+}
+
+export type IncidenciaConsultada = { codigo: string; fechaCreacion: Date; estadoCodigo: string };
+
+export async function buscarIncidenciaDeQuienConsulta(codigo: string, identidad: IdentidadConsulta): Promise<IncidenciaConsultada | null> {
+  const fila = await prisma.incidenciaPaciente.findFirst({
+    where: {
+      codigo,
+      activo: true,
+      eliminadoEn: null,
+      ...(identidad.canal === SessionChannel.WHATSAPP
+        ? { usuario: { waId: identidad.waId } }
+        : { esAnonimo: false, dniReclamante: identidad.dni }),
+    },
+    select: { codigo: true, fechaCreacion: true, estadoIncidencia: { select: { codigo: true } } },
+  });
+  return fila ? { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo } : null;
+}
+
+export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsulta): Promise<IncidenciaConsultada[]> {
+  const filas = await prisma.incidenciaPaciente.findMany({
+    where: {
+      activo: true,
+      eliminadoEn: null,
+      ...(identidad.canal === SessionChannel.WHATSAPP
+        ? { usuario: { waId: identidad.waId } }
+        : { esAnonimo: false, dniReclamante: identidad.dni }),
+    },
+    orderBy: { fechaCreacion: "desc" },
+    select: { codigo: true, fechaCreacion: true, estadoIncidencia: { select: { codigo: true } } },
+  });
+  return filas.map((fila) => ({ codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo }));
+}
+
+export async function tieneConsentimientoAceptado(waId: string): Promise<boolean> {
+  const usuario = await prisma.usuario.findUnique({ where: { waId }, select: { consentimientoAceptadoEn: true } });
+  return usuario?.consentimientoAceptadoEn != null;
+}
+
+export async function marcarConsentimientoAceptado(waId: string): Promise<void> {
+  await prisma.usuario.upsert({
+    where: { waId },
+    create: { waId, consentimientoAceptadoEn: new Date() },
+    update: { consentimientoAceptadoEn: new Date() },
   });
 }

@@ -1,6 +1,6 @@
 # Bot de citas MINSA por WhatsApp
 
-Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra reclamos, deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
+Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra incidencias (reclamos, quejas y denuncias), deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
 
 ## Inicio rápido
 
@@ -70,6 +70,21 @@ DATABASE_ENABLED=true
 - Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL (`%40`, `%3A`...).
 - La imagen trae el CLI de Prisma en `/opt/prisma` (versión fijada por `PRISMA_VERSION` en el `Dockerfile`, igual a la de `package.json`).
 
+#### Borrar la base y migrar desde cero
+
+`RESET_DATABASE_CONFIRM` es opcional y **destructiva**. Sirve para rehacer una base de pruebas o para pasar una base a migraciones reescritas, cuyo historial ya no coincide con el de este código.
+
+```bash
+RESET_DATABASE_CONFIRM=<nombre exacto de la base de DATABASE_URL>
+```
+
+- **Qué borra:** los esquemas `catalogo`, `chatbot`, `gestion` e `ia`, las funciones `fn_*` de `public` y el historial de migraciones (`_prisma_migrations`). Después aplica todas las migraciones desde cero. Se pierden las incidencias, los usuarios y todo lo demás.
+- **Cuándo no borra:** sin la variable, nunca. Si su valor no coincide con el nombre de la base, el servicio no arranca y no borra nada.
+- **Úsala una sola vez y quítala del ambiente antes del siguiente despliegue.** Mientras siga puesta, **cada reinicio vuelve a borrar todo**: no hay ninguna marca que impida repetirlo.
+- **No la uses con incidencias reales.**
+- **Requiere el esquema `public` sin tablas ajenas a Prisma** (en un despliegue normal solo está `_prisma_migrations`, que el reset borra). Si las hay, tras borrar los esquemas `migrate deploy` falla con `P3005` y la base queda sin esquemas: quita esas tablas y vuelve a arrancar.
+- En cada arranque con base, el entrypoint además marca como revertida la migración inicial (`20261004000000_init`) si quedó fallida, para poder reintentarla; si ya está aplicada, no hace nada.
+
 ### Conectar un frontend externo (widget del Sandbox)
 
 Para que otro sitio, por ejemplo el portal de MINSA Digital, converse con el bot a través de `POST /api/sandbox`, el bloque mínimo ya trae `SANDBOX_ENABLED=true`; completa el origen:
@@ -120,8 +135,8 @@ La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor
 | Estado de cada conversación | Tabla `chatbot.sesion_conversacion` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
 | Reentregas de Meta (no responder dos veces) | Índice único `wa_message_id` | Lista en memoria de ids de mensaje, conservada 24 h |
 | Usuarios, historial de mensajes y estados de entrega | Tablas `chatbot.usuario` y `chatbot.mensaje` | No se guarda nada |
-| Reclamos (incidencias) y sus fotos | Tablas `chatbot.incidencia_paciente` y `chatbot.evidencia`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar el reclamo |
-| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible | Responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}` |
+| Incidencias | Tabla `chatbot.incidencia_paciente`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
+| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible solo con `SANDBOX_PAGE_ENABLED=true`; sin ella responde `404` | Con `SANDBOX_PAGE_ENABLED=true` responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}`; sin ella, `404` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
 
@@ -134,13 +149,13 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
 | `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
-| `##### Completo: variables opcionales` | Base de datos, reclamos (RENIEC), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de reclamo, ajustes finos |
+| `##### Completo: variables opcionales` | Base de datos, incidencias (RENIEC), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de incidencia, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
 > **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
 
-- **Sin el bloque completo, el reclamo no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) el reclamo no se puede guardar**: el bot responde que no pudo registrarlo.
+- **Sin el bloque completo, la incidencia no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
@@ -152,7 +167,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 |---|---|
 | `META_APP_SECRET` | Secreto de la app: valida la firma HMAC (`X-Hub-Signature-256`) de cada webhook |
 | `META_WEBHOOK_VERIFY_TOKEN` | Token que eliges tú; Meta lo envía en el `GET` de verificación del webhook |
-| `META_ACCESS_TOKEN` | Token de acceso: envía mensajes y descarga las fotos del Libro de Reclamaciones |
+| `META_ACCESS_TOKEN` | Token de acceso: envía los mensajes |
 | `META_PHONE_NUMBER_ID` | ID del número de WhatsApp desde el que responde el bot |
 | `META_GRAPH_API_VERSION` | Versión de Graph API, sin espacios (por defecto `v21.0`) |
 
@@ -162,6 +177,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 |---|---|
 | `DATABASE_ENABLED` | `false` = sin base de datos (servidor MINSA). Vacía = con base de datos (Vercel). Ver [Modos de persistencia](#modos-de-persistencia) |
 | `DATABASE_URL` | Cadena de conexión a PostgreSQL. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy`. No hace falta con `DATABASE_ENABLED=false` |
+| `RESET_DATABASE_CONFIRM` | **Destructiva, solo Docker.** Si vale lo mismo que el nombre de la base de `DATABASE_URL`, el arranque borra los esquemas y migra desde cero. Úsala una sola vez y quítala después. Ver [Borrar la base y migrar desde cero](#borrar-la-base-y-migrar-desde-cero) |
 | `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
 
 **MINSA y RENIEC** (en `false`, el bot usa datos de prueba fijos)
@@ -177,13 +193,13 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
-**Imágenes del reclamo** (opcional: sin `MEDIA_STORAGE_BASE_URL` el bot **no pide la foto** y el reclamo se guarda sin ella)
+**Imágenes de la incidencia** (el flujo de incidencia **ya no guarda imágenes ni archivos**: si la persona envía una imagen o un PDF, el bot lo reconoce, no lo descarga y sigue; estas variables solo las usa el servicio de registro si algún día se le entrega una imagen)
 
 | Variable | Uso |
 |---|---|
 | `MEDIA_STORAGE_BASE_URL` | URL del servicio de imágenes. El bot le hace `POST` con los bytes de la foto (cabecera `Content-Type` con su tipo) y espera `{ "ruta": "..." }`; esa ruta es lo que se guarda como evidencia. Contrato a confirmar con OGTI |
 | `MEDIA_STORAGE_TOKEN` | Credencial del servicio, si la pide: se envía como `Authorization: Bearer`. Vacía = sin cabecera |
-| `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de la subida, en milisegundos (por defecto `10000`). Si vence, el reclamo no se guarda y el ciudadano puede reintentar |
+| `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de la subida, en milisegundos (por defecto `10000`). Si vence, la incidencia no se guarda y el ciudadano puede reintentar |
 
 **IA** (ver [Cambiar de proveedor de IA](#cambiar-de-proveedor-de-ia))
 
@@ -199,6 +215,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
+| `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Sandbox (`/sandbox` y `/configuracion-visor-sandbox`), deja que `/` redirija a `/sandbox` y **abre la bandeja web** (`/api/conversations*` y `/api/messages/send`). Sin definir o con cualquier otro valor: las tres páginas redirigen a `/api/health` y esas cuatro rutas responden `404`, aunque la base esté activa. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). La bandeja web **no tiene autenticación**: lista todas las conversaciones con su teléfono y permite escribir desde el número oficial. En Production déjala sin definir |
 | `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-widget-del-sandbox) |
 
 **Logs** (ver [docs/observability.md](docs/observability.md))
@@ -225,11 +242,16 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /webhook/whatsapp, páginas del Sandbox
   components/                UI de la bandeja y del Sandbox; Sandbox.tsx es el contenedor del chat
     sandbox-chat/            piezas de presentación del chat (cabecera, composer, burbujas, tarjeta de DNI, panel de depuración)
-    ui/                      componentes de UI compartidos (IconButton, OptionButton, Badge, ErrorBanner)
+    ui/                      componentes de UI compartidos (Button es el único botón nativo; IconButton, ListPicker, TextInput, Banner, Card, Badge)
     icons/                   todos los íconos SVG de la app, centralizados
 lib/
   enums/                     enums reales para estados y tipos que antes eran texto suelto (SendType, ApiErrorCode)
+  constants/regex/           todas las expresiones regulares del proyecto, como constantes con nombre, un archivo por dominio
+  constants/textos/          todos los textos, botones y filas que recibe el ciudadano, un archivo por flujo
+  constants/prompts/         los prompts de las tareas de IA, un archivo por tarea
+  constants/palabras-clave.ts  palabras y frases que escribe el ciudadano y que el bot reconoce
   utils/                     funciones puras que no dependen de React ni del render
+  errors/                    clases de error propias, una por archivo (UnknownStateError, TurnLockTimeoutError)
   db/                        cliente Prisma (carga diferida) y el flag DATABASE_ENABLED
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
     webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
@@ -265,7 +287,7 @@ lib/
           exit/              salida/cancelación del flujo
           hora/              el paso de hora: lista, horas escritas, elección «1»..«10», confirmación
           demo/              flujo hardcodeado para el piloto comercial; borrar junto con su importador al cerrarlo
-      reclamo/               flujo de reclamo
+      incidencia/            flujo de incidencia
       emergency/             corte por urgencia
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
 tests/
@@ -284,8 +306,11 @@ Convenciones (ESLint las hace cumplir donde se indica):
 | **Sin ciclos de imports** | `import/no-cycle`; solo se permiten ciclos a través de un `import()` diferido. |
 | **Tests en estructura espejo, no colocalizados** | `lib/<ruta>/x.ts` tiene su test en `tests/lib/<la-misma-ruta>/x.test.ts`. Los tests de escenario de un flujo van en la misma ruta espejo (por ejemplo, `tests/lib/fsm/flows/cita/hora-choice.test.ts`). El alias `@/` resuelve igual sin importar dónde viva el test, así que nunca hace falta un import relativo (`../../`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
-| **Comentarios** | No se comentan líneas ni bloques. Solo un docstring breve, en español, en funciones o tipos complejos cuya razón no se puede expresar en el código. |
+| **Comentarios** | El código, las migraciones y las pruebas SQL no llevan comentarios ni docstrings: la intención va en los nombres y la explicación en este README y en `docs/`. La única excepción son las directivas que necesita una herramienta (por ejemplo `eslint-disable`). |
+| **Formato único con Prettier** | Líneas de hasta 140 caracteres, dos espacios, comillas dobles, punto y coma y coma final (`.prettierrc.json`). `npm run format` lo aplica y el CI lo exige con `npm run format:check`. Por ahora cubre `lib/`, `tests/`, `scripts/` y los archivos de configuración de la raíz; `app/` y `tests/app/` todavía no se formatean (`.prettierignore`). |
 | **Estados y tipos como enums** | Los textos fijos que representan un estado o un tipo (`SendType`, `ApiErrorCode`) son un `enum` en `lib/enums/`, nunca un string suelto comparado a mano. |
+| **Textos y prompts en un solo lugar** | Los textos al ciudadano (constantes `*_TEXT`, botones `*_BUTTONS` y funciones cuando el texto lleva datos) viven en `lib/constants/textos/`, y los prompts de IA en `lib/constants/prompts/`, sin archivo índice. Un texto repetido es una sola constante. `tests/integration/textos-location.test.ts` lo hace cumplir. |
+| **Expresiones regulares en un solo lugar** | Viven en `lib/constants/regex/` como constantes con nombre, sin archivo índice: se importa el archivo del dominio. `tests/integration/regex-location.test.ts` lo hace cumplir. |
 | **Sin valores arbitrarios de Tailwind** | Nada de `bg-[var(--x)]`, `bg-[#hex]` ni `text-[10px]`. Los colores y tamaños se declaran como tokens en `@theme` (`app/globals.css`, Tailwind v4) y se usan con clases estándar. `tests/integration/ui-design-rules.test.ts` lo hace cumplir. |
 | **Sin emojis en las vistas** | Se reemplazan por un ícono de `app/components/icons/`. El mismo test de arriba los detecta. |
 | **UI repetida → componente** | Un bloque de clases de Tailwind que se repite en más de un lugar se extrae a `app/components/ui/`. |
@@ -312,10 +337,23 @@ El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca
 |---|---|---|
 | Eventos de log | `lib/observability/events.ts` (`LogEvent`, `TurnNoteKind`) | TypeScript rechaza un nombre que no esté en el catálogo; un test exige que cada evento figure en `docs/observability.md`. Nada del servidor escribe en la consola directamente |
 | Configuración | `lib/config/config-errors.ts` (`CONFIG_ERRORS`) | `instrumentation.ts` revisa la configuración al arrancar y registra cada problema como `config.invalid`; `/api/health` pasa a `degraded`. El bot no se detiene |
-| Textos al ciudadano | `lib/fsm/core/failure-texts.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
+| Textos al ciudadano | `lib/constants/textos/fallas.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
 | Respuestas HTTP | `lib/http/api-error.ts` (`API_ERRORS`, `apiError`) | Toda respuesta de error es `{ error: CÓDIGO, message }` (más `detail` opcional), con el status del catálogo y el mensaje en español. Los `403` del webhook siguen en texto plano porque Meta no lee el cuerpo |
+| Excepciones | `lib/errors/` (una clase por archivo, sin archivo índice) | Nada en `lib/` ni en `app/` lanza un `Error` genérico: cada falla tiene su clase, que arma el mensaje a partir de sus datos y los expone como campos de solo lectura. Quien la atrapa la reconoce con `instanceof`, nunca por el texto del mensaje. `tests/integration/errores-location.test.ts` lo hace cumplir |
 
-Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usarlo desde ahí; nunca un string suelto.
+| Clase | Cuándo se lanza |
+|---|---|
+| `UnknownStateError` | La sesión está en un estado que ningún flujo atiende |
+| `UnhandledQueryKindError` | El ejecutor recibe una consulta que no sabe resolver |
+| `MultipleQueryEffectsError` | Un paso devuelve más de una consulta en la misma pasada |
+| `MaxPassesExceededError` | Un turno supera el tope de pasadas del ejecutor |
+| `DatabaseDisabledError` | Se usa Prisma con la base de datos apagada |
+| `ImageStorageError` | El servicio de imágenes responde con error o sin ruta |
+| `TurnLockTimeoutError` | Se agota la espera del candado de turno; el Sandbox responde `BUSY` y el webhook registra `turn.lock_timeout` |
+
+Un resultado esperado (por ejemplo, una reserva rechazada) no es una excepción: la función devuelve su estado como enum.
+
+Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su clase a `lib/errors/` con su test, y usarlo desde ahí; nunca un string suelto.
 
 ## Pruebas
 
@@ -327,8 +365,10 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usa
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
 | `npm run db:test` | Arma una base desechable solo con las migraciones y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
 | `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas de la base desde una base ya migrada |
+| `npm run format` | Aplica el formato de Prettier al código |
+| `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
-El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
+El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
 
 ## Despliegue en Vercel (con base de datos)
 
@@ -342,12 +382,25 @@ El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pul
 - Correr las migraciones dentro del build es un enfoque simple, suficiente para la escala actual. Conviene revisarlo si el equipo crece o si las migraciones se vuelven riesgosas de ejecutar sin supervisión.
 - `next.config.ts` solo activa la salida *standalone* cuando `NEXT_OUTPUT_STANDALONE=true` (lo hace el Dockerfile), así que los builds de Vercel no cambian.
 
-## Sandbox (probador de los flujos de cita y reclamo)
+## Sandbox (probador de los flujos de cita e incidencia)
 
-Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de reclamo, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
+Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de incidencia, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
-- Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería.
+- Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería. Las páginas se controlan aparte con `SANDBOX_PAGE_ENABLED=true` (local y Vercel); sin ella, `/`, `/sandbox` y `/configuracion-visor-sandbox` redirigen a `/api/health`.
 - Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.
+- Las referencias médicas no tienen datos de prueba: sin `SANDBOX_USE_REAL_MINSA=true` la consulta responde siempre «sin referencias» y la cita sigue por el camino normal. La cita por referencia se recorre contra el MINSA real o en `tests/lib/fsm/core/referencia-flow.e2e.test.ts`, que inyecta las referencias.
+- **Contrato de `/whatsapp/api/v1/references`** (`lib/integrations/minsa/references.ts` es el único punto que lo lee). El backend envía el sobre `{ "status_reference": "found" | "empty", "message": "...", "data": [filas] }` y el bot lo usa tal cual: no deduce el estado de las filas ni filtra referencias por su estado; esa lógica es del backend. Hacia adentro el resultado es `{ statusReference, message, data }`, con `data` como arreglo vacío o lleno. Una respuesta sin `status_reference`, con un valor desconocido, un cuerpo ilegible o un HTTP que no es 2xx llega como `statusReference: "error"`. Cada fila exige `id_referencia` y `estado.codigo`; las que no los traen se descartan y se registran en `minsa.catalog.rows_discarded`. Solo con `found` se ofrecen las referencias; en cualquier otro caso la cita continúa por el camino normal.
+
+## Consultar una incidencia
+
+La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNNNNN`, el que recibe al registrarla): con la opción **Consultar una incidencia** del menú (o escribiendo `3`), o escribiendo el código dentro de cualquier mensaje («quiero ver mi incidencia MINSA-2026-000003»). Solo cuenta el formato completo; `lib/fsm/parsing/text/codigo-incidencia.ts` lo reconoce. El flujo vive en `lib/fsm/flows/consulta/` y la lectura en `lib/recepcion/consulta.ts` (solo lectura, una consulta).
+
+- **Quién puede verla (el código solo funciona para quien la registró).**
+  - **WhatsApp:** se busca al usuario por su identificador actual (`usuario.wa_id`, el BSUID de Meta) y la incidencia debe ser de ese usuario (`usuario_id`), no de otro. El identificador lo pone el servidor, nunca el texto del mensaje. Sirve también para las incidencias anónimas.
+  - **Sandbox / web:** la identidad es el documento verificado con DNI + código OTP de MINSA Digital (los mismos pasos que la cita) y debe coincidir con el `dni_reclamante`. Las anónimas no se pueden consultar por la web. El canal lo fija el servidor (`channel` del evento); el cliente no lo elige.
+  - **JWT del portal: pendiente.** Cuando MINSA Digital entregue la especificación de su JWT (algoritmo y clave pública o JWKS, emisor, vencimiento y el campo con el documento), se reemplazará el paso DNI + OTP por validar el token; el punto de cambio está comentado en `handlers-consulta.ts`.
+- **Qué responde.** Código, estado en palabras (recibida, derivada al área responsable, en atención, resuelta, archivada) y fecha de registro. Nunca la descripción ni datos de quien reportó. Inexistente, ajena, anónima (en la web) o borrada reciben exactamente el mismo texto: «No se logró ubicar el registro de la incidencia.» Base apagada o caída: «Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.» En todos los casos la sesión termina y el siguiente mensaje empieza de nuevo.
+- **Cambio de identificador de Meta.** Si la persona cambia de número, Meta cambia su BSUID y avisa con el webhook `user_id_update` (campo aparte que hay que suscribir) y un mensaje de sistema. El bot renombra `usuario.wa_id` y su sesión al identificador nuevo (`lib/whatsapp/webhook/user-id-update.ts`), así sus incidencias lo siguen. Limitaciones: si el identificador nuevo ya tenía usuario propio **no se fusionan** (se avisa en el log y la persona no verá las incidencias anteriores); `incidencia_paciente.wa_id` conserva el identificador de cuando se registró y el tope diario cuenta por él.
 
 ## Notas técnicas
 
@@ -362,6 +415,7 @@ Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de con
 | Documento | Contenido |
 |---|---|
 | [docs/flujo-cita.md](docs/flujo-cita.md) | Árbol del flujo de cita: listas, botones, texto libre que entiende cada paso y todas las ramas de error |
+| [docs/despliegue-minsa.md](docs/despliegue-minsa.md) | Requisitos de la base, variables nuevas, despliegue y comprobaciones para infraestructura de MINSA |
 | [docs/ci.md](docs/ci.md) | Qué comprueba el CI y la regla de la rama `main` |
 | [docs/observability.md](docs/observability.md) | Logs estructurados, trazas y enmascarado |
 | [docs/technical-gaps.md](docs/technical-gaps.md) | Brechas técnicas conocidas y su estado |

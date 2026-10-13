@@ -1,4 +1,6 @@
 import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
+import { isString } from "@/lib/utils/type-guards";
+import { DEMO_TURNO_MINUTOS } from "@/lib/constants/limits/cita";
 
 export const DEMO_REFERENCIA_DNI = "10308523";
 export const DEMO_PEDIATRIA_DNI = "47391441";
@@ -55,7 +57,7 @@ export const DEMO_REFERENCIAS: DemoReferencia[] = [
 export const DEMO_DNIS: readonly string[] = [DEMO_REFERENCIA_DNI, DEMO_PEDIATRIA_DNI];
 
 export function isDemoReferenciaDni(dni: string | null | undefined): boolean {
-  return typeof dni === "string" && DEMO_DNIS.includes(dni);
+  return isString(dni) && DEMO_DNIS.includes(dni);
 }
 
 export function demoReferenciasForDni(dni: string): DemoReferencia[] {
@@ -64,7 +66,6 @@ export function demoReferenciasForDni(dni: string): DemoReferencia[] {
 
 export const DEMO_HORA_INICIO = "08:00 am";
 export const DEMO_HORA_FIN = "03:00 pm";
-export const DEMO_TURNO_MINUTOS = 25;
 
 const DEMO_HORA_INICIO_24 = "08:00";
 const DEMO_HORA_FIN_24 = "15:00";
@@ -80,7 +81,6 @@ function toHHMM(totalMinutes: number): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-/** Genera los turnos de 25 min entre 8:00 am y 3:00 pm; es pura para poder probarla sin fijar la lista a mano. */
 export function demoHoraSlots(): HoraSlot[] {
   const limite = toMinutes(DEMO_HORA_FIN_24);
   const slots: HoraSlot[] = [];

@@ -24,7 +24,10 @@ describe("WhatsApp send failures reach the masked logger", () => {
 
   it("logs a Graph API error with its status and a masked, truncated body", async () => {
     const body = `{"error":{"message":"Recipient 51987654321 is not a valid WhatsApp user","details":"${"x".repeat(400)}"}}`;
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 400 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { status: 400 })),
+    );
 
     await sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" });
 
@@ -35,7 +38,12 @@ describe("WhatsApp send failures reach the masked logger", () => {
   });
 
   it("logs a network error while sending a CTA button", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
 
     await sendAndRecordCtaUrl(null, "51987654321", { bodyText: "Regístrate", buttonText: "Ir", url: "https://example.org" });
 
@@ -47,7 +55,12 @@ describe("WhatsApp send failures reach the masked logger", () => {
   });
 
   it("logs a failed typing indicator as a warning and never throws", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
 
     await expect(sendTypingIndicator("wamid.1")).resolves.toBeUndefined();
 

@@ -34,23 +34,36 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
 | `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
-| `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total` |
+| `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total`. Filas de un catálogo o de las referencias médicas que no pasaron la validación de la frontera |
 | `minsa.request_blocked` | error | `path`, `reason`. Una llamada autenticada al MINSA real no se envió porque falta `MINSA_DIGITAL_APP_URL` y no se puede armar `Origin` ni `Referer`; quien llamó recibe un 503 sin cuerpo y lo trata como error del MINSA |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
 | `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el texto fijo «Ocurrió un inconveniente temporal…», **como mucho una vez cada 30 s por número** (C4.2: una ráfaga que falla entera no manda un aviso por mensaje) |
 | `webhook.message_failed` | error | `waId` (últimos 4), `error` (nombre y mensaje). Falló guardar la conversación, el turno o sus envíos; el ciudadano recibe el mismo texto fijo, con el mismo límite de una vez cada 30 s por número. El turno, si llegó a empezar, ya dejó su `turn.failed`. **El registro nunca se calla:** el límite de 30 s solo frena la respuesta al ciudadano |
 | `perimeter.dropped`, `perimeter.rejected`, `perimeter.muted`, `perimeter.banned` | info / warn | `waId`, `reason` (`repeat` entre los rechazos), `traceId` (el que tendría el turno). `perimeter.muted` sale una vez por silencio de 2 minutos; el `perimeter.dropped` del mensaje que inicia el silencio lleva `noticeSent: true` (es el único que recibe el aviso «espere 2 minutos») |
 | `turn_lock.waited` | info | `waId` (últimos 4), `waitedMs`, `layer` (`process` o `database`). Un turno esperó a otro del mismo ciudadano más de lo normal |
+| `inbound.latency` | info | `waId` (últimos 4), `traceId`, `channel`, `stagesMs` y `totalMs`. Una línea por mensaje de WhatsApp que pasó el perímetro, con la duración de cada etapa: `perimeter` (filtros en memoria), `staged` (usuario, mensaje y sesión en la base), `window` (ventana de agrupado y `summarize`), `lock` (espera del candado), `turn` (hasta el primer efecto) y `first_send` (primer POST a Meta). Es la medida de punta a punta que decide dónde está el tiempo (base lejana, candado, ventana) |
+| `sandbox.latency` | info | Igual que `inbound.latency` para `/api/sandbox`: etapas `reset`, `exists`, `lock` y `turn` |
+| `inbound.expired_on_boot` | info | `expired`. Al arrancar, cuántos mensajes entrantes quedaron pendientes por una caída y se vencieron sin responderse |
+| `inbound.expire_failed` | warn | `error`. No se pudo vencer los pendientes al arrancar; el servidor arranca igual |
 | `webhook.entry_failed` | error | `error`. Falló procesar una entrada del webhook fuera del turno (perímetro, estados de entrega); el ciudadano no recibe aviso |
+| `webhook.bsuid_updated` | info | `previous`, `current` (últimos 4). Meta avisó que cambió el identificador de una persona (cambió de número): su usuario y su sesión pasan al identificador nuevo |
+| `webhook.bsuid_conflict` | warn | `previous`, `current` (últimos 4). El identificador nuevo ya tenía usuario propio; no se fusionan y el anterior queda como está (limitación conocida) |
+| `webhook.bsuid_update_failed` | error | `previous`, `current` (últimos 4), `error`. Falló aplicar el cambio de identificador; no afecta a los mensajes del mismo webhook |
 | `webhook.fixed_reply_failed` | error | `waId` (últimos 4), `error`. No se pudo enviar una respuesta fija (perímetro o texto de falla) |
 | `whatsapp.send_failed` | error | `operation` (`send_effect` o `send_cta_url`), `waId` (últimos 4), `status` y `response` (cuerpo de Meta enmascarado y truncado) o `error` |
 | `whatsapp.typing_failed` | warn | `error`. Falló el indicador de «escribiendo»; la respuesta sigue su curso |
-| `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; el reclamo sigue sin imagen |
-| `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). El reclamo llegó al servicio con datos que no pasan la validación; no se guarda |
-| `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): el reclamo no se puede guardar y se le responde error al ciudadano |
-| `incidencia.media_not_stored` | warn | `reason`. El ciudadano adjuntó una foto y todavía no hay servicio de imágenes: el reclamo se guarda sin ella |
+| `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; la incidencia sigue sin imagen |
+| `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). La incidencia llegó al servicio con datos que no pasan la validación; no se guarda |
+| `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): la incidencia no se puede guardar y se le responde error al ciudadano |
+| `incidencia.media_not_stored` | warn | `reason`. El ciudadano adjuntó una foto y todavía no hay servicio de imágenes: la incidencia se guarda sin ella |
 | `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
 | `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
+| `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |
+| `incidencia.consulta_unavailable` | error | `reason`. Se quiso consultar una incidencia con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
+| `incidencia.consulta_failed` | error | `error`. Falló la consulta de una incidencia en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
+| `incidencia.listado_unavailable` | error | `reason`. Se quiso listar todas las incidencias con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
+| `incidencia.listado_failed` | error | `error`. Falló el listado de incidencias en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
+| `incidencia.establecimiento_lookup_failed` | error | `by` (`codigo` o `nombre`) y `error`. Falló la búsqueda del establecimiento en el padrón; el flujo trata el resultado como no disponible y pide la ubicación de otra forma |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |
 | `config.invalid` | error / warn | `issue` (el código del catálogo), `value`, `message`. Problema de configuración detectado al arrancar el servidor (ver `lib/config/config-errors.ts`); el bot sigue funcionando con su respaldo y `/api/health` responde `degraded` |
@@ -63,7 +76,7 @@ Todo campo pasa por `lib/observability/mask.ts` antes de salir, aunque quien lla
 - **Tokens:** `citaBearer`, `token`, `authorization`, `secret`, `twofa`, códigos OTP → `[redacted]`. Un `Bearer …` o un JWT dentro de un texto se reemplaza.
 - **Números largos** (7 o más dígitos: teléfonos, un DNI escrito dentro de un mensaje) → `****1234`.
 - **Teléfono / waId:** solo los 4 últimos (`...0111`).
-- **Texto libre:** `initialMessageText` y las listas guardadas se reducen a su largo. Lo que se escribe en un paso de DNI, OTP, nombre o reclamo **nunca** se cita, solo su largo.
+- **Texto libre:** `initialMessageText` y las listas guardadas se reducen a su largo. Lo que se escribe en un paso de DNI, OTP, nombre o incidencia **nunca** se cita, solo su largo.
 
 ## Cómo encontrar lo que importa
 

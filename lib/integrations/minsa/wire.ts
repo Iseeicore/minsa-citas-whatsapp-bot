@@ -2,6 +2,7 @@ import { timedFetch } from "@/lib/observability/http";
 import { logger } from "@/lib/observability/logger";
 import { signMinsaRequest } from "@/lib/integrations/minsa/signature";
 import { nowInLima, todayInLima } from "@/lib/time/lima-clock";
+import { TRAILING_SLASHES } from "@/lib/constants/regex/integrations";
 
 const HTTP_SERVICE_UNAVAILABLE = 503;
 
@@ -12,7 +13,7 @@ function minsaHost(): string {
 export const MINSA_DIGITAL_LOGIN_PATH = "/login";
 
 export function minsaDigitalAppUrl(): string {
-  return (process.env.MINSA_DIGITAL_APP_URL ?? "").trim().replace(/\/+$/, "");
+  return (process.env.MINSA_DIGITAL_APP_URL ?? "").trim().replace(TRAILING_SLASHES, "");
 }
 
 export function minsaDigitalUrl(path = ""): string | null {
@@ -35,7 +36,6 @@ function minsaDigitalBrowserHeaders(): Record<string, string> {
   return origin ? { Origin: origin, Referer: `${origin}/` } : {};
 }
 
-/** Interruptor compartido: fuera del sandbox real, todas las integraciones MINSA usan datos simulados. */
 export function isRealMinsaEnabled(): boolean {
   return process.env.SANDBOX_USE_REAL_MINSA === "true";
 }
@@ -54,11 +54,7 @@ export async function postSigned(path: string, body: Record<string, unknown>): P
   });
 }
 
-export async function postWithBearer(
-  path: string,
-  body: Record<string, unknown>,
-  bearer: string,
-): Promise<Response> {
+export async function postWithBearer(path: string, body: Record<string, unknown>, bearer: string): Promise<Response> {
   if (isRealMinsaEnabled() && minsaDigitalOrigin() === null) {
     logger.error("minsa.request_blocked", { path, reason: "MINSA_DIGITAL_APP_URL_MISSING" });
     return new Response(null, { status: HTTP_SERVICE_UNAVAILABLE });
@@ -69,8 +65,7 @@ export async function postWithBearer(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${bearer}`,
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       ...minsaDigitalBrowserHeaders(),
     },
     body: JSON.stringify(body),

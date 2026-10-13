@@ -14,12 +14,9 @@ afterEach(() => {
 const action = (text: string) => evaluateLexicalGuard(text).action;
 
 describe("A.1c canonical initials are not the insult 'csm' / 'ptm'", () => {
-  it.each(["Atentamente C. S. M.", "Dra. Rosario P. T. M.", "Luis C. T. M. Rojas", "Att. C. S. M"])(
-    "ALLOW: %s",
-    (text) => {
-      expect(action(text)).toBe("ALLOW");
-    },
-  );
+  it.each(["Atentamente C. S. M.", "Dra. Rosario P. T. M.", "Luis C. T. M. Rojas", "Att. C. S. M"])("ALLOW: %s", (text) => {
+    expect(action(text)).toBe("ALLOW");
+  });
 
   it.each(["c s m", "c.s.m", "C S M", "C-S-M", "csm", "i.d.i.o.t.a", "m.i.e.r.d.a", "p t m", "1.m.b.3.c.1.l."])(
     "the evasion %s is still caught",

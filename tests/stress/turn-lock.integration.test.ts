@@ -11,8 +11,7 @@ const db = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => {
-  const wait = () =>
-    new Promise<void>((resolve) => setTimeout(resolve, db.minMs + Math.random() * (db.maxMs - db.minMs)));
+  const wait = () => new Promise<void>((resolve) => setTimeout(resolve, db.minMs + Math.random() * (db.maxMs - db.minMs)));
 
   return {
     getSession: async (from: string) => {
@@ -31,7 +30,9 @@ vi.mock("@/lib/fsm/session/session-store", () => {
   };
 });
 import { createRunTurn, runTurn, runTurnUnlocked } from "@/lib/fsm/core/executor";
-import { createTurnLock, TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { createTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { createPrismaAdvisoryLock, type AdvisoryLockClient } from "@/lib/fsm/session/turn-lock-db";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
@@ -56,10 +57,7 @@ function createFakePostgres(): AdvisoryLockClient {
 
             for (let current = held.get(key); current; current = held.get(key)) {
               const remaining = deadline - Date.now();
-              const timedOut = await Promise.race([
-                current.then(() => false),
-                sleep(Math.max(0, remaining)).then(() => true),
-              ]);
+              const timedOut = await Promise.race([current.then(() => false), sleep(Math.max(0, remaining)).then(() => true)]);
               if (timedOut) {
                 throw Object.assign(new Error("canceling statement due to lock timeout"), { code: "55P03" });
               }
@@ -229,7 +227,9 @@ describe("two server instances sharing one Postgres", () => {
     const b = instance(postgres);
     db.sessions.set("wa-crash", { state: "no_such_state", slots: {}, counters: {} });
 
-    await expect(a("wa-crash", text("wa-crash", "hola"))).rejects.toThrow(/unknown state/);
+    const crashed = await a("wa-crash", text("wa-crash", "hola")).catch((caught: unknown) => caught);
+    expect(crashed).toBeInstanceOf(UnknownStateError);
+    expect(crashed).toMatchObject({ handler: "handle", state: "no_such_state", message: 'handle: unknown state "no_such_state"' });
 
     db.sessions.set("wa-crash", { state: "main_menu", slots: {}, counters: {} });
     const result = await b("wa-crash", text("wa-crash", "hola"));

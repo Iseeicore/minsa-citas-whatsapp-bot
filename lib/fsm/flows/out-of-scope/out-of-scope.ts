@@ -1,135 +1,21 @@
+import { ALL_WHITESPACE_RUNS, SYMBOLS_IN_UPPERCASE_TEXT } from "@/lib/constants/regex/text";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import type { OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import type { OosCategory } from "@/lib/enums/oos-category";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
+import { OUT_OF_SCOPE_RULES } from "@/lib/constants/regex/out-of-scope";
+import { CITA_KEYWORD, CITAS_KEYWORD, CONTINUAR_KEYWORD } from "@/lib/constants/palabras-clave";
+import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
 
-export { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
-
-const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
-  [
-    OosCategoryEnum.OOS_01,
-    [
-      /\bNO (?:PUEDE|PUEDO|PUEDEN|PUEDES) RESPIRAR\b/,
-      /\bNO RESPIRA(?:N)?\b/,
-      /\bSIN RESPIRAR\b/,
-      /\b(?:DEJO|DEJA|DEJAR) DE RESPIRAR\b/,
-      /\bNO ESTA RESPIRANDO\b/,
-      /\bFALTA(?:N)? (?:EL )?AIRE\b/,
-      /\bSE (?:ESTA )?AHOGA(?:NDO)?\b/,
-      /\bFALTA DE AIRE\b/,
-      /\bDIFICULTAD PARA RESPIRAR\b/,
-      /\bDUELE (?:MUCHO |FUERTE )?(?:EL |MI )?PECHO\b/,
-      /\bDOLOR (?:FUERTE |INTENSO )?(?:EN|DE) (?:EL |MI )?PECHO\b/,
-      /\bAMBULANCIA\b/,
-      /\bSANGRA(?:N|NDO)?\b/,
-      /\bHEMORRAGIA\b/,
-      /\bINCONSCIENTE\b/,
-      /\bSE DESMAY(?:O|A|ARON)\b/,
-      /\bNO REACCIONA\b/,
-      /\bCONVULSION(?:ES)?\b/,
-      /\bINFARTO\b/,
-      /\bASFIXI\w*/,
-      /\bME MUERO\b(?! (?:DE (?:RISA|GANAS|HAMBRE|SUENO|VERGUENZA|MIEDO|CALOR|FRIO|SED|ENVIDIA|CURIOSIDAD|PENA|ABURRIMIENTO|CANSANCIO)|POR)\b)/,
-      /\bME ESTOY MURIENDO\b/,
-      /\bSE (?:ESTA )?MURIENDO\b|\bSE MUERE\b/,
-      /\bENVENEN\w*/,
-      /\bSOBREDOSIS\b/,
-      /\bATRAGANT\w*/,
-      /\bES UNA EMERGENCIA\b/,
-      /\bEMERGENCIA (?:MEDICA|VITAL)\b/,
-      /\bURGENCIA MEDICA\b/,
-    ],
-  ],
-  [
-    OosCategoryEnum.OOS_08,
-    [
-      /\b(?:PUSE|PUSIMOS|PRESENTE|REGISTRE|HICE|INTERPUSE|ENVIE|DEJE)\b.{0,25}\b(?:RECLAMO|QUEJA)\b/,
-      /\bMI (?:RECLAMO|QUEJA)\b.{0,60}\b(?:SIGUE|SIGUEN|CUANDO|RESPUESTA|RESPONDEN|RESPONDIERON|RESUELTO|RESUELTA|RESOLVER|ESTADO|PASO|SEGUIMIENTO|PLAZO)\b/,
-      /\bESTADO DE (?:MI|EL|LA) (?:RECLAMO|QUEJA)\b/,
-      /\bSEGUIMIENTO (?:DE|A) (?:MI|UN|UNA|EL|LA) (?:RECLAMO|QUEJA)\b/,
-      /\bQUE PASO CON (?:MI|EL|LA) (?:RECLAMO|QUEJA)\b/,
-      /\bRECLAMO N\b/,
-    ],
-  ],
-  [OosCategoryEnum.OOS_06, [/\bVACUN\w*/, /\bINFLUENZA\b/, /\bTETANOS\b/]],
-  [
-    OosCategoryEnum.OOS_04,
-    [
-      /\bANALISIS\b/,
-      /\bLABORATORIOS?\b/,
-      /\bRESULTADOS?\b/,
-      /\bRADIOGRAFIAS?\b/,
-      /\bTOMOGRAFIAS?\b/,
-      /\bBIOPSIAS?\b/,
-      /\bECOGRAFIAS?\b/,
-      /\bRESONANCIAS?\b/,
-      /\bEXAMENES? DE (?:SANGRE|ORINA|HECES)\b/,
-    ],
-  ],
-  [
-    OosCategoryEnum.OOS_05,
-    [
-      /\bPARACETAMOL\b/,
-      /\bINSULINA\b/,
-      /\bMEDICAMENTOS?\b/,
-      /\bFARMACIAS?\b/,
-      /\bPASTILLAS?\b/,
-      /\bJARABES?\b/,
-      /\bRECETAS?\b/,
-      /\bMEDICINAS\b/,
-      /\b(?:LA|MI|SU|UNA|DE LA) MEDICINA (?:PARA|DE)\b/,
-    ],
-  ],
-  [
-    OosCategoryEnum.OOS_02,
-    [
-      /\bSIS\b/,
-      /\bSEGURO INTEGRAL\b/,
-      /\bAFILI\w*/,
-      /\bMI SEGURO\b.{0,40}\b(?:ACTIVO|CANCELADO|VIGENTE|VENCIDO|SUSPENDIDO)\b/,
-    ],
-  ],
-  [
-    OosCategoryEnum.OOS_03,
-    [
-      /\b(?<!PUNTO DE )REFERENCIAS?\b/,
-      /\bCONTRARREFERENCIAS?\b/,
-      /\bREFCON\b/,
-    ],
-  ],
-  [
-    OosCategoryEnum.OOS_09,
-    [
-      /\bDESCANSOS? MEDICOS?\b/,
-      /\bCERTIFICADOS?\b/,
-      /\bDISCAPACIDAD\b/,
-      /\bSISFOH\b/,
-      /\bCANJE\b/,
-      /\bSELL(?:EN|AR|O|OS)\b/,
-    ],
-  ],
-  [
-    OosCategoryEnum.OOS_07,
-    [
-      /\bQUE (?:TOMO|LE DOY|PUEDO TOMAR|LE PUEDO DAR)\b/,
-      /\bQUE DOSIS\b/,
-      /\bGRANITOS\b/,
-      /\bHABLAR CON (?:UN|UNA|EL|LA) (?:DOCTOR|DOCTORA|MEDICO|MEDICA|ENFERMERO|ENFERMERA|OBSTETRA)\b/,
-      /\bTELE(?:CONSULTA|ORIENTACION|ATENCION|MEDICINA)\b/,
-    ],
-  ],
-];
+export type { OosCategory };
 
 const toPlainWords = (text: string): string =>
-  normalizeText(text)
-    .replace(/[^A-Z0-9 ]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  normalizeText(text).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").replace(ALL_WHITESPACE_RUNS, " ").trim();
 
 export function detectOutOfScope(text: string): OosCategory | undefined {
   const plain = toPlainWords(text);
   if (!plain) return undefined;
 
-  for (const [category, patterns] of RULES) {
+  for (const [category, patterns] of OUT_OF_SCOPE_RULES) {
     if (patterns.some((pattern) => pattern.test(plain))) return category;
   }
   return undefined;
@@ -137,7 +23,6 @@ export function detectOutOfScope(text: string): OosCategory | undefined {
 
 export const isEmergency = (text: string): boolean => detectOutOfScope(text) === OosCategoryEnum.OOS_01;
 
-export const IN_FLOW_MAX_CHARS = 120;
 export const isEmergencyInFlow = (text: string): boolean => text.length <= IN_FLOW_MAX_CHARS && isEmergency(text);
 
 const single = (text: string): string | undefined => {
@@ -147,7 +32,7 @@ const single = (text: string): string | undefined => {
 
 export const isCitaKeyword = (text: string): boolean => {
   const word = single(text);
-  return word === "CITA" || word === "CITAS";
+  return word === CITA_KEYWORD || word === CITAS_KEYWORD;
 };
 
-export const isContinueKeyword = (text: string): boolean => single(text) === "CONTINUAR";
+export const isContinueKeyword = (text: string): boolean => single(text) === CONTINUAR_KEYWORD;

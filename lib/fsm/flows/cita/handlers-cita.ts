@@ -1,5 +1,5 @@
-import { handleOtherDistrito, OTHER_DISTRITO_STATE } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
-import { handleOtherFecha, OTHER_FECHA_STATE } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
+import { handleOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
+import { handleOtherFecha } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import {
   handleAwaitingDni,
@@ -31,9 +31,9 @@ import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select
 import { handleHoraConfirm } from "@/lib/fsm/flows/cita/steps/hora/confirm";
 import { handleHoraChoice } from "@/lib/fsm/flows/cita/steps/hora/choice";
 import { handleBookingPending } from "@/lib/fsm/flows/cita/steps/booking/booking";
-import { DUPLICATE_CHOICE_STATE, handleDuplicateChoice } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
-import { handleOtherEstablecimiento, OTHER_ESTABLECIMIENTO_STATE } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
-import { EXIT_CONFIRM_STATE, handleExitConfirm } from "@/lib/fsm/flows/cita/steps/exit/exit";
+import { handleDuplicateChoice } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
+import { handleOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
+import { handleExitConfirm } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import {
   handleDemoAwaitingConfirm,
   handleDemoAwaitingHoraSelect,
@@ -46,6 +46,7 @@ import {
   handleReferencesPending,
 } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { SessionState } from "@/lib/enums/session-state";
+import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 
 export function handleCita(session: Session, event: HandleEvent): HandlerResult {
   switch (session.state) {
@@ -75,7 +76,7 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleUbigeoPending(session, event as QueryResultEvent);
     case SessionState.CITA_AWAITING_UBIGEO_SELECT:
       return handleAwaitingUbigeoSelect(session, event as InboundEvent);
-    case OTHER_DISTRITO_STATE:
+    case SessionState.CITA_AWAITING_OTHER_DISTRITO:
       return handleOtherDistrito(session, event as InboundEvent);
     case SessionState.CITA_ESPECIALIDAD_PENDING:
       return handleEspecialidadPending(session, event as QueryResultEvent);
@@ -89,7 +90,7 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleSelectionHintsPending(session, event as QueryResultEvent);
     case SessionState.CITA_FECHA_PENDING:
       return handleFechaPending(session, event as QueryResultEvent);
-    case OTHER_FECHA_STATE:
+    case SessionState.CITA_AWAITING_OTHER_FECHA:
       return handleOtherFecha(session, event as InboundEvent);
     case SessionState.CITA_AWAITING_FECHA_SELECT:
       return handleAwaitingFechaSelect(session, event as InboundEvent);
@@ -107,11 +108,11 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleHoraChoice(session, event as InboundEvent);
     case SessionState.CITA_BOOKING_PENDING:
       return handleBookingPending(session, event as QueryResultEvent);
-    case DUPLICATE_CHOICE_STATE:
+    case SessionState.CITA_AWAITING_DUPLICATE_CHOICE:
       return handleDuplicateChoice(session, event as InboundEvent);
-    case OTHER_ESTABLECIMIENTO_STATE:
+    case SessionState.CITA_AWAITING_OTHER_ESTABLECIMIENTO:
       return handleOtherEstablecimiento(session, event as InboundEvent);
-    case EXIT_CONFIRM_STATE:
+    case SessionState.CITA_AWAITING_EXIT_CONFIRM:
       return handleExitConfirm(session, event as InboundEvent);
     case SessionState.CITA_DEMO_AWAITING_REFERENCIA_SELECT:
       return handleDemoAwaitingReferenciaSelect(session, event as InboundEvent);
@@ -128,6 +129,6 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
     case SessionState.CITA_AWAITING_REFERENCIA_CONFIRM:
       return handleAwaitingReferenciaConfirm(session, event as InboundEvent);
     default:
-      throw new Error(`handleCita: unknown state "${session.state}"`);
+      throw new UnknownStateError("handleCita", session.state);
   }
 }

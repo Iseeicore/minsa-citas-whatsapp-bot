@@ -1,0 +1,9 @@
+import { isSandboxPageEnabled } from "@/lib/config/sandbox-page";
+import { apiError } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
+
+export function consoleDisabledResponse() {
+  if (isSandboxPageEnabled()) return null;
+
+  return apiError(ApiErrorCode.NOT_FOUND, { message: "La consola de conversaciones no está habilitada en este despliegue." });
+}

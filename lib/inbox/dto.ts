@@ -39,7 +39,6 @@ const ESTADO_MENSAJE: Record<EstadoMensajeId, MessageStatus> = {
 export const toConversationStatus = (id: number): ConversationStatus =>
   ESTADO_CONVERSACION[id as EstadoConversacionId] ?? ConversationStatus.OPEN;
 
-/** Contrato que consume la bandeja web: conserva los nombres y valores de la API anterior (la UI no cambia). */
 export function toConversationDto(usuario: Usuario) {
   return {
     id: usuario.id,

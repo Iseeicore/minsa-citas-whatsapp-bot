@@ -16,10 +16,12 @@ import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 
+const nowSeconds = (): number => Math.floor(Date.now() / 1000);
+
 const textMessage = (waId: string, wamid: string, body: string) => ({
   id: wamid,
   from_user_id: waId,
-  timestamp: "1780000000",
+  timestamp: String(nowSeconds()),
   type: "text",
   text: { body },
 });
@@ -55,7 +57,11 @@ describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real Postg
       contenido: "Hola",
       usuarioCreacion: `ciudadano:${waId}`,
     });
-    expect(answers.answerMessage).toHaveBeenCalledWith(expect.objectContaining({ id: wamid }), usuario.id);
+    expect(answers.answerMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: wamid }),
+      usuario.id,
+      expect.objectContaining({ mark: expect.any(Function) }),
+    );
   });
 
   it("a redelivery of the same WhatsApp message is skipped: one row, one answer", async () => {
@@ -83,18 +89,19 @@ describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real Postg
       estadoMensajeId: EstadoMensajeId.ENTREGADO,
       usuarioModificacion: "externo:meta",
       usuarioCreacion: `ciudadano:${waId}`,
-      versionFila: 2,
+      versionFila: 3,
     });
   });
 
   it("a second message from the same citizen keeps one user and refreshes the last-message time", async () => {
     const waId = `smoke-${randomUUID()}`;
     await processValue({ messages: [textMessage(waId, `wamid.${randomUUID()}`, "uno")] });
-    await processValue({ messages: [{ ...textMessage(waId, `wamid.${randomUUID()}`, "dos"), timestamp: "1780000100" }] });
+    const later = nowSeconds() + 100;
+    await processValue({ messages: [{ ...textMessage(waId, `wamid.${randomUUID()}`, "dos"), timestamp: String(later) }] });
 
     expect(await prisma.usuario.count({ where: { waId } })).toBe(1);
     const usuario = await prisma.usuario.findUniqueOrThrow({ where: { waId } });
-    expect(usuario.ultimoMensajeEn.getTime()).toBe(1780000100 * 1000);
+    expect(usuario.ultimoMensajeEn.getTime()).toBe(later * 1000);
     expect(usuario.versionFila).toBe(2);
   });
 });

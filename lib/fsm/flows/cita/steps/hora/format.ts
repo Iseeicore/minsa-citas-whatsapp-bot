@@ -1,20 +1,18 @@
-import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
+import { CLOCK_TIME } from "@/lib/constants/regex/text";
+import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { nowInLima } from "@/lib/time/lima-clock";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
-import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
+import { cuposDisponiblesText } from "@/lib/constants/textos/cita-fecha-hora";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 export type HoraResultItem = {
   horaInicio: string;
   horaFin: string;
   cantidadCupos: number;
 };
-
-export const HORA_PAGE_NEXT_ID = HoraPageButtonId.NEXT;
-export const HORA_PAGE_PREV_ID = HoraPageButtonId.PREV;
 
 export function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): HoraResultItem[] {
   const sorted = [...items].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
@@ -23,23 +21,19 @@ export function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): H
   return sorted.filter((item) => item.horaInicio > now.hora);
 }
 
-export const HORA_CONFIRM_YES_ID = HoraConfirmButtonId.YES;
-export const HORA_CONFIRM_NO_ID = HoraConfirmButtonId.NO;
 export const ONLY_HORA_FLAG = "1";
 
 export function slotToRow(slot: HoraSlot): OfferedRow {
   return {
     id: `${slot.start}|${slot.end}`,
     title: truncateForRow(formatHoraRange(slot.start, slot.end), WHATSAPP_ROW_TITLE_MAX),
-    description: truncateForRow(`${slot.cupos} cupo(s) disponibles`, WHATSAPP_ROW_DESCRIPTION_MAX),
+    description: truncateForRow(cuposDisponiblesText(slot.cupos), WHATSAPP_ROW_DESCRIPTION_MAX),
   };
 }
 
 export function rowToSlot(row: OfferedRow): HoraSlot | undefined {
   const [start, end] = row.id.split("|");
-  return /^\d{2}:\d{2}$/.test(start ?? "") && /^\d{2}:\d{2}$/.test(end ?? "")
-    ? { start, end, cupos: 0 }
-    : undefined;
+  return CLOCK_TIME.test(start ?? "") && CLOCK_TIME.test(end ?? "") ? { start, end, cupos: 0 } : undefined;
 }
 
 function clock12(time: string): { clock: string; period: MeridiemPeriod } {
@@ -58,9 +52,7 @@ export function formatHora12(start: string): string {
 export function formatHoraRange(start: string, end: string): string {
   const from = clock12(start);
   const to = clock12(end);
-  return from.period === to.period
-    ? `${from.clock} - ${to.clock} ${to.period}`
-    : `${from.clock} ${from.period} - ${to.clock} ${to.period}`;
+  return from.period === to.period ? `${from.clock} - ${to.clock} ${to.period}` : `${from.clock} ${from.period} - ${to.clock} ${to.period}`;
 }
 
 export function formatHourGroup(start: string): string {

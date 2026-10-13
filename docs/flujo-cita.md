@@ -23,7 +23,7 @@ Primer mensaje
 │                               ► 💬 pide documento (guarda las pistas)
 ├─ urgencia ───────────────────► ⛔ corte de emergencia (106 / 116)
 ├─ fuera de alcance ───────────► 💬 mensaje del canal oficial
-└─ otro texto ─────────────────► 📋 menú (Agendar cita / Registrar reclamo)
+└─ otro texto ─────────────────► 📋 menú (Agendar cita / Registrar incidencia)
 
 main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
                                                 ├─ cita ─────────► pide documento
@@ -65,7 +65,7 @@ Reserva 💬 "Agendando tu cita…"
 | Paso | El bot envía | Texto libre que entiende | Varias coincidencias | IA |
 |---|---|---|---|---|
 | Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
-| Menú principal | 📋 2 filas | "1"/"2", "cita", "reclamo", frases de cita | — | 🤖 intención |
+| Menú principal | 📋 2 filas | "1"/"2", "cita", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
 | Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |
 | Registro pendiente | 🔗 + 🔘 [Ya me registré] | nada (solo el botón) | — | no |
 | OTP | 💬 | 4 a 8 dígitos | — | no |

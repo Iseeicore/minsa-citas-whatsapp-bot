@@ -32,7 +32,7 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
 
     await saveSession(id, {
       state: SessionState.CITA_AWAITING_DNI,
-      slots: { [SlotKey.QUEJA]: "texto" },
+      slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "texto" },
       counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
     });
 
@@ -41,7 +41,7 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
     const read = await getSession(id);
     expect(read).toMatchObject({
       state: SessionState.CITA_AWAITING_DNI,
-      slots: { [SlotKey.QUEJA]: "texto" },
+      slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "texto" },
       counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
     });
     expect(read.updatedAt).toBeInstanceOf(Date);

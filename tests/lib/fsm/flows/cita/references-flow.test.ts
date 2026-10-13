@@ -4,22 +4,24 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { SlotKey } from "@/lib/enums/slot-key";
-
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+
 const FROM = "sandbox-references";
 
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
 const queryResult = (queryKind: "list_references", result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] =>
-  sent(result).filter((e) => e.kind === "send_text").map((e) => (e as { text: string }).text);
+  sent(result)
+    .filter((e) => e.kind === "send_text")
+    .map((e) => (e as { text: string }).text);
 const listRows = (result: HandlerResult) => {
   const list = sent(result).find((e) => e.kind === "send_interactive_list");
   return list?.kind === "send_interactive_list" ? list.rows : undefined;
@@ -60,7 +62,10 @@ describe("handleReferencesPending", () => {
   });
 
   it("con referencias encontradas, pregunta si quiere revisarlas (no pasa a distrito todavía)", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "found", message: "", data: [REFERENCIA] }));
+    const result = handle(
+      referencesPending(),
+      queryResult("list_references", { statusReference: "found", message: "", data: [REFERENCIA] }),
+    );
 
     expect(result.session.state).toBe("cita_awaiting_references_offer");
     expect(texts(result).join(" ")).toContain("¿Deseas revisar tus referencias?");
@@ -152,8 +157,27 @@ function referenciaConfirmPending(): Session {
 }
 
 describe("handleAwaitingReferenciaConfirm", () => {
-  it("sí: por ahora continúa con el flujo normal de cita (placeholder)", () => {
+  it("sí: usa el destino de la referencia y salta directo a buscar fechas, sin preguntar distrito", () => {
     const result = handle(referenciaConfirmPending(), text("si"));
+
+    expect(result.session.state).toBe("cita_fecha_pending");
+    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("5987");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("222800");
+    expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]).toBe("HOSPITAL MARIA AUXILIADORA");
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("GASTROENTEROLOGÍA");
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("1364486");
+    expect(texts(result).join(" ")).not.toContain("distrito");
+
+    const fechas = result.effects.find((effect) => isQueryEffect(effect) && effect.kind === "list_fechas");
+    expect(fechas).toEqual({ kind: "list_fechas", payload: { codEess: "5987", especialidadId: "222800" } });
+  });
+
+  it("sí, pero la referencia llegó sin códigos de destino: sigue con el flujo normal de cita", () => {
+    const sinCodigos: ReferenciaItem = { ...REFERENCIA, codigoIpressDestino: "", codigoUpsDestino: "" };
+    const session = referenciaConfirmPending();
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([sinCodigos]);
+
+    const result = handle(session, text("si"));
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
   });
@@ -163,6 +187,7 @@ describe("handleAwaitingReferenciaConfirm", () => {
 
     expect(result.session.state).toBe("cita_awaiting_referencia_select");
     expect(listRows(result)).toHaveLength(1);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
   });
 
   it("respuesta ambigua: reintenta mostrando el mismo detalle", () => {

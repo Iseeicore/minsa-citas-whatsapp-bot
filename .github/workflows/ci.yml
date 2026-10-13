@@ -41,6 +41,9 @@ jobs:
       - name: Lint
         run: npx eslint lib app tests
 
+      - name: Format
+        run: npm run format:check
+
       - name: Tests
         run: npx vitest run
 
@@ -84,6 +87,11 @@ jobs:
 
       - name: Apply migrations
         run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+      - name: Load the establecimientos padron (the smoke tests look places up in it)
+        run: npm run db:seed:eess -- --base-real=postgres
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 

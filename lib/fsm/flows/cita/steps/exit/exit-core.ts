@@ -1,27 +1,15 @@
 import { buildResult, cloneSession, sendButtons, withNote } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { EXIT_QUESTION_TEXT, EXIT_BUTTONS } from "@/lib/constants/textos/cita-salida";
 
-/** Separado de exit.ts para que identity.ts pueda usar askToLeave sin crear un ciclo de imports. */
-export const EXIT_CONFIRM_STATE = SessionState.CITA_AWAITING_EXIT_CONFIRM;
-
-export const EXIT_YES_ID = ExitButtonId.YES;
-export const EXIT_NO_ID = ExitButtonId.NO;
-
-const EXIT_QUESTION = "Parece que prefieres no continuar con tu cita. Entiendo que pueda ser frustrante. ¿Deseas salir?";
-
-export const exitButtons = () =>
-  sendButtons(EXIT_QUESTION, [
-    { id: EXIT_YES_ID, title: "Sí, salir" },
-    { id: EXIT_NO_ID, title: "No, continuar" },
-  ]);
+export const exitButtons = () => sendButtons(EXIT_QUESTION_TEXT, EXIT_BUTTONS);
 
 export function askToLeave(session: Session, source: "local" | "ai" | "reauth"): HandlerResult {
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_EXIT_RESUME_STATE] = session.state;
-  next.state = EXIT_CONFIRM_STATE;
+  next.state = SessionState.CITA_AWAITING_EXIT_CONFIRM;
   return withNote(buildResult(next, [exitButtons()]), {
     kind: "exit_intent",
     detail: { state: session.state, source },

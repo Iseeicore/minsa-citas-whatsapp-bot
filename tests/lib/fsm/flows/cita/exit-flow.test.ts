@@ -4,19 +4,19 @@ import { isQueryEffect, TERMINAL_STATES } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-exit";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const EXIT_QUESTION = {
   kind: "send_buttons",
@@ -130,7 +130,11 @@ describe("leaving the cita on purpose", () => {
   });
 
   it.each([
-    ["other date", at("cita_awaiting_other_fecha", { [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }), "cita_declined_closed"],
+    [
+      "other date",
+      at("cita_awaiting_other_fecha", { [SlotKey.CITA_COD_EESS]: "1", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" }),
+      "cita_declined_closed",
+    ],
     ["other district", at("cita_awaiting_other_distrito"), "cita_no_coverage_closed"],
   ])("in the yes/no step «%s», «no» keeps its own meaning", (_label, session, closedState) => {
     const result = handle(session, text("no"));
@@ -195,10 +199,7 @@ describe("the AI noticing a wish to leave", () => {
 describe("changing the district in the middle of a list", () => {
   it.each([
     ["the especialidad list", listState()],
-    [
-      "the establecimiento list",
-      at("cita_awaiting_establecimiento_select", { [SlotKey.CITA_OFFERED]: serializeOffered(especialidades) }),
-    ],
+    ["the establecimiento list", at("cita_awaiting_establecimiento_select", { [SlotKey.CITA_OFFERED]: serializeOffered(especialidades) })],
   ])("in %s a wish to change location asks whether to search another district or leave", (_label, session) => {
     const result = handle(session, text("ya no quiero esta ubicación"));
 

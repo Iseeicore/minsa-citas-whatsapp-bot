@@ -4,20 +4,20 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { AUTHENTICATED_WAITING_STATES, resumeStateFor } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-establecimiento";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
 });
 
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const FAREWELL =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
@@ -37,8 +37,7 @@ const fechaPending = (extra: Session["slots"] = {}): Session => ({
   counters: {},
 });
 
-const noDates = (session: Session = fechaPending()) =>
-  handle(session, queryResult("list_fechas", { status: "empty" }));
+const noDates = (session: Session = fechaPending()) => handle(session, queryResult("list_fechas", { status: "empty" }));
 
 const establecimientos = (session: Session, items: { renipressCode: string; establishmentName: string }[]) =>
   handle(
@@ -56,9 +55,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     expect(result.session.state).toBe("cita_establecimiento_pending");
     expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS]).toBe("0000123");
     expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
-    expect(queries(result)).toEqual([
-      { kind: "list_establecimientos", payload: { especialidadId: "02", ubigeo: "150132", page: 1 } },
-    ]);
+    expect(queries(result)).toEqual([{ kind: "list_establecimientos", payload: { especialidadId: "02", ubigeo: "150132", page: 1 } }]);
   });
 
   it("with exactly one left, asks whether to search there, with buttons", () => {
@@ -147,9 +144,10 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
   });
 
   it("without a stored name it still asks, without inventing one", () => {
-    const result = establecimientos(noDates(fechaPending({ [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: undefined as unknown as string })).session, [
-      { renipressCode: "0000456", establishmentName: "HOSPITAL LURIGANCHO" },
-    ]);
+    const result = establecimientos(
+      noDates(fechaPending({ [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: undefined as unknown as string })).session,
+      [{ renipressCode: "0000456", establishmentName: "HOSPITAL LURIGANCHO" }],
+    );
 
     expect(sent(result)[0]).toMatchObject({
       text: "No hay fechas disponibles en ese establecimiento. ¿Quieres buscar en *Hospital Lurigancho*?",
@@ -169,7 +167,11 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
 
   it("remembers the name of an establecimiento picked from the list", () => {
     const listed = establecimientos(
-      { state: "cita_establecimiento_pending", slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_ESPECIALIDAD_ID]: "02", [SlotKey.CITA_UBIGEO]: "150132" }, counters: {} },
+      {
+        state: "cita_establecimiento_pending",
+        slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_ESPECIALIDAD_ID]: "02", [SlotKey.CITA_UBIGEO]: "150132" },
+        counters: {},
+      },
       [
         { renipressCode: "0000456", establishmentName: "HOSPITAL LURIGANCHO" },
         { renipressCode: "0000789", establishmentName: "CS SANTA ANITA" },

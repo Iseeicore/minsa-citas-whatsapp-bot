@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkFirstMessagePayload,
-  FIRST_MESSAGE_REJECTION_TEXT,
-  MEDIA_WITHOUT_SESSION_TEXT,
-} from "@/lib/security/payload-filter";
+import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 
 const text = (body: string) => checkFirstMessagePayload({ type: "text", text: body });
 
@@ -139,7 +136,7 @@ describe("fixed texts", () => {
 
   it("a first message that is too long, has links or is spam: says what the channel attends and offers [1] / [2]", () => {
     expect(FIRST_MESSAGE_REJECTION_TEXT).toBe(
-      "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de reclamos. Por favor elija una opción: [1] Citas [2] Reclamos.",
+      "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.",
     );
   });
 });

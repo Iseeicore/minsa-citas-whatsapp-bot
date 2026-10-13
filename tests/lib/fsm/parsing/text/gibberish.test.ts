@@ -3,9 +3,10 @@ import distritos from "@/data/peru-distritos.json";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
+import { isGibberishPlaceText } from "@/lib/fsm/parsing/text/gibberish";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 
 type Row = { departamento: string; provincia: string; distrito: string };
 const names = [...new Set((distritos as Row[]).flatMap((row) => [row.departamento, row.provincia, row.distrito]))];

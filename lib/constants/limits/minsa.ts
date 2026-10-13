@@ -1,0 +1,3 @@
+export const UBIGEO_SEARCH_LIMIT = 5;
+export const ESTABLECIMIENTOS_PAGE_SIZE = 5;
+export const BOOKING_LOG_BODY_LIMIT = 300;

@@ -3,12 +3,7 @@ import { bookAppointment } from "@/lib/integrations/minsa/booking";
 import { fetchCatalogItems } from "@/lib/integrations/minsa/catalog-pipeline";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { configureLogger } from "@/lib/observability/logger";
-import {
-  minsaDigitalAppUrl,
-  minsaDigitalOrigin,
-  minsaDigitalUrl,
-  postWithBearer,
-} from "@/lib/integrations/minsa/wire";
+import { minsaDigitalAppUrl, minsaDigitalOrigin, minsaDigitalUrl, postWithBearer } from "@/lib/integrations/minsa/wire";
 
 const PORTAL = "https://portal-prueba.example.test";
 

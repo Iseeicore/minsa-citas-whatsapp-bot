@@ -22,17 +22,13 @@ describe("MINSA_DIGITAL_APP_URL faltante según el modo del MINSA", () => {
     const { issues, lines } = logged({ SANDBOX_USE_REAL_MINSA: "true" });
 
     expect(issues.map((issue) => issue.code)).toEqual(["MINSA_DIGITAL_APP_URL_MISSING"]);
-    expect(lines).toEqual([
-      expect.objectContaining({ level: "error", event: "config.invalid", issue: "MINSA_DIGITAL_APP_URL_MISSING" }),
-    ]);
+    expect(lines).toEqual([expect.objectContaining({ level: "error", event: "config.invalid", issue: "MINSA_DIGITAL_APP_URL_MISSING" })]);
   });
 
   it("con el MINSA simulado sigue siendo un aviso", () => {
     const { lines } = logged({ SANDBOX_USE_REAL_MINSA: "false" });
 
-    expect(lines).toEqual([
-      expect.objectContaining({ level: "warn", event: "config.invalid", issue: "MINSA_DIGITAL_APP_URL_MISSING" }),
-    ]);
+    expect(lines).toEqual([expect.objectContaining({ level: "warn", event: "config.invalid", issue: "MINSA_DIGITAL_APP_URL_MISSING" })]);
   });
 
   it("sin definir el modo del MINSA se trata como simulado", () => {

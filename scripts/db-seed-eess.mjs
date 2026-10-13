@@ -73,6 +73,12 @@ try {
   console.log(`Padron de establecimientos cargado en ${base} (${filas.length} filas en el archivo):`);
   console.log(salida.trim());
 } catch (error) {
-  console.error(String(error.stderr || error.message).split("\n").filter((linea) => linea.trim() !== "").slice(0, 6).join("\n"));
+  console.error(
+    String(error.stderr || error.message)
+      .split("\n")
+      .filter((linea) => linea.trim() !== "")
+      .slice(0, 6)
+      .join("\n"),
+  );
   process.exit(1);
 }

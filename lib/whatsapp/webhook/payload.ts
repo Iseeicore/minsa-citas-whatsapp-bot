@@ -1,6 +1,5 @@
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
-import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
 import type { InboundEvent } from "@/lib/fsm/core/types";
 import { SessionState } from "@/lib/enums/session-state";
 
@@ -21,6 +20,7 @@ export type WhatsAppMessage = {
   audio?: { id?: string };
   document?: { id?: string; filename?: string };
   location?: { latitude?: number; longitude?: number };
+  system?: { type?: string; user_id?: string; previous_user_id?: string };
   interactive?: {
     button_reply?: { id: string; title?: string };
     list_reply?: { id: string; title?: string };
@@ -32,10 +32,16 @@ type WhatsAppStatus = {
   status: string;
 };
 
+export type WhatsAppUserIdUpdate = {
+  wa_id?: string;
+  user_id?: { previous?: string; current?: string };
+};
+
 export type WhatsAppValue = {
   contacts?: WhatsAppContact[];
   messages?: WhatsAppMessage[];
   statuses?: WhatsAppStatus[];
+  user_id_update?: WhatsAppUserIdUpdate[];
 };
 
 type WhatsAppEntry = {
@@ -109,11 +115,7 @@ export function extractContentAndMedia(message: WhatsAppMessage): {
   }
 }
 
-export async function toInboundEvent(
-  waId: string,
-  message: WhatsAppMessage,
-  sessionState: string,
-): Promise<InboundEvent | null> {
+export async function toInboundEvent(waId: string, message: WhatsAppMessage, sessionState: string): Promise<InboundEvent | null> {
   if (message.type === "text") {
     return { from: waId, type: "text", text: message.text?.body };
   }
@@ -127,14 +129,9 @@ export async function toInboundEvent(
     }
   }
 
-  if (message.type === "image" && message.image?.id && sessionState === SessionState.RECLAMO_AWAITING_FOTO) {
-    const mediaDataUri = await downloadWhatsAppMediaAsDataUri(message.image.id);
-    return {
-      from: waId,
-      type: "image",
-      text: message.image.caption,
-      mediaDataUri: mediaDataUri ?? undefined,
-    };
+  if (sessionState === SessionState.INCIDENCIA_AWAITING_FOTO) {
+    if (message.type === "image" && message.image?.id) return { from: waId, type: "image", text: message.image.caption };
+    if (message.type === "document" && message.document?.id) return { from: waId, type: "document" };
   }
 
   return null;

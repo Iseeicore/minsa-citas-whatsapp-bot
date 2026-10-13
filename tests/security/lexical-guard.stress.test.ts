@@ -9,11 +9,7 @@ const action = (text: string) => evaluateLexicalGuard(text).action;
 type Row = { departamento: string; provincia: string; distrito: string };
 const rows = distritos as Row[];
 
-const strip = (text: string) =>
-  text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+const strip = (text: string) => text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 describe("A.1 legitimate Peruvian inputs must be ALLOW", () => {
   it("'Mi posta es CS San Martín' (CS is a facility prefix, not an insult)", () => {
@@ -47,9 +43,7 @@ describe("A.1 legitimate Peruvian inputs must be ALLOW", () => {
 });
 
 describe("A.1b official place names and surnames (the district step runs the guard)", () => {
-  const placeNames = [
-    ...new Set(rows.flatMap((row) => [row.departamento, row.provincia, row.distrito])),
-  ];
+  const placeNames = [...new Set(rows.flatMap((row) => [row.departamento, row.provincia, row.distrito]))];
 
   it("the dataset is the full INEI list", () => {
     expect(rows.length).toBeGreaterThan(1800);
@@ -69,10 +63,36 @@ describe("A.1b official place names and surnames (the district step runs the gua
 
   it("common Peruvian surnames and given names are ALLOW", () => {
     const names = [
-      "Quispe", "Huamán", "Mamani", "Flores", "García", "Vásquez", "Castillo", "Ramírez", "Torres",
-      "Espinoza", "Chávez", "Tarazona", "Estupiñán", "Rojas", "Condori", "Choque", "Apaza", "Ccori",
-      "Rosario", "Isaac", "Marc", "Imelda", "Idalia", "Teodora", "Magdalena", "Guadalupe",
-      "Mercedes", "Esperanza", "Soledad", "Perez Tarrillo",
+      "Quispe",
+      "Huamán",
+      "Mamani",
+      "Flores",
+      "García",
+      "Vásquez",
+      "Castillo",
+      "Ramírez",
+      "Torres",
+      "Espinoza",
+      "Chávez",
+      "Tarazona",
+      "Estupiñán",
+      "Rojas",
+      "Condori",
+      "Choque",
+      "Apaza",
+      "Ccori",
+      "Rosario",
+      "Isaac",
+      "Marc",
+      "Imelda",
+      "Idalia",
+      "Teodora",
+      "Magdalena",
+      "Guadalupe",
+      "Mercedes",
+      "Esperanza",
+      "Soledad",
+      "Perez Tarrillo",
     ];
     const offenders = names.filter((name) => action(name) !== "ALLOW");
     expect(offenders).toEqual([]);
@@ -80,12 +100,9 @@ describe("A.1b official place names and surnames (the district step runs the gua
 });
 
 describe("A.2 evasions", () => {
-  it.each(["cojuuudooos", "m.i.e.r.d.a", "estup1d0", "i d i o t a", "hij0 de put4", "c0nch4tumadre"])(
-    "detects %s",
-    (text) => {
-      expect(action(text)).toBe("DROP_AND_WARN");
-    },
-  );
+  it.each(["cojuuudooos", "m.i.e.r.d.a", "estup1d0", "i d i o t a", "hij0 de put4", "c0nch4tumadre"])("detects %s", (text) => {
+    expect(action(text)).toBe("DROP_AND_WARN");
+  });
 
   it("1mb3c1lazo (leetspeak + augmentative suffix)", () => {
     expect(action("1mb3c1lazo")).toBe("DROP_AND_WARN");
@@ -107,18 +124,14 @@ describe("A.2 evasions", () => {
 describe("A.2b the proposed relative-distance ratio, measured", () => {
   const targets = ["idiota", "imbecil", "estupido", "tarado", "cojudo", "huevon", "mierda", "pendejo", "malparido"];
 
-  const districtWords = rows
-    .flatMap((row) => strip(row.distrito).split(/[^a-z]+/))
-    .filter((word) => word.length >= 5);
+  const districtWords = rows.flatMap((row) => strip(row.distrito).split(/[^a-z]+/)).filter((word) => word.length >= 5);
 
   const flaggedAt = (ratio: number) =>
     new Set(
       districtWords.filter((word) =>
         targets.some(
           (target) =>
-            word[0] === target[0] &&
-            Math.abs(word.length - target.length) <= 3 &&
-            levenshtein(word, target) / target.length <= ratio,
+            word[0] === target[0] && Math.abs(word.length - target.length) <= 3 && levenshtein(word, target) / target.length <= ratio,
         ),
       ),
     );

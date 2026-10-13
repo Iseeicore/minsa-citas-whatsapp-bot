@@ -1,8 +1,11 @@
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { isRawRow, parseRows, readNumber, readString, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import { parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
 import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
+import { isRecord } from "@/lib/utils/type-guards";
+import { arrayOr } from "@/lib/utils/array-values";
+import { readString, readNumber } from "@/lib/utils/record-readers";
 
 const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA: ListReferencesResult = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
@@ -13,16 +16,16 @@ function isReferenceStatus(value: string | undefined): value is ReferenceStatus 
 }
 
 function descripcionDe(value: unknown): string {
-  return isRawRow(value) ? (readString(value, "descripcion") ?? "") : "";
+  return isRecord(value) ? (readString(value, "descripcion") ?? "") : "";
 }
 
 function codigoDe(value: unknown): string {
-  return isRawRow(value) ? (readString(value, "codigo") ?? "") : "";
+  return isRecord(value) ? (readString(value, "codigo") ?? "") : "";
 }
 
 function parseReferencia(row: RawRow): ReferenciaItem | undefined {
   const idReferencia = readString(row, "id_referencia");
-  const estado = isRawRow(row.estado) ? readNumber(row.estado, "codigo") : undefined;
+  const estado = isRecord(row.estado) ? readNumber(row.estado, "codigo") : undefined;
   if (!idReferencia || estado === undefined) return undefined;
 
   return {
@@ -40,12 +43,12 @@ function parseReferencia(row: RawRow): ReferenciaItem | undefined {
 }
 
 function readReferencesResponse(body: unknown): ListReferencesResult {
-  if (!isRawRow(body)) return SIN_RESPUESTA;
+  if (!isRecord(body)) return SIN_RESPUESTA;
 
   const statusReference = readString(body, "status_reference");
   if (!isReferenceStatus(statusReference)) return SIN_RESPUESTA;
 
-  const rows = Array.isArray(body.data) ? body.data : [];
+  const rows = arrayOr(body.data);
   return {
     statusReference,
     message: readString(body, "message") ?? "",

@@ -21,9 +21,9 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { POST } from "@/app/api/sandbox/route";
-import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
-import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 
 async function send(body: Record<string, unknown>) {
   const request = new NextRequest("http://localhost/api/sandbox", {
@@ -70,10 +70,10 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.runTurn).toHaveBeenCalledTimes(1);
   });
 
-  it("an ordinary first message is not filtered: it gets the web welcome, and no menu on top of it", async () => {
+  it("an ordinary first message is not filtered: it gets the web welcome followed by the main menu", async () => {
     const { json } = await send({ type: "text", text: "Hola" });
 
-    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_text"]);
+    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_text", "send_interactive_list"]);
     expect(json.sent[0].text).toContain("asistente virtual de MINSA Digital");
     expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();
@@ -84,10 +84,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent).toHaveLength(1);
     expect(json.sent[0].text).toContain("Medicina General en San Juan de Lurigancho");
-    expect(mocks.saveSession).toHaveBeenCalledWith(
-      "sandbox-qa",
-      expect.objectContaining({ state: "cita_awaiting_dni" }),
-    );
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "cita_awaiting_dni" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 
@@ -115,6 +112,14 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(mocks.resetSession).toHaveBeenCalledTimes(1);
     expect(json.sent[0].text).toBe(FIRST_MESSAGE_REJECTION_TEXT);
+  });
+
+  it("after a reset it does not ask the database whether the session exists: it was just deleted", async () => {
+    await send({ type: "text", text: "Hola", reset: true });
+
+    expect(mocks.resetSession).toHaveBeenCalledTimes(1);
+    expect(mocks.sessionRowExists).not.toHaveBeenCalled();
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
   });
 });
 

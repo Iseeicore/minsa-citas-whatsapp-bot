@@ -10,7 +10,6 @@ function graphApiUrl(): string {
   return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
 }
 
-/** Esta cuenta usa BSUID: el destinatario va en `recipient`; con `to` Graph API acepta la petición pero no entrega el mensaje. */
 function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknown> {
   const base = {
     messaging_product: "whatsapp",
@@ -84,10 +83,7 @@ export async function sendWhatsAppEffect(waId: string, effect: SendEffect): Prom
   });
 }
 
-export async function sendCtaUrlMessage(
-  waId: string,
-  params: { bodyText: string; buttonText: string; url: string },
-): Promise<Response> {
+export async function sendCtaUrlMessage(waId: string, params: { bodyText: string; buttonText: string; url: string }): Promise<Response> {
   return fetch(graphApiUrl(), {
     method: "POST",
     headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
@@ -125,11 +121,7 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   }
 }
 
-export async function sendAndRecordEffect(
-  conversationId: string | null,
-  waId: string,
-  effect: SendEffect,
-): Promise<void> {
+export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<void> {
   let response: Response;
   try {
     response = await sendWhatsAppEffect(waId, effect);

@@ -78,14 +78,14 @@ describe("lexical guard — aggression + intent", () => {
     expect(action("quiero una cita hdp")).toBe("CITA_WITH_WARNING");
   });
 
-  it("routes an insulting complaint about the service to the Reclamo flow", () => {
-    expect(action("Doctora imbécil no me dio mi medicina")).toBe("FORCE_RECLAMO");
-    expect(action("maldita posta no me atiende el doctor")).toBe("FORCE_RECLAMO");
-    expect(action("maldita posta atienden pésimo")).toBe("FORCE_RECLAMO");
+  it("routes an insulting complaint about the service to the incidencia flow", () => {
+    expect(action("Doctora imbécil no me dio mi medicina")).toBe("FORCE_INCIDENCIA");
+    expect(action("maldita posta no me atiende el doctor")).toBe("FORCE_INCIDENCIA");
+    expect(action("maldita posta atienden pésimo")).toBe("FORCE_INCIDENCIA");
   });
 
   it("gives the complaint route precedence over the cita route", () => {
-    expect(action("quiero un reclamo por mi cita, idiotas")).toBe("FORCE_RECLAMO");
+    expect(action("quiero un reclamo por mi cita, idiotas")).toBe("FORCE_INCIDENCIA");
   });
 });
 
@@ -104,16 +104,91 @@ describe("lexical guard — result details", () => {
 
 describe("lexical guard — fuzzy matching stays bounded", () => {
   const vocabulary = [
-    "cita", "citas", "medico", "medica", "doctor", "doctora", "hospital", "posta", "salud",
-    "atencion", "turno", "consulta", "especialidad", "odontologia", "pediatria", "ginecologia",
-    "dolor", "fiebre", "tarde", "tardes", "tarda", "tardo", "tardar", "mañana", "horario",
-    "hora", "fecha", "lima", "distrito", "provincia", "departamento", "dni", "seguro", "essalud",
-    "gracias", "favor", "buenas", "buenos", "dias", "noches", "hola", "quiero", "necesito",
-    "agendar", "reservar", "cancelar", "cambiar", "reprogramar", "paciente", "nombre", "apellido",
-    "telefono", "celular", "numero", "codigo", "verificar", "confirmar", "idioma", "estudio",
-    "estudios", "estupendo", "carajo", "hueco", "huevo", "huevos", "cojin", "tarea", "tarifa",
-    "tarjeta", "harto", "carro", "cargo", "corto", "estuvo", "estudiar", "idiomas", "lunes",
-    "martes", "miercoles", "jueves", "viernes", "sabado", "domingo", "septiembre", "octubre",
+    "cita",
+    "citas",
+    "medico",
+    "medica",
+    "doctor",
+    "doctora",
+    "hospital",
+    "posta",
+    "salud",
+    "atencion",
+    "turno",
+    "consulta",
+    "especialidad",
+    "odontologia",
+    "pediatria",
+    "ginecologia",
+    "dolor",
+    "fiebre",
+    "tarde",
+    "tardes",
+    "tarda",
+    "tardo",
+    "tardar",
+    "mañana",
+    "horario",
+    "hora",
+    "fecha",
+    "lima",
+    "distrito",
+    "provincia",
+    "departamento",
+    "dni",
+    "seguro",
+    "essalud",
+    "gracias",
+    "favor",
+    "buenas",
+    "buenos",
+    "dias",
+    "noches",
+    "hola",
+    "quiero",
+    "necesito",
+    "agendar",
+    "reservar",
+    "cancelar",
+    "cambiar",
+    "reprogramar",
+    "paciente",
+    "nombre",
+    "apellido",
+    "telefono",
+    "celular",
+    "numero",
+    "codigo",
+    "verificar",
+    "confirmar",
+    "idioma",
+    "estudio",
+    "estudios",
+    "estupendo",
+    "carajo",
+    "hueco",
+    "huevo",
+    "huevos",
+    "cojin",
+    "tarea",
+    "tarifa",
+    "tarjeta",
+    "harto",
+    "carro",
+    "cargo",
+    "corto",
+    "estuvo",
+    "estudiar",
+    "idiomas",
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+    "domingo",
+    "septiembre",
+    "octubre",
   ];
 
   it.each(vocabulary)("does not flag the domain word %s", (word) => {

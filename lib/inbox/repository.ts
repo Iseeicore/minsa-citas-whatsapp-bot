@@ -36,7 +36,6 @@ export async function closeUser(id: string, actor: string) {
   return usuario;
 }
 
-/** Guarda un mensaje saliente de texto y avanza la fecha del último mensaje del usuario, firmado por `actor`. */
 export async function recordOutboundMessage(usuarioId: string, text: string, waMessageId: string | null, actor: string) {
   const now = new Date();
   const [, mensaje] = await prisma.$transaction([
