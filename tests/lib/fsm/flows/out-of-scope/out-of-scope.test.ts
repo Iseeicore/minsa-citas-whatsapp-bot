@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { detectOutOfScope, isEmergency, isCitaKeyword, isContinueKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { isReferenciaKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { OosCategory } from "@/lib/enums/oos-category";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
@@ -216,6 +217,12 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
     for (const category of [OosCategory.OOS_02, "OOS-03", "OOS-04", "OOS-07", "OOS-09"] as const)
       expect(OOS_MESSAGES[category]).toContain("CITAS");
     for (const category of [OosCategory.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("INCIDENCIA");
+  });
+
+  it("the referencias answer points to the word that enters the Consultar referencia service", () => {
+    expect(OOS_MESSAGES[OosCategory.OOS_03]).toContain("escriba REFERENCIA ");
+    expect(isReferenciaKeyword("REFERENCIA")).toBe(true);
+    expect(detectOutOfScope("REFERENCIA")).toBe(OosCategory.OOS_03);
   });
 
   it("all fit in a WhatsApp text and keep the spreadsheet's wording (no triple line breaks)", () => {

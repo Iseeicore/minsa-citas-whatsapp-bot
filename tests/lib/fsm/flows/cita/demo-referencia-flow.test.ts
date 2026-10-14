@@ -12,6 +12,7 @@ import {
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 const FROM = "sandbox-demo";
@@ -35,10 +36,14 @@ const listRows = (result: HandlerResult) => {
   return list?.kind === "send_interactive_list" ? list.rows : undefined;
 };
 
-function verifyPending(dni: string, extraSlots: Session["slots"] = {}): Session {
+function verifyPending(
+  dni: string,
+  extraSlots: Session["slots"] = {},
+  purpose: Session["slots"] = { [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS },
+): Session {
   return {
     state: "cita_verify_pending",
-    slots: { [SlotKey.CITA_DNI_PENDING]: dni, [SlotKey.CITA_TWOFA_ID]: "fake-twofa", ...extraSlots },
+    slots: { [SlotKey.CITA_DNI_PENDING]: dni, [SlotKey.CITA_TWOFA_ID]: "fake-twofa", ...purpose, ...extraSlots },
     counters: {},
   };
 }
@@ -69,10 +74,20 @@ describe("verificación con los DNI demo (10308523 y 47391441)", () => {
     expect(listRows(result)?.[0].id).toBe("00006215");
   });
 
-  it("no afecta a otros DNIs: pasan por el paso normal de referencias, no por el demo", () => {
+  it("no afecta a otros DNIs: con el propósito de referencias consultan las reales, no el demo", () => {
     const result = handleVerifyPending(verifyPending("12345678"), verifyResult({ status: "verified", token: "token-real" }));
-    expect(result.session.state).toBe("cita_references_pending");
+    expect(result.session.state).toBe("referencia_lookup_pending");
   });
+
+  it.each([DEMO_REFERENCIA_DNI, DEMO_PEDIATRIA_DNI])(
+    "%s solo llega al demo por el servicio de referencias: en la cita sigue el flujo normal",
+    (dni) => {
+      const result = handleVerifyPending(verifyPending(dni, {}, {}), verifyResult({ status: "verified", token: "token-demo" }));
+
+      expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+      expect(listRows(result)).toBeUndefined();
+    },
+  );
 });
 
 function referenciaOffered(dni: string): Session {

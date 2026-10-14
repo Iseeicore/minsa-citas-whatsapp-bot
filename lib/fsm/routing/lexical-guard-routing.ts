@@ -4,6 +4,9 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
+import { channelOf } from "@/lib/fsm/core/channel";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 import { evaluateLexicalGuard, type LexicalAction } from "@/lib/security/lexical-guard";
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
@@ -42,7 +45,13 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_FECHA_SELECT,
   SessionState.CITA_AWAITING_HORA_SELECT,
   SessionState.CITA_AWAITING_HORA_CHOICE,
+  SessionState.CITA_AWAITING_REFERENCIA_SELECT,
 ]);
+
+const BUTTON_STATE_REPROMPTS: Record<string, (session: Session) => HandlerResult> = {
+  [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
+  [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
+};
 
 function institutionalWarningText(): string {
   return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA) ? INSTITUTIONAL_WARNING_TEXT : RESPECT_REMINDER_TEXT;
@@ -70,7 +79,7 @@ export function routeLexicalAction(session: Session, action: Exclude<LexicalActi
 
     case "FORCE_INCIDENCIA": {
       const incidencia = serviceCatalog.byId(MenuChoice.REGISTRAR_INCIDENCIA);
-      if (!incidencia.isEnabled()) return disabledServiceReply(incidencia, slots);
+      if (!incidencia.isEnabled()) return disabledServiceReply(incidencia, channelOf(session), slots);
       return beginIncidencia(slots, FORCED_INCIDENCIA_LEAD_TEXT);
     }
   }
@@ -82,14 +91,15 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
   const isMenuLevel = session.state === SessionState.MAIN_MENU || TERMINAL_STATES.has(session.state);
   const midFlowPrompt = FREE_TEXT_STATE_PROMPTS[session.state];
   const isSelection = SELECTION_STATES.has(session.state);
-  if (!isMenuLevel && midFlowPrompt === undefined && !isSelection) return undefined;
+  const buttonReprompt = BUTTON_STATE_REPROMPTS[session.state];
+  if (!isMenuLevel && midFlowPrompt === undefined && !isSelection && buttonReprompt === undefined) return undefined;
 
   const { action } = evaluateLexicalGuard(textoDeLaPersona(event.text));
   if (action === "ALLOW") return undefined;
 
   const verdict: TurnNote = { kind: "lexical_guard", level: "warn", detail: { action, state: session.state } };
 
-  if (isMenuLevel) return withNote(routeLexicalAction(session, action, event.text), verdict);
+  if (isMenuLevel) return withNote(routeLexicalAction({ ...session, channel: channelOf(session, event) }, action, event.text), verdict);
 
   if (isSelection) {
     const offered = readOffered(session.slots);
@@ -100,6 +110,10 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
       ]),
       verdict,
     );
+  }
+
+  if (buttonReprompt) {
+    return withNote(buildResult(session, [sendText(RESPECT_REMINDER_TEXT), ...buttonReprompt(session).effects]), verdict);
   }
 
   return withNote(buildResult(session, [sendText(RESPECT_REMINDER_TEXT), sendText(midFlowPrompt)]), verdict);

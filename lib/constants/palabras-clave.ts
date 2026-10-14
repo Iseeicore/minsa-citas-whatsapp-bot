@@ -113,6 +113,28 @@ export const INCIDENCIA_FILLER_WORDS = new Set([
   "PARA",
 ]);
 
+export const REFERENCIA_KEY_WORDS = new Set(["REFERENCIA", "REFERENCIAS"]);
+
+export const REFERENCIA_FILLER_WORDS = new Set([
+  "QUIERO",
+  "DESEO",
+  "NECESITO",
+  "CONSULTAR",
+  "CONSULTA",
+  "REVISAR",
+  "VER",
+  "SABER",
+  "MI",
+  "MIS",
+  "DE",
+  "LA",
+  "LAS",
+  "EL",
+  "ESTADO",
+  "MEDICA",
+  "MEDICAS",
+]);
+
 export const OTHER_ESPECIALIDAD_ANSWERS = new Set([
   "OTRA ESPECIALIDAD",
   "OTRA",

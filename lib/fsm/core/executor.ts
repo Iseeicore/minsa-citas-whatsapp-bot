@@ -91,6 +91,7 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
         type: InternalEventType.QUERY_RESULT,
         queryKind: queryEffect.kind,
         result: queryResult,
+        channel: event.channel,
       };
       currentEvent = resultEvent;
     }

@@ -9,12 +9,12 @@ export function buildWelcomeEffect(channel: SessionChannel): SendEffect {
   if (channel === SessionChannelEnum.WEB) return sendText(WEB_WELCOME_MESSAGE_TEXT);
 
   const appUrl = minsaDigitalUrl();
-  if (!appUrl) return buildMenuEffect();
+  if (!appUrl) return buildMenuEffect(channel);
 
   return sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, appUrl);
 }
 
 export function buildWelcomeEffects(channel: SessionChannel): SendEffect[] {
-  if (channel === SessionChannelEnum.WEB) return [buildWelcomeEffect(channel), buildMenuEffect()];
+  if (channel === SessionChannelEnum.WEB) return [buildWelcomeEffect(channel), buildMenuEffect(channel)];
   return [buildWelcomeEffect(channel)];
 }

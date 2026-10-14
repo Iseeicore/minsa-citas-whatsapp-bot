@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { DisabledServiceQueryError } from "@/lib/errors/disabled-service-query-error";
 import { QueryKind } from "@/lib/enums/query-kind";
@@ -93,7 +94,7 @@ describe("the executor, as the last defense", () => {
 });
 
 describe("a stored incident session while the incidencias are off", () => {
-  const NOTICE = new IncidenciaService().disabledReply();
+  const NOTICE = new IncidenciaService().disabledReply(SessionChannel.WHATSAPP);
 
   it.each(["consulta_awaiting_codigo", "consulta_query_pending", "incidencia_awaiting_descripcion", "incidencia_awaiting_foto"])(
     "%s comes back as the main menu with the notice, and the new state is what gets stored",
