@@ -155,7 +155,8 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 
 > **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
 
-- **Sin el bloque completo, la incidencia no funciona:** el menú lo sigue ofreciendo, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
+- **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
+- **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `2` o `3` escritos, ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y muestra el menú.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
@@ -191,6 +192,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
 | `MINSA_DIGITAL_APP_URL` | **Obligatoria en el servidor real.** URL pública del portal de MINSA Digital, sin valor por defecto en el código: de ella salen los botones hacia el portal (**Continuar mi cita**, **Ir a MINSADIGITAL**, **Cita Nivel Global** y **Ver mi cita**) y las cabeceras `Origin` y `Referer` de las llamadas autenticadas al MINSA (se toma el origen: esquema, dominio y puerto). Si cambia el dominio, solo se cambia esta variable. `docker-compose.yml` la exige: el servidor no arranca sin ella, con un mensaje que la nombra. Si aun así falta, la bienvenida de WhatsApp muestra el menú, los demás avisos salen como texto sin enlace y `/api/health` responde `degraded` con el código `MINSA_DIGITAL_APP_URL_MISSING` (se registra como `error` con el MINSA real y como `warn` con el simulado). Con el MINSA real, las llamadas autenticadas no salen sin `Origin` ni `Referer`: se cortan con un 503 sin cuerpo, se registra `minsa.request_blocked` y quien llamó lo trata como un error del MINSA |
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
+| `INCIDENCIAS_ENABLED` | `true` ofrece **Registrar una incidencia** y **Consultar una incidencia** en el menú (WhatsApp y Sandbox). Sin definir o con cualquier otro valor, solo queda **Agendar una cita médica**. Se lee en cada mensaje: cambiarla no exige recompilar, solo reiniciar el proceso |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
 **Imágenes de la incidencia** (el flujo de incidencia **ya no guarda imágenes ni archivos**: si la persona envía una imagen o un PDF, el bot lo reconoce, no lo descarga y sigue; estas variables solo las usa el servicio de registro si algún día se le entrega una imagen)
@@ -370,7 +372,7 @@ Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de con
 
 ## Consultar una incidencia
 
-La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNNNNN`, el que recibe al registrarla): con la opción **Consultar una incidencia** del menú (o escribiendo `3`), o escribiendo el código dentro de cualquier mensaje («quiero ver mi incidencia MINSA-2026-000003»). Solo cuenta el formato completo; `lib/fsm/parsing/text/codigo-incidencia.ts` lo reconoce. El flujo vive en `lib/fsm/flows/consulta/` y la lectura en `lib/recepcion/consulta.ts` (solo lectura, una consulta).
+La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNNNNN`, el que recibe al registrarla): con la opción **Consultar una incidencia** del menú (o escribiendo `3`; solo con `INCIDENCIAS_ENABLED=true`, si no el menú no la muestra y el código tampoco la abre), o escribiendo el código dentro de cualquier mensaje («quiero ver mi incidencia MINSA-2026-000003»). Solo cuenta el formato completo; `lib/fsm/parsing/text/codigo-incidencia.ts` lo reconoce. El flujo vive en `lib/fsm/flows/consulta/` y la lectura en `lib/recepcion/consulta.ts` (solo lectura, una consulta).
 
 - **Quién puede verla (el código solo funciona para quien la registró).**
   - **WhatsApp:** se busca al usuario por su identificador actual (`usuario.wa_id`, el BSUID de Meta) y la incidencia debe ser de ese usuario (`usuario_id`), no de otro. El identificador lo pone el servidor, nunca el texto del mensaje. Sirve también para las incidencias anónimas.

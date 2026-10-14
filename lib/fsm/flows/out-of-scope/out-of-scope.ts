@@ -3,7 +3,7 @@ import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 
-export { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+export { OOS_MESSAGES, oosMessage, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 
 const RULES: ReadonlyArray<readonly [OosCategory, readonly RegExp[]]> = [
   [

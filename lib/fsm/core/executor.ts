@@ -23,6 +23,7 @@ import { traceTurn } from "@/lib/observability/tracer";
 import type { ExternalService } from "@/lib/observability/types";
 import { getSession, saveSession } from "@/lib/fsm/session/session-store";
 import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
+import { serviceCatalog } from "@/lib/services/service-catalog";
 import { QueryKind } from "@/lib/enums/query-kind";
 import type {
   HandleEvent,
@@ -143,6 +144,11 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
 /** `from` es la identidad que el servidor ya conoce del turno (el usuario de WhatsApp verificado por el webhook), no un dato del mensaje. */
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
   const bearer = String(session.slots[SlotKey.CITA_BEARER] ?? "");
+
+  const owner = serviceCatalog.forQuery(effect.kind as QueryKind);
+  if (owner && !owner.isEnabled()) {
+    throw new Error(`resolveQuery: query "${effect.kind}" belongs to the disabled service "${owner.id}"`);
+  }
 
   switch (effect.kind) {
     case QueryKind.RENIEC_LOOKUP:

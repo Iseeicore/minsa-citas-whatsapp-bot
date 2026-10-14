@@ -1,4 +1,6 @@
 import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
+import { serviceCatalog } from "@/lib/services/service-catalog";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 import { OosCategory } from "@/lib/enums/oos-category";
 
 export type { OosCategory };
@@ -21,3 +23,14 @@ Acuda ahora mismo al establecimiento de salud más cercano.`,
   "OOS-08": `Seguimiento de Reclamos:\n\nEste asistente registra nuevas incidencias.\n\nDe acuerdo a la normativa de SUSALUD, el establecimiento tiene un plazo de hasta 30 días hábiles para emitir respuesta formal al correo o teléfono consignado.\n\nSi venció el plazo o requiere consultar el estado de su caso, puede acudir a la Plataforma de Atención al Usuario (PAUS) de su centro de salud o comunicarse con SUSALUD al ${CHANNELS.linea113} (${CHANNELS.susaludOption}).\n\nPara registrar una nueva incidencia, escriba INCIDENCIA.`,
   "OOS-09": "Trámites Documentarios y Certificados:\n\nEstos trámites son presenciales y están a cargo de las áreas administrativas del establecimiento:\n\n- Descansos médicos / Canjes: Acérquese al área de Personal/Admisión con su receta y certificado original emitido por el médico tratante.\n\n- Certificados de discapacidad: Requieren evaluación presencial por un médico certificador autorizado.\n\n- SISFOH: Trámite exclusivo de la Unidad Local de Empadronamiento (ULE) de su municipalidad distrital.\n\nSi necesita una consulta médica previa, escriba CITAS.",
 };
+
+/** Con las incidencias deshabilitadas, las dos respuestas que mandaban a escribir INCIDENCIA dejan de nombrar esa opción. */
+const OOS_MESSAGES_SOLO_CITAS: Partial<Record<OosCategory, string>> = {
+  [OosCategory.OOS_05]: `Consulta de Medicamentos:\n\nEste canal no cuenta con inventario en tiempo real de las farmacias institucionales.\n\nPuede consultar la disponibilidad y precios de medicamentos en establecimientos públicos y privados a través del Observatorio de Productos Farmacéuticos de DIGEMID: ${CHANNELS.digemid}`,
+  [OosCategory.OOS_08]: `Seguimiento de Reclamos:\n\nDe acuerdo a la normativa de SUSALUD, el establecimiento tiene un plazo de hasta 30 días hábiles para emitir respuesta formal al correo o teléfono consignado.\n\nSi venció el plazo o requiere consultar el estado de su caso, puede acudir a la Plataforma de Atención al Usuario (PAUS) de su centro de salud o comunicarse con SUSALUD al ${CHANNELS.linea113} (${CHANNELS.susaludOption}).`,
+};
+
+export function oosMessage(category: OosCategory): string {
+  const incidenciasEnabled = serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA);
+  return (!incidenciasEnabled && OOS_MESSAGES_SOLO_CITAS[category]) || OOS_MESSAGES[category];
+}

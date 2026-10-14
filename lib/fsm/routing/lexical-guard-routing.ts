@@ -13,13 +13,16 @@ import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import {
   evaluateLexicalGuard,
-  INSTITUTIONAL_WARNING_TEXT,
+  institutionalWarningText,
   RESPECT_REMINDER_TEXT,
   type LexicalAction,
 } from "@/lib/security/lexical-guard";
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
 import { CONTINUE_BUTTON_ID } from "@/lib/fsm/routing/main-menu";
+import { disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { serviceCatalog } from "@/lib/services/service-catalog";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -51,7 +54,7 @@ export function routeLexicalAction(
   switch (action) {
     case "DROP_AND_WARN":
       return buildResult({ state: SessionState.MAIN_MENU, slots: { ...slots, [SlotKey.AWAITING_CONTINUE]: true }, counters: {} }, [
-        sendButtons(INSTITUTIONAL_WARNING_TEXT, [{ id: CONTINUE_BUTTON_ID, title: "Continuar" }]),
+        sendButtons(institutionalWarningText(), [{ id: CONTINUE_BUTTON_ID, title: "Continuar" }]),
       ]);
 
     case "CITA_WITH_WARNING": {
@@ -67,8 +70,11 @@ export function routeLexicalAction(
       ]);
     }
 
-    case "FORCE_INCIDENCIA":
+    case "FORCE_INCIDENCIA": {
+      const incidencia = serviceCatalog.byId(MenuChoice.REGISTRAR_INCIDENCIA);
+      if (!incidencia.isEnabled()) return disabledServiceReply(incidencia, slots);
       return beginIncidencia(slots, "Lamentamos lo ocurrido.");
+    }
   }
 }
 

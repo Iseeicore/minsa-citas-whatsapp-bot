@@ -11,6 +11,6 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
     exclude: ["tests/smoke/**", "tests/stress/performance.test.ts", "node_modules/**"],
-    env: { DATABASE_URL: "", DATABASE_ENABLED: "true", MINSA_DIGITAL_APP_URL: "https://fake-minsa-digital.test" },
+    env: { DATABASE_URL: "", DATABASE_ENABLED: "true", MINSA_DIGITAL_APP_URL: "https://fake-minsa-digital.test", INCIDENCIAS_ENABLED: "true" },
   },
 });

@@ -8,6 +8,8 @@ import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import { disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { serviceCatalog } from "@/lib/services/service-catalog";
 import { emergencyCut, isEmergencyTurn } from "@/lib/fsm/flows/emergency/emergency";
 import type {
   HandleEvent,
@@ -35,6 +37,10 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
+  // Una sesión guardada dentro de un flujo que ya no está habilitado vuelve al menú; las terminales siguen el camino normal del primer contacto.
+  const owner = serviceCatalog.forState(session.state);
+  if (owner && !owner.isEnabled() && !TERMINAL_STATES.has(session.state)) return disabledServiceReply(owner);
+
   if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== "query_result") {
     return handleAwaitingReauth(session, event as InboundEvent);
   }

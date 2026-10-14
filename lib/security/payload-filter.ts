@@ -1,4 +1,6 @@
 import { looksLikeNoise } from "@/lib/security/text-noise";
+import { serviceCatalog } from "@/lib/services/service-catalog";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 import { RejectReason } from "@/lib/enums/reject-reason";
 
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
@@ -6,6 +8,13 @@ export const NOISE_MIN_LENGTH = 12;
 
 export const FIRST_MESSAGE_REJECTION_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.";
+
+const FIRST_MESSAGE_REJECTION_TEXT_SOLO_CITAS =
+  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas. Por favor elija una opción: [1] Citas.";
+
+function firstMessageRejectionText(): string {
+  return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA) ? FIRST_MESSAGE_REJECTION_TEXT : FIRST_MESSAGE_REJECTION_TEXT_SOLO_CITAS;
+}
 
 export const MEDIA_WITHOUT_SESSION_TEXT =
   "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.";
@@ -45,15 +54,15 @@ export function checkFirstMessagePayload(message: { type: string; text?: string 
   const body = message.text ?? "";
 
   if ([...body].length > MAX_FIRST_MESSAGE_LENGTH) {
-    return { kind: "rejected", reason: RejectReason.TOO_LONG, reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: "rejected", reason: RejectReason.TOO_LONG, reply: firstMessageRejectionText() };
   }
 
   if (LINK_MARKERS.test(body) || BARE_DOMAIN.test(body)) {
-    return { kind: "rejected", reason: RejectReason.LINK, reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: "rejected", reason: RejectReason.LINK, reply: firstMessageRejectionText() };
   }
 
   if (isRepetitionSpam(body)) {
-    return { kind: "rejected", reason: RejectReason.REPEAT, reply: FIRST_MESSAGE_REJECTION_TEXT };
+    return { kind: "rejected", reason: RejectReason.REPEAT, reply: firstMessageRejectionText() };
   }
 
   if (body.length >= NOISE_MIN_LENGTH && looksLikeNoise(body)) {

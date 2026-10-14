@@ -12,7 +12,8 @@ import {
   isGreeting,
   isIncidenciaKeyword,
 } from "@/lib/fsm/routing/menu-shortcuts";
-import { beginCita, buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { beginCita, buildMenuEffect, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { serviceCatalog } from "@/lib/services/service-catalog";
 import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
@@ -21,7 +22,7 @@ import {
   detectOutOfScope,
   isCitaKeyword,
   isContinueKeyword,
-  OOS_MESSAGES,
+  oosMessage,
   type OosCategory,
 } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { looksLikeNoise } from "@/lib/security/text-noise";
@@ -34,12 +35,8 @@ import { SessionState } from "@/lib/enums/session-state";
 
 export const CONTINUE_BUTTON_ID = "continuar_menu";
 
-
-const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
-  "1": MenuChoice.AGENDAR_CITA,
-  "2": MenuChoice.REGISTRAR_INCIDENCIA,
-  "3": MenuChoice.CONSULTAR_INCIDENCIA,
-};
+const incidenciaService = serviceCatalog.byId(MenuChoice.REGISTRAR_INCIDENCIA);
+const consultaService = serviceCatalog.byId(MenuChoice.CONSULTAR_INCIDENCIA);
 
 export function enterMainMenu(preservedSlots: Session["slots"] = {}): HandlerResult {
   return buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, [buildMenuEffect()]);
@@ -52,7 +49,10 @@ export function handleAwaitingFlowStart(session: Session): HandlerResult {
     counters: { ...session.counters },
   };
 
-  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_INCIDENCIA) return beginIncidencia(next.slots, "");
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_INCIDENCIA) {
+    if (!incidenciaService.isEnabled()) return disabledServiceReply(incidenciaService, omitSlot(next.slots, SlotKey.MENU_CHOICE));
+    return beginIncidencia(next.slots, "");
+  }
 
   if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) {
     next.state = SessionState.CITA_AWAITING_DNI;
@@ -72,28 +72,34 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
 
   const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
   if (codigo) {
+    if (!consultaService.isEnabled()) return disabledServiceReply(consultaService, session.slots);
     return withNote(beginConsulta(event.channel, codigo), { kind: "shortcut", detail: { name: "consulta_codigo" } });
   }
   if (event.text && isConsultaKeyword(event.text)) {
+    if (!consultaService.isEnabled()) return disabledServiceReply(consultaService, session.slots);
     return withNote(beginConsulta(event.channel), { kind: "shortcut", detail: { name: "consulta_keyword" } });
   }
 
   const inicio = event.text ? parseInicioIncidencia(event.text) : null;
   if (inicio) {
+    if (!incidenciaService.isEnabled()) return disabledServiceReply(incidenciaService, session.slots);
     return withNote(beginIncidencia(session.slots, "", inicio), {
       kind: "shortcut",
       detail: { name: inicio.origen === "qr" ? "incidencia_qr" : "incidencia_start" },
     });
   }
 
-  const numericChoice = event.text ? NUMERIC_MENU_CHOICES[event.text.trim()] : undefined;
+  const numericChoice = event.text ? serviceCatalog.byMenuNumber(event.text)?.id : undefined;
   const replyId = numericChoice ?? readReply(event);
 
   if (replyId === CONTINUE_BUTTON_ID) {
     return enterMainMenu(session.slots);
   }
 
-  if (replyId === MenuChoice.CONSULTAR_INCIDENCIA) return beginConsulta(event.channel);
+  if (replyId === MenuChoice.CONSULTAR_INCIDENCIA) {
+    if (!consultaService.isEnabled()) return disabledServiceReply(consultaService, session.slots);
+    return beginConsulta(event.channel);
+  }
 
   if (replyId !== MenuChoice.AGENDAR_CITA && replyId !== MenuChoice.REGISTRAR_INCIDENCIA) {
     if (event.text && isIncidenciaKeyword(event.text)) {
@@ -171,11 +177,18 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
 export const OUT_OF_SCOPE_REQUEST_TEXT =
   "Solo puedo ayudarte a agendar una cita médica o a registrar una incidencia. Elige una opción:";
 
+const OUT_OF_SCOPE_REQUEST_TEXT_SOLO_CITAS = "Solo puedo ayudarte a agendar una cita médica. Elige una opción:";
+
+function outOfScopeRequestText(): string {
+  return incidenciaService.isEnabled() ? OUT_OF_SCOPE_REQUEST_TEXT : OUT_OF_SCOPE_REQUEST_TEXT_SOLO_CITAS;
+}
+
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
   const slots = omitSlot(session.slots, SlotKey.INCIDENCIA_BORRADOR);
 
   if (result.intent === MainMenuIntent.INCIDENCIA) {
+    if (!incidenciaService.isEnabled()) return disabledServiceReply(incidenciaService, slots);
     return withNote(beginIncidencia(slots, "", { origen: "ia", resto: session.slots[SlotKey.INCIDENCIA_BORRADOR] }), {
       kind: "shortcut",
       detail: { name: "incidencia_ai" },
@@ -187,7 +200,7 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
   if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
       buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [
-        sendText(OUT_OF_SCOPE_REQUEST_TEXT),
+        sendText(outOfScopeRequestText()),
         buildMenuEffect(),
       ]),
       { kind: "out_of_scope", detail: { reason: "ai_request" } },
@@ -213,7 +226,7 @@ function beginCitaFromIntent(
 }
 
 function outOfScopeReply(category: OosCategory, slots: Session["slots"] = {}): HandlerResult {
-  return withNote(buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(OOS_MESSAGES[category])]), {
+  return withNote(buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(oosMessage(category))]), {
     kind: "out_of_scope",
     detail: { category },
   });

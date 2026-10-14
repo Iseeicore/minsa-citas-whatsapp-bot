@@ -11,6 +11,8 @@ import {
 } from "@/lib/security/lexicon";
 import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
 import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+import { serviceCatalog } from "@/lib/services/service-catalog";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 
 export type LexicalAction = "ALLOW" | "DROP_AND_WARN" | "CITA_WITH_WARNING" | "FORCE_INCIDENCIA";
 
@@ -26,6 +28,11 @@ export const RESPECT_REMINDER_TEXT =
   "Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto.";
 
 export const INSTITUTIONAL_WARNING_TEXT = `${RESPECT_REMINDER_TEXT} Si desea registrar una incidencia sobre un mal servicio de salud, escriba INCIDENCIA para iniciar el trámite oficial.`;
+
+/** Sin las incidencias, el aviso queda en el recordatorio de respeto: no invita a una opción que no existe. */
+export function institutionalWarningText(): string {
+  return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA) ? INSTITUTIONAL_WARNING_TEXT : RESPECT_REMINDER_TEXT;
+}
 
 const LEET_MAP: Record<string, string> = {
   "0": "o",
