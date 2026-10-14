@@ -5,19 +5,19 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-paged";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const rows = (count: number): ListRow[] =>
   Array.from({ length: count }, (_, index) => ({ id: `R${index + 1}`, title: `Opción número ${index + 1}` }));
@@ -57,12 +57,20 @@ describe("a list longer than WhatsApp's 10 rows is paged", () => {
 
   it("25 rows: the middle page offers both directions and the last one only goes back", () => {
     const middle = pageEffects("Selecciona:", rows(25), 1);
-    expect(listIds(middle)).toEqual(rows(20).slice(10).map((row) => row.id));
+    expect(listIds(middle)).toEqual(
+      rows(20)
+        .slice(10)
+        .map((row) => row.id),
+    );
     expect(buttonIds(middle)).toEqual(["lista_pagina_anterior", "lista_pagina_siguiente"]);
     expect((middle[1] as { text: string }).text).toBe("Mostrando 11 a 20 de 25 opciones.");
 
     const last = pageEffects("Selecciona:", rows(25), 2);
-    expect(listIds(last)).toEqual(rows(25).slice(20).map((row) => row.id));
+    expect(listIds(last)).toEqual(
+      rows(25)
+        .slice(20)
+        .map((row) => row.id),
+    );
     expect(buttonIds(last)).toEqual(["lista_pagina_anterior"]);
   });
 
@@ -72,7 +80,11 @@ describe("a list longer than WhatsApp's 10 rows is paged", () => {
 
     const second = handle(listed, tap("lista_pagina_siguiente"));
     expect(second.session.state).toBe("cita_awaiting_especialidad_select");
-    expect(listIds(sent(second))).toEqual(rows(20).slice(10).map((row) => row.id));
+    expect(listIds(sent(second))).toEqual(
+      rows(20)
+        .slice(10)
+        .map((row) => row.id),
+    );
 
     const back = handle(second.session, tap("lista_pagina_anterior"));
     expect(listIds(sent(back))).toEqual(rows(10).map((row) => row.id));
@@ -100,7 +112,11 @@ describe("a list longer than WhatsApp's 10 rows is paged", () => {
 
 describe("the catalog lists that MINSA can return without a cap are paged", () => {
   it("12 especialidades go out as a page of 10 plus the button", () => {
-    const pending: Session = { state: "cita_especialidad_pending", slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_UBIGEO]: "150132" }, counters: {} };
+    const pending: Session = {
+      state: "cita_especialidad_pending",
+      slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_UBIGEO]: "150132" },
+      counters: {},
+    };
     const items = Array.from({ length: 12 }, (_, index) => ({
       codigoEspecialidad: `E${index + 1}`,
       nombreEspecialidad: `Especialidad ${index + 1}`,

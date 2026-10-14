@@ -2,7 +2,6 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 
 export type MediaStorageConfig = { baseUrl: string; token: string | null; timeoutMs: number };
 
-/** El servicio de imágenes es opcional y agnóstico: se configura solo por variables de entorno. */
 export function isMediaStorageConfigured(): boolean {
   return Boolean(process.env.MEDIA_STORAGE_BASE_URL);
 }

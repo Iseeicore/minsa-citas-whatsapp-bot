@@ -6,7 +6,8 @@ import type { InboundEvent, SendEffect } from "@/lib/fsm/core/types";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { SlotKey } from "@/lib/enums/slot-key";
 
-const QR = (nombre: string, codigo: string, extra = "") => `Hola quiero presentar una incidencia ${nombre} - CODIGO-IPRESS ${codigo}${extra}`;
+const QR = (nombre: string, codigo: string, extra = "") =>
+  `Hola quiero presentar una incidencia ${nombre} - CODIGO-IPRESS ${codigo}${extra}`;
 
 describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the real executor, session and padron", () => {
   const created: string[] = [];
@@ -191,7 +192,6 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
   it("the daily maximum: the sixth incidencia of the same phone is refused, the first five were saved", async () => {
     const p = person();
 
-    // Autoriza el tratamiento de datos una vez (sin guardar nada); el resto de registros ya no vuelve a preguntar.
     await p.start("quiero presentar una incidencia");
     await p.say("omitir");
     await p.tap("incidencia_omitir_si");

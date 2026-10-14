@@ -21,9 +21,9 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { POST } from "@/app/api/sandbox/route";
-import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
-import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/security/payload-filter";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 
 async function send(body: Record<string, unknown>) {
   const request = new NextRequest("http://localhost/api/sandbox", {
@@ -84,10 +84,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent).toHaveLength(1);
     expect(json.sent[0].text).toContain("Medicina General en San Juan de Lurigancho");
-    expect(mocks.saveSession).toHaveBeenCalledWith(
-      "sandbox-qa",
-      expect.objectContaining({ state: "cita_awaiting_dni" }),
-    );
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "cita_awaiting_dni" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 

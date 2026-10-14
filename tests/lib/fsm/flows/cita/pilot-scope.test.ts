@@ -1,21 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import {
-  allowedDepartamentos,
-  isAllowedDepartamento,
-  nationalRedirectText,
-} from "@/lib/fsm/flows/cita/pilot-scope";
+import { allowedDepartamentos, isAllowedDepartamento, nationalRedirectText } from "@/lib/fsm/flows/cita/pilot-scope";
 import { resolveDistritoCandidates } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import { handleUbigeoPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const LIMA_ONLY_TEXT =
   "Por el momento el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.";
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const session = (state: Session["state"]): Session => ({ state, slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} });
 
@@ -24,7 +20,7 @@ const lima = { departamento: "LIMA", provincia: "LIMA", distrito: "MIRAFLORES" }
 
 const ubigeoFound = (items: Array<typeof arequipa & { ubigeoInei: string }>): QueryResultEvent => ({
   from: "wa-1",
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "search_ubigeo",
   result: { status: "found", items },
 });

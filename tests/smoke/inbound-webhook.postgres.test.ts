@@ -16,7 +16,6 @@ import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 
-/** El bot descarta lo que llega con más de 2 minutos de antigüedad, así que el mensaje de prueba lleva la hora de ahora. */
 const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 
 const textMessage = (waId: string, wamid: string, body: string) => ({
@@ -85,7 +84,6 @@ describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real Postg
 
     await processValue({ statuses: [{ id: wamid, status: "delivered" }] });
 
-    // versión 1 al guardarlo, 2 al marcarlo atendido (procesado_en) y 3 con el aviso de entrega de Meta.
     const mensaje = await prisma.mensaje.findUniqueOrThrow({ where: { waMessageId: wamid } });
     expect(mensaje).toMatchObject({
       estadoMensajeId: EstadoMensajeId.ENTREGADO,

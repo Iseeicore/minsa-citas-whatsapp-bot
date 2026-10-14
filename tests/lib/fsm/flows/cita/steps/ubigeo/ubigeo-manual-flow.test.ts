@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  handleAwaitingDepartamento,
-  handleAwaitingDistrito,
-  handleAwaitingProvincia,
-} from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
+import { handleAwaitingDepartamento, handleAwaitingDistrito, handleAwaitingProvincia } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -11,8 +7,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 const FROM = "51999999999";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
 describe("handleAwaitingDepartamento: ruido/gibberish no se guarda", () => {

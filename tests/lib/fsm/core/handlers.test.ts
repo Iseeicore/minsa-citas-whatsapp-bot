@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { INSTITUTIONAL_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/security/lexical-guard";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { RESPECT_REMINDER_TEXT, INSTITUTIONAL_WARNING_TEXT } from "@/lib/constants/textos/seguridad";
 
 const FROM = "sandbox-test";
 
@@ -82,15 +82,21 @@ describe("main_menu — lexical guard routing", () => {
 });
 
 describe("main_menu — incidencia keywords", () => {
-  it.each(["RECLAMO", "reclamo", "Quiero hacer un reclamo", "registrar una queja", "INCIDENCIA", "quiero presentar una incidencia", "denuncia", "quiero hacer una denuncia"])(
-    "%s starts the incidencia flow without AI",
-    (message) => {
-      const result = handle(sessionAt("main_menu"), text(message));
+  it.each([
+    "RECLAMO",
+    "reclamo",
+    "Quiero hacer un reclamo",
+    "registrar una queja",
+    "INCIDENCIA",
+    "quiero presentar una incidencia",
+    "denuncia",
+    "quiero hacer una denuncia",
+  ])("%s starts the incidencia flow without AI", (message) => {
+    const result = handle(sessionAt("main_menu"), text(message));
 
-      expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-      expect(hasQuery(result)).toBe(false);
-    },
-  );
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(hasQuery(result)).toBe(false);
+  });
 });
 
 describe("main_menu — deterministic greeting shortcut", () => {
@@ -175,10 +181,7 @@ describe("mid-flow free-text district states", () => {
 
 describe("bypass — states where the guard must never run", () => {
   it("an insult inside the complaint description is kept as evidence", () => {
-    const result = handle(
-      sessionAt("incidencia_awaiting_descripcion"),
-      text("El doctor fue un idiota y me trató pésimo"),
-    );
+    const result = handle(sessionAt("incidencia_awaiting_descripcion"), text("El doctor fue un idiota y me trató pésimo"));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
     expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe("El doctor fue un idiota y me trató pésimo");

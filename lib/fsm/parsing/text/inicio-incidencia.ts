@@ -1,26 +1,30 @@
-import { WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+import { WHITESPACE_RUN } from "@/lib/constants/regex/text";
+import {
+  BARE_CODIGO,
+  CODIGO_IPRESS_LABEL,
+  INCIDENCIA_WORD,
+  INICIO_SENTENCE,
+  LEADING_NUMERIC_TOKEN,
+  LEADING_PREPOSITIONS,
+  LEADING_SPACES_AND_PUNCTUATION,
+  LEADING_TOKEN,
+  LEADING_ZEROS,
+  POSITIVE_INTEGER,
+  TRAILING_SPACES_AND_HYPHENS,
+} from "@/lib/constants/regex/incidencia";
+import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
+import {
+  MAX_CODIGO_RENIPRESS_LENGTH,
+  MAX_NOMBRE_ESTABLECIMIENTO_LENGTH,
+  MAX_NOMBRE_ESTABLECIMIENTO_WORDS,
+} from "@/lib/constants/limits/incidencia";
 
 export type InicioIncidencia = {
-  origen: "qr" | "texto" | "ia";
+  origen: IncidenciaOrigen.QR | IncidenciaOrigen.TEXTO | IncidenciaOrigen.IA;
   codigoRenipress?: string;
   nombre?: string;
   resto?: string;
 };
-
-const MAX_CODIGO_LENGTH = 8;
-const MAX_NOMBRE_LENGTH = 100;
-const MAX_NOMBRE_WORDS = 14;
-
-const CODIGO_IPRESS_LABEL = /codigo[-\s]?ipress\s*:?\s*/i;
-const INCIDENCIA_WORD = /\bincidencia\b/i;
-const INICIO_SENTENCE = /^\s*(?:hola\b[\s,!.]*)?(?:buen[oa]s\s+\p{L}+[\s,!.]*)?quiero\s+(?:presentar|reportar|registrar)\s+una\s+incidencia\b/iu;
-const LEADING_NUMERIC_TOKEN = /^(\d+)(?![\p{L}\d_])/u;
-const LEADING_PREPOSITIONS = /^(?:(?:en|de|del|el|la|los|las|sobre|por)\s+)+/i;
-const LEADING_ZEROS = /^0+/;
-const POSITIVE_INTEGER = /^[1-9]\d*$/;
-const LEADING_SPACES_AND_PUNCTUATION = /^[\s.,;:!?-]+/;
-const TRAILING_SPACES_AND_HYPHENS = /[\s-]+$/;
-const LEADING_TOKEN = /^\S+/;
 
 function fold(text: string): string {
   return Array.from(text, (char) => (char.length === 1 ? char.normalize("NFD")[0] : char)).join("");
@@ -28,7 +32,7 @@ function fold(text: string): string {
 
 function normalizeCodigo(raw: string): string | undefined {
   const withoutZeros = raw.replace(LEADING_ZEROS, "");
-  if (!POSITIVE_INTEGER.test(withoutZeros) || withoutZeros.length > MAX_CODIGO_LENGTH) return undefined;
+  if (!POSITIVE_INTEGER.test(withoutZeros) || withoutZeros.length > MAX_CODIGO_RENIPRESS_LENGTH) return undefined;
   return withoutZeros;
 }
 
@@ -38,7 +42,8 @@ function tidy(value: string): string | undefined {
 }
 
 function plausibleNombre(value: string | undefined): string | undefined {
-  if (!value || value.length > MAX_NOMBRE_LENGTH || value.split(WHITESPACE_RUN).length > MAX_NOMBRE_WORDS) return undefined;
+  if (!value || value.length > MAX_NOMBRE_ESTABLECIMIENTO_LENGTH || value.split(WHITESPACE_RUN).length > MAX_NOMBRE_ESTABLECIMIENTO_WORDS)
+    return undefined;
   return value;
 }
 
@@ -52,7 +57,7 @@ function fromQr(text: string, labelIndex: number, labelLength: number): InicioIn
   const token = numeric ? numeric[1] : (LEADING_TOKEN.exec(after)?.[0] ?? "");
   if (!token) return null;
 
-  const result: InicioIncidencia = { origen: "qr" };
+  const result: InicioIncidencia = { origen: IncidenciaOrigen.QR };
   const codigoRenipress = numeric ? normalizeCodigo(numeric[1]) : undefined;
   if (codigoRenipress) result.codigoRenipress = codigoRenipress;
   const nombre = plausibleNombre(tidy(before.slice(word.index + word[0].length)));
@@ -63,7 +68,7 @@ function fromQr(text: string, labelIndex: number, labelLength: number): InicioIn
 }
 
 function fromSentence(text: string, sentenceLength: number): InicioIncidencia {
-  const result: InicioIncidencia = { origen: "texto" };
+  const result: InicioIncidencia = { origen: IncidenciaOrigen.TEXTO };
   const written = tidy(text.slice(sentenceLength));
   const nombre = plausibleNombre(tidy(written?.replace(LEADING_PREPOSITIONS, "") ?? ""));
   if (nombre) result.nombre = nombre;
@@ -71,11 +76,6 @@ function fromSentence(text: string, sentenceLength: number): InicioIncidencia {
   return result;
 }
 
-/**
- * Reconoce cómo empieza una incidencia. Con la etiqueta CODIGO-IPRESS (mensaje que precarga el QR) lee el código y el nombre;
- * sin ella, si el texto abre con «quiero presentar una incidencia», toma lo que sigue como nombre candidato, que quien lo use
- * debe buscar en el padrón y confirmar. Lo que se agregue después del código queda en resto. Si no es ninguno, devuelve null.
- */
 export function parseInicioIncidencia(text: string): InicioIncidencia | null {
   const folded = fold(text);
   const label = CODIGO_IPRESS_LABEL.exec(folded);
@@ -87,19 +87,12 @@ export function parseInicioIncidencia(text: string): InicioIncidencia | null {
   return null;
 }
 
-const BARE_CODIGO = /^\s*(?:codigo[-\s]?ipress\s*:?\s*)?(\d{1,9})\s*[.!]?\s*$/i;
-
-/** Reconoce un código IPRESS escrito solo («6206» o «CODIGO-IPRESS 6206») y lo devuelve sin ceros; si no lo es, undefined. */
 export function parseCodigoSuelto(text: string): string | undefined {
   const match = BARE_CODIGO.exec(fold(text));
   return match ? normalizeCodigo(match[1]) : undefined;
 }
 
-/**
- * Lo que de verdad escribió la persona. Del mensaje del QR solo cuenta lo que agregó después del código: el nombre del
- * establecimiento viene precargado y no debe pasar por los filtros de insultos ni de emergencia (hay centros que se llaman «C.S.M.»).
- */
 export function textoDeLaPersona(text: string): string {
   const inicio = parseInicioIncidencia(text);
-  return inicio?.origen === "qr" ? (inicio.resto ?? "") : text;
+  return inicio?.origen === IncidenciaOrigen.QR ? (inicio.resto ?? "") : text;
 }

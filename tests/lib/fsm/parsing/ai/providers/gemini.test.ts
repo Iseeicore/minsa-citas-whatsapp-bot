@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGeminiClient, REQUEST_TIMEOUT_MS, requestGeminiJson, toGeminiSchema } from "@/lib/fsm/parsing/ai/providers/gemini";
+import { createGeminiClient, requestGeminiJson, toGeminiSchema } from "@/lib/fsm/parsing/ai/providers/gemini";
+import { REQUEST_TIMEOUT_MS } from "@/lib/constants/limits/ai";
 
 const REQUEST = {
   operation: "test_operation",

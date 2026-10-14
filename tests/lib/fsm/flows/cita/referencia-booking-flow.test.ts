@@ -4,21 +4,23 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-referencia-booking";
 
 const fechasResult = (result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "list_fechas",
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-const texts = (result: HandlerResult): string => sent(result).map((e) => ("text" in e ? e.text : "")).join("\n");
-const queries = (result: HandlerResult): QueryEffect[] =>
-  result.effects.filter((effect): effect is QueryEffect => isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const texts = (result: HandlerResult): string =>
+  sent(result)
+    .map((e) => ("text" in e ? e.text : ""))
+    .join("\n");
+const queries = (result: HandlerResult): QueryEffect[] => result.effects.filter((effect): effect is QueryEffect => isQueryEffect(effect));
 
 function fechaPending(withReferencia: boolean): Session {
   return {

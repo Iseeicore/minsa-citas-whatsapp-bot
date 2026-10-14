@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-references";
 
@@ -11,15 +12,16 @@ const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text:
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
 const queryResult = (queryKind: "list_references", result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] =>
-  sent(result).filter((e) => e.kind === "send_text").map((e) => (e as { text: string }).text);
+  sent(result)
+    .filter((e) => e.kind === "send_text")
+    .map((e) => (e as { text: string }).text);
 const listRows = (result: HandlerResult) => {
   const list = sent(result).find((e) => e.kind === "send_interactive_list");
   return list?.kind === "send_interactive_list" ? list.rows : undefined;
@@ -48,19 +50,22 @@ function referencesPending(): Session {
 
 describe("handleReferencesPending", () => {
   it("sin referencias (empty), sigue directo al flujo normal sin preguntar nada", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "empty", items: [] }));
+    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "empty", message: "", data: [] }));
 
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
     expect(texts(result).join(" ")).toContain("Cuéntanos en qué distrito");
   });
 
   it("con error, también sigue directo al flujo normal", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "error", items: [] }));
+    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "error", message: "", data: [] }));
     expect(result.session.state).toBe("cita_awaiting_distrito_ai");
   });
 
   it("con referencias encontradas, pregunta si quiere revisarlas (no pasa a distrito todavía)", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { status: "found", items: [REFERENCIA] }));
+    const result = handle(
+      referencesPending(),
+      queryResult("list_references", { statusReference: "found", message: "", data: [REFERENCIA] }),
+    );
 
     expect(result.session.state).toBe("cita_awaiting_references_offer");
     expect(texts(result).join(" ")).toContain("¿Deseas revisar tus referencias?");

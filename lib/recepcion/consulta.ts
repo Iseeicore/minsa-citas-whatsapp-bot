@@ -2,46 +2,42 @@ import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { logger } from "@/lib/observability/logger";
 import type { ConsultaIncidenciaResult, IdentidadConsulta, ListarIncidenciasResult } from "@/lib/recepcion/consulta-dto";
 import { buscarIncidenciaDeQuienConsulta, listarIncidenciasDeQuienConsulta } from "@/lib/recepcion/repositorio";
+import { CODIGO_VALIDO } from "@/lib/constants/regex/incidencia";
+import { LookupStatus } from "@/lib/enums/lookup-status";
+import { ReferenceStatus } from "@/lib/enums/reference-status";
 
-const CODIGO_VALIDO = /^MINSA-\d{4}-\d{6}$/;
-
-/**
- * Consulta de solo lectura. La base apagada o caída es `error` (se avisa «inténtalo más tarde»); una incidencia ajena, borrada o
- * inexistente es siempre `not_found`, sin diferencias observables entre ellas. Solo devuelve código, estado y fecha de registro.
- */
 export async function consultarIncidencia(codigo: string, identidad: IdentidadConsulta): Promise<ConsultaIncidenciaResult> {
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.consulta_unavailable", { reason: "DATABASE_ENABLED=false" });
-    return { status: "error" };
+    return { status: LookupStatus.ERROR };
   }
-  if (!CODIGO_VALIDO.test(codigo)) return { status: "not_found" };
+  if (!CODIGO_VALIDO.test(codigo)) return { status: LookupStatus.NOT_FOUND };
 
   try {
     const fila = await buscarIncidenciaDeQuienConsulta(codigo, identidad);
-    if (!fila) return { status: "not_found" };
-    return { status: "found", codigo: fila.codigo, estado: fila.estadoCodigo, fechaRegistro: fila.fechaCreacion.toISOString() };
+    if (!fila) return { status: LookupStatus.NOT_FOUND };
+    return { status: LookupStatus.FOUND, codigo: fila.codigo, estado: fila.estadoCodigo, fechaRegistro: fila.fechaCreacion.toISOString() };
   } catch (error) {
     logger.error("incidencia.consulta_failed", { error });
-    return { status: "error" };
+    return { status: LookupStatus.ERROR };
   }
 }
 
-/** Todas las incidencias de quien consulta, de la más reciente a la más antigua. Solo lectura, mismo criterio de pertenencia. */
 export async function listarIncidencias(identidad: IdentidadConsulta): Promise<ListarIncidenciasResult> {
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.listado_unavailable", { reason: "DATABASE_ENABLED=false" });
-    return { status: "error" };
+    return { status: ReferenceStatus.ERROR };
   }
 
   try {
     const filas = await listarIncidenciasDeQuienConsulta(identidad);
-    if (filas.length === 0) return { status: "empty" };
+    if (filas.length === 0) return { status: ReferenceStatus.EMPTY };
     return {
-      status: "found",
+      status: ReferenceStatus.FOUND,
       items: filas.map((fila) => ({ codigo: fila.codigo, estado: fila.estadoCodigo, fechaRegistro: fila.fechaCreacion.toISOString() })),
     };
   } catch (error) {
     logger.error("incidencia.listado_failed", { error });
-    return { status: "error" };
+    return { status: ReferenceStatus.ERROR };
   }
 }

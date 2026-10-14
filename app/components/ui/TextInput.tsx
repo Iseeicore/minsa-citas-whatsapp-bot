@@ -1,5 +1,6 @@
 import type { InputHTMLAttributes } from "react";
 import { TextInputVariant } from "@/lib/enums/text-input-variant";
+import { cn } from "@/lib/utils/cn";
 
 const SUBMIT_KEY = "Enter";
 
@@ -24,7 +25,7 @@ export function TextInput({
   value,
   onValueChange,
   onEnter,
-  className = "",
+  className,
   ...nativeProps
 }: TextInputProps) {
   return (
@@ -40,7 +41,7 @@ export function TextInput({
             }
           : undefined
       }
-      className={`${VARIANT_CLASS_NAME[variant]} ${className}`.trim()}
+      className={cn(VARIANT_CLASS_NAME[variant], className)}
     />
   );
 }

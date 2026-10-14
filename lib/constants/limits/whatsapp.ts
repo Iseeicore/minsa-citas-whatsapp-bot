@@ -1,0 +1,4 @@
+export const WHATSAPP_ROW_TITLE_MAX = 24;
+export const WHATSAPP_ROW_DESCRIPTION_MAX = 72;
+export const WHATSAPP_LIST_MAX_ROWS = 10;
+export const BUTTON_TITLE_MAX = 20;

@@ -12,11 +12,7 @@ export const API_ERRORS: Record<ApiErrorCode, { status: number; message: string 
   [ApiErrorCode.BUSY]: { status: 503, message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." },
 };
 
-/** Única forma de error de la API: { error: CÓDIGO, message } con el status del catálogo; detail solo para datos técnicos. */
-export function apiError(
-  code: ApiErrorCode,
-  options: { message?: string; detail?: string; headers?: HeadersInit } = {},
-): NextResponse {
+export function apiError(code: ApiErrorCode, options: { message?: string; detail?: string; headers?: HeadersInit } = {}): NextResponse {
   const { status, message } = API_ERRORS[code];
   const body = { error: code, message: options.message ?? message, ...(options.detail ? { detail: options.detail } : {}) };
   return NextResponse.json(body, { status, headers: options.headers });

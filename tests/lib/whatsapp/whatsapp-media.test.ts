@@ -10,7 +10,12 @@ describe("downloadWhatsAppMediaAsDataUri", () => {
   it("returns null and logs whatsapp.media_failed when the download throws", async () => {
     const lines: Array<Record<string, unknown>> = [];
     const restore = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line)), level: "info" });
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
 
     await expect(downloadWhatsAppMediaAsDataUri("media-1")).resolves.toBeNull();
 

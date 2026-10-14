@@ -1,7 +1,6 @@
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
-import { TurnLockTimeoutError } from "@/lib/fsm/session/turn-lock";
-import { TURN_FAILURE_TEXT } from "@/lib/fsm/core/failure-texts";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
@@ -18,10 +17,10 @@ import type { SendEffect } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
 import { SessionState } from "@/lib/enums/session-state";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
+import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 
 const TYPING_DELAY_MS = 1000;
 
-/** Marca el turno y el primer envío una sola vez, aunque el turno mande varios efectos. */
 function firstSendMarker(marks: LatencyMarks | undefined) {
   let marked = false;
   return {
@@ -42,7 +41,6 @@ function sleep(ms: number): Promise<void> {
 function deliverTo(message: WhatsAppMessage, conversationId: string | null, marks: LatencyMarks | undefined) {
   const first = firstSendMarker(marks);
   return async (effect: SendEffect) => {
-    // Primer contacto: la bienvenida sale de inmediato, sin la pausa de "escribiendo…".
     first.beforeSend();
     await sendTypingIndicator(message.id);
     await sendAndRecordEffect(conversationId, message.from_user_id, effect);
@@ -85,21 +83,16 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
     return;
   }
 
-  await traceTurn(
-    waId,
-    { type: message.type, text: firstContactText, messageId: message.id },
-    fresh,
-    async (trace) => {
-      for (const note of first.notes ?? []) trace.note(note);
-      await saveSession(waId, first.session);
+  await traceTurn(waId, { type: message.type, text: firstContactText, messageId: message.id }, fresh, async (trace) => {
+    for (const note of first.notes ?? []) trace.note(note);
+    await saveSession(waId, first.session);
 
-      const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-      trace.complete({ session: first.session, sentCount: toSend.length });
+    const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+    trace.complete({ session: first.session, sentCount: toSend.length });
 
-      const deliver = deliverTo(message, conversationId, marks);
-      for (const effect of toSend) await deliver(effect);
-    },
-  );
+    const deliver = deliverTo(message, conversationId, marks);
+    for (const effect of toSend) await deliver(effect);
+  });
 }
 
 export async function answerMessage(message: WhatsAppMessage, conversationId: string | null, marks?: LatencyMarks): Promise<void> {

@@ -1,15 +1,8 @@
-import { ALL_WHITESPACE_RUNS, COMBINING_ACCENT_MARKS, WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
-
-const WORD_INITIAL = /(^|[\s(-])(\p{L})/gu;
-const CAPITALIZED_CONNECTOR = /(?<=\s)(De|Del|La|Las|Los|Y)(?=\s|$)/g;
+import { ALL_WHITESPACE_RUNS, CAPITALIZED_CONNECTOR, WHITESPACE_RUN, WORD_INITIAL } from "@/lib/constants/regex/text";
+import { stripAccents } from "@/lib/utils/text-values";
 
 export function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
-    .toUpperCase()
-    .trim()
-    .replace(ALL_WHITESPACE_RUNS, " ");
+  return stripAccents(value).toUpperCase().trim().replace(ALL_WHITESPACE_RUNS, " ");
 }
 
 export function toDisplayPlace(name: string): string {
@@ -29,10 +22,7 @@ export function namesMatch(typedName: string, officialFullName: string): boolean
 
   if (typedTokens.size === 0 || officialTokens.size === 0) return false;
 
-  const [smaller, larger] =
-    typedTokens.size <= officialTokens.size
-      ? [typedTokens, officialTokens]
-      : [officialTokens, typedTokens];
+  const [smaller, larger] = typedTokens.size <= officialTokens.size ? [typedTokens, officialTokens] : [officialTokens, typedTokens];
 
   for (const token of smaller) {
     if (!larger.has(token)) return false;

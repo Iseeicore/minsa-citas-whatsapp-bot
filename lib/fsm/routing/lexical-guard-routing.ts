@@ -1,34 +1,34 @@
-import {
-  buildResult,
-  omitSlot,
-  pageEffects,
-  sendButtons,
-  sendText,
-  TERMINAL_STATES,
-  withNote,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, omitSlot, pageEffects, sendButtons, sendText, TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import {
-  evaluateLexicalGuard,
-  INSTITUTIONAL_WARNING_TEXT,
-  RESPECT_REMINDER_TEXT,
-  type LexicalAction,
-} from "@/lib/security/lexical-guard";
+import { evaluateLexicalGuard, type LexicalAction } from "@/lib/security/lexical-guard";
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
-import { CONTINUE_BUTTON_ID } from "@/lib/fsm/routing/main-menu";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import {
+  ASK_DISTRITO_TEXT,
+  ASK_DEPARTAMENTO_TEXT,
+  ASK_PROVINCIA_QUESTION_TEXT,
+  ASK_DISTRITO_QUESTION_TEXT,
+} from "@/lib/constants/textos/cita-ubicacion";
+import {
+  RESPECT_REMINDER_TEXT,
+  INSTITUTIONAL_WARNING_TEXT,
+  CITA_WITH_WARNING_TEXT,
+  FORCED_INCIDENCIA_LEAD_TEXT,
+  CONTINUE_BUTTONS,
+} from "@/lib/constants/textos/seguridad";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 const FREE_TEXT_STATE_PROMPTS: Record<string, string> = {
-  [SessionState.CITA_AWAITING_DISTRITO_AI]: 'Cuéntanos en qué distrito buscas atención (ej. "Miraflores").',
-  [SessionState.CITA_AWAITING_DEPARTAMENTO]: "Indícanos el departamento.",
-  [SessionState.CITA_AWAITING_PROVINCIA]: "¿En qué provincia?",
-  [SessionState.CITA_AWAITING_DISTRITO]: "¿En qué distrito?",
+  [SessionState.CITA_AWAITING_DISTRITO_AI]: ASK_DISTRITO_TEXT,
+  [SessionState.CITA_AWAITING_DEPARTAMENTO]: ASK_DEPARTAMENTO_TEXT,
+  [SessionState.CITA_AWAITING_PROVINCIA]: ASK_PROVINCIA_QUESTION_TEXT,
+  [SessionState.CITA_AWAITING_DISTRITO]: ASK_DISTRITO_QUESTION_TEXT,
 };
 
 const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
@@ -41,17 +41,13 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_HORA_CHOICE,
 ]);
 
-export function routeLexicalAction(
-  session: Session,
-  action: Exclude<LexicalAction, "ALLOW">,
-  message?: string,
-): HandlerResult {
+export function routeLexicalAction(session: Session, action: Exclude<LexicalAction, "ALLOW">, message?: string): HandlerResult {
   const slots = session.state === SessionState.MAIN_MENU ? omitSlot(session.slots, SlotKey.AWAITING_CONTINUE) : {};
 
   switch (action) {
     case "DROP_AND_WARN":
       return buildResult({ state: SessionState.MAIN_MENU, slots: { ...slots, [SlotKey.AWAITING_CONTINUE]: true }, counters: {} }, [
-        sendButtons(INSTITUTIONAL_WARNING_TEXT, [{ id: CONTINUE_BUTTON_ID, title: "Continuar" }]),
+        sendButtons(INSTITUTIONAL_WARNING_TEXT, CONTINUE_BUTTONS),
       ]);
 
     case "CITA_WITH_WARNING": {
@@ -62,18 +58,16 @@ export function routeLexicalAction(
         ...(hints.distrito ? { [SlotKey.CITA_DISTRITO_HINT_TEXT]: hints.distrito } : {}),
       };
 
-      return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [
-        sendText(`${RESPECT_REMINDER_TEXT} Continuemos con tu cita: ingresa tu número de documento.`),
-      ]);
+      return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [sendText(CITA_WITH_WARNING_TEXT)]);
     }
 
     case "FORCE_INCIDENCIA":
-      return beginIncidencia(slots, "Lamentamos lo ocurrido.");
+      return beginIncidencia(slots, FORCED_INCIDENCIA_LEAD_TEXT);
   }
 }
 
 export function applyLexicalGuard(session: Session, event: HandleEvent): HandlerResult | undefined {
-  if (event.type !== "text" || !event.text) return undefined;
+  if (event.type !== InboundEventType.TEXT || !event.text) return undefined;
 
   const isMenuLevel = session.state === SessionState.MAIN_MENU || TERMINAL_STATES.has(session.state);
   const midFlowPrompt = FREE_TEXT_STATE_PROMPTS[session.state];

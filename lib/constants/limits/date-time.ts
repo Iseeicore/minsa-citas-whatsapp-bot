@@ -1,0 +1,1 @@
+export const HIGHEST_AMBIGUOUS_BARE_HOUR = 10;

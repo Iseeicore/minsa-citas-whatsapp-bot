@@ -1,16 +1,6 @@
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { isGibberishPlaceText, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
-import {
-  buildResult,
-  cloneSession,
-  offerList,
-  query,
-  sendText,
-  truncateForRow,
-  WHATSAPP_LIST_MAX_ROWS,
-  WHATSAPP_ROW_DESCRIPTION_MAX,
-  WHATSAPP_ROW_TITLE_MAX,
-} from "@/lib/fsm/core/handlers-shared";
+import { isGibberishPlaceText } from "@/lib/fsm/parsing/text/gibberish";
+import { buildResult, cloneSession, offerList, query, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { searchDistrito, searchDistritoByPrefix } from "@/lib/fsm/flows/cita/data/ubigeo-data";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
@@ -18,8 +8,15 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-const PLAUSIBLE_PLACE_NAME = /^[\p{L}][\p{L}\s.'-]{2,59}$/u;
+import { PLAUSIBLE_PLACE_NAME } from "@/lib/constants/regex/catalog";
+import {
+  SEARCHING_UBIGEO_TEXT,
+  DISTRITO_TOO_MANY_MATCHES_TEXT,
+  DISTRITO_DISAMBIGUATION_TEXT,
+  searchingDistritoText,
+  UNRECOGNIZED_DISTRITO_TEXT,
+} from "@/lib/constants/textos/cita-ubicacion";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 export function looksLikePlaceName(text: string): boolean {
   return PLAUSIBLE_PLACE_NAME.test(text);
@@ -31,9 +28,6 @@ export type DistritoAiCandidateResult = {
   distrito: string;
 };
 
-export const DISTRITO_MANUAL_FALLBACK_TEXT =
-  "No pudimos identificar tu distrito en este momento. Vamos por partes: indícanos el departamento donde buscas atención.";
-
 export function enterManualDistritoFlow(session: Session, text: string): HandlerResult {
   const next = cloneSession(session);
   delete next.counters[CounterKey.DISTRITO_NOT_FOUND];
@@ -41,9 +35,7 @@ export function enterManualDistritoFlow(session: Session, text: string): Handler
   return buildResult(next, [sendText(text)]);
 }
 
-function filterToPilotScope(
-  candidates: DistritoAiCandidateResult[],
-): DistritoAiCandidateResult[] {
+function filterToPilotScope(candidates: DistritoAiCandidateResult[]): DistritoAiCandidateResult[] {
   return candidates.filter((candidate) => isAllowedDepartamento(candidate.departamento));
 }
 
@@ -60,10 +52,7 @@ function trailingWordGroupAttempts(text: string): Array<() => DistritoAiCandidat
   return attempts;
 }
 
-function resolveLocalDistritoCandidates(
-  distritoText: string,
-  contextText: string | undefined,
-): DistritoAiCandidateResult[] {
+function resolveLocalDistritoCandidates(distritoText: string, contextText: string | undefined): DistritoAiCandidateResult[] {
   const attempts = [
     () => searchDistrito(distritoText),
     () => (contextText ? searchDistrito(contextText) : []),
@@ -81,10 +70,7 @@ function resolveLocalDistritoCandidates(
   return [];
 }
 
-export function resolveDistritoCandidates(
-  session: Session,
-  rawCandidates: DistritoAiCandidateResult[],
-): HandlerResult {
+export function resolveDistritoCandidates(session: Session, rawCandidates: DistritoAiCandidateResult[]): HandlerResult {
   const candidates = filterToPilotScope(rawCandidates);
   const next = cloneSession(session);
 
@@ -95,7 +81,7 @@ export function resolveDistritoCandidates(
     next.slots[SlotKey.CITA_DISTRITO] = candidate.distrito;
     next.state = SessionState.CITA_UBIGEO_PENDING;
     return buildResult(next, [
-      sendText("Buscando tu ubigeo…"),
+      sendText(SEARCHING_UBIGEO_TEXT),
       query(QueryKind.SEARCH_UBIGEO, {
         departamento: candidate.departamento,
         provincia: candidate.provincia,
@@ -106,11 +92,7 @@ export function resolveDistritoCandidates(
 
   if (candidates.length > WHATSAPP_LIST_MAX_ROWS) {
     next.state = SessionState.CITA_AWAITING_DEPARTAMENTO;
-    return buildResult(next, [
-      sendText(
-        "Encontramos demasiadas coincidencias para mostrarlas en una lista, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.",
-      ),
-    ]);
+    return buildResult(next, [sendText(DISTRITO_TOO_MANY_MATCHES_TEXT)]);
   }
 
   if (candidates.length > 1) {
@@ -118,22 +100,15 @@ export function resolveDistritoCandidates(
     const rows: ListRow[] = candidates.map((candidate) => ({
       id: `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`,
       title: truncateForRow(candidate.distrito, WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        `${candidate.provincia} — ${candidate.departamento}`,
-        WHATSAPP_ROW_DESCRIPTION_MAX,
-      ),
+      description: truncateForRow(`${candidate.provincia} — ${candidate.departamento}`, WHATSAPP_ROW_DESCRIPTION_MAX),
     }));
-    return buildResult(next, [offerList(next, "Encontramos varias opciones. ¿Cuál es tu distrito?", rows)]);
+    return buildResult(next, [offerList(next, DISTRITO_DISAMBIGUATION_TEXT, rows)]);
   }
 
   return redirectToNationalSite(next);
 }
 
-export function resolveDistritoText(
-  session: Session,
-  distritoText: string,
-  contextText: string | undefined,
-): HandlerResult {
+export function resolveDistritoText(session: Session, distritoText: string, contextText: string | undefined): HandlerResult {
   const localCandidates = resolveLocalDistritoCandidates(distritoText, contextText);
 
   if (localCandidates.length > 0) {
@@ -147,7 +122,7 @@ export function resolveDistritoText(
   const next = cloneSession(session);
   next.state = SessionState.CITA_DISTRITO_AI_PENDING;
   return buildResult(next, [
-    sendText(`Buscando tu distrito: "${distritoText}"…`),
+    sendText(searchingDistritoText(distritoText)),
     query(QueryKind.RESOLVE_DISTRITO_AI, { distritoText, contextText }),
   ]);
 }

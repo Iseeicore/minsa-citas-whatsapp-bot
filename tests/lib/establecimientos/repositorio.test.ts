@@ -52,7 +52,10 @@ describe("buscarPorNombre", () => {
 
   it("returns what the query finds", async () => {
     db.queryRaw.mockResolvedValueOnce([{ ...FILA, similitud: 1, similitudPalabra: 1 }]);
-    await expect(buscarPorNombre("hospital dos de mayo")).resolves.toEqual({ status: "ok", candidatos: [{ ...FILA, similitud: 1, similitudPalabra: 1 }] });
+    await expect(buscarPorNombre("hospital dos de mayo")).resolves.toEqual({
+      status: "ok",
+      candidatos: [{ ...FILA, similitud: 1, similitudPalabra: 1 }],
+    });
   });
 
   it("sends the normalized text as a parameter, never glued into the SQL", async () => {

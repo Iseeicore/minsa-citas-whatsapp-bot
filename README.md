@@ -246,7 +246,12 @@ app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /
     icons/                   todos los íconos SVG de la app, centralizados
 lib/
   enums/                     enums reales para estados y tipos que antes eran texto suelto (SendType, ApiErrorCode)
+  constants/regex/           todas las expresiones regulares del proyecto, como constantes con nombre, un archivo por dominio
+  constants/textos/          todos los textos, botones y filas que recibe el ciudadano, un archivo por flujo
+  constants/prompts/         los prompts de las tareas de IA, un archivo por tarea
+  constants/palabras-clave.ts  palabras y frases que escribe el ciudadano y que el bot reconoce
   utils/                     funciones puras que no dependen de React ni del render
+  errors/                    clases de error propias, una por archivo (UnknownStateError, TurnLockTimeoutError)
   db/                        cliente Prisma (carga diferida) y el flag DATABASE_ENABLED
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
     webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
@@ -301,8 +306,11 @@ Convenciones (ESLint las hace cumplir donde se indica):
 | **Sin ciclos de imports** | `import/no-cycle`; solo se permiten ciclos a través de un `import()` diferido. |
 | **Tests en estructura espejo, no colocalizados** | `lib/<ruta>/x.ts` tiene su test en `tests/lib/<la-misma-ruta>/x.test.ts`. Los tests de escenario de un flujo van en la misma ruta espejo (por ejemplo, `tests/lib/fsm/flows/cita/hora-choice.test.ts`). El alias `@/` resuelve igual sin importar dónde viva el test, así que nunca hace falta un import relativo (`../../`). |
 | **Organización por flujo, no por capa** | Un error en un paso de la conversación vive en `lib/fsm/flows/<flujo>/`. |
-| **Comentarios** | No se comentan líneas ni bloques. Solo un docstring breve, en español, en funciones o tipos complejos cuya razón no se puede expresar en el código. |
+| **Comentarios** | El código, las migraciones y las pruebas SQL no llevan comentarios ni docstrings: la intención va en los nombres y la explicación en este README y en `docs/`. La única excepción son las directivas que necesita una herramienta (por ejemplo `eslint-disable`). |
+| **Formato único con Prettier** | Líneas de hasta 140 caracteres, dos espacios, comillas dobles, punto y coma y coma final (`.prettierrc.json`). `npm run format` lo aplica y el CI lo exige con `npm run format:check`. Por ahora cubre `lib/`, `tests/`, `scripts/` y los archivos de configuración de la raíz; `app/` y `tests/app/` todavía no se formatean (`.prettierignore`). |
 | **Estados y tipos como enums** | Los textos fijos que representan un estado o un tipo (`SendType`, `ApiErrorCode`) son un `enum` en `lib/enums/`, nunca un string suelto comparado a mano. |
+| **Textos y prompts en un solo lugar** | Los textos al ciudadano (constantes `*_TEXT`, botones `*_BUTTONS` y funciones cuando el texto lleva datos) viven en `lib/constants/textos/`, y los prompts de IA en `lib/constants/prompts/`, sin archivo índice. Un texto repetido es una sola constante. `tests/integration/textos-location.test.ts` lo hace cumplir. |
+| **Expresiones regulares en un solo lugar** | Viven en `lib/constants/regex/` como constantes con nombre, sin archivo índice: se importa el archivo del dominio. `tests/integration/regex-location.test.ts` lo hace cumplir. |
 | **Sin valores arbitrarios de Tailwind** | Nada de `bg-[var(--x)]`, `bg-[#hex]` ni `text-[10px]`. Los colores y tamaños se declaran como tokens en `@theme` (`app/globals.css`, Tailwind v4) y se usan con clases estándar. `tests/integration/ui-design-rules.test.ts` lo hace cumplir. |
 | **Sin emojis en las vistas** | Se reemplazan por un ícono de `app/components/icons/`. El mismo test de arriba los detecta. |
 | **UI repetida → componente** | Un bloque de clases de Tailwind que se repite en más de un lugar se extrae a `app/components/ui/`. |
@@ -329,10 +337,23 @@ El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca
 |---|---|---|
 | Eventos de log | `lib/observability/events.ts` (`LogEvent`, `TurnNoteKind`) | TypeScript rechaza un nombre que no esté en el catálogo; un test exige que cada evento figure en `docs/observability.md`. Nada del servidor escribe en la consola directamente |
 | Configuración | `lib/config/config-errors.ts` (`CONFIG_ERRORS`) | `instrumentation.ts` revisa la configuración al arrancar y registra cada problema como `config.invalid`; `/api/health` pasa a `degraded`. El bot no se detiene |
-| Textos al ciudadano | `lib/fsm/core/failure-texts.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
+| Textos al ciudadano | `lib/constants/textos/fallas.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
 | Respuestas HTTP | `lib/http/api-error.ts` (`API_ERRORS`, `apiError`) | Toda respuesta de error es `{ error: CÓDIGO, message }` (más `detail` opcional), con el status del catálogo y el mensaje en español. Los `403` del webhook siguen en texto plano porque Meta no lee el cuerpo |
+| Excepciones | `lib/errors/` (una clase por archivo, sin archivo índice) | Nada en `lib/` ni en `app/` lanza un `Error` genérico: cada falla tiene su clase, que arma el mensaje a partir de sus datos y los expone como campos de solo lectura. Quien la atrapa la reconoce con `instanceof`, nunca por el texto del mensaje. `tests/integration/errores-location.test.ts` lo hace cumplir |
 
-Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usarlo desde ahí; nunca un string suelto.
+| Clase | Cuándo se lanza |
+|---|---|
+| `UnknownStateError` | La sesión está en un estado que ningún flujo atiende |
+| `UnhandledQueryKindError` | El ejecutor recibe una consulta que no sabe resolver |
+| `MultipleQueryEffectsError` | Un paso devuelve más de una consulta en la misma pasada |
+| `MaxPassesExceededError` | Un turno supera el tope de pasadas del ejecutor |
+| `DatabaseDisabledError` | Se usa Prisma con la base de datos apagada |
+| `ImageStorageError` | El servicio de imágenes responde con error o sin ruta |
+| `TurnLockTimeoutError` | Se agota la espera del candado de turno; el Sandbox responde `BUSY` y el webhook registra `turn.lock_timeout` |
+
+Un resultado esperado (por ejemplo, una reserva rechazada) no es una excepción: la función devuelve su estado como enum.
+
+Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su clase a `lib/errors/` con su test, y usarlo desde ahí; nunca un string suelto.
 
 ## Pruebas
 
@@ -344,8 +365,10 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde y usa
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
 | `npm run db:test` | Arma una base desechable solo con las migraciones y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
 | `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas de la base desde una base ya migrada |
+| `npm run format` | Aplica el formato de Prettier al código |
+| `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
-El CI (GitHub Actions) ejecuta tipos, lint, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
+El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
 
 ## Despliegue en Vercel (con base de datos)
 
@@ -366,7 +389,7 @@ Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de con
 - Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería. Las páginas se controlan aparte con `SANDBOX_PAGE_ENABLED=true` (local y Vercel); sin ella, `/`, `/sandbox` y `/configuracion-visor-sandbox` redirigen a `/api/health`.
 - Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.
 - Las referencias médicas no tienen datos de prueba: sin `SANDBOX_USE_REAL_MINSA=true` la consulta responde siempre «sin referencias» y la cita sigue por el camino normal. La cita por referencia se recorre contra el MINSA real o en `tests/lib/fsm/core/referencia-flow.e2e.test.ts`, que inyecta las referencias.
-- **Contrato de `/whatsapp/api/v1/references`** (`lib/integrations/minsa/references.ts` es el único punto que lo lee). Se aceptan dos formas: el arreglo suelto de filas que el servicio devuelve hoy, y el sobre acordado `{ "status_reference": "found" | "empty", "message": "...", "data": [filas] }`. Con `status_reference` manda el estado del backend; sin él, el estado sale de `data` (con filas visibles es `found`, sin ellas `empty`). Un `status_reference` distinto, un `data` que no es arreglo, un cuerpo ilegible o un HTTP que no es 2xx dan `error`. Hacia adentro el resultado es siempre `{ status, items, message? }`, con `items` como arreglo vacío o lleno. Cada fila exige `id_referencia` y `estado.codigo`; las que no los traen se descartan y se registran en `minsa.catalog.rows_discarded`, y solo se ofrecen los estados 3, 5 y 7. En cualquier caso que no sea `found` la cita continúa por el camino normal.
+- **Contrato de `/whatsapp/api/v1/references`** (`lib/integrations/minsa/references.ts` es el único punto que lo lee). El backend envía el sobre `{ "status_reference": "found" | "empty", "message": "...", "data": [filas] }` y el bot lo usa tal cual: no deduce el estado de las filas ni filtra referencias por su estado; esa lógica es del backend. Hacia adentro el resultado es `{ statusReference, message, data }`, con `data` como arreglo vacío o lleno. Una respuesta sin `status_reference`, con un valor desconocido, un cuerpo ilegible o un HTTP que no es 2xx llega como `statusReference: "error"`. Cada fila exige `id_referencia` y `estado.codigo`; las que no los traen se descartan y se registran en `minsa.catalog.rows_discarded`. Solo con `found` se ofrecen las referencias; en cualquier otro caso la cita continúa por el camino normal.
 
 ## Consultar una incidencia
 

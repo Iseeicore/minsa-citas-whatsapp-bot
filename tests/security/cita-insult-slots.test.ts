@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-slots";
 const MESSAGE = "Apúrense cojudos quiero cita de odontología en San Borja";
@@ -11,7 +12,7 @@ const menu = (): Session => ({ state: "main_menu", slots: {}, counters: {} });
 const text = (value: string) => ({ from: FROM, type: "text" as const, text: value });
 const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind,
   result: value,
 });
@@ -52,7 +53,7 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
     step = handle(step.session, text("1234"));
     step = handle(step.session, result("verify_code", { status: "verified", token: "jwt" }));
     expect(step.session.state).toBe("cita_references_pending");
-    step = handle(step.session, result("list_references", { status: "empty" }));
+    step = handle(step.session, result("list_references", { statusReference: "empty", message: "", data: [] }));
 
     expect(step.session.state).toBe("cita_ubigeo_pending");
     const [search] = queries(step);

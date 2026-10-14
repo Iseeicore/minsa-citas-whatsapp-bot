@@ -1,15 +1,15 @@
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
-import { TurnLockTimeoutError, type DbTurnLock } from "@/lib/fsm/session/turn-lock";
+import type { DbTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
+import { LOCK_TIMEOUT_MESSAGE } from "@/lib/constants/regex/integrations";
+import { toText } from "@/lib/utils/text-values";
 
 type Tx = { $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number> };
 
 export type AdvisoryLockClient = {
-  $transaction<T>(
-    callback: (tx: Tx) => Promise<T>,
-    options?: { maxWait?: number; timeout?: number },
-  ): Promise<T>;
+  $transaction<T>(callback: (tx: Tx) => Promise<T>, options?: { maxWait?: number; timeout?: number }): Promise<T>;
 };
 
 export type AdvisoryLockOptions = {
@@ -55,21 +55,12 @@ function createSemaphore(size: number) {
   };
 }
 
-const LOCK_TIMEOUT_MESSAGE = /lock timeout|55P03/i;
-
 function isLockTimeout(error: unknown): boolean {
   const candidate = error as { code?: unknown; meta?: { code?: unknown }; message?: unknown } | null;
-  return (
-    candidate?.code === "55P03" ||
-    candidate?.meta?.code === "55P03" ||
-    LOCK_TIMEOUT_MESSAGE.test(String(candidate?.message ?? ""))
-  );
+  return candidate?.code === "55P03" || candidate?.meta?.code === "55P03" || LOCK_TIMEOUT_MESSAGE.test(toText(candidate?.message));
 }
 
-export function createPrismaAdvisoryLock(
-  client: AdvisoryLockClient,
-  options: AdvisoryLockOptions = {},
-): DbTurnLock {
+export function createPrismaAdvisoryLock(client: AdvisoryLockClient, options: AdvisoryLockOptions = {}): DbTurnLock {
   const lockTimeoutMs = Math.trunc(options.lockTimeoutMs ?? 10_000);
   const transactionTimeoutMs = options.transactionTimeoutMs ?? 55_000;
   const connectionWaitMs = options.connectionWaitMs ?? 10_000;
@@ -78,7 +69,8 @@ export function createPrismaAdvisoryLock(
   const onAcquired =
     options.onAcquired ??
     ((waId: string, ms: number) => {
-      if (ms >= SLOW_ACQUIRE_MS) logger.info("turn_lock.waited", { waId: tail(waId), waitedMs: Math.round(ms), layer: TurnLockLayer.DATABASE });
+      if (ms >= SLOW_ACQUIRE_MS)
+        logger.info("turn_lock.waited", { waId: tail(waId), waitedMs: Math.round(ms), layer: TurnLockLayer.DATABASE });
     });
 
   return async function withAdvisoryLock<T>(waId: string, task: () => Promise<T>): Promise<T> {

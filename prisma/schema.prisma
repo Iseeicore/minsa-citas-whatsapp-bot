@@ -703,7 +703,6 @@ model Etiqueta {
 
   incidencias IncidenciaEtiqueta[]
 
-  // Único sin distinguir mayúsculas (uq_etiqueta_nombre sobre lower(nombre)) y CHECK de nombre, descripción y tono: solo en la migración.
   @@map("etiqueta")
   @@schema("catalogo")
 }
@@ -724,7 +723,6 @@ model IncidenciaEtiqueta {
   incidenciaPaciente IncidenciaPaciente @relation(fields: [incidenciaPacienteId], references: [id], map: "fk_incidencia_etiqueta_incidencia_paciente")
   etiqueta           Etiqueta           @relation(fields: [etiquetaId], references: [id], map: "fk_incidencia_etiqueta_etiqueta")
 
-  // Índices parciales de las asignaciones vigentes (uq_incidencia_etiqueta_activa e ix_incidencia_etiqueta_etiqueta_activa) y CHECK del borrado lógico: solo en la migración.
   @@map("incidencia_etiqueta")
   @@schema("chatbot")
 }

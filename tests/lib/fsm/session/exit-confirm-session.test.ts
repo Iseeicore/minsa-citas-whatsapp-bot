@@ -13,8 +13,7 @@ const minutes = (count: number) => count * 60_000;
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const EXIT_QUESTION = "Parece que prefieres no continuar con tu cita. Entiendo que pueda ser frustrante. ¿Deseas salir?";
 const GOODBYE = "Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋";
@@ -88,11 +87,7 @@ describe("answering the exit question after the session expired", () => {
   });
 
   it("before login there is no session to check: the answer is processed", () => {
-    const result = handle(
-      askedToLeave("cita_awaiting_dni", { idleMs: minutes(60), bearer: false }),
-      tap("cita_salir_no"),
-      NOW,
-    );
+    const result = handle(askedToLeave("cita_awaiting_dni", { idleMs: minutes(60), bearer: false }), tap("cita_salir_no"), NOW);
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(sent(result)).toEqual([{ kind: "send_text", text: "Ingresa tu número de documento." }]);

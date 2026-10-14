@@ -20,7 +20,6 @@ export type InboundCoalescerDeps = {
 
 export type InboundInput = { message: WhatsAppMessage; usuarioId: string; windowMs: number; marks?: LatencyMarks };
 
-/** Une los textos pendientes en un solo mensaje; si hay algo que no es texto, solo responde al mensaje propio. */
 function mergeBatch(rows: PendingInbound[], own: WhatsAppMessage): WhatsAppMessage {
   const texts = rows.filter((row) => row.tipoMensajeId === TipoMensajeId.TEXTO && row.contenido);
   if (texts.length !== rows.length) return own;
@@ -36,10 +35,6 @@ function mergeBatch(rows: PendingInbound[], own: WhatsAppMessage): WhatsAppMessa
   };
 }
 
-/**
- * Agrupa los mensajes seguidos de una misma persona: cada uno espera su ventana y solo responde el último en llegar
- * (o el más antiguo si ya esperó el máximo). Un mensaje viejo se descarta y no entra al flujo.
- */
 export function createInboundCoalescer(deps: InboundCoalescerDeps) {
   const { buffer } = deps;
 

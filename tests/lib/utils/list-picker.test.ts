@@ -75,12 +75,7 @@ describe("buildListPickerView", () => {
     expect(view.rows).toHaveLength(12);
     expect(view.page).toBe(0);
     expect(view.pager).toBe(externalPager);
-    expect(buildListPickerView({ ...base, query: "opcion 1", externalPager }).rows.map((row) => row.id)).toEqual([
-      "1",
-      "10",
-      "11",
-      "12",
-    ]);
+    expect(buildListPickerView({ ...base, query: "opcion 1", externalPager }).rows.map((row) => row.id)).toEqual(["1", "10", "11", "12"]);
   });
 });
 

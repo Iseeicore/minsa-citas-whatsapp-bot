@@ -11,6 +11,7 @@ import { Button } from "@/app/components/ui/Button";
 import { EmptyState } from "@/app/components/ui/EmptyState";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
+import { cn } from "@/lib/utils/cn";
 import { type SandboxMode as Mode, initialModeFromQuery } from "@/lib/utils/sandbox-mode";
 
 export default function Home() {
@@ -122,22 +123,25 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => 
         onClick={() => onChange(isSandbox ? "real" : "sandbox")}
       >
         <span
-          className={`absolute top-1 h-8 w-[calc(50%-4px)] rounded-full bg-white shadow transition-transform duration-200 ${
-            isSandbox ? "translate-x-[calc(100%+4px)]" : "translate-x-0"
-          }`}
+          className={cn(
+            "absolute top-1 h-8 w-[calc(50%-4px)] rounded-full bg-white shadow transition-transform duration-200",
+            isSandbox ? "translate-x-[calc(100%+4px)]" : "translate-x-0",
+          )}
         />
         <span
-          className={`relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium ${
-            !isSandbox ? "text-wa-header" : "text-gray-500"
-          }`}
+          className={cn(
+            "relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium",
+            isSandbox ? "text-gray-500" : "text-wa-header",
+          )}
         >
           <WhatsAppGlyph className="h-3.5 w-3.5" />
           Chat real
         </span>
         <span
-          className={`relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium ${
-            isSandbox ? "text-sb-accent" : "text-gray-500"
-          }`}
+          className={cn(
+            "relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium",
+            isSandbox ? "text-sb-accent" : "text-gray-500",
+          )}
         >
           <SandboxGlyph className="h-3.5 w-3.5" />
           Sandbox

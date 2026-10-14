@@ -22,9 +22,7 @@ describe("createPostgresInboundBuffer", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("summarizes the pending inbound messages of one user with a single query", async () => {
-    db.queryRaw.mockResolvedValueOnce([
-      { count: 2, newest: "m2", oldest: new Date("2026-10-10T12:00:00Z") },
-    ]);
+    db.queryRaw.mockResolvedValueOnce([{ count: 2, newest: "m2", oldest: new Date("2026-10-10T12:00:00Z") }]);
 
     const summary = await createPostgresInboundBuffer().summarize("u1");
 
@@ -45,8 +43,22 @@ describe("createPostgresInboundBuffer", () => {
 
   it("claims the pending rows in one UPDATE ... RETURNING and sorts them by Meta timestamp, then arrival", async () => {
     db.queryRaw.mockResolvedValueOnce([
-      { usuario_id: "u1", wa_message_id: "m2", contenido: "b", tipo_mensaje_id: 1, fecha_hora: new Date(2000), fecha_creacion: new Date(10) },
-      { usuario_id: "u1", wa_message_id: "m1", contenido: "a", tipo_mensaje_id: 1, fecha_hora: new Date(1000), fecha_creacion: new Date(20) },
+      {
+        usuario_id: "u1",
+        wa_message_id: "m2",
+        contenido: "b",
+        tipo_mensaje_id: 1,
+        fecha_hora: new Date(2000),
+        fecha_creacion: new Date(10),
+      },
+      {
+        usuario_id: "u1",
+        wa_message_id: "m1",
+        contenido: "a",
+        tipo_mensaje_id: 1,
+        fecha_hora: new Date(1000),
+        fecha_creacion: new Date(20),
+      },
     ]);
 
     const rows = await createPostgresInboundBuffer().claim("u1", 10, "m2");

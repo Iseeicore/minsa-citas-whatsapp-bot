@@ -33,7 +33,15 @@ describe.skipIf(!process.env.DATABASE_URL)("inbox API against a real PostgreSQL"
     vi.stubEnv("META_ACCESS_TOKEN", "token");
     await processValue({
       contacts: [{ user_id: waId, profile: { name: "Ana" } }],
-      messages: [{ id: `wamid.${randomUUID()}`, from_user_id: waId, timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body: "Hola" } }],
+      messages: [
+        {
+          id: `wamid.${randomUUID()}`,
+          from_user_id: waId,
+          timestamp: String(Math.floor(Date.now() / 1000)),
+          type: "text",
+          text: { body: "Hola" },
+        },
+      ],
     });
     usuarioId = (await prisma.usuario.findUniqueOrThrow({ where: { waId } })).id;
   });
@@ -56,12 +64,21 @@ describe.skipIf(!process.env.DATABASE_URL)("inbox API against a real PostgreSQL"
     expect(body.windowOpen).toBe(true);
     expect(body.status).toBe("OPEN");
     expect(body.messages).toHaveLength(1);
-    expect(body.messages[0]).toMatchObject({ conversationId: usuarioId, direction: "INBOUND", type: "TEXT", content: "Hola", status: "PENDING" });
+    expect(body.messages[0]).toMatchObject({
+      conversationId: usuarioId,
+      direction: "INBOUND",
+      type: "TEXT",
+      content: "Hola",
+      status: "PENDING",
+    });
   });
 
   it("sends a reply and stores it as an outbound message signed by the inbox operator", async () => {
     const wamid = `wamid.${randomUUID()}`;
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: wamid }] }), { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: wamid }] }), { status: 200 })),
+    );
 
     const response = await sendMessage(request({ conversationId: usuarioId, text: "Buenas" }));
 

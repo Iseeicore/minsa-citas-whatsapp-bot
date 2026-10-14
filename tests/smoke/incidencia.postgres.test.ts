@@ -19,7 +19,9 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
 
-    const result = await runWithTrace(traceId, {}, () => registrarIncidencia({ waId, descripcion: "Me cobraron por una atencion gratuita" }));
+    const result = await runWithTrace(traceId, {}, () =>
+      registrarIncidencia({ waId, descripcion: "Me cobraron por una atencion gratuita" }),
+    );
 
     expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-\d{6,}$/) });
     const incidencia = await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } });
@@ -48,7 +50,9 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
 
-    await runWithTrace(traceId, {}, () => registrarIncidencia({ waId, nombreCompleto: "Ana Torres", descripcion: "El consultorio estaba cerrado" }));
+    await runWithTrace(traceId, {}, () =>
+      registrarIncidencia({ waId, nombreCompleto: "Ana Torres", descripcion: "El consultorio estaba cerrado" }),
+    );
 
     expect(await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } })).toMatchObject({
       esAnonimo: false,
@@ -75,7 +79,10 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
     const dosDeMayo = await prisma.establecimientoSalud.findUniqueOrThrow({ where: { codigoRenipress: "6206" } });
-    const submit = () => runWithTrace(traceId, {}, () => registrarIncidencia({ waId, establecimientoId: dosDeMayo.id, descripcion: "Me cobraron sin recibo" }));
+    const submit = () =>
+      runWithTrace(traceId, {}, () =>
+        registrarIncidencia({ waId, establecimientoId: dosDeMayo.id, descripcion: "Me cobraron sin recibo" }),
+      );
 
     const first = await submit();
     const second = await submit();
@@ -91,7 +98,9 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
 
-    await expect(runWithTrace(traceId, {}, () => registrarIncidencia({ waId, establecimientoId: 999999, descripcion: "x" }))).resolves.toEqual({ status: "error" });
+    await expect(
+      runWithTrace(traceId, {}, () => registrarIncidencia({ waId, establecimientoId: 999999, descripcion: "x" })),
+    ).resolves.toEqual({ status: "error" });
     expect(await prisma.incidenciaPaciente.count({ where: { traceId } })).toBe(0);
   });
 
@@ -105,7 +114,10 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
 
   it("stores the photo as evidence of the incident, by the path the image service returned", async () => {
     vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test/files");
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ruta: "2026/10/foto.png" }), { status: 201 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ ruta: "2026/10/foto.png" }), { status: 201 })),
+    );
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);

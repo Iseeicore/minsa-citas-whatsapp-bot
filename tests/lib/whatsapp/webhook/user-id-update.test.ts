@@ -62,7 +62,13 @@ describe("extractBsuidChanges", () => {
     expect(
       extractBsuidChanges({
         messages: [
-          { id: "m1", from_user_id: NEW, timestamp: "1", type: "system", system: { type: "user_changed_user_id", user_id: NEW, previous_user_id: OLD } },
+          {
+            id: "m1",
+            from_user_id: NEW,
+            timestamp: "1",
+            type: "system",
+            system: { type: "user_changed_user_id", user_id: NEW, previous_user_id: OLD },
+          },
         ],
       }),
     ).toEqual([{ previous: OLD, current: NEW }]);
@@ -71,7 +77,12 @@ describe("extractBsuidChanges", () => {
   it("ignora lo que no tiene la forma esperada (sin anterior, iguales, vacío o de otro tipo)", () => {
     expect(
       extractBsuidChanges({
-        user_id_update: [{ user_id: { current: NEW } }, { user_id: { previous: OLD, current: OLD } }, {}, { user_id: { previous: "", current: NEW } }],
+        user_id_update: [
+          { user_id: { current: NEW } },
+          { user_id: { previous: OLD, current: OLD } },
+          {},
+          { user_id: { previous: "", current: NEW } },
+        ],
         messages: [
           { id: "m1", from_user_id: NEW, timestamp: "1", type: "system", system: { type: "user_changed_user_id", user_id: NEW } },
           { id: "m2", from_user_id: NEW, timestamp: "1", type: "system", system: { type: "otro", user_id: NEW, previous_user_id: OLD } },
@@ -156,7 +167,10 @@ describe("processBsuidChanges", () => {
 
     await expect(processBsuidChanges({ user_id_update: [{ user_id: { previous: OLD, current: NEW } }] })).resolves.toBeUndefined();
 
-    expect(db.error).toHaveBeenCalledWith("webhook.bsuid_update_failed", expect.objectContaining({ previous: "...1111", current: "...2222" }));
+    expect(db.error).toHaveBeenCalledWith(
+      "webhook.bsuid_update_failed",
+      expect.objectContaining({ previous: "...1111", current: "...2222" }),
+    );
     expect(db.usuarios).toEqual([{ id: "u-ana", waId: OLD }]);
   });
 });

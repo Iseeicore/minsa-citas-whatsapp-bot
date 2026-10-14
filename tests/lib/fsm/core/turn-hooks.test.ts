@@ -4,8 +4,7 @@ import type { SendEffect, Session } from "@/lib/fsm/core/types";
 const store = vi.hoisted(() => ({ sessions: new Map<string, Session>() }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
-  getSession: async (from: string) =>
-    structuredClone(store.sessions.get(from) ?? { state: "main_menu", slots: {}, counters: {} }),
+  getSession: async (from: string) => structuredClone(store.sessions.get(from) ?? { state: "main_menu", slots: {}, counters: {} }),
   saveSession: async (from: string, session: Session) => {
     store.sessions.set(from, structuredClone({ ...session, updatedAt: undefined }));
   },

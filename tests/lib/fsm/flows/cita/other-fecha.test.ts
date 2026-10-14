@@ -7,26 +7,26 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-other-fecha";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const fechasResult = (fechas: string[]): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "list_fechas",
   result: { status: "found", items: fechas.map((fechaCupo) => ({ fechaCupo, cantidadCupos: 2 })) },
 });
 const horasResult = (items: Array<{ horaInicio: string; horaFin: string }>): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "list_horas",
   result: { status: "found", items: items.map((item) => ({ ...item, cantidadCupos: 1 })) },
 });
 
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const noteOf = (result: HandlerResult, kind: string) => result.notes?.find((note) => note.kind === kind);
 
 const DAY_1 = "31/12/2099";
@@ -83,7 +83,12 @@ describe("declining the only horario offers another date instead of closing", ()
   it("keeps the verification and the choices, forgets the date and the pending horario", () => {
     const { slots } = askedForAnotherDate();
 
-    expect(slots).toMatchObject({ [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678", [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" });
+    expect(slots).toMatchObject({
+      [SlotKey.CITA_BEARER]: "token",
+      [SlotKey.CITA_DNI]: "12345678",
+      [SlotKey.CITA_COD_EESS]: "0000123",
+      [SlotKey.CITA_ESPECIALIDAD_ID]: "02",
+    });
     expect(slots[SlotKey.CITA_FECHA]).toBeUndefined();
     expect(slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBeUndefined();
     expect(slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
@@ -100,7 +105,9 @@ describe("declining the only horario offers another date instead of closing", ()
   });
 
   it("with a previous page's list still there, the citizen goes back to it as before", () => {
-    const session = confirmingLone({ [SlotKey.CITA_OFFERED]: JSON.stringify({ text: "Selecciona el horario:", rows: [{ id: "07:00|07:30", title: "07:00 - 07:30" }] }) });
+    const session = confirmingLone({
+      [SlotKey.CITA_OFFERED]: JSON.stringify({ text: "Selecciona el horario:", rows: [{ id: "07:00|07:30", title: "07:00 - 07:30" }] }),
+    });
     session.counters[CounterKey.CITA_HORA_PAGE] = 1;
 
     expect(handle(session, tap("hora_confirm_no")).session.state).toBe("cita_awaiting_hora_select");
@@ -176,7 +183,13 @@ describe("the dates that come back leave out the ones already declined", () => {
   it("declining a second lone horario adds its date: nothing declined ever comes back", () => {
     const second: Session = {
       state: "cita_awaiting_hora_confirm",
-      slots: { ...BASE_SLOTS, [SlotKey.CITA_FECHA]: DAY_2, [SlotKey.CITA_FECHAS_DESCARTADAS]: DAY_1, [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" },
+      slots: {
+        ...BASE_SLOTS,
+        [SlotKey.CITA_FECHA]: DAY_2,
+        [SlotKey.CITA_FECHAS_DESCARTADAS]: DAY_1,
+        [SlotKey.CITA_HORA_CONFIRM_ID]: "08:00|08:30",
+        [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1",
+      },
       counters: {},
     };
 
@@ -190,7 +203,13 @@ describe("the dates that come back leave out the ones already declined", () => {
   it("declining the same date twice does not repeat it in the memory", () => {
     const again: Session = {
       state: "cita_awaiting_hora_confirm",
-      slots: { ...BASE_SLOTS, [SlotKey.CITA_FECHA]: DAY_1, [SlotKey.CITA_FECHAS_DESCARTADAS]: DAY_1, [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30", [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1" },
+      slots: {
+        ...BASE_SLOTS,
+        [SlotKey.CITA_FECHA]: DAY_1,
+        [SlotKey.CITA_FECHAS_DESCARTADAS]: DAY_1,
+        [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30",
+        [SlotKey.CITA_HORA_CONFIRM_ONLY]: "1",
+      },
       counters: {},
     };
 
@@ -198,10 +217,20 @@ describe("the dates that come back leave out the ones already declined", () => {
   });
 
   it("MINSA failing or the token expiring while listing behaves as in any fecha step", () => {
-    const failed = handle(pendingWith(DAY_1), { from: FROM, type: "query_result", queryKind: "list_fechas", result: { status: "error" } });
+    const failed = handle(pendingWith(DAY_1), {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "list_fechas",
+      result: { status: "error" },
+    });
     expect(failed.session.state).toBe("cita_booking_rejected");
 
-    const unauthorized = { from: FROM, type: "query_result", queryKind: "list_fechas", result: { status: "unauthorized" } } as const;
+    const unauthorized = {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "list_fechas",
+      result: { status: "unauthorized" },
+    } as const;
     const expired = handle(pendingWith(DAY_1), unauthorized);
     expect(expired.session.state).toBe(handle(pendingWith(""), unauthorized).session.state);
     expect(expired.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(DAY_1);
@@ -261,7 +290,13 @@ describe("the whole conversation", () => {
     const asked = handle(confirmingLone(), tap("hora_confirm_no"));
     const listing = handle(asked.session, tap("cita_otra_fecha_si"));
     const dates = handle(listing.session, fechasResult([DAY_1, DAY_2]));
-    const horas = handle(dates.session, horasResult([{ horaInicio: "09:00", horaFin: "09:30" }, { horaInicio: "10:00", horaFin: "10:30" }]));
+    const horas = handle(
+      dates.session,
+      horasResult([
+        { horaInicio: "09:00", horaFin: "09:30" },
+        { horaInicio: "10:00", horaFin: "10:30" },
+      ]),
+    );
 
     expect(horas.session.state).toBe("cita_awaiting_hora_select");
     expect(horas.session.slots[SlotKey.CITA_FECHA]).toBe(DAY_2);

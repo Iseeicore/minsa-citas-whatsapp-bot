@@ -2,26 +2,42 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import {
-  ASK_CODIGO_O_LISTAR_TEXT,
   ASK_CODIGO_TEXT,
-  ASK_DOCUMENTO_TEXT,
-  ASK_OTP_TEXT,
-  CODIGO_NO_RECONOCIDO_TEXT,
-  CONSULTA_FALLA_TEXT,
+  ASK_CODIGO_O_LISTAR_TEXT,
   INVALID_CODIGO_TEXT,
-  NO_UBICADA_TEXT,
+  CODIGO_NO_RECONOCIDO_TEXT,
+  CONSULTA_ASK_DOCUMENTO_TEXT,
   NO_VERIFICADO_TEXT,
   OTP_BLOQUEADO_TEXT,
-} from "@/lib/fsm/flows/consulta/handlers-consulta";
-import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+  NO_UBICADA_TEXT,
+  CONSULTA_FALLA_TEXT,
+} from "@/lib/constants/textos/consulta";
+import { ASK_OTP_TEXT } from "@/lib/constants/textos/identidad";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "bsuid-ana";
 const CODIGO = "MINSA-2026-000003";
 
-const text = (value: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({ from: FROM, type: "text", text: value, channel });
-const pick = (id: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({ from: FROM, type: "list", listId: id, channel });
-const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind, result: value });
+const text = (value: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({
+  from: FROM,
+  type: "text",
+  text: value,
+  channel,
+});
+const pick = (id: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({
+  from: FROM,
+  type: "list",
+  listId: id,
+  channel,
+});
+const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({
+  from: FROM,
+  type: InternalEventType.QUERY_RESULT,
+  queryKind,
+  result: value,
+});
 
 const sent = (r: HandlerResult): SendEffect[] => r.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (r: HandlerResult): string[] => sent(r).map((effect) => ("text" in effect ? effect.text : ""));
@@ -42,7 +58,7 @@ describe("el código en el primer mensaje", () => {
 
     expect(first.session.state).toBe("consulta_awaiting_dni");
     expect(queries(first)).toEqual([]);
-    expect(texts(first)).toEqual([ASK_DOCUMENTO_TEXT]);
+    expect(texts(first)).toEqual([CONSULTA_ASK_DOCUMENTO_TEXT]);
   });
 
   it("la palabra «incidencia» no lo manda a registrar una nueva", () => {
@@ -165,7 +181,14 @@ describe("consulta_query_pending: el resultado", () => {
   it("encontrada: código, estado y fecha; nunca descripción ni datos de la persona; termina la sesión", () => {
     const step = handle(
       pending("whatsapp"),
-      result("consultar_incidencia", { status: "found", codigo: CODIGO, estado: "DERIVADO", fechaRegistro: "2026-10-10T03:30:00.000Z", descripcion: "secreta", dni: "12345678" }),
+      result("consultar_incidencia", {
+        status: "found",
+        codigo: CODIGO,
+        estado: "DERIVADO",
+        fechaRegistro: "2026-10-10T03:30:00.000Z",
+        descripcion: "secreta",
+        dni: "12345678",
+      }),
     );
 
     expect(step.session.state).toBe("consulta_completed");

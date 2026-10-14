@@ -4,6 +4,7 @@ import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { PagerDirection } from "@/lib/enums/pager-direction";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { ListRow } from "@/lib/fsm/core/types";
+import { TARGET_PAGE_OF_TOTAL } from "@/lib/constants/regex/chat-format";
 
 export type PagerAction = Pick<ListRow, "id" | "title">;
 
@@ -21,8 +22,6 @@ const PAGER_BUTTON_IDS: ReadonlySet<string> = new Set([
   HoraPageButtonId.NEXT,
 ]);
 
-const TARGET_PAGE_OF_TOTAL = /P[áa]gina\s+(\d+)\s+de\s+(\d+)/i;
-
 export function filterRows(rows: ListRow[], query: string): ListRow[] {
   const tokens = normalizeText(query).split(" ").filter(Boolean);
   if (tokens.length === 0) return rows;
@@ -33,10 +32,8 @@ export function filterRows(rows: ListRow[], query: string): ListRow[] {
   });
 }
 
-const toAction = (row: ListRow | undefined): PagerAction | undefined =>
-  row ? { id: row.id, title: row.title } : undefined;
+const toAction = (row: ListRow | undefined): PagerAction | undefined => (row ? { id: row.id, title: row.title } : undefined);
 
-/** El MINSA pagina los establecimientos con filas «anterior/siguiente» cuya descripción apunta a la página destino; de ahí se deduce la página actual. */
 function currentPageLabel(prevRow: ListRow | undefined, nextRow: ListRow | undefined): string | undefined {
   const source = nextRow ?? prevRow;
   const match = source?.description ? TARGET_PAGE_OF_TOTAL.exec(source.description) : null;

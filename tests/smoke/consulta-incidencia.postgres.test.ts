@@ -15,11 +15,11 @@ vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
 }));
 
 import { prisma } from "@/lib/db/prisma";
-import { NO_UBICADA_TEXT } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { consultarIncidencia } from "@/lib/recepcion/consulta";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
+import { NO_UBICADA_TEXT } from "@/lib/constants/textos/consulta";
 
 describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la base real", () => {
   afterAll(async () => {
@@ -43,7 +43,13 @@ describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la b
   });
 
   const registrar = async (waId: string, extra: { dni?: string | null; nombreCompleto?: string | null } = {}) => {
-    const result = await registrarIncidencia({ waId, dni: null, nombreCompleto: null, descripcion: "El consultorio estaba cerrado sin aviso", ...extra });
+    const result = await registrarIncidencia({
+      waId,
+      dni: null,
+      nombreCompleto: null,
+      descripcion: "El consultorio estaba cerrado sin aviso",
+      ...extra,
+    });
     if (result.status !== "accepted" || !result.codigo) throw new Error("no se registró la incidencia de prueba");
     return result.codigo;
   };

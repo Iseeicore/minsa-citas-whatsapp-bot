@@ -1,14 +1,16 @@
-import { isRawRow, parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
+import { parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
 import { postWithBearer } from "@/lib/integrations/minsa/wire";
 import type { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { CatalogStatus } from "@/lib/enums/catalog-status";
+import { isRecord } from "@/lib/utils/type-guards";
 
 const HTTP_UNAUTHORIZED = 401;
 
 export type CatalogFetchResult<T> =
-  | { status: "found"; items: T[]; page?: number; totalPages?: number }
-  | { status: "empty" }
-  | { status: "error" }
-  | { status: "unauthorized" };
+  | { status: CatalogStatus.FOUND; items: T[]; page?: number; totalPages?: number }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 type CatalogFetchParams<T> = {
   endpoint: MinsaEndpoint;
@@ -22,26 +24,25 @@ type CatalogFetchParams<T> = {
 function rowsAt(body: unknown, path: readonly string[]): unknown {
   let node: unknown = body;
   for (const key of path) {
-    if (!isRawRow(node)) return undefined;
+    if (!isRecord(node)) return undefined;
     node = node[key];
   }
   return node;
 }
 
-/** Esqueleto común de los catálogos con bearer: descarta filas inválidas y, si ninguna es válida, responde "error" y no "empty". */
 export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promise<CatalogFetchResult<T>> {
   const response = await postWithBearer(params.endpoint, params.body, params.bearer);
-  if (response.status === HTTP_UNAUTHORIZED) return { status: "unauthorized" };
-  if (!response.ok) return { status: "error" };
+  if (response.status === HTTP_UNAUTHORIZED) return { status: CatalogStatus.UNAUTHORIZED };
+  if (!response.ok) return { status: CatalogStatus.ERROR };
 
   const body: unknown = await response.json().catch(() => undefined);
-  if (body === undefined) return { status: "error" };
+  if (body === undefined) return { status: CatalogStatus.ERROR };
 
   const rawRows = rowsAt(body, params.rowsPath) ?? [];
-  if (!Array.isArray(rawRows)) return { status: "error" };
-  if (rawRows.length === 0) return { status: "empty" };
+  if (!Array.isArray(rawRows)) return { status: CatalogStatus.ERROR };
+  if (rawRows.length === 0) return { status: CatalogStatus.EMPTY };
 
   const items = parseRows(params.endpoint, rawRows, params.parseRow);
-  if (items.length === 0) return { status: "error" };
-  return { status: "found", items, ...params.pageInfo?.(body) };
+  if (items.length === 0) return { status: CatalogStatus.ERROR };
+  return { status: CatalogStatus.FOUND, items, ...params.pageInfo?.(body) };
 }

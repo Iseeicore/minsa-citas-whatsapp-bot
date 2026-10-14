@@ -37,12 +37,12 @@ function sql(...argumentos) {
 
 try {
   const reiniciar = process.argv.includes("--reiniciar");
-  const existentes = Number(
-    sql("-tA", "-c", "SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'seed-dev-%'").trim(),
-  );
+  const existentes = Number(sql("-tA", "-c", "SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'seed-dev-%'").trim());
 
   if (existentes > 0 && !reiniciar) {
-    console.log(`Ya hay ${existentes} incidencias de prueba en ${base}. Usa --reiniciar para volver a sembrar (los usuarios de ejemplo se conservan).`);
+    console.log(
+      `Ya hay ${existentes} incidencias de prueba en ${base}. Usa --reiniciar para volver a sembrar (los usuarios de ejemplo se conservan).`,
+    );
     process.exit(0);
   }
 
@@ -54,8 +54,6 @@ try {
     console.log(`Incidencias de ${base} borradas.`);
   }
 
-  // Los usuarios de ejemplo no llevan clave en ningún archivo. Si se quiere poder iniciar sesión con ellos, se pasa una huella
-  // Argon2id ya calculada (nunca la clave) en SEED_DEV_PASSWORD_HASH; si no, la base les pone una huella al azar que nadie conoce.
   const huella = process.env.SEED_DEV_PASSWORD_HASH;
   if (huella !== undefined && !huella.startsWith("$argon2id$")) {
     console.error("SEED_DEV_PASSWORD_HASH debe ser una huella Argon2id en formato PHC (empieza con $argon2id$), no la clave.");
@@ -66,6 +64,12 @@ try {
   const archivo = join(import.meta.dirname, "..", "prisma", "seeds", "dev", "incidencias_sinteticas.sql");
   console.log(sql(...variables, "-f", archivo).trim());
 } catch (error) {
-  console.error(String(error.stderr || error.message).split("\n").filter((linea) => linea.trim() !== "").slice(0, 6).join("\n"));
+  console.error(
+    String(error.stderr || error.message)
+      .split("\n")
+      .filter((linea) => linea.trim() !== "")
+      .slice(0, 6)
+      .join("\n"),
+  );
   process.exit(1);
 }

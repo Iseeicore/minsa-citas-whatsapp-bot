@@ -1,0 +1,3 @@
+export const LONGEST_CONFIRMATION_PHRASE_WORDS = 3;
+export const MIN_PREFIX_MATCH_LENGTH = 4;
+export const MIN_TOKEN_LENGTH = 2;

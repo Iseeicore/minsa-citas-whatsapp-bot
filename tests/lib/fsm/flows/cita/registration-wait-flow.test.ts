@@ -4,24 +4,35 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-registration";
 
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
-const notValid = (): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind: "validate_user", result: { status: "not_valid" } });
+const notValid = (): QueryResultEvent => ({
+  from: FROM,
+  type: InternalEventType.QUERY_RESULT,
+  queryKind: "validate_user",
+  result: { status: "not_valid" },
+});
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const buttonIds = (result: HandlerResult): string[] | undefined => {
   const buttons = sent(result).find((e) => e.kind === "send_buttons");
   return buttons?.kind === "send_buttons" ? buttons.buttons.map((b) => b.id) : undefined;
 };
 const texts = (result: HandlerResult): string[] =>
-  sent(result).filter((e) => e.kind === "send_text" || e.kind === "send_cta_url").map((e) => (e as { text: string }).text);
+  sent(result)
+    .filter((e) => e.kind === "send_text" || e.kind === "send_cta_url")
+    .map((e) => (e as { text: string }).text);
 
 function validatePending(checks = 0): Session {
-  return { state: "cita_validate_pending", slots: { [SlotKey.CITA_DNI_PENDING]: "12345678" }, counters: { [CounterKey.CITA_REGISTRATION_CHECKS]: checks } };
+  return {
+    state: "cita_validate_pending",
+    slots: { [SlotKey.CITA_DNI_PENDING]: "12345678" },
+    counters: { [CounterKey.CITA_REGISTRATION_CHECKS]: checks },
+  };
 }
 
 describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
@@ -57,7 +68,11 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
 });
 
 function registrationWait(checks = 1): Session {
-  return { state: "cita_registration_wait", slots: { [SlotKey.CITA_DNI_PENDING]: "12345678" }, counters: { [CounterKey.CITA_REGISTRATION_CHECKS]: checks } };
+  return {
+    state: "cita_registration_wait",
+    slots: { [SlotKey.CITA_DNI_PENDING]: "12345678" },
+    counters: { [CounterKey.CITA_REGISTRATION_CHECKS]: checks },
+  };
 }
 
 describe("botón 'No quiero continuar' en cita_registration_wait", () => {

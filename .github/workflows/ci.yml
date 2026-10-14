@@ -41,6 +41,9 @@ jobs:
       - name: Lint
         run: npx eslint lib app tests
 
+      - name: Format
+        run: npm run format:check
+
       - name: Tests
         run: npx vitest run
 

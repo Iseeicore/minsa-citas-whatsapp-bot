@@ -1,27 +1,26 @@
 import { toDisplayPlace } from "@/lib/fsm/parsing/text/text";
-import { ALL_WHITESPACE_RUNS } from "@/lib/fsm/parsing/text/text-patterns";
-import { truncateForRow, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_ROW_TITLE_MAX } from "@/lib/fsm/core/handlers-shared";
+import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
+import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { type OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import {
+  CONSONANT_ONLY_ACRONYM,
+  CONSULTA_EXTERNA_PREFIX,
+  DOTTED_ABBREVIATION,
+  EDGE_SPACES_AND_HYPHENS,
+  ESTABLECIMIENTO_ABBREVIATIONS,
+  NAME_SEGMENT_SEPARATOR,
+  TITLE_CASED_ROMAN_NUMERAL,
+} from "@/lib/constants/regex/catalog";
+import { cuposText } from "@/lib/constants/textos/cita-catalogo";
+import { isString } from "@/lib/utils/type-guards";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 export type CatalogName = { title: string; full: string };
 
 const FULL_NAME_SEPARATOR = " · ";
-
-const ESTABLECIMIENTO_ABBREVIATIONS: ReadonlyArray<[RegExp, string]> = [
-  [/\bCentro Materno Infantil\b/i, "C.M.I."],
-  [/\bCentro de Salud\b/i, "C.S."],
-  [/\bPuesto de Salud\b/i, "P.S."],
-  [/\bHospital\b/i, "Hosp."],
-];
-
-const DOTTED_ABBREVIATION = /(?<!\p{L})(?:\p{L}\.){2,}/gu;
-const TITLE_CASED_ROMAN_NUMERAL = /(?<!\p{L})(?:Ii|Iii|Iv|Vi|Vii|Viii|Ix|Xi|Xii)(?!\p{L})/gu;
-const CONSONANT_ONLY_ACRONYM = /(?<!\p{L})[b-df-hj-np-tv-z]{2,3}(?!\p{L})/giu;
-const CONSULTA_EXTERNA_PREFIX = /^CONSULTA\s+EXTERNA\s*-\s*/i;
-const EDGE_SPACES_AND_HYPHENS = /^[\s-]+|[\s-]+$/g;
-const NAME_SEGMENT_SEPARATOR = /\s*\/\s*|-/;
 
 const collapseSpaces = (value: string): string => value.replace(ALL_WHITESPACE_RUNS, " ").trim();
 
@@ -44,11 +43,8 @@ function cutAtWord(text: string, max: number): string {
   return cut || truncateForRow(text, max);
 }
 
-/** Nombre legible de la especialidad de MINSA: sin el prefijo «CONSULTA EXTERNA-», con título corto y nombre completo. */
 export function formatEspecialidadName(raw: string): CatalogName {
-  const cleaned = collapseSpaces(raw)
-    .replace(CONSULTA_EXTERNA_PREFIX, "")
-    .replace(EDGE_SPACES_AND_HYPHENS, "");
+  const cleaned = collapseSpaces(raw).replace(CONSULTA_EXTERNA_PREFIX, "").replace(EDGE_SPACES_AND_HYPHENS, "");
   const full = toCatalogDisplay(cleaned || collapseSpaces(raw));
   const firstSegment = full.split(NAME_SEGMENT_SEPARATOR)[0].trim() || full;
   return { title: cutAtWord(firstSegment, WHATSAPP_ROW_TITLE_MAX), full };
@@ -61,7 +57,7 @@ export function formatEstablecimientoName(raw: string): CatalogName {
 }
 
 export function catalogRowDescription(name: CatalogName, cupos: number): string {
-  const quota = cupos === 1 ? "1 cupo" : `${cupos} cupos`;
+  const quota = cuposText(cupos);
   if (name.full === name.title) return quota;
   const suffix = `${FULL_NAME_SEPARATOR}${quota}`;
   return `${truncateForRow(name.full, WHATSAPP_ROW_DESCRIPTION_MAX - suffix.length)}${suffix}`;
@@ -78,14 +74,10 @@ export function rememberFullNames(slots: Session["slots"], entries: ReadonlyArra
 
 export function offeredFullName(slots: Session["slots"], row: OfferedRow): string {
   const raw = slots[SlotKey.CITA_OFFERED_NAMES];
-  if (typeof raw === "string") {
-    try {
-      const names = JSON.parse(raw) as Record<string, unknown>;
-      const full = names[row.id];
-      if (typeof full === "string" && full) return full;
-    } catch {
-      return fullNameFromRow(row);
-    }
+  if (isString(raw)) {
+    const names = parseJsonOr(raw, null) as Record<string, unknown> | null;
+    const full = names?.[row.id];
+    if (isString(full) && full) return full;
   }
   return fullNameFromRow(row);
 }

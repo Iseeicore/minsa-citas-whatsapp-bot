@@ -6,25 +6,8 @@ import { Confirmation } from "@/lib/enums/confirmation";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
+import { AVISO_PRIVACIDAD_TEXT, CONSENT_QUESTION_TEXT, CONSENT_BUTTONS, NO_AUTORIZO_TEXT } from "@/lib/constants/textos/incidencia";
 
-const CONSENT_SI = IncidenciaButtonId.CONSENT_SI;
-const CONSENT_NO = IncidenciaButtonId.CONSENT_NO;
-
-export const CONSENT_BUTTONS = [
-  { id: CONSENT_SI, title: "Autorizo y deseo continuar" },
-  { id: CONSENT_NO, title: "No autorizo" },
-];
-
-export const AVISO_PRIVACIDAD_TEXT =
-  "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu incidencia.";
-
-export const NO_AUTORIZO_TEXT =
-  "Entendido. No se registrará tu incidencia por este canal. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
-
-/**
- * Entrada común antes del relato: si ese wa_id ya autorizó el tratamiento de datos alguna vez, no se le vuelve a preguntar.
- * Reemplaza la llamada directa a `enterDescripcion` una vez resuelta la identidad (con nombre, anónimo, o con/sin RENIEC).
- */
 export function askConsentimiento(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_CONSENT_CHECK_PENDING;
@@ -32,7 +15,7 @@ export function askConsentimiento(session: Session): HandlerResult {
 }
 
 function consentimientoPrompt() {
-  return [sendText(AVISO_PRIVACIDAD_TEXT), sendButtons("¿Autorizas el tratamiento de tus datos?", CONSENT_BUTTONS)];
+  return [sendText(AVISO_PRIVACIDAD_TEXT), sendButtons(CONSENT_QUESTION_TEXT, CONSENT_BUTTONS)];
 }
 
 export function handleConsentCheckPending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -45,13 +28,12 @@ export function handleConsentCheckPending(session: Session, event: QueryResultEv
   return buildResult(next, consentimientoPrompt());
 }
 
-/** Reanudación tras un reauth propio de incidencia: re-muestra el aviso y los botones sin volver a consultar la base. */
 export function resendConsentimiento(session: Session): HandlerResult {
   return buildResult(cloneSession(session), consentimientoPrompt());
 }
 
 export function handleConsentimiento(session: Session, event: InboundEvent): HandlerResult {
-  const answer = readConfirmation(event, CONSENT_SI, CONSENT_NO);
+  const answer = readConfirmation(event, IncidenciaButtonId.CONSENT_SI, IncidenciaButtonId.CONSENT_NO);
 
   if (answer === Confirmation.YES) {
     const next = cloneSession(session);
@@ -63,7 +45,7 @@ export function handleConsentimiento(session: Session, event: InboundEvent): Han
     return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(NO_AUTORIZO_TEXT)]);
   }
 
-  return withRejectionNotice(buildResult(session, [sendButtons("¿Autorizas el tratamiento de tus datos?", CONSENT_BUTTONS)]));
+  return withRejectionNotice(buildResult(session, [sendButtons(CONSENT_QUESTION_TEXT, CONSENT_BUTTONS)]));
 }
 
 export function handleConsentRegisterPending(session: Session): HandlerResult {

@@ -48,15 +48,24 @@ try {
   console.log("Migraciones aplicadas.");
 
   const carpeta = join(import.meta.dirname, "..", "prisma", "tests");
-  const archivos = readdirSync(carpeta).filter((n) => n.endsWith(".sql")).sort();
+  const archivos = readdirSync(carpeta)
+    .filter((n) => n.endsWith(".sql"))
+    .sort();
   for (const archivo of archivos) {
     try {
       const salida = sql(nombre, "-f", join(carpeta, archivo));
-      const resumen = salida.split("\n").filter((l) => l.includes("PASARON")).join(" ");
+      const resumen = salida
+        .split("\n")
+        .filter((l) => l.includes("PASARON"))
+        .join(" ");
       console.log(`  OK    ${archivo}${resumen ? ` — ${resumen}` : ""}`);
     } catch (error) {
       falló = true;
-      const detalle = String(error.stderr || error.message).split("\n").filter((l) => LINEA_DE_FALLO.test(l)).slice(0, 3).join("\n          ");
+      const detalle = String(error.stderr || error.message)
+        .split("\n")
+        .filter((l) => LINEA_DE_FALLO.test(l))
+        .slice(0, 3)
+        .join("\n          ");
       console.error(`  FALLO ${archivo}\n          ${detalle}`);
     }
   }

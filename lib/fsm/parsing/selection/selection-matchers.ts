@@ -1,11 +1,15 @@
-import { COMBINING_ACCENT_MARKS, WORD_SEPARATORS } from "@/lib/fsm/parsing/text/text-patterns";
+import { WORD_SEPARATORS } from "@/lib/constants/regex/text";
 import type { Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
+import { MatchKind } from "@/lib/enums/match-kind";
+import { isString } from "@/lib/utils/type-guards";
+import { stripAccents } from "@/lib/utils/text-values";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { MIN_PREFIX_MATCH_LENGTH, MIN_TOKEN_LENGTH } from "@/lib/constants/limits/selection";
 
 export type OfferedRow = { id: string; title: string; description?: string };
 export type OfferedList = { text: string; rows: OfferedRow[] };
-
-
 
 export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
@@ -13,63 +17,62 @@ export function serializeOffered(list: OfferedList): string {
 
 function isOfferedRow(value: unknown): value is OfferedRow {
   const row = value as Partial<OfferedRow> | null;
-  return (
-    typeof row?.id === "string" &&
-    typeof row?.title === "string" &&
-    (row.description === undefined || typeof row.description === "string")
-  );
+  return isString(row?.id) && isString(row?.title) && (row.description === undefined || isString(row.description));
 }
 
 export function readOffered(slots: Session["slots"]): OfferedList | undefined {
   const raw = slots[SlotKey.CITA_OFFERED];
-  if (typeof raw !== "string") return undefined;
+  if (!isString(raw)) return undefined;
 
-  try {
-    const parsed = JSON.parse(raw) as Partial<OfferedList> | null;
-    if (typeof parsed?.text !== "string" || !Array.isArray(parsed.rows)) return undefined;
-    if (!parsed.rows.every(isOfferedRow)) return undefined;
-    return { text: parsed.text, rows: parsed.rows };
-  } catch {
-    return undefined;
-  }
+  const parsed = parseJsonOr(raw, null) as Partial<OfferedList> | null;
+  if (!isString(parsed?.text) || !Array.isArray(parsed.rows)) return undefined;
+  if (!parsed.rows.every(isOfferedRow)) return undefined;
+  return { text: parsed.text, rows: parsed.rows };
 }
 
 export type SelectionMatch =
-  | { kind: "match"; row: OfferedRow }
-  | { kind: "ambiguous"; rows: OfferedRow[] }
-  | { kind: "none" };
+  { kind: MatchKind.MATCH; row: OfferedRow } | { kind: MatchKind.AMBIGUOUS; rows: OfferedRow[] } | { kind: MatchKind.NONE };
 
 export type MatchOptions = {
   includeDescription?: boolean;
 };
 
 function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
-    .replace(WORD_SEPARATORS, " ")
-    .trim();
+  return stripAccents(text.toLowerCase()).replace(WORD_SEPARATORS, " ").trim();
 }
 
 const ORDINAL_WORDS: Record<string, number> = {
-  uno: 1, primero: 1, primera: 1,
-  dos: 2, segundo: 2, segunda: 2,
-  tres: 3, tercero: 3, tercera: 3,
-  cuatro: 4, cuarto: 4, cuarta: 4,
-  cinco: 5, quinto: 5, quinta: 5,
-  seis: 6, sexto: 6, sexta: 6,
-  siete: 7, septimo: 7, septima: 7,
-  ocho: 8, octavo: 8, octava: 8,
-  nueve: 9, noveno: 9, novena: 9,
-  diez: 10, decimo: 10, decima: 10,
+  uno: 1,
+  primero: 1,
+  primera: 1,
+  dos: 2,
+  segundo: 2,
+  segunda: 2,
+  tres: 3,
+  tercero: 3,
+  tercera: 3,
+  cuatro: 4,
+  cuarto: 4,
+  cuarta: 4,
+  cinco: 5,
+  quinto: 5,
+  quinta: 5,
+  seis: 6,
+  sexto: 6,
+  sexta: 6,
+  siete: 7,
+  septimo: 7,
+  septima: 7,
+  ocho: 8,
+  octavo: 8,
+  octava: 8,
+  nueve: 9,
+  noveno: 9,
+  novena: 9,
+  diez: 10,
+  decimo: 10,
+  decima: 10,
 };
-
-const OPTION_NUMBER = /^\d{1,2}$/;
-const DIGITS_ONLY = /^\d+$/;
-
-const ORDINAL_FILLER =
-  /^(?:(?:quiero|quisiera|elijo|escojo|prefiero|selecciono|me quedo con|la|el|lo|opcion|numero|nro|num)\s+)+/;
 
 function parseOrdinal(normalized: string, count: number): number | undefined {
   const rest = normalized.replace(ORDINAL_FILLER, "");
@@ -83,9 +86,37 @@ function parseOrdinal(normalized: string, count: number): number | undefined {
 }
 
 const STOP_WORDS = new Set([
-  "el", "la", "los", "las", "de", "del", "en", "un", "una", "unos", "unas", "y", "a", "al", "lo",
-  "que", "quiero", "quisiera", "necesito", "por", "favor", "para", "con", "mi", "me", "es", "ese",
-  "esa", "eso", "opcion", "numero",
+  "el",
+  "la",
+  "los",
+  "las",
+  "de",
+  "del",
+  "en",
+  "un",
+  "una",
+  "unos",
+  "unas",
+  "y",
+  "a",
+  "al",
+  "lo",
+  "que",
+  "quiero",
+  "quisiera",
+  "necesito",
+  "por",
+  "favor",
+  "para",
+  "con",
+  "mi",
+  "me",
+  "es",
+  "ese",
+  "esa",
+  "eso",
+  "opcion",
+  "numero",
 ]);
 
 type HayToken = { word: string; truncated: boolean };
@@ -114,23 +145,19 @@ function rowTokens(row: OfferedRow, includeDescription: boolean): HayToken[] {
 
 function tokenMatches(typed: string, hay: HayToken): boolean {
   if (typed === hay.word) return true;
-  if (typed.length >= 4 && hay.word.startsWith(typed)) return true;
-  return hay.truncated && hay.word.length >= 4 && typed.startsWith(hay.word);
+  if (typed.length >= MIN_PREFIX_MATCH_LENGTH && hay.word.startsWith(typed)) return true;
+  return hay.truncated && hay.word.length >= MIN_PREFIX_MATCH_LENGTH && typed.startsWith(hay.word);
 }
 
-export function matchSelection(
-  text: string,
-  rows: OfferedRow[],
-  options: MatchOptions = {},
-): SelectionMatch {
+export function matchSelection(text: string, rows: OfferedRow[], options: MatchOptions = {}): SelectionMatch {
   const normalized = normalize(text);
-  if (!normalized || rows.length === 0) return { kind: "none" };
+  if (!normalized || rows.length === 0) return { kind: MatchKind.NONE };
 
   const position = parseOrdinal(normalized, rows.length);
-  if (position !== undefined) return { kind: "match", row: rows[position - 1] };
+  if (position !== undefined) return { kind: MatchKind.MATCH, row: rows[position - 1] };
 
-  const typedTokens = normalized.split(" ").filter((token) => token.length >= 2 && !STOP_WORDS.has(token));
-  if (typedTokens.length === 0) return { kind: "none" };
+  const typedTokens = normalized.split(" ").filter((token) => token.length >= MIN_TOKEN_LENGTH && !STOP_WORDS.has(token));
+  if (typedTokens.length === 0) return { kind: MatchKind.NONE };
 
   const scored = rows.map((row) => {
     const hay = rowTokens(row, options.includeDescription ?? false);
@@ -139,21 +166,30 @@ export function matchSelection(
   });
 
   const best = Math.max(...scored.map((entry) => entry.score));
-  if (best === 0) return { kind: "none" };
+  if (best === 0) return { kind: MatchKind.NONE };
 
   const winners = scored.filter((entry) => entry.score === best).map((entry) => entry.row);
-  return winners.length === 1 ? { kind: "match", row: winners[0] } : { kind: "ambiguous", rows: winners };
+  return winners.length === 1 ? { kind: MatchKind.MATCH, row: winners[0] } : { kind: MatchKind.AMBIGUOUS, rows: winners };
 }
 
 const HINT_NOISE_WORDS = new Set([
-  "cita", "citas", "atencion", "agendar", "consulta", "medico", "medica", "doctor", "doctora",
-  "reservar", "turno",
+  "cita",
+  "citas",
+  "atencion",
+  "agendar",
+  "consulta",
+  "medico",
+  "medica",
+  "doctor",
+  "doctora",
+  "reservar",
+  "turno",
 ]);
 
 function significantTokens(text: string): string[] {
   return normalize(text)
     .split(" ")
-    .filter((token) => token.length >= 2 && !STOP_WORDS.has(token) && !HINT_NOISE_WORDS.has(token));
+    .filter((token) => token.length >= MIN_TOKEN_LENGTH && !STOP_WORDS.has(token) && !HINT_NOISE_WORDS.has(token));
 }
 
 export function leftoverHint(text: string, chosen: OfferedRow): string {
@@ -167,11 +203,7 @@ export function hintText(text: string): string {
   return significantTokens(text).join(" ");
 }
 
-export function matchAllTokens(
-  hint: string,
-  rows: OfferedRow[],
-  options: MatchOptions = {},
-): OfferedRow | undefined {
+export function matchAllTokens(hint: string, rows: OfferedRow[], options: MatchOptions = {}): OfferedRow | undefined {
   const tokens = significantTokens(hint);
   if (tokens.length === 0) return undefined;
 

@@ -1,20 +1,42 @@
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
-import { ALL_WHITESPACE_RUNS, CLOCK_TIME, COMBINING_ACCENT_MARKS } from "@/lib/fsm/parsing/text/text-patterns";
+import { ALL_WHITESPACE_RUNS, CLOCK_TIME } from "@/lib/constants/regex/text";
+import {
+  AFTERNOON_OR_NIGHT_WORD,
+  BARE_HOUR,
+  COMPACT_HOUR_AND_MINUTE,
+  DOTTED_MERIDIEM,
+  EARLIEST_TIME_REQUEST,
+  HOUR_COLON_MINUTE,
+  HOUR_MARKER,
+  HOUR_MINUS_MINUTES,
+  HOUR_ON_THE_DOT,
+  HOUR_PLUS_MINUTES,
+  LATEST_TIME_REQUEST,
+  MIDNIGHT,
+  MORNING_WORD,
+  NOON,
+  SYMBOLS_OUTSIDE_TIME_TEXT,
+} from "@/lib/constants/regex/date-time";
+import { MatchKind } from "@/lib/enums/match-kind";
+import { TimeRequestKind } from "@/lib/enums/time-request-kind";
+import { isString } from "@/lib/utils/type-guards";
+import { stripAccents } from "@/lib/utils/text-values";
+import { HIGHEST_AMBIGUOUS_BARE_HOUR } from "@/lib/constants/limits/date-time";
 
 export type HoraSlot = { start: string; end: string; cupos: number };
 
 export type HoraMatch =
-  | { kind: "exact"; slot: HoraSlot }
-  | { kind: "several"; slots: HoraSlot[] }
-  | { kind: "unavailable" }
-  | { kind: "unparsed" };
+  | { kind: MatchKind.EXACT; slot: HoraSlot }
+  | { kind: MatchKind.SEVERAL; slots: HoraSlot[] }
+  | { kind: MatchKind.UNAVAILABLE }
+  | { kind: MatchKind.UNPARSED };
 
 export function packHoraSlots(slots: HoraSlot[]): string {
   return slots.map((slot) => `${slot.start}|${slot.end}|${slot.cupos}`).join(";");
 }
 
 export function unpackHoraSlots(raw: unknown): HoraSlot[] {
-  if (typeof raw !== "string" || !raw) return [];
+  if (!isString(raw) || !raw) return [];
 
   const slots: HoraSlot[] = [];
   for (const part of raw.split(";")) {
@@ -26,20 +48,38 @@ export function unpackHoraSlots(raw: unknown): HoraSlot[] {
 }
 
 const NUMBER_WORDS: Record<string, number> = {
-  un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8,
-  nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16,
-  diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiuno: 21, veintiun: 21,
-  veintidos: 22, veintitres: 23, veinticinco: 25, treinta: 30,
+  un: 1,
+  una: 1,
+  uno: 1,
+  dos: 2,
+  tres: 3,
+  cuatro: 4,
+  cinco: 5,
+  seis: 6,
+  siete: 7,
+  ocho: 8,
+  nueve: 9,
+  diez: 10,
+  once: 11,
+  doce: 12,
+  trece: 13,
+  catorce: 14,
+  quince: 15,
+  dieciseis: 16,
+  diecisiete: 17,
+  dieciocho: 18,
+  diecinueve: 19,
+  veinte: 20,
+  veintiuno: 21,
+  veintiun: 21,
+  veintidos: 22,
+  veintitres: 23,
+  veinticinco: 25,
+  treinta: 30,
 };
 
-const DOTTED_MERIDIEM = /\b([ap])\.\s?m\.?/g;
-const SYMBOLS_OUTSIDE_TIME_TEXT = /[^a-z0-9: ]+/g;
-
 function normalize(raw: string): string {
-  const text = raw
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(COMBINING_ACCENT_MARKS, "")
+  const text = stripAccents(raw.toLowerCase())
     .replace(DOTTED_MERIDIEM, " $1m ")
     .replace(SYMBOLS_OUTSIDE_TIME_TEXT, " ")
     .replace(ALL_WHITESPACE_RUNS, " ")
@@ -52,25 +92,11 @@ function normalize(raw: string): string {
 }
 
 type Parsed =
-  | { kind: "time"; hour: number; minute: number | null; period: MeridiemPeriod | null }
-  | { kind: "period"; period: MeridiemPeriod }
-  | { kind: "earliest" }
-  | { kind: "latest" }
-  | { kind: "none" };
-
-const MORNING_WORD = /\b(?:am|manana|madrugada)\b/;
-const AFTERNOON_OR_NIGHT_WORD = /\b(?:pm|tarde|noche)\b/;
-const EARLIEST_TIME_REQUEST = /\blo mas (?:pronto|temprano)\b|\bcuanto antes\b|\bla mas temprano\b/;
-const LATEST_TIME_REQUEST = /\b(?:lo|la) mas tarde\b/;
-const NOON = /\bmediodia\b/;
-const MIDNIGHT = /\bmedianoche\b/;
-const HOUR_COLON_MINUTE = /\b(\d{1,2}):(\d{2})\b/;
-const HOUR_MINUS_MINUTES = /\b(\d{1,2}) menos (cuarto|\d{1,2})\b/;
-const HOUR_PLUS_MINUTES = /\b(\d{1,2}) (?:y|con) (media|cuarto|\d{1,2})\b/;
-const HOUR_ON_THE_DOT = /\b(\d{1,2}) en punto\b/;
-const COMPACT_HOUR_AND_MINUTE = /\b(\d{3,4})\b/;
-const BARE_HOUR = /\b(\d{1,2})\b/;
-const HOUR_MARKER = /\ba las?\b|\blas \d|\bhoras?\b|\bhrs?\b/;
+  | { kind: TimeRequestKind.TIME; hour: number; minute: number | null; period: MeridiemPeriod | null }
+  | { kind: TimeRequestKind.PERIOD; period: MeridiemPeriod }
+  | { kind: TimeRequestKind.EARLIEST }
+  | { kind: TimeRequestKind.LATEST }
+  | { kind: TimeRequestKind.NONE };
 
 function detectPeriod(text: string): MeridiemPeriod | null {
   if (MORNING_WORD.test(text)) return MeridiemPeriod.AM;
@@ -80,12 +106,12 @@ function detectPeriod(text: string): MeridiemPeriod | null {
 
 function parse(text: string): Parsed {
   if (EARLIEST_TIME_REQUEST.test(text)) {
-    return { kind: "earliest" };
+    return { kind: TimeRequestKind.EARLIEST };
   }
-  if (LATEST_TIME_REQUEST.test(text)) return { kind: "latest" };
+  if (LATEST_TIME_REQUEST.test(text)) return { kind: TimeRequestKind.LATEST };
 
-  if (NOON.test(text)) return { kind: "time", hour: 12, minute: 0, period: null };
-  if (MIDNIGHT.test(text)) return { kind: "time", hour: 0, minute: 0, period: null };
+  if (NOON.test(text)) return { kind: TimeRequestKind.TIME, hour: 12, minute: 0, period: null };
+  if (MIDNIGHT.test(text)) return { kind: TimeRequestKind.TIME, hour: 0, minute: 0, period: null };
 
   const period = detectPeriod(text);
 
@@ -100,7 +126,7 @@ function parse(text: string): Parsed {
     hasHourMarker = true;
   } else if ((match = HOUR_MINUS_MINUTES.exec(text))) {
     const back = match[2] === "cuarto" ? 15 : Number(match[2]);
-    if (back < 1 || back > 59) return { kind: "none" };
+    if (back < 1 || back > 59) return { kind: TimeRequestKind.NONE };
     hour = (Number(match[1]) + 23) % 24;
     minute = 60 - back;
     hasHourMarker = true;
@@ -122,12 +148,12 @@ function parse(text: string): Parsed {
     hasHourMarker = HOUR_MARKER.test(text) || period !== null;
   }
 
-  if (hour === undefined) return period ? { kind: "period", period } : { kind: "none" };
+  if (hour === undefined) return period ? { kind: TimeRequestKind.PERIOD, period } : { kind: TimeRequestKind.NONE };
 
-  if (hour > 24 || (minute !== null && minute > 59)) return { kind: "none" };
-  if (minute === null && !hasHourMarker && hour <= 10) return { kind: "none" };
+  if (hour > 24 || (minute !== null && minute > 59)) return { kind: TimeRequestKind.NONE };
+  if (minute === null && !hasHourMarker && hour <= HIGHEST_AMBIGUOUS_BARE_HOUR) return { kind: TimeRequestKind.NONE };
 
-  return { kind: "time", hour: hour % 24, minute, period };
+  return { kind: TimeRequestKind.TIME, hour: hour % 24, minute, period };
 }
 
 function hourCandidates(hour: number, period: MeridiemPeriod | null): number[] {
@@ -148,35 +174,33 @@ function startOf(slot: HoraSlot): { hour: number; minute: number } {
 }
 
 function toMatch(slots: HoraSlot[]): HoraMatch {
-  if (slots.length === 0) return { kind: "unavailable" };
-  if (slots.length === 1) return { kind: "exact", slot: slots[0] };
-  return { kind: "several", slots };
+  if (slots.length === 0) return { kind: MatchKind.UNAVAILABLE };
+  if (slots.length === 1) return { kind: MatchKind.EXACT, slot: slots[0] };
+  return { kind: MatchKind.SEVERAL, slots };
 }
 
 export function matchHoraText(text: string, offered: HoraSlot[]): HoraMatch {
-  if (offered.length === 0) return { kind: "unparsed" };
+  if (offered.length === 0) return { kind: MatchKind.UNPARSED };
 
   const parsed = parse(normalize(text));
   const chronological = [...offered].sort((a, b) => a.start.localeCompare(b.start));
 
   switch (parsed.kind) {
-    case "none":
-      return { kind: "unparsed" };
+    case TimeRequestKind.NONE:
+      return { kind: MatchKind.UNPARSED };
 
-    case "earliest":
-      return { kind: "exact", slot: chronological[0] };
+    case TimeRequestKind.EARLIEST:
+      return { kind: MatchKind.EXACT, slot: chronological[0] };
 
-    case "latest":
-      return { kind: "exact", slot: chronological[chronological.length - 1] };
+    case TimeRequestKind.LATEST:
+      return { kind: MatchKind.EXACT, slot: chronological[chronological.length - 1] };
 
-    case "period":
+    case TimeRequestKind.PERIOD:
       return toMatch(
-        chronological.filter((slot) =>
-          parsed.period === MeridiemPeriod.AM ? startOf(slot).hour < 12 : startOf(slot).hour >= 12,
-        ),
+        chronological.filter((slot) => (parsed.period === MeridiemPeriod.AM ? startOf(slot).hour < 12 : startOf(slot).hour >= 12)),
       );
 
-    case "time": {
+    case TimeRequestKind.TIME: {
       const hours = hourCandidates(parsed.hour, parsed.period);
       return toMatch(
         chronological.filter((slot) => {

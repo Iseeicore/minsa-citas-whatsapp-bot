@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 
 const FROM = "sandbox-documento";
 
@@ -11,14 +12,13 @@ const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text:
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const verified = (): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "verify_code",
   result: { status: "verified", token: "bearer" },
 });
 
 const queries = (result: HandlerResult): QueryEffect[] => result.effects.filter(isQueryEffect);
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const at = (state: Session["state"], slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
 
@@ -41,13 +41,16 @@ describe("cita_awaiting_dni: el largo del documento decide el tipo", () => {
     expect(queries(result)).toEqual([{ kind: "validate_user", payload: { numeroDocumento: "123456789", tipoDocumento: "03" } }]);
   });
 
-  it.each(["1234567", "1234567890", "0", "abcdefgh", "1234 5678", "12345678a"])("%j sigue pidiendo el documento, sin consultar", (invalido) => {
-    const result = handle(at("cita_awaiting_dni"), text(invalido));
+  it.each(["1234567", "1234567890", "0", "abcdefgh", "1234 5678", "12345678a"])(
+    "%j sigue pidiendo el documento, sin consultar",
+    (invalido) => {
+      const result = handle(at("cita_awaiting_dni"), text(invalido));
 
-    expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(queries(result)).toEqual([]);
-    expect(sent(result)).toEqual([{ kind: "send_text", text: INVALID_DOCUMENT_TEXT }]);
-  });
+      expect(result.session.state).toBe("cita_awaiting_dni");
+      expect(queries(result)).toEqual([]);
+      expect(sent(result)).toEqual([{ kind: "send_text", text: INVALID_DOCUMENT_TEXT }]);
+    },
+  );
 });
 
 describe("«Ya me registré» conserva el tipo del documento", () => {

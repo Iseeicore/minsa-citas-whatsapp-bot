@@ -14,7 +14,13 @@ describe("docker-compose.yml", () => {
     const required = [...withoutComments.matchAll(/^\s+([A-Z0-9_]+): \$\{\1:\?[^}]+\}\s*$/gm)].map((match) => match[1]);
 
     expect(required).toEqual(
-      expect.arrayContaining(["META_ACCESS_TOKEN", "META_PHONE_NUMBER_ID", "META_WEBHOOK_VERIFY_TOKEN", "META_APP_SECRET", "MINSA_DIGITAL_APP_URL"]),
+      expect.arrayContaining([
+        "META_ACCESS_TOKEN",
+        "META_PHONE_NUMBER_ID",
+        "META_WEBHOOK_VERIFY_TOKEN",
+        "META_APP_SECRET",
+        "MINSA_DIGITAL_APP_URL",
+      ]),
     );
   });
 });

@@ -1,13 +1,6 @@
-import { WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+import { WHITESPACE_RUN } from "@/lib/constants/regex/text";
 
-const AVATAR_COLORS = [
-  "bg-teal-500",
-  "bg-blue-500",
-  "bg-violet-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-emerald-500",
-];
+const AVATAR_COLORS = ["bg-teal-500", "bg-blue-500", "bg-violet-500", "bg-amber-500", "bg-rose-500", "bg-emerald-500"];
 
 export function avatarColor(seed: string): string {
   let hash = 0;
