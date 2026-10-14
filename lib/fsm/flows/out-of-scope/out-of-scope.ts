@@ -5,11 +5,18 @@ import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
 import { OUT_OF_SCOPE_RULES } from "@/lib/constants/regex/out-of-scope";
 import { CITA_KEYWORD, CITAS_KEYWORD, CONTINUAR_KEYWORD } from "@/lib/constants/palabras-clave";
 import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
+import { OOS_MESSAGES, OOS_MESSAGES_ONLY_CITA } from "@/lib/constants/textos/fuera-de-alcance";
+import { serviceCatalog } from "@/lib/services/service-catalog";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 
 export type { OosCategory };
 
 const toPlainWords = (text: string): string =>
   normalizeText(text).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").replace(ALL_WHITESPACE_RUNS, " ").trim();
+
+export function oosMessage(category: OosCategory): string {
+  return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA) ? OOS_MESSAGES[category] : OOS_MESSAGES_ONLY_CITA[category];
+}
 
 export function detectOutOfScope(text: string): OosCategory | undefined {
   const plain = toPlainWords(text);

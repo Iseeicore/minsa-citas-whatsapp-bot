@@ -17,6 +17,7 @@ import { traceTurn } from "@/lib/observability/tracer";
 import type { ExternalService } from "@/lib/observability/types";
 import { getSession, saveSession } from "@/lib/fsm/session/session-store";
 import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
+import { serviceCatalog } from "@/lib/services/service-catalog";
 import { QueryKind } from "@/lib/enums/query-kind";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -28,6 +29,7 @@ import { MAX_PASSES } from "@/lib/constants/limits/engine";
 import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-error";
 import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
 import { UnhandledQueryKindError } from "@/lib/errors/unhandled-query-kind-error";
+import { DisabledServiceQueryError } from "@/lib/errors/disabled-service-query-error";
 
 export type TurnResult = {
   sent: SendEffect[];
@@ -121,6 +123,9 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
 
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
   const bearer = slotText(session.slots, SlotKey.CITA_BEARER);
+
+  const owner = serviceCatalog.forQuery(effect.kind);
+  if (owner && !owner.isEnabled()) throw new DisabledServiceQueryError(effect.kind, owner.id);
 
   switch (effect.kind) {
     case QueryKind.RENIEC_LOOKUP:

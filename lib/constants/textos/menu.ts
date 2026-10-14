@@ -1,5 +1,3 @@
-import { MenuChoice } from "@/lib/enums/menu-choice";
-
 export const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (MINSA)* 🇵🇪.
 
 Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *MINSA Digital*.
@@ -21,17 +19,10 @@ Escríbeme lo que necesitas y te ayudo.`;
 export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
 export const MENU_PROMPT_TEXT = "¿En qué podemos ayudarte hoy?";
 
-export const MENU_ROWS = [
-  { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" },
-  { id: MenuChoice.REGISTRAR_INCIDENCIA, title: "Registrar una incidencia" },
-  { id: MenuChoice.CONSULTAR_INCIDENCIA, title: "Consultar una incidencia" },
-];
-
-export const NUMERIC_MENU_CHOICES: Record<string, MenuChoice> = {
-  "1": MenuChoice.AGENDAR_CITA,
-  "2": MenuChoice.REGISTRAR_INCIDENCIA,
-  "3": MenuChoice.CONSULTAR_INCIDENCIA,
-};
+export const MENU_ROW_CITA_TITLE = "Agendar una cita médica";
+export const MENU_ROW_REGISTRAR_INCIDENCIA_TITLE = "Registrar una incidencia";
+export const MENU_ROW_CONSULTAR_INCIDENCIA_TITLE = "Consultar una incidencia";
+export const SERVICE_DISABLED_TEXT = "Por ahora solo puedo ayudarte a agendar una cita médica.";
 
 export const FIRST_CONTACT_LEAD_TEXT = "¡Hola!";
 
@@ -41,6 +32,10 @@ export const firstContactCitaRequestText = (what: string, where: string): string
 export const FIRST_CONTACT_CITA_TEXT = "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:";
 export const REVIEWING_MESSAGE_TEXT = "Un momento, estamos revisando tu mensaje…";
 export const OUT_OF_SCOPE_REQUEST_TEXT = "Solo puedo ayudarte a agendar una cita médica o a registrar una incidencia. Elige una opción:";
+export const OUT_OF_SCOPE_REQUEST_ONLY_CITA_TEXT = "Solo puedo ayudarte a agendar una cita médica. Elige una opción:";
+export const SANDBOX_PAGE_TITLE_TEXT = "MINSA Digital";
+export const SANDBOX_PAGE_DESCRIPTION_TEXT = "Agenda tu cita o registra una incidencia con el Ministerio de Salud del Perú.";
+export const SANDBOX_PAGE_DESCRIPTION_ONLY_CITA_TEXT = "Agenda tu cita con el Ministerio de Salud del Perú.";
 export const CITA_INTENT_DETECTED_TEXT =
   "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento.";
 export const CONTINUE_BUTTON_ID = "continuar_menu";

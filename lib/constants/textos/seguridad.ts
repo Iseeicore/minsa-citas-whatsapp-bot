@@ -8,6 +8,8 @@ export const CONTINUE_BUTTON_TEXT = "Continuar";
 export const FORCED_INCIDENCIA_LEAD_TEXT = "Lamentamos lo ocurrido.";
 export const FIRST_MESSAGE_REJECTION_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.";
+export const FIRST_MESSAGE_REJECTION_ONLY_CITA_TEXT =
+  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas. Por favor elija una opción: [1] Citas.";
 export const MEDIA_WITHOUT_SESSION_TEXT =
   "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.";
 export const muteNoticeText = (minutes: number): string =>
