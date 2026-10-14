@@ -3,7 +3,9 @@ import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
-import { MAIN_MENU_INTENT_SYSTEM_PROMPT } from "@/lib/constants/prompts/main-menu-intent";
+import { mainMenuIntentSystemPrompt } from "@/lib/constants/prompts/main-menu-intent";
+import { serviceCatalog } from "@/lib/services/service-catalog";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 import { LlmFailure } from "@/lib/enums/llm-failure";
 import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
 
@@ -20,16 +22,29 @@ type MainMenuIntentJsonShape = {
   detalle?: string;
 };
 
-export const MAIN_MENU_INTENT_RESPONSE_SCHEMA: JsonSchema = {
+const buildResponseSchema = (intents: readonly MainMenuIntent[]): JsonSchema => ({
   type: "object",
   properties: {
-    intent: { type: "string", enum: ["cita", "incidencia", "fuera_de_alcance", "unclear"] },
+    intent: { type: "string", enum: [...intents] },
     especialidad: { type: "string" },
     distrito: { type: "string" },
     detalle: { type: "string" },
   },
   required: ["intent", "detalle"],
-};
+});
+
+export const MAIN_MENU_INTENT_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
+  MainMenuIntent.CITA,
+  MainMenuIntent.INCIDENCIA,
+  MainMenuIntent.FUERA_DE_ALCANCE,
+  MainMenuIntent.UNCLEAR,
+]);
+
+const ONLY_CITA_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
+  MainMenuIntent.CITA,
+  MainMenuIntent.FUERA_DE_ALCANCE,
+  MainMenuIntent.UNCLEAR,
+]);
 
 const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
   ODONTOLOG: "Odontología",
@@ -47,12 +62,14 @@ function unclearIntent(reason: string): MainMenuIntentResult {
 }
 
 export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null = getLlmClient()): Promise<MainMenuIntentResult> {
+  const incidencias = serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA);
+
   if (llm) {
     const outcome = await llm.generateJson({
       operation: "analyze_main_menu_intent",
-      systemPrompt: MAIN_MENU_INTENT_SYSTEM_PROMPT,
+      systemPrompt: mainMenuIntentSystemPrompt(incidencias),
       userText: text,
-      schema: MAIN_MENU_INTENT_RESPONSE_SCHEMA,
+      schema: incidencias ? MAIN_MENU_INTENT_RESPONSE_SCHEMA : ONLY_CITA_RESPONSE_SCHEMA,
     });
     if (!outcome.ok) {
       switch (outcome.failure) {
@@ -71,7 +88,7 @@ export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null 
       const parsed = outcome.json as MainMenuIntentJsonShape;
       const intent = stringOr(parsed.intent).trim().toLowerCase();
       if (intent === MainMenuIntent.FUERA_DE_ALCANCE) return { intent: MainMenuIntent.FUERA_DE_ALCANCE };
-      if (intent === MainMenuIntent.INCIDENCIA) return { intent: MainMenuIntent.INCIDENCIA };
+      if (intent === MainMenuIntent.INCIDENCIA && incidencias) return { intent: MainMenuIntent.INCIDENCIA };
       if (intent !== MainMenuIntent.CITA) return { intent: MainMenuIntent.UNCLEAR };
 
       return {
@@ -85,7 +102,7 @@ export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null 
   }
 
   const normalized = normalizeText(text);
-  if (FAKE_INCIDENCIA_STEMS.some((stem) => normalized.includes(stem))) return { intent: MainMenuIntent.INCIDENCIA };
+  if (incidencias && FAKE_INCIDENCIA_STEMS.some((stem) => normalized.includes(stem))) return { intent: MainMenuIntent.INCIDENCIA };
   const looksLikeCita = FAKE_CITA_INTENT_KEYWORDS.some((keyword) => normalized.includes(keyword));
   if (!looksLikeCita) return { intent: MainMenuIntent.UNCLEAR };
 

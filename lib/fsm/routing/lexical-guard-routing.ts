@@ -3,9 +3,12 @@ import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
+import { disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { serviceCatalog } from "@/lib/services/service-catalog";
 import { evaluateLexicalGuard, type LexicalAction } from "@/lib/security/lexical-guard";
 import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -41,13 +44,17 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_HORA_CHOICE,
 ]);
 
+function institutionalWarningText(): string {
+  return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA) ? INSTITUTIONAL_WARNING_TEXT : RESPECT_REMINDER_TEXT;
+}
+
 export function routeLexicalAction(session: Session, action: Exclude<LexicalAction, "ALLOW">, message?: string): HandlerResult {
   const slots = session.state === SessionState.MAIN_MENU ? omitSlot(session.slots, SlotKey.AWAITING_CONTINUE) : {};
 
   switch (action) {
     case "DROP_AND_WARN":
       return buildResult({ state: SessionState.MAIN_MENU, slots: { ...slots, [SlotKey.AWAITING_CONTINUE]: true }, counters: {} }, [
-        sendButtons(INSTITUTIONAL_WARNING_TEXT, CONTINUE_BUTTONS),
+        sendButtons(institutionalWarningText(), CONTINUE_BUTTONS),
       ]);
 
     case "CITA_WITH_WARNING": {
@@ -61,8 +68,11 @@ export function routeLexicalAction(session: Session, action: Exclude<LexicalActi
       return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [sendText(CITA_WITH_WARNING_TEXT)]);
     }
 
-    case "FORCE_INCIDENCIA":
+    case "FORCE_INCIDENCIA": {
+      const incidencia = serviceCatalog.byId(MenuChoice.REGISTRAR_INCIDENCIA);
+      if (!incidencia.isEnabled()) return disabledServiceReply(incidencia, slots);
       return beginIncidencia(slots, FORCED_INCIDENCIA_LEAD_TEXT);
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 # Despliegue en MINSA: base de datos, variables y comprobaciones
 
-Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Docker del bot con incidencias. Las instrucciones generales de la imagen están en el [README](../README.md#ejecutar-con-docker-servidor-minsa).
+Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Docker del bot con incidencias (apagadas por defecto: ver `INCIDENCIAS_ENABLED` en la sección 3.3). Las instrucciones generales de la imagen están en el [README](../README.md#ejecutar-con-docker-servidor-minsa).
 
 ## 1. Qué cambió respecto al despliegue anterior
 
@@ -71,6 +71,7 @@ Sin definir, el valor por defecto es el correcto.
 
 ```bash
 SANDBOX_PAGE_ENABLED=
+INCIDENCIAS_ENABLED=false
 MEDIA_STORAGE_BASE_URL=
 MEDIA_STORAGE_TOKEN=
 MEDIA_STORAGE_TIMEOUT_MS=
@@ -81,6 +82,7 @@ LOG_TO_FILE=false
 | Variable | Para qué sirve | Sin definir |
 |---|---|---|
 | `SANDBOX_PAGE_ENABLED` | `true` muestra `/sandbox` y `/configuracion-visor-sandbox` y **abre la bandeja web** (`/api/conversations*`, `/api/messages/send`), que no tiene autenticación | Las páginas redirigen a `/api/health` y las rutas de la bandeja responden 404. **En producción, déjenla sin definir** |
+| `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece en el menú **Registrar una incidencia** y **Consultar una incidencia** (WhatsApp y Sandbox) | Apagada: solo queda **Agendar una cita médica**; vacía o con cualquier otro valor equivale a sin definir. Las incidencias no se ofrecen ni se pueden alcanzar escribiendo `2`, `3`, `incidencia` o un código `MINSA-AAAA-NNNNNN`. **Para usar incidencias, pónganla en `true`** |
 | `MEDIA_STORAGE_BASE_URL` | Servicio donde se guarda la foto de evidencia de una incidencia | La foto se recibe pero no se guarda, y queda un aviso en el log |
 | `MEDIA_STORAGE_TOKEN` | Credencial de ese servicio, si la pide | Sin credencial |
 | `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de espera de ese servicio | 10 000 ms |
@@ -108,7 +110,7 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 | WhatsApp | las 4 `META_*` | El compose se detiene y nombra la que falta |
 | Citas con datos reales | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` | Datos simulados |
 | IA del bot | `SANDBOX_USE_REAL_AI=true` y `GOOGLE_CLIENT_API` | Respuestas fijas; no entiende texto libre ni distritos mal escritos |
-| Incidencias | `DATABASE_ENABLED=true` y `DATABASE_URL` | No se guardan |
+| Incidencias | `INCIDENCIAS_ENABLED=true`, `DATABASE_ENABLED=true` y `DATABASE_URL` | Sin la primera, no aparecen en el menú; sin las otras dos, no se guardan |
 | Portal de MINSA Digital | `SANDBOX_ENABLED=true` y `SANDBOX_ALLOWED_ORIGINS` | `POST /api/sandbox` responde 404 |
 
 ## 5. Despliegue
