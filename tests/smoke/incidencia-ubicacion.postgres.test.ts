@@ -223,7 +223,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
   it("the menu option asks for the place and a typed code finds it", async () => {
     const p = person();
-    const asked = await p.start("2");
+    const asked = await p.start("3");
     expect(asked.session.state).toBe("incidencia_awaiting_ubicacion");
 
     const confirm = await p.say("5946");

@@ -172,6 +172,19 @@ describe("MINSA real — listReferences", () => {
     });
   });
 
+  describe("found con todas las filas inválidas", () => {
+    it("conserva el estado found y deja la colección vacía", async () => {
+      vi.stubGlobal(
+        "fetch",
+        minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "", data: [{ nro_referencia: "sin id" }, "texto"] }),
+      );
+
+      const result = await listReferences("40488601", "01");
+
+      expect(result).toEqual({ statusReference: ReferenceStatus.FOUND, message: "", data: [] });
+    });
+  });
+
   describe("fallas del servicio", () => {
     it("un HTTP no-ok es error", async () => {
       vi.stubGlobal("fetch", minsaResponding("", 500));

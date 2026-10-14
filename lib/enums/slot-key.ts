@@ -28,6 +28,7 @@ export enum SlotKey {
   CITA_SELECTION_STEP = "citaSelectionStep",
   CITA_HORA_CHOICE_B = "citaHoraChoiceB",
   MENU_CHOICE = "menuChoice",
+  POST_LOGIN_FLOW = "postLoginFlow",
   DNI = "dni",
   CITA_TWOFA_ID = "citaTwofaId",
   CITA_OFFERED = "citaOffered",

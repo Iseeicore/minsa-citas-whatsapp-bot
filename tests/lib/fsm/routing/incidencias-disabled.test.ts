@@ -13,6 +13,7 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { SlotKey } from "@/lib/enums/slot-key";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { OosCategory } from "@/lib/enums/oos-category";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-incidencias-off";
@@ -30,7 +31,7 @@ const sessionAt = (state: string, slots: Session["slots"] = {}, idleMs = 0): Ses
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const NOTICE = new IncidenciaService().disabledReply();
+const NOTICE = new IncidenciaService().disabledReply(SessionChannel.WHATSAPP);
 
 const QR = "Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206";
 const CODIGO_MSG = "quiero ver mi incidencia MINSA-2026-000003";
@@ -38,7 +39,7 @@ const CODIGO_MSG = "quiero ver mi incidencia MINSA-2026-000003";
 function expectNoticeAndMenu(result: HandlerResult, state: Session["state"] = "main_menu") {
   expect(result.session.state).toBe(state);
   expect(queries(result)).toHaveLength(0);
-  expect(sent(result)).toEqual([{ kind: "send_text", text: NOTICE }, buildMenuEffect()]);
+  expect(sent(result)).toEqual([{ kind: "send_text", text: NOTICE }, buildMenuEffect(SessionChannel.WHATSAPP)]);
 }
 
 describe("with INCIDENCIAS_ENABLED off", () => {
@@ -311,7 +312,7 @@ describe("with INCIDENCIAS_ENABLED on, nothing changes", () => {
       result: { intent: "fuera_de_alcance" },
     });
 
-    expect(sent(result)).toEqual([{ kind: "send_text", text: OUT_OF_SCOPE_REQUEST_TEXT }, buildMenuEffect()]);
+    expect(sent(result)).toEqual([{ kind: "send_text", text: OUT_OF_SCOPE_REQUEST_TEXT }, buildMenuEffect(SessionChannel.WHATSAPP)]);
   });
 
   it("the texts are the original ones", () => {

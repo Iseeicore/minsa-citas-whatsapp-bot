@@ -19,11 +19,13 @@ Mapa de cada paso del flujo de cita: qué envía el bot (lista, botones o texto)
 Primer mensaje
 ├─ saludo o vacío ─────────────► 🔗 bienvenida ─► main_menu
 ├─ "1" / "cita" ───────────────► 💬 pide documento
+├─ "referencia" / "quiero consultar mi referencia"
+│                               ► 💬 pide iniciar sesión (servicio propio: flujo-referencias.md)
 ├─ pide cita con especialidad o distrito ("cita de pediatría en SJL")
 │                               ► 💬 pide documento (guarda las pistas)
 ├─ urgencia ───────────────────► ⛔ corte de emergencia (106 / 116)
 ├─ fuera de alcance ───────────► 💬 mensaje del canal oficial
-└─ otro texto ─────────────────► 📋 menú (Agendar cita / Registrar incidencia)
+└─ otro texto ─────────────────► 📋 menú (Agendar cita / Consultar referencia solo en el Sandbox / incidencias con la bandera)
 
 main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
                                                 ├─ cita ─────────► pide documento
@@ -60,12 +62,16 @@ Reserva 💬 "Agendando tu cita…"
 └─ éxito ─► 💬 constancia + 🔗 "Ver mi cita" + 💬 despedida ⛔
 ```
 
+### La cita no consulta referencias
+
+Después del OTP la cita va directo al distrito: ya no ofrece revisar referencias por su cuenta. Las referencias son un servicio aparte, [Consultar referencia](flujo-referencias.md), que reutiliza los pasos de documento y OTP de este flujo y, al elegir una referencia, vuelve a la cita en las fechas del establecimiento de esa referencia. También vuelve aquí quien no tiene referencias y acepta agendar: sigue en el distrito sin repetir documento ni código.
+
 ## Paso a paso: qué envía y qué texto libre entiende
 
 | Paso | El bot envía | Texto libre que entiende | Varias coincidencias | IA |
 |---|---|---|---|---|
 | Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
-| Menú principal | 📋 2 filas | "1"/"2", "cita", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
+| Menú principal | 📋 filas de los servicios (cita; referencia solo en el Sandbox; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
 | Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |
 | Registro pendiente | 🔗 + 🔘 [Ya me registré] | nada (solo el botón) | — | no |
 | OTP | 💬 | 4 a 8 dígitos | — | no |

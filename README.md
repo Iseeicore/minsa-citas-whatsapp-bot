@@ -1,6 +1,6 @@
 # Bot de citas MINSA por WhatsApp
 
-Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, registra incidencias (reclamos, quejas y denuncias), deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
+Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, consulta las referencias médicas registradas, registra incidencias (reclamos, quejas y denuncias), deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
 
 ## Inicio rápido
 
@@ -156,7 +156,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 > **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
 
 - **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
-- **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `2` o `3` escritos, ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y muestra el menú.
+- **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `2` o `3` escritos (en el Sandbox, el `3` o `4`), ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y muestra el menú.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
@@ -285,11 +285,12 @@ lib/
           catalog/           establecimientos y especialidades
           fecha/             fecha de la cita
           ubigeo/            departamento/provincia/distrito manual
-          booking/           reserva, duplicados, referencias médicas
+          booking/           reserva, duplicados, selección de referencias médicas
           exit/              salida/cancelación del flujo
           hora/              el paso de hora: lista, horas escritas, elección «1»..«10», confirmación
           demo/              flujo hardcodeado para el piloto comercial; borrar junto con su importador al cerrarlo
       incidencia/            flujo de incidencia
+      referencia/            servicio Consultar referencia: entrada, consulta por documento y oferta de cita cuando no hay referencias
       emergency/             corte por urgencia
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
 tests/
@@ -390,12 +391,12 @@ Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de con
 
 - Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería. Las páginas se controlan aparte con `SANDBOX_PAGE_ENABLED=true` (local y Vercel); sin ella, `/`, `/sandbox` y `/configuracion-visor-sandbox` redirigen a `/api/health`.
 - Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.
-- Las referencias médicas no tienen datos de prueba: sin `SANDBOX_USE_REAL_MINSA=true` la consulta responde siempre «sin referencias» y la cita sigue por el camino normal. La cita por referencia se recorre contra el MINSA real o en `tests/lib/fsm/core/referencia-flow.e2e.test.ts`, que inyecta las referencias.
-- **Contrato de `/whatsapp/api/v1/references`** (`lib/integrations/minsa/references.ts` es el único punto que lo lee). El backend envía el sobre `{ "status_reference": "found" | "empty", "message": "...", "data": [filas] }` y el bot lo usa tal cual: no deduce el estado de las filas ni filtra referencias por su estado; esa lógica es del backend. Hacia adentro el resultado es `{ statusReference, message, data }`, con `data` como arreglo vacío o lleno. Una respuesta sin `status_reference`, con un valor desconocido, un cuerpo ilegible o un HTTP que no es 2xx llega como `statusReference: "error"`. Cada fila exige `id_referencia` y `estado.codigo`; las que no los traen se descartan y se registran en `minsa.catalog.rows_discarded`. Solo con `found` se ofrecen las referencias; en cualquier otro caso la cita continúa por el camino normal.
+- Las referencias médicas son un servicio propio, **Consultar referencia** (fila del Sandbox, o escribir «referencia» en el Sandbox y en WhatsApp; ver [docs/flujo-referencias.md](docs/flujo-referencias.md)). Sin `SANDBOX_USE_REAL_MINSA=true` la consulta responde siempre «No cuentas con referencias registradas.» y ofrece agendar una cita. La excepción son los DNI `10308523` y `47391441` del piloto comercial: solo bajo ese servicio, tras iniciar sesión con ellos, se muestran referencias de demostración (`lib/fsm/flows/cita/steps/demo/`) en lugar de consultar MINSA; el inicio de sesión es el normal, así que necesitan un MINSA que los valide. En la cita esos documentos siguen el camino normal. La reserva con una referencia real se recorre contra el MINSA real o en `tests/lib/fsm/core/referencia-flow.e2e.test.ts`, que inyecta las referencias.
+- **Contrato de `/whatsapp/api/v1/references`** (`lib/integrations/minsa/references.ts` es el único punto que lo lee). El backend envía el sobre `{ "status_reference": "found" | "empty", "message": "...", "data": [filas] }` y el bot lo usa tal cual: no deduce el estado de las filas ni filtra referencias por su estado; esa lógica es del backend. Hacia adentro el resultado es `{ statusReference, message, data }`, con `data` como arreglo vacío o lleno. Una respuesta sin `status_reference`, con un valor desconocido, un cuerpo ilegible o un HTTP que no es 2xx llega como `statusReference: "error"`. Cada fila exige `id_referencia` y `estado.codigo`; las que no los traen se descartan y se registran en `minsa.catalog.rows_discarded`. Solo con `found` se listan las referencias; en cualquier otro caso el bot responde «No cuentas con referencias registradas.» y pregunta si quiere agendar una cita.
 
 ## Consultar una incidencia
 
-La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNNNNN`, el que recibe al registrarla): con la opción **Consultar una incidencia** del menú (o escribiendo `3`; solo con `INCIDENCIAS_ENABLED=true`, si no el menú no la muestra y el código tampoco la abre), o escribiendo el código dentro de cualquier mensaje («quiero ver mi incidencia MINSA-2026-000003»). Solo cuenta el formato completo; `lib/fsm/parsing/text/codigo-incidencia.ts` lo reconoce. El flujo vive en `lib/fsm/flows/consulta/` y la lectura en `lib/recepcion/consulta.ts` (solo lectura, una consulta).
+La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNNNNN`, el que recibe al registrarla): con la opción **Consultar una incidencia** del menú (o escribiendo `3` en WhatsApp o `4` en el Sandbox; solo con `INCIDENCIAS_ENABLED=true`, si no el menú no la muestra y el código tampoco la abre), o escribiendo el código dentro de cualquier mensaje («quiero ver mi incidencia MINSA-2026-000003»). Solo cuenta el formato completo; `lib/fsm/parsing/text/codigo-incidencia.ts` lo reconoce. El flujo vive en `lib/fsm/flows/consulta/` y la lectura en `lib/recepcion/consulta.ts` (solo lectura, una consulta).
 
 - **Quién puede verla (el código solo funciona para quien la registró).**
   - **WhatsApp:** se busca al usuario por su identificador actual (`usuario.wa_id`, el BSUID de Meta) y la incidencia debe ser de ese usuario (`usuario_id`), no de otro. El identificador lo pone el servidor, nunca el texto del mensaje. Sirve también para las incidencias anónimas.
@@ -417,6 +418,8 @@ La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNN
 | Documento | Contenido |
 |---|---|
 | [docs/flujo-cita.md](docs/flujo-cita.md) | Árbol del flujo de cita: listas, botones, texto libre que entiende cada paso y todas las ramas de error |
+| [docs/flujo-referencias.md](docs/flujo-referencias.md) | Servicio Consultar referencia: entradas por canal, numeración del menú, pasos, sin referencias y sesión vencida |
+| [docs/flujo-incidencia.md](docs/flujo-incidencia.md) | Flujo de incidencia: entradas, pasos, cancelar y límites |
 | [docs/despliegue-minsa.md](docs/despliegue-minsa.md) | Requisitos de la base, variables nuevas, despliegue y comprobaciones para infraestructura de MINSA |
 | [docs/ci.md](docs/ci.md) | Qué comprueba el CI y la regla de la rama `main` |
 | [docs/observability.md](docs/observability.md) | Logs estructurados, trazas y enmascarado |

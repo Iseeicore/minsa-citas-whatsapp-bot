@@ -1,2 +1,3 @@
 export const MAX_CONTINUE_WORDS = 5;
 export const MAX_INCIDENCIA_KEYWORD_WORDS = 6;
+export const MAX_REFERENCIA_KEYWORD_WORDS = 8;

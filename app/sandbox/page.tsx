@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import SandboxWidgetDemo from "@/app/components/SandboxWidgetDemo";
 import { HEALTH_PATH, isSandboxPageEnabled } from "@/lib/config/sandbox-page";
 import {
-  SANDBOX_PAGE_DESCRIPTION_ONLY_CITA_TEXT,
+  SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT,
   SANDBOX_PAGE_DESCRIPTION_TEXT,
   SANDBOX_PAGE_TITLE_TEXT,
 } from "@/lib/constants/textos/menu";
@@ -16,7 +16,7 @@ export function generateMetadata() {
     title: SANDBOX_PAGE_TITLE_TEXT,
     description: serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA)
       ? SANDBOX_PAGE_DESCRIPTION_TEXT
-      : SANDBOX_PAGE_DESCRIPTION_ONLY_CITA_TEXT,
+      : SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT,
   };
 }
 

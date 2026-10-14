@@ -1,17 +1,20 @@
 import { buildResult, sendList, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
-import type { HandlerResult, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, Session, SessionChannel } from "@/lib/fsm/core/types";
 import type { BotService } from "@/lib/services/bot-service";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { MENU_PROMPT_TEXT } from "@/lib/constants/textos/menu";
 
-export const buildMenuEffect = () => sendList(MENU_PROMPT_TEXT, serviceCatalog.menuRows());
+export const buildMenuEffect = (channel: SessionChannel) => sendList(MENU_PROMPT_TEXT, serviceCatalog.menuRows(channel));
 
-export function disabledServiceReply(service: BotService, slots: Session["slots"] = {}): HandlerResult {
+export function disabledServiceReply(service: BotService, channel: SessionChannel, slots: Session["slots"] = {}): HandlerResult {
   return withNote(
-    buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(service.disabledReply()), buildMenuEffect()]),
+    buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [
+      sendText(service.disabledReply(channel)),
+      buildMenuEffect(channel),
+    ]),
     { kind: "shortcut", detail: { name: "service_disabled", service: service.id } },
   );
 }

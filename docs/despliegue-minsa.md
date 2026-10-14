@@ -8,6 +8,7 @@ Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Do
 - **Las migraciones se reescribieron.** Una base creada con la versión anterior no se actualiza: hay que usar una base **nueva y vacía**.
 - **Las páginas del Sandbox quedan ocultas y la bandeja web, cerrada**, salvo que se defina `SANDBOX_PAGE_ENABLED=true`. `POST /api/sandbox`, que usa el portal de MINSA Digital, no cambia.
 - **La imagen sigue sin credenciales dentro.** Todo entra por variables de entorno.
+- **Aparece el servicio «Consultar referencia», sin variable nueva.** Está siempre encendido y depende del endpoint de referencias de MINSA (`/whatsapp/api/v1/references`) y de `SANDBOX_USE_REAL_MINSA=true`; el detalle, en [flujo-referencias.md](flujo-referencias.md). La cita dejó de consultar referencias por su cuenta después del OTP.
 
 ## 2. Requisitos de la base (PostgreSQL 16)
 
@@ -110,6 +111,7 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 | WhatsApp | las 4 `META_*` | El compose se detiene y nombra la que falta |
 | Citas con datos reales | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` | Datos simulados |
 | IA del bot | `SANDBOX_USE_REAL_AI=true` y `GOOGLE_CLIENT_API` | Respuestas fijas; no entiende texto libre ni distritos mal escritos |
+| Consultar referencia | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` y que el backend de MINSA publique `/whatsapp/api/v1/references`. No lleva bandera ni variable nueva | Siempre responde «No cuentas con referencias registradas.» y ofrece agendar una cita. Los DNI de demostración `10308523` y `47391441` son la excepción, solo en este servicio |
 | Incidencias | `INCIDENCIAS_ENABLED=true`, `DATABASE_ENABLED=true` y `DATABASE_URL` | Sin la primera, no aparecen en el menú; sin las otras dos, no se guardan |
 | Portal de MINSA Digital | `SANDBOX_ENABLED=true` y `SANDBOX_ALLOWED_ORIGINS` | `POST /api/sandbox` responde 404 |
 

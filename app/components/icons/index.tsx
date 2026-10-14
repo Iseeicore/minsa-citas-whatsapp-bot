@@ -268,6 +268,17 @@ export function SearchIcon({ className }: { className?: string }) {
   );
 }
 
+export function ReferralIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M17 3l4 4-4 4" />
+      <path d="M3 7h18" />
+      <path d="M7 21l-4-4 4-4" />
+      <path d="M21 17H3" />
+    </svg>
+  );
+}
+
 export function EyeIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">

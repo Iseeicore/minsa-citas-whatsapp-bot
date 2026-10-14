@@ -127,8 +127,10 @@ async function section1() {
   await (async () => {
     const c1 = ctxFor("1.1g-cita", s);
     await c1.send({ type: "text", text: "1", reset: true }, { expect: "documento" });
-    const c2 = ctxFor("1.1g-incidencia", s);
-    await c2.send({ type: "text", text: "2", reset: true }, { expect: "registrar tu incidencia" });
+    const c2 = ctxFor("1.1g-referencia", s);
+    await c2.send({ type: "text", text: "2", reset: true }, { expect: "iniciar sesión" });
+    const c3 = ctxFor("1.1g-incidencia", s);
+    await c3.send({ type: "text", text: "3", reset: true }, { expect: "registrar tu incidencia" });
   })();
 
   const links = [
@@ -436,6 +438,8 @@ async function section3_16() {
     ["3.16b", "ustedes son unos idiotas, mi mamá no puede respirar", "ESTE CANAL NO ATIENDE EMERGENCIAS"],
     ["3.16c", "¿Mi SIS está activo?", "Consulta sobre SIS"],
     ["3.16d", "¿Ya aceptaron mi referencia?", "Gestión de Referencias Médicas"],
+    ["3.16d-b", "quiero consultar mi referencia", "iniciar sesión"],
+    ["3.16d-c", "referencia", "iniciar sesión"],
     ["3.16e", "¿Ya salieron mis análisis de sangre?", "Entrega de Resultados Médicos"],
     ["3.16f", "¿Tienen Paracetamol o Insulina en la posta?", "Consulta de Medicamentos"],
     ["3.16g", "¿Qué días vacunan contra la influenza?", "Vacunación y Carnets Oficiales"],
