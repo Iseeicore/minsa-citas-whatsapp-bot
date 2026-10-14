@@ -49,10 +49,10 @@ describe("the channels file is the single source of every contact", () => {
   });
 
   it("every channel is in the verification checklist, so none can be added without being checked", () => {
-    const checklist = fs.readFileSync(path.join(process.cwd(), "docs", "out-of-scope-channels.md"), "utf8");
+    const checklist = fs.readFileSync(path.join(process.cwd(), "docs", "canales-fuera-de-alcance.md"), "utf8");
 
     for (const [name, value] of Object.entries(CHANNELS)) {
-      expect(checklist.includes(`\`${value}\``), `${name} («${value}») is missing from docs/out-of-scope-channels.md`).toBe(true);
+      expect(checklist.includes(`\`${value}\``), `${name} («${value}») is missing from docs/canales-fuera-de-alcance.md`).toBe(true);
     }
   });
 

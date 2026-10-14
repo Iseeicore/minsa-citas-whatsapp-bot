@@ -1,4 +1,4 @@
-# Playbook de pruebas manuales — rama `feat/lexical-guard`
+# Guía de pruebas manuales
 
 Guía para imprimir o seguir paso a paso, desde **WhatsApp real** o desde el **Sandbox**. Cada caso indica qué escribir o tocar, qué debe responder el bot, qué debe pasar por dentro y cuándo se considera aprobado.
 
@@ -333,7 +333,7 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.11 | `odontología` (texto, sin tocar la lista) | `Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:` con filas como `mar 22 sep` (no la fecha cruda que entrega MINSA o el catálogo fake). | Coincide el nombre con la fila ofrecida. Sin IA. La fila muestra día de semana + fecha con el mes en letras; lo que viaja a MINSA (`citaFecha`) no cambia. | ☐ ☐ |
 | 3.12 | `1` | `Buscando horarios disponibles…` y la lista `Selecciona el horario:` (8:00 AM - 8:30 AM, 9:30 AM - 10:00 AM, 1:00 PM - 1:30 PM). | En listas, `1` es la posición 1. Las horas se muestran en formato 12 horas; hacia MINSA siguen viajando en 24 horas (`08:00`, `13:00`…), sin cambio. | ☐ ☐ |
 
-> **Un solo horario (G1, cerrado):** si un día ofrece **un solo** horario, o la última página de «Ver más horarios» deja uno solo, el bot **pide confirmación** antes de agendar (caso 3.17). Con el catálogo fake, la **tercera fecha** de la lista tiene un único horario para probarlo.
+> **Un solo horario:** si un día ofrece **un solo** horario, o la última página de «Ver más horarios» deja uno solo, el bot **pide confirmación** antes de agendar (caso 3.17). Con el catálogo fake, la **tercera fecha** de la lista tiene un único horario para probarlo.
 
 ### 3.13 Selección de horario (parte de la lista `08:00 / 09:30 / 13:00`)
 
@@ -499,7 +499,7 @@ done; wait
 
 ### 4.4 Cómo comprobarlo en los logs
 
-Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (proyecto → Logs; escribe `turn.end`, un `traceId` o un evento en el buscador) o, en local, en la terminal de `npm run dev`. Con `LOG_TO_FILE=true` también quedan en `logs/DD-MM-AAAA/app.ndjson` (y solo los avisos y errores en `alerts.ndjson`). Todos los eventos de un mismo mensaje comparten el `traceId`. Detalle completo en `docs/observability.md`.
+Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (proyecto → Logs; escribe `turn.end`, un `traceId` o un evento en el buscador) o, en local, en la terminal de `npm run dev`. Con `LOG_TO_FILE=true` también quedan en `logs/DD-MM-AAAA/app.ndjson` (y solo los avisos y errores en `alerts.ndjson`). Todos los eventos de un mismo mensaje comparten el `traceId`. Detalle completo en `docs/observabilidad.md`.
 
 | Evento | Qué significa |
 |---|---|

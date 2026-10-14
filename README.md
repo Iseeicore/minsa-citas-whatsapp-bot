@@ -220,7 +220,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Sandbox (`/sandbox` y `/configuracion-visor-sandbox`), deja que `/` redirija a `/sandbox` y **abre la bandeja web** (`/api/conversations*` y `/api/messages/send`). Sin definir o con cualquier otro valor: las tres páginas redirigen a `/api/health` y esas cuatro rutas responden `404`, aunque la base esté activa. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). La bandeja web **no tiene autenticación**: lista todas las conversaciones con su teléfono y permite escribir desde el número oficial. En Production déjala sin definir |
 | `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-widget-del-sandbox) |
 
-**Logs** (ver [docs/observability.md](docs/observability.md))
+**Logs** (ver [docs/observabilidad.md](docs/observabilidad.md))
 
 | Variable | Uso |
 |---|---|
@@ -338,7 +338,7 @@ El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca
 
 | Qué | Catálogo | Regla |
 |---|---|---|
-| Eventos de log | `lib/observability/events.ts` (`LogEvent`, `TurnNoteKind`) | TypeScript rechaza un nombre que no esté en el catálogo; un test exige que cada evento figure en `docs/observability.md`. Nada del servidor escribe en la consola directamente |
+| Eventos de log | `lib/observability/events.ts` (`LogEvent`, `TurnNoteKind`) | TypeScript rechaza un nombre que no esté en el catálogo; un test exige que cada evento figure en `docs/observabilidad.md`. Nada del servidor escribe en la consola directamente |
 | Configuración | `lib/config/config-errors.ts` (`CONFIG_ERRORS`) | `instrumentation.ts` revisa la configuración al arrancar y registra cada problema como `config.invalid`; `/api/health` pasa a `degraded`. El bot no se detiene |
 | Textos al ciudadano | `lib/constants/textos/fallas.ts` | Los textos de falla viven en un solo lugar; un test de oro los fija byte a byte |
 | Respuestas HTTP | `lib/http/api-error.ts` (`API_ERRORS`, `apiError`) | Toda respuesta de error es `{ error: CÓDIGO, message }` (más `detail` opcional), con el status del catálogo y el mensaje en español. Los `403` del webhook siguen en texto plano porque Meta no lee el cuerpo |
@@ -422,7 +422,7 @@ La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNN
 | [docs/flujo-incidencia.md](docs/flujo-incidencia.md) | Flujo de incidencia: entradas, pasos, cancelar y límites |
 | [docs/despliegue-minsa.md](docs/despliegue-minsa.md) | Requisitos de la base, variables nuevas, despliegue y comprobaciones para infraestructura de MINSA |
 | [docs/ci.md](docs/ci.md) | Qué comprueba el CI y la regla de la rama `main` |
-| [docs/observability.md](docs/observability.md) | Logs estructurados, trazas y enmascarado |
-| [docs/technical-gaps.md](docs/technical-gaps.md) | Brechas técnicas conocidas y su estado |
-| [docs/out-of-scope-channels.md](docs/out-of-scope-channels.md) | Canales oficiales de derivación pendientes de confirmar |
-| [docs/qa/manual-test-playbook.md](docs/qa/manual-test-playbook.md) | Casos de prueba manual |
+| [docs/observabilidad.md](docs/observabilidad.md) | Logs estructurados, trazas y enmascarado |
+| [docs/brechas-tecnicas.md](docs/brechas-tecnicas.md) | Brechas técnicas que siguen abiertas |
+| [docs/canales-fuera-de-alcance.md](docs/canales-fuera-de-alcance.md) | Canales oficiales de derivación pendientes de confirmar |
+| [docs/qa/guia-pruebas-manuales.md](docs/qa/guia-pruebas-manuales.md) | Casos de prueba manual |
