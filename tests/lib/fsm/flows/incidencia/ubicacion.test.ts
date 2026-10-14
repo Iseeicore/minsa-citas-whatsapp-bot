@@ -11,10 +11,13 @@ import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { OosCategory } from "@/lib/enums/oos-category";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-status";
+import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const AVISO_EMERGENCIA_TEXT = OOS_MESSAGES[OosCategory.OOS_01];
 
@@ -23,19 +26,32 @@ const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text:
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const answer = (result: BuscarEstablecimientoResult): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "buscar_establecimiento",
   result,
 });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult): QueryEffect[] => result.effects.filter(isQueryEffect);
-const at = (state: Session["state"], slots: Session["slots"] = {}, counters: Session["counters"] = {}): Session => ({ state, slots, counters });
+const at = (state: Session["state"], slots: Session["slots"] = {}, counters: Session["counters"] = {}): Session => ({
+  state,
+  slots,
+  counters,
+});
 
-/** Para tests que no les importa el consentimiento: simula que nunca lo dio y lo autoriza ahora, hasta llegar al relato. */
 function throughConsent(step: HandlerResult): HandlerResult {
-  const checked: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "verificar_consentimiento", result: { aceptado: false } };
-  const registered: QueryResultEvent = { from: FROM, type: "query_result", queryKind: "registrar_consentimiento", result: { ok: true } };
+  const checked: QueryResultEvent = {
+    from: FROM,
+    type: InternalEventType.QUERY_RESULT,
+    queryKind: "verificar_consentimiento",
+    result: { aceptado: false },
+  };
+  const registered: QueryResultEvent = {
+    from: FROM,
+    type: InternalEventType.QUERY_RESULT,
+    queryKind: "registrar_consentimiento",
+    result: { ok: true },
+  };
   let next = handle(step.session, checked);
   next = handle(next.session, tap("incidencia_consent_si"));
   return handle(next.session, registered);
@@ -52,11 +68,18 @@ const candidato = (nombre: string, codigo: string, similitud: number, similitudP
   similitudPalabra,
 });
 
-const foundByCode: BuscarEstablecimientoResult = { by: "codigo", status: "found", establecimiento: DOS_DE_MAYO };
+const foundByCode: BuscarEstablecimientoResult = {
+  by: EstablecimientoSearchBy.CODIGO,
+  status: EstablecimientoSearchStatus.FOUND,
+  establecimiento: DOS_DE_MAYO,
+};
 
 describe("the way in: QR, text that announces an incidencia, menu and shortcuts", () => {
   it("the QR message looks the establecimiento up by its code, before any other rule", () => {
-    const result = handleFirstContact("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206", "whatsapp");
+    const result = handleFirstContact(
+      "Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206",
+      "whatsapp",
+    );
 
     expect(result.session.state).toBe("incidencia_ubicacion_pending");
     expect(queries(result)).toEqual([{ kind: "buscar_establecimiento", payload: { codigo: "6206" } }]);
@@ -64,7 +87,10 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
   });
 
   it("keeps the name as a fallback and what was written after the code as a draft", () => {
-    const result = handleFirstContact("Hola quiero presentar una incidencia POSTA X - CODIGO-IPRESS 5862 me cobraron sin recibo", "whatsapp");
+    const result = handleFirstContact(
+      "Hola quiero presentar una incidencia POSTA X - CODIGO-IPRESS 5862 me cobraron sin recibo",
+      "whatsapp",
+    );
 
     expect(result.session.slots[SlotKey.INCIDENCIA_UBICACION_TEXTO]).toBe("POSTA X");
     expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe("me cobraron sin recibo");
@@ -83,7 +109,10 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(sent(result)).toEqual([
       { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
-      { kind: "send_text", text: "¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS." },
+      {
+        kind: "send_text",
+        text: "¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
+      },
     ]);
   });
 
@@ -92,7 +121,10 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
     expect(fromMenu.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(sent(fromMenu)).toEqual([
       { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
-      { kind: "send_text", text: "Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS." },
+      {
+        kind: "send_text",
+        text: "Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
+      },
     ]);
   });
 
@@ -143,35 +175,57 @@ describe("looking the place up", () => {
 
   it("a code that does not exist falls back to the name the QR carried", () => {
     const pending = at("incidencia_ubicacion_pending", { [SlotKey.INCIDENCIA_UBICACION_TEXTO]: "POSTA X" });
-    const result = handle(pending, answer({ by: "codigo", status: "not_found" }));
+    const result = handle(pending, answer({ by: EstablecimientoSearchBy.CODIGO, status: EstablecimientoSearchStatus.NOT_FOUND }));
 
     expect(queries(result)).toEqual([{ kind: "buscar_establecimiento", payload: { nombre: "POSTA X" } }]);
     expect(result.session.slots[SlotKey.INCIDENCIA_UBICACION_TEXTO]).toBeUndefined();
   });
 
   it("a code that does not exist and no name: asks again and counts the attempt", () => {
-    const result = handle(at("incidencia_ubicacion_pending"), answer({ by: "codigo", status: "not_found" }));
+    const result = handle(
+      at("incidencia_ubicacion_pending"),
+      answer({ by: EstablecimientoSearchBy.CODIGO, status: EstablecimientoSearchStatus.NOT_FOUND }),
+    );
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(result.session.counters[CounterKey.INCIDENCIA_UBICACION_INTENTOS]).toBe(1);
   });
 
   it("one clear name is confirmed", () => {
-    const result = handle(at("incidencia_ubicacion_pending"), answer({ by: "nombre", status: "ok", candidatos: [candidato("HOSPITAL NACIONAL DOS DE MAYO", "6206", 1)] }));
+    const result = handle(
+      at("incidencia_ubicacion_pending"),
+      answer({
+        by: EstablecimientoSearchBy.NOMBRE,
+        status: EstablecimientoSearchStatus.OK,
+        candidatos: [candidato("HOSPITAL NACIONAL DOS DE MAYO", "6206", 1)],
+      }),
+    );
     expect(result.session.state).toBe("incidencia_confirm_ubicacion");
   });
 
   it("a few names that look alike are never a list: it asks for the full name and counts the attempt", () => {
-    const candidatos = [candidato("Hospital A", "1", 0.3, 1, 1), candidato("Hospital B", "2", 0.3, 1, 2), candidato("Hospital C", "3", 0.29, 1, 3)];
-    const result = handle(at("incidencia_ubicacion_pending"), answer({ by: "nombre", status: "ok", candidatos }));
+    const candidatos = [
+      candidato("Hospital A", "1", 0.3, 1, 1),
+      candidato("Hospital B", "2", 0.3, 1, 2),
+      candidato("Hospital C", "3", 0.29, 1, 3),
+    ];
+    const result = handle(
+      at("incidencia_ubicacion_pending"),
+      answer({ by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.OK, candidatos }),
+    );
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(sent(result)).toEqual([{ kind: "send_text", text: "Hay varios establecimientos que se parecen. Escribe su nombre completo o su código IPRESS." }]);
+    expect(sent(result)).toEqual([
+      { kind: "send_text", text: "Hay varios establecimientos que se parecen. Escribe su nombre completo o su código IPRESS." },
+    ]);
     expect(result.session.counters[CounterKey.INCIDENCIA_UBICACION_INTENTOS]).toBe(1);
   });
 
   it("nothing found: asks for the full name or the code", () => {
-    const result = handle(at("incidencia_ubicacion_pending"), answer({ by: "nombre", status: "ok", candidatos: [] }));
+    const result = handle(
+      at("incidencia_ubicacion_pending"),
+      answer({ by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.OK, candidatos: [] }),
+    );
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect((sent(result)[0] as { text: string }).text).toContain("No encontré ese establecimiento");
@@ -179,12 +233,18 @@ describe("looking the place up", () => {
 
   it("too many names: asks for the full name or the code", () => {
     const candidatos = Array.from({ length: 8 }, (_, i) => candidato(`CENTRO DE SALUD ${i}`, String(100 + i), 0.76 - i * 0.005, 1, i + 1));
-    const result = handle(at("incidencia_ubicacion_pending"), answer({ by: "nombre", status: "ok", candidatos }));
+    const result = handle(
+      at("incidencia_ubicacion_pending"),
+      answer({ by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.OK, candidatos }),
+    );
     expect((sent(result)[0] as { text: string }).text).toContain("Hay varios establecimientos que se parecen");
   });
 
   it("a database that does not answer offers to go on without the establecimiento", () => {
-    const result = handle(at("incidencia_ubicacion_pending"), answer({ by: "nombre", status: "unavailable" }));
+    const result = handle(
+      at("incidencia_ubicacion_pending"),
+      answer({ by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.UNAVAILABLE }),
+    );
 
     expect(result.session.state).toBe("incidencia_confirm_omitir");
     expect((sent(result)[0] as { text: string }).text).toContain("No pudimos buscar el establecimiento en este momento.");
@@ -192,13 +252,20 @@ describe("looking the place up", () => {
 
   it("a story kept as a draft survives a later search: only the first lookup can tell that the start was a name", () => {
     const story = { [SlotKey.INCIDENCIA_ORIGEN]: "texto", [SlotKey.INCIDENCIA_BORRADOR]: "en el hospital porque me cobraron sin recibo" };
-    const first = handle(at("incidencia_ubicacion_pending", story), answer({ by: "nombre", status: "ok", candidatos: [] }));
+    const first = handle(
+      at("incidencia_ubicacion_pending", story),
+      answer({ by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.OK, candidatos: [] }),
+    );
     expect(first.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe("en el hospital porque me cobraron sin recibo");
     expect(first.session.slots[SlotKey.INCIDENCIA_ORIGEN]).toBe("menu");
 
     const later = handle(
       { ...first.session, state: "incidencia_ubicacion_pending" },
-      answer({ by: "nombre", status: "ok", candidatos: [candidato("HOSPITAL NACIONAL DOS DE MAYO", "6206", 1)] }),
+      answer({
+        by: EstablecimientoSearchBy.NOMBRE,
+        status: EstablecimientoSearchStatus.OK,
+        candidatos: [candidato("HOSPITAL NACIONAL DOS DE MAYO", "6206", 1)],
+      }),
     );
     expect(later.session.state).toBe("incidencia_confirm_ubicacion");
     expect(later.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe("en el hospital porque me cobraron sin recibo");
@@ -206,19 +273,33 @@ describe("looking the place up", () => {
 
   it("a story written as the start is dropped when the text turned out to be a name, and kept when nothing was found", () => {
     const slots = { [SlotKey.INCIDENCIA_ORIGEN]: "texto", [SlotKey.INCIDENCIA_BORRADOR]: "hospital dos de mayo" };
-    const asName = handle(at("incidencia_ubicacion_pending", slots), answer({ by: "nombre", status: "ok", candidatos: [candidato("HOSPITAL NACIONAL DOS DE MAYO", "6206", 0.71)] }));
+    const asName = handle(
+      at("incidencia_ubicacion_pending", slots),
+      answer({
+        by: EstablecimientoSearchBy.NOMBRE,
+        status: EstablecimientoSearchStatus.OK,
+        candidatos: [candidato("HOSPITAL NACIONAL DOS DE MAYO", "6206", 0.71)],
+      }),
+    );
     expect(asName.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
 
     const story = { [SlotKey.INCIDENCIA_ORIGEN]: "texto", [SlotKey.INCIDENCIA_BORRADOR]: "en el hospital porque me cobraron sin recibo" };
-    const noMatch = handle(at("incidencia_ubicacion_pending", story), answer({ by: "nombre", status: "ok", candidatos: [] }));
+    const noMatch = handle(
+      at("incidencia_ubicacion_pending", story),
+      answer({ by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.OK, candidatos: [] }),
+    );
     expect(noMatch.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe("en el hospital porque me cobraron sin recibo");
   });
 });
 
 describe("typing the place when it is asked", () => {
   it("a bare code is looked up by code", () => {
-    expect(queries(handle(at("incidencia_awaiting_ubicacion"), text("6206")))).toEqual([{ kind: "buscar_establecimiento", payload: { codigo: "6206" } }]);
-    expect(queries(handle(at("incidencia_awaiting_ubicacion"), text("CODIGO-IPRESS 00006206")))).toEqual([{ kind: "buscar_establecimiento", payload: { codigo: "6206" } }]);
+    expect(queries(handle(at("incidencia_awaiting_ubicacion"), text("6206")))).toEqual([
+      { kind: "buscar_establecimiento", payload: { codigo: "6206" } },
+    ]);
+    expect(queries(handle(at("incidencia_awaiting_ubicacion"), text("CODIGO-IPRESS 00006206")))).toEqual([
+      { kind: "buscar_establecimiento", payload: { codigo: "6206" } },
+    ]);
   });
 
   it("a name is looked up by name", () => {
@@ -242,7 +323,11 @@ describe("typing the place when it is asked", () => {
 describe("confirming the place", () => {
   const propuesto = { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO]: JSON.stringify(DOS_DE_MAYO) };
 
-  it.each([["the Sí button", tap("incidencia_ubicacion_si")], ["«sí»", text("sí")], ["«dale»", text("dale")]])("yes (%s) keeps the place and goes to ask about the name", (_label, event) => {
+  it.each([
+    ["the Sí button", tap("incidencia_ubicacion_si")],
+    ["«sí»", text("sí")],
+    ["«dale»", text("dale")],
+  ])("yes (%s) keeps the place and goes to ask about the name", (_label, event) => {
     const result = handle(at("incidencia_confirm_ubicacion", propuesto), event);
 
     expect(result.session.state).toBe("incidencia_identity_choice");
@@ -261,7 +346,10 @@ describe("confirming the place", () => {
   });
 
   it("after three failed attempts it offers to go on without the establecimiento", () => {
-    const result = handle(at("incidencia_confirm_ubicacion", propuesto, { [CounterKey.INCIDENCIA_UBICACION_INTENTOS]: 2 }), tap("incidencia_ubicacion_no"));
+    const result = handle(
+      at("incidencia_confirm_ubicacion", propuesto, { [CounterKey.INCIDENCIA_UBICACION_INTENTOS]: 2 }),
+      tap("incidencia_ubicacion_no"),
+    );
 
     expect(result.session.state).toBe("incidencia_confirm_omitir");
     expect((sent(result)[0] as { text: string }).text).toContain("no logramos ubicar el establecimiento");
@@ -277,9 +365,16 @@ describe("confirming the place", () => {
 });
 
 describe("going on without the establecimiento", () => {
-  const omitir = at("incidencia_confirm_omitir", { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]: "x" }, { [CounterKey.INCIDENCIA_UBICACION_INTENTOS]: 3 });
+  const omitir = at(
+    "incidencia_confirm_omitir",
+    { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]: "x" },
+    { [CounterKey.INCIDENCIA_UBICACION_INTENTOS]: 3 },
+  );
 
-  it.each([["the Sí button", tap("incidencia_omitir_si")], ["«sí»", text("sí")]])("yes (%s) goes on with no place saved", (_label, event) => {
+  it.each([
+    ["the Sí button", tap("incidencia_omitir_si")],
+    ["«sí»", text("sí")],
+  ])("yes (%s) goes on with no place saved", (_label, event) => {
     const result = handle(omitir, event);
 
     expect(result.session.state).toBe("incidencia_identity_choice");
@@ -310,7 +405,9 @@ describe("what the person already wrote: use it or add more", () => {
 
   it("a draft that is too short or is noise is dropped and the relato is asked", () => {
     for (const draft of ["cobraron", "123456789012345678901234"]) {
-      const afterConsent = throughConsent(handle(at("incidencia_identity_choice", { [SlotKey.INCIDENCIA_BORRADOR]: draft }), tap("incidencia_anonimo")));
+      const afterConsent = throughConsent(
+        handle(at("incidencia_identity_choice", { [SlotKey.INCIDENCIA_BORRADOR]: draft }), tap("incidencia_anonimo")),
+      );
       expect(afterConsent.session.state).toBe("incidencia_awaiting_descripcion");
       expect(afterConsent.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
     }
@@ -321,7 +418,10 @@ describe("what the person already wrote: use it or add more", () => {
     expect(afterConsent.session.state).toBe("incidencia_awaiting_descripcion");
   });
 
-  it.each([["the button", tap("incidencia_borrador_usar")], ["«sí»", text("sí")]])("using it as it is (%s) saves it as the relato and offers the evidence", (_label, event) => {
+  it.each([
+    ["the button", tap("incidencia_borrador_usar")],
+    ["«sí»", text("sí")],
+  ])("using it as it is (%s) saves it as the relato and offers the evidence", (_label, event) => {
     const result = handle(withDraft("incidencia_confirm_borrador"), event);
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");

@@ -1,5 +1,6 @@
 import type { Message } from "@/app/components/types";
 import { MessageStatus } from "@/lib/enums/message-status";
+import { cn } from "@/lib/utils/cn";
 
 export function BackArrowIcon({ className }: { className?: string }) {
   return (
@@ -136,7 +137,6 @@ export function CameraIcon({ className }: { className?: string }) {
 }
 
 export function ReadTicksIcon({ status }: { status: Message["status"] }) {
-  const colorClass = status === MessageStatus.READ ? "text-sky-500" : "text-gray-400";
   return (
     <svg
       viewBox="0 0 24 16"
@@ -145,7 +145,7 @@ export function ReadTicksIcon({ status }: { status: Message["status"] }) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`h-3 w-4 ${colorClass}`}
+      className={cn("h-3 w-4", status === MessageStatus.READ ? "text-sky-500" : "text-gray-400")}
       aria-hidden="true"
     >
       <path d="M1 8l4 4L14 3" />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
-import { isQueryEffect, WHATSAPP_LIST_MAX_ROWS } from "@/lib/fsm/core/handlers-shared";
+import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleVerifyPending } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import {
@@ -11,6 +11,8 @@ import {
 } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 const FROM = "sandbox-demo";
 
@@ -18,15 +20,16 @@ const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text:
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
 const verifyResult = (result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "verify_code",
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] =>
-  sent(result).filter((e) => e.kind === "send_text").map((e) => (e as { text: string }).text);
+  sent(result)
+    .filter((e) => e.kind === "send_text")
+    .map((e) => (e as { text: string }).text);
 const listRows = (result: HandlerResult) => {
   const list = sent(result).find((e) => e.kind === "send_interactive_list");
   return list?.kind === "send_interactive_list" ? list.rows : undefined;
@@ -139,7 +142,12 @@ describe("selección de hora demo", () => {
 function confirmPending(dni: string, codigo: string, horaId: string): Session {
   return {
     state: "cita_demo_awaiting_confirm",
-    slots: { [SlotKey.CITA_BEARER]: "token-demo", [SlotKey.CITA_DNI]: dni, [SlotKey.CITA_DEMO_REFERENCIA_CODIGO]: codigo, [SlotKey.CITA_DEMO_HORA_ID]: horaId },
+    slots: {
+      [SlotKey.CITA_BEARER]: "token-demo",
+      [SlotKey.CITA_DNI]: dni,
+      [SlotKey.CITA_DEMO_REFERENCIA_CODIGO]: codigo,
+      [SlotKey.CITA_DEMO_HORA_ID]: horaId,
+    },
     counters: {},
   };
 }

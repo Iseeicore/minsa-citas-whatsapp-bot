@@ -8,7 +8,8 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { logger } from "@/lib/observability/logger";
 import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
-import { TurnLockTimeoutError, withTurnLock } from "@/lib/fsm/session/turn-lock";
+import { withTurnLock } from "@/lib/fsm/session/turn-lock";
+import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -21,7 +22,6 @@ import { SessionState } from "@/lib/enums/session-state";
 
 const warnedInvalidOrigins = new Set<string>();
 
-/** Reduce cada entrada a su origen: la cabecera Origin del navegador nunca trae ruta ni barra final. */
 function allowedOrigins(): string[] {
   const { origins, invalid } = parseAllowedOrigins(process.env.SANDBOX_ALLOWED_ORIGINS);
   for (const entry of invalid) {
@@ -95,7 +95,6 @@ export async function POST(request: NextRequest) {
   }
   marks.mark("reset");
 
-  // Tras un reinicio la sesión acaba de borrarse: no hace falta otro viaje a la base para comprobarlo.
   const hadExistingSession = reset || resetAll ? false : await sessionRowExists(from);
   marks.mark("exists");
 

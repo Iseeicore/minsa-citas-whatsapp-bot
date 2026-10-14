@@ -6,7 +6,6 @@ export const INBOUND_MAX_BATCH = 10;
 export const INBOUND_MAX_AGE_MS = 120_000;
 export const INBOUND_REPEAT_WINDOW_MS = 3_000;
 
-/** Estados donde la persona escribe una frase libre y puede partirla en varios mensajes; en el resto se responde sin esperar. */
 const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
   SessionState.MAIN_MENU,
   SessionState.AWAITING_FLOW_START,
@@ -22,11 +21,6 @@ const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
   SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE,
 ]);
 
-/**
- * Milisegundos que se espera tras un mensaje antes de responder; 0 si el estado espera un dato exacto (DNI, OTP, botón)
- * o no es texto. El primer contacto (estado null) no espera: un saludo casi nunca se parte en varias líneas y la
- * bienvenida debe salir cuanto antes.
- */
 export function resolveWindowMs(input: { state: string | null; type: string }): number {
   if (input.type !== "text") return 0;
   if (input.state === null) return 0;

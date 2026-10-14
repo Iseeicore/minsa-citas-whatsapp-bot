@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHAT_FORMAT_MARK, splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text";
+import { CHAT_FORMAT_MARK } from "@/lib/constants/regex/chat-format";
+import { splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text";
 import { ChatIconName } from "@/lib/enums/chat-icon-name";
 import { ChatTokenKind } from "@/lib/enums/chat-token-kind";
 
@@ -42,9 +43,7 @@ describe("tokenizeChatText", () => {
   });
 
   it("no toca los asteriscos sueltos ni los guiones bajos dentro de una palabra", () => {
-    expect(tokenizeChatText("2 * 3 y snake_case_word")).toEqual([
-      { kind: ChatTokenKind.TEXT, value: "2 * 3 y snake_case_word" },
-    ]);
+    expect(tokenizeChatText("2 * 3 y snake_case_word")).toEqual([{ kind: ChatTokenKind.TEXT, value: "2 * 3 y snake_case_word" }]);
   });
 
   it("deja intactos los emojis que no tienen icono propio", () => {

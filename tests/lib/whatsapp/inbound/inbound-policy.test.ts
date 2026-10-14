@@ -10,11 +10,7 @@ import { SessionState } from "@/lib/enums/session-state";
 
 describe("resolveWindowMs", () => {
   it("waits the free-text window in states where the user writes a sentence", () => {
-    for (const state of [
-      SessionState.INCIDENCIA_AWAITING_DESCRIPCION,
-      SessionState.CITA_AWAITING_DISTRITO,
-      SessionState.MAIN_MENU,
-    ]) {
+    for (const state of [SessionState.INCIDENCIA_AWAITING_DESCRIPCION, SessionState.CITA_AWAITING_DISTRITO, SessionState.MAIN_MENU]) {
       expect(resolveWindowMs({ state, type: "text" })).toBe(INBOUND_FREE_TEXT_WINDOW_MS);
     }
   });

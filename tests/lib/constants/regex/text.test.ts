@@ -8,7 +8,7 @@ import {
   SYMBOLS_IN_UPPERCASE_TEXT,
   WHITESPACE_RUN,
   WORD_SEPARATORS,
-} from "@/lib/fsm/parsing/text/text-patterns";
+} from "@/lib/constants/regex/text";
 
 const ORIGINALS: ReadonlyArray<[string, RegExp, string, string]> = [
   ["COMBINING_ACCENT_MARKS", COMBINING_ACCENT_MARKS, "[̀-ͯ]", "g"],

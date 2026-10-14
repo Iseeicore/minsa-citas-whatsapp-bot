@@ -4,18 +4,18 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-estab-pages";
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
 const queryResult = (result: unknown): QueryResultEvent => ({
   from: FROM,
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "list_establecimientos",
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queryOf = (result: HandlerResult): QueryEffect => {
   const found = result.effects.find(isQueryEffect);
   if (!found) throw new Error("no query sent");
@@ -91,7 +91,10 @@ describe("establecimientos paginados por el MINSA", () => {
     const result = handle(listed.session, tap(NEXT));
 
     expect(result.session.state).toBe("cita_establecimiento_pending");
-    expect(queryOf(result)).toMatchObject({ kind: "list_establecimientos", payload: { especialidadId: "222400", ubigeo: "150108", page: 2 } });
+    expect(queryOf(result)).toMatchObject({
+      kind: "list_establecimientos",
+      payload: { especialidadId: "222400", ubigeo: "150108", page: 2 },
+    });
     expect(result.session.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE]).toBe(2);
     expect(result.session.slots[SlotKey.CITA_OFFERED]).toBeUndefined();
   });

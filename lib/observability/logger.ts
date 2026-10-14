@@ -36,8 +36,7 @@ export function createLogger(options: {
       if (id) record.traceId = id;
       for (const [key, value] of Object.entries(fields)) record[key] = sanitizeValue(key, value);
       options.sink(level, JSON.stringify(record));
-    } catch {
-    }
+    } catch {}
   };
 
   return {

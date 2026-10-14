@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
 import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi } from "@/lib/fsm/parsing/ai/fecha";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import type { LlmClient, LlmJsonOutcome, LlmJsonRequest } from "@/lib/fsm/parsing/ai/llm";
+import { PROMPT_GUARDRAILS } from "@/lib/constants/prompts/guardrails";
+import { LlmFailure } from "@/lib/enums/llm-failure";
 
-function capturingClient(outcome: LlmJsonOutcome = { ok: false, failure: "no_text" }) {
+function capturingClient(outcome: LlmJsonOutcome = { ok: false, failure: LlmFailure.NO_TEXT }) {
   const requests: LlmJsonRequest[] = [];
   const client: LlmClient = {
     provider: "gemini",

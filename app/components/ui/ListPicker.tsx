@@ -13,7 +13,6 @@ export type ListItemPresentation = { label: string; Icon?: ComponentType<{ class
 
 const plainPresentation = (item: ListRow): ListItemPresentation => ({ label: item.title });
 
-/** La búsqueda aparece con más elementos que `searchThreshold`. Con `pager` los elementos ya vienen paginados por quien los entrega y sus acciones salen por `onSelect`. */
 export function ListPicker({
   items,
   searchThreshold,

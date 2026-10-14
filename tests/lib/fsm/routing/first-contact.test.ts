@@ -10,8 +10,7 @@ const FROM = "sandbox-first-contact";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const firstListTitle = (result: HandlerResult): string =>
   JSON.stringify(sent(result).find((effect) => effect.kind === "send_interactive_list"));
@@ -19,21 +18,18 @@ const firstListTitle = (result: HandlerResult): string =>
 const CITA_FIRST_MESSAGE = "Sabes quiero una cita para san Juan de Lurigancho para medicina general";
 
 describe("first contact: a greeting", () => {
-  it.each(["Hola", "Buenos días", "Buenas tardes"])(
-    "%j gets ONE welcome message with the link button, and nothing else",
-    (message) => {
-      const result = handleFirstContact(message, "whatsapp");
+  it.each(["Hola", "Buenos días", "Buenas tardes"])("%j gets ONE welcome message with the link button, and nothing else", (message) => {
+    const result = handleFirstContact(message, "whatsapp");
 
-      expect(sent(result)).toHaveLength(1);
-      const [welcome] = sent(result);
-      expect(welcome.kind).toBe("send_cta_url");
-      expect(welcome.kind === "send_cta_url" && welcome.text).toContain("Ministerio de Salud del Perú");
-      expect(welcome.kind === "send_cta_url" && welcome.buttonText).toBe("Continuar mi cita");
-      expect(welcome.kind === "send_cta_url" && welcome.text).toContain("Prefieres seguir por aquí mismo");
-      expect(JSON.stringify(result.effects)).not.toContain("¿En qué podemos ayudarte hoy?");
-      expect(JSON.stringify(result.effects)).not.toContain("send_buttons");
-    },
-  );
+    expect(sent(result)).toHaveLength(1);
+    const [welcome] = sent(result);
+    expect(welcome.kind).toBe("send_cta_url");
+    expect(welcome.kind === "send_cta_url" && welcome.text).toContain("Ministerio de Salud del Perú");
+    expect(welcome.kind === "send_cta_url" && welcome.buttonText).toBe("Continuar mi cita");
+    expect(welcome.kind === "send_cta_url" && welcome.text).toContain("Prefieres seguir por aquí mismo");
+    expect(JSON.stringify(result.effects)).not.toContain("¿En qué podemos ayudarte hoy?");
+    expect(JSON.stringify(result.effects)).not.toContain("send_buttons");
+  });
 
   it("waits in main_menu, keeping only a real message as the opening message", () => {
     expect(handleFirstContact("Hola", "whatsapp").session).toEqual({ state: "main_menu", slots: {}, counters: {} });
@@ -163,7 +159,14 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
 });
 
 describe("first contact: a request to file a complaint", () => {
-  it.each(["Quiero poner una queja", "quiero hacer un reclamo", "RECLAMO", "INCIDENCIA", "quiero presentar una incidencia", "quiero hacer una denuncia"])("%j goes straight to the complaint flow", (message) => {
+  it.each([
+    "Quiero poner una queja",
+    "quiero hacer un reclamo",
+    "RECLAMO",
+    "INCIDENCIA",
+    "quiero presentar una incidencia",
+    "quiero hacer una denuncia",
+  ])("%j goes straight to the complaint flow", (message) => {
     const result = handleFirstContact(message, "whatsapp");
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
@@ -176,16 +179,13 @@ describe("first contact: a request to file a complaint", () => {
 });
 
 describe("first contact: text that says nothing structured", () => {
-  it.each(["asdfg", "🔥🔥🔥", "ayuda por favor", "necesito hablar con alguien"])(
-    "%j gets the menu, without the welcome",
-    (message) => {
-      const result = handleFirstContact(message, "whatsapp");
+  it.each(["asdfg", "🔥🔥🔥", "ayuda por favor", "necesito hablar con alguien"])("%j gets the menu, without the welcome", (message) => {
+    const result = handleFirstContact(message, "whatsapp");
 
-      expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
-      expect(firstListTitle(result)).toContain("Agendar una cita médica");
-      expect(result.session).toEqual({ state: "main_menu", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: message }, counters: {} });
-    },
-  );
+    expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
+    expect(firstListTitle(result)).toContain("Agendar una cita médica");
+    expect(result.session).toEqual({ state: "main_menu", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: message }, counters: {} });
+  });
 });
 
 describe("first contact: the web (sandbox/widget) channel", () => {

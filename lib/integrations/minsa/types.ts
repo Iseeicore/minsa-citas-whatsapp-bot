@@ -1,12 +1,14 @@
+import type { BookingStatus } from "@/lib/enums/booking-status";
+import type { ReferenceStatus } from "@/lib/enums/reference-status";
+import type { ValidateUserStatus } from "@/lib/enums/validate-user-status";
+import type { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
+import type { CatalogStatus } from "@/lib/enums/catalog-status";
+
 export type ValidateUserResult =
-  | { status: "valid"; twofaId: string }
-  | { status: "not_valid" }
-  | { status: "error" };
+  { status: ValidateUserStatus.VALID; twofaId: string } | { status: ValidateUserStatus.NOT_VALID } | { status: ValidateUserStatus.ERROR };
 
 export type VerifyCodeResult =
-  | { status: "verified"; token: string }
-  | { status: "invalid" }
-  | { status: "error" };
+  { status: VerifyCodeStatus.VERIFIED; token: string } | { status: VerifyCodeStatus.INVALID } | { status: VerifyCodeStatus.ERROR };
 
 export type UbigeoItem = {
   ubigeoInei: string;
@@ -16,10 +18,10 @@ export type UbigeoItem = {
 };
 
 export type SearchUbigeoResult =
-  | { status: "found"; items: UbigeoItem[] }
-  | { status: "empty" }
-  | { status: "error" }
-  | { status: "unauthorized" };
+  | { status: CatalogStatus.FOUND; items: UbigeoItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type EspecialidadItem = {
   codigoEspecialidad: string;
@@ -28,10 +30,10 @@ export type EspecialidadItem = {
 };
 
 export type ListEspecialidadesResult =
-  | { status: "found"; items: EspecialidadItem[] }
-  | { status: "empty" }
-  | { status: "error" }
-  | { status: "unauthorized" };
+  | { status: CatalogStatus.FOUND; items: EspecialidadItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type EstablecimientoItem = {
   renipressCode: string;
@@ -40,10 +42,10 @@ export type EstablecimientoItem = {
 };
 
 export type ListEstablecimientosResult =
-  | { status: "found"; items: EstablecimientoItem[]; page?: number; totalPages?: number }
-  | { status: "empty" }
-  | { status: "error" }
-  | { status: "unauthorized" };
+  | { status: CatalogStatus.FOUND; items: EstablecimientoItem[]; page?: number; totalPages?: number }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type FechaItem = {
   fechaCupo: string;
@@ -51,10 +53,10 @@ export type FechaItem = {
 };
 
 export type ListFechasResult =
-  | { status: "found"; items: FechaItem[] }
-  | { status: "empty" }
-  | { status: "error" }
-  | { status: "unauthorized" };
+  | { status: CatalogStatus.FOUND; items: FechaItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type HoraItem = {
   horaInicio: string;
@@ -63,10 +65,10 @@ export type HoraItem = {
 };
 
 export type ListHorasResult =
-  | { status: "found"; items: HoraItem[] }
-  | { status: "empty" }
-  | { status: "error" }
-  | { status: "unauthorized" };
+  | { status: CatalogStatus.FOUND; items: HoraItem[] }
+  | { status: CatalogStatus.EMPTY }
+  | { status: CatalogStatus.ERROR }
+  | { status: CatalogStatus.UNAUTHORIZED };
 
 export type BookAppointmentParams = {
   codigoRenipress: string;
@@ -78,13 +80,12 @@ export type BookAppointmentParams = {
 };
 
 export type BookAppointmentResult =
-  | { status: "booked"; url: string; message: string }
-  | { status: "duplicate"; message: string }
-  | { status: "rejected"; message: string }
-  | { status: "error" }
-  | { status: "unauthorized" };
+  | { status: BookingStatus.BOOKED; url: string; message: string }
+  | { status: BookingStatus.DUPLICATE; message: string }
+  | { status: BookingStatus.REJECTED; message: string }
+  | { status: BookingStatus.ERROR }
+  | { status: BookingStatus.UNAUTHORIZED };
 
-/** Solo 3/5/7 llegan hasta acá: el filtro de estado ya se aplicó en listReferences. */
 export type ReferenciaItem = {
   idReferencia: string;
   numero: string;
@@ -95,12 +96,11 @@ export type ReferenciaItem = {
   upsDestino: string;
   codigoIpressDestino: string;
   codigoUpsDestino: string;
-  estado: 3 | 5 | 7;
+  estado: number;
 };
 
-/** `items` siempre es un arreglo: con elementos solo en `found`, vacío en `empty` y `error`. `message` es el del backend, si lo envió. */
 export type ListReferencesResult = {
-  status: "found" | "empty" | "error";
-  items: ReferenciaItem[];
-  message?: string;
+  statusReference: ReferenceStatus;
+  message: string;
+  data: ReferenciaItem[];
 };

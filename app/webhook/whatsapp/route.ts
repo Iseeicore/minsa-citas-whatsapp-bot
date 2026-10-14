@@ -5,6 +5,7 @@ import { processValue } from "@/lib/whatsapp/webhook/process";
 import { logger } from "@/lib/observability/logger";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { parseJsonOr } from "@/lib/utils/safe-json";
 
 export const runtime = "nodejs";
 
@@ -23,7 +24,6 @@ export async function GET(request: NextRequest) {
   return new NextResponse("Forbidden", { status: 403 });
 }
 
-/** Valida la firma HMAC-SHA256 de Meta (x-hub-signature-256) con comparación de tiempo constante. */
 function isValidSignature(rawBody: string, signatureHeader: string | null): boolean {
   if (!signatureHeader) return false;
 
@@ -42,7 +42,6 @@ function isValidSignature(rawBody: string, signatureHeader: string | null): bool
   return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 }
 
-/** Responde 200 a Meta de inmediato y procesa en segundo plano (after): una respuesta lenta hace que Meta reintente el mismo mensaje. */
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
@@ -51,12 +50,9 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  let payload: WhatsAppWebhookPayload;
-  try {
-    payload = JSON.parse(rawBody) as WhatsAppWebhookPayload;
-  } catch {
-    return apiError(ApiErrorCode.INVALID_BODY);
-  }
+  const parsed = parseJsonOr(rawBody, undefined);
+  if (parsed === undefined) return apiError(ApiErrorCode.INVALID_BODY);
+  const payload = parsed as WhatsAppWebhookPayload;
 
   after(async () => {
     for (const entry of payload.entry ?? []) {

@@ -1,26 +1,11 @@
 import { ChatIconName } from "@/lib/enums/chat-icon-name";
 import { ChatTokenKind } from "@/lib/enums/chat-token-kind";
+import { CHAT_FORMAT_MARK, PARAGRAPH_BREAK } from "@/lib/constants/regex/chat-format";
 
 export type ChatToken =
   | { kind: ChatTokenKind.TEXT | ChatTokenKind.BOLD | ChatTokenKind.ITALIC; value: string }
   | { kind: ChatTokenKind.ICON; icon: ChatIconName };
 
-const BOLD_SPAN = /\*([^\s*](?:[^*\n]*[^\s*])?)\*/u;
-const ITALIC_SPAN = /(?<![\p{L}\p{N}_])_([^\s_](?:[^_\n]*[^\s_])?)_(?![\p{L}\p{N}_])/u;
-const PERU_FLAG_EMOJI = /(\u{1F1F5}\u{1F1EA})/u;
-const WARNING_EMOJI = /(\u26A0\uFE0F?)/u;
-
-export const CHAT_FORMAT_MARK = new RegExp(
-  [BOLD_SPAN, ITALIC_SPAN, PERU_FLAG_EMOJI, WARNING_EMOJI].map((mark) => mark.source).join("|"),
-  "gu",
-);
-
-const PARAGRAPH_BREAK = /\n{2,}/;
-
-/**
- * Convierte el texto que el bot escribe para WhatsApp (*negrita*, _cursiva_ y emojis sin glifo en Windows)
- * en fichas que la vista dibuja con etiquetas HTML e iconos propios.
- */
 export function tokenizeChatText(text: string): ChatToken[] {
   const tokens: ChatToken[] = [];
   let cursor = 0;

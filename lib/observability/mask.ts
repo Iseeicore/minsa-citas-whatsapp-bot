@@ -1,8 +1,18 @@
 import { SlotKey } from "@/lib/enums/slot-key";
-import { ALL_WHITESPACE_RUNS } from "@/lib/fsm/parsing/text/text-patterns";
+import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
+import {
+  ALREADY_MASKED_DNI,
+  BEARER_CREDENTIAL,
+  DNI_KEY,
+  JWT,
+  LONG_DIGIT_RUN,
+  NEVER_PREVIEW_STATE,
+  NON_DIGIT,
+  SENSITIVE_KEY,
+  URL_WITH_QUERY_STRING,
+} from "@/lib/constants/regex/observability";
+import { isString } from "@/lib/utils/type-guards";
 
-const SENSITIVE_KEY = /bearer|token|authorization|secret|password|api[_-]?key|twofa|otp|code$/i;
-const DNI_KEY = /dni|documento/i;
 const LENGTH_ONLY_KEYS = new Set<string>([
   SlotKey.CITA_OFFERED,
   SlotKey.CITA_OFFERED_NAMES,
@@ -17,20 +27,12 @@ const MAX_ITEMS = 20;
 
 export const tail = (value: string): string => `...${value.slice(-4)}`;
 
-const ALREADY_MASKED_DNI = /^\*{4}\d{0,4}$/;
-const NON_DIGIT = /\D/g;
-const URL_WITH_QUERY_STRING = /(https?:\/\/[^\s?#]+)\?[^\s#]*/gi;
-const BEARER_CREDENTIAL = /Bearer\s+[A-Za-z0-9._~+/=-]+/gi;
-const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
-const LONG_DIGIT_RUN = /\d{7,}/g;
-
 export function maskDni(value: string): string {
   if (ALREADY_MASKED_DNI.test(value)) return value;
   const digits = value.replace(NON_DIGIT, "");
   return digits.length > 4 ? `****${digits.slice(-4)}` : "****";
 }
 
-/** Oculta query strings de URLs, series de 7+ dígitos (DNI, teléfono, OTP), cabeceras Bearer y JWT en cualquier texto. */
 export function redactString(value: string): string {
   return value
     .replace(URL_WITH_QUERY_STRING, "$1?[redacted]")
@@ -43,9 +45,9 @@ export function sanitizeValue(key: string, value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
   if (SENSITIVE_KEY.test(key)) return "[redacted]";
   if (LENGTH_ONLY_KEYS.has(key)) return { length: String(value).length };
-  if (DNI_KEY.test(key) && (typeof value === "string" || typeof value === "number")) return maskDni(String(value));
+  if (DNI_KEY.test(key) && (isString(value) || typeof value === "number")) return maskDni(String(value));
 
-  if (typeof value === "string") {
+  if (isString(value)) {
     const clean = redactString(value);
     return clean.length > MAX_STRING ? `${clean.slice(0, MAX_STRING)}…` : clean;
   }
@@ -55,9 +57,7 @@ export function sanitizeValue(key: string, value: unknown, depth = 0): unknown {
 
   if (Array.isArray(value)) return value.slice(0, MAX_ITEMS).map((item) => sanitizeValue(key, item, depth + 1));
   if (typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitizeValue(k, v, depth + 1)]),
-    );
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, sanitizeValue(k, v, depth + 1)]));
   }
   return String(value);
 }
@@ -66,7 +66,6 @@ export function sanitizeSlots(slots: Record<string, unknown>): Record<string, un
   return Object.fromEntries(Object.entries(slots).map(([key, value]) => [key, sanitizeValue(key, value)]));
 }
 
-const NEVER_PREVIEW_STATE = /^(cita_awaiting_(dni|otp)|incidencia_)/;
 const PREVIEW_CHARS = 40;
 
 export function previewInput(state: string, text: string | undefined): Record<string, unknown> {

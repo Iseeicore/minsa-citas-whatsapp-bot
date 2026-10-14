@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TipoDocumento } from "@/lib/enums/tipo-documento";
-import {
-  isValidDniFormat,
-  isValidDocumentoFormat,
-  isValidOtpFormat,
-  tipoDocumentoDe,
-} from "@/lib/fsm/parsing/text/identity-format";
+import { isValidDniFormat, isValidDocumentoFormat, isValidOtpFormat, tipoDocumentoDe } from "@/lib/fsm/parsing/text/identity-format";
 
 describe("isValidDocumentoFormat", () => {
   it.each(["12345678", "123456789", " 12345678 ", " 123456789 "])("accepts %j (8 digits DNI or 9 digits carnet, trimmed)", (value) => {

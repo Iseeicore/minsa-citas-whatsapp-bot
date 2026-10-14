@@ -65,7 +65,13 @@ describe("processValue: cambios de identificador de Meta", () => {
   it("un mensaje de sistema no pasa por el perímetro ni se responde; el de texto sigue igual", async () => {
     await processValue({
       messages: [
-        { id: "s1", from_user_id: "PE.2", timestamp: "1700000000", type: "system", system: { type: "user_changed_user_id", user_id: "PE.2" } },
+        {
+          id: "s1",
+          from_user_id: "PE.2",
+          timestamp: "1700000000",
+          type: "system",
+          system: { type: "user_changed_user_id", user_id: "PE.2" },
+        },
         { id: "m1", from_user_id: "PE.2", timestamp: "1700000001", type: "text", text: { body: "hola" } },
       ],
     } as unknown as Value);

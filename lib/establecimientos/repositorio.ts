@@ -4,36 +4,37 @@ import { prisma } from "@/lib/db/prisma";
 import { MIN_SIMILITUD, MIN_SIMILITUD_PALABRA, type Candidato, type Establecimiento } from "@/lib/establecimientos/decidir";
 import { variantesConsulta } from "@/lib/establecimientos/consulta";
 import { logger } from "@/lib/observability/logger";
+import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-status";
+import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 
 export type ResultadoPorCodigo =
-  | { status: "found"; establecimiento: Establecimiento }
-  | { status: "not_found" }
-  | { status: "unavailable" };
+  | { status: EstablecimientoSearchStatus.FOUND; establecimiento: Establecimiento }
+  | { status: EstablecimientoSearchStatus.NOT_FOUND }
+  | { status: EstablecimientoSearchStatus.UNAVAILABLE };
 
-export type ResultadoPorNombre = { status: "ok"; candidatos: Candidato[] } | { status: "unavailable" };
+export type ResultadoPorNombre =
+  { status: EstablecimientoSearchStatus.OK; candidatos: Candidato[] } | { status: EstablecimientoSearchStatus.UNAVAILABLE };
 
 const DEFAULT_LIMIT = 8;
 
-/** Busca un establecimiento activo por su código RENIPRESS (ya sin ceros). Si la base no responde, devuelve unavailable en vez de lanzar. */
 export async function buscarPorCodigo(codigoRenipress: string): Promise<ResultadoPorCodigo> {
-  if (!isDatabaseEnabled()) return { status: "unavailable" };
+  if (!isDatabaseEnabled()) return { status: EstablecimientoSearchStatus.UNAVAILABLE };
   try {
     const fila = await prisma.establecimientoSalud.findFirst({
       where: { codigoRenipress, activo: true },
       select: { id: true, areaId: true, codigoRenipress: true, nombre: true, distrito: true },
     });
-    return fila ? { status: "found", establecimiento: fila } : { status: "not_found" };
+    return fila ? { status: EstablecimientoSearchStatus.FOUND, establecimiento: fila } : { status: EstablecimientoSearchStatus.NOT_FOUND };
   } catch (error) {
-    logger.error("incidencia.establecimiento_lookup_failed", { by: "codigo", error });
-    return { status: "unavailable" };
+    logger.error("incidencia.establecimiento_lookup_failed", { by: EstablecimientoSearchBy.CODIGO, error });
+    return { status: EstablecimientoSearchStatus.UNAVAILABLE };
   }
 }
 
-/** Busca por parecido de nombre (pg_trgm sobre nombre_busqueda) con el texto tal cual y con los sinónimos del padrón; toma la mejor de las dos. Trae solo los que pasan el umbral. */
 export async function buscarPorNombre(texto: string, limite: number = DEFAULT_LIMIT): Promise<ResultadoPorNombre> {
-  if (!isDatabaseEnabled()) return { status: "unavailable" };
+  if (!isDatabaseEnabled()) return { status: EstablecimientoSearchStatus.UNAVAILABLE };
   const [original, expandida] = variantesConsulta(texto);
-  if (original === "") return { status: "ok", candidatos: [] };
+  if (original === "") return { status: EstablecimientoSearchStatus.OK, candidatos: [] };
   try {
     const filas = await prisma.$queryRaw<Candidato[]>(Prisma.sql`
       SELECT s.id, s."areaId", s."codigoRenipress", s.nombre, s.distrito, s."similitud", s."similitudPalabra"
@@ -45,9 +46,9 @@ export async function buscarPorNombre(texto: string, limite: number = DEFAULT_LI
        WHERE s."similitud" >= ${MIN_SIMILITUD} OR s."similitudPalabra" >= ${MIN_SIMILITUD_PALABRA}
        ORDER BY s."similitud" DESC, s."similitudPalabra" DESC
        LIMIT ${limite}`);
-    return { status: "ok", candidatos: filas };
+    return { status: EstablecimientoSearchStatus.OK, candidatos: filas };
   } catch (error) {
-    logger.error("incidencia.establecimiento_lookup_failed", { by: "nombre", error });
-    return { status: "unavailable" };
+    logger.error("incidencia.establecimiento_lookup_failed", { by: EstablecimientoSearchBy.NOMBRE, error });
+    return { status: EstablecimientoSearchStatus.UNAVAILABLE };
   }
 }

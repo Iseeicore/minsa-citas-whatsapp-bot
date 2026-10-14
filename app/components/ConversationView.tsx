@@ -17,6 +17,7 @@ import { Badge } from "@/app/components/ui/Badge";
 import { Banner } from "@/app/components/ui/Banner";
 import { Button } from "@/app/components/ui/Button";
 import { TextInput } from "@/app/components/ui/TextInput";
+import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
 import { BannerTone } from "@/lib/enums/banner-tone";
@@ -173,16 +174,18 @@ export default function ConversationView({
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`mb-2 flex ${
-              message.direction === MessageDirection.OUTBOUND ? "justify-end" : "justify-start"
-            }`}
+            className={cn(
+              "mb-2 flex",
+              message.direction === MessageDirection.OUTBOUND ? "justify-end" : "justify-start",
+            )}
           >
             <div
-              className={`max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${
+              className={cn(
+                "max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm",
                 message.direction === MessageDirection.OUTBOUND
                   ? "rounded-tr-none bg-wa-bubble-out text-gray-900"
-                  : "rounded-tl-none bg-wa-bubble-in text-gray-900"
-              }`}
+                  : "rounded-tl-none bg-wa-bubble-in text-gray-900",
+              )}
             >
               <div className="whitespace-pre-wrap break-words">
                 {message.content ?? `[${message.type}]`}
@@ -200,11 +203,7 @@ export default function ConversationView({
       </div>
 
       {countdown && (
-        <div
-          className={`px-4 pt-1.5 text-xs ${
-            countdown.warning ? "text-amber-600" : "text-gray-500"
-          }`}
-        >
+        <div className={cn("px-4 pt-1.5 text-xs", countdown.warning ? "text-amber-600" : "text-gray-500")}>
           {countdown.label}
         </div>
       )}

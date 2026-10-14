@@ -91,14 +91,19 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
   it("returns the messages with the legacy names, and the 24 h window from the last inbound one", async () => {
     const reciente = new Date(Date.now() - 60 * 60 * 1000);
     db.usuarioFindUnique.mockResolvedValueOnce({ estadoConversacionId: 1 });
-    db.mensajeFindMany.mockResolvedValueOnce([mensaje({ direccionMensajeId: 2, tipoMensajeId: 2, mediaId: "media-9", estadoMensajeId: 4 })]);
+    db.mensajeFindMany.mockResolvedValueOnce([
+      mensaje({ direccionMensajeId: 2, tipoMensajeId: 2, mediaId: "media-9", estadoMensajeId: 4 }),
+    ]);
     db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: reciente }));
 
     const response = await listMessages(new NextRequest("http://localhost/api"), params("u-1"));
     const body = await response.json();
 
     expect(db.mensajeFindMany).toHaveBeenCalledWith({ where: { usuarioId: "u-1" }, orderBy: { fechaHora: "asc" } });
-    expect(db.mensajeFindFirst).toHaveBeenCalledWith({ where: { usuarioId: "u-1", direccionMensajeId: 1 }, orderBy: { fechaHora: "desc" } });
+    expect(db.mensajeFindFirst).toHaveBeenCalledWith({
+      where: { usuarioId: "u-1", direccionMensajeId: 1 },
+      orderBy: { fechaHora: "desc" },
+    });
     expect(body.status).toBe("OPEN");
     expect(body.windowOpen).toBe(true);
     expect(body.windowExpiresAt).toBe(new Date(reciente.getTime() + 24 * 60 * 60 * 1000).toISOString());
@@ -148,13 +153,23 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
     db.usuarioFindUnique.mockResolvedValueOnce(usuario());
     db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date() }));
     db.mensajeCreate.mockResolvedValueOnce(mensaje({ direccionMensajeId: 2, waMessageId: "wamid.out" }));
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 })),
+    );
 
     const response = await sendMessage(post({ conversationId: "u-1", text: "hola" }));
 
     expect(response.status).toBe(201);
     expect(db.mensajeCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ usuarioId: "u-1", direccionMensajeId: 2, tipoMensajeId: 1, contenido: "hola", estadoMensajeId: 2, waMessageId: "wamid.out" }),
+      data: expect.objectContaining({
+        usuarioId: "u-1",
+        direccionMensajeId: 2,
+        tipoMensajeId: 1,
+        contenido: "hola",
+        estadoMensajeId: 2,
+        waMessageId: "wamid.out",
+      }),
     });
     expect(db.executeRaw.mock.calls.map((call) => call[1])).toEqual(["operador:bandeja"]);
     expect(await response.json()).toMatchObject({ conversationId: "u-1", direction: "OUTBOUND", type: "TEXT", status: "SENT" });

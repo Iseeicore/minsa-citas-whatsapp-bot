@@ -37,15 +37,21 @@ describe("parseInicioIncidencia: message of the QR (with the CODIGO-IPRESS label
   });
 
   it("accepts accents in the label and keeps them in the name", () => {
-    expect(parseInicioIncidencia("Hola quiero presentar una incidencia CENTRO DE ATENCIÓN DEL ADULTO MAYOR - CÓDIGO-IPRESS 15544")).toEqual({
-      origen: "qr",
-      codigoRenipress: "15544",
-      nombre: "CENTRO DE ATENCIÓN DEL ADULTO MAYOR",
-    });
+    expect(parseInicioIncidencia("Hola quiero presentar una incidencia CENTRO DE ATENCIÓN DEL ADULTO MAYOR - CÓDIGO-IPRESS 15544")).toEqual(
+      {
+        origen: "qr",
+        codigoRenipress: "15544",
+        nombre: "CENTRO DE ATENCIÓN DEL ADULTO MAYOR",
+      },
+    );
   });
 
   it("cuts at the CODIGO-IPRESS label, not at a hyphen inside the name", () => {
-    expect(parseInicioIncidencia(qr("C.S. VILLA - NORTE", "5862"))).toEqual({ origen: "qr", codigoRenipress: "5862", nombre: "C.S. VILLA - NORTE" });
+    expect(parseInicioIncidencia(qr("C.S. VILLA - NORTE", "5862"))).toEqual({
+      origen: "qr",
+      codigoRenipress: "5862",
+      nombre: "C.S. VILLA - NORTE",
+    });
   });
 
   it.each(["PENDIENTE-1", "62O6", "0", "000", "123456789", "-5"])("a code that is not valid (%j) leaves only the name", (codigo) => {
@@ -53,11 +59,18 @@ describe("parseInicioIncidencia: message of the QR (with the CODIGO-IPRESS label
   });
 
   it("without a name it still returns the code", () => {
-    expect(parseInicioIncidencia("Hola quiero presentar una incidencia CODIGO-IPRESS 6206")).toEqual({ origen: "qr", codigoRenipress: "6206" });
+    expect(parseInicioIncidencia("Hola quiero presentar una incidencia CODIGO-IPRESS 6206")).toEqual({
+      origen: "qr",
+      codigoRenipress: "6206",
+    });
   });
 
   it("keeps what the person adds after the code, as written, and still reads the QR", () => {
-    expect(parseInicioIncidencia("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206 me cobraron sin recibo en admisión")).toEqual({
+    expect(
+      parseInicioIncidencia(
+        "Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206 me cobraron sin recibo en admisión",
+      ),
+    ).toEqual({
       origen: "qr",
       codigoRenipress: "6206",
       nombre: "HOSPITAL NACIONAL DOS DE MAYO",
@@ -72,18 +85,32 @@ describe("parseInicioIncidencia: message of the QR (with the CODIGO-IPRESS label
   });
 
   it("a final sign is not an added text", () => {
-    expect(parseInicioIncidencia(`${qr("POSTA MEDICA", "5862")}.`)).toEqual({ origen: "qr", codigoRenipress: "5862", nombre: "POSTA MEDICA" });
+    expect(parseInicioIncidencia(`${qr("POSTA MEDICA", "5862")}.`)).toEqual({
+      origen: "qr",
+      codigoRenipress: "5862",
+      nombre: "POSTA MEDICA",
+    });
   });
 
-  it.each(["Hola, quiero presentar una incidencia", "Buenas tardes quiero presentar una incidencia", "quiero presentar una incidencia", "Hola quiero reportar una incidencia"])(
-    "does not depend on how the person greets (%j)",
-    (prefix) => {
-      expect(parseInicioIncidencia(`${prefix} POSTA MEDICA - CODIGO-IPRESS 5862`)).toEqual({ origen: "qr", codigoRenipress: "5862", nombre: "POSTA MEDICA" });
-    },
-  );
+  it.each([
+    "Hola, quiero presentar una incidencia",
+    "Buenas tardes quiero presentar una incidencia",
+    "quiero presentar una incidencia",
+    "Hola quiero reportar una incidencia",
+  ])("does not depend on how the person greets (%j)", (prefix) => {
+    expect(parseInicioIncidencia(`${prefix} POSTA MEDICA - CODIGO-IPRESS 5862`)).toEqual({
+      origen: "qr",
+      codigoRenipress: "5862",
+      nombre: "POSTA MEDICA",
+    });
+  });
 
   it("never joins a code with letters stuck to it (6206me is not 6206)", () => {
-    expect(parseInicioIncidencia(qr("POSTA MEDICA", "6206me cobraron"))).toEqual({ origen: "qr", nombre: "POSTA MEDICA", resto: "cobraron" });
+    expect(parseInicioIncidencia(qr("POSTA MEDICA", "6206me cobraron"))).toEqual({
+      origen: "qr",
+      nombre: "POSTA MEDICA",
+      resto: "cobraron",
+    });
     expect(parseInicioIncidencia(qr("POSTA MEDICA", "62O6"))).toEqual({ origen: "qr", nombre: "POSTA MEDICA" });
   });
 
@@ -158,10 +185,14 @@ describe("parseInicioIncidencia: only the name, without the code", () => {
     });
   });
 
-  it.each(["", "Hola", "quiero hacer un reclamo", "Quiero una cita - CODIGO-IPRESS 6206", "HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206", "tengo algo que reportar"])(
-    "%j does not start an incidencia by this parser",
-    (text) => {
-      expect(parseInicioIncidencia(text)).toBeNull();
-    },
-  );
+  it.each([
+    "",
+    "Hola",
+    "quiero hacer un reclamo",
+    "Quiero una cita - CODIGO-IPRESS 6206",
+    "HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206",
+    "tengo algo que reportar",
+  ])("%j does not start an incidencia by this parser", (text) => {
+    expect(parseInicioIncidencia(text)).toBeNull();
+  });
 });

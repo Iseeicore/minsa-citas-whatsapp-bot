@@ -16,6 +16,10 @@ import type {
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { FALLBACK_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, LIST_PAGE_NEXT_BUTTON_TEXT, listPageSummaryText } from "@/lib/constants/textos/comunes";
+import { AFFIRMATIVE_REPLIES } from "@/lib/constants/palabras-clave";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
@@ -39,6 +43,18 @@ export function readReply(event: InboundEvent): string | undefined {
   return event.listId ?? event.text;
 }
 
+export function readTappedId(event: InboundEvent): string | undefined {
+  return event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
+}
+
+export function readTypedText(event: InboundEvent): string {
+  return event.type === InboundEventType.TEXT ? (event.text ?? "") : "";
+}
+
+export function readTrimmedText(event: InboundEvent): string {
+  return (event.text ?? "").trim();
+}
+
 export function cloneSession(session: Session): Session {
   return {
     state: session.state,
@@ -51,14 +67,10 @@ export function sendText(text: string): SendEffect {
   return { kind: SendType.TEXT, text };
 }
 
-/** Antepone un texto a los effects de un resultado ya construido, sin tocar su estado ni el resto de los effects. */
 export function withLeadingText(result: HandlerResult, text: string): HandlerResult {
   return { ...result, effects: [sendText(text), ...result.effects] };
 }
 
-export const FALLBACK_TEXT = "No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.";
-
-/** Antepone un aviso de "no entendimos tu respuesta" a un resultado que vuelve a preguntar lo mismo. */
 export function withRejectionNotice(result: HandlerResult, text: string = FALLBACK_TEXT): HandlerResult {
   return withLeadingText(result, text);
 }
@@ -87,10 +99,7 @@ export function withNote(result: HandlerResult, note: TurnNote): HandlerResult {
   return { ...result, notes: [...(result.notes ?? []), note] };
 }
 
-export function buildResult(
-  session: Session,
-  effects: (SendEffect | QueryEffect)[],
-): HandlerResult {
+export function buildResult(session: Session, effects: (SendEffect | QueryEffect)[]): HandlerResult {
   const outcome: HandlerOutcome = effects.some(isQueryEffect)
     ? HandlerOutcome.AWAITING_QUERY
     : TERMINAL_STATES.has(session.state)
@@ -110,22 +119,14 @@ export function omitSlot(slots: Session["slots"], name: SlotKey): Session["slots
   return Object.fromEntries(Object.entries(slots).filter(([key]) => key !== name));
 }
 
-export const WHATSAPP_ROW_TITLE_MAX = 24;
-export const WHATSAPP_ROW_DESCRIPTION_MAX = 72;
-export const WHATSAPP_LIST_MAX_ROWS = 10;
-
 export function truncateForRow(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
-/** WhatsApp rechaza la lista completa si una fila supera 24 caracteres de título, 72 de descripción o hay más de 10 filas. */
 export function offerList(next: Session, text: string, rows: ListRow[]): SendEffect {
   next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows });
   return sendList(text, rows);
 }
-
-export const LIST_PAGE_NEXT_ID = ListPageButtonId.NEXT;
-export const LIST_PAGE_PREV_ID = ListPageButtonId.PREV;
 
 export function pageCount(rowCount: number): number {
   return Math.max(1, Math.ceil(rowCount / WHATSAPP_LIST_MAX_ROWS));
@@ -138,39 +139,17 @@ export function pageEffects(text: string, rows: ListRow[], page: number): SendEf
   const start = current * WHATSAPP_LIST_MAX_ROWS;
   const visible = rows.slice(start, start + WHATSAPP_LIST_MAX_ROWS);
   const buttons: ButtonOption[] = [];
-  if (current > 0) buttons.push({ id: LIST_PAGE_PREV_ID, title: "Anteriores" });
-  if (start + visible.length < rows.length) buttons.push({ id: LIST_PAGE_NEXT_ID, title: "Ver más opciones" });
+  if (current > 0) buttons.push({ id: ListPageButtonId.PREV, title: LIST_PAGE_PREV_BUTTON_TEXT });
+  if (start + visible.length < rows.length) buttons.push({ id: ListPageButtonId.NEXT, title: LIST_PAGE_NEXT_BUTTON_TEXT });
 
-  return [
-    sendList(text, visible),
-    sendButtons(`Mostrando ${start + 1} a ${start + visible.length} de ${rows.length} opciones.`, buttons),
-  ];
+  return [sendList(text, visible), sendButtons(listPageSummaryText(start + 1, start + visible.length, rows.length), buttons)];
 }
 
-/** Guarda la lista completa (para reconocer cualquier fila escrita) y muestra solo la página actual de 10 filas. */
 export function offerPagedList(next: Session, text: string, rows: ListRow[]): SendEffect[] {
   next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows });
   delete next.counters[CounterKey.CITA_LIST_PAGE];
   return pageEffects(text, rows, 0);
 }
-
-const AFFIRMATIVE_REPLIES = new Set([
-  "si",
-  "sí",
-  "s",
-  "yes",
-  "y",
-  "ese",
-  "esa",
-  "eso",
-  "correcto",
-  "exacto",
-  "confirmo",
-  "afirmativo",
-  "claro",
-  "asi es",
-  "así es",
-]);
 
 export function isAffirmativeReply(text: string): boolean {
   return AFFIRMATIVE_REPLIES.has(text.trim().toLowerCase());

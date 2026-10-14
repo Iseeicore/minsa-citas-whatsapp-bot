@@ -1,4 +1,3 @@
 try {
   process.loadEnvFile(".env");
-} catch {
-}
+} catch {}

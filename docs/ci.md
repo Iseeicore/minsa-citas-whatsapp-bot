@@ -10,8 +10,9 @@ Un solo job, `types, lint and tests`, en Ubuntu con Node 22:
 2. `npx next typegen`: Next genera los tipos globales de rutas (`LayoutProps`, `PageProps`…) y en un checkout limpio no existen hasta que esto corre.
 3. `npx tsc --noEmit`
 4. `npx eslint lib app tests`
-5. `npx vitest run`
-6. `npx vitest run --config vitest.perf.config.ts`: las pruebas de rendimiento (latencia P99, crecimiento del heap, ReDoS) corren solas, después de la suite principal. En paralelo con los demás archivos compiten por CPU y sus límites de tiempo fallan sin que haya un problema real.
+5. `npm run format:check`: Prettier verifica el formato sin modificar archivos (`.prettierignore` define qué se revisa).
+6. `npx vitest run`
+7. `npx vitest run --config vitest.perf.config.ts`: las pruebas de rendimiento (latencia P99, crecimiento del heap, ReDoS) corren solas, después de la suite principal. En paralelo con los demás archivos compiten por CPU y sus límites de tiempo fallan sin que haya un problema real.
 
 Un segundo job, `database (migrations, SQL rules and smoke)`, levanta PostgreSQL 18 como servicio y comprueba la base: `npm run db:test` (arma una base desechable **solo con las migraciones** y corre `prisma/tests/*.sql`), después aplica las migraciones y corre las pruebas de humo (`npm run smoke:postgres`). Es un check aparte: **no forma parte del ruleset de `main` hasta que se agregue a mano**.
 
@@ -20,7 +21,7 @@ El primer job no necesita secretos: las pruebas usan almacenes en memoria y adap
 ## Correrlo en local
 
 ```bash
-npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npx vitest run && npm run test:perf
+npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npm run format:check && npx vitest run && npm run test:perf
 ```
 
 ## Regla de la rama `main`

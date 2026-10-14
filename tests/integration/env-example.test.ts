@@ -29,7 +29,9 @@ const MINIMUM = [
   "DATABASE_ENABLED",
 ];
 
-const allLines = read(".env.example").split(/\r?\n/).filter((line) => line.trim() !== "");
+const allLines = read(".env.example")
+  .split(/\r?\n/)
+  .filter((line) => line.trim() !== "");
 const exampleLines = allLines.filter((line) => !SECTION_TITLE.test(line));
 const exampleNames = exampleLines.map((line) => line.split("=")[0]);
 

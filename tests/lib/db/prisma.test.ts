@@ -40,8 +40,10 @@ describe("the lazy Prisma client", () => {
   it("refuses to be used, without ever connecting, when DATABASE_ENABLED=false", async () => {
     vi.stubEnv("DATABASE_ENABLED", "false");
     const { prisma } = await import("@/lib/db/prisma");
+    const { DatabaseDisabledError } = await import("@/lib/errors/database-disabled-error");
 
     expect(() => prisma.usuario).toThrow(/DATABASE_ENABLED=false/);
+    expect(() => prisma.usuario).toThrow(DatabaseDisabledError);
     expect(constructed).toEqual({ client: 0 });
   });
 });

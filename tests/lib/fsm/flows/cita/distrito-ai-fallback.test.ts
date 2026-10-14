@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleDistritoAiPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
-import { UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/fsm/parsing/text/gibberish";
-import { DISTRITO_MANUAL_FALLBACK_TEXT } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { DISTRITO_MANUAL_FALLBACK_TEXT, UNRECOGNIZED_DISTRITO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 
 beforeEach(() => {
   vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
@@ -23,13 +23,12 @@ const pending = (counters: Session["counters"] = {}): Session => ({
 
 const aiResult = (result: unknown): QueryResultEvent => ({
   from: "wa-1",
-  type: "query_result",
+  type: InternalEventType.QUERY_RESULT,
   queryKind: "resolve_distrito_ai",
   result,
 });
 
-const sent = (result: HandlerResult): SendEffect[] =>
-  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const lima = { departamento: "Lima", provincia: "Lima", distrito: "Comas" };
 const cusco = { departamento: "Cusco", provincia: "Cusco", distrito: "Cusco" };

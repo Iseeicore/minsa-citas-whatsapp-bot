@@ -1,6 +1,7 @@
 import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { EXIT_INTENT_RULE, PROMPT_GUARDRAILS } from "@/lib/fsm/parsing/ai/guardrails";
+import { SELECTION_HINTS_SYSTEM_PROMPT } from "@/lib/constants/prompts/selection-hints";
+import { stringOrUndefined } from "@/lib/utils/text-values";
 
 export type SelectionHintsResult = {
   especialidad?: string;
@@ -8,28 +9,6 @@ export type SelectionHintsResult = {
   quiereSalir?: true;
   quiereCambiarDistrito?: true;
 };
-
-const SELECTION_HINTS_SYSTEM_PROMPT = `# SYSTEM PROMPT: Extractor de pistas — Canal MINSA
-
-## 1. TAREA
-Recibirás un mensaje de un ciudadano que está agendando una cita médica. Extrae, si aparecen en el texto:
-- "especialidad": la especialidad médica que menciona, normalizada a su nombre oficial en singular y sin abreviaturas (ej. "muelas" => "Odontología"; "pediátrico" => "Pediatría"; "para mi corazón" => "Cardiología").
-- "establecimiento": el nombre del establecimiento de salud (hospital, centro de salud, posta, clínica) tal como lo escribió, sin corregir ni completar.
-No valides ni inventes: si un dato no está claramente en el texto, devuélvelo como null.
-
-## 2. ALCANCE
-Solo extraes esos dos datos. Tu valor "sin resultado" es ambos como null.
-
-${PROMPT_GUARDRAILS}
-
-${EXIT_INTENT_RULE}
-
-## INTENCIÓN DE CAMBIAR DE DISTRITO
-Indica en "quiere_cambiar_distrito" si el ciudadano expresa que ya no quiere esa ubicación y desea buscar en otro distrito (ej. "mejor en otro lado", "esa zona me queda lejos", "me equivoqué de distrito"). En cualquier otro caso devuelve false.
-
-## 3. FORMATO DE RESPUESTA
-Responde SIEMPRE únicamente con un objeto JSON, sin markdown ni texto adicional:
-{ "especialidad": "<texto o null>", "establecimiento": "<texto o null>", "detalle": "Explicación breve.", "quiere_salir": false, "quiere_cambiar_distrito": false }`;
 
 export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
@@ -67,8 +46,8 @@ export async function extractSelectionHints(
         quiere_cambiar_distrito?: unknown;
       };
       const hints: SelectionHintsResult = {
-        especialidad: typeof parsed.especialidad === "string" ? parsed.especialidad : undefined,
-        establecimiento: typeof parsed.establecimiento === "string" ? parsed.establecimiento : undefined,
+        especialidad: stringOrUndefined(parsed.especialidad),
+        establecimiento: stringOrUndefined(parsed.establecimiento),
       };
       if (parsed.quiere_salir === true) return { ...hints, quiereSalir: true };
       return parsed.quiere_cambiar_distrito === true ? { ...hints, quiereCambiarDistrito: true } : hints;

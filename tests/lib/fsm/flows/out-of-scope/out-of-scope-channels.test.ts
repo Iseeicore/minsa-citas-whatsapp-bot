@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { GOLDEN_OOS_MESSAGES } from "@/tests/support/oos-golden";
-import { CHANNELS } from "@/lib/fsm/flows/out-of-scope/out-of-scope-channels";
-import { OOS_MESSAGES } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
+import { CHANNELS } from "@/lib/constants/textos/canales-oficiales";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const channelValues = Object.values(CHANNELS);
 const allTexts = Object.values(OOS_MESSAGES);
@@ -17,7 +17,10 @@ describe("the fixed texts are exactly the ones approved", () => {
 describe("the channels file is the single source of every contact", () => {
   it("every channel is used by at least one text (no dead entry)", () => {
     for (const [name, value] of Object.entries(CHANNELS)) {
-      expect(allTexts.some((text) => text.includes(value)), name).toBe(true);
+      expect(
+        allTexts.some((text) => text.includes(value)),
+        name,
+      ).toBe(true);
     }
   });
 
@@ -37,11 +40,11 @@ describe("the channels file is the single source of every contact", () => {
 
   it("the messages file never writes a channel by hand: it only reads it from CHANNELS", () => {
     const source = fs
-      .readFileSync(path.join(process.cwd(), "lib", "fsm", "flows", "out-of-scope", "out-of-scope-messages.ts"), "utf8")
+      .readFileSync(path.join(process.cwd(), "lib", "constants", "textos", "fuera-de-alcance.ts"), "utf8")
       .replace(/\$\{CHANNELS\.\w+\}/g, "");
 
     for (const [name, value] of Object.entries(CHANNELS)) {
-      expect(source.includes(value), `«${value}» (${name}) is written by hand in out-of-scope-messages.ts`).toBe(false);
+      expect(source.includes(value), `«${value}» (${name}) is written by hand in fuera-de-alcance.ts`).toBe(false);
     }
   });
 

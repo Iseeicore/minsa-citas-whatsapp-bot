@@ -15,10 +15,8 @@ export type PendingSummary = {
   oldestArrivedAt: Date | null;
 };
 
-/** Puerto de la cola de entrada: hoy lo implementa Postgres; si mañana hace falta Redis solo se cambia el adaptador. */
 export type InboundBuffer = {
   summarize(usuarioId: string): Promise<PendingSummary>;
-  /** Toma de forma atómica hasta `limit` mensajes pendientes; los que no son texto solo los puede tomar su dueño. */
   claim(usuarioId: string, limit: number, ownerWaMessageId: string): Promise<PendingInbound[]>;
   discard(waMessageId: string): Promise<void>;
   wasRepeated(usuarioId: string, waMessageId: string, contenido: string, since: Date): Promise<boolean>;

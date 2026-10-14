@@ -3,7 +3,6 @@ export enum EstadoIncidenciaId {
   CLASIFICADO = 2,
   EN_GESTION = 3,
   RESUELTO = 4,
-  /** Retirado: anular una incidencia es su borrado lógico (activo = false). El id se conserva. */
   ANULADO = 5,
   DERIVADO = 6,
   ARCHIVADO = 7,

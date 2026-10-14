@@ -1,4 +1,3 @@
-/** Canales de la «Matriz de Derivación» del Excel de auditoría; pendientes de confirmar con cada institución. */
 export const CHANNELS = {
   samu: "106",
   bomberos: "116",

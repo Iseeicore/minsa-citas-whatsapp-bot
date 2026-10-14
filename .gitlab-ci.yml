@@ -1,0 +1,31 @@
+stages:          # List of stages for jobs, and their order of execution
+#  - build
+#  - test
+  - deploy
+
+image: reposdocker.minsa.gob.pe/python-lint:3.12
+variables:
+  ANSIBLE_STDOUT_CALLBACK: yaml
+  ANSIBLE_FORCE_COLOR: 'true'
+
+deploy desarrollo:
+  stage: deploy
+  image: registry.minsa.gob.pe/oidt/images/ansible:2.15
+
+  script:
+    - cd /playbooks/k8s
+    - ansible-playbook dminsadigital-bot.yml -vv
+
+  only:
+    - develop
+
+deploy calidad:
+  stage: deploy
+  image: registry.minsa.gob.pe/oidt/images/ansible:2.15
+
+  script:
+    - cd /playbooks/k8s
+    - ansible-playbook qminsadigital-bot.yml -vv
+
+  only:
+    - /^release\/.*$/

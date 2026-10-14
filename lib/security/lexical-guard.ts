@@ -1,16 +1,25 @@
+import { FUZZY_TARGETS, PROTECTED_WORDS } from "@/lib/security/lexicon";
+import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
+import { STRETCHED_CHARACTER, WHITESPACE_RUN } from "@/lib/constants/regex/text";
 import {
+  CANONICAL_INITIALS,
   CITA_TOKEN_PATTERNS,
   COMPLAINT_PHRASE_PATTERNS,
   COMPLAINT_TOKEN_PATTERNS,
-  FUZZY_TARGETS,
+  DOUBLED_CONSONANT,
+  EDGE_EXCLAMATION_MARKS,
+  EVERY_LEET_CHAR,
+  HAS_LEET_CHAR,
+  HAS_LETTER,
   HEALTH_TOKEN_PATTERNS,
   INSULT_PHRASE_PATTERNS,
   INSULT_TOKEN_PATTERNS,
-  PROTECTED_PHRASES,
-  PROTECTED_WORDS,
-} from "@/lib/security/lexicon";
-import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
-import { COMBINING_ACCENT_MARKS, STRETCHED_CHARACTER, WHITESPACE_RUN } from "@/lib/fsm/parsing/text/text-patterns";
+  NON_TOKEN_CHARS,
+  PROTECTED_PHRASE_PATTERNS,
+  SEPARATED_WORD,
+  SYMBOL_LEFT_IN_TOKEN,
+} from "@/lib/constants/regex/security";
+import { stripAccents } from "@/lib/utils/text-values";
 
 export type LexicalAction = "ALLOW" | "DROP_AND_WARN" | "CITA_WITH_WARNING" | "FORCE_INCIDENCIA";
 
@@ -21,11 +30,6 @@ export type LexicalResult = {
   hasComplaintContext: boolean;
   matchedReason?: string;
 };
-
-export const RESPECT_REMINDER_TEXT =
-  "Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto.";
-
-export const INSTITUTIONAL_WARNING_TEXT = `${RESPECT_REMINDER_TEXT} Si desea registrar una incidencia sobre un mal servicio de salud, escriba INCIDENCIA para iniciar el trámite oficial.`;
 
 const LEET_MAP: Record<string, string> = {
   "0": "o",
@@ -41,23 +45,10 @@ const LEET_MAP: Record<string, string> = {
   "!": "i",
 };
 
-const HAS_LETTER = /[a-z]/;
-const HAS_LEET_CHAR = /[01345789@$!]/;
-const NON_TOKEN_CHARS = /[^a-z0-9@$!]+/;
-const EDGE_EXCLAMATION_MARKS = /^!+|!+$/g;
-const EVERY_LEET_CHAR = /[01345789@$!]/g;
-const SYMBOL_LEFT_IN_TOKEN = /[^a-z0-9]/g;
-const DOUBLED_CONSONANT = /([b-df-hj-np-tv-z])\1+/g;
-
 const MIN_SPACED_RUN = 3;
 
 const MIN_FUZZY_TOKEN_LENGTH = 5;
 
-function stripAccents(text: string): string {
-  return text.toLowerCase().normalize("NFD").replace(COMBINING_ACCENT_MARKS, "");
-}
-
-const SEPARATED_WORD = /^[\p{L}\p{N}@$!]+(?:[.\-_*·][\p{L}\p{N}@$!]+)+[.\-_*·]*$/u;
 const MAX_JOINED_LENGTH = 40;
 
 function toPieces(normalized: string): string[] {
@@ -115,8 +106,6 @@ function finalizeToken(piece: string): string {
   return token;
 }
 
-const PROTECTED_PHRASE_PATTERNS: readonly RegExp[] = PROTECTED_PHRASES.map((phrase) => new RegExp(`\\b${phrase}\\b`, "g"));
-
 function removeProtectedPhrases(tokens: string[]): string[] {
   let joined = tokens.join(" ");
   for (const protectedPhrase of PROTECTED_PHRASE_PATTERNS) {
@@ -125,10 +114,8 @@ function removeProtectedPhrases(tokens: string[]): string[] {
   return joined.split(" ").filter(Boolean);
 }
 
-const CANONICAL_INITIALS = /(?<![\p{L}\p{N}])(?:\p{Lu}\.\s+){2,}\p{Lu}\.?(?![\p{L}\p{N}])/gu;
-
 function tokenize(text: string): string[] {
-  const pieces = joinSpacedRuns(toPieces(stripAccents(text.replace(CANONICAL_INITIALS, " "))));
+  const pieces = joinSpacedRuns(toPieces(stripAccents(text.replace(CANONICAL_INITIALS, " ").toLowerCase())));
   const tokens = pieces.map(finalizeToken).filter(Boolean);
   return removeProtectedPhrases(tokens);
 }
@@ -218,8 +205,7 @@ export function evaluateLexicalGuard(message: string): LexicalResult {
   const hasCitaContext = anyTokenMatches(tokens, CITA_TOKEN_PATTERNS);
   const hasHealthContext = anyTokenMatches(tokens, HEALTH_TOKEN_PATTERNS);
   const hasComplaintContext =
-    anyTokenMatches(tokens, COMPLAINT_TOKEN_PATTERNS) ||
-    COMPLAINT_PHRASE_PATTERNS.some((pattern) => pattern.test(joined));
+    anyTokenMatches(tokens, COMPLAINT_TOKEN_PATTERNS) || COMPLAINT_PHRASE_PATTERNS.some((pattern) => pattern.test(joined));
 
   const base = { isOffensive, hasCitaContext, hasComplaintContext, matchedReason };
 

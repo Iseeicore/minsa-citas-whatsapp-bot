@@ -3,6 +3,7 @@ import { declararActorEn } from "@/lib/db/actor";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 export type DatosIncidencia = {
   waId: string;
@@ -15,7 +16,6 @@ export type DatosIncidencia = {
 
 export type DatosEvidencia = { mimeType: string; tamano: number; ruta: string };
 
-/** Único punto que escribe la incidencia; exige quién la firma. Asegura el usuario y guarda todo en una sola transacción. */
 export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvidencia | null, actor: string) {
   return prisma.$transaction(async (tx) => {
     await declararActorEn(tx, actor);
@@ -51,7 +51,6 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
   });
 }
 
-/** Cuántas incidencias envió ese teléfono hoy (día de Lima), sin contar la de este mismo turno si ya estaba guardada. */
 export async function contarDelDia(waId: string, excluirTraceId: string): Promise<number> {
   const filas = await prisma.$queryRaw<{ total: bigint }[]>`
     SELECT count(*) AS total
@@ -62,7 +61,6 @@ export async function contarDelDia(waId: string, excluirTraceId: string): Promis
   return Number(filas[0]?.total ?? 0);
 }
 
-/** Código legible de una incidencia ya guardada con ese trace id; null si no existe. */
 export async function buscarCodigoPorTrace(traceId: string): Promise<string | null> {
   const fila = await prisma.incidenciaPaciente.findUnique({ where: { traceId }, select: { codigo: true } });
   return fila?.codigo ?? null;
@@ -70,21 +68,13 @@ export async function buscarCodigoPorTrace(traceId: string): Promise<string | nu
 
 export type IncidenciaConsultada = { codigo: string; fechaCreacion: Date; estadoCodigo: string };
 
-/**
- * Busca la incidencia por código SOLO si pertenece a quien consulta, en una sola consulta: «no existe» y «no es tuya» son
- * indistinguibles. WhatsApp compara por el usuario dueño (su wa_id actual, que sigue al usuario si Meta cambia el identificador);
- * la web compara el DNI ya verificado y excluye las anónimas.
- */
-export async function buscarIncidenciaDeQuienConsulta(
-  codigo: string,
-  identidad: IdentidadConsulta,
-): Promise<IncidenciaConsultada | null> {
+export async function buscarIncidenciaDeQuienConsulta(codigo: string, identidad: IdentidadConsulta): Promise<IncidenciaConsultada | null> {
   const fila = await prisma.incidenciaPaciente.findFirst({
     where: {
       codigo,
       activo: true,
       eliminadoEn: null,
-      ...(identidad.canal === "whatsapp"
+      ...(identidad.canal === SessionChannel.WHATSAPP
         ? { usuario: { waId: identidad.waId } }
         : { esAnonimo: false, dniReclamante: identidad.dni }),
     },
@@ -93,13 +83,12 @@ export async function buscarIncidenciaDeQuienConsulta(
   return fila ? { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo } : null;
 }
 
-/** Mismo criterio de pertenencia que `buscarIncidenciaDeQuienConsulta`, pero sin filtro de código: todas las de quien consulta. */
 export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsulta): Promise<IncidenciaConsultada[]> {
   const filas = await prisma.incidenciaPaciente.findMany({
     where: {
       activo: true,
       eliminadoEn: null,
-      ...(identidad.canal === "whatsapp"
+      ...(identidad.canal === SessionChannel.WHATSAPP
         ? { usuario: { waId: identidad.waId } }
         : { esAnonimo: false, dniReclamante: identidad.dni }),
     },
@@ -109,13 +98,11 @@ export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsu
   return filas.map((fila) => ({ codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo }));
 }
 
-/** Si ese wa_id ya autorizó el tratamiento de datos alguna vez; false también cuando el usuario no existe todavía. */
 export async function tieneConsentimientoAceptado(waId: string): Promise<boolean> {
   const usuario = await prisma.usuario.findUnique({ where: { waId }, select: { consentimientoAceptadoEn: true } });
   return usuario?.consentimientoAceptadoEn != null;
 }
 
-/** Deja constancia de que ese wa_id autorizó el tratamiento de datos; crea el usuario si todavía no existía. */
 export async function marcarConsentimientoAceptado(waId: string): Promise<void> {
   await prisma.usuario.upsert({
     where: { waId },

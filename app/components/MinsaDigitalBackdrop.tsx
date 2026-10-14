@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronDownIcon, EyeIcon, QrIcon, RefreshIcon, ShieldIcon } from "@/app/components/icons";
+import { cn } from "@/lib/utils/cn";
 
 export default function MinsaDigitalBackdrop() {
   return (
@@ -135,7 +136,7 @@ function FakeCaptcha({ className }: { className?: string }) {
   ];
 
   return (
-    <div className={`flex h-14 items-center justify-center gap-1 rounded-lg bg-gray-50 ${className ?? ""}`}>
+    <div className={cn("flex h-14 items-center justify-center gap-1 rounded-lg bg-gray-50", className)}>
       {glyphs.map((g, i) => (
         <span
           key={i}

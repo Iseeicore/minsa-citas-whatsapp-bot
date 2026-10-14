@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { OOS_MESSAGES, type OosCategory } from "@/lib/fsm/flows/out-of-scope/out-of-scope-messages";
-import { OosCategory as OosCategoryEnum } from "@/lib/enums/oos-category";
+import { OosCategory } from "@/lib/enums/oos-category";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const FROM = "sandbox-oos";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -17,18 +17,18 @@ const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const oosNote = (result: HandlerResult) => result.notes?.find((note) => note.kind === "out_of_scope");
 
 const SAMPLE: Array<[OosCategory, string]> = [
-  [OosCategoryEnum.OOS_01, "Mi mamá no puede respirar"],
-  [OosCategoryEnum.OOS_02, "¿Mi SIS está activo?"],
-  [OosCategoryEnum.OOS_03, "¿Ya aceptaron mi referencia?"],
-  [OosCategoryEnum.OOS_04, "¿Ya salieron mis análisis de sangre?"],
-  [OosCategoryEnum.OOS_05, "¿Tienen Paracetamol o Insulina en la posta?"],
-  [OosCategoryEnum.OOS_06, "¿Qué días vacunan contra la influenza?"],
-  [OosCategoryEnum.OOS_07, "Quiero hablar con un doctor ahorita"],
-  [OosCategoryEnum.OOS_08, "Mi reclamo N° 458-2026 sigue sin resolverse"],
-  [OosCategoryEnum.OOS_09, "Necesito que me sellen mi descanso médico para mi trabajo"],
+  [OosCategory.OOS_01, "Mi mamá no puede respirar"],
+  [OosCategory.OOS_02, "¿Mi SIS está activo?"],
+  [OosCategory.OOS_03, "¿Ya aceptaron mi referencia?"],
+  [OosCategory.OOS_04, "¿Ya salieron mis análisis de sangre?"],
+  [OosCategory.OOS_05, "¿Tienen Paracetamol o Insulina en la posta?"],
+  [OosCategory.OOS_06, "¿Qué días vacunan contra la influenza?"],
+  [OosCategory.OOS_07, "Quiero hablar con un doctor ahorita"],
+  [OosCategory.OOS_08, "Mi reclamo N° 458-2026 sigue sin resolverse"],
+  [OosCategory.OOS_09, "Necesito que me sellen mi descanso médico para mi trabajo"],
 ];
 
-const STAYING = SAMPLE.filter(([category]) => category !== OosCategoryEnum.OOS_01);
+const STAYING = SAMPLE.filter(([category]) => category !== OosCategory.OOS_01);
 
 describe("in the main menu: the fixed message, no AI, and the citizen stays in the menu", () => {
   it.each(STAYING)("%s: %j", (category, message) => {
@@ -79,12 +79,15 @@ describe("the order: emergency, then the lexical guard, then the rest", () => {
 });
 
 describe("after a finished flow, the first message is read the same way", () => {
-  it.each(["cita_booked", "cita_booking_rejected", "incidencia_confirmed"])("%s + a consultation gets the message, not the welcome", (state) => {
-    const result = handle(at(state as Session["state"], { [SlotKey.CITA_DNI]: "12345678" }), text("¿Tienen vacunas para mi bebé?"));
+  it.each(["cita_booked", "cita_booking_rejected", "incidencia_confirmed"])(
+    "%s + a consultation gets the message, not the welcome",
+    (state) => {
+      const result = handle(at(state as Session["state"], { [SlotKey.CITA_DNI]: "12345678" }), text("¿Tienen vacunas para mi bebé?"));
 
-    expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-06"] }]);
-    expect(result.session).toEqual({ state: "main_menu", slots: {}, counters: {} });
-  });
+      expect(sent(result)).toEqual([{ kind: "send_text", text: OOS_MESSAGES["OOS-06"] }]);
+      expect(result.session).toEqual({ state: "main_menu", slots: {}, counters: {} });
+    },
+  );
 
   it("an emergency is answered before the guard here too", () => {
     const result = handle(at("cita_booked"), text("idiotas, mi hijo no respira"));
@@ -102,7 +105,10 @@ describe("never inside a flow: each step reads what it asked for", () => {
   });
 
   it("the description of a complaint is evidence, whatever words it holds", () => {
-    const result = handle(at("incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }), text("No me entregaron mis medicamentos y nadie me explicó por qué"));
+    const result = handle(
+      at("incidencia_awaiting_descripcion", { [SlotKey.DNI]: "12345678" }),
+      text("No me entregaron mis medicamentos y nadie me explicó por qué"),
+    );
 
     expect(JSON.stringify(result.effects)).not.toContain(OOS_MESSAGES["OOS-05"]);
     expect(oosNote(result)).toBeUndefined();

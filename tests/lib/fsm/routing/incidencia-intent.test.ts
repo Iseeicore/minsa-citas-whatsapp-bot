@@ -5,6 +5,7 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import type { LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { analyzeMainMenuIntent, MAIN_MENU_INTENT_RESPONSE_SCHEMA } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-intencion";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -29,7 +30,9 @@ describe("the AI recognises an incidencia", () => {
   });
 
   it("an incidencia carries no cita hints even if the model sent some", async () => {
-    await expect(analyzeMainMenuIntent(STORY, modelSays({ intent: "incidencia", especialidad: "Pediatría", detalle: "x" }))).resolves.toEqual({ intent: "incidencia" });
+    await expect(
+      analyzeMainMenuIntent(STORY, modelSays({ intent: "incidencia", especialidad: "Pediatría", detalle: "x" })),
+    ).resolves.toEqual({ intent: "incidencia" });
   });
 
   it("an unknown intent is still «unclear»", async () => {
@@ -57,7 +60,12 @@ describe("without the AI, the words of an incidencia are read inside a longer se
 });
 
 describe("what the menu does with that answer", () => {
-  const answer = (result: unknown): QueryResultEvent => ({ from: FROM, type: "query_result", queryKind: "analyze_main_menu_intent", result });
+  const answer = (result: unknown): QueryResultEvent => ({
+    from: FROM,
+    type: InternalEventType.QUERY_RESULT,
+    queryKind: "analyze_main_menu_intent",
+    result,
+  });
 
   it("a free message goes to the AI and the person's own words are kept aside as a draft", () => {
     const result = handle(menu(), text(STORY));
@@ -85,7 +93,12 @@ describe("what the menu does with that answer", () => {
     const consentChecked = handle(identity, { from: FROM, type: "button", listId: "incidencia_anonimo" });
     expect(consentChecked.session.state).toBe("incidencia_consent_check_pending");
 
-    const result = handle(consentChecked.session, { from: FROM, type: "query_result", queryKind: "verificar_consentimiento", result: { aceptado: true } });
+    const result = handle(consentChecked.session, {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "verificar_consentimiento",
+      result: { aceptado: true },
+    });
     expect(result.session.state).toBe("incidencia_confirm_borrador");
     expect((sent(result)[0] as { text: string }).text).toContain(STORY);
   });

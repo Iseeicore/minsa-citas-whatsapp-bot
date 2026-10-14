@@ -135,7 +135,16 @@ describe("mute: a burst silences the number for two minutes", () => {
     const { limiter } = limiterWithClock();
 
     expect(burst(limiter, 10)).toEqual([
-      "allow", "allow", "allow", "allow", "allow", "muted", "throttled", "throttled", "throttled", "throttled",
+      "allow",
+      "allow",
+      "allow",
+      "allow",
+      "allow",
+      "muted",
+      "throttled",
+      "throttled",
+      "throttled",
+      "throttled",
     ]);
   });
 

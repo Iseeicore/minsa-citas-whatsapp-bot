@@ -1,9 +1,8 @@
 import type { LogLevel, LogSink } from "@/lib/observability/types";
 import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
+import { DATE_SLASHES } from "@/lib/constants/regex/observability";
 
 export const LOG_TIME_ZONE = LIMA_TIME_ZONE;
-
-const DATE_SLASHES = /\//g;
 
 export function dateFolder(at: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -28,11 +27,7 @@ async function nodeFileSystem(): Promise<FileSystemPort> {
 
 export type DailyFileSink = LogSink & { flush: () => Promise<void> };
 
-export function createDailyFileSink(options: {
-  dir: string;
-  now?: () => Date;
-  fileSystem?: () => Promise<FileSystemPort>;
-}): DailyFileSink {
+export function createDailyFileSink(options: { dir: string; now?: () => Date; fileSystem?: () => Promise<FileSystemPort> }): DailyFileSink {
   const now = options.now ?? (() => new Date());
   const loadFileSystem = options.fileSystem ?? nodeFileSystem;
   const madeFolders = new Set<string>();
@@ -48,8 +43,7 @@ export function createDailyFileSink(options: {
       }
       await fs.appendFile(`${folder}/app.ndjson`, `${line}\n`);
       if (level !== "info") await fs.appendFile(`${folder}/alerts.ndjson`, `${line}\n`);
-    } catch {
-    }
+    } catch {}
   };
 
   const sink = ((level: LogLevel, line: string) => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildWelcomeEffect, buildWelcomeEffects, WELCOME_MESSAGE_TEXT } from "@/lib/fsm/routing/welcome";
+import { buildWelcomeEffect, buildWelcomeEffects } from "@/lib/fsm/routing/welcome";
+import { WELCOME_MESSAGE_TEXT } from "@/lib/constants/textos/menu";
 
 const ORIGINAL_URL = process.env.MINSA_DIGITAL_APP_URL;
 

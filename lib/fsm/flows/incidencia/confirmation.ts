@@ -1,15 +1,14 @@
-import { readReply } from "@/lib/fsm/core/handlers-shared";
+import { readReply, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import type { InboundEvent } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import type { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 
-/** Lee Sí/No desde un botón conocido o, si no hay botón, desde el texto libre. */
 export function readConfirmation(event: InboundEvent, yes: IncidenciaButtonId, no: IncidenciaButtonId): Confirmation | undefined {
   const reply = readReply(event);
   if (reply === yes) return Confirmation.YES;
   if (reply === no) return Confirmation.NO;
-  const typed = (event.text ?? "").trim();
+  const typed = readTrimmedText(event);
   if (!typed) return undefined;
   const resolved = resolveConfirmation(typed);
   return resolved === Confirmation.YES || resolved === Confirmation.NO ? resolved : undefined;

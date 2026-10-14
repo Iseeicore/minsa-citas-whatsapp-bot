@@ -9,6 +9,7 @@ import { Button } from "@/app/components/ui/Button";
 import { ConfirmDialog } from "@/app/components/ui/ConfirmDialog";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { WidgetMode } from "@/lib/enums/widget-mode";
+import { cn } from "@/lib/utils/cn";
 import {
   INITIAL_WIDGET_STATE,
   closeWidget,
@@ -84,22 +85,29 @@ export default function SandboxWidgetDemo() {
 
   return (
     <div
-      className={`relative w-full bg-gray-100 sm:overflow-auto ${
-        showingChat ? "max-sm:overflow-hidden" : "overflow-auto"
-      }`}
+      className={cn(
+        "relative w-full bg-gray-100 sm:overflow-auto",
+        showingChat && "max-sm:overflow-hidden",
+        !showingChat && "overflow-auto",
+      )}
     >
       <MinsaDigitalBackdrop />
 
       <div
         inert={showingLauncher}
-        className={`fixed z-20 flex flex-col transition duration-200 ${FRAME_CLASS_NAME[layoutMode]} ${
-          showingLauncher ? HIDDEN_FRAME_CLASS_NAME : ""
-        }`}
+        className={cn(
+          "fixed z-20 flex flex-col transition duration-200",
+          FRAME_CLASS_NAME[layoutMode],
+          showingLauncher && HIDDEN_FRAME_CLASS_NAME,
+        )}
         style={{ paddingBottom: showingChat ? "env(safe-area-inset-bottom)" : undefined }}
       >
         <div
           ref={panelRef}
-          className={`flex min-h-0 w-full origin-bottom-right flex-col overflow-hidden bg-white shadow-2xl md:pointer-events-auto ${PANEL_CLASS_NAME[layoutMode]}`}
+          className={cn(
+            "flex min-h-0 w-full origin-bottom-right flex-col overflow-hidden bg-white shadow-2xl md:pointer-events-auto",
+            PANEL_CLASS_NAME[layoutMode],
+          )}
         >
           <Sandbox
             key={chatKey}
@@ -119,9 +127,10 @@ export default function SandboxWidgetDemo() {
         variant={ButtonVariant.UNSTYLED}
         onClick={openChat}
         aria-label="Abrir el asistente virtual MINS IA"
-        className={`fixed right-4 z-20 transition duration-200 hover:scale-105 ${
-          showingLauncher ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className={cn(
+          "fixed right-4 z-20 transition duration-200 hover:scale-105",
+          showingLauncher ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
         style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         <AssistantCard />

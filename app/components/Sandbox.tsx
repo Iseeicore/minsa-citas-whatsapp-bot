@@ -106,7 +106,6 @@ export default function Sandbox({
   ) {
     if (!from) return;
 
-    // La bienvenida (tras un reinicio o con el chat vacío) sale de inmediato; el estado de React puede ir un render atrás.
     const esBienvenida = payload.reset === true || payload.resetAll === true || entries.length === 0;
 
     if (userDisplayText) {

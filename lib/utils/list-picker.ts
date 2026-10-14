@@ -19,7 +19,6 @@ export function localPager(page: number, totalPages: number): ListPager | undefi
   };
 }
 
-/** Un paginador externo significa que quien entrega los elementos ya los trae paginados: se muestra todo lo filtrado y no se pagina de nuevo. */
 export function buildListPickerView({
   items,
   query,

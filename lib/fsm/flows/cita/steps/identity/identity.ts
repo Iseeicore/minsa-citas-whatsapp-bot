@@ -1,4 +1,3 @@
-import { INVALID_DOCUMENT_TEXT } from "@/lib/fsm/core/failure-texts";
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { isValidDocumentoFormat, isValidOtpFormat, tipoDocumentoDe } from "@/lib/fsm/parsing/text/identity-format";
 import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
@@ -6,14 +5,7 @@ import { resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resol
 import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
-import {
-  buildResult,
-  cloneSession,
-  query,
-  readReply,
-  sendText,
-  sendButtons,
-} from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query, readReply, sendText, sendButtons, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import { sendMinsaDigitalCta } from "@/lib/fsm/core/minsa-digital-cta";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
@@ -23,24 +15,40 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
-
-const MAX_REGISTRATION_CHECKS = 3;
-const MAX_OTP_ATTEMPTS = 3;
-const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL";
-const REGISTRATION_RETRY_BUTTON_ID = RegistrationButtonId.RETRY;
-const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
-const REGISTRATION_CANCEL_BUTTON_ID = RegistrationButtonId.CANCEL;
-const REGISTRATION_CANCEL_BUTTON_TEXT = "No quiero continuar";
+import {
+  MINSADIGITAL_BUTTON_TEXT,
+  REGISTRATION_REJECTED_TEXT,
+  REGISTRATION_FIRST_MISS_TEXT,
+  REGISTRATION_SECOND_MISS_TEXT,
+  REGISTRATION_WAIT_TEXT,
+  REGISTRATION_RETRY_PROMPT_TEXT,
+  VALIDATING_AGAIN_TEXT,
+  ANALYZING_CUENTA_TEXT,
+  OTP_LOCKED_TEXT,
+  VERIFIED_ASK_DISTRITO_TEXT,
+  REGISTRATION_BUTTONS,
+} from "@/lib/constants/textos/cita-identidad";
+import {
+  VALIDANDO_DOCUMENTO_TEXT,
+  ASK_OTP_TEXT,
+  INVALID_OTP_TEXT,
+  VERIFICANDO_CODIGO_TEXT,
+  codigoIncorrectoText,
+} from "@/lib/constants/textos/identidad";
+import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
+import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
+import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
+import { slotText } from "@/lib/fsm/core/slot-readers";
+import { isString } from "@/lib/utils/type-guards";
+import { toText, stringOrUndefined } from "@/lib/utils/text-values";
+import { MAX_REGISTRATION_CHECKS, MAX_OTP_ATTEMPTS } from "@/lib/constants/limits/cita";
 
 function registrationRetryButtons(text: string) {
-  return sendButtons(text, [
-    { id: REGISTRATION_RETRY_BUTTON_ID, title: REGISTRATION_RETRY_BUTTON_TEXT },
-    { id: REGISTRATION_CANCEL_BUTTON_ID, title: REGISTRATION_CANCEL_BUTTON_TEXT },
-  ]);
+  return sendButtons(text, REGISTRATION_BUTTONS);
 }
 
 export function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  const documento = (event.text ?? "").trim();
+  const documento = readTrimmedText(event);
 
   if (!isValidDocumentoFormat(documento)) {
     return buildResult(session, [sendText(INVALID_DOCUMENT_TEXT)]);
@@ -49,19 +57,17 @@ export function handleAwaitingDni(session: Session, event: InboundEvent): Handle
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DNI_PENDING] = documento;
   next.state = SessionState.CITA_VALIDATE_PENDING;
-  return buildResult(next, [sendText("Validando tu documento…"), validateUserQuery(documento)]);
+  return buildResult(next, [sendText(VALIDANDO_DOCUMENTO_TEXT), validateUserQuery(documento)]);
 }
 
 export function handleValidatePending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; twofaId?: string };
   const next = cloneSession(session);
 
-  if (result.status === "valid" && typeof result.twofaId === "string") {
+  if (result.status === ValidateUserStatus.VALID && isString(result.twofaId)) {
     next.slots[SlotKey.CITA_TWOFA_ID] = result.twofaId;
     next.state = SessionState.CITA_AWAITING_OTP;
-    return buildResult(next, [
-      sendText("Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos)."),
-    ]);
+    return buildResult(next, [sendText(ASK_OTP_TEXT)]);
   }
 
   const checks = (next.counters[CounterKey.CITA_REGISTRATION_CHECKS] ?? 0) + 1;
@@ -69,61 +75,48 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
 
   if (checks >= MAX_REGISTRATION_CHECKS) {
     next.state = SessionState.CITA_REGISTRATION_REJECTED;
-    return buildResult(next, [
-      sendText(
-        "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSADIGITAL.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.",
-      ),
-    ]);
+    return buildResult(next, [sendText(REGISTRATION_REJECTED_TEXT)]);
   }
 
   next.state = SessionState.CITA_REGISTRATION_WAIT;
-  const introText =
-    checks === 1
-      ? "Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos."
-      : "Qué raro, seguimos sin encontrar tu registro — esta ya es la segunda vez. Si aún no te registraste, hazlo en MINSADIGITAL; este será tu último intento antes de cerrar el proceso.";
+  const introText = checks === 1 ? REGISTRATION_FIRST_MISS_TEXT : REGISTRATION_SECOND_MISS_TEXT;
   return buildResult(next, [
     sendMinsaDigitalCta(introText, MINSADIGITAL_BUTTON_TEXT, MINSA_DIGITAL_LOGIN_PATH),
-    registrationRetryButtons("Cuando termines, toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo."),
+    registrationRetryButtons(REGISTRATION_WAIT_TEXT),
   ]);
 }
 
 export function handleRegistrationWait(session: Session, event: InboundEvent): HandlerResult {
   const replyId = readReply(event);
 
-  if (replyId === REGISTRATION_CANCEL_BUTTON_ID) return askToLeave(session, "local");
+  if (replyId === RegistrationButtonId.CANCEL) return askToLeave(session, "local");
 
-  const isRetry = replyId === REGISTRATION_RETRY_BUTTON_ID;
+  const isRetry = replyId === RegistrationButtonId.RETRY;
 
   if (!isRetry) {
-    return buildResult(session, [
-      registrationRetryButtons("Toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo."),
-    ]);
+    return buildResult(session, [registrationRetryButtons(REGISTRATION_RETRY_PROMPT_TEXT)]);
   }
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_VALIDATE_PENDING;
-  return buildResult(next, [
-    sendText("Validando de nuevo…"),
-    validateUserQuery(String(next.slots[SlotKey.CITA_DNI_PENDING] ?? "")),
-  ]);
+  return buildResult(next, [sendText(VALIDATING_AGAIN_TEXT), validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING))]);
 }
 
 export function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
-  const code = (event.text ?? "").trim();
+  const code = readTrimmedText(event);
 
   if (!isValidOtpFormat(code)) {
-    return buildResult(session, [sendText("Código inválido. Debe tener entre 4 y 8 dígitos.")]);
+    return buildResult(session, [sendText(INVALID_OTP_TEXT)]);
   }
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_VERIFY_PENDING;
   return buildResult(next, [
-    sendText("Verificando código…"),
-    query(QueryKind.VERIFY_CODE, { twofaId: String(next.slots[SlotKey.CITA_TWOFA_ID] ?? ""), code }),
+    sendText(VERIFICANDO_CODIGO_TEXT),
+    query(QueryKind.VERIFY_CODE, { twofaId: slotText(next.slots, SlotKey.CITA_TWOFA_ID), code }),
   ]);
 }
 
-/** Cola común tras el paso de referencias: usar la pista de distrito ya dicha o preguntarlo (el resume por reverificación ya se resolvió antes, en handleVerifyPending). */
 export function continueCitaAfterVerification(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
@@ -131,11 +124,7 @@ export function continueCitaAfterVerification(session: Session): HandlerResult {
   const distritoHint = next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
   if (distritoHint) {
     delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
-    return resolveDistritoText(
-      next,
-      distritoHint,
-      next.slots[SlotKey.INITIAL_MESSAGE_TEXT],
-    );
+    return resolveDistritoText(next, distritoHint, next.slots[SlotKey.INITIAL_MESSAGE_TEXT]);
   }
 
   const initialMessageText = next.slots[SlotKey.INITIAL_MESSAGE_TEXT];
@@ -143,16 +132,14 @@ export function continueCitaAfterVerification(session: Session): HandlerResult {
     return resolveDistritoText(next, initialMessageText, undefined);
   }
 
-  return buildResult(next, [
-    sendText('¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").'),
-  ]);
+  return buildResult(next, [sendText(VERIFIED_ASK_DISTRITO_TEXT)]);
 }
 
 export function handleVerifyPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; token?: string };
   const next = cloneSession(session);
 
-  if (result.status === "verified" && typeof result.token === "string") {
+  if (result.status === VerifyCodeStatus.VERIFIED && isString(result.token)) {
     const dni = next.slots[SlotKey.CITA_DNI_PENDING];
     delete next.slots[SlotKey.CITA_DNI_PENDING];
     delete next.slots[SlotKey.CITA_TWOFA_ID];
@@ -162,7 +149,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     next.slots[SlotKey.CITA_BEARER] = result.token;
     next.slots[SlotKey.CITA_DNI] = dni ?? null;
 
-    if (isDemoReferenciaDni(typeof dni === "string" ? dni : undefined)) {
+    if (isDemoReferenciaDni(stringOrUndefined(dni))) {
       delete next.slots[SlotKey.CITA_RESUME_STATE];
       delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
       return offerDemoReferencias(next);
@@ -175,9 +162,9 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     }
 
     next.state = SessionState.CITA_REFERENCES_PENDING;
-    const numeroDocumento = String(dni ?? "");
+    const numeroDocumento = toText(dni);
     return buildResult(next, [
-      sendText("Un momento, estamos analizando tu cuenta…"),
+      sendText(ANALYZING_CUENTA_TEXT),
       query(QueryKind.LIST_REFERENCES, { numeroDocumento, tipoDocumento: tipoDocumentoDe(numeroDocumento) }),
     ]);
   }
@@ -187,13 +174,9 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
 
   if (attempts >= MAX_OTP_ATTEMPTS) {
     next.state = SessionState.CITA_OTP_LOCKED;
-    return buildResult(next, [
-      sendText("Superaste el número de intentos permitidos. Por favor, inicia el proceso nuevamente más tarde."),
-    ]);
+    return buildResult(next, [sendText(OTP_LOCKED_TEXT)]);
   }
 
   next.state = SessionState.CITA_AWAITING_OTP;
-  return buildResult(next, [
-    sendText(`Código incorrecto. Te quedan ${MAX_OTP_ATTEMPTS - attempts} intento(s).`),
-  ]);
+  return buildResult(next, [sendText(codigoIncorrectoText(MAX_OTP_ATTEMPTS - attempts))]);
 }

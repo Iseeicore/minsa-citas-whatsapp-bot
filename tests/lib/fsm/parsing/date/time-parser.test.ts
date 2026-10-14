@@ -90,16 +90,7 @@ describe("matchHoraText — nothing to decide", () => {
     expect(result("11:11")).toBe("unavailable");
   });
 
-  it.each([
-    "hola",
-    "",
-    "1",
-    "9",
-    "la segunda",
-    "a las 25",
-    "asdf",
-    "hdp",
-  ])("%j is left for the other matchers", (text) => {
+  it.each(["hola", "", "1", "9", "la segunda", "a las 25", "asdf", "hdp"])("%j is left for the other matchers", (text) => {
     expect(result(text)).toBe("unparsed");
   });
 

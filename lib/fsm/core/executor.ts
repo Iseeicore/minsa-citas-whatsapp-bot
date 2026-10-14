@@ -7,13 +7,7 @@ import { configuredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { bookAppointment } from "@/lib/integrations/minsa/booking";
-import {
-  listEspecialidades,
-  listEstablecimientos,
-  listFechas,
-  listHoras,
-  searchUbigeo,
-} from "@/lib/integrations/minsa/catalog";
+import { listEspecialidades, listEstablecimientos, listFechas, listHoras, searchUbigeo } from "@/lib/integrations/minsa/catalog";
 import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
@@ -24,30 +18,27 @@ import type { ExternalService } from "@/lib/observability/types";
 import { getSession, saveSession } from "@/lib/fsm/session/session-store";
 import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
 import { QueryKind } from "@/lib/enums/query-kind";
-import type {
-  HandleEvent,
-  HandlerResult,
-  InboundEvent,
-  QueryEffect,
-  QueryResultEvent,
-  SendEffect,
-  Session,
-} from "@/lib/fsm/core/types";
+import type { HandleEvent, HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { SessionChannel } from "@/lib/enums/session-channel";
+import { slotText, payloadText } from "@/lib/fsm/core/slot-readers";
+import { MAX_PASSES } from "@/lib/constants/limits/engine";
+import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-error";
+import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
+import { UnhandledQueryKindError } from "@/lib/errors/unhandled-query-kind-error";
 
 export type TurnResult = {
   sent: SendEffect[];
   session: Session;
 };
 
-/** Entrega cada mensaje apenas se produce y avisa antes de cada consulta externa, para que el ciudadano no espere en silencio. */
 export type TurnHooks = {
   onSend(effect: SendEffect): Promise<void>;
   onWaitingForQuery(): Promise<void>;
 };
 
-const MAX_PASSES = 12;
 const FRESH_SESSION: Session = { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
 
 export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> {
@@ -55,20 +46,10 @@ export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> 
 }
 
 export function createRunTurn(lock: TurnLock) {
-  return (from: string, event: InboundEvent): Promise<TurnResult> =>
-    lock(from, () => runTurnUnlocked(from, event));
+  return (from: string, event: InboundEvent): Promise<TurnResult> => lock(from, () => runTurnUnlocked(from, event));
 }
 
-/**
- * Ejecuta el turno sin tomar el candado; solo para quien ya lo tiene tomado (el webhook). Con `start` el primer paso ya viene
- * calculado (el primer contacto, que no tiene sesión): sus consultas se resuelven igual que las de cualquier turno.
- */
-export async function runTurnUnlocked(
-  from: string,
-  event: InboundEvent,
-  hooks?: TurnHooks,
-  start?: HandlerResult,
-): Promise<TurnResult> {
+export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?: TurnHooks, start?: HandlerResult): Promise<TurnResult> {
   const session = start ? FRESH_SESSION : await getSession(from);
 
   return traceTurn(from, event, session, async (trace) => {
@@ -94,7 +75,7 @@ export async function runTurnUnlocked(
         return { sent, session: currentSession };
       }
       if (queries.length > 1) {
-        throw new Error("runTurn: handle() returned more than one query effect in a single pass");
+        throw new MultipleQueryEffectsError(queries.length);
       }
 
       const [queryEffect] = queries;
@@ -105,16 +86,14 @@ export async function runTurnUnlocked(
 
       const resultEvent: QueryResultEvent = {
         from,
-        type: "query_result",
+        type: InternalEventType.QUERY_RESULT,
         queryKind: queryEffect.kind,
         result: queryResult,
       };
       currentEvent = resultEvent;
     }
 
-    throw new Error(
-      `runTurn: exceeded ${MAX_PASSES} query-resolution passes in a single turn — state machine bug`,
-    );
+    throw new MaxPassesExceededError(MAX_PASSES);
   });
 }
 
@@ -140,13 +119,12 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   }
 }
 
-/** `from` es la identidad que el servidor ya conoce del turno (el usuario de WhatsApp verificado por el webhook), no un dato del mensaje. */
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
-  const bearer = String(session.slots[SlotKey.CITA_BEARER] ?? "");
+  const bearer = slotText(session.slots, SlotKey.CITA_BEARER);
 
   switch (effect.kind) {
     case QueryKind.RENIEC_LOOKUP:
-      return reniecLookup(String(effect.payload.dni ?? ""));
+      return reniecLookup(payloadText(effect.payload, "dni"));
 
     case QueryKind.INCIDENCIA_REGISTER: {
       const { registrarIncidencia } = await import("@/lib/recepcion/servicio");
@@ -155,21 +133,21 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
 
     case QueryKind.CONSULTAR_INCIDENCIA: {
       const { consultarIncidencia } = await import("@/lib/recepcion/consulta");
-      const codigo = String(effect.payload.codigo ?? "");
+      const codigo = payloadText(effect.payload, "codigo");
       return consultarIncidencia(
         codigo,
-        effect.payload.canal === "web"
-          ? { canal: "web", dni: String(effect.payload.dni ?? "") }
-          : { canal: "whatsapp", waId: from },
+        effect.payload.canal === SessionChannel.WEB
+          ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
+          : { canal: SessionChannel.WHATSAPP, waId: from },
       );
     }
 
     case QueryKind.LISTAR_INCIDENCIAS: {
       const { listarIncidencias } = await import("@/lib/recepcion/consulta");
       return listarIncidencias(
-        effect.payload.canal === "web"
-          ? { canal: "web", dni: String(effect.payload.dni ?? "") }
-          : { canal: "whatsapp", waId: from },
+        effect.payload.canal === SessionChannel.WEB
+          ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
+          : { canal: SessionChannel.WHATSAPP, waId: from },
       );
     }
 
@@ -185,82 +163,75 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     }
 
     case QueryKind.VALIDATE_USER:
-      return validateUser(String(effect.payload.numeroDocumento ?? ""), effect.payload.tipoDocumento as TipoDocumento);
+      return validateUser(payloadText(effect.payload, "numeroDocumento"), effect.payload.tipoDocumento as TipoDocumento);
 
     case QueryKind.VERIFY_CODE:
-      return verifyCode(String(effect.payload.twofaId ?? ""), String(effect.payload.code ?? ""));
+      return verifyCode(payloadText(effect.payload, "twofaId"), payloadText(effect.payload, "code"));
 
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
-      return analyzeMainMenuIntent(String(effect.payload.text ?? ""));
+      return analyzeMainMenuIntent(payloadText(effect.payload, "text"));
 
     case QueryKind.RESOLVE_DISTRITO_AI:
-      return resolveDistritoAiDetailed(
-        String(effect.payload.distritoText ?? ""),
-        effect.payload.contextText as string | undefined,
-      );
+      return resolveDistritoAiDetailed(payloadText(effect.payload, "distritoText"), effect.payload.contextText as string | undefined);
 
     case QueryKind.RESOLVE_FECHA_AI:
       return resolveFechaAi(
-        String(effect.payload.text ?? ""),
-        String(effect.payload.today ?? ""),
+        payloadText(effect.payload, "text"),
+        payloadText(effect.payload, "today"),
         (effect.payload.options as FechaAiOption[] | undefined) ?? [],
       );
 
     case QueryKind.EXTRACT_SELECTION_HINTS:
-      return extractSelectionHints(String(effect.payload.step ?? ""), String(effect.payload.text ?? ""));
+      return extractSelectionHints(payloadText(effect.payload, "step"), payloadText(effect.payload, "text"));
 
     case QueryKind.SEARCH_UBIGEO:
       return searchUbigeo(
-        String(effect.payload.departamento ?? ""),
-        String(effect.payload.provincia ?? ""),
-        String(effect.payload.distrito ?? ""),
+        payloadText(effect.payload, "departamento"),
+        payloadText(effect.payload, "provincia"),
+        payloadText(effect.payload, "distrito"),
         bearer,
       );
 
     case QueryKind.LIST_ESPECIALIDADES:
-      return listEspecialidades(String(effect.payload.ubigeo ?? ""), bearer);
+      return listEspecialidades(payloadText(effect.payload, "ubigeo"), bearer);
 
     case QueryKind.LIST_ESTABLECIMIENTOS:
       return listEstablecimientos(
-        String(effect.payload.especialidadId ?? ""),
-        String(effect.payload.ubigeo ?? ""),
+        payloadText(effect.payload, "especialidadId"),
+        payloadText(effect.payload, "ubigeo"),
         bearer,
         Number(effect.payload.page ?? 1),
       );
 
     case QueryKind.LIST_FECHAS:
-      return listFechas(
-        String(effect.payload.codEess ?? ""),
-        String(effect.payload.especialidadId ?? ""),
-        bearer,
-      );
+      return listFechas(payloadText(effect.payload, "codEess"), payloadText(effect.payload, "especialidadId"), bearer);
 
     case QueryKind.LIST_HORAS:
       return listHoras(
-        String(effect.payload.codEess ?? ""),
-        String(effect.payload.especialidadId ?? ""),
-        formatFechaForApi(String(effect.payload.fecha ?? "")),
+        payloadText(effect.payload, "codEess"),
+        payloadText(effect.payload, "especialidadId"),
+        formatFechaForApi(payloadText(effect.payload, "fecha")),
         bearer,
       );
 
     case QueryKind.BOOK_APPOINTMENT:
       return bookAppointment(
         {
-          codigoRenipress: String(effect.payload.codigoRenipress ?? ""),
-          codigoUps: String(effect.payload.codigoUps ?? ""),
-          fechaCita: formatFechaForApi(String(effect.payload.fechaCita ?? "")),
-          horaCita: formatHoraCita(String(effect.payload.horaInicio ?? "")),
-          numeroDocumentoPaciente: String(effect.payload.numeroDocumentoPaciente ?? ""),
+          codigoRenipress: payloadText(effect.payload, "codigoRenipress"),
+          codigoUps: payloadText(effect.payload, "codigoUps"),
+          fechaCita: formatFechaForApi(payloadText(effect.payload, "fechaCita")),
+          horaCita: formatHoraCita(payloadText(effect.payload, "horaInicio")),
+          numeroDocumentoPaciente: payloadText(effect.payload, "numeroDocumentoPaciente"),
           ...(effect.payload.referenciaId ? { referenciaId: String(effect.payload.referenciaId) } : {}),
         },
         bearer,
       );
 
     case QueryKind.LIST_REFERENCES:
-      return listReferences(String(effect.payload.numeroDocumento ?? ""), String(effect.payload.tipoDocumento ?? ""));
+      return listReferences(payloadText(effect.payload, "numeroDocumento"), payloadText(effect.payload, "tipoDocumento"));
 
     case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
-      return analyzeFotoIntent(String(effect.payload.text ?? ""));
+      return analyzeFotoIntent(payloadText(effect.payload, "text"));
 
     case QueryKind.BUSCAR_ESTABLECIMIENTO: {
       const { buscarEstablecimiento } = await import("@/lib/establecimientos/buscar");
@@ -268,7 +239,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     }
 
     default:
-      throw new Error(`resolveQuery: unhandled query kind "${effect.kind}"`);
+      throw new UnhandledQueryKindError(effect.kind);
   }
 }
 

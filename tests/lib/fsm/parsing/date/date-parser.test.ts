@@ -6,13 +6,7 @@ const row = (id: string): OfferedRow => ({ id, title: id, description: "5 cupo(s
 
 const TODAY = { year: 2026, month: 9, day: 21 };
 
-const rows = [
-  row("22/09/2026"),
-  row("23/09/2026"),
-  row("25/09/2026"),
-  row("28/09/2026"),
-  row("29/09/2026"),
-];
+const rows = [row("22/09/2026"), row("23/09/2026"), row("25/09/2026"), row("28/09/2026"), row("29/09/2026")];
 
 function ids(result: ReturnType<typeof matchFechaText>): string | string[] {
   if (result.kind === "match") return result.row.id;
@@ -27,7 +21,6 @@ describe("parseOfferedDate", () => {
     expect(parseOfferedDate("nope")).toBeUndefined();
   });
 });
-
 
 describe("formatDateLong: what the citizen reads in a sentence", () => {
   it.each([

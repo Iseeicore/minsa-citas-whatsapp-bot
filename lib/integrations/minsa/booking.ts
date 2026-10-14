@@ -2,18 +2,15 @@ import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
 import { minsaDigitalUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
-
-const BOOKING_LOG_BODY_LIMIT = 300;
-
-const ACTIVE_CITA_MESSAGE = /ya tiene una cita activa/i;
+import { ACTIVE_CITA_MESSAGE } from "@/lib/constants/regex/integrations";
+import { BookingStatus } from "@/lib/enums/booking-status";
+import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { BOOKING_LOG_BODY_LIMIT } from "@/lib/constants/limits/minsa";
 
 function minsaMessageOf(body: string): string | undefined {
-  try {
-    const message = (JSON.parse(body) as { message?: unknown }).message;
-    return typeof message === "string" ? message : undefined;
-  } catch {
-    return undefined;
-  }
+  const parsed = parseJsonOr(body, null) as { message?: unknown } | null;
+  return stringOrUndefined(parsed?.message);
 }
 
 function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
@@ -32,10 +29,7 @@ function logBookingFailure(params: BookAppointmentParams, httpStatus: number, bo
   });
 }
 
-export async function bookAppointment(
-  params: BookAppointmentParams,
-  bearer: string,
-): Promise<BookAppointmentResult> {
+export async function bookAppointment(params: BookAppointmentParams, bearer: string): Promise<BookAppointmentResult> {
   if (isRealMinsaEnabled()) {
     const response = await postWithBearer(
       MinsaEndpoint.CITAS,
@@ -49,36 +43,32 @@ export async function bookAppointment(
       },
       bearer,
     );
-    if (response.status === 401) return { status: "unauthorized" };
+    if (response.status === 401) return { status: BookingStatus.UNAUTHORIZED };
 
     const rawBody = await response.text().catch(() => "");
 
     const duplicateMessage = minsaMessageOf(rawBody);
     if (duplicateMessage && ACTIVE_CITA_MESSAGE.test(duplicateMessage)) {
-      return { status: "duplicate", message: duplicateMessage };
+      return { status: BookingStatus.DUPLICATE, message: duplicateMessage };
     }
 
     if (!response.ok) {
       logBookingFailure(params, response.status, rawBody);
-      return { status: "error" };
+      return { status: BookingStatus.ERROR };
     }
 
-    let body: { data?: { url?: string }; message?: string } = {};
-    try {
-      body = JSON.parse(rawBody) as typeof body;
-    } catch {
-    }
-    const message = typeof body?.message === "string" ? body.message : "";
+    const body = parseJsonOr(rawBody, {}) as { data?: { url?: string }; message?: string } | null;
+    const message = stringOr(body?.message);
 
     if (body?.data?.url) {
-      return { status: "booked", url: body.data.url, message };
+      return { status: BookingStatus.BOOKED, url: body.data.url, message };
     }
     logBookingFailure(params, response.status, rawBody);
-    return { status: "rejected", message };
+    return { status: BookingStatus.REJECTED, message };
   }
 
   return {
-    status: "booked",
+    status: BookingStatus.BOOKED,
     url: minsaDigitalUrl("/citas/confirmacion/FAKE123") ?? "",
     message: "Cita registrada correctamente",
   };

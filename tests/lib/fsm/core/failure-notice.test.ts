@@ -4,7 +4,12 @@ import { createFailureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
 function throttleWithClock(options: Parameters<typeof createFailureNoticeThrottle>[0] = {}) {
   let now = 1_000_000;
   const throttle = createFailureNoticeThrottle({ now: () => now, ...options });
-  return { throttle, advance: (ms: number) => { now += ms; } };
+  return {
+    throttle,
+    advance: (ms: number) => {
+      now += ms;
+    },
+  };
 }
 
 describe("createFailureNoticeThrottle: one friendly text per number, per window", () => {
