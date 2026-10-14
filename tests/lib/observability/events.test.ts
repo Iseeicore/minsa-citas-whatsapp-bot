@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { LOG_EVENTS, TURN_NOTE_KINDS } from "@/lib/observability/events";
 
 const ROOT = process.cwd();
-const observabilityDoc = fs.readFileSync(path.join(ROOT, "docs", "observability.md"), "utf8");
+const observabilityDoc = fs.readFileSync(path.join(ROOT, "docs", "observabilidad.md"), "utf8");
 
 function serverSources(): string[] {
   return ["lib", "app"]
@@ -21,12 +21,12 @@ describe("log event catalog", () => {
     expect(new Set(TURN_NOTE_KINDS).size).toBe(TURN_NOTE_KINDS.length);
   });
 
-  it("has every event documented in docs/observability.md", () => {
-    for (const event of LOG_EVENTS) expect(observabilityDoc, `${event} is missing from docs/observability.md`).toContain(`\`${event}\``);
+  it("has every event documented in docs/observabilidad.md", () => {
+    for (const event of LOG_EVENTS) expect(observabilityDoc, `${event} is missing from docs/observabilidad.md`).toContain(`\`${event}\``);
   });
 
-  it("has every turn note kind documented in docs/observability.md", () => {
-    for (const kind of TURN_NOTE_KINDS) expect(observabilityDoc, `${kind} is missing from docs/observability.md`).toContain(`\`${kind}\``);
+  it("has every turn note kind documented in docs/observabilidad.md", () => {
+    for (const kind of TURN_NOTE_KINDS) expect(observabilityDoc, `${kind} is missing from docs/observabilidad.md`).toContain(`\`${kind}\``);
   });
 
   it("leaves no server code writing to the console directly: every line goes through the masked logger", () => {

@@ -224,7 +224,7 @@ if (errores.length) {
 }
 
 mkdirSync(SALIDA, { recursive: true });
-writeFileSync(join(SALIDA, "Diccionario de datos.md"), md.join("\n") + "\n");
+writeFileSync(join(SALIDA, "diccionario-de-datos.md"), md.join("\n") + "\n");
 writeFileSync(join(SALIDA, "comentarios.sql"), comentarios.join("\n") + "\n");
 writeFileSync(join(SALIDA, "er-nucleo.mmd"), er(false) + "\n");
 writeFileSync(join(SALIDA, "er-completo.mmd"), er(true) + "\n");
