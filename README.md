@@ -367,7 +367,7 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 | `npm run test:gaps` | La suite en modo estricto para las brechas conocidas (`tests/support/known-gap.ts`) |
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
 | `npm run db:test` | Arma una base desechable solo con las migraciones y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
-| `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas de la base desde una base ya migrada |
+| `npm run db:diccionario` | Regenera el diccionario de datos de la base desde una base ya migrada |
 | `npm run format` | Aplica el formato de Prettier al código |
 | `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
