@@ -11,8 +11,10 @@ import {
   STOP_WORDS,
   INCIDENCIA_KEY_WORDS,
   INCIDENCIA_FILLER_WORDS,
+  REFERENCIA_KEY_WORDS,
+  REFERENCIA_FILLER_WORDS,
 } from "@/lib/constants/palabras-clave";
-import { MAX_CONTINUE_WORDS, MAX_INCIDENCIA_KEYWORD_WORDS } from "@/lib/constants/limits/menu";
+import { MAX_CONTINUE_WORDS, MAX_INCIDENCIA_KEYWORD_WORDS, MAX_REFERENCIA_KEYWORD_WORDS } from "@/lib/constants/limits/menu";
 
 function words(text: string): string[] {
   return normalizeText(text).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").split(" ").filter(Boolean);
@@ -46,5 +48,15 @@ export function isIncidenciaKeyword(text: string): boolean {
   return (
     tokens.some((token) => INCIDENCIA_KEY_WORDS.has(token)) &&
     tokens.every((token) => INCIDENCIA_KEY_WORDS.has(token) || INCIDENCIA_FILLER_WORDS.has(token))
+  );
+}
+
+export function isReferenciaKeyword(text: string): boolean {
+  const tokens = words(text);
+  if (tokens.length === 0 || tokens.length > MAX_REFERENCIA_KEYWORD_WORDS) return false;
+
+  return (
+    tokens.some((token) => REFERENCIA_KEY_WORDS.has(token)) &&
+    tokens.every((token) => REFERENCIA_KEY_WORDS.has(token) || REFERENCIA_FILLER_WORDS.has(token))
   );
 }

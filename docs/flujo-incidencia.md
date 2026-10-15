@@ -4,13 +4,13 @@ Cómo empieza y avanza una incidencia (reclamo, queja o denuncia: el ciudadano v
 
 ## Entradas
 
-Todas llegan al mismo paso: la ubicación.
+Todas llegan al mismo paso: la ubicación. Existen solo con `INCIDENCIAS_ENABLED=true` (apagada por defecto): sin ella ninguna entrada abre el flujo y el bot responde que por ahora solo agenda citas, con el menú de una sola fila.
 
 | Entrada | Cómo se reconoce | Dónde |
 |---|---|---|
 | **QR** del establecimiento | Mensaje con la etiqueta `CODIGO-IPRESS` y un valor: `Hola quiero presentar una incidencia {Nombre} - CODIGO-IPRESS {código}`. Va **antes** de saludo, emergencia, fuera de alcance y cita | `parseInicioIncidencia` |
 | Texto que la anuncia | Empieza con «quiero presentar / reportar / registrar una incidencia». Lo que sigue se toma como nombre candidato | `parseInicioIncidencia` |
-| Menú | Fila «Registrar una incidencia», o `2` en el primer mensaje | `main-menu.ts`, `first-contact.ts` |
+| Menú | Fila «Registrar una incidencia», o `2` (con la bandera encendida) | `main-menu.ts`, `first-contact.ts` |
 | Palabra suelta | `incidencia`, `reclamo`, `queja`, `denuncia` (y plurales), y los insultos con queja de servicio | `menu-shortcuts.ts`, `lexical-guard-routing.ts` |
 
 La parte precargada por el QR no pasa por el filtro de insultos ni por el de emergencia (hay centros que se llaman «C.S.M.»): solo cuenta lo que la persona agregó después del código (`textoDeLaPersona`).

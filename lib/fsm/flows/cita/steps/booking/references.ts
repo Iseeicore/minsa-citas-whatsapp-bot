@@ -9,16 +9,12 @@ import {
   sendButtons,
   sendText,
   truncateForRow,
-  withLeadingText,
-  withRejectionNotice,
   readTappedId,
 } from "@/lib/fsm/core/handlers-shared";
 import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/identity";
-import type { HandlerResult, InboundEvent, ListRow, QueryResultEvent, Session } from "@/lib/fsm/core/types";
-import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { ReferenceStatus } from "@/lib/enums/reference-status";
-import { ReferencesOfferButtonId } from "@/lib/enums/references-offer-button-id";
+import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
+import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";
@@ -29,13 +25,9 @@ import {
   REFERENCIA_ESTADO_LABELS,
   REFERENCIAS_LIST_TEXT,
   REFERENCIA_CONFIRM_QUESTION_TEXT,
-  REFERENCIAS_OFFER_QUESTION_TEXT,
-  REFERENCIAS_DECLINED_TEXT,
   searchingFechasForReferenciaText,
   referenciaDetalleText,
-  REFERENCIAS_FOUND_TEXT,
   REFERENCIA_CONFIRM_BUTTONS,
-  REFERENCIAS_OFFER_BUTTONS,
 } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
@@ -63,7 +55,7 @@ function referenciaRows(items: ReferenciaItem[]): ListRow[] {
   }));
 }
 
-function offerReferenciasList(session: Session): HandlerResult {
+export function offerReferenciasList(session: Session): HandlerResult {
   const next = cloneSession(session);
   delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
   next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
@@ -71,13 +63,14 @@ function offerReferenciasList(session: Session): HandlerResult {
 }
 
 function continueWithReferencia(session: Session, item: ReferenciaItem | undefined): HandlerResult {
+  const next = cloneSession(session);
+  delete next.slots[SlotKey.POST_LOGIN_FLOW];
+
   if (!item?.codigoIpressDestino || !item.codigoUpsDestino) {
-    const normal = cloneSession(session);
-    delete normal.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
-    return continueCitaAfterVerification(normal);
+    delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
+    return continueCitaAfterVerification(next);
   }
 
-  const next = cloneSession(session);
   next.slots[SlotKey.CITA_COD_EESS] = item.codigoIpressDestino;
   next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = item.codigoUpsDestino;
   next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = item.ipressDestino;
@@ -102,34 +95,6 @@ function askReferenciaConfirmation(session: Session, item: ReferenciaItem | unde
   return buildResult(session, [sendText(detalle), sendButtons(REFERENCIA_CONFIRM_QUESTION_TEXT, REFERENCIA_CONFIRM_BUTTONS)]);
 }
 
-export function handleReferencesPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as ListReferencesResult;
-  const next = cloneSession(session);
-
-  if (result.statusReference !== ReferenceStatus.FOUND) {
-    return continueCitaAfterVerification(next);
-  }
-
-  next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.data);
-  next.state = SessionState.CITA_AWAITING_REFERENCES_OFFER;
-  return buildResult(next, [sendText(REFERENCIAS_FOUND_TEXT), sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS)]);
-}
-
-export function handleAwaitingReferenciasOffer(session: Session, event: InboundEvent): HandlerResult {
-  const reply = readTappedId(event);
-  const typed = event.type === InboundEventType.TEXT ? resolveConfirmation(event.text ?? "") : Confirmation.UNKNOWN;
-
-  if (reply === ReferencesOfferButtonId.YES || typed === Confirmation.YES) {
-    return offerReferenciasList(session);
-  }
-
-  if (reply === ReferencesOfferButtonId.NO || typed === Confirmation.NO) {
-    return withLeadingText(continueCitaAfterVerification(session), REFERENCIAS_DECLINED_TEXT);
-  }
-
-  return withRejectionNotice(buildResult(session, [sendButtons(REFERENCIAS_OFFER_QUESTION_TEXT, REFERENCIAS_OFFER_BUTTONS)]));
-}
-
 export function handleAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event);
   if ("result" in outcome) return outcome.result;
@@ -139,6 +104,14 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
   next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = outcome.replyId;
   next.state = SessionState.CITA_AWAITING_REFERENCIA_CONFIRM;
   return askReferenciaConfirmation(next, item);
+}
+
+export function reshowReferenciaConfirmation(session: Session): HandlerResult {
+  const selectedId = slotText(session.slots, SlotKey.CITA_REFERENCIA_SELECCIONADA_ID);
+  return askReferenciaConfirmation(
+    session,
+    readReferencias(session).find((r) => r.idReferencia === selectedId),
+  );
 }
 
 export function handleAwaitingReferenciaConfirm(session: Session, event: InboundEvent): HandlerResult {

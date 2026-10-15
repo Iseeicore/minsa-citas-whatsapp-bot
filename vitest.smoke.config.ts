@@ -11,6 +11,9 @@ export default defineConfig({
     environment: "node",
     include: ["tests/smoke/**/*.test.ts"],
     setupFiles: ["tests/smoke/load-env.ts"],
+    env: {
+      INCIDENCIAS_ENABLED: "true",
+    },
     testTimeout: 60_000,
     hookTimeout: 60_000,
     fileParallelism: false,

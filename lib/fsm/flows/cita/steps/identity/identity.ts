@@ -1,11 +1,12 @@
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/parsing/cita-hints";
-import { isValidDocumentoFormat, isValidOtpFormat, tipoDocumentoDe } from "@/lib/fsm/parsing/text/identity-format";
+import { isValidDocumentoFormat, isValidOtpFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import { buildResult, cloneSession, query, readReply, sendText, sendButtons, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
+import { startReferenciasLookup } from "@/lib/fsm/flows/referencia/lookup";
 import { sendMinsaDigitalCta } from "@/lib/fsm/core/minsa-digital-cta";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
@@ -13,6 +14,7 @@ import { MINSA_DIGITAL_LOGIN_PATH } from "@/lib/integrations/minsa/wire";
 import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import {
@@ -23,7 +25,6 @@ import {
   REGISTRATION_WAIT_TEXT,
   REGISTRATION_RETRY_PROMPT_TEXT,
   VALIDATING_AGAIN_TEXT,
-  ANALYZING_CUENTA_TEXT,
   OTP_LOCKED_TEXT,
   VERIFIED_ASK_DISTRITO_TEXT,
   REGISTRATION_BUTTONS,
@@ -40,7 +41,7 @@ import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
-import { toText, stringOrUndefined } from "@/lib/utils/text-values";
+import { stringOrUndefined } from "@/lib/utils/text-values";
 import { MAX_REGISTRATION_CHECKS, MAX_OTP_ATTEMPTS } from "@/lib/constants/limits/cita";
 
 function registrationRetryButtons(text: string) {
@@ -149,10 +150,14 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     next.slots[SlotKey.CITA_BEARER] = result.token;
     next.slots[SlotKey.CITA_DNI] = dni ?? null;
 
-    if (isDemoReferenciaDni(stringOrUndefined(dni))) {
-      delete next.slots[SlotKey.CITA_RESUME_STATE];
-      delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
-      return offerDemoReferencias(next);
+    if (next.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.REFERENCIAS) {
+      if (isDemoReferenciaDni(stringOrUndefined(dni))) {
+        delete next.slots[SlotKey.POST_LOGIN_FLOW];
+        delete next.slots[SlotKey.CITA_RESUME_STATE];
+        delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
+        return offerDemoReferencias(next);
+      }
+      return startReferenciasLookup(next);
     }
 
     const resumeState = next.slots[SlotKey.CITA_RESUME_STATE];
@@ -161,12 +166,7 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
       return resumeAfterReverification(next, resumeState);
     }
 
-    next.state = SessionState.CITA_REFERENCES_PENDING;
-    const numeroDocumento = toText(dni);
-    return buildResult(next, [
-      sendText(ANALYZING_CUENTA_TEXT),
-      query(QueryKind.LIST_REFERENCES, { numeroDocumento, tipoDocumento: tipoDocumentoDe(numeroDocumento) }),
-    ]);
+    return continueCitaAfterVerification(next);
   }
 
   const attempts = (next.counters[CounterKey.CITA_OTP_ATTEMPTS] ?? 0) + 1;

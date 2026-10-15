@@ -1,4 +1,4 @@
-# Playbook de pruebas manuales — rama `feat/lexical-guard`
+# Guía de pruebas manuales
 
 Guía para imprimir o seguir paso a paso, desde **WhatsApp real** o desde el **Sandbox**. Cada caso indica qué escribir o tocar, qué debe responder el bot, qué debe pasar por dentro y cuándo se considera aprobado.
 
@@ -13,6 +13,10 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 ### 0.1 Dónde probar
 
 > Las páginas `/sandbox` y `/configuracion-visor-sandbox` solo se ven con `SANDBOX_PAGE_ENABLED=true`; sin ella redirigen a `/api/health`.
+
+> Registrar y consultar una incidencia dependen de `INCIDENCIAS_ENABLED=true` (por defecto apagada: solo está disponible **Agendar una cita médica**). Los casos de esta guía que registran o consultan una incidencia, o que esperan sus filas en el menú, suponen la variable en `true`. Con ella apagada, esos mismos mensajes (`2`, `3`, `incidencia`, un código `MINSA-AAAA-NNNNNN`) responden `Por ahora solo puedo ayudarte a agendar una cita médica.` y muestran el menú de una sola fila. En el Sandbox el menú tiene además la fila **Consultar referencia**, y el aviso dice `Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.`
+
+> **Consultar referencia** no lleva bandera: está siempre disponible. Su fila solo aparece en el Sandbox; en WhatsApp no hay fila ni botón y se entra escribiendo `referencia` o `quiero consultar mi referencia`. Las referencias reales dependen de `SANDBOX_USE_REAL_MINSA=true` y del endpoint de MINSA; en modo fake la consulta siempre responde `No cuentas con referencias registradas.` (ver la sección 3.18).
 
 | Entorno | Cómo entrar | Para qué sirve |
 |---|---|---|
@@ -57,6 +61,7 @@ Un primer mensaje es el que llega **sin sesión abierta**.
 | Comportamiento | Sandbox | WhatsApp real |
 |---|---|---|
 | Primer mensaje normal | Un saludo: la bienvenida, en **un solo mensaje** con el botón **Continuar mi cita**. Un pedido de cita o de incidencia: directo a ese flujo. Otro texto: el menú. Sin IA. | Igual (mismas reglas en los dos canales). |
+| Menú y números escritos | Filas: cita, **Consultar referencia**, y las de incidencias con la bandera. Con incidencias encendidas: `1` cita, `2` referencia, `3` registrar, `4` consultar una incidencia. | Sin fila de referencia. Con incidencias encendidas: `1` cita, `2` registrar, `3` consultar una incidencia. Ningún número apunta a la referencia. |
 | Límite de ritmo (5 en 10 s / 20 en 60 s) | No aplica. | Sí aplica. |
 | Notas de voz y stickers | No se pueden enviar (solo imagen con 📎). | Sí. |
 | Registro en «Chat real» | No guarda conversaciones. | Guarda mensajes y respuestas. |
@@ -156,7 +161,7 @@ Requiere un número **sin sesión** (ver 0.4).
 Si no se indica lo contrario, envía cada texto **en el menú** (con sesión ya abierta). Para asegurarte, escribe primero `Hola`.
 
 Mensaje de advertencia (`A`):
-`Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Si desea registrar una incidencia sobre un mal servicio de salud, escriba INCIDENCIA para iniciar el trámite oficial.` con el botón **[Continuar]**.
+`Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Si desea registrar una incidencia sobre un mal servicio de salud, escriba INCIDENCIA para iniciar el trámite oficial.` con el botón **[Continuar]**. Es el texto con `INCIDENCIAS_ENABLED=true`; apagada, el aviso se reduce a la primera frase (la política de respeto).
 
 ### 2.1 Agresión pura → advertencia y corte de turno
 
@@ -170,7 +175,7 @@ Mensaje de advertencia (`A`):
 | 2.1f | `cojuuuudo` | Mensaje `A`. | Sin IA. Colapsa letras repetidas. | ☐ ☐ |
 | 2.1g | `c s m` | Mensaje `A`. | Sin IA. Une las letras sueltas. | ☐ ☐ |
 | 2.1h | `hijo de puta` | Mensaje `A`. | Sin IA. | ☐ ☐ |
-| 2.1i | Tras 2.1a, tocar **Continuar**. | El menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica** y **Registrar una incidencia**. | Vuelve al menú sin IA. | ☐ ☐ |
+| 2.1i | Tras 2.1a, tocar **Continuar**. | El menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica**, **Consultar referencia** (solo en el Sandbox) y **Registrar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Sandbox, **Consultar referencia**). | Vuelve al menú sin IA. | ☐ ☐ |
 | 2.1j | Tras 2.1a, escribir `RECLAMO`. | `¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. | La palabra que promete la advertencia funciona. Sin IA. | ☐ ☐ |
 | 2.1k | **Primer mensaje** `hdp` (número o sesión nuevos). | Mensaje `A` con **Continuar**. **Sin** bienvenida. | Se crea la sesión para que el botón funcione. | ☐ ☐ |
 
@@ -295,10 +300,10 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
 | 3.1a | `Hola` (sesión nueva). | **WhatsApp:** un solo mensaje, la bienvenida grande con el botón **[Continuar mi cita]** y, al final del texto, `¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.` Incluye la línea `⚠️ En caso de emergencia médica, llama al *106* (SAMU).` **Sandbox (widget web):** un solo mensaje de texto, sin botón, que se presenta como «el asistente virtual de MINSA Digital» y termina en `Escríbeme lo que necesitas y te ayudo.`; también incluye la línea del *106*. En ambos casos: **sin** segundo mensaje y **sin** el menú `¿En qué podemos ayudarte hoy?`. | Distinto texto/formato según canal (`session.channel`: `whatsapp` vs `web`), ver `lib/fsm/routing/welcome.ts`. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
-| 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica**, **Registrar una incidencia** y **Consultar una incidencia**. Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
+| 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica**, **Consultar referencia** (solo en el Sandbox), **Registrar una incidencia** y **Consultar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Sandbox, **Consultar referencia**). Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
 | 3.1c | Con **sesión nueva**, primer mensaje: `Sabes quiero una cita para san Juan de Lurigancho para medicina general`. | **Un solo mensaje:** `¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de documento:`. **Sin** bienvenida ni menú. | Sin IA. Slots (panel Debug): `citaDistritoHintText` = `San Juan de Lurigancho`, `citaEspecialidadHintText` = `Medicina General`. Reiniciar antes de seguir con 3.2. | ☐ ☐ |
 | 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. Sin bienvenida ni menú. | Sin IA. Estado `incidencia_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
-| 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica** y **Registrar una incidencia**. **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
+| 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica**, **Consultar referencia** (solo en el Sandbox) y **Registrar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Sandbox, **Consultar referencia**). **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
 | 3.1f | Con **sesión nueva**, primer mensaje (el del QR): `Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206`. | **Un solo mensaje** con botones: `¿Estás seguro de esa ubicación?` y **HOSPITAL NACIONAL DOS DE MAYO**, `Código IPRESS: 6206`, **[Sí, es ese]** **[No, es otro]**. Sin bienvenida ni menú. | Entrada por QR: requiere base de datos con el padrón cargado (`npm run db:seed:eess`). Sin IA. | ☐ ☐ |
 | 3.1o | En cualquier paso de una incidencia, escribir `quiero cerrar`. | `Entendido, no se registró ninguna incidencia…`. Un mensaje nuevo empieza de cero. | Cancela sin guardar nada. Un relato que contiene la frase no cancela. | ☐ ☐ |
 | 3.1p | En el paso del relato escribir `me cobraron` (menos de 20 caracteres). | `Cuéntanos un poco más: escribe al menos 20 caracteres para poder entender lo que pasó.` | No avanza ni guarda. | ☐ ☐ |
@@ -309,13 +314,13 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.1g | Tras 3.1f, tocar **Sí, es ese**. | `Perfecto, registraremos tu incidencia en *HOSPITAL NACIONAL DOS DE MAYO*.` y luego `¿Deseas registrar tu nombre, o prefieres que sea anónimo?` con **[Sí, doy mi nombre]** **[Prefiero ser anónimo]**. | El establecimiento queda en la sesión (todavía no se guarda en la incidencia). | ☐ ☐ |
 | 3.1h | Con **sesión nueva**, primer mensaje: `Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137`. | Pregunta de confirmación con **C.S.M. COMUNITARIO LINCE**. **No** aparece la advertencia de respeto. | «C.S.M.» no se toma por un insulto: lo precargado por el QR no pasa por el filtro de insultos. | ☐ ☐ |
 | 3.1i | Con **sesión nueva**, primer mensaje: `quiero presentar una incidencia en el hospital`. | Una lista `Encontré estos establecimientos. Elige el correcto:` con los 4 hospitales (filas `IPRESS 6206`, `5946`, `6215`, `33381`) y **Ninguno de estos**. | Solo el tipo: se ofrece la lista corta. Elegir una fila sigue con la pregunta del nombre. | ☐ ☐ |
-| 3.1r | Registrar una incidencia (3.1l) y, con el mismo WhatsApp y **sesión nueva**, escribir `quiero ver mi incidencia MINSA-AAAA-NNNNNN` (el código recibido). | `Incidencia MINSA-AAAA-NNNNNN`, `Estado: Recibida, pendiente de revisión` y `Fecha de registro: dd/mm/aaaa`. **Sin** descripción ni datos de la persona. La sesión termina: un mensaje nuevo vuelve al inicio. | Sin IA. Requiere base de datos. En WhatsApp se compara el usuario dueño de la incidencia. | ☐ ☐ |
+| 3.1r | Registrar una incidencia (3.1l) y, con el mismo WhatsApp y **sesión nueva**, escribir `quiero ver mi incidencia MINSA-AAAA-NNNNNN` (el código recibido). | `Incidencia MINSA-AAAA-NNNNNN`, `Estado: Recibida, pendiente de revisión` y `Fecha de registro: dd/mm/aaaa`. **Sin** descripción ni datos de la persona. La sesión termina: un mensaje nuevo vuelve al inicio. | Sin IA. Requiere base de datos y `INCIDENCIAS_ENABLED=true`; apagada, responde el aviso de que solo se agendan citas. En WhatsApp se compara el usuario dueño de la incidencia. | ☐ ☐ |
 | 3.1s | Desde **otro** WhatsApp, escribir el mismo código; y desde el primero un código inexistente (`MINSA-2026-999999`). | Ambos: exactamente `No se logró ubicar el registro de la incidencia.` | No se distingue «ajena» de «no existe». | ☐ ☐ |
-| 3.1t | En el menú tocar **Consultar una incidencia** (o escribir `3`), responder `123` y luego tres textos sin formato de código. | `Escribe el código de tu incidencia (por ejemplo, MINSA-2026-000001).`; luego `El código no tiene el formato correcto. Debe verse así: MINSA-2026-000001. Intenta de nuevo.`; al tercer intento `No pudimos reconocer el código. Revísalo e inicia la consulta nuevamente.` | Tope de 3 intentos; la sesión termina. | ☐ ☐ |
+| 3.1t | En el menú tocar **Consultar una incidencia** (o escribir `3` en WhatsApp, `4` en el Sandbox), responder `123` y luego tres textos sin formato de código. | `Escribe el código de tu incidencia (por ejemplo, MINSA-2026-000001).`; luego `El código no tiene el formato correcto. Debe verse así: MINSA-2026-000001. Intenta de nuevo.`; al tercer intento `No pudimos reconocer el código. Revísalo e inicia la consulta nuevamente.` | Tope de 3 intentos; la sesión termina. | ☐ ☐ |
 | 3.1u | **Sandbox** (sesión nueva): escribir un código válido de una incidencia con DNI. | Pide el documento, luego el OTP (`12345678` y `1234` en modo fake) y responde el estado. Con una incidencia anónima: `No se logró ubicar el registro de la incidencia.` | Solo la web exige DNI + OTP. Con la base apagada: `Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.` | ☐ ☐ |
 | 3.1j | Con **sesión nueva**, primer mensaje: `quiero presentar una incidencia`. Responder tres veces con textos que no son un establecimiento (`xyzzy`, `qwerty`, `zzzz`). | Tras el tercero: `Disculpa, no logramos ubicar el establecimiento. ¿Quieres continuar sin indicar el establecimiento?` con **[Sí, continuar]** **[No, indicarlo]**. | Con «Sí» sigue con la pregunta del nombre, sin establecimiento. | ☐ ☐ |
 | 3.1k | Con **sesión nueva**, primer mensaje: `Hola quiero presentar una incidencia Hospital Nacional Hipólito Unanue - CODIGO-IPRESS 5946 Me cobraron sin recibo en la ventanilla.`; confirmar el lugar, elegir anónimo. | `Esto es lo que escribiste:` con el texto y **[Usar así]** **[Agregar más]**. | Lo que se escribió junto al QR se ofrece como relato. «Agregar más» pide otro mensaje y lo une al anterior; «Usar así» sigue con la foto o el registro. | ☐ ☐ |
-| 3.2 | `1` | `Ingresa tu número de documento.` **Sin** volver a mostrar el menú. | Atajo numérico: `2` haría lo mismo con la incidencia. Sin IA. | ☐ ☐ |
+| 3.2 | `1` | `Ingresa tu número de documento.` **Sin** volver a mostrar el menú. | Atajo numérico: en WhatsApp `2` entra a la incidencia; en el Sandbox `2` es Consultar referencia y `3` la incidencia. Sin IA. | ☐ ☐ |
 | 3.3 | `1234567` (7 dígitos) | `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` | Validación de formato, sin IA. Lo mismo con 10 dígitos o con letras. | ☐ ☐ |
 | 3.4 | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake) con `tipo_documento` `01`. | ☐ ☐ |
 | 3.4b | Reiniciar, `1` y `123456789` (9 dígitos) | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Carnet de extranjería: llamada a MINSA (fake) con `tipo_documento` `03`; luego el código `1234` y las referencias se piden con tipo `03`. | ☐ ☐ |
@@ -328,7 +333,7 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.11 | `odontología` (texto, sin tocar la lista) | `Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:` con filas como `mar 22 sep` (no la fecha cruda que entrega MINSA o el catálogo fake). | Coincide el nombre con la fila ofrecida. Sin IA. La fila muestra día de semana + fecha con el mes en letras; lo que viaja a MINSA (`citaFecha`) no cambia. | ☐ ☐ |
 | 3.12 | `1` | `Buscando horarios disponibles…` y la lista `Selecciona el horario:` (8:00 AM - 8:30 AM, 9:30 AM - 10:00 AM, 1:00 PM - 1:30 PM). | En listas, `1` es la posición 1. Las horas se muestran en formato 12 horas; hacia MINSA siguen viajando en 24 horas (`08:00`, `13:00`…), sin cambio. | ☐ ☐ |
 
-> **Un solo horario (G1, cerrado):** si un día ofrece **un solo** horario, o la última página de «Ver más horarios» deja uno solo, el bot **pide confirmación** antes de agendar (caso 3.17). Con el catálogo fake, la **tercera fecha** de la lista tiene un único horario para probarlo.
+> **Un solo horario:** si un día ofrece **un solo** horario, o la última página de «Ver más horarios» deja uno solo, el bot **pide confirmación** antes de agendar (caso 3.17). Con el catálogo fake, la **tercera fecha** de la lista tiene un único horario para probarlo.
 
 ### 3.13 Selección de horario (parte de la lista `08:00 / 09:30 / 13:00`)
 
@@ -386,7 +391,8 @@ Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenci
 | 3.16a | `Mi mamá no puede respirar` (también `dolor de pecho`, `creo que es un infarto`, `se está asfixiando`, `me muero`) | Un solo mensaje: `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS` … `- SAMU: 106 (ambulancias y emergencias médicas)` `- Bomberos: 116 (rescate y urgencias)` … `Acuda ahora mismo al establecimiento de salud más cercano.` **Sin** invitar a continuar. | La conversación **termina**: estado `emergency_closed`, sesión vacía, sin token, nada pendiente. Log `turn.note` (**warn**) `out_of_scope` con `category: OOS-01`, `closed: true`. El siguiente mensaje empieza una conversación nueva (`Hola` da la bienvenida). | ☐ ☐ |
 | 3.16b | `ustedes son unos idiotas, mi mamá no puede respirar`; y `quiero una cita, me duele el pecho` | El mismo mensaje de emergencia, **no** la advertencia institucional ni el inicio de la cita. | La emergencia se lee antes que el filtro léxico y antes que cualquier intención de cita o reclamo. | ☐ ☐ |
 | 3.16c | `¿Mi SIS está activo?` | `Consulta sobre SIS (Seguro Integral de Salud):` … `app.sis.gob.pe/ConsultaWeb` … `941 988 565` … `escriba CITAS.` | `category: OOS-02` (nivel info). | ☐ ☐ |
-| 3.16d | `¿Ya aceptaron mi referencia?` | `Gestión de Referencias Médicas:` … `REFCON` … `Admisión/Referencias`. | `OOS-03`. `punto de referencia` (una dirección) **no** dispara esto. | ☐ ☐ |
+| 3.16d | `¿Ya aceptaron mi referencia?` | `Gestión de Referencias Médicas:` … `REFCON` … `Admisión/Referencias` … `Si su referencia ya está registrada en MINSA Digital, escriba REFERENCIA para consultarla.` | `OOS-03`. `punto de referencia` (una dirección) **no** dispara esto. Un mensaje que no es un pedido corto de la referencia sigue aquí. | ☐ ☐ |
+| 3.16d-b | `quiero consultar mi referencia`, `referencia` y `estado de mi referencia`. | **No** el mensaje de 3.16d: `Para consultar tu referencia debes iniciar sesión. Ingresa tu número de documento.` | El pedido corto entra al servicio Consultar referencia **antes** de fuera de alcance (ver 3.18a). Es el caso que chocaba con `OOS-03`. | ☐ ☐ |
 | 3.16e | `¿Ya salieron mis análisis de sangre?` | `Entrega de Resultados Médicos:` … `Ley N° 26842` … `de forma presencial`. | `OOS-04`. | ☐ ☐ |
 | 3.16f | `¿Tienen Paracetamol o Insulina en la posta?` | `Consulta de Medicamentos:` … `observatorio.digemid.minsa.gob.pe` … `escriba INCIDENCIA`. | `OOS-05`. `medicina general` (una especialidad) **no** dispara esto. | ☐ ☐ |
 | 3.16g | `¿Qué días vacunan contra la influenza?` | `Vacunación y Carnets Oficiales:` … `carnetvacunacion.minsa.gob.pe` … `Línea 113 (Opción 1)`. | `OOS-06`. | ☐ ☐ |
@@ -418,6 +424,24 @@ Sandbox con el catálogo fake: en la lista de fechas elige la **tercera** fila (
 | 3.17j | Con MINSA real y un día de 11 horarios: pedir `Ver más horarios` hasta la última página (un solo horario) y tocar **No, gracias**. | `Sin problema. Elige otro horario:` y la lista de la página **anterior**. | Vuelve a la página anterior; `Ver más horarios` sigue funcionando y no queda vacío. | ☐ ☐ |
 | 3.17k | En una confirmación normal (`¿Confirmas el horario 8:00 AM - 8:30 AM?`, tras escribir `8`) escribir `esa hora` o `a las 8`. | Agenda. Con `a las 9` repite la pregunta sin agendar. | Vale para cualquier confirmación de horario, no solo la del horario único. | ☐ ☐ |
 | 3.17l | Solo con MINSA real: elegir una fecha cuya lista de horarios venga vacía (`list_horas` sin filas, aunque la lista de fechas haya mostrado cupos). | `No hay horarios disponibles para esa fecha.` `¿Deseas cambiar de fecha?` con `[1] Sí, cambiar de fecha` `[2] No, salir` y los botones **[Sí, otra fecha]** y **[No, salir]**. **No** es un cierre de sesión. | Estado `cita_awaiting_other_fecha` (antes: `cita_booking_rejected`, sin salida — bug real de campo, corregido). La fecha se recuerda como descartada. Log `turn.note` `hora_declined` con `reason: "no_horarios"`. No reproducible en el catálogo fake (siempre tiene horarios). | ☐ ☐ |
+
+### 3.18 Consultar referencia (ver [flujo-referencias.md](../flujo-referencias.md))
+
+Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_USE_REAL_MINSA=true` y el endpoint `/whatsapp/api/v1/references`); en modo fake siempre hay «sin referencias». Los casos con referencias se prueban con MINSA real o con los DNI de demostración `10308523` y `47391441` (piloto comercial), que además exigen que MINSA valide el documento. **En WhatsApp no hay botón ni fila:** el servicio se pide escribiendo.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 3.18a | **Sandbox:** en el menú tocar **Consultar referencia** (o escribir `2`). **WhatsApp o Sandbox:** escribir `referencia` o `quiero consultar mi referencia`. | `Para consultar tu referencia debes iniciar sesión. Ingresa tu número de documento.` | Estado `cita_awaiting_dni` con el dato `postLoginFlow` = `referencias` (panel Debug). Sin IA. En WhatsApp ningún número escrito apunta a la referencia. | ☐ ☐ |
+| 3.18b | Tras 3.18a, escribir `12345678` y luego `1234` (modo fake). | `Validando tu documento…`, el aviso del código, `Verificando código…` y `Un momento, estamos analizando tu cuenta…`. **No** pregunta el distrito. | Mismos pasos de identidad que la cita (3.4 y 3.6). Estado `referencia_lookup_pending` y consulta `list_references` con tipo `01`. | ☐ ☐ |
+| 3.18c | **Con referencias** (MINSA real con un documento que las tenga, o un DNI demo): terminar el OTP. | Real: la lista `Estas son tus referencias:` (título: el destino, hasta 24 caracteres; descripción: fecha en 12 horas · origen). Demo: la lista de referencias de demostración. **No** aparece `¿Deseas revisar tus referencias?`. | Estado `cita_awaiting_referencia_select`. Más de 10 referencias se paginan como cualquier lista. | ☐ ☐ |
+| 3.18d | Elegir una referencia y tocar **Sí**; en otra prueba tocar **No, ver otra**. | Detalle `N° : …`, `Fecha: …`, `Origen: …`, `Destino: …`, `Estado: …` y `¿Es esta tu referencia?`. Con **Sí**: `Perfecto. Buscando fechas disponibles para tu referencia en *{destino}*…` y la lista de fechas, **sin** preguntar distrito. Con **No, ver otra**: la lista otra vez. | La reserva se envía con `referencia_id`. Demo: sigue por horas y constancia (`cita_booked`). | ☐ ☐ |
+| 3.18e | **Sin referencias** (modo fake con `12345678`, o un documento sin referencias en MINSA real): terminar el OTP. | `No cuentas con referencias registradas.` y `¿Deseas agendar una cita?` con **[Sí]** y **[No]**. | Estado `referencia_awaiting_cita_offer`. Vale para `empty`, `error` y cualquier otro estado de la consulta. | ☐ ☐ |
+| 3.18f | Tras 3.18e, tocar **Sí** (o escribir `sí`). | `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` **Sin** pedir documento ni código otra vez. | Estado `cita_awaiting_distrito_ai` con el token y el DNI ya guardados. Sigue como la cita desde 3.7. | ☐ ☐ |
+| 3.18g | Repetir hasta 3.18e y tocar **No** (o escribir `no`). | `Entendido. Cuando necesites consultar una referencia o agendar una cita, escríbenos. ¡Que tengas un buen día!` | Estado terminal `referencia_closed`, sesión vacía sin token. Escribir `Hola` después da la bienvenida. | ☐ ☐ |
+| 3.18h | Repetir hasta 3.18e y escribir `mmm no se`. | `No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.` y otra vez `¿Deseas agendar una cita?` con los botones. | No avanza. | ☐ ☐ |
+| 3.18i | **Token vencido o inactividad:** en 3.18e (o en la lista de 3.18c) esperar más de 10 minutos y escribir cualquier cosa. | La alerta de sesión expirada de 3.15a con **[Sí, enviar código]** y **[Cancelar]**. Con **Sí**: nuevo código, `Verificando código…` y otra vez la consulta de referencias (3.18c o 3.18e). | Estado `cita_awaiting_reauth`; se borra el token y se conservan el DNI y `postLoginFlow`. El mensaje que llegó no se procesa. Pasa igual si el token del MINSA vence en menos de 30 s. Con **Cancelar**: lo mismo que en 3.15c. | ☐ ☐ |
+| 3.18j | **Cita normal:** `1` (o `quiero una cita`), documento y OTP. | `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` directo. **No** aparece `¿Deseas revisar tus referencias?` ni una lista de referencias. | Sin consulta `list_references`. Los DNI demo, en la cita, siguen el camino normal. | ☐ ☐ |
+| 3.18k | **WhatsApp:** con incidencias encendidas, escribir `2` y `3` en el menú. | `2` abre el registro de una incidencia y `3` la consulta de una incidencia; **nunca** la referencia. | La lista de WhatsApp no tiene la fila, así que su numeración es la de siempre. | ☐ ☐ |
 
 ---
 
@@ -475,7 +499,7 @@ done; wait
 
 ### 4.4 Cómo comprobarlo en los logs
 
-Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (proyecto → Logs; escribe `turn.end`, un `traceId` o un evento en el buscador) o, en local, en la terminal de `npm run dev`. Con `LOG_TO_FILE=true` también quedan en `logs/DD-MM-AAAA/app.ndjson` (y solo los avisos y errores en `alerts.ndjson`). Todos los eventos de un mismo mensaje comparten el `traceId`. Detalle completo en `docs/observability.md`.
+Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (proyecto → Logs; escribe `turn.end`, un `traceId` o un evento en el buscador) o, en local, en la terminal de `npm run dev`. Con `LOG_TO_FILE=true` también quedan en `logs/DD-MM-AAAA/app.ndjson` (y solo los avisos y errores en `alerts.ndjson`). Todos los eventos de un mismo mensaje comparten el `traceId`. Detalle completo en `docs/observabilidad.md`.
 
 | Evento | Qué significa |
 |---|---|
@@ -515,7 +539,7 @@ Si en 4.2a **no** aparece ningún `turn_lock.waited` con `layer: "process"`, no 
 |---|---|---|---|---|
 | 1. Perímetro | 1.1 – 1.6 | | | |
 | 2. Filtro léxico | 2.1 – 2.4 | | | |
-| 3. Camino feliz | 3.1 – 3.16 | | | |
+| 3. Camino feliz | 3.1 – 3.18 | | | |
 | 4. Concurrencia | 4.2 – 4.3 | | | |
 | 7. IA | 7.1 – 7.4 | | | |
 

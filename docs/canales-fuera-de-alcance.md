@@ -6,7 +6,7 @@ Los mensajes de consultas fuera de alcance (`lib/constants/textos/fuera-de-alcan
 
 Un solo archivo: `lib/constants/textos/canales-oficiales.ts` (objeto `CHANNELS`). Cambiar el valor ahí actualiza todos los textos que lo mencionan. No hay que tocar los mensajes.
 
-`lib/fsm/flows/out-of-scope/out-of-scope-channels.test.ts` protege esta regla:
+`tests/lib/fsm/flows/out-of-scope/out-of-scope-channels.test.ts` protege esta regla:
 - falla si un mensaje escribe un teléfono o un enlace a mano en vez de usar `CHANNELS`;
 - falla si un canal de `CHANNELS` no aparece en la tabla de abajo (así ninguno se agrega sin quedar en la lista);
 - falla si cambia un texto sin querer: al cambiar un valor a propósito, actualiza también `tests/support/oos-golden.ts`.

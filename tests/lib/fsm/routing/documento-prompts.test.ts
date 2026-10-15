@@ -8,6 +8,7 @@ import { handleAwaitingFlowStart } from "@/lib/fsm/routing/main-menu";
 import { handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { SessionState } from "@/lib/enums/session-state";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
@@ -45,7 +46,7 @@ describe("toda petición del documento dice solo «número de documento»", () =
       slots: { [SlotKey.MENU_CHOICE]: MenuChoice.AGENDAR_CITA },
       counters: {},
     };
-    const reply = firstText(handleAwaitingFlowStart(session));
+    const reply = firstText(handleAwaitingFlowStart(session, SessionChannel.WHATSAPP));
 
     expect(reply).toBe("Ingresa tu número de documento.");
     expect(reply).not.toMatch(AMOUNT_OR_TYPE);

@@ -7,7 +7,9 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { buildResult, cloneSession, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
-import { askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
+import { abandonedText, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
+import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -21,7 +23,6 @@ import {
   ASK_PROVINCIA_TEXT,
   ASK_DISTRITO_MANUAL_TEXT,
 } from "@/lib/constants/textos/cita-ubicacion";
-import { CITA_ABANDONED_TEXT } from "@/lib/constants/textos/cita-salida";
 import { LEAVE_ANSWERS, STAY_ANSWERS } from "@/lib/constants/palabras-clave";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { slotText } from "@/lib/fsm/core/slot-readers";
@@ -44,6 +45,9 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT,
   SessionState.CITA_AWAITING_FECHA_SELECT,
   SessionState.CITA_AWAITING_HORA_SELECT,
+  SessionState.CITA_AWAITING_REFERENCIA_SELECT,
+  SessionState.CITA_AWAITING_REFERENCIA_CONFIRM,
+  SessionState.REFERENCIA_AWAITING_CITA_OFFER,
 ]);
 
 const CHANGE_DISTRITO_STATES: ReadonlySet<string> = new Set<Session["state"]>([
@@ -73,6 +77,8 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
   if (prompt) return buildResult(restored, [sendText(prompt)]);
   if (restored.state === SessionState.CITA_REGISTRATION_WAIT)
     return handleRegistrationWait(restored, { ...event, type: InboundEventType.TEXT, text: "" });
+  if (restored.state === SessionState.CITA_AWAITING_REFERENCIA_CONFIRM) return reshowReferenciaConfirmation(restored);
+  if (restored.state === SessionState.REFERENCIA_AWAITING_CITA_OFFER) return askCitaOffer(restored);
   return reshowOffered(restored, readOffered(restored.slots));
 }
 
@@ -88,7 +94,7 @@ export function handleExitConfirm(session: Session, event: InboundEvent): Handle
         : resolveConfirmation(typed);
 
   if (tapped === ExitButtonId.YES || answer === Confirmation.YES) {
-    return withNote(buildResult({ state: SessionState.CITA_ABANDONED, slots: {}, counters: {} }, [sendText(CITA_ABANDONED_TEXT)]), {
+    return withNote(buildResult({ state: SessionState.CITA_ABANDONED, slots: {}, counters: {} }, [sendText(abandonedText(session))]), {
       kind: "cita_closed",
       detail: { reason: "abandoned", from: slotText(session.slots, SlotKey.CITA_EXIT_RESUME_STATE) },
     });
@@ -96,7 +102,7 @@ export function handleExitConfirm(session: Session, event: InboundEvent): Handle
 
   if (tapped === ExitButtonId.NO || answer === Confirmation.NO) return resume(session, event);
 
-  return withNote(buildResult(session, [exitButtons()]), {
+  return withNote(buildResult(session, [exitButtons(session)]), {
     kind: "confirmation_unknown",
     level: "warn",
     detail: { step: "exit_confirm" },

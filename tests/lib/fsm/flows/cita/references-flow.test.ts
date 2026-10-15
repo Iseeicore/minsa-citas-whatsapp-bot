@@ -1,21 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-references";
 
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
-const queryResult = (queryKind: "list_references", result: unknown): QueryResultEvent => ({
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind,
-  result,
-});
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] =>
@@ -39,78 +32,6 @@ const REFERENCIA: ReferenciaItem = {
   codigoUpsDestino: "222800",
   estado: 7,
 };
-
-function referencesPending(): Session {
-  return {
-    state: "cita_references_pending",
-    slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DNI]: "12345678" },
-    counters: {},
-  };
-}
-
-describe("handleReferencesPending", () => {
-  it("sin referencias (empty), sigue directo al flujo normal sin preguntar nada", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "empty", message: "", data: [] }));
-
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(texts(result).join(" ")).toContain("Cuéntanos en qué distrito");
-  });
-
-  it("con error, también sigue directo al flujo normal", () => {
-    const result = handle(referencesPending(), queryResult("list_references", { statusReference: "error", message: "", data: [] }));
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
-  });
-
-  it("con referencias encontradas, pregunta si quiere revisarlas (no pasa a distrito todavía)", () => {
-    const result = handle(
-      referencesPending(),
-      queryResult("list_references", { statusReference: "found", message: "", data: [REFERENCIA] }),
-    );
-
-    expect(result.session.state).toBe("cita_awaiting_references_offer");
-    expect(texts(result).join(" ")).toContain("¿Deseas revisar tus referencias?");
-    expect(sent(result).some((e) => e.kind === "send_buttons")).toBe(true);
-  });
-});
-
-function referencesOffered(): Session {
-  return {
-    state: "cita_awaiting_references_offer",
-    slots: {
-      [SlotKey.CITA_BEARER]: "token",
-      [SlotKey.CITA_DNI]: "12345678",
-      [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCIA]),
-    },
-    counters: {},
-  };
-}
-
-describe("handleAwaitingReferenciasOffer", () => {
-  it("no: mensaje fijo y sigue con el flujo normal de cita", () => {
-    const result = handle(referencesOffered(), text("no"));
-
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(texts(result)[0]).toBe("Entendido, continuamos con tu cita médica.");
-    expect(texts(result).join(" ")).toContain("Cuéntanos en qué distrito");
-  });
-
-  it("sí: muestra el listado con título=ipress_destino y descripción=fecha 12h + ipress_origen", () => {
-    const result = handle(referencesOffered(), text("si"));
-
-    expect(result.session.state).toBe("cita_awaiting_referencia_select");
-    const rows = listRows(result);
-    expect(rows).toHaveLength(1);
-    expect(rows?.[0].id).toBe("1364486");
-    expect(rows?.[0].title).toBe("HOSPITAL MARIA AUXILIAD…");
-    expect(rows?.[0].description).toBe("24/07/2024 11:03 PM · SAN FERNANDO");
-  });
-
-  it("respuesta ambigua: vuelve a preguntar", () => {
-    const result = handle(referencesOffered(), text("mmm no se"));
-    expect(result.session.state).toBe("cita_awaiting_references_offer");
-    expect(sent(result).some((e) => e.kind === "send_buttons")).toBe(true);
-  });
-});
 
 function referenciaOffered(): Session {
   return {

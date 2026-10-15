@@ -1,7 +1,6 @@
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
-import { NO_SALIR_BUTTON_TEXT, SI_BUTTON_TEXT, NO_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
+import { NO_SALIR_BUTTON_TEXT, SI_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
-import { ReferencesOfferButtonId } from "@/lib/enums/references-offer-button-id";
 
 export const APPOINTMENT_DETAILS_TEXT =
   "Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):";
@@ -57,10 +56,7 @@ Estado: ${referencia.estado}
 
 ${REFERENCIA_CONFIRM_QUESTION_TEXT}`;
 
-export const REFERENCIAS_OFFER_QUESTION_TEXT = "¿Deseas revisar tus referencias?";
-export const REFERENCIAS_FOUND_TEXT = `Tienes una referencia médica registrada.\n${REFERENCIAS_OFFER_QUESTION_TEXT}`;
 export const REFERENCIA_CONFIRM_NO_BUTTON_TEXT = "No, ver otra";
-export const REFERENCIAS_DECLINED_TEXT = "Entendido, continuamos con tu cita médica.";
 
 export const DUPLICATE_BUTTONS = [
   { id: DuplicateButtonId.OTHER_ESPECIALIDAD, title: DUPLICATE_YES_BUTTON_TEXT },
@@ -70,9 +66,4 @@ export const DUPLICATE_BUTTONS = [
 export const REFERENCIA_CONFIRM_BUTTONS = [
   { id: ReferenciaConfirmButtonId.YES, title: SI_BUTTON_TEXT },
   { id: ReferenciaConfirmButtonId.NO, title: REFERENCIA_CONFIRM_NO_BUTTON_TEXT },
-];
-
-export const REFERENCIAS_OFFER_BUTTONS = [
-  { id: ReferencesOfferButtonId.YES, title: SI_BUTTON_TEXT },
-  { id: ReferencesOfferButtonId.NO, title: NO_BUTTON_TEXT },
 ];

@@ -1,13 +1,17 @@
 import { handleCita } from "@/lib/fsm/flows/cita/handlers-cita";
 import { handleConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
+import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia";
+import { channelOf } from "@/lib/fsm/core/channel";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { detectIncidenciaExpiry, detectSessionExpiry } from "@/lib/fsm/session/session-expiry-guard";
 import { beginIncidenciaReauth, handleAwaitingIncidenciaReauth } from "@/lib/fsm/flows/incidencia/reauth";
 import { SessionExpiryReason } from "@/lib/enums/session-expiry-reason";
-import { SessionChannel } from "@/lib/enums/session-channel";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
+import { disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { serviceCatalog } from "@/lib/services/service-catalog";
+import { SessionStatePrefix } from "@/lib/enums/session-state-prefix";
 import { emergencyCut, isEmergencyTurn } from "@/lib/fsm/flows/emergency/emergency";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { handleAwaitingFlowStart, handleMainMenu, handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
@@ -27,6 +31,9 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
+  const owner = serviceCatalog.forState(session.state);
+  if (owner && !owner.isEnabled() && !TERMINAL_STATES.has(session.state)) return disabledServiceReply(owner, channelOf(session, event));
+
   if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== InternalEventType.QUERY_RESULT) {
     return handleAwaitingReauth(session, event as InboundEvent);
   }
@@ -68,10 +75,7 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
   if (guarded) return guarded;
 
   if (TERMINAL_STATES.has(session.state) && event.type !== InternalEventType.QUERY_RESULT) {
-    return handleFirstContact(
-      event.type === InboundEventType.TEXT ? event.text : undefined,
-      (event as InboundEvent).channel ?? session.channel ?? SessionChannel.WHATSAPP,
-    );
+    return handleFirstContact(event.type === InboundEventType.TEXT ? event.text : undefined, channelOf(session, event));
   }
 
   if (session.state === SessionState.MAIN_MENU) {
@@ -83,18 +87,22 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
   }
 
   if (session.state === SessionState.AWAITING_FLOW_START) {
-    return handleAwaitingFlowStart(session);
+    return handleAwaitingFlowStart(session, channelOf(session, event));
   }
 
-  if (session.state.startsWith("incidencia_")) {
+  if (session.state.startsWith(SessionStatePrefix.INCIDENCIA)) {
     return handleIncidencia(session, event);
   }
 
-  if (session.state.startsWith("consulta_")) {
+  if (session.state.startsWith(SessionStatePrefix.CONSULTA)) {
     return handleConsulta(session, event);
   }
 
-  if (session.state.startsWith("cita_")) {
+  if (session.state.startsWith(SessionStatePrefix.REFERENCIA)) {
+    return handleReferencia(session, event);
+  }
+
+  if (session.state.startsWith(SessionStatePrefix.CITA)) {
     return handleCita(session, event);
   }
 

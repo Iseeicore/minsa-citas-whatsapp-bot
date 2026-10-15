@@ -4,6 +4,7 @@ import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import type { QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import { OUT_OF_SCOPE_REQUEST_TEXT } from "@/lib/constants/textos/menu";
 
 const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "dame código" }, counters: {} };
@@ -20,7 +21,7 @@ describe("handleMainMenuIntentPending: a request outside the bot's scope", () =>
     const result = handleMainMenuIntentPending(pending, aiSays({ intent: "fuera_de_alcance" }));
 
     expect(result.session.state).toBe("main_menu");
-    expect(result.effects).toEqual([{ kind: "send_text", text: OUT_OF_SCOPE_REQUEST_TEXT }, buildMenuEffect()]);
+    expect(result.effects).toEqual([{ kind: "send_text", text: OUT_OF_SCOPE_REQUEST_TEXT }, buildMenuEffect(SessionChannel.WHATSAPP)]);
     expect(result.notes).toContainEqual({ kind: "out_of_scope", detail: { reason: "ai_request" } });
   });
 
@@ -33,6 +34,6 @@ describe("handleMainMenuIntentPending: a request outside the bot's scope", () =>
   it("an unclear intent still just shows the menu, as before", () => {
     const result = handleMainMenuIntentPending(pending, aiSays({ intent: "unclear" }));
 
-    expect(result.effects).toEqual([buildMenuEffect()]);
+    expect(result.effects).toEqual([buildMenuEffect(SessionChannel.WHATSAPP)]);
   });
 });
