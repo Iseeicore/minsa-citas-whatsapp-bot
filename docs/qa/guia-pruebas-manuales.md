@@ -1,6 +1,6 @@
 # Guía de pruebas manuales
 
-Guía para imprimir o seguir paso a paso, desde **WhatsApp real** o desde el **Sandbox**. Cada caso indica qué escribir o tocar, qué debe responder el bot, qué debe pasar por dentro y cuándo se considera aprobado.
+Guía para imprimir o seguir paso a paso, desde **whatsapp-bot** o desde el **Chat-bot**. Cada caso indica qué escribir o tocar, qué debe responder el bot, qué debe pasar por dentro y cuándo se considera aprobado.
 
 Los textos de respuesta de este documento están copiados del código y de una ejecución real de cada escenario. Si un texto no coincide letra por letra, anótalo como **Rechazado**.
 
@@ -14,18 +14,18 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 
 > Las páginas `/sandbox` y `/configuracion-visor-sandbox` solo se ven con `SANDBOX_PAGE_ENABLED=true`; sin ella redirigen a `/api/health`.
 
-> Registrar y consultar una incidencia dependen de `INCIDENCIAS_ENABLED=true` (por defecto apagada: solo está disponible **Agendar una cita médica**). Los casos de esta guía que registran o consultan una incidencia, o que esperan sus filas en el menú, suponen la variable en `true`. Con ella apagada, esos mismos mensajes (`2`, `3`, `incidencia`, un código `MINSA-AAAA-NNNNNN`) responden `Por ahora solo puedo ayudarte a agendar una cita médica.` y muestran el menú de una sola fila. En el Sandbox el menú tiene además la fila **Consultar referencia**, y el aviso dice `Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.`
+> Registrar y consultar una incidencia dependen de `INCIDENCIAS_ENABLED=true` (por defecto apagada: solo está disponible **Agendar una cita médica**). Los casos de esta guía que registran o consultan una incidencia, o que esperan sus filas en el menú, suponen la variable en `true`. Con ella apagada, esos mismos mensajes (`2`, `3`, `incidencia`, un código `MINSA-AAAA-NNNNNN`) responden `Por ahora solo puedo ayudarte a agendar una cita médica.` y muestran el menú de una sola fila. En el Chat-bot el menú tiene además la fila **Consultar referencia**, y el aviso dice `Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.`
 
-> **Consultar referencia** no lleva bandera: está siempre disponible. Su fila solo aparece en el Sandbox; en WhatsApp no hay fila ni botón y se entra escribiendo `referencia` o `quiero consultar mi referencia`. Las referencias reales dependen de `SANDBOX_USE_REAL_MINSA=true` y del endpoint de MINSA; en modo fake la consulta siempre responde `No cuentas con referencias registradas.` (ver la sección 3.18).
+> **Consultar referencia** no lleva bandera: está siempre disponible. Su fila solo aparece en el Chat-bot; en whatsapp-bot no hay fila ni botón y se entra escribiendo `referencia` o `quiero consultar mi referencia`. Las referencias reales dependen de `SANDBOX_USE_REAL_MINSA=true` y del endpoint de MINSA; en modo fake la consulta siempre responde `No cuentas con referencias registradas.` (ver la sección 3.18).
 
 | Entorno | Cómo entrar | Para qué sirve |
 |---|---|---|
-| **Sandbox (widget)** | `/sandbox` | Simula al ciudadano. No muestra el panel de depuración. |
-| **Sandbox (consola)** | `/configuracion-visor-sandbox` y el interruptor **Sandbox** | Igual, pero con el panel **Debug** a la derecha (visible en pantallas anchas) que muestra `from`, `state` y `slots`, y con el botón **Reiniciar todas las pruebas**. **Úsalo para verificar los slots.** |
-| **WhatsApp real** | Tu número de prueba escribiendo al número del bot | Prueba el webhook completo: firma, base de datos, ritmo de mensajes y multimedia. |
+| **Chat-bot (widget)** | `/sandbox` | Simula al ciudadano. No muestra el panel de depuración. |
+| **Chat-bot (consola)** | `/configuracion-visor-sandbox` y el interruptor **Sandbox** (así se rotula hoy en la interfaz) | Igual, pero con el panel **Debug** a la derecha (visible en pantallas anchas) que muestra `from`, `state` y `slots`, y con el botón **Reiniciar todas las pruebas**. **Úsalo para verificar los slots.** |
+| **whatsapp-bot** | Tu número de prueba escribiendo al número del bot | Prueba el webhook completo: firma, base de datos, ritmo de mensajes y multimedia. |
 | **Chat real** | `/configuracion-visor-sandbox` con el interruptor **Chat real** | Muestra las conversaciones guardadas. Sirve para comprobar que un mensaje rechazado NO creó una conversación. |
 
-### 0.2 Datos del modo fake (Sandbox por defecto)
+### 0.2 Datos del modo fake (Chat-bot por defecto)
 
 | Dato | Valor |
 |---|---|
@@ -53,12 +53,12 @@ Sin mirar ningún panel de consumo:
 ### 0.4 Qué es un «primer mensaje»
 
 Un primer mensaje es el que llega **sin sesión abierta**.
-- **Sandbox:** abre una ventana de incógnito o pulsa **Reiniciar todas las pruebas** en la consola. Esto genera una sesión nueva.
-- **WhatsApp:** usa un número que nunca haya escrito antes. **El botón de reinicio no borra sesiones de WhatsApp real.** Si tu número ya tiene sesión, los filtros de primer mensaje (sección 1) no se aplican: pide que borren tu fila de sesión o usa otro número.
+- **Chat-bot:** abre una ventana de incógnito o pulsa **Reiniciar todas las pruebas** en la consola. Esto genera una sesión nueva.
+- **whatsapp-bot:** usa un número que nunca haya escrito antes. **El botón de reinicio no borra sesiones de whatsapp-bot.** Si tu número ya tiene sesión, los filtros de primer mensaje (sección 1) no se aplican: pide que borren tu fila de sesión o usa otro número.
 
 ### 0.5 Diferencias entre canales
 
-| Comportamiento | Sandbox | WhatsApp real |
+| Comportamiento | Chat-bot | whatsapp-bot |
 |---|---|---|
 | Primer mensaje normal | Un saludo: la bienvenida, en **un solo mensaje** con el botón **Continuar mi cita**. Un pedido de cita o de incidencia: directo a ese flujo. Otro texto: el menú. Sin IA. | Igual (mismas reglas en los dos canales). |
 | Menú y números escritos | Filas: cita, **Consultar referencia**, y las de incidencias con la bandera. Con incidencias encendidas: `1` cita, `2` referencia, `3` registrar, `4` consultar una incidencia. | Sin fila de referencia. Con incidencias encendidas: `1` cita, `2` registrar, `3` consultar una incidencia. Ningún número apunta a la referencia. |
@@ -84,11 +84,11 @@ Para generar exactamente 300 y 301 caracteres en PowerShell: `('a' * 300) | clip
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo WhatsApp). | ☐ ☐ |
+| 1.1a | Enviar el texto de 383 caracteres como **primer mensaje**. | Un solo mensaje de texto: `Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.` Sin bienvenida, sin botones, sin menú. | Sin IA. Sin escribir en la base: no crea conversación ni sesión. Sin candado. Log: `perimeter.rejected` con `reason: too_long` (solo whatsapp-bot). | ☐ ☐ |
 | 1.1b | Enviar `('a' * 301)` como primer mensaje. | El mismo texto de rechazo. | Igual que 1.1a. | ☐ ☐ |
-| 1.1c | Enviar `hola ` repetido 60 veces (300 caracteres, sin una letra repetida). | **No** se rechaza. Como no es un saludo ni un pedido, sale el menú `¿En qué podemos ayudarte hoy?` (WhatsApp y Sandbox), sin bienvenida. | El límite es «más de 300». | ☐ ☐ |
+| 1.1c | Enviar `hola ` repetido 60 veces (300 caracteres, sin una letra repetida). | **No** se rechaza. Como no es un saludo ni un pedido, sale el menú `¿En qué podemos ayudarte hoy?` (whatsapp-bot y Chat-bot), sin bienvenida. | El límite es «más de 300». | ☐ ☐ |
 | 1.1d | Tras 1.1a, enviar `Hola`. | Se comporta como primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
-| 1.1e | **WhatsApp:** abrir **Chat real** tras 1.1a. | Tu número **no** aparece como conversación nueva. | Confirma que no se escribió nada. | ☐ ☐ |
+| 1.1e | **whatsapp-bot:** abrir **Chat real** tras 1.1a. | Tu número **no** aparece como conversación nueva. | Confirma que no se escribió nada. | ☐ ☐ |
 | 1.1f | Con sesión abierta (ya en el flujo de incidencia, en el paso de la descripción), enviar el texto de 383 caracteres. | **No** se rechaza: el bot lo acepta como descripción de la incidencia (permite hasta 1000). | El filtro solo aplica al primer mensaje. | ☐ ☐ |
 | 1.1g | Tras 1.1a, escribir `1` (y en otra prueba `2`). | `1`: `¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:`. `2`: `¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. | El texto de rechazo ofrece «[1] Citas [2] Incidencias»: la respuesta numérica funciona sin menú previo. Sin IA. | ☐ ☐ |
 
@@ -121,21 +121,21 @@ Respuesta esperada en todos los casos de rechazo: el mismo texto de 1.1a. Log: `
 | 1.3d | Con sesión abierta y en el menú: `🔥🔥🔥💰💰💰` | Aparece `Un momento, estamos revisando tu mensaje…` y luego el menú. | En modo real es **1 llamada a Gemini** (sale unclear y cae al menú). Sin errores. | ☐ ☐ |
 | 1.3e | Primer mensaje: `👍` (y en otra prueba `jajajajaja` o `holaaaa`). | **No** se rechaza: sale el menú `¿En qué podemos ayudarte hoy?` (o la bienvenida con `holaaaa`). | Un solo emoji, la risa y un saludo alargado no son spam: el límite es 10 iguales seguidas o 6 emojis sin palabras. | ☐ ☐ |
 
-### 1.4 Multimedia sin sesión — solo WhatsApp (excepto imagen)
+### 1.4 Multimedia sin sesión — solo whatsapp-bot (excepto imagen)
 
 Requiere un número **sin sesión** (ver 0.4).
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 1.4a | **WhatsApp:** enviar una **foto** como primer mensaje. | Solo texto: `Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.` | **No** descarga la foto (sin llamadas a Graph para media). Sin IA, sin base de datos, sin candado. Log: `... rejected a first message from ...NNNN: media`. | ☐ ☐ |
-| 1.4b | **WhatsApp:** enviar un **sticker** como primer mensaje. | **Ninguna respuesta** (silencio total). | No descarga el sticker, no responde nada. Log: `... dropped a first message from ...NNNN: sticker`. | ☐ ☐ |
-| 1.4c | **WhatsApp:** enviar una **nota de voz** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
-| 1.4d | **WhatsApp:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
-| 1.4e | **Sandbox:** tras reiniciar, pulsar 📎 y adjuntar una imagen como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
+| 1.4a | **whatsapp-bot:** enviar una **foto** como primer mensaje. | Solo texto: `Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.` | **No** descarga la foto (sin llamadas a Graph para media). Sin IA, sin base de datos, sin candado. Log: `... rejected a first message from ...NNNN: media`. | ☐ ☐ |
+| 1.4b | **whatsapp-bot:** enviar un **sticker** como primer mensaje. | **Ninguna respuesta** (silencio total). | No descarga el sticker, no responde nada. Log: `... dropped a first message from ...NNNN: sticker`. | ☐ ☐ |
+| 1.4c | **whatsapp-bot:** enviar una **nota de voz** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
+| 1.4d | **whatsapp-bot:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
+| 1.4e | **Chat-bot:** tras reiniciar, pulsar 📎 y adjuntar una imagen como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4f | Tras 1.4a, enviar `Hola`. | Primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
 | 1.4g | Con sesión, en el paso «¿Quieres enviar una imagen o un archivo como evidencia?» de la incidencia, enviar una foto (y en otra prueba un PDF). | `Ok, se registró tu evidencia.` y luego `Enviando tu incidencia…`. | El archivo se reconoce pero no se guarda. Un sticker o un audio en ese paso no genera respuesta. | ☐ ☐ |
 
-### 1.5 Inundación (rate limiting) — solo WhatsApp
+### 1.5 Inundación (rate limiting) — solo whatsapp-bot
 
 > ⚠ **Prueba con un número secundario.** La sanción por exceso se mantiene **1 hora** y ese número no podrá conversar. Se guarda en memoria de la instancia: se libera a la hora o al reiniciar/desplegar.
 
@@ -175,7 +175,7 @@ Mensaje de advertencia (`A`):
 | 2.1f | `cojuuuudo` | Mensaje `A`. | Sin IA. Colapsa letras repetidas. | ☐ ☐ |
 | 2.1g | `c s m` | Mensaje `A`. | Sin IA. Une las letras sueltas. | ☐ ☐ |
 | 2.1h | `hijo de puta` | Mensaje `A`. | Sin IA. | ☐ ☐ |
-| 2.1i | Tras 2.1a, tocar **Continuar**. | El menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica**, **Consultar referencia** (solo en el Sandbox) y **Registrar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Sandbox, **Consultar referencia**). | Vuelve al menú sin IA. | ☐ ☐ |
+| 2.1i | Tras 2.1a, tocar **Continuar**. | El menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica**, **Consultar referencia** (solo en el Chat-bot) y **Registrar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Chat-bot, **Consultar referencia**). | Vuelve al menú sin IA. | ☐ ☐ |
 | 2.1j | Tras 2.1a, escribir `RECLAMO`. | `¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. | La palabra que promete la advertencia funciona. Sin IA. | ☐ ☐ |
 | 2.1k | **Primer mensaje** `hdp` (número o sesión nuevos). | Mensaje `A` con **Continuar**. **Sin** bienvenida. | Se crea la sesión para que el botón funcione. | ☐ ☐ |
 
@@ -299,28 +299,28 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 3.1a | `Hola` (sesión nueva). | **WhatsApp:** un solo mensaje, la bienvenida grande con el botón **[Continuar mi cita]** y, al final del texto, `¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.` Incluye la línea `⚠️ En caso de emergencia médica, llama al *106* (SAMU).` **Sandbox (widget web):** un solo mensaje de texto, sin botón, que se presenta como «el asistente virtual de MINSA Digital» y termina en `Escríbeme lo que necesitas y te ayudo.`; también incluye la línea del *106*. En ambos casos: **sin** segundo mensaje y **sin** el menú `¿En qué podemos ayudarte hoy?`. | Distinto texto/formato según canal (`session.channel`: `whatsapp` vs `web`), ver `lib/fsm/routing/welcome.ts`. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
-| 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica**, **Consultar referencia** (solo en el Sandbox), **Registrar una incidencia** y **Consultar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Sandbox, **Consultar referencia**). Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
+| 3.1a | `Hola` (sesión nueva). | **whatsapp-bot:** un solo mensaje, la bienvenida grande con el botón **[Continuar mi cita]** y, al final del texto, `¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.` Incluye la línea `⚠️ En caso de emergencia médica, llama al *106* (SAMU).` **Chat-bot (widget web):** un solo mensaje de texto, sin botón, que se presenta como «el asistente virtual de MINSA Digital» y termina en `Escríbeme lo que necesitas y te ayudo.`; también incluye la línea del *106*. En ambos casos: **sin** segundo mensaje y **sin** el menú `¿En qué podemos ayudarte hoy?`. | Distinto texto/formato según canal (`session.channel`: `whatsapp` vs `web`), ver `lib/fsm/routing/welcome.ts`. **Sin IA:** no aparece «Un momento…». La sesión queda en `main_menu`. | ☐ ☐ |
+| 3.1b | Tras 3.1a, escribir `hola` (o `1`). | Recién ahora: el menú `¿En qué podemos ayudarte hoy?` con las filas **Agendar una cita médica**, **Consultar referencia** (solo en el Chat-bot), **Registrar una incidencia** y **Consultar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Chat-bot, **Consultar referencia**). Si en cambio se escribe un pedido (`quiero una cita en Miraflores de odontología`), va directo al DNI. | El menú depende de la respuesta del ciudadano, no del primer mensaje. Sin IA para el saludo. | ☐ ☐ |
 | 3.1c | Con **sesión nueva**, primer mensaje: `Sabes quiero una cita para san Juan de Lurigancho para medicina general`. | **Un solo mensaje:** `¡Hola! Te ayudaremos a agendar tu cita de Medicina General en San Juan de Lurigancho. Para comenzar, por favor indícanos tu número de documento:`. **Sin** bienvenida ni menú. | Sin IA. Slots (panel Debug): `citaDistritoHintText` = `San Juan de Lurigancho`, `citaEspecialidadHintText` = `Medicina General`. Reiniciar antes de seguir con 3.2. | ☐ ☐ |
 | 3.1d | Con **sesión nueva**, primer mensaje: `Quiero poner una queja`. | **Un solo mensaje:** `¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.`. Sin bienvenida ni menú. | Sin IA. Estado `incidencia_identity_choice`. Reiniciar antes de seguir. | ☐ ☐ |
-| 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica**, **Consultar referencia** (solo en el Sandbox) y **Registrar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Sandbox, **Consultar referencia**). **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
+| 3.1e | Con **sesión nueva**, primer mensaje: `necesito hablar con alguien`. | El menú `¿En qué podemos ayudarte hoy?` con **Agendar una cita médica**, **Consultar referencia** (solo en el Chat-bot) y **Registrar una incidencia** (con `INCIDENCIAS_ENABLED=true`; apagada, solo **Agendar una cita médica** y, en el Chat-bot, **Consultar referencia**). **Sin** bienvenida. | Sin IA. El texto queda como primer mensaje para usarlo de contexto en el distrito. Reiniciar antes de seguir. | ☐ ☐ |
 | 3.1f | Con **sesión nueva**, primer mensaje (el del QR): `Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206`. | **Un solo mensaje** con botones: `¿Estás seguro de esa ubicación?` y **HOSPITAL NACIONAL DOS DE MAYO**, `Código IPRESS: 6206`, **[Sí, es ese]** **[No, es otro]**. Sin bienvenida ni menú. | Entrada por QR: requiere base de datos con el padrón cargado (`npm run db:seed:eess`). Sin IA. | ☐ ☐ |
 | 3.1o | En cualquier paso de una incidencia, escribir `quiero cerrar`. | `Entendido, no se registró ninguna incidencia…`. Un mensaje nuevo empieza de cero. | Cancela sin guardar nada. Un relato que contiene la frase no cancela. | ☐ ☐ |
 | 3.1p | En el paso del relato escribir `me cobraron` (menos de 20 caracteres). | `Cuéntanos un poco más: escribe al menos 20 caracteres para poder entender lo que pasó.` | No avanza ni guarda. | ☐ ☐ |
-| 3.1q | Registrar 5 incidencias con el mismo teléfono (o `from` del sandbox) y una sexta el mismo día. | La sexta: `Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.` | Tope provisional de 5 por día (hora de Lima). | ☐ ☐ |
+| 3.1q | Registrar 5 incidencias con el mismo teléfono (o `from` del Chat-bot) y una sexta el mismo día. | La sexta: `Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.` | Tope provisional de 5 por día (hora de Lima). | ☐ ☐ |
 | 3.1l | Con el flujo de 3.1f y 3.1g, elegir **Prefiero ser anónimo**, escribir un relato de más de 20 caracteres y responder `omitir`. | `¡Gracias! Tu incidencia quedó registrada con el código MINSA-AAAA-NNNNNN. Guárdalo para darle seguimiento.` | La incidencia queda en la base con el establecimiento. El código es el que asigna la base. | ☐ ☐ |
 | 3.1m | Con **sesión nueva** y sin indicar el establecimiento (3.1j), seguir hasta el final. | `Gracias por tu reporte de incidencia, ya se registró.` (sin código). | Se guarda con `establecimiento_id` nulo. | ☐ ☐ |
 | 3.1n | Con **Sí, doy mi nombre**, escribir un número de 9 dígitos. | `Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.` con **[Continuar anónimo]**. | Por ahora no se acepta el carnet de extranjería. | ☐ ☐ |
 | 3.1g | Tras 3.1f, tocar **Sí, es ese**. | `Perfecto, registraremos tu incidencia en *HOSPITAL NACIONAL DOS DE MAYO*.` y luego `¿Deseas registrar tu nombre, o prefieres que sea anónimo?` con **[Sí, doy mi nombre]** **[Prefiero ser anónimo]**. | El establecimiento queda en la sesión (todavía no se guarda en la incidencia). | ☐ ☐ |
 | 3.1h | Con **sesión nueva**, primer mensaje: `Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137`. | Pregunta de confirmación con **C.S.M. COMUNITARIO LINCE**. **No** aparece la advertencia de respeto. | «C.S.M.» no se toma por un insulto: lo precargado por el QR no pasa por el filtro de insultos. | ☐ ☐ |
 | 3.1i | Con **sesión nueva**, primer mensaje: `quiero presentar una incidencia en el hospital`. | Una lista `Encontré estos establecimientos. Elige el correcto:` con los 4 hospitales (filas `IPRESS 6206`, `5946`, `6215`, `33381`) y **Ninguno de estos**. | Solo el tipo: se ofrece la lista corta. Elegir una fila sigue con la pregunta del nombre. | ☐ ☐ |
-| 3.1r | Registrar una incidencia (3.1l) y, con el mismo WhatsApp y **sesión nueva**, escribir `quiero ver mi incidencia MINSA-AAAA-NNNNNN` (el código recibido). | `Incidencia MINSA-AAAA-NNNNNN`, `Estado: Recibida, pendiente de revisión` y `Fecha de registro: dd/mm/aaaa`. **Sin** descripción ni datos de la persona. La sesión termina: un mensaje nuevo vuelve al inicio. | Sin IA. Requiere base de datos y `INCIDENCIAS_ENABLED=true`; apagada, responde el aviso de que solo se agendan citas. En WhatsApp se compara el usuario dueño de la incidencia. | ☐ ☐ |
+| 3.1r | Registrar una incidencia (3.1l) y, con el mismo WhatsApp y **sesión nueva**, escribir `quiero ver mi incidencia MINSA-AAAA-NNNNNN` (el código recibido). | `Incidencia MINSA-AAAA-NNNNNN`, `Estado: Recibida, pendiente de revisión` y `Fecha de registro: dd/mm/aaaa`. **Sin** descripción ni datos de la persona. La sesión termina: un mensaje nuevo vuelve al inicio. | Sin IA. Requiere base de datos y `INCIDENCIAS_ENABLED=true`; apagada, responde el aviso de que solo se agendan citas. En whatsapp-bot se compara el usuario dueño de la incidencia. | ☐ ☐ |
 | 3.1s | Desde **otro** WhatsApp, escribir el mismo código; y desde el primero un código inexistente (`MINSA-2026-999999`). | Ambos: exactamente `No se logró ubicar el registro de la incidencia.` | No se distingue «ajena» de «no existe». | ☐ ☐ |
-| 3.1t | En el menú tocar **Consultar una incidencia** (o escribir `3` en WhatsApp, `4` en el Sandbox), responder `123` y luego tres textos sin formato de código. | `Escribe el código de tu incidencia (por ejemplo, MINSA-2026-000001).`; luego `El código no tiene el formato correcto. Debe verse así: MINSA-2026-000001. Intenta de nuevo.`; al tercer intento `No pudimos reconocer el código. Revísalo e inicia la consulta nuevamente.` | Tope de 3 intentos; la sesión termina. | ☐ ☐ |
-| 3.1u | **Sandbox** (sesión nueva): escribir un código válido de una incidencia con DNI. | Pide el documento, luego el OTP (`12345678` y `1234` en modo fake) y responde el estado. Con una incidencia anónima: `No se logró ubicar el registro de la incidencia.` | Solo la web exige DNI + OTP. Con la base apagada: `Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.` | ☐ ☐ |
+| 3.1t | En el menú tocar **Consultar una incidencia** (o escribir `3` en whatsapp-bot, `4` en el Chat-bot), responder `123` y luego tres textos sin formato de código. | `Escribe el código de tu incidencia (por ejemplo, MINSA-2026-000001).`; luego `El código no tiene el formato correcto. Debe verse así: MINSA-2026-000001. Intenta de nuevo.`; al tercer intento `No pudimos reconocer el código. Revísalo e inicia la consulta nuevamente.` | Tope de 3 intentos; la sesión termina. | ☐ ☐ |
+| 3.1u | **Chat-bot** (sesión nueva): escribir un código válido de una incidencia con DNI. | Pide el documento, luego el OTP (`12345678` y `1234` en modo fake) y responde el estado. Con una incidencia anónima: `No se logró ubicar el registro de la incidencia.` | Solo la web exige DNI + OTP. Con la base apagada: `Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.` | ☐ ☐ |
 | 3.1j | Con **sesión nueva**, primer mensaje: `quiero presentar una incidencia`. Responder tres veces con textos que no son un establecimiento (`xyzzy`, `qwerty`, `zzzz`). | Tras el tercero: `Disculpa, no logramos ubicar el establecimiento. ¿Quieres continuar sin indicar el establecimiento?` con **[Sí, continuar]** **[No, indicarlo]**. | Con «Sí» sigue con la pregunta del nombre, sin establecimiento. | ☐ ☐ |
 | 3.1k | Con **sesión nueva**, primer mensaje: `Hola quiero presentar una incidencia Hospital Nacional Hipólito Unanue - CODIGO-IPRESS 5946 Me cobraron sin recibo en la ventanilla.`; confirmar el lugar, elegir anónimo. | `Esto es lo que escribiste:` con el texto y **[Usar así]** **[Agregar más]**. | Lo que se escribió junto al QR se ofrece como relato. «Agregar más» pide otro mensaje y lo une al anterior; «Usar así» sigue con la foto o el registro. | ☐ ☐ |
-| 3.2 | `1` | `Ingresa tu número de documento.` **Sin** volver a mostrar el menú. | Atajo numérico: en WhatsApp `2` entra a la incidencia; en el Sandbox `2` es Consultar referencia y `3` la incidencia. Sin IA. | ☐ ☐ |
+| 3.2 | `1` | `Ingresa tu número de documento.` **Sin** volver a mostrar el menú. | Atajo numérico: en whatsapp-bot `2` entra a la incidencia; en el Chat-bot `2` es Consultar referencia y `3` la incidencia. Sin IA. | ☐ ☐ |
 | 3.3 | `1234567` (7 dígitos) | `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` | Validación de formato, sin IA. Lo mismo con 10 dígitos o con letras. | ☐ ☐ |
 | 3.4 | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Llamada a MINSA (fake) con `tipo_documento` `01`. | ☐ ☐ |
 | 3.4b | Reiniciar, `1` y `123456789` (9 dígitos) | `Validando tu documento…` y `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).` | Carnet de extranjería: llamada a MINSA (fake) con `tipo_documento` `03`; luego el código `1234` y las referencias se piden con tipo `03`. | ☐ ☐ |
@@ -384,7 +384,7 @@ Vuelve a la lista de horarios (3.12) antes de cada caso. Tras cada confirmación
 
 ### 3.16 Consultas fuera de alcance (sin IA)
 
-Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenciones OutofSc»). Se pueden probar en el menú (Sandbox o WhatsApp) y también como **primer mensaje** de una sesión nueva: la respuesta es la misma y sin bienvenida. **Sin IA**: no aparece «Un momento…».
+Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenciones OutofSc»). Se pueden probar en el menú (Chat-bot o whatsapp-bot) y también como **primer mensaje** de una sesión nueva: la respuesta es la misma y sin bienvenida. **Sin IA**: no aparece «Un momento…».
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
@@ -408,7 +408,7 @@ Texto de cada respuesta: el del Excel de auditoría (hoja «Catálogo de Intenci
 
 ### 3.17 Un solo horario disponible (confirmación antes de agendar)
 
-Sandbox con el catálogo fake: en la lista de fechas elige la **tercera** fila (`mié 24 sep` o el día que corresponda; tiene un único horario, 1:00 PM - 1:30 PM). Con MINSA real sirve cualquier día con un solo horario, o una última página con uno solo.
+Chat-bot con el catálogo fake: en la lista de fechas elige la **tercera** fila (`mié 24 sep` o el día que corresponda; tiene un único horario, 1:00 PM - 1:30 PM). Con MINSA real sirve cualquier día con un solo horario, o una última página con uno solo.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
@@ -427,11 +427,11 @@ Sandbox con el catálogo fake: en la lista de fechas elige la **tercera** fila (
 
 ### 3.18 Consultar referencia (ver [flujo-referencias.md](../flujo-referencias.md))
 
-Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_USE_REAL_MINSA=true` y el endpoint `/whatsapp/api/v1/references`); en modo fake siempre hay «sin referencias». Los casos con referencias se prueban con MINSA real o con los DNI de demostración `10308523` y `47391441` (piloto comercial), que además exigen que MINSA valide el documento. **En WhatsApp no hay botón ni fila:** el servicio se pide escribiendo.
+Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_USE_REAL_MINSA=true` y el endpoint `/whatsapp/api/v1/references`); en modo fake siempre hay «sin referencias». Los casos con referencias se prueban con MINSA real o con los DNI de demostración `10308523` y `47391441` (piloto comercial), que además exigen que MINSA valide el documento. **En whatsapp-bot no hay botón ni fila:** el servicio se pide escribiendo.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 3.18a | **Sandbox:** en el menú tocar **Consultar referencia** (o escribir `2`). **WhatsApp o Sandbox:** escribir `referencia` o `quiero consultar mi referencia`. | `Para consultar tu referencia debes iniciar sesión. Ingresa tu número de documento.` | Estado `cita_awaiting_dni` con el dato `postLoginFlow` = `referencias` (panel Debug). Sin IA. En WhatsApp ningún número escrito apunta a la referencia. | ☐ ☐ |
+| 3.18a | **Chat-bot:** en el menú tocar **Consultar referencia** (o escribir `2`). **whatsapp-bot o Chat-bot:** escribir `referencia` o `quiero consultar mi referencia`. | `Para consultar tu referencia debes iniciar sesión. Ingresa tu número de documento.` | Estado `cita_awaiting_dni` con el dato `postLoginFlow` = `referencias` (panel Debug). Sin IA. En whatsapp-bot ningún número escrito apunta a la referencia. | ☐ ☐ |
 | 3.18b | Tras 3.18a, escribir `12345678` y luego `1234` (modo fake). | `Validando tu documento…`, el aviso del código, `Verificando código…` y `Un momento, estamos analizando tu cuenta…`. **No** pregunta el distrito. | Mismos pasos de identidad que la cita (3.4 y 3.6). Estado `referencia_lookup_pending` y consulta `list_references` con tipo `01`. | ☐ ☐ |
 | 3.18c | **Con referencias** (MINSA real con un documento que las tenga, o un DNI demo): terminar el OTP. | Real: la lista `Estas son tus referencias:` (título: el destino, hasta 24 caracteres; descripción: fecha en 12 horas · origen). Demo: la lista de referencias de demostración. **No** aparece `¿Deseas revisar tus referencias?`. | Estado `cita_awaiting_referencia_select`. Más de 10 referencias se paginan como cualquier lista. | ☐ ☐ |
 | 3.18d | Elegir una referencia y tocar **Sí**; en otra prueba tocar **No, ver otra**. | Detalle `N° : …`, `Fecha: …`, `Origen: …`, `Destino: …`, `Estado: …` y `¿Es esta tu referencia?`. Con **Sí**: `Perfecto. Buscando fechas disponibles para tu referencia en *{destino}*…` y la lista de fechas, **sin** preguntar distrito. Con **No, ver otra**: la lista otra vez. | La reserva se envía con `referencia_id`. Demo: sigue por horas y constancia (`cita_booked`). | ☐ ☐ |
@@ -441,7 +441,7 @@ Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_U
 | 3.18h | Repetir hasta 3.18e y escribir `mmm no se`. | `No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.` y otra vez `¿Deseas agendar una cita?` con los botones. | No avanza. | ☐ ☐ |
 | 3.18i | **Token vencido o inactividad:** en 3.18e (o en la lista de 3.18c) esperar más de 10 minutos y escribir cualquier cosa. | La alerta de sesión expirada de 3.15a con **[Sí, enviar código]** y **[Cancelar]**. Con **Sí**: nuevo código, `Verificando código…` y otra vez la consulta de referencias (3.18c o 3.18e). | Estado `cita_awaiting_reauth`; se borra el token y se conservan el DNI y `postLoginFlow`. El mensaje que llegó no se procesa. Pasa igual si el token del MINSA vence en menos de 30 s. Con **Cancelar**: lo mismo que en 3.15c. | ☐ ☐ |
 | 3.18j | **Cita normal:** `1` (o `quiero una cita`), documento y OTP. | `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` directo. **No** aparece `¿Deseas revisar tus referencias?` ni una lista de referencias. | Sin consulta `list_references`. Los DNI demo, en la cita, siguen el camino normal. | ☐ ☐ |
-| 3.18k | **WhatsApp:** con incidencias encendidas, escribir `2` y `3` en el menú. | `2` abre el registro de una incidencia y `3` la consulta de una incidencia; **nunca** la referencia. | La lista de WhatsApp no tiene la fila, así que su numeración es la de siempre. | ☐ ☐ |
+| 3.18k | **whatsapp-bot:** con incidencias encendidas, escribir `2` y `3` en el menú. | `2` abre el registro de una incidencia y `3` la consulta de una incidencia; **nunca** la referencia. | La lista de whatsapp-bot no tiene la fila, así que su numeración es la de siempre. | ☐ ☐ |
 
 ---
 
@@ -451,7 +451,7 @@ Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_U
 
 **Truco para comprobarlo sin depender del orden de llegada:** manda **3 códigos OTP incorrectos al mismo tiempo**. El bot permite 3 intentos y bloquea al tercero. Con el candado, las tres respuestas son distintas y completas. Sin candado se repetirían.
 
-### 4.1 Preparar la prueba (Sandbox)
+### 4.1 Preparar la prueba (Chat-bot)
 
 1. Abre `/sandbox` (o la consola), reinicia y escribe `1` y luego `12345678`. Debes quedar en `Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos).`
 2. Abre las herramientas del navegador (F12) → **Console** y pega:
@@ -487,10 +487,10 @@ done; wait
 |---|---|---|---|---|
 | 4.2a | Ejecutar el bloque de la consola. | Tres respuestas. Entre las tres aparecen **exactamente**: `Código incorrecto. Te quedan 2 intento(s).`, `Código incorrecto. Te quedan 1 intento(s).` y `Superaste el número de intentos permitidos. Por favor, inicia el proceso nuevamente más tarde.` (en cualquier orden entre respuestas). | Turnos serializados: cada uno vio el resultado del anterior. El tiempo total ≈ la suma de tres turnos, no de uno. | ☐ ☐ |
 | 4.2b | Revisar que **no** se repite ningún mensaje. | No hay dos veces `Te quedan 2 intento(s)`. | Si se repite, hubo *lost update* (se pisaron los turnos): es un **Rechazado grave**. | ☐ ☐ |
-| 4.2c | Tras 4.2a, escribir `Hola` en el Sandbox. | La bienvenida (un solo mensaje) (estado terminal alcanzado). | El estado final es `cita_otp_locked`, consistente con 3 intentos contados. | ☐ ☐ |
+| 4.2c | Tras 4.2a, escribir `Hola` en el Chat-bot. | La bienvenida (un solo mensaje) (estado terminal alcanzado). | El estado final es `cita_otp_locked`, consistente con 3 intentos contados. | ☐ ☐ |
 | 4.2d | Repetir 4.1 dos veces más (reinicia antes de cada una). | Mismo resultado las tres veces. | No es un acierto por casualidad. | ☐ ☐ |
 
-### 4.3 Con el celular (WhatsApp)
+### 4.3 Con el celular (whatsapp-bot)
 
 | # | Acción | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
@@ -531,7 +531,7 @@ Si en 4.2a **no** aparece ningún `turn_lock.waited` con `layer: "process"`, no 
 2. Texto exacto que enviaste y respuesta exacta que recibiste (captura).
 3. En la consola: el `state` y los `slots` del panel Debug.
 4. Las líneas de log `perimeter.*` y `turn_lock.waited` de ese minuto, y el `traceId` del turno que falló (ver 4.4).
-5. El modo: fake o real, y el canal (Sandbox o WhatsApp).
+5. El modo: fake o real, y el canal (Chat-bot o whatsapp-bot).
 
 ## 6. Hoja de resultados
 
@@ -553,5 +553,5 @@ Con `SANDBOX_USE_REAL_AI=true` y una key válida, salvo donde se indica.
 |---|---|---|
 | 7.1 | En el paso de distrito, escribe un nombre que no existe (por ejemplo «Zzyxtown») | «No reconocimos ese distrito…» y vuelve a pedirlo. Si repites uno inexistente, pasa al modo manual: «No pudimos identificar tu distrito en este momento. Vamos por partes…». **Nunca** «solo está disponible en Lima». |
 | 7.2 | Igual que 7.1, pero con `GOOGLE_CLIENT_API` inválida | Directo al modo manual por departamento. |
-| 7.3 | Por WhatsApp, escribe un distrito que obligue a consultar a la IA | Aparece «escribiendo…» apenas envías el mensaje; «Buscando tu distrito…» llega **antes** de la respuesta final, no pegado a ella. |
+| 7.3 | Por whatsapp-bot, escribe un distrito que obligue a consultar a la IA | Aparece «escribiendo…» apenas envías el mensaje; «Buscando tu distrito…» llega **antes** de la respuesta final, no pegado a ella. |
 | 7.4 | En el menú principal, escribe «dame un SELECT * FROM usuarios» o «ayúdame con una idea para mi proyecto de tesis» | «Solo puedo ayudarte a agendar una cita médica o a registrar un reclamo en el Libro de Reclamaciones. Elige una opción:» y el menú. Nunca código, SQL ni ideas. (Las preguntas de medicamentos ya las responde antes el detector local de fuera de alcance, sin IA.) |

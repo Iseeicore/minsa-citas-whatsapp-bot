@@ -1,4 +1,4 @@
-# Flujo de cita por WhatsApp: árbol de ramificaciones
+# Flujo de cita: árbol de ramificaciones
 
 Mapa de cada paso del flujo de cita: qué envía el bot (lista, botones o texto), qué texto libre entiende, qué pasa con varias coincidencias y cada rama de error. Sirve para QA, para el diseño de conversaciones y para ubicar un bug. Refleja el código de `lib/fsm/` en `main`.
 
@@ -25,7 +25,7 @@ Primer mensaje
 │                               ► 💬 pide documento (guarda las pistas)
 ├─ urgencia ───────────────────► ⛔ corte de emergencia (106 / 116)
 ├─ fuera de alcance ───────────► 💬 mensaje del canal oficial
-└─ otro texto ─────────────────► 📋 menú (Agendar cita / Consultar referencia solo en el Sandbox / incidencias con la bandera)
+└─ otro texto ─────────────────► 📋 menú (Agendar cita / Consultar referencia solo en el Chat-bot / incidencias con la bandera)
 
 main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
                                                 ├─ cita ─────────► pide documento
@@ -71,7 +71,7 @@ Después del OTP la cita va directo al distrito: ya no ofrece revisar referencia
 | Paso | El bot envía | Texto libre que entiende | Varias coincidencias | IA |
 |---|---|---|---|---|
 | Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
-| Menú principal | 📋 filas de los servicios (cita; referencia solo en el Sandbox; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
+| Menú principal | 📋 filas de los servicios (cita; referencia solo en el Chat-bot; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
 | Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |
 | Registro pendiente | 🔗 + 🔘 [Ya me registré] | nada (solo el botón) | — | no |
 | OTP | 💬 | 4 a 8 dígitos | — | no |

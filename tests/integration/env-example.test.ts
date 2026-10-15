@@ -45,6 +45,7 @@ function variablesReadByTheApp(): Set<string> {
   const patterns = [
     /process\.env\.([A-Z0-9_]+)/g,
     /process\.env\["([A-Z0-9_]+)"\]/g,
+    /(?<![\w.])env\.([A-Z][A-Z0-9_]+)/g,
     /numberFromEnv\("([A-Z0-9_]+)"\)/g,
     /env\("([A-Z0-9_]+)"\)/g,
   ];

@@ -6,7 +6,7 @@ Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Do
 
 - **Las incidencias se guardan en PostgreSQL.** Hace falta `DATABASE_ENABLED=true` y `DATABASE_URL`.
 - **Las migraciones se reescribieron.** Una base creada con la versión anterior no se actualiza: hay que usar una base **nueva y vacía**.
-- **Las páginas del Sandbox quedan ocultas y la bandeja web, cerrada**, salvo que se defina `SANDBOX_PAGE_ENABLED=true`. `POST /api/sandbox`, que usa el portal de MINSA Digital, no cambia.
+- **Las páginas del Chat-bot quedan ocultas y la bandeja web, cerrada**, salvo que se defina `SANDBOX_PAGE_ENABLED=true`. `POST /api/sandbox`, que usa el portal de MINSA Digital, no cambia.
 - **La imagen sigue sin credenciales dentro.** Todo entra por variables de entorno.
 - **Aparece el servicio «Consultar referencia», sin variable nueva.** Está siempre encendido y depende del endpoint de referencias de MINSA (`/whatsapp/api/v1/references`) y de `SANDBOX_USE_REAL_MINSA=true`; el detalle, en [flujo-referencias.md](flujo-referencias.md). La cita dejó de consultar referencias por su cuenta después del OTP.
 
@@ -50,7 +50,7 @@ SANDBOX_ENABLED=true
 SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
 ```
 
-Sin cambios. Los secretos se completan en el servidor. `SANDBOX_USE_REAL_*` no es solo del sandbox: activa la IA, MINSA y RENIEC en todo el bot, y en producción debe estar en `true` para lo que se use.
+Sin cambios. Los secretos se completan en el servidor. `SANDBOX_USE_REAL_*` no es solo del Chat-bot: activa la IA, MINSA y RENIEC en todo el bot, y en producción debe estar en `true` para lo que se use.
 
 ### 3.2 Nuevas y obligatorias
 
@@ -83,7 +83,7 @@ LOG_TO_FILE=false
 | Variable | Para qué sirve | Sin definir |
 |---|---|---|
 | `SANDBOX_PAGE_ENABLED` | `true` muestra `/sandbox` y `/configuracion-visor-sandbox` y **abre la bandeja web** (`/api/conversations*`, `/api/messages/send`), que no tiene autenticación | Las páginas redirigen a `/api/health` y las rutas de la bandeja responden 404. **En producción, déjenla sin definir** |
-| `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece en el menú **Registrar una incidencia** y **Consultar una incidencia** (WhatsApp y Sandbox) | Apagada: solo queda **Agendar una cita médica**; vacía o con cualquier otro valor equivale a sin definir. Las incidencias no se ofrecen ni se pueden alcanzar escribiendo `2`, `3`, `incidencia` o un código `MINSA-AAAA-NNNNNN`. **Para usar incidencias, pónganla en `true`** |
+| `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece en el menú **Registrar una incidencia** y **Consultar una incidencia** (whatsapp-bot y Chat-bot) | Apagada: solo queda **Agendar una cita médica**; vacía o con cualquier otro valor equivale a sin definir. Las incidencias no se ofrecen ni se pueden alcanzar escribiendo `2`, `3`, `incidencia` o un código `MINSA-AAAA-NNNNNN`. **Para usar incidencias, pónganla en `true`** |
 | `MEDIA_STORAGE_BASE_URL` | Servicio donde se guarda la foto de evidencia de una incidencia | La foto se recibe pero no se guarda, y queda un aviso en el log |
 | `MEDIA_STORAGE_TOKEN` | Credencial de ese servicio, si la pide | Sin credencial |
 | `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de espera de ese servicio | 10 000 ms |

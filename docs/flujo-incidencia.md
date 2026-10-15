@@ -33,9 +33,9 @@ entrada ─► ubicación ─► nombre o anónimo ─► relato ─► foto ─
 ## Cancelar y límites
 
 - **«Quiero cerrar»** (mensaje completo, también «cerrar», «cerrar sesión» o «terminar la sesión») cancela desde cualquier paso: no se guarda nada, se limpia la sesión y el siguiente mensaje empieza de nuevo. Un relato que solo contiene la frase no cancela.
-- **Tope diario:** un teléfono puede registrar hasta **5 incidencias por día** (día de Lima; constante `MAX_INCIDENCIAS_POR_DIA` en `lib/recepcion/dto.ts`, cifra provisional). La sexta recibe «Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana.» y no se guarda. La reentrega de la última incidencia permitida no se rechaza. Desde el sandbox cuenta por el campo `from`: para probar de nuevo, usar otro.
+- **Tope diario:** un teléfono puede registrar hasta **5 incidencias por día** (día de Lima; constante `MAX_INCIDENCIAS_POR_DIA` en `lib/recepcion/dto.ts`, cifra provisional). La sexta recibe «Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana.» y no se guarda. La reentrega de la última incidencia permitida no se rechaza. Desde el Chat-bot cuenta por el campo `from`: para probar de nuevo, usar otro.
 
 ## Lo que todavía no hace
 
-- El canal de origen se guarda siempre como WhatsApp, también desde el sandbox.
+- El canal de origen se guarda siempre como WhatsApp, también cuando la conversación viene del Chat-bot.
 - La IA no entra todavía como entrada: el texto ambiguo de reclamo sigue yendo a «no claro».
