@@ -8,19 +8,19 @@ No lleva bandera: está siempre disponible. La lógica es la misma en los dos ca
 
 | Entrada | Canal | Cómo se reconoce | Dónde |
 |---|---|---|---|
-| Fila «Consultar referencia» | Sandbox | Fila del menú (`consultar_referencia`) o el número `2` | `main-menu.ts`, `first-contact.ts` |
-| Palabra clave | WhatsApp y Sandbox | Mensaje corto (hasta 8 palabras) que dice «referencia» o «referencias» y solo lleva palabras de relleno (quiero, deseo, necesito, consultar, ver, revisar, saber, mi, mis, de, la, las, el, estado, médica): «referencia», «quiero consultar mi referencia», «estado de mi referencia». Va **antes** de fuera de alcance | `isReferenciaKeyword` en `menu-shortcuts.ts`; las palabras, en `lib/constants/palabras-clave.ts` |
+| Fila «Consultar referencia» | Chat-bot | Fila del menú (`consultar_referencia`) o el número `2` | `main-menu.ts`, `first-contact.ts` |
+| Palabra clave | whatsapp-bot y Chat-bot | Mensaje corto (hasta 8 palabras) que dice «referencia» o «referencias» y solo lleva palabras de relleno (quiero, deseo, necesito, consultar, ver, revisar, saber, mi, mis, de, la, las, el, estado, médica): «referencia», «quiero consultar mi referencia», «estado de mi referencia». Va **antes** de fuera de alcance | `isReferenciaKeyword` en `menu-shortcuts.ts`; las palabras, en `lib/constants/palabras-clave.ts` |
 
-**WhatsApp no tiene fila ni botón.** Su lista es la de siempre y sus números escritos siguen apuntando a lo mismo: con incidencias encendidas, `1` cita, `2` registrar y `3` consultar una incidencia. En el Sandbox la fila ocupa el segundo lugar:
+**whatsapp-bot no tiene fila ni botón.** Su lista es la de siempre y sus números escritos siguen apuntando a lo mismo: con incidencias encendidas, `1` cita, `2` registrar y `3` consultar una incidencia. En el Chat-bot la fila ocupa el segundo lugar:
 
-| Número escrito | WhatsApp | Sandbox |
+| Número escrito | whatsapp-bot | Chat-bot |
 |---|---|---|
 | `1` | Agendar una cita médica | Agendar una cita médica |
 | `2` | Registrar una incidencia | Consultar referencia |
 | `3` | Consultar una incidencia | Registrar una incidencia |
 | `4` | no existe | Consultar una incidencia |
 
-Con `INCIDENCIAS_ENABLED` apagada solo quedan `1` (cita) y, en el Sandbox, `2` (referencia). Los números de las filas apagadas responden que por ahora solo se agenda una cita.
+Con `INCIDENCIAS_ENABLED` apagada solo quedan `1` (cita) y, en el Chat-bot, `2` (referencia). Los números de las filas apagadas responden que por ahora solo se agenda una cita.
 
 Un mensaje que menciona la referencia sin ser un pedido corto («¿Ya aceptaron mi referencia?», «tengo mi hoja de referencia…», «¿qué es la contrarreferencia?») sigue recibiendo la respuesta de fuera de alcance OOS-03. Esa respuesta ahora termina diciendo que, si la referencia ya está registrada en MINSA Digital, se escriba REFERENCIA.
 
@@ -57,6 +57,6 @@ Los estados que esperan una respuesta de una persona ya verificada vigilan la in
 
 ## Lo que todavía no hace
 
-- La IA no tiene una intención «referencia»: se entra por la fila del Sandbox o por palabra clave.
+- La IA no tiene una intención «referencia»: se entra por la fila del Chat-bot o por palabra clave.
 - El mensaje de sesión vencida dice «tu cita» aunque la persona venga de consultar una referencia.
 - No hay nada más que hacer con una referencia que reservar una cita con ella.

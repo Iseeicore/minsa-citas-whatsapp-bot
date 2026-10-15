@@ -14,7 +14,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 |---|---|
 | Fase | **Piloto: solo cita médica, incidencias apagadas** |
 | Actualizado | 2026-10-14 |
-| Último hito | PR #83: servicio **Consultar referencia**, sin bandera (fila solo en el Sandbox; la palabra «referencia» funciona en WhatsApp y en el Sandbox). Antes, PR #82: bandera `INCIDENCIAS_ENABLED` |
+| Último hito | PR #83: servicio **Consultar referencia**, sin bandera (fila solo en el Chat-bot; la palabra «referencia» funciona en whatsapp-bot y en el Chat-bot). Antes, PR #82: bandera `INCIDENCIAS_ENABLED` |
 | Sincronía con GitLab | `develop` d67f443 (PR #81) |
 
 **Qué gestiona la fase:** la variable de entorno `INCIDENCIAS_ENABLED`, leída en `lib/config/features.ts`.
@@ -55,7 +55,7 @@ Las reglas de desarrollo viven en `Obsidian Vault/Minsa/Minsa_code/` (`Reglas de
 
 # Qué es este proyecto
 
-Bot de WhatsApp Business Cloud API para el MINSA (Perú): agenda citas médicas, registra y consulta incidencias (según la fase), y deriva urgencias y consultas fuera de alcance a los canales oficiales. Next.js 16 (App Router) + Prisma/PostgreSQL + Gemini para interpretar texto libre. Documentación, textos al ciudadano y pruebas están en español.
+Bot del MINSA (Perú) con dos canales, **whatsapp-bot** (WhatsApp Business Cloud API) y **Chat-bot** (el chat web; en el código sigue como `SANDBOX_*`, `/api/sandbox` y `/sandbox`): agenda citas médicas, consulta referencias, registra y consulta incidencias (según la fase), y deriva urgencias y consultas fuera de alcance a los canales oficiales. Next.js 16 (App Router) + Prisma/PostgreSQL + Gemini para interpretar texto libre. Documentación, textos al ciudadano y pruebas están en español.
 
 # Comandos
 
