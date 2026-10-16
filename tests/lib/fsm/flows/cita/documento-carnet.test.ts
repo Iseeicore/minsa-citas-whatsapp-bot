@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 
@@ -69,11 +70,22 @@ describe("referencias tras verificar el código", () => {
   it.each([
     ["12345678", "01"],
     ["123456789", "03"],
-  ])("%s consulta las referencias con tipo %s", (documento, tipo) => {
-    const result = handle(at("cita_verify_pending", { [SlotKey.CITA_DNI_PENDING]: documento }), verified());
+  ])("%s consulta las referencias con tipo %s cuando la persona entró por el servicio de referencias", (documento, tipo) => {
+    const result = handle(
+      at("cita_verify_pending", { [SlotKey.CITA_DNI_PENDING]: documento, [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS }),
+      verified(),
+    );
 
-    expect(result.session.state).toBe("cita_references_pending");
+    expect(result.session.state).toBe("referencia_lookup_pending");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe(documento);
     expect(queries(result)).toEqual([{ kind: "list_references", payload: { numeroDocumento: documento, tipoDocumento: tipo } }]);
+  });
+
+  it.each(["12345678", "123456789"])("%s no consulta referencias cuando la persona entró por la cita", (documento) => {
+    const result = handle(at("cita_verify_pending", { [SlotKey.CITA_DNI_PENDING]: documento }), verified());
+
+    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(result.session.slots[SlotKey.CITA_DNI]).toBe(documento);
+    expect(queries(result)).toEqual([]);
   });
 });

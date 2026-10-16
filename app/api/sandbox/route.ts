@@ -18,6 +18,7 @@ import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { SendType } from "@/lib/enums/send-type";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
 
 const warnedInvalidOrigins = new Set<string>();
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
   marks.mark("exists");
 
   if (!hadExistingSession && (type === "text" || type === "image")) {
-    const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text });
+    const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text }, SessionChannel.WEB);
     if (payload.kind === "rejected") {
       return NextResponse.json(
         {
@@ -144,7 +145,7 @@ async function startConversation(from: string, text: string | undefined, marks: 
     marks.mark("lock");
     const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "web" as const };
     const first = handleFirstContact(text, "web");
-    if (first.effects.some(isQueryEffect)) return runTurnUnlocked(from, { from, type: "text", text }, undefined, first);
+    if (first.effects.some(isQueryEffect)) return runTurnUnlocked(from, { from, type: "text", text, channel: SessionChannel.WEB }, undefined, first);
 
     return traceTurn(from, { type: text === undefined ? "other" : "text", text }, fresh, async (trace) => {
       for (const note of first.notes ?? []) trace.note(note);

@@ -5,9 +5,13 @@ export const CITA_FAREWELL_TEXT =
 export const CITA_BOOKED_FAREWELL_TEXT =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita o realizar una consulta, escríbenos nuevamente cuando lo necesites. ¡Que tengas un buen día! 👋";
 export const EXIT_QUESTION_TEXT = "Parece que prefieres no continuar con tu cita. Entiendo que pueda ser frustrante. ¿Deseas salir?";
+export const REFERENCIA_EXIT_QUESTION_TEXT =
+  "Parece que prefieres no continuar con la consulta de tu referencia. Entiendo que pueda ser frustrante. ¿Deseas salir?";
 export const EXIT_YES_BUTTON_TEXT = "Sí, salir";
 export const EXIT_NO_BUTTON_TEXT = "No, continuar";
 export const CITA_ABANDONED_TEXT = "Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋";
+
+export const REFERENCIA_ABANDONED_TEXT = "Entendido. Cuando quieras consultar tu referencia, escríbenos. ¡Que tengas un buen día! 👋";
 
 export const EXIT_BUTTONS = [
   { id: ExitButtonId.YES, title: EXIT_YES_BUTTON_TEXT },

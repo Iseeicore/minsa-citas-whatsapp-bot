@@ -14,4 +14,8 @@ describe("vitest.config.ts pins the persistence mode", () => {
   it("keeps DATABASE_URL empty so no test can reach a real database", () => {
     expect(envBlock).toContain('DATABASE_URL: ""');
   });
+
+  it("turns the incidencias on, because the incident and consulta tests assume them; the tests of the off mode stub it", () => {
+    expect(envBlock).toContain('INCIDENCIAS_ENABLED: "true"');
+  });
 });

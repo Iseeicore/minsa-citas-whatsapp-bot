@@ -38,6 +38,7 @@ export type SlotTypes = {
   [SlotKey.CITA_SELECTION_STEP]: string;
   [SlotKey.CITA_HORA_CHOICE_B]: string;
   [SlotKey.MENU_CHOICE]: string;
+  [SlotKey.POST_LOGIN_FLOW]: string;
   [SlotKey.DNI]: string;
   [SlotKey.CITA_TWOFA_ID]: string;
   [SlotKey.CITA_OFFERED]: string;
@@ -101,6 +102,7 @@ export type QueryResultEvent = {
   type: InternalEventType.QUERY_RESULT;
   queryKind: QueryEffectKind;
   result: unknown;
+  channel?: SessionChannel;
 };
 
 export type HandleEvent = InboundEvent | QueryResultEvent;

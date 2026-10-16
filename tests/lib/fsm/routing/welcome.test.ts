@@ -80,6 +80,7 @@ describe("buildWelcomeEffects", () => {
       text: "¿En qué podemos ayudarte hoy?",
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
+        { id: "consultar_referencia", title: "Consultar referencia" },
         { id: "registrar_incidencia", title: "Registrar una incidencia" },
         { id: "consultar_incidencia", title: "Consultar una incidencia" },
       ],
