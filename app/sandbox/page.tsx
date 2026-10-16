@@ -1,13 +1,24 @@
 import { redirect } from "next/navigation";
 import SandboxWidgetDemo from "@/app/components/SandboxWidgetDemo";
 import { HEALTH_PATH, isSandboxPageEnabled } from "@/lib/config/sandbox-page";
+import {
+  SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT,
+  SANDBOX_PAGE_DESCRIPTION_TEXT,
+  SANDBOX_PAGE_TITLE_TEXT,
+} from "@/lib/constants/textos/menu";
+import { MenuChoice } from "@/lib/enums/menu-choice";
+import { serviceCatalog } from "@/lib/services/service-catalog";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "MINSA Digital",
-  description: "Agenda tu cita o registra una incidencia con el Ministerio de Salud del Perú.",
-};
+export function generateMetadata() {
+  return {
+    title: SANDBOX_PAGE_TITLE_TEXT,
+    description: serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA)
+      ? SANDBOX_PAGE_DESCRIPTION_TEXT
+      : SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT,
+  };
+}
 
 export default function SandboxPage() {
   if (!isSandboxPageEnabled()) redirect(HEALTH_PATH);

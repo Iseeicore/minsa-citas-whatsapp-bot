@@ -180,44 +180,6 @@ for (const k of listaTablas) {
   comentarios.push(`COMMENT ON TABLE ${k} IS ${sql(comentarioTabla)};`);
 }
 
-const tipoSimple = (t) =>
-  t
-    .replace(/timestamp(\(\d+\))? with time zone/, "timestamptz")
-    .replace(/character varying\(\d+\)/, "varchar")
-    .replace(/numeric\(\d+,\d+\)/, "numeric")
-    .replace("integer", "int")
-    .replace("boolean", "boolean");
-
-function er(incluirCatalogos) {
-  const salida = ["erDiagram"];
-  const visibles = listaTablas.filter((k) => incluirCatalogos || !k.startsWith("catalogo."));
-  for (const k of visibles) {
-    for (const r of tablas.get(k).restricciones.filter((x) => x.tipo === "f")) {
-      if (!visibles.includes(r.tabla_ref)) continue;
-      const nulo = tablas.get(k).columnas.find((c) => c.columna === r.columnas[0]).nulo;
-      salida.push(`    ${r.tabla_ref.split(".")[1]} ${nulo ? "|o" : "||"}--o{ ${tablas.get(k).nombre} : "${r.columnas[0]}"`);
-    }
-  }
-  salida.push("");
-  for (const k of visibles) {
-    const t = tablas.get(k);
-    const pk = new Set(t.restricciones.filter((r) => r.tipo === "p").flatMap((r) => r.columnas));
-    const fksCol = new Map(t.restricciones.filter((r) => r.tipo === "f").flatMap((r) => r.columnas.map((c) => [c, r.tabla_ref])));
-    const uq = new Set(t.restricciones.filter((r) => r.tipo === "u").flatMap((r) => r.columnas));
-    salida.push(`    ${t.nombre} {`);
-    for (const c of t.columnas) {
-      if (["fecha_creacion", "usuario_creacion", "fecha_modificacion", "usuario_modificacion", "version_fila"].includes(c.columna)) continue;
-      const claves = [pk.has(c.columna) ? "PK" : null, fksCol.has(c.columna) ? "FK" : null, uq.has(c.columna) ? "UK" : null].filter(Boolean).join(", ");
-      const ref = fksCol.get(c.columna);
-      const comentario = ref && ref.startsWith("catalogo.") && !visibles.includes(ref) ? ` "catalogo ${ref.split(".")[1]}"` : "";
-      salida.push(`        ${tipoSimple(c.tipo)} ${c.columna}${claves ? " " + claves : ""}${comentario}`);
-    }
-    salida.push("        bloque auditoria");
-    salida.push("    }");
-  }
-  return salida.join("\n");
-}
-
 if (errores.length) {
   console.error(`DICCIONARIO INCOMPLETO (${errores.length}):\n- ` + errores.join("\n- "));
   process.exit(1);
@@ -226,6 +188,4 @@ if (errores.length) {
 mkdirSync(SALIDA, { recursive: true });
 writeFileSync(join(SALIDA, "diccionario-de-datos.md"), md.join("\n") + "\n");
 writeFileSync(join(SALIDA, "comentarios.sql"), comentarios.join("\n") + "\n");
-writeFileSync(join(SALIDA, "er-nucleo.mmd"), er(false) + "\n");
-writeFileSync(join(SALIDA, "er-completo.mmd"), er(true) + "\n");
 console.log(`OK: ${listaTablas.length} tablas, ${estructura.columnas.length} columnas, ${estructura.restricciones.filter((r) => r.tipo === "f").length} llaves foráneas, ${estructura.disparadores.length} disparadores (PostgreSQL ${versionPg})`);

@@ -23,7 +23,7 @@ Escribir en disco es asíncrono y con cola: un turno nunca espera al disco, y si
 
 Siempre: `time` (ISO), `level`, `event` y, dentro de un turno, `traceId`.
 
-El `traceId` es **determinístico**: sale del número y del id del mensaje de WhatsApp. Si Meta reenvía el mismo mensaje, cae en el mismo `traceId`. Sin id de mensaje (el Sandbox) se calcula con la hora de inicio y el tamaño de la entrada.
+El `traceId` es **determinístico**: sale del número y del id del mensaje de WhatsApp. Si Meta reenvía el mismo mensaje, cae en el mismo `traceId`. Sin id de mensaje (el Chat-bot) se calcula con la hora de inicio y el tamaño de la entrada.
 
 | Evento | Nivel | Campos principales |
 |---|---|---|

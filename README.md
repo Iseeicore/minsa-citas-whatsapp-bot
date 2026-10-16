@@ -1,6 +1,19 @@
-# Bot de citas MINSA por WhatsApp
+# Bot de citas MINSA
 
-Bot de WhatsApp (WhatsApp Business Cloud API) que atiende a la ciudadanía: agenda citas médicas en el MINSA, consulta las referencias médicas registradas, registra incidencias (reclamos, quejas y denuncias), deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y puede correr de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker, solo responde mensajes y no guarda nada).
+Bot que atiende a la ciudadanía por dos canales: **whatsapp-bot** (WhatsApp Business Cloud API) y **Chat-bot** (el chat web que usa el portal de MINSA Digital y las páginas de prueba del proyecto). Agenda citas médicas en el MINSA, consulta las referencias médicas registradas, registra y consulta incidencias (apagadas por defecto: ver `INCIDENCIAS_ENABLED`) y deriva urgencias y consultas fuera de alcance a los canales oficiales. Está construido con Next.js (App Router) y PostgreSQL, y también corre sin base de datos (ver [Modos de persistencia](#modos-de-persistencia)).
+
+## Canales
+
+Los dos canales usan la misma máquina de estados (`lib/fsm/`); cambia cómo llega y cómo se muestra el mensaje.
+
+| Canal | Entrada | Quién lo usa | Se activa con |
+|---|---|---|---|
+| **whatsapp-bot** | `POST /webhook/whatsapp` (Meta) | La ciudadanía, por WhatsApp | Las credenciales de Meta (obligatorias) |
+| **Chat-bot** | `POST /api/sandbox`, y las páginas `/sandbox` y `/configuracion-visor-sandbox` | El portal de MINSA Digital, y el equipo para probar los flujos | `SANDBOX_ENABLED=true` (la ruta) y `SANDBOX_PAGE_ENABLED=true` (las páginas) |
+
+- Los nombres `SANDBOX_*`, `/api/sandbox` y `/sandbox` son identificadores históricos del Chat-bot en el código y no se renombran.
+- El menú del Chat-bot muestra además la fila **Consultar referencia**; en whatsapp-bot se llega a ese servicio escribiendo «referencia».
+- Una incidencia se guarda siempre con el canal de origen WhatsApp, también cuando viene del Chat-bot.
 
 ## Inicio rápido
 
@@ -18,7 +31,7 @@ Un solo comando construye la imagen, levanta el contenedor y **espera hasta que 
 npm run docker:up
 ```
 
-1. Copia `.env.example` a `.env` (ignorado por git) junto a `docker-compose.yml` y completa, como mínimo, el bloque **`##### Mínimo`**: Meta, MINSA, Gemini, el Sandbox para el frontend conectado y `DATABASE_ENABLED=false` (ver [Variables de entorno](#variables-de-entorno)).
+1. Copia `.env.example` a `.env` (ignorado por git) junto a `docker-compose.yml` y completa, como mínimo, el bloque **`##### Mínimo`**: Meta, MINSA, Gemini, el Chat-bot para el frontend conectado y `DATABASE_ENABLED=false` (ver [Variables de entorno](#variables-de-entorno)).
 2. Ejecuta `npm run docker:up`. Si falta una credencial obligatoria, Docker Compose se detiene con un mensaje que la nombra, en lugar de arrancar un bot roto.
 3. Verifica que responde:
 
@@ -41,9 +54,9 @@ Detalles de la imagen:
 - **Seguridad:** corre con el usuario sin privilegios `node`; los secretos solo entran como variables de entorno, nunca quedan dentro de la imagen.
 - **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos. Responde `200` con `status: "ok"`, o `status: "degraded"` y los códigos en `config` si hay una variable mal configurada (ver [Manejo de errores](#manejo-de-errores)); el contenedor no se reinicia por eso.
 - **Puerto:** 3000 dentro del contenedor; `HOST_PORT` cambia el puerto publicado en el servidor (por defecto 3000).
-- **Variables:** `docker-compose.yml` pasa al contenedor **todas** las variables del `.env` (`env_file`). Solo fija tres, que ganan sobre `env_file`: `NODE_ENV=production`, `PORT=3000` y `HOSTNAME=0.0.0.0`, para que un valor olvidado en el `.env` no saque al servidor del puerto que usan el mapeo y el healthcheck. Las 4 credenciales de Meta son obligatorias.
+- **Variables:** `docker-compose.yml` pasa al contenedor **todas** las variables del `.env` (`env_file`). Solo fija tres, que ganan sobre `env_file`: `NODE_ENV=production`, `PORT=3000` y `HOSTNAME=0.0.0.0`, para que un valor olvidado en el `.env` no saque al servidor del puerto que usan el mapeo y el healthcheck. Son obligatorias las 4 credenciales de Meta y `MINSA_DIGITAL_APP_URL`.
 - **Base de datos:** `DATABASE_ENABLED` vale `false` si no se define. La imagen se compila sin base, pero **al arrancar el contenedor aplica solo las migraciones pendientes** (ver [Arranque con base de datos](#arranque-con-base-de-datos)): no hay un paso aparte para infraestructura.
-- **Salud:** el `start_period` del healthcheck es de 60 s para dar tiempo a la primera migración. El compose no define un servicio de base de datos: con `DATABASE_ENABLED=true`, Prisma usa el PostgreSQL de `DATABASE_URL`.
+- **Tiempo de arranque:** el `start_period` del healthcheck es de 60 s para dar tiempo a la primera migración. El compose no define un servicio de base de datos: con `DATABASE_ENABLED=true`, Prisma usa el PostgreSQL de `DATABASE_URL`.
 - **Webhook de Meta:** configura la URL de callback como `https://<servidor>/webhook/whatsapp`. El HTTPS lo termina el proxy inverso del servidor, no el contenedor.
 
 ### Arranque con base de datos
@@ -85,7 +98,7 @@ RESET_DATABASE_CONFIRM=<nombre exacto de la base de DATABASE_URL>
 - **Requiere el esquema `public` sin tablas ajenas a Prisma** (en un despliegue normal solo está `_prisma_migrations`, que el reset borra). Si las hay, tras borrar los esquemas `migrate deploy` falla con `P3005` y la base queda sin esquemas: quita esas tablas y vuelve a arrancar.
 - En cada arranque con base, el entrypoint además marca como revertida la migración inicial (`20261004000000_init`) si quedó fallida, para poder reintentarla; si ya está aplicada, no hace nada.
 
-### Conectar un frontend externo (widget del Sandbox)
+### Conectar un frontend externo (Chat-bot)
 
 Para que otro sitio, por ejemplo el portal de MINSA Digital, converse con el bot a través de `POST /api/sandbox`, el bloque mínimo ya trae `SANDBOX_ENABLED=true`; completa el origen:
 
@@ -119,7 +132,12 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
 
    La migración inicial crea cuatro esquemas (`catalogo`, `chatbot`, `gestion` e `ia`), las reglas y disparadores de auditoría, las semillas de los catálogos y la descripción de cada tabla y columna. Las reglas para versionar cambios de la base (migraciones nuevas, pruebas SQL y diccionario) están en [`prisma/README.md`](prisma/README.md).
 
-4. Levanta el servidor de desarrollo:
+4. (Opcional) Carga datos de arranque. Solo corren contra una base cuyo nombre termine en `_desechable`, `_dev` o `_local`, y necesitan `psql` y `DATABASE_URL`:
+
+   - `npm run db:seed:eess` carga el padrón de establecimientos (`--base-real=<base>` lo permite en otra base).
+   - `npm run db:seed:dev` carga incidencias de ejemplo; si ya existen, `--reiniciar` las borra y las vuelve a crear.
+
+5. Levanta el servidor de desarrollo:
 
    ```bash
    npm run dev
@@ -127,7 +145,7 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
 
 ## Modos de persistencia
 
-La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor exacto `false` la desactiva; vacía o con cualquier otro valor, la base de datos sigue activa.
+El bot corre de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker: solo responde mensajes y no guarda nada). La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor exacto `false` la desactiva; vacía o con cualquier otro valor, la base de datos sigue activa.
 
 | Aspecto | Con base de datos (por defecto, Vercel) | Sin base de datos (`DATABASE_ENABLED=false`, Docker) |
 |---|---|---|
@@ -148,15 +166,15 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
-| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Sandbox (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: citas por WhatsApp y el frontend de MINSA Digital conectado, sin base de datos |
-| `##### Completo: variables opcionales` | Base de datos, incidencias (RENIEC), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de incidencia, ajustes finos |
+| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Chat-bot (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: whatsapp-bot (citas) y el Chat-bot conectado al portal de MINSA Digital, sin base de datos |
+| `##### Completo: variables opcionales` | Base de datos, incidencias (RENIEC), páginas del Chat-bot y bandeja web (`SANDBOX_PAGE_ENABLED`), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de incidencia, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
-> **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Sandbox no tiene autenticación).
+> **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Chat-bot no tiene autenticación).
 
 - **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
-- **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `2` o `3` escritos (en el Sandbox, el `3` o `4`), ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y muestra el menú.
+- **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `2` o `3` escritos (en el Chat-bot, el `3` o `4`), ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y muestra el menú.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
@@ -185,14 +203,14 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 
 | Variable | Uso |
 |---|---|
-| `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento). **La lee también el webhook real, no solo el Sandbox** |
-| `CITA_ALLOWED_DEPARTAMENTOS` | Departamentos donde se agenda por este canal (alcance del piloto), separados por comas: `LIMA`, `LIMA,CALLAO`… Un distrito fuera de la lista recibe el enlace a MINSA Digital; aplica también al modo manual (departamento → provincia → distrito). **Vacía o sin definir = sin filtro (todo el Perú).** ⚠️ Vercel hoy no la tiene: agrega `CITA_ALLOWED_DEPARTAMENTOS=LIMA` **antes** de desplegar este cambio, o allí se desactiva el filtro |
+| `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento). **La lee también el webhook real, no solo el Chat-bot** |
+| `CITA_ALLOWED_DEPARTAMENTOS` | Departamentos donde se agenda por este canal (alcance del piloto), separados por comas: `LIMA`, `LIMA,CALLAO`… Un distrito fuera de la lista recibe el enlace a MINSA Digital; aplica también al modo manual (departamento → provincia → distrito). **Vacía o sin definir = sin filtro (todo el Perú).** En Vercel hay que definirla de forma explícita (por ejemplo `CITA_ALLOWED_DEPARTAMENTOS=LIMA`): sin ella el filtro queda desactivado |
 | `MINSA_API_HOST` | Host de la API del MINSA |
 | `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (documento y OTP) |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
-| `MINSA_DIGITAL_APP_URL` | **Obligatoria en el servidor real.** URL pública del portal de MINSA Digital, sin valor por defecto en el código: de ella salen los botones hacia el portal (**Continuar mi cita**, **Ir a MINSADIGITAL**, **Cita Nivel Global** y **Ver mi cita**) y las cabeceras `Origin` y `Referer` de las llamadas autenticadas al MINSA (se toma el origen: esquema, dominio y puerto). Si cambia el dominio, solo se cambia esta variable. `docker-compose.yml` la exige: el servidor no arranca sin ella, con un mensaje que la nombra. Si aun así falta, la bienvenida de WhatsApp muestra el menú, los demás avisos salen como texto sin enlace y `/api/health` responde `degraded` con el código `MINSA_DIGITAL_APP_URL_MISSING` (se registra como `error` con el MINSA real y como `warn` con el simulado). Con el MINSA real, las llamadas autenticadas no salen sin `Origin` ni `Referer`: se cortan con un 503 sin cuerpo, se registra `minsa.request_blocked` y quien llamó lo trata como un error del MINSA |
+| `MINSA_DIGITAL_APP_URL` | **Obligatoria en el servidor real.** URL pública del portal de MINSA Digital, sin valor por defecto en el código: de ella salen los botones hacia el portal (**Continuar mi cita**, **Ir a MINSADIGITAL**, **Cita Nivel Global** y **Ver mi cita**) y las cabeceras `Origin` y `Referer` de las llamadas autenticadas al MINSA (se toma el origen: esquema, dominio y puerto). Si cambia el dominio, solo se cambia esta variable. `docker-compose.yml` la exige: el servidor no arranca sin ella, con un mensaje que la nombra. Si aun así falta, la bienvenida de whatsapp-bot muestra el menú, los demás avisos salen como texto sin enlace y `/api/health` responde `degraded` con el código `MINSA_DIGITAL_APP_URL_MISSING` (se registra como `error` con el MINSA real y como `warn` con el simulado). Con el MINSA real, las llamadas autenticadas no salen sin `Origin` ni `Referer`: se cortan con un 503 sin cuerpo, se registra `minsa.request_blocked` y quien llamó lo trata como un error del MINSA |
 | `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
-| `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece **Registrar una incidencia** y **Consultar una incidencia** en el menú (WhatsApp y Sandbox). Apagada por defecto: sin definir, vacía o con cualquier otro valor, solo queda **Agendar una cita médica**. Se lee en cada mensaje: cambiarla no exige recompilar, solo reiniciar el proceso |
+| `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece **Registrar una incidencia** y **Consultar una incidencia** en el menú (whatsapp-bot y Chat-bot). Apagada por defecto: sin definir, vacía o con cualquier otro valor, solo queda **Agendar una cita médica**. Se lee en cada mensaje: cambiarla no exige recompilar, solo reiniciar el proceso |
 | `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
 **Imágenes de la incidencia** (el flujo de incidencia **ya no guarda imágenes ni archivos**: si la persona envía una imagen o un PDF, el bot lo reconoce, no lo descarga y sigue; estas variables solo las usa el servicio de registro si algún día se le entrega una imagen)
@@ -212,13 +230,13 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL. Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`) |
 | `GOOGLE_AI_MODEL` | Modelo de Gemini (por defecto `gemini-3.6-flash`). Un nombre que no existe da HTTP 404 |
 
-**Sandbox**
+**Chat-bot** (variables `SANDBOX_*`)
 
 | Variable | Uso |
 |---|---|
 | `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
-| `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Sandbox (`/sandbox` y `/configuracion-visor-sandbox`), deja que `/` redirija a `/sandbox` y **abre la bandeja web** (`/api/conversations*` y `/api/messages/send`). Sin definir o con cualquier otro valor: las tres páginas redirigen a `/api/health` y esas cuatro rutas responden `404`, aunque la base esté activa. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). La bandeja web **no tiene autenticación**: lista todas las conversaciones con su teléfono y permite escribir desde el número oficial. En Production déjala sin definir |
-| `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el widget del Sandbox en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-widget-del-sandbox) |
+| `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Chat-bot (`/sandbox` y `/configuracion-visor-sandbox`), deja que `/` redirija a `/sandbox` y **abre la bandeja web** (`/api/conversations*` y `/api/messages/send`). Sin definir o con cualquier otro valor: las tres páginas redirigen a `/api/health` y esas cuatro rutas responden `404`, aunque la base esté activa. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). La bandeja web **no tiene autenticación**: lista todas las conversaciones con su teléfono y permite escribir desde el número oficial. En Production déjala sin definir |
+| `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el Chat-bot en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-chat-bot) |
 
 **Logs** (ver [docs/observabilidad.md](docs/observabilidad.md))
 
@@ -241,8 +259,8 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 ## Estructura del proyecto
 
 ```
-app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /webhook/whatsapp, páginas del Sandbox
-  components/                UI de la bandeja y del Sandbox; Sandbox.tsx es el contenedor del chat
+app/                         rutas de Next.js (delgadas): bandeja web, /api/*, /webhook/whatsapp, páginas del Chat-bot
+  components/                UI de la bandeja y del Chat-bot; Sandbox.tsx es el contenedor del chat
     sandbox-chat/            piezas de presentación del chat (cabecera, composer, burbujas, tarjeta de DNI, panel de depuración)
     ui/                      componentes de UI compartidos (Button es el único botón nativo; IconButton, ListPicker, TextInput, Banner, Card, Badge)
     icons/                   todos los íconos SVG de la app, centralizados
@@ -254,6 +272,11 @@ lib/
   constants/palabras-clave.ts  palabras y frases que escribe el ciudadano y que el bot reconoce
   utils/                     funciones puras que no dependen de React ni del render
   errors/                    clases de error propias, una por archivo (UnknownStateError, TurnLockTimeoutError)
+  establecimientos/          padrón de establecimientos: búsqueda, decisión y repositorio
+  inbox/                     bandeja web: control de acceso, DTO y repositorio
+  recepcion/                 registro y consulta de incidencias: servicio, repositorio, DTO y almacén de imágenes
+  services/                  catálogo de servicios del menú (cita, referencia, incidencia, consulta): BotService y ServiceCatalog
+  time/                      reloj en hora de Lima
   db/                        cliente Prisma (carga diferida) y el flag DATABASE_ENABLED
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
     webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
@@ -290,6 +313,7 @@ lib/
           hora/              el paso de hora: lista, horas escritas, elección «1»..«10», confirmación
           demo/              flujo hardcodeado para el piloto comercial; borrar junto con su importador al cerrarlo
       incidencia/            flujo de incidencia
+      consulta/              consulta de una incidencia por su código
       referencia/            servicio Consultar referencia: entrada, consulta por documento y oferta de cita cuando no hay referencias
       emergency/             corte por urgencia
       out-of-scope/          detección de consultas fuera de alcance y los canales oficiales a los que deriva
@@ -352,7 +376,7 @@ El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca
 | `MaxPassesExceededError` | Un turno supera el tope de pasadas del ejecutor |
 | `DatabaseDisabledError` | Se usa Prisma con la base de datos apagada |
 | `ImageStorageError` | El servicio de imágenes responde con error o sin ruta |
-| `TurnLockTimeoutError` | Se agota la espera del candado de turno; el Sandbox responde `BUSY` y el webhook registra `turn.lock_timeout` |
+| `TurnLockTimeoutError` | Se agota la espera del candado de turno; el Chat-bot responde `BUSY` y el webhook registra `turn.lock_timeout` |
 
 Un resultado esperado (por ejemplo, una reserva rechazada) no es una excepción: la función devuelve su estado como enum.
 
@@ -367,7 +391,7 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 | `npm run test:gaps` | La suite en modo estricto para las brechas conocidas (`tests/support/known-gap.ts`) |
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
 | `npm run db:test` | Arma una base desechable solo con las migraciones y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
-| `npm run db:diccionario` | Regenera el diccionario de datos y los diagramas de la base desde una base ya migrada |
+| `npm run db:diccionario` | Regenera el diccionario de datos de la base desde una base ya migrada |
 | `npm run format` | Aplica el formato de Prettier al código |
 | `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
@@ -375,7 +399,7 @@ El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en
 
 ## Despliegue en Vercel (con base de datos)
 
-`DATABASE_URL` y las variables de WhatsApp ya están configuradas en Vercel. El script `build` ejecuta `prisma migrate deploy` antes de `next build`, así que las migraciones pendientes se aplican en cada despliegue:
+En Vercel se necesitan `DATABASE_URL` y las variables de Meta. El script `build` ejecuta `prisma migrate deploy` antes de `next build`, así que las migraciones pendientes se aplican en cada despliegue:
 
 ```json
 "build": "prisma migrate deploy && next build --webpack"
@@ -385,23 +409,23 @@ El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en
 - Correr las migraciones dentro del build es un enfoque simple, suficiente para la escala actual. Conviene revisarlo si el equipo crece o si las migraciones se vuelven riesgosas de ejecutar sin supervisión.
 - `next.config.ts` solo activa la salida *standalone* cuando `NEXT_OUTPUT_STANDALONE=true` (lo hace el Dockerfile), así que los builds de Vercel no cambian.
 
-## Sandbox (probador de los flujos de cita e incidencia)
+## Chat-bot: página de pruebas de los flujos
 
-Junto a la bandeja real, `/` tiene una pestaña **Sandbox**: un simulador de conversación para los flujos de cita médica y de incidencia, escribiendo mensajes directamente, sin WhatsApp real. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
+Junto a la bandeja real, `/` tiene una pestaña con el Chat-bot (en la interfaz aún se rotula «Sandbox»): un simulador de conversación para los flujos de cita médica, referencia e incidencia, escribiendo mensajes directamente, sin pasar por WhatsApp. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
 - Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería. Las páginas se controlan aparte con `SANDBOX_PAGE_ENABLED=true` (local y Vercel); sin ella, `/`, `/sandbox` y `/configuracion-visor-sandbox` redirigen a `/api/health`.
 - Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.
-- Las referencias médicas son un servicio propio, **Consultar referencia** (fila del Sandbox, o escribir «referencia» en el Sandbox y en WhatsApp; ver [docs/flujo-referencias.md](docs/flujo-referencias.md)). Sin `SANDBOX_USE_REAL_MINSA=true` la consulta responde siempre «No cuentas con referencias registradas.» y ofrece agendar una cita. La excepción son los DNI `10308523` y `47391441` del piloto comercial: solo bajo ese servicio, tras iniciar sesión con ellos, se muestran referencias de demostración (`lib/fsm/flows/cita/steps/demo/`) en lugar de consultar MINSA; el inicio de sesión es el normal, así que necesitan un MINSA que los valide. En la cita esos documentos siguen el camino normal. La reserva con una referencia real se recorre contra el MINSA real o en `tests/lib/fsm/core/referencia-flow.e2e.test.ts`, que inyecta las referencias.
+- Las referencias médicas son un servicio propio, **Consultar referencia** (fila del Chat-bot, o escribir «referencia» en el Chat-bot y en whatsapp-bot; ver [docs/flujo-referencias.md](docs/flujo-referencias.md)). Sin `SANDBOX_USE_REAL_MINSA=true` la consulta responde siempre «No cuentas con referencias registradas.» y ofrece agendar una cita. La excepción son los DNI `10308523` y `47391441` del piloto comercial: solo bajo ese servicio, tras iniciar sesión con ellos, se muestran referencias de demostración (`lib/fsm/flows/cita/steps/demo/`) en lugar de consultar MINSA; el inicio de sesión es el normal, así que necesitan un MINSA que los valide. En la cita esos documentos siguen el camino normal. La reserva con una referencia real se recorre contra el MINSA real o en `tests/lib/fsm/core/referencia-flow.e2e.test.ts`, que inyecta las referencias.
 - **Contrato de `/whatsapp/api/v1/references`** (`lib/integrations/minsa/references.ts` es el único punto que lo lee). El backend envía el sobre `{ "status_reference": "found" | "empty", "message": "...", "data": [filas] }` y el bot lo usa tal cual: no deduce el estado de las filas ni filtra referencias por su estado; esa lógica es del backend. Hacia adentro el resultado es `{ statusReference, message, data }`, con `data` como arreglo vacío o lleno. Una respuesta sin `status_reference`, con un valor desconocido, un cuerpo ilegible o un HTTP que no es 2xx llega como `statusReference: "error"`. Cada fila exige `id_referencia` y `estado.codigo`; las que no los traen se descartan y se registran en `minsa.catalog.rows_discarded`. Solo con `found` se listan las referencias; en cualquier otro caso el bot responde «No cuentas con referencias registradas.» y pregunta si quiere agendar una cita.
 
 ## Consultar una incidencia
 
-La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNNNNN`, el que recibe al registrarla): con la opción **Consultar una incidencia** del menú (o escribiendo `3` en WhatsApp o `4` en el Sandbox; solo con `INCIDENCIAS_ENABLED=true`, si no el menú no la muestra y el código tampoco la abre), o escribiendo el código dentro de cualquier mensaje («quiero ver mi incidencia MINSA-2026-000003»). Solo cuenta el formato completo; `lib/fsm/parsing/text/codigo-incidencia.ts` lo reconoce. El flujo vive en `lib/fsm/flows/consulta/` y la lectura en `lib/recepcion/consulta.ts` (solo lectura, una consulta).
+La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNNNNN`, el que recibe al registrarla): con la opción **Consultar una incidencia** del menú (o escribiendo `3` en whatsapp-bot o `4` en el Chat-bot; solo con `INCIDENCIAS_ENABLED=true`, si no el menú no la muestra y el código tampoco la abre), o escribiendo el código dentro de cualquier mensaje («quiero ver mi incidencia MINSA-2026-000003»). Solo cuenta el formato completo; `lib/fsm/parsing/text/codigo-incidencia.ts` lo reconoce. El flujo vive en `lib/fsm/flows/consulta/` y la lectura en `lib/recepcion/consulta.ts` (solo lectura, una consulta).
 
 - **Quién puede verla (el código solo funciona para quien la registró).**
-  - **WhatsApp:** se busca al usuario por su identificador actual (`usuario.wa_id`, el BSUID de Meta) y la incidencia debe ser de ese usuario (`usuario_id`), no de otro. El identificador lo pone el servidor, nunca el texto del mensaje. Sirve también para las incidencias anónimas.
-  - **Sandbox / web:** la identidad es el documento verificado con DNI + código OTP de MINSA Digital (los mismos pasos que la cita) y debe coincidir con el `dni_reclamante`. Las anónimas no se pueden consultar por la web. El canal lo fija el servidor (`channel` del evento); el cliente no lo elige.
-  - **JWT del portal: pendiente.** Cuando MINSA Digital entregue la especificación de su JWT (algoritmo y clave pública o JWKS, emisor, vencimiento y el campo con el documento), se reemplazará el paso DNI + OTP por validar el token; el punto de cambio está comentado en `handlers-consulta.ts`.
+  - **whatsapp-bot:** se busca al usuario por su identificador actual (`usuario.wa_id`, el BSUID de Meta) y la incidencia debe ser de ese usuario (`usuario_id`), no de otro. El identificador lo pone el servidor, nunca el texto del mensaje. Sirve también para las incidencias anónimas.
+  - **Chat-bot:** la identidad es el documento verificado con DNI + código OTP de MINSA Digital (los mismos pasos que la cita) y debe coincidir con el `dni_reclamante`. Las anónimas no se pueden consultar por el Chat-bot. El canal lo fija el servidor (`channel` del evento); el cliente no lo elige.
+  - **JWT del portal: pendiente.** Cuando MINSA Digital entregue la especificación de su JWT (algoritmo y clave pública o JWKS, emisor, vencimiento y el campo con el documento), se reemplazará el paso DNI + OTP por validar el token. Hoy no hay código para eso: el flujo vive en `lib/fsm/flows/consulta/handlers-consulta.ts`.
 - **Qué responde.** Código, estado en palabras (recibida, derivada al área responsable, en atención, resuelta, archivada) y fecha de registro. Nunca la descripción ni datos de quien reportó. Inexistente, ajena, anónima (en la web) o borrada reciben exactamente el mismo texto: «No se logró ubicar el registro de la incidencia.» Base apagada o caída: «Disculpa, no podemos consultar tu incidencia en este momento. Inténtalo más tarde.» En todos los casos la sesión termina y el siguiente mensaje empieza de nuevo.
 - **Cambio de identificador de Meta.** Si la persona cambia de número, Meta cambia su BSUID y avisa con el webhook `user_id_update` (campo aparte que hay que suscribir) y un mensaje de sistema. El bot renombra `usuario.wa_id` y su sesión al identificador nuevo (`lib/whatsapp/webhook/user-id-update.ts`), así sus incidencias lo siguen. Limitaciones: si el identificador nuevo ya tenía usuario propio **no se fusionan** (se avisa en el log y la persona no verá las incidencias anteriores); `incidencia_paciente.wa_id` conserva el identificador de cuando se registró y el tope diario cuenta por él.
 
@@ -410,7 +434,7 @@ La persona puede ver el estado de una incidencia con su código (`MINSA-AAAA-NNN
 - **Webhook en runtime Node.js.** `app/webhook/whatsapp/route.ts` no corre en Edge porque la verificación de la firma necesita el módulo `crypto` de Node. La ruta está fija en `/webhook/whatsapp` para coincidir con la URL de callback registrada en Meta for Developers.
 - **Ventana de atención de 24 horas.** Se calcula desde el **último mensaje entrante** de la conversación, no desde la actividad general.
 - **Identificadores BSUID.** Los contactos de esta cuenta usan el esquema *Business-Scoped User ID* de Meta. Los webhooks traen `user_id`/`from_user_id` en lugar de `wa_id`/`from`, y los envíos deben usar `recipient` (con `recipient_type: "individual"`) en lugar de `to`: con `to`, Graph API acepta la petición pero el mensaje nunca se entrega.
-- **Sin autenticación.** La aplicación no incluye login; por eso el Sandbox está desactivado por defecto.
+- **Sin autenticación.** La aplicación no incluye login; por eso el Chat-bot está desactivado por defecto.
 - **Carga diferida de Prisma.** `@prisma/client` lee el `.env` al cargarse; por eso el ejecutor importa `lib/recepcion/servicio` de forma diferida y no se carga en los turnos que no tocan la base.
 
 ## Documentación relacionada
