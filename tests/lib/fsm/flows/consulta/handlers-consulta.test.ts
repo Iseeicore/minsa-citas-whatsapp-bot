@@ -15,6 +15,7 @@ import {
   CONSULTA_FALLA_TEXT,
 } from "@/lib/constants/textos/consulta";
 import { ASK_OTP_TEXT } from "@/lib/constants/textos/identidad";
+import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "bsuid-ana";
@@ -166,6 +167,56 @@ describe("web: DNI + OTP antes de consultar", () => {
 
     step = handle(step.session, text("000000", "web"));
     step = handle(step.session, result("verify_code", { status: "invalid" }));
+    expect(step.session.state).toBe("consulta_failed");
+    expect(texts(step)).toEqual([OTP_BLOQUEADO_TEXT]);
+  });
+});
+
+describe("consulta_awaiting_otp: un mensaje con formato inválido cuenta como intento fallido", () => {
+  const atOtp = (): Session => ({
+    state: "consulta_awaiting_otp",
+    slots: { consultaCanal: "web", consultaCodigo: CODIGO, consultaDniPending: "12345678", consultaTwofaId: "tw-1" },
+    counters: {},
+  });
+
+  it.each(["{ds", "abc", "12", "123456789"])("«%s» descuenta un intento y no consulta a MINSA", (typed) => {
+    const step = handle(atOtp(), text(typed, "web"));
+
+    expect(queries(step)).toEqual([]);
+    expect(step.session.state).toBe("consulta_awaiting_otp");
+    expect(step.session.counters[CounterKey.CONSULTA_INTENTOS_OTP]).toBe(1);
+    expect(texts(step)).toEqual(["Código incorrecto. Te quedan 2 intento(s)."]);
+  });
+
+  it("un toque de botón también descuenta un intento y no consulta a MINSA", () => {
+    const step = handle(atOtp(), pick("cualquiera", "web"));
+
+    expect(queries(step)).toEqual([]);
+    expect(step.session.counters[CounterKey.CONSULTA_INTENTOS_OTP]).toBe(1);
+  });
+
+  it("tres mensajes basura seguidos cierran con el texto de agotamiento", () => {
+    let step = handle(atOtp(), text("{ds", "web"));
+    step = handle(step.session, text("hola", "web"));
+    expect(texts(step)).toEqual(["Código incorrecto. Te quedan 1 intento(s)."]);
+
+    step = handle(step.session, text("???", "web"));
+
+    expect(step.session.state).toBe("consulta_failed");
+    expect(texts(step)).toEqual([OTP_BLOQUEADO_TEXT]);
+    expect(queries(step)).toEqual([]);
+  });
+
+  it("el formato inválido y el código incorrecto comparten el mismo contador", () => {
+    let step = handle(atOtp(), text("{ds", "web"));
+    step = handle(step.session, text("123456", "web"));
+    expect(queries(step)).toMatchObject([{ kind: "verify_code" }]);
+
+    step = handle(step.session, result("verify_code", { status: "invalid" }));
+    expect(step.session.counters[CounterKey.CONSULTA_INTENTOS_OTP]).toBe(2);
+    expect(texts(step)).toEqual(["Código incorrecto. Te quedan 1 intento(s)."]);
+
+    step = handle(step.session, text("zzz", "web"));
     expect(step.session.state).toBe("consulta_failed");
     expect(texts(step)).toEqual([OTP_BLOQUEADO_TEXT]);
   });

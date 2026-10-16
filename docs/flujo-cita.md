@@ -34,9 +34,10 @@ main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
 
 Documento 💬  (8 dígitos: DNI "01" · 9 dígitos: carnet de extranjería "03")
 └─ válido ─► MINSA valida  (envía numero_documento, tipo_documento y conversation_id)
-   ├─ registrado ─► 💬 "Te enviamos un código…" ─► OTP (4–8 dígitos)
+   ├─ registrado ─► 💬 "Te enviamos un código…" ─► OTP
    │                └─ correcto ─► 💬 "¡Verificado! ¿En qué distrito…?"
-   └─ no registrado ─► 🔗 MINSADIGITAL + 🔘 [Ya me registré]  (máx. 3 intentos ⛔)
+   └─ no registrado ─► 💬 "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse."
+                       + 🔗 MINSADIGITAL + 🔘 [Ya me registré]  (máx. 3 intentos ⛔)
 
 Distrito 💬 🤖
 ├─ búsqueda local (sin IA) ─┐
@@ -110,7 +111,7 @@ Todos los pasos con 📋 siguen el mismo orden (`lib/fsm/flows/cita/selection.ts
 | Dónde | Qué escribió | Respuesta | Sigue en |
 |---|---|---|---|
 | Documento | no son 8 ni 9 dígitos | *"Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo."* (sin límite) | Documento |
-| OTP | no son 4–8 dígitos | *"Código inválido. Debe tener entre 4 y 8 dígitos."* (no cuenta como intento) | OTP |
+| OTP | formato inválido (letras, símbolos, mensaje muy corto o largo, o un toque de botón) | *"Código incorrecto. Te quedan {2\|1} intento(s)."* (cuenta como intento y no consulta a MINSA) | OTP; al 3.º ⛔ *"Superaste el número de intentos permitidos…"* |
 | OTP | código incorrecto | *"Código incorrecto. Te quedan {2\|1} intento(s)."* | OTP; al 3.º ⛔ *"Superaste el número de intentos permitidos…"* |
 | Distrito | texto sin sentido | *"No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:"* | Distrito |
 | Distrito | la IA no lo encuentra | 1.ª vez: el mismo texto; 2.ª vez: modo manual | Distrito → modo manual |
@@ -229,7 +230,8 @@ Mientras la IA responde, el ciudadano ve "escribiendo…"; si tarda más de 8 s,
 
 ## Horas y alcance del piloto
 - **Horas en 12 h:** el ciudadano ve los rangos como *8:00 - 8:15 AM*, *1:00 - 1:15 PM* o *11:45 AM - 12:00 PM* (listas, lista reducida, horario único, confirmación y la elección entre posición y hora). Al MINSA se sigue enviando 24 h (`08:00|08:15`), y el bot entiende horas escritas en 12 h o 24 h.
-- **Departamentos permitidos:** los define `CITA_ALLOWED_DEPARTAMENTOS` (por ejemplo `LIMA`). Vacía o sin definir = sin filtro. El filtro aplica a la búsqueda por nombre, a las pistas del primer mensaje y al modo manual (departamento → provincia → distrito).
+- **Departamentos permitidos:** los define `CITA_ALLOWED_DEPARTAMENTOS` (por ejemplo `LIMA`). Vacía o sin definir = sin filtro: el agendamiento queda libre para todo el país (no hay valor por defecto en el código). El filtro aplica a la búsqueda por nombre, a las pistas del primer mensaje y al modo manual (departamento → provincia → distrito). En el modo manual, un departamento escrito fuera de la lista recibe de inmediato el aviso de etapa inicial con el enlace a MINSA Digital, sin consultar a MINSA; «Lima Metropolitana» o «Lima Provincias» se aceptan cuando `LIMA` está permitido.
+- **Botones de enlace:** ni WhatsApp ni el Chat-bot muestran un subtexto bajo el botón del enlace; solo su etiqueta (por ejemplo, *Ir a MINSADIGITAL*).
 - **Fechas del MINSA:** "hoy" y "fin de mes" se calculan con el reloj de Lima, no con el del servidor.
 
 ## Nombres de especialidad y establecimiento en las listas
