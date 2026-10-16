@@ -6,6 +6,7 @@ const ROOT = process.cwd();
 const BROWSER_FOLDER = "app";
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 const STORAGE_WRITE = /(localStorage|sessionStorage)\s*\.\s*setItem\s*\(/;
+const MATH_RANDOM = /Math\s*\.\s*random/;
 const STORAGE_OWNER = "app/components/sandbox-chat/storage.ts";
 const STORED_KEY = /localStorage\s*\.\s*setItem\s*\(\s*(\w+)/g;
 const ALLOWED_STORED_KEYS = ["FROM_STORAGE_KEY"];
@@ -23,6 +24,12 @@ describe("browser storage", () => {
     const writers = sourceFiles(BROWSER_FOLDER).filter((file) => STORAGE_WRITE.test(fs.readFileSync(path.join(ROOT, file), "utf8")));
 
     expect(writers).toEqual([STORAGE_OWNER]);
+  });
+
+  it("never draws anything from Math.random", () => {
+    const users = sourceFiles(BROWSER_FOLDER).filter((file) => MATH_RANDOM.test(fs.readFileSync(path.join(ROOT, file), "utf8")));
+
+    expect(users).toEqual([]);
   });
 
   it("stores nothing but the conversation identifier", () => {

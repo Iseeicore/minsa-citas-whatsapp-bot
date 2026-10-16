@@ -25,7 +25,7 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 | **whatsapp-bot** | Tu número de prueba escribiendo al número del bot | Prueba el webhook completo: firma, base de datos, ritmo de mensajes y multimedia. |
 | **Chat real** | `/configuracion-visor-sandbox` con el interruptor **Chat real** | Muestra las conversaciones guardadas. Sirve para comprobar que un mensaje rechazado NO creó una conversación. |
 
-> **El token de MINSA nunca sale del servidor.** El panel solo recibe los slots de la lista blanca de `lib/constants/sandbox-visible-slots.ts`; no ve el token (`citaBearer`), los identificadores del código OTP, los documentos, los nombres ni los textos libres (`initialMessageText`, descripciones de incidencia). Para comprobar esos datos usa los logs `turn.end`, que los enmascaran (ver sección 4.4). El navegador solo guarda `sandbox-from`.
+> **El token de MINSA nunca sale del servidor.** El panel solo recibe los slots de la lista blanca de `lib/constants/sandbox-visible-slots.ts`; no ve el token (`citaBearer`), los identificadores del código OTP, los documentos, los nombres ni los textos libres (`initialMessageText`, descripciones de incidencia). Para comprobar esos datos usa los logs `turn.end`, que los enmascaran (ver sección 4.4). El navegador solo guarda `sandbox-from` (`sandbox-` y un UUID v4 aleatorio).
 
 ### 0.2 Datos del modo fake (Chat-bot por defecto)
 

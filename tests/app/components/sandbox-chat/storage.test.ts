@@ -11,6 +11,47 @@ function fakeLocalStorage(initial: Record<string, string> = {}) {
   };
 }
 
+describe("getOrCreateFrom", () => {
+  const SANDBOX_UUID = /^sandbox-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  beforeEach(() => {
+    vi.stubGlobal("window", {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("creates a sandbox- plus UUID from, stores it and returns the stored one afterwards", () => {
+    const storage = fakeLocalStorage();
+    vi.stubGlobal("localStorage", storage);
+
+    const created = getOrCreateFrom();
+
+    expect(created).toMatch(SANDBOX_UUID);
+    expect(storage.data.get(FROM_STORAGE_KEY)).toBe(created);
+    expect(getOrCreateFrom()).toBe(created);
+  });
+
+  it("gives a different from to every new session", () => {
+    vi.stubGlobal("localStorage", fakeLocalStorage());
+    const first = getOrCreateFrom();
+    takePreviousFrom();
+
+    expect(getOrCreateFrom()).not.toBe(first);
+  });
+
+  it("still creates a sandbox- plus UUID from when the browser storage fails", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+    });
+
+    expect(getOrCreateFrom()).toMatch(SANDBOX_UUID);
+  });
+});
+
 describe("takePreviousFrom", () => {
   beforeEach(() => {
     vi.stubGlobal("window", {});

@@ -1,5 +1,6 @@
 export const SENSITIVE_KEY = /bearer|token|authorization|secret|password|api[_-]?key|twofa|otp|code$/i;
 export const DNI_KEY = /dni|documento/i;
+export const PERSON_NAME_KEY = /^nombre(completo)?$/i;
 export const ALREADY_MASKED_DNI = /^\*{4}\d{0,4}$/;
 export const NON_DIGIT = /\D/g;
 export const URL_WITH_QUERY_STRING = /(https?:\/\/[^\s?#]+)\?[^\s#]*/gi;

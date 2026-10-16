@@ -1,13 +1,11 @@
 import type { Session } from "@/lib/fsm/core/types";
 import { SESSION_IDLE_TIMEOUT_MS } from "@/lib/fsm/session/session-expiry-guard";
 import { SessionState } from "@/lib/enums/session-state";
-import { CLOSED_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
+import { CLOSED_SESSION_ID_PREFIX, SANDBOX_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
 
 export const MEMORY_SESSION_TTL_MS = 6 * SESSION_IDLE_TIMEOUT_MS;
 
 const SWEEP_INTERVAL_MS = 60_000;
-
-const SANDBOX_SESSION_ID_PREFIX = "sandbox-";
 
 type Stored = { state: string; slots: Session["slots"]; counters: Session["counters"]; updatedAt: number };
 
