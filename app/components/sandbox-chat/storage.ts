@@ -1,6 +1,5 @@
 export const FROM_STORAGE_KEY = "sandbox-from";
-export const ENTRIES_STORAGE_KEY = "sandbox-entries";
-export const SESSION_STORAGE_KEY = "sandbox-session";
+export const LEGACY_STORAGE_KEYS = ["sandbox-entries", "sandbox-session"] as const;
 
 export function getOrCreateFrom(): string | null {
   if (typeof window === "undefined") return null;
@@ -21,7 +20,7 @@ export function clearStoredChat(): void {
   if (typeof window === "undefined") return;
 
   try {
-    for (const key of [FROM_STORAGE_KEY, ENTRIES_STORAGE_KEY, SESSION_STORAGE_KEY]) localStorage.removeItem(key);
+    for (const key of [FROM_STORAGE_KEY, ...LEGACY_STORAGE_KEYS]) localStorage.removeItem(key);
   } catch {
   }
 }

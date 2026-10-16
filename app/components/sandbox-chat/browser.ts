@@ -18,7 +18,7 @@ export function randomId(): string {
 }
 
 export function closePreviousConversation(from: string): void {
-  fetch("/api/sandbox", {
+  void fetch("/api/sandbox", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ from, type: "text", close: true }),

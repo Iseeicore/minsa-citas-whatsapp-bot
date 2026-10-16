@@ -123,7 +123,6 @@ describe("the manual mode (departamento → provincia → distrito) also honors 
 describe("el departamento escrito a mano también honra el alcance", () => {
   const typedDepartamento = (value: string): InboundEvent => ({ from: "wa-1", type: "text", text: value });
   const awaitingDepartamento = (): Session => session("cita_awaiting_departamento");
-  const queryKinds = (result: HandlerResult): string[] => result.effects.filter(isQueryEffect).map((effect) => effect.kind);
 
   it("con LIMA, escribir «Cusco» avisa de la etapa inicial y redirige sin consultar a MINSA", () => {
     vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
@@ -131,45 +130,29 @@ describe("el departamento escrito a mano también honra el alcance", () => {
 
     expect(result.session.state).toBe("cita_national_redirect");
     expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", text: LIMA_ONLY_TEXT });
-    expect(queryKinds(result)).toEqual([]);
+    expect(result.effects.filter(isQueryEffect)).toEqual([]);
   });
 
-  it.each(["Lima", "lima", "Lima Metropolitana", "Lima Provincias"])("con LIMA, «%s» sigue el flujo normal", (typed) => {
-    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
+  it.each([
+    ["LIMA", "Lima"],
+    ["LIMA", "Lima Metropolitana"],
+    ["", "Cusco"],
+    [undefined, "Cusco"],
+  ])("con CITA_ALLOWED_DEPARTAMENTOS=%s, «%s» sigue el flujo normal", (allowed, typed) => {
+    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", allowed);
     const result = handle(awaitingDepartamento(), typedDepartamento(typed));
 
     expect(result.session.state).toBe("cita_awaiting_provincia");
     expect(result.session.slots[SlotKey.CITA_DEPARTAMENTO]).toBe(typed);
   });
 
-  it("con LIMA, «Limatambo» no se toma por Lima porque no es la palabra completa", () => {
-    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
+  it.each([
+    ["LIMA", "Limatambo", false],
+    ["LIMA,CALLAO", "callao", true],
+    ["LIMA,CALLAO", "Cusco", false],
+  ])("con %s, «%s» permitido: %s", (allowed, typed, expected) => {
+    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", allowed);
 
-    expect(isTypedDepartamentoAllowed("Limatambo")).toBe(false);
-    expect(isTypedDepartamentoAllowed("Arequipa")).toBe(false);
-  });
-
-  it("con varios permitidos acepta cualquiera de ellos, escrito con texto libre", () => {
-    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA,CALLAO");
-
-    expect(isTypedDepartamentoAllowed("callao")).toBe(true);
-    expect(isTypedDepartamentoAllowed("Lima Metropolitana")).toBe(true);
-    expect(isTypedDepartamentoAllowed("Cusco")).toBe(false);
-  });
-
-  it("con la variable vacía, «Cusco» sigue el flujo normal", () => {
-    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "");
-    const result = handle(awaitingDepartamento(), typedDepartamento("Cusco"));
-
-    expect(result.session.state).toBe("cita_awaiting_provincia");
-    expect(result.session.slots[SlotKey.CITA_DEPARTAMENTO]).toBe("Cusco");
-    expect(sent(result)[0]).not.toMatchObject({ kind: "send_cta_url" });
-  });
-
-  it("sin la variable definida, «Cusco» sigue el flujo normal", () => {
-    delete process.env.CITA_ALLOWED_DEPARTAMENTOS;
-    const result = handle(awaitingDepartamento(), typedDepartamento("Cusco"));
-
-    expect(result.session.state).toBe("cita_awaiting_provincia");
+    expect(isTypedDepartamentoAllowed(typed)).toBe(expected);
   });
 });

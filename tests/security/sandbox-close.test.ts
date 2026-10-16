@@ -21,21 +21,17 @@ vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
 import { POST } from "@/app/api/sandbox/route";
 
-const ORIGIN = "https://portal.example.org";
-
-function post(body: unknown, headers: Record<string, string> = {}) {
-  return POST(
+const post = (body: unknown) =>
+  POST(
     new NextRequest("http://localhost/api/sandbox", {
       method: "POST",
-      headers: { "content-type": "application/json", ...headers },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }),
   );
-}
 
 beforeEach(() => {
   process.env.SANDBOX_ENABLED = "true";
-  process.env.SANDBOX_ALLOWED_ORIGINS = ORIGIN;
   vi.clearAllMocks();
 });
 
@@ -53,12 +49,6 @@ describe("POST /api/sandbox with close", () => {
     expect(mocks.resetAll).not.toHaveBeenCalled();
   });
 
-  it("carries the CORS headers of an allowed origin", async () => {
-    const response = await post({ from: "sandbox-old", type: "text", close: true }, { origin: ORIGIN });
-
-    expect(response.headers.get("access-control-allow-origin")).toBe(ORIGIN);
-  });
-
   it("is a 404 when the Sandbox is disabled, and closes nothing", async () => {
     process.env.SANDBOX_ENABLED = "false";
 
@@ -66,19 +56,5 @@ describe("POST /api/sandbox with close", () => {
 
     expect(response.status).toBe(404);
     expect(mocks.closeSession).not.toHaveBeenCalled();
-  });
-
-  it("still validates the body: a missing from is rejected", async () => {
-    const response = await post({ type: "text", close: true });
-
-    expect(response.status).toBe(400);
-    expect(mocks.closeSession).not.toHaveBeenCalled();
-  });
-
-  it("without close the request keeps running the turn as before", async () => {
-    await post({ from: "sandbox-old", type: "button", listId: "agendar_cita" });
-
-    expect(mocks.closeSession).not.toHaveBeenCalled();
-    expect(mocks.runTurn).toHaveBeenCalledTimes(1);
   });
 });

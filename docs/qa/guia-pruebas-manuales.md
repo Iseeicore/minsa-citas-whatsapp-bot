@@ -21,9 +21,11 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 | Entorno | Cómo entrar | Para qué sirve |
 |---|---|---|
 | **Chat-bot (widget)** | `/sandbox` | Simula al ciudadano. No muestra el panel de depuración. |
-| **Chat-bot (consola)** | `/configuracion-visor-sandbox` y el interruptor **Sandbox** (así se rotula hoy en la interfaz) | Igual, pero con el panel **Debug** a la derecha (visible en pantallas anchas) que muestra `from`, `state` y `slots`, y con el botón **Reiniciar todas las pruebas**. **Úsalo para verificar los slots.** |
+| **Chat-bot (consola)** | `/configuracion-visor-sandbox` y el interruptor **Sandbox** (así se rotula hoy en la interfaz) | Igual, pero con el panel **Debug** a la derecha (visible en pantallas anchas) que muestra `from`, `state`, `slots` y `counters`, y con el botón **Reiniciar todas las pruebas**. **Úsalo para verificar los slots.** |
 | **whatsapp-bot** | Tu número de prueba escribiendo al número del bot | Prueba el webhook completo: firma, base de datos, ritmo de mensajes y multimedia. |
 | **Chat real** | `/configuracion-visor-sandbox` con el interruptor **Chat real** | Muestra las conversaciones guardadas. Sirve para comprobar que un mensaje rechazado NO creó una conversación. |
+
+> **El token de MINSA nunca sale del servidor.** El panel solo recibe los slots de la lista blanca de `lib/constants/sandbox-visible-slots.ts`; no ve el token (`citaBearer`), los identificadores del código OTP, los documentos, los nombres ni los textos libres (`initialMessageText`, descripciones de incidencia). Para comprobar esos datos usa los logs `turn.end`, que los enmascaran (ver sección 4.4). El navegador solo guarda `sandbox-from`.
 
 ### 0.2 Datos del modo fake (Chat-bot por defecto)
 
@@ -206,7 +208,7 @@ Usa el **panel Debug** de la consola para ver los `slots`.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
-| 2.4a | `Apúrense cojudos quiero cita de odontología en Lurigancho` | `Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Continuemos con tu cita: ingresa tu número de documento.` | **Sin IA.** Debug: `state: cita_awaiting_dni` y `slots` con `citaEspecialidadHintText: "Odontología"` y `citaDistritoHintText: "Lurigancho"`. **No** existe `initialMessageText`. | ☐ ☐ |
+| 2.4a | `Apúrense cojudos quiero cita de odontología en Lurigancho` | `Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto. Continuemos con tu cita: ingresa tu número de documento.` | **Sin IA.** Debug: `state: cita_awaiting_dni` y `slots` con `citaEspecialidadHintText: "Odontología"` y `citaDistritoHintText: "Lurigancho"`. **No** aparece `initialMessageText` en `slots` del log `turn.end`. | ☐ ☐ |
 | 2.4b | `12345678` | `Validando tu documento…` y `Te enviamos un código a tu teléfono o correo registrado. Escríbelo en el siguiente mensaje.` | Valida el DNI. | ☐ ☐ |
 | 2.4c | `1234` | Toda esta secuencia **en una sola respuesta**: `Verificando código…`, `Buscando tu ubigeo…`, `Entendido. Buscando especialidades y citas disponibles en *Lurigancho*…`, `Especialidad detectada: ODONTOLOGIA. Buscando establecimientos…`, `Establecimiento encontrado: CENTRO DE SALUD LURIGANCHO. Buscando fechas disponibles…` y la lista `Selecciona la fecha:`. | **No vuelve a preguntar el distrito ni la especialidad**: eso demuestra que se conservaron. Sin IA en toda la cadena. | ☐ ☐ |
 | 2.4d | Repetir 2.4a con `en San Borja` en vez de `en Lurigancho`. | Igual en 2.4a. En modo **fake**, tras el OTP dice `No encontramos ese ubigeo. Indícanos nuevamente el departamento.` (el catálogo de prueba no conoce San Borja). En modo **real** sigue de largo. | Buscó «San Borja» sin preguntarlo: el dato se conservó. | ☐ ☐ |
@@ -456,10 +458,10 @@ Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_U
 ### 4.1 Preparar la prueba (Chat-bot)
 
 1. Abre `/sandbox` (o la consola), reinicia y escribe `1` y luego `12345678`. Debes quedar en `Te enviamos un código a tu teléfono o correo registrado. Escríbelo en el siguiente mensaje.`
-2. Abre las herramientas del navegador (F12) → **Console** y pega:
+2. Abre las herramientas del navegador (F12) → **Console** y pega (`sandbox-from` guarda el `from` de la conversación actual: cambia cada vez que se abre o recarga el Chat-bot):
 
 ```js
-const from = localStorage.getItem("sandbox-from"); // el de la conversación actual: cambia cada vez que se abre o recarga el Chat-bot
+const from = localStorage.getItem("sandbox-from");
 const send = (text) =>
   fetch("/api/sandbox", {
     method: "POST",

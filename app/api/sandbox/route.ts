@@ -16,6 +16,7 @@ import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { apiError } from "@/lib/http/api-error";
+import { buildSandboxReply } from "@/lib/utils/sandbox-reply";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
@@ -110,10 +111,7 @@ export async function POST(request: NextRequest) {
     const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text }, SessionChannel.WEB);
     if (payload.kind === "rejected") {
       return NextResponse.json(
-        {
-          sent: [{ kind: SendType.TEXT, text: payload.reply }],
-          session: { state: SessionState.MAIN_MENU, slots: {}, counters: {} },
-        },
+        buildSandboxReply([{ kind: SendType.TEXT, text: payload.reply }], { state: SessionState.MAIN_MENU, slots: {}, counters: {} }),
         { headers: cors },
       );
     }
@@ -138,13 +136,7 @@ export async function POST(request: NextRequest) {
   marks.finish("sandbox.latency", { waId: from, channel: "web" });
   const { sent, session } = turn;
 
-  return NextResponse.json(
-    {
-      sent,
-      session: { state: session.state, slots: session.slots, counters: session.counters },
-    },
-    { headers: cors },
-  );
+  return NextResponse.json(buildSandboxReply(sent, session), { headers: cors });
 }
 
 async function startConversation(from: string, text: string | undefined, marks: LatencyMarks): Promise<TurnResult> {

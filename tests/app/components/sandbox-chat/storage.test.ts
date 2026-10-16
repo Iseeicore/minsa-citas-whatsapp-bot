@@ -1,12 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  ENTRIES_STORAGE_KEY,
-  FROM_STORAGE_KEY,
-  SESSION_STORAGE_KEY,
-  clearStoredChat,
-  getOrCreateFrom,
-  takePreviousFrom,
-} from "@/app/components/sandbox-chat/storage";
+import { FROM_STORAGE_KEY, LEGACY_STORAGE_KEYS, getOrCreateFrom, takePreviousFrom } from "@/app/components/sandbox-chat/storage";
 
 function fakeLocalStorage(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -27,40 +20,21 @@ describe("takePreviousFrom", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns the stored from and forgets the whole stored chat", () => {
+  it("returns the stored from, purges the keys older versions used for the session and the chat, and leaves room for a fresh from", () => {
     const storage = fakeLocalStorage({
       [FROM_STORAGE_KEY]: "sandbox-old",
-      [ENTRIES_STORAGE_KEY]: "[]",
-      [SESSION_STORAGE_KEY]: "{}",
+      ...Object.fromEntries(LEGACY_STORAGE_KEYS.map((key) => [key, "{}"])),
     });
     vi.stubGlobal("localStorage", storage);
 
     expect(takePreviousFrom()).toBe("sandbox-old");
     expect(storage.data.size).toBe(0);
+    expect(getOrCreateFrom()).toMatch(/^sandbox-(?!old$)/);
   });
 
   it("returns null when nothing was stored", () => {
     vi.stubGlobal("localStorage", fakeLocalStorage());
 
     expect(takePreviousFrom()).toBeNull();
-  });
-
-  it("a fresh from is generated afterwards, different from the previous one", () => {
-    vi.stubGlobal("localStorage", fakeLocalStorage({ [FROM_STORAGE_KEY]: "sandbox-old" }));
-
-    takePreviousFrom();
-    const fresh = getOrCreateFrom();
-
-    expect(fresh).toMatch(/^sandbox-/);
-    expect(fresh).not.toBe("sandbox-old");
-  });
-
-  it("clearStoredChat still removes the three keys", () => {
-    const storage = fakeLocalStorage({ [FROM_STORAGE_KEY]: "a", [ENTRIES_STORAGE_KEY]: "b", [SESSION_STORAGE_KEY]: "c" });
-    vi.stubGlobal("localStorage", storage);
-
-    clearStoredChat();
-
-    expect(storage.data.size).toBe(0);
   });
 });

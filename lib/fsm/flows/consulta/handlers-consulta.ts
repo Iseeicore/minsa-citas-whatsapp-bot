@@ -164,7 +164,8 @@ function handleValidatePending(session: Session, event: QueryResultEvent): Handl
   return closed(SessionState.CONSULTA_FAILED, result.status === ValidateUserStatus.NOT_VALID ? NO_VERIFICADO_TEXT : CONSULTA_FALLA_TEXT);
 }
 
-function failOtpAttempt(next: Session): HandlerResult {
+function failOtpAttempt(session: Session): HandlerResult {
+  const next = cloneSession(session);
   const attempts = (next.counters[CounterKey.CONSULTA_INTENTOS_OTP] ?? 0) + 1;
   next.counters[CounterKey.CONSULTA_INTENTOS_OTP] = attempts;
   if (attempts >= MAX_INTENTOS_OTP) return closed(SessionState.CONSULTA_FAILED, OTP_BLOQUEADO_TEXT);
@@ -175,7 +176,7 @@ function failOtpAttempt(next: Session): HandlerResult {
 
 function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
   const code = readTrimmedText(event);
-  if (!isValidOtpFormat(code)) return failOtpAttempt(cloneSession(session));
+  if (!isValidOtpFormat(code)) return failOtpAttempt(session);
 
   const next = cloneSession(session);
   next.state = SessionState.CONSULTA_VERIFY_PENDING;
@@ -201,7 +202,7 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
 
   if (result.status !== VerifyCodeStatus.INVALID) return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 
-  return failOtpAttempt(next);
+  return failOtpAttempt(session);
 }
 
 export function foundText(result: Extract<ConsultaIncidenciaResult, { status: LookupStatus.FOUND }>): string {

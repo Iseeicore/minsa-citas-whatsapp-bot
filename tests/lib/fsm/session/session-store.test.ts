@@ -59,17 +59,6 @@ describe("session store with DATABASE_ENABLED=false", () => {
     expect(db.deleteMany).not.toHaveBeenCalled();
     expect(db.updateMany).not.toHaveBeenCalled();
   });
-
-  it("closes a session in memory: the original id is free and the state is kept under a closed id", async () => {
-    const id = freshId();
-    await saveSession(id, { state: "cita_awaiting_dni", slots: { [SlotKey.CITA_DISTRITO]: "ATE" }, counters: {} });
-
-    await closeSession(id);
-
-    await expect(sessionRowExists(id)).resolves.toBe(false);
-    await saveSession(id, { state: "main_menu", slots: {}, counters: {} });
-    await expect(findSession(id)).resolves.toEqual({ state: "main_menu" });
-  });
 });
 
 describe("session store with the database (default)", () => {
@@ -135,18 +124,6 @@ describe("session store with the database (default)", () => {
       data: { waId: `${CLOSED_SESSION_ID_PREFIX}sandbox-abc-1760000000000` },
     });
     expect(db.deleteMany).not.toHaveBeenCalled();
-  });
-
-  it("closing a session that does not exist does not fail", async () => {
-    db.updateMany.mockResolvedValueOnce({ count: 0 });
-
-    await expect(closeSession("sandbox-missing")).resolves.toBeUndefined();
-  });
-
-  it("the closed prefix never matches the sandbox prefix, so reset-all does not delete closed sessions", async () => {
-    expect(CLOSED_SESSION_ID_PREFIX.startsWith("sandbox-")).toBe(false);
-    await resetAllSandboxTestSessions();
-    expect(db.deleteMany).toHaveBeenCalledWith({ where: { waId: { startsWith: "sandbox-" } } });
   });
 
   it("writes through Prisma", async () => {

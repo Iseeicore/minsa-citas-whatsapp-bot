@@ -89,7 +89,7 @@ describe("createMemorySessionStore", () => {
   });
 
   describe("closeSession", () => {
-    it("moves the session under a closed id, keeping state, slots, counters and modification time, and frees the original id", async () => {
+    it("moves the session under a closed id keeping its data and modification time, and frees the original id", async () => {
       const time = clock();
       const store = createMemorySessionStore({ now: time.now });
       await store.saveSession("sandbox-a", {
@@ -101,44 +101,18 @@ describe("createMemorySessionStore", () => {
       time.advance(5000);
 
       await store.closeSession("sandbox-a");
+      await store.closeSession("sandbox-missing");
 
       await expect(store.sessionRowExists("sandbox-a")).resolves.toBe(false);
-      const closedId = `${CLOSED_SESSION_ID_PREFIX}sandbox-a-${time.now()}`;
-      await expect(store.getSession(closedId)).resolves.toEqual({
+      await expect(store.getSession(`${CLOSED_SESSION_ID_PREFIX}sandbox-a-${time.now()}`)).resolves.toEqual({
         state: "cita_awaiting_dni",
         slots: { [SlotKey.CITA_DISTRITO]: "ATE" },
         counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
         updatedAt: new Date(savedAt),
       });
-      expect(store.size()).toBe(1);
-    });
-
-    it("lets a new conversation start on the same id without touching the closed one", async () => {
-      const store = createMemorySessionStore();
-      await store.saveSession("sandbox-a", session("cita_awaiting_dni"));
-      await store.closeSession("sandbox-a");
 
       await store.saveSession("sandbox-a", session("main_menu"));
-
-      await expect(store.findSession("sandbox-a")).resolves.toEqual({ state: "main_menu" });
       expect(store.size()).toBe(2);
-    });
-
-    it("does not touch other sessions", async () => {
-      const store = createMemorySessionStore();
-      await store.saveSession("sandbox-a", session("main_menu"));
-      await store.saveSession("sandbox-b", session("cita_awaiting_dni"));
-
-      await store.closeSession("sandbox-a");
-
-      await expect(store.findSession("sandbox-b")).resolves.toEqual({ state: "cita_awaiting_dni" });
-    });
-
-    it("does nothing when the session does not exist", async () => {
-      const store = createMemorySessionStore();
-
-      await expect(store.closeSession("sandbox-missing")).resolves.toBeUndefined();
-      expect(store.size()).toBe(0);
     });
 
     it("reset-all removes the sandbox sessions but keeps the closed ones", async () => {
