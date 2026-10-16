@@ -1,6 +1,6 @@
 import { CalendarIcon } from "@/app/components/icons";
 
-export function CtaLink({ href, label, hint }: { href: string; label: string; hint: string }) {
+export function CtaLink({ href, label }: { href: string; label: string }) {
   return (
     <a
       href={href}
@@ -12,7 +12,6 @@ export function CtaLink({ href, label, hint }: { href: string; label: string; hi
         <CalendarIcon className="h-5 w-5" />
         {label}
       </span>
-      <span className="text-xs text-white/80">{hint}</span>
     </a>
   );
 }

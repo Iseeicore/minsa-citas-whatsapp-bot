@@ -68,7 +68,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
     const result = handle(firstAttempt, notValid);
 
     expect(kinds(result)).toEqual(["send_text", "send_buttons"]);
-    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("Todavía no encontramos tu registro") });
+    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No encontramos tu documento en MINSADIGITAL") });
     expect(sent(result)[0]).not.toHaveProperty("url");
   });
 });

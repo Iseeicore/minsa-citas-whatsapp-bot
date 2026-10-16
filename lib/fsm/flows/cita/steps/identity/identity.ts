@@ -29,13 +29,7 @@ import {
   VERIFIED_ASK_DISTRITO_TEXT,
   REGISTRATION_BUTTONS,
 } from "@/lib/constants/textos/cita-identidad";
-import {
-  VALIDANDO_DOCUMENTO_TEXT,
-  ASK_OTP_TEXT,
-  INVALID_OTP_TEXT,
-  VERIFICANDO_CODIGO_TEXT,
-  codigoIncorrectoText,
-} from "@/lib/constants/textos/identidad";
+import { VALIDANDO_DOCUMENTO_TEXT, ASK_OTP_TEXT, VERIFICANDO_CODIGO_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
@@ -103,11 +97,24 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   return buildResult(next, [sendText(VALIDATING_AGAIN_TEXT), validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING))]);
 }
 
+function failOtpAttempt(next: Session): HandlerResult {
+  const attempts = (next.counters[CounterKey.CITA_OTP_ATTEMPTS] ?? 0) + 1;
+  next.counters[CounterKey.CITA_OTP_ATTEMPTS] = attempts;
+
+  if (attempts >= MAX_OTP_ATTEMPTS) {
+    next.state = SessionState.CITA_OTP_LOCKED;
+    return buildResult(next, [sendText(OTP_LOCKED_TEXT)]);
+  }
+
+  next.state = SessionState.CITA_AWAITING_OTP;
+  return buildResult(next, [sendText(codigoIncorrectoText(MAX_OTP_ATTEMPTS - attempts))]);
+}
+
 export function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
   const code = readTrimmedText(event);
 
   if (!isValidOtpFormat(code)) {
-    return buildResult(session, [sendText(INVALID_OTP_TEXT)]);
+    return failOtpAttempt(cloneSession(session));
   }
 
   const next = cloneSession(session);
@@ -169,14 +176,5 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     return continueCitaAfterVerification(next);
   }
 
-  const attempts = (next.counters[CounterKey.CITA_OTP_ATTEMPTS] ?? 0) + 1;
-  next.counters[CounterKey.CITA_OTP_ATTEMPTS] = attempts;
-
-  if (attempts >= MAX_OTP_ATTEMPTS) {
-    next.state = SessionState.CITA_OTP_LOCKED;
-    return buildResult(next, [sendText(OTP_LOCKED_TEXT)]);
-  }
-
-  next.state = SessionState.CITA_AWAITING_OTP;
-  return buildResult(next, [sendText(codigoIncorrectoText(MAX_OTP_ATTEMPTS - attempts))]);
+  return failOtpAttempt(next);
 }
