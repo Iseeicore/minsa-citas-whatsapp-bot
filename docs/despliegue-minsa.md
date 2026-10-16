@@ -22,7 +22,8 @@ Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Do
 - **`uuidv7()`:** PostgreSQL 16 no la trae. La migración inicial la crea en `public` solo si el servidor no la tiene. Con PostgreSQL 18 se usa la nativa.
 - Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL.
 - **Recomendado:** `ALTER DATABASE <base> SET jit = off;`. La base la comparte el backend de incidencias; en sus consultas de la bandeja, con JIT apagado una pasó de 926 ms a 255 ms. No se midió con las consultas del bot.
-- Probado: las 9 migraciones se aplican enteras en PostgreSQL 16.15 con un usuario que no es superusuario.
+- Probado: las 13 migraciones se aplican enteras en PostgreSQL 16.15 con un usuario que no es superusuario.
+- Probado en PostgreSQL 16.15, con la imagen reconstruida: las funciones de hospitales (sección 7) se crean sin cargar datos, cargan los 4 hospitales, se pueden retirar y volver a cargar.
 
 ## 3. Variables
 
