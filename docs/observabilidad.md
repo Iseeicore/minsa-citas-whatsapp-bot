@@ -74,6 +74,7 @@ Todo campo pasa por `lib/observability/mask.ts` antes de salir, aunque quien lla
 
 - **DNI:** `****5678` (solo los 4 últimos). Vale para cualquier campo cuyo nombre lleve `dni` o `documento`.
 - **Tokens:** `citaBearer`, `token`, `authorization`, `secret`, `twofa`, códigos OTP → `[redacted]`. Un `Bearer …` o un JWT dentro de un texto se reemplaza.
+- **Nombre de persona:** los campos `nombre` y `nombreCompleto` → `[redacted]`. Los nombres de establecimiento y de especialidad (`citaEstablecimientoNombre`, `citaEspecialidadNombre`, `incidenciaEstablecimientoNombre`) se muestran tal cual.
 - **Números largos** (7 o más dígitos: teléfonos, un DNI escrito dentro de un mensaje) → `****1234`.
 - **Teléfono / waId:** solo los 4 últimos (`...0111`).
 - **Texto libre:** `initialMessageText` y las listas guardadas se reducen a su largo. Lo que se escribe en un paso de DNI, OTP, nombre o incidencia **nunca** se cita, solo su largo.

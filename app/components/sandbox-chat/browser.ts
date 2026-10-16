@@ -11,12 +11,6 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function randomId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-}
-
 export function closePreviousConversation(from: string): void {
   void fetch("/api/sandbox", {
     method: "POST",

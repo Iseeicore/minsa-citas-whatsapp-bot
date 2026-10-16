@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import type { InboundEventType } from "@/lib/fsm/core/types";
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import type { SandboxReply, SandboxSessionView } from "@/lib/types/sandbox-reply.types";
+import { randomUuid } from "@/lib/utils/random-uuid";
 import { getOrCreateFrom, takePreviousFrom } from "@/app/components/sandbox-chat/storage";
 import { SessionState } from "@/lib/enums/session-state";
-import { closePreviousConversation, randomId, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
+import { closePreviousConversation, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
 import { SandboxHeader, type WindowControls } from "@/app/components/sandbox-chat/SandboxHeader";
 import { Composer } from "@/app/components/sandbox-chat/Composer";
 import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
@@ -81,7 +82,7 @@ export default function Sandbox({
     const esBienvenida = payload.reset === true || payload.resetAll === true || entries.length === 0;
 
     if (userDisplayText) {
-      setEntries((prev) => [...prev, { id: randomId(), from: "user", text: userDisplayText }]);
+      setEntries((prev) => [...prev, { id: randomUuid(), from: "user", text: userDisplayText }]);
     }
 
     setLoading(true);
@@ -109,7 +110,7 @@ export default function Sandbox({
           await sleep(500);
           setTyping(false);
         }
-        setEntries((prev) => [...prev, { id: randomId(), from: "bot" as const, effect }]);
+        setEntries((prev) => [...prev, { id: randomUuid(), from: "bot" as const, effect }]);
       }
 
       setSession(data.session);
