@@ -54,6 +54,7 @@ Sin mirar ningún panel de consumo:
 
 Un primer mensaje es el que llega **sin sesión abierta**.
 - **Chat-bot:** abre una ventana de incógnito o pulsa **Reiniciar todas las pruebas** en la consola. Esto genera una sesión nueva.
+- **Chat-bot, al abrirlo o recargar la página:** ya no se restaura la conversación anterior. Se cierra y empieza una nueva con la bienvenida. En la base, la fila anterior queda como registro cerrado: su `wa_id` pasa a `cerrada-<from anterior>-<marca de tiempo>` y conserva `estado`, `slots` y `contadores` (`fecha_modificacion` queda como fecha de cierre), para saber en qué paso terminó. **Reiniciar todas las pruebas** no borra esos registros cerrados.
 - **whatsapp-bot:** usa un número que nunca haya escrito antes. **El botón de reinicio no borra sesiones de whatsapp-bot.** Si tu número ya tiene sesión, los filtros de primer mensaje (sección 1) no se aplican: pide que borren tu fila de sesión o usa otro número.
 
 ### 0.5 Diferencias entre canales
@@ -458,7 +459,7 @@ Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_U
 2. Abre las herramientas del navegador (F12) → **Console** y pega:
 
 ```js
-const from = localStorage.getItem("sandbox-from");
+const from = localStorage.getItem("sandbox-from"); // el de la conversación actual: cambia cada vez que se abre o recarga el Chat-bot
 const send = (text) =>
   fetch("/api/sandbox", {
     method: "POST",

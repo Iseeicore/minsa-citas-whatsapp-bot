@@ -10,7 +10,7 @@ import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
-import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
+import { closeSession, resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
@@ -69,6 +69,7 @@ const sandboxEventSchema = z.object({
   mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
   resetAll: z.boolean().optional(),
+  close: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -86,7 +87,13 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message, headers: cors });
   }
 
-  const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll } = parsed.data;
+  const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll, close } = parsed.data;
+
+  if (close) {
+    await closeSession(from);
+    return NextResponse.json({ closed: true }, { headers: cors });
+  }
+
   const marks = createLatencyMarks();
 
   if (resetAll) {

@@ -7,11 +7,10 @@ import {
   ENTRIES_STORAGE_KEY,
   SESSION_STORAGE_KEY,
   getOrCreateFrom,
-  readStoredEntries,
-  readStoredSession,
+  takePreviousFrom,
 } from "@/app/components/sandbox-chat/storage";
 import { SessionState } from "@/lib/enums/session-state";
-import { randomId, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
+import { closePreviousConversation, randomId, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
 import { SandboxHeader, type WindowControls } from "@/app/components/sandbox-chat/SandboxHeader";
 import { Composer } from "@/app/components/sandbox-chat/Composer";
 import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
@@ -77,10 +76,10 @@ export default function Sandbox({
   }
 
   useEffect(() => {
+    const previous = takePreviousFrom();
+    if (previous) closePreviousConversation(previous);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFrom(getOrCreateFrom());
-    setEntriesState(readStoredEntries());
-    setSessionState(readStoredSession());
   }, []);
 
   useEffect(() => {
