@@ -19,7 +19,6 @@ Hallazgos de la auditoría del 2026-09-19 que quedaron fuera de alcance y no se 
 
 - Los endpoints del operador (bandeja web) no tienen autenticación; solo los protege la bandera `SANDBOX_PAGE_ENABLED` (en producción se deja sin definir).
 - El campo `from` de `/api/sandbox` lo controla el cliente.
-- El token de MINSA (`citaBearer`) se devuelve al navegador y se guarda en `localStorage`. Pendiente de confirmar si sigue así.
 
 ## Pendiente con la institución
 

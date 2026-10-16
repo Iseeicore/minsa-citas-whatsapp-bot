@@ -97,7 +97,8 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
   return buildResult(next, [sendText(VALIDATING_AGAIN_TEXT), validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING))]);
 }
 
-function failOtpAttempt(next: Session): HandlerResult {
+function failOtpAttempt(session: Session): HandlerResult {
+  const next = cloneSession(session);
   const attempts = (next.counters[CounterKey.CITA_OTP_ATTEMPTS] ?? 0) + 1;
   next.counters[CounterKey.CITA_OTP_ATTEMPTS] = attempts;
 
@@ -114,7 +115,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   const code = readTrimmedText(event);
 
   if (!isValidOtpFormat(code)) {
-    return failOtpAttempt(cloneSession(session));
+    return failOtpAttempt(session);
   }
 
   const next = cloneSession(session);
@@ -176,5 +177,5 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     return continueCitaAfterVerification(next);
   }
 
-  return failOtpAttempt(next);
+  return failOtpAttempt(session);
 }

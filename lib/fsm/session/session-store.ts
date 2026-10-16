@@ -3,6 +3,7 @@ import { isDatabaseEnabled } from "@/lib/db/persistence";
 import type { Session } from "@/lib/fsm/core/types";
 import { createMemorySessionStore } from "@/lib/fsm/session/memory-session-store";
 import { SessionState } from "@/lib/enums/session-state";
+import { CLOSED_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
 
 const memory = createMemorySessionStore();
 
@@ -60,6 +61,15 @@ export async function resetSession(from: string): Promise<void> {
   if (!isDatabaseEnabled()) return memory.resetSession(from);
 
   await prisma.sesionConversacion.deleteMany({ where: { waId: from } });
+}
+
+export async function closeSession(from: string): Promise<void> {
+  if (!isDatabaseEnabled()) return memory.closeSession(from);
+
+  await prisma.sesionConversacion.updateMany({
+    where: { waId: from },
+    data: { waId: `${CLOSED_SESSION_ID_PREFIX}${from}-${Date.now()}` },
+  });
 }
 
 const SANDBOX_SESSION_ID_PREFIX = "sandbox-";

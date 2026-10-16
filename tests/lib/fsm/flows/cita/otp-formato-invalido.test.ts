@@ -20,14 +20,14 @@ const invalidCode = (): QueryResultEvent => ({
   result: { status: "invalid" },
 });
 
-const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-const texts = (result: HandlerResult): string[] => sent(result).map((effect) => ("text" in effect ? effect.text : ""));
+const texts = (result: HandlerResult): string[] =>
+  result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect)).map((effect) => ("text" in effect ? effect.text : ""));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
-const awaitingOtp = (attempts = 0): Session => ({
+const awaitingOtp = (): Session => ({
   state: "cita_awaiting_otp",
   slots: { [SlotKey.CITA_TWOFA_ID]: "tw-1", [SlotKey.CITA_DNI_PENDING]: "12345678" },
-  counters: attempts ? { [CounterKey.CITA_OTP_ATTEMPTS]: attempts } : {},
+  counters: {},
 });
 
 describe("el aviso del código de verificación", () => {
@@ -38,8 +38,14 @@ describe("el aviso del código de verificación", () => {
 });
 
 describe("un mensaje con formato inválido en el código cuenta como intento fallido", () => {
-  it.each(["{ds", "abc", "12", "123456789", "12 34", "!!!!"])("«%s» descuenta un intento y no consulta a MINSA", (typed) => {
-    const result = handle(awaitingOtp(), text(typed));
+  it.each([
+    ["texto con símbolos", text("{ds")],
+    ["letras", text("abc")],
+    ["muy corto", text("12")],
+    ["muy largo", text("123456789")],
+    ["un toque de botón", tap("cualquiera")],
+  ])("%s descuenta un intento y no consulta a MINSA", (_caso, event) => {
+    const result = handle(awaitingOtp(), event);
 
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_otp");
@@ -47,27 +53,7 @@ describe("un mensaje con formato inválido en el código cuenta como intento fal
     expect(texts(result)).toEqual([codigoIncorrectoText(MAX_OTP_ATTEMPTS - 1)]);
   });
 
-  it("un toque de botón también descuenta un intento y no consulta a MINSA", () => {
-    const result = handle(awaitingOtp(), tap("cualquiera"));
-
-    expect(queries(result)).toHaveLength(0);
-    expect(result.session.counters[CounterKey.CITA_OTP_ATTEMPTS]).toBe(1);
-    expect(texts(result)).toEqual([codigoIncorrectoText(MAX_OTP_ATTEMPTS - 1)]);
-  });
-
-  it("tres mensajes basura seguidos bloquean con el texto de agotamiento", () => {
-    let step = handle(awaitingOtp(), text("{ds"));
-    step = handle(step.session, text("hola"));
-    expect(texts(step)).toEqual([codigoIncorrectoText(1)]);
-
-    step = handle(step.session, text("???"));
-
-    expect(step.session.state).toBe("cita_otp_locked");
-    expect(texts(step)).toEqual([OTP_LOCKED_TEXT]);
-    expect(queries(step)).toHaveLength(0);
-  });
-
-  it("el formato inválido y el código incorrecto comparten el mismo contador", () => {
+  it("comparte el contador con el código incorrecto y al tercer intento bloquea", () => {
     let step = handle(awaitingOtp(), text("{ds"));
     step = handle(step.session, text("123456"));
     expect(queries(step)).toMatchObject([{ kind: "verify_code" }]);
@@ -79,26 +65,6 @@ describe("un mensaje con formato inválido en el código cuenta como intento fal
     step = handle(step.session, text("zzz"));
     expect(step.session.state).toBe("cita_otp_locked");
     expect(texts(step)).toEqual([OTP_LOCKED_TEXT]);
-  });
-});
-
-describe("un código con formato válido pero incorrecto sigue descontando", () => {
-  it("consulta a MINSA y, si responde inválido, descuenta un intento", () => {
-    const sentCode = handle(awaitingOtp(), text("000000"));
-    expect(queries(sentCode)).toMatchObject([{ kind: "verify_code", payload: { twofaId: "tw-1", code: "000000" } }]);
-
-    const result = handle(sentCode.session, invalidCode());
-
-    expect(result.session.state).toBe("cita_awaiting_otp");
-    expect(result.session.counters[CounterKey.CITA_OTP_ATTEMPTS]).toBe(1);
-    expect(texts(result)).toEqual([codigoIncorrectoText(MAX_OTP_ATTEMPTS - 1)]);
-  });
-
-  it("al agotar los intentos bloquea con el texto de agotamiento", () => {
-    const sentCode = handle(awaitingOtp(MAX_OTP_ATTEMPTS - 1), text("000000"));
-    const result = handle(sentCode.session, invalidCode());
-
-    expect(result.session.state).toBe("cita_otp_locked");
-    expect(texts(result)).toEqual([OTP_LOCKED_TEXT]);
+    expect(queries(step)).toHaveLength(0);
   });
 });

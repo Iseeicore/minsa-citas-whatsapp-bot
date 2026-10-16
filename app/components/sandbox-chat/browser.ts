@@ -16,3 +16,12 @@ export function randomId(): string {
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 }
+
+export function closePreviousConversation(from: string): void {
+  void fetch("/api/sandbox", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ from, type: "text", close: true }),
+    keepalive: true,
+  }).catch(() => undefined);
+}

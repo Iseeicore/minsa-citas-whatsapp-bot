@@ -10,12 +10,13 @@ import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
-import { resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
+import { closeSession, resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import type { SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { apiError } from "@/lib/http/api-error";
+import { buildSandboxReply } from "@/lib/utils/sandbox-reply";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
@@ -69,6 +70,7 @@ const sandboxEventSchema = z.object({
   mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
   resetAll: z.boolean().optional(),
+  close: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -86,7 +88,13 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message, headers: cors });
   }
 
-  const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll } = parsed.data;
+  const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll, close } = parsed.data;
+
+  if (close) {
+    await closeSession(from);
+    return NextResponse.json({ closed: true }, { headers: cors });
+  }
+
   const marks = createLatencyMarks();
 
   if (resetAll) {
@@ -103,10 +111,7 @@ export async function POST(request: NextRequest) {
     const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text }, SessionChannel.WEB);
     if (payload.kind === "rejected") {
       return NextResponse.json(
-        {
-          sent: [{ kind: SendType.TEXT, text: payload.reply }],
-          session: { state: SessionState.MAIN_MENU, slots: {}, counters: {} },
-        },
+        buildSandboxReply([{ kind: SendType.TEXT, text: payload.reply }], { state: SessionState.MAIN_MENU, slots: {}, counters: {} }),
         { headers: cors },
       );
     }
@@ -131,13 +136,7 @@ export async function POST(request: NextRequest) {
   marks.finish("sandbox.latency", { waId: from, channel: "web" });
   const { sent, session } = turn;
 
-  return NextResponse.json(
-    {
-      sent,
-      session: { state: session.state, slots: session.slots, counters: session.counters },
-    },
-    { headers: cors },
-  );
+  return NextResponse.json(buildSandboxReply(sent, session), { headers: cors });
 }
 
 async function startConversation(from: string, text: string | undefined, marks: LatencyMarks): Promise<TurnResult> {
