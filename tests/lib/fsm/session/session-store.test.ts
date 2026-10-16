@@ -1,18 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CLOSED_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
 
 const db = vi.hoisted(() => ({
   findUnique: vi.fn(async (): Promise<unknown> => null),
   upsert: vi.fn(async () => ({})),
   deleteMany: vi.fn(async () => ({ count: 0 })),
+  updateMany: vi.fn(async () => ({ count: 1 })),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
-  prisma: { sesionConversacion: { findUnique: db.findUnique, upsert: db.upsert, deleteMany: db.deleteMany } },
+  prisma: { sesionConversacion: { findUnique: db.findUnique, upsert: db.upsert, deleteMany: db.deleteMany, updateMany: db.updateMany } },
 }));
 
 import {
+  closeSession,
   findSession,
   getSession,
   resetAllSandboxTestSessions,
@@ -49,10 +52,12 @@ describe("session store with DATABASE_ENABLED=false", () => {
     await resetSession(id);
     await expect(sessionRowExists(id)).resolves.toBe(false);
     await resetAllSandboxTestSessions();
+    await closeSession(id);
 
     expect(db.findUnique).not.toHaveBeenCalled();
     expect(db.upsert).not.toHaveBeenCalled();
     expect(db.deleteMany).not.toHaveBeenCalled();
+    expect(db.updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -107,6 +112,18 @@ describe("session store with the database (default)", () => {
     expect(db.deleteMany).toHaveBeenCalledWith({ where: { waId: "51999" } });
     await resetAllSandboxTestSessions();
     expect(db.deleteMany).toHaveBeenCalledWith({ where: { waId: { startsWith: "sandbox-" } } });
+  });
+
+  it("closes by renaming the waId with the closed prefix and the close time, leaving everything else untouched", async () => {
+    vi.spyOn(Date, "now").mockReturnValueOnce(1_760_000_000_000);
+
+    await closeSession("sandbox-abc");
+
+    expect(db.updateMany).toHaveBeenCalledWith({
+      where: { waId: "sandbox-abc" },
+      data: { waId: `${CLOSED_SESSION_ID_PREFIX}sandbox-abc-1760000000000` },
+    });
+    expect(db.deleteMany).not.toHaveBeenCalled();
   });
 
   it("writes through Prisma", async () => {

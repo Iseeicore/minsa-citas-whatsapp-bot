@@ -75,6 +75,24 @@ describe("masking", () => {
     expect(JSON.stringify(clean)).not.toContain(TOKEN);
   });
 
+  it("redacts the name of a person but leaves the facility and specialty names readable", () => {
+    const clean = sanitizeSlots({
+      [SlotKey.NOMBRE]: "Juan Perez",
+      [SlotKey.NOMBRE_COMPLETO]: "Juan Perez Quispe",
+      [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: "CENTRO DE SALUD LURIGANCHO",
+      [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: "ODONTOLOGIA",
+      [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: "HOSPITAL NACIONAL DOS DE MAYO",
+    });
+
+    expect(clean).toEqual({
+      [SlotKey.NOMBRE]: "[redacted]",
+      [SlotKey.NOMBRE_COMPLETO]: "[redacted]",
+      [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: "CENTRO DE SALUD LURIGANCHO",
+      [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: "ODONTOLOGIA",
+      [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: "HOSPITAL NACIONAL DOS DE MAYO",
+    });
+  });
+
   it("never quotes what was typed at an identity step or a complaint", () => {
     expect(previewInput("cita_awaiting_dni", DNI)).toEqual({ inputLength: 8 });
     expect(previewInput("cita_awaiting_otp", "123456")).toEqual({ inputLength: 6 });
@@ -220,6 +238,19 @@ describe("turn trace", () => {
     expect(everything).not.toContain(DNI);
     expect(everything).not.toContain(TOKEN);
     expect(everything).not.toContain("51999000111");
+  });
+
+  it("keeps the name a person gave out of the turn.end line", () => {
+    const { raw, log } = capture();
+    const trace = createTurnTrace("w-1", { type: "text" }, { state: "s", slots: {} }, { log });
+
+    trace.complete({
+      session: { state: "s", slots: { [SlotKey.NOMBRE]: "Juan Perez", [SlotKey.NOMBRE_COMPLETO]: "Juan Perez Quispe" } },
+      sentCount: 1,
+    });
+    trace.finish();
+
+    expect(raw.join("\n")).not.toContain("Perez");
   });
 
   it("logs a slow or failing outside call, and lets the error through", async () => {

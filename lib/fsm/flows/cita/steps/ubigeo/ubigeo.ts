@@ -11,7 +11,7 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resolveSelection, reshowOffered, clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
-import { isAllowedDepartamento, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
+import { isAllowedDepartamento, isTypedDepartamentoAllowed, redirectToNationalSite } from "@/lib/fsm/flows/cita/pilot-scope";
 import type { DistritoAiOutcome } from "@/lib/fsm/parsing/ai/distrito";
 import { DistritoAiOutcome as DistritoAiOutcomeEnum } from "@/lib/enums/distrito-ai-outcome";
 import {
@@ -124,6 +124,10 @@ export function handleAwaitingDepartamento(session: Session, event: InboundEvent
 
   if (isGibberishPlaceText(departamento)) {
     return buildResult(session, [sendText(UNREADABLE_DEPARTAMENTO_TEXT)]);
+  }
+
+  if (!isTypedDepartamentoAllowed(departamento)) {
+    return redirectToNationalSite(session);
   }
 
   const next = cloneSession(session);

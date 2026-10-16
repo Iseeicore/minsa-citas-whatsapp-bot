@@ -1,15 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
-import { allowedDepartamentos, isAllowedDepartamento, nationalRedirectText } from "@/lib/fsm/flows/cita/pilot-scope";
+import {
+  allowedDepartamentos,
+  isAllowedDepartamento,
+  isTypedDepartamentoAllowed,
+  nationalRedirectText,
+} from "@/lib/fsm/flows/cita/pilot-scope";
 import { resolveDistritoCandidates } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import { handleUbigeoPending } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
-import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const LIMA_ONLY_TEXT =
-  "Por el momento el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.";
+  "Por ahora estamos en una etapa inicial y el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.";
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
@@ -111,5 +117,42 @@ describe("the manual mode (departamento → provincia → distrito) also honors 
 
     expect(result.session.state).toBe("cita_especialidad_pending");
     expect(result.session.slots[SlotKey.CITA_UBIGEO]).toBe("040114");
+  });
+});
+
+describe("el departamento escrito a mano también honra el alcance", () => {
+  const typedDepartamento = (value: string): InboundEvent => ({ from: "wa-1", type: "text", text: value });
+  const awaitingDepartamento = (): Session => session("cita_awaiting_departamento");
+
+  it("con LIMA, escribir «Cusco» avisa de la etapa inicial y redirige sin consultar a MINSA", () => {
+    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
+    const result = handle(awaitingDepartamento(), typedDepartamento("Cusco"));
+
+    expect(result.session.state).toBe("cita_national_redirect");
+    expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", text: LIMA_ONLY_TEXT });
+    expect(result.effects.filter(isQueryEffect)).toEqual([]);
+  });
+
+  it.each([
+    ["LIMA", "Lima"],
+    ["LIMA", "Lima Metropolitana"],
+    ["", "Cusco"],
+    [undefined, "Cusco"],
+  ])("con CITA_ALLOWED_DEPARTAMENTOS=%s, «%s» sigue el flujo normal", (allowed, typed) => {
+    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", allowed);
+    const result = handle(awaitingDepartamento(), typedDepartamento(typed));
+
+    expect(result.session.state).toBe("cita_awaiting_provincia");
+    expect(result.session.slots[SlotKey.CITA_DEPARTAMENTO]).toBe(typed);
+  });
+
+  it.each([
+    ["LIMA", "Limatambo", false],
+    ["LIMA,CALLAO", "callao", true],
+    ["LIMA,CALLAO", "Cusco", false],
+  ])("con %s, «%s» permitido: %s", (allowed, typed, expected) => {
+    vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", allowed);
+
+    expect(isTypedDepartamentoAllowed(typed)).toBe(expected);
   });
 });

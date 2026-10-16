@@ -101,7 +101,7 @@ describe("leaving the cita on purpose", () => {
     ["cita_awaiting_departamento", "Indícanos el departamento."],
     ["cita_awaiting_provincia", "Indícanos la provincia."],
     ["cita_awaiting_distrito", "Indícanos el distrito."],
-    ["cita_awaiting_otp", "Te enviamos un código a tu teléfono registrado. Escríbelo aquí (4-8 dígitos)."],
+    ["cita_awaiting_otp", "Te enviamos un código a tu teléfono o correo registrado. Escríbelo en el siguiente mensaje."],
   ])("declining in %s repeats that step's question", (state, prompt) => {
     const asked = handle(at(state as Session["state"]), text("quiero salir"));
     const result = handle(asked.session, text("no"));

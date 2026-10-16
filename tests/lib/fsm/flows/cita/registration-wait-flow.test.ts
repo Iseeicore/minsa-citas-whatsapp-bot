@@ -41,7 +41,9 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
 
     expect(result.session.state).toBe("cita_registration_wait");
     expect(result.session.counters[CounterKey.CITA_REGISTRATION_CHECKS]).toBe(1);
-    expect(texts(result).join(" ")).toContain("Todavía no encontramos tu registro");
+    expect(texts(result).join(" ")).toContain(
+      "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.",
+    );
     expect(buttonIds(result)).toEqual(["cita_registration_retry", "cita_registration_cancel"]);
   });
 
@@ -51,7 +53,9 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
     expect(result.session.state).toBe("cita_registration_wait");
     expect(result.session.counters[CounterKey.CITA_REGISTRATION_CHECKS]).toBe(2);
     const message = texts(result).join(" ");
-    expect(message).not.toContain("Todavía no encontramos tu registro en MINSADIGITAL. Este proceso puede tardar unos minutos.");
+    expect(message).not.toContain(
+      "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.",
+    );
     expect(message.toLowerCase()).toContain("segunda vez");
     expect(buttonIds(result)).toEqual(["cita_registration_retry", "cita_registration_cancel"]);
   });

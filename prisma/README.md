@@ -91,6 +91,10 @@ Cada incidencia lleva un `codigo` con el formato `MINSA-AAAA-NNNNNN` (por ejempl
 
 El control de desvío de Prisma (`migrate diff`) compara tablas, pero **no ve funciones ni disparadores**: un cambio hecho a mano en la base no se detecta. La red de seguridad son las pruebas de `tests/`, que corren en el CI sobre una base armada solo con las migraciones.
 
+## Hospitales de la primera etapa: funciones que ejecuta una persona
+
+`20261016120000_funciones_hospitales_fase_1` **solo crea funciones**; no inserta ninguna fila y nada las llama (el despliegue en MINSA no ejecuta semillas). `catalogo.cargar_hospitales_fase_1()` deja cargados los 4 hospitales (6206, 5946, 6215 y 33381) con sus áreas DIRIS y `EESS-<renipress>` y su fila de `establecimiento_salud`, con los mismos datos y la misma lógica de `seeds/eess` (idempotente, sin ruido de auditoría); devuelve cuántos creó o corrigió. `catalogo.retirar_hospitales_fase_1()` los quita y se niega con `restrict_violation` si alguno tiene incidencias, derivaciones o usuarios. Las ejecuta un DBA con `SELECT`; la sentencia y la verificación están en [`docs/despliegue-minsa.md`](../docs/despliegue-minsa.md#7-carga-de-los-hospitales-de-la-primera-etapa). Pruebas: `tests/21_hospitales_fase_1.sql`. Las funciones no están en el diccionario de datos (solo describe tablas, columnas y disparadores); su descripción vive en `COMMENT ON FUNCTION`.
+
 ## Tareas programadas (por ejemplo, la purga de sesiones)
 
 Prisma no programa tareas. La **función** (por ejemplo `chatbot.purgar_sesiones_inactivas`) va en una migración y se versiona; **quién la ejecuta** y cada cuánto (`pg_cron` o el cron del servidor) es infraestructura y la define OGTI. Mientras tanto la función existe y está probada, pero nadie la llama.
