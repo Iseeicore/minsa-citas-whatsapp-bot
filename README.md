@@ -137,6 +137,8 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    - `npm run db:seed:eess` carga el padrón de establecimientos (`--base-real=<base>` lo permite en otra base).
    - `npm run db:seed:dev` carga incidencias de ejemplo; si ya existen, `--reiniciar` las borra y las vuelve a crear.
 
+   En el servidor de MINSA no corre ninguna semilla: los 4 hospitales de la primera etapa los carga un DBA con `SELECT catalogo.cargar_hospitales_fase_1();` (función que crea una migración, no un dato). Ver la [sección 7 de despliegue-minsa.md](docs/despliegue-minsa.md#7-carga-de-los-hospitales-de-la-primera-etapa).
+
 5. Levanta el servidor de desarrollo:
 
    ```bash
