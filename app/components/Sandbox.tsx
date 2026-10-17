@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { InboundEventType, SendEffect } from "@/lib/fsm/core/types";
-import type { ChatEntry, SessionSnapshot } from "@/app/components/sandbox-chat/types";
-import {
-  ENTRIES_STORAGE_KEY,
-  SESSION_STORAGE_KEY,
-  getOrCreateFrom,
-  readStoredEntries,
-  readStoredSession,
-} from "@/app/components/sandbox-chat/storage";
+import type { InboundEventType } from "@/lib/fsm/core/types";
+import type { ChatEntry } from "@/app/components/sandbox-chat/types";
+import type { SandboxReply, SandboxSessionView } from "@/lib/types/sandbox-reply.types";
+import { randomUuid } from "@/lib/utils/random-uuid";
+import { getOrCreateFrom, takePreviousFrom } from "@/app/components/sandbox-chat/storage";
 import { SessionState } from "@/lib/enums/session-state";
-import { randomId, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
+import { closePreviousConversation, readFileAsDataUri, sleep } from "@/app/components/sandbox-chat/browser";
 import { SandboxHeader, type WindowControls } from "@/app/components/sandbox-chat/SandboxHeader";
 import { Composer } from "@/app/components/sandbox-chat/Composer";
 import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
@@ -43,44 +39,21 @@ export default function Sandbox({
   active?: boolean;
 }) {
   const [from, setFrom] = useState<string | null>(null);
-  const [entries, setEntriesState] = useState<ChatEntry[]>([]);
+  const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [typing, setTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [session, setSessionState] = useState<SessionSnapshot | null>(null);
+  const [session, setSession] = useState<SandboxSessionView | null>(null);
   const [dniValue, setDniValue] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const welcomeRequestedRef = useRef(false);
 
-  function setEntries(updater: ChatEntry[] | ((prev: ChatEntry[]) => ChatEntry[])) {
-    setEntriesState((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      try {
-        localStorage.setItem(ENTRIES_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-      }
-      return next;
-    });
-  }
-
-  function setSession(next: SessionSnapshot | null) {
-    setSessionState(next);
-    try {
-      if (next) {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
-      } else {
-        localStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-    } catch {
-    }
-  }
-
   useEffect(() => {
+    const previous = takePreviousFrom();
+    if (previous) closePreviousConversation(previous);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFrom(getOrCreateFrom());
-    setEntriesState(readStoredEntries());
-    setSessionState(readStoredSession());
   }, []);
 
   useEffect(() => {
@@ -109,7 +82,7 @@ export default function Sandbox({
     const esBienvenida = payload.reset === true || payload.resetAll === true || entries.length === 0;
 
     if (userDisplayText) {
-      setEntries((prev) => [...prev, { id: randomId(), from: "user", text: userDisplayText }]);
+      setEntries((prev) => [...prev, { id: randomUuid(), from: "user", text: userDisplayText }]);
     }
 
     setLoading(true);
@@ -129,7 +102,7 @@ export default function Sandbox({
         return;
       }
 
-      const data = (await res.json()) as { sent: SendEffect[]; session: SessionSnapshot };
+      const data = (await res.json()) as SandboxReply;
 
       for (const effect of data.sent) {
         if (!esBienvenida) {
@@ -137,7 +110,7 @@ export default function Sandbox({
           await sleep(500);
           setTyping(false);
         }
-        setEntries((prev) => [...prev, { id: randomId(), from: "bot" as const, effect }]);
+        setEntries((prev) => [...prev, { id: randomUuid(), from: "bot" as const, effect }]);
       }
 
       setSession(data.session);

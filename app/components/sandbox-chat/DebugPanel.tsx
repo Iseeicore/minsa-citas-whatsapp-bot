@@ -1,6 +1,6 @@
-import type { SessionSnapshot } from "@/app/components/sandbox-chat/types";
+import type { SandboxSessionView } from "@/lib/types/sandbox-reply.types";
 
-export function DebugPanel({ from, session }: { from: string | null; session: SessionSnapshot | null }) {
+export function DebugPanel({ from, session }: { from: string | null; session: SandboxSessionView | null }) {
   return (
     <div className="hidden overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 text-xs lg:block">
       <h3 className="mb-2 font-semibold text-gray-700">Debug</h3>
