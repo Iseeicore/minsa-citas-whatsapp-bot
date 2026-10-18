@@ -19,6 +19,13 @@ export function isAllowedDepartamento(departamento: string): boolean {
   return allowed.length === 0 || allowed.includes(normalizeText(departamento));
 }
 
+export function isTypedDepartamentoAllowed(typed: string): boolean {
+  const allowed = allowedDepartamentos();
+  if (allowed.length === 0) return true;
+  const normalized = normalizeText(typed);
+  return allowed.some((departamento) => normalized === departamento || normalized.startsWith(`${departamento} `));
+}
+
 function joinPlaces(names: string[]): string {
   if (names.length <= 1) return names[0] ?? "";
   return joinWithConjunctionText(names.slice(0, -1).join(", "), names[names.length - 1]);

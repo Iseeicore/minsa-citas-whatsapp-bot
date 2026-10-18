@@ -5,7 +5,9 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import type { Session } from "@/lib/fsm/core/types";
+import { CLOSED_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
 import {
+  closeSession,
   findSession,
   getSession,
   resetAllSandboxTestSessions,
@@ -75,5 +77,28 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
 
     await resetSession(real);
     await expect(sessionRowExists(real)).resolves.toBe(false);
+  });
+
+  it("closes a session by renaming it: keeps state, slots and counters, stamps the closing date, and frees the waId", async () => {
+    const id = `sandbox-${randomUUID()}`;
+    await saveSession(id, {
+      state: SessionState.CITA_AWAITING_DNI,
+      slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "texto" },
+      counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
+    });
+    const before = await prisma.sesionConversacion.findUniqueOrThrow({ where: { waId: id } });
+
+    await closeSession(id);
+    await closeSession(id);
+
+    await expect(sessionRowExists(id)).resolves.toBe(false);
+    const closed = await prisma.sesionConversacion.findMany({ where: { waId: { startsWith: `${CLOSED_SESSION_ID_PREFIX}${id}-` } } });
+    created.push(...closed.map((row) => row.waId));
+    expect(closed).toHaveLength(1);
+    expect(closed[0]).toMatchObject({ estado: before.estado, slots: before.slots, contadores: before.contadores });
+    expect(closed[0].fechaModificacion.getTime()).toBeGreaterThanOrEqual(before.fechaModificacion.getTime());
+
+    await resetAllSandboxTestSessions();
+    await expect(prisma.sesionConversacion.count({ where: { waId: closed[0].waId } })).resolves.toBe(1);
   });
 });

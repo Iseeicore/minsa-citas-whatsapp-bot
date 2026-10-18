@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { SESSION_IDLE_TIMEOUT_MS } from "@/lib/fsm/session/session-expiry-guard";
 import { createMemorySessionStore, MEMORY_SESSION_TTL_MS } from "@/lib/fsm/session/memory-session-store";
 import type { Session } from "@/lib/fsm/core/types";
+import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CLOSED_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
 
 function clock(start = Date.UTC(2026, 8, 25, 12)) {
   let now = start;
@@ -84,5 +86,54 @@ describe("createMemorySessionStore", () => {
     time.advance(900);
 
     await expect(store.sessionRowExists("51999")).resolves.toBe(true);
+  });
+
+  describe("closeSession", () => {
+    it("moves the session under a closed id keeping its data and modification time, and frees the original id", async () => {
+      const time = clock();
+      const store = createMemorySessionStore({ now: time.now });
+      await store.saveSession("sandbox-a", {
+        state: "cita_awaiting_dni",
+        slots: { [SlotKey.CITA_DISTRITO]: "ATE" },
+        counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
+      });
+      const savedAt = time.now();
+      time.advance(5000);
+
+      await store.closeSession("sandbox-a");
+      await store.closeSession("sandbox-missing");
+
+      await expect(store.sessionRowExists("sandbox-a")).resolves.toBe(false);
+      await expect(store.getSession(`${CLOSED_SESSION_ID_PREFIX}sandbox-a-${time.now()}`)).resolves.toEqual({
+        state: "cita_awaiting_dni",
+        slots: { [SlotKey.CITA_DISTRITO]: "ATE" },
+        counters: { [CounterKey.CITA_HORA_PAGE]: 2 },
+        updatedAt: new Date(savedAt),
+      });
+
+      await store.saveSession("sandbox-a", session("main_menu"));
+      expect(store.size()).toBe(2);
+    });
+
+    it("reset-all removes the sandbox sessions but keeps the closed ones", async () => {
+      const store = createMemorySessionStore();
+      await store.saveSession("sandbox-a", session("main_menu"));
+      await store.saveSession("sandbox-b", session("main_menu"));
+      await store.closeSession("sandbox-a");
+
+      await store.resetAllSandboxTestSessions();
+
+      expect(store.size()).toBe(1);
+    });
+
+    it("closed sessions still expire with the TTL", async () => {
+      const time = clock();
+      const store = createMemorySessionStore({ now: time.now, ttlMs: 1000 });
+      await store.saveSession("sandbox-a", session("main_menu"));
+      await store.closeSession("sandbox-a");
+      time.advance(1001);
+
+      expect(store.size()).toBe(0);
+    });
   });
 });

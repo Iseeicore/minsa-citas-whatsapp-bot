@@ -27,7 +27,7 @@ export const UNRECOGNIZED_DISTRITO_TEXT = "No reconocimos ese distrito. Por favo
 export const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global";
 
 export const nationalRedirectForText = (places: string): string =>
-  `Por el momento el agendamiento automático por este canal solo está disponible en ${places}. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.`;
+  `Por ahora estamos en una etapa inicial y el agendamiento automático por este canal solo está disponible en ${places}. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.`;
 
 export const OTHER_DISTRITO_QUESTION_TEXT = "¿Deseas buscar en otro distrito cercano?\n\n[1] Sí, buscar otro distrito\n[2] No, salir";
 export const noCoverageText = (what: string, where: string): string =>

@@ -41,13 +41,7 @@ import {
   CONSULTA_FALLA_TEXT,
   LISTAR_BUTTONS,
 } from "@/lib/constants/textos/consulta";
-import {
-  ASK_OTP_TEXT,
-  INVALID_OTP_TEXT,
-  VALIDANDO_DOCUMENTO_TEXT,
-  VERIFICANDO_CODIGO_TEXT,
-  codigoIncorrectoText,
-} from "@/lib/constants/textos/identidad";
+import { ASK_OTP_TEXT, VALIDANDO_DOCUMENTO_TEXT, VERIFICANDO_CODIGO_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
@@ -170,9 +164,19 @@ function handleValidatePending(session: Session, event: QueryResultEvent): Handl
   return closed(SessionState.CONSULTA_FAILED, result.status === ValidateUserStatus.NOT_VALID ? NO_VERIFICADO_TEXT : CONSULTA_FALLA_TEXT);
 }
 
+function failOtpAttempt(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  const attempts = (next.counters[CounterKey.CONSULTA_INTENTOS_OTP] ?? 0) + 1;
+  next.counters[CounterKey.CONSULTA_INTENTOS_OTP] = attempts;
+  if (attempts >= MAX_INTENTOS_OTP) return closed(SessionState.CONSULTA_FAILED, OTP_BLOQUEADO_TEXT);
+
+  next.state = SessionState.CONSULTA_AWAITING_OTP;
+  return buildResult(next, [sendText(codigoIncorrectoText(MAX_INTENTOS_OTP - attempts))]);
+}
+
 function handleAwaitingOtp(session: Session, event: InboundEvent): HandlerResult {
   const code = readTrimmedText(event);
-  if (!isValidOtpFormat(code)) return buildResult(session, [sendText(INVALID_OTP_TEXT)]);
+  if (!isValidOtpFormat(code)) return failOtpAttempt(session);
 
   const next = cloneSession(session);
   next.state = SessionState.CONSULTA_VERIFY_PENDING;
@@ -198,12 +202,7 @@ function handleVerifyPending(session: Session, event: QueryResultEvent): Handler
 
   if (result.status !== VerifyCodeStatus.INVALID) return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 
-  const attempts = (next.counters[CounterKey.CONSULTA_INTENTOS_OTP] ?? 0) + 1;
-  next.counters[CounterKey.CONSULTA_INTENTOS_OTP] = attempts;
-  if (attempts >= MAX_INTENTOS_OTP) return closed(SessionState.CONSULTA_FAILED, OTP_BLOQUEADO_TEXT);
-
-  next.state = SessionState.CONSULTA_AWAITING_OTP;
-  return buildResult(next, [sendText(codigoIncorrectoText(MAX_INTENTOS_OTP - attempts))]);
+  return failOtpAttempt(session);
 }
 
 export function foundText(result: Extract<ConsultaIncidenciaResult, { status: LookupStatus.FOUND }>): string {

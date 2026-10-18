@@ -8,6 +8,7 @@ import {
   LONG_DIGIT_RUN,
   NEVER_PREVIEW_STATE,
   NON_DIGIT,
+  PERSON_NAME_KEY,
   SENSITIVE_KEY,
   URL_WITH_QUERY_STRING,
 } from "@/lib/constants/regex/observability";
@@ -43,7 +44,7 @@ export function redactString(value: string): string {
 
 export function sanitizeValue(key: string, value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
-  if (SENSITIVE_KEY.test(key)) return "[redacted]";
+  if (SENSITIVE_KEY.test(key) || PERSON_NAME_KEY.test(key)) return "[redacted]";
   if (LENGTH_ONLY_KEYS.has(key)) return { length: String(value).length };
   if (DNI_KEY.test(key) && (isString(value) || typeof value === "number")) return maskDni(String(value));
 
