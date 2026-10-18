@@ -12,8 +12,6 @@ import { ChatText } from "@/app/components/sandbox-chat/ChatText";
 import { ChatListPicker } from "@/app/components/sandbox-chat/ChatListPicker";
 import { isPagerButtonSet, pagerDirection } from "@/lib/utils/list-rows";
 
-const CTA_HINT = "Toca aquí para ver tu agenda en MINSA Digital";
-
 export function ChatBubble({
   entry,
   onOptionClick,
@@ -44,7 +42,7 @@ export function ChatBubble({
           <ChatListPicker rows={effect.rows} onSelect={(id, label) => onOptionClick("list", id, label)} />
         )}
 
-        {effect.kind === SendType.CTA_URL && <CtaLink href={effect.url} label={effect.buttonText} hint={CTA_HINT} />}
+        {effect.kind === SendType.CTA_URL && <CtaLink href={effect.url} label={effect.buttonText} />}
 
         {effect.kind === SendType.BUTTONS &&
           (isPagerButtonSet(effect.buttons) ? (
