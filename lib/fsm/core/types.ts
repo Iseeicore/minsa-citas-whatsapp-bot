@@ -4,6 +4,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import type { SessionState } from "@/lib/enums/session-state";
 import type { InternalEventType } from "@/lib/enums/internal-event-type";
+import type { MediaFailure } from "@/lib/enums/media-failure";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -44,7 +45,7 @@ export type SlotTypes = {
   [SlotKey.CITA_OFFERED]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: string;
   [SlotKey.NOMBRE]: string;
-  [SlotKey.MEDIA_DATA_URI]: string;
+  [SlotKey.INCIDENCIA_IMAGENES]: string;
   [SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS]: string;
   [SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]: string;
   [SlotKey.AWAITING_CONTINUE]: boolean;
@@ -93,6 +94,7 @@ export type InboundEvent = {
   listId?: string;
   mediaId?: string;
   mediaDataUri?: string;
+  mediaFailure?: MediaFailure;
   messageId?: string;
   channel?: SessionChannel;
 };

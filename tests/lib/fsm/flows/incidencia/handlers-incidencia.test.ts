@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import { MediaFailure } from "@/lib/enums/media-failure";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
@@ -250,6 +251,7 @@ describe("el registro final: con la persona o anónimo", () => {
       nombreCompleto: "JUAN CARLOS QUISPE PEREZ",
       descripcion: "El consultorio estaba cerrado.",
       establecimientoId: null,
+      mediaDataUris: [],
     });
   });
 
@@ -289,59 +291,121 @@ describe("el registro final: con la persona o anónimo", () => {
       nombreCompleto: null,
       descripcion: "El consultorio estaba cerrado.",
       establecimientoId: null,
+      mediaDataUris: [],
     });
   });
+});
+
+const PNG_A = "data:image/png;base64,iVBORw0KGgo=";
+const PNG_B = "data:image/png;base64,iVBORw0KGgoAAAA=";
+const imagenesDe = (result: HandlerResult): string[] => JSON.parse(result.session.slots[SlotKey.INCIDENCIA_IMAGENES] ?? "[]");
+const conImagenes = (cantidad: number): Session => ({
+  state: "incidencia_awaiting_foto",
+  slots: {
+    descripcionIncidencia: "Mala atención",
+    [SlotKey.INCIDENCIA_IMAGENES]: JSON.stringify(Array.from({ length: cantidad }, (_, i) => `data:image/png;base64,AAAA${i}`)),
+  },
+  counters: {},
 });
 
 function awaitingFoto(): Session {
   return { state: "incidencia_awaiting_foto", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
 }
 
-describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", () => {
-  it("una imagen con sus bytes se acusa, se guarda en la sesión y pide confirmar el registro", () => {
-    const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: "data:image/png;base64,iVBORw0KGgo=" });
+describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => {
+  it("una imagen se guarda en la sesión y se ofrece agregar otra, sin pasar a confirmar", () => {
+    const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: PNG_A });
 
-    expect(result.session.state).toBe("incidencia_confirm_registro");
-    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(texts(result)[0]).toContain("Recibimos tu imagen (1 de 5)");
+    expect(imagenesDe(result)).toEqual([PNG_A]);
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBe("data:image/png;base64,iVBORw0KGgo=");
   });
 
-  it("una imagen que no se pudo descargar se pide de nuevo y no avanza", () => {
+  it("la segunda imagen se suma a la primera", () => {
+    const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri: PNG_B });
+
+    expect(imagenesDe(result)).toHaveLength(2);
+    expect(texts(result)[0]).toContain("(2 de 5)");
+  });
+
+  it("al llegar a la quinta pasa a confirmar y avisa que es el máximo", () => {
+    const result = handleIncidencia(conImagenes(4), { ...file("image"), mediaDataUri: PNG_B });
+
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(texts(result)[0]).toContain("es el máximo por incidencia");
+    expect(imagenesDe(result)).toHaveLength(5);
+  });
+
+  it("una imagen repetida no se guarda dos veces y se dice por qué", () => {
+    const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri: "data:image/png;base64,AAAA0" });
+
+    expect(imagenesDe(result)).toHaveLength(1);
+    expect(texts(result)[0]).toContain("ya la habías enviado");
+  });
+
+  it("una imagen de más de 5 MB se rechaza diciendo el motivo y deja seguir", () => {
+    const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaFailure: MediaFailure.TOO_LARGE });
+
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(texts(result)[0]).toContain("pesa más de 5 MB y no se guardó");
+    expect(texts(result)[0]).toContain("Omitir");
+    expect(result.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
+  });
+
+  it("una imagen que pesa de más según sus bytes también se rechaza por tamaño, conservando las anteriores", () => {
+    const grande = `data:image/png;base64,${Buffer.alloc(5 * 1024 * 1024 + 1).toString("base64")}`;
+    const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri: grande });
+
+    expect(texts(result)[0]).toContain("pesa más de 5 MB");
+    expect(texts(result)[0]).toContain("Listo");
+    expect(imagenesDe(result)).toHaveLength(1);
+  });
+
+  it("una imagen que no se pudo descargar dice que no se guardó, sin pedir solo reintentar", () => {
     const result = handleIncidencia(awaitingFoto(), file("image"));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
-    expect(texts(result)).toEqual(["No pudimos leer esa imagen. Envíala de nuevo o escribe OMITIR para continuar sin ella."]);
-    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+    expect(texts(result)[0]).toContain("No pudimos descargar esa imagen desde WhatsApp, por eso no se guardó");
+    expect(result.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
   });
 
-  it("un PDF se acusa pero no se guarda", () => {
+  it("un archivo que no es imagen válida se rechaza con su motivo", () => {
+    const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: "data:text/html;base64,PGI+" });
+
+    expect(texts(result)[0]).toContain("no es una imagen válida");
+  });
+
+  it("un PDF no se guarda y se dice, sin dar la evidencia por registrada", () => {
     const result = handleIncidencia(awaitingFoto(), file("document"));
 
-    expect(result.session.state).toBe("incidencia_confirm_registro");
-    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
-    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(texts(result)[0]).toContain("ese documento no se guardó");
+    expect(texts(result)[0]).not.toContain("se registró tu evidencia");
   });
 
-  it("al confirmar, el registro lleva la imagen; sin imagen no lleva el campo con valor", () => {
-    const withImage: Session = {
-      state: "incidencia_confirm_registro",
-      slots: { descripcionIncidencia: "Mala atención", [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,iVBORw0KGgo=" },
-      counters: {},
-    };
+  it("'Listo' (botón o texto) con imágenes pasa a confirmar el registro", () => {
+    expect(handleIncidencia(conImagenes(2), tap("incidencia_foto_listo")).session.state).toBe("incidencia_confirm_registro");
+    expect(handleIncidencia(conImagenes(2), text("listo")).session.state).toBe("incidencia_confirm_registro");
+  });
+
+  it("el resumen a confirmar cuenta las imágenes adjuntas", () => {
+    const result = handleIncidencia(conImagenes(2), tap("incidencia_foto_listo"));
+
+    expect(texts(result)[0]).toContain("Imágenes adjuntas: 2");
+  });
+
+  it("al confirmar, el registro lleva todas las imágenes; sin imágenes lleva la lista vacía", () => {
     const sendIt = (session: Session) =>
-      queries(handleIncidencia(session, tap("incidencia_confirmar_registro_si")))[0].payload.submission as { mediaDataUri?: string };
+      queries(handleIncidencia({ ...session, state: "incidencia_confirm_registro" }, tap("incidencia_confirmar_registro_si")))[0].payload
+        .submission as { mediaDataUris: string[] };
 
-    expect(sendIt(withImage).mediaDataUri).toBe("data:image/png;base64,iVBORw0KGgo=");
-    expect(sendIt({ ...withImage, slots: { descripcionIncidencia: "Mala atención" } }).mediaDataUri).toBeUndefined();
+    expect(sendIt(conImagenes(3)).mediaDataUris).toHaveLength(3);
+    expect(sendIt(awaitingFoto()).mediaDataUris).toEqual([]);
   });
 
-  it("al registrar, la imagen sale de la sesión; si pesaba de más se avisa", () => {
-    const pending: Session = {
-      state: "incidencia_submit_pending",
-      slots: { [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,iVBORw0KGgo=" },
-      counters: {},
-    };
+  it("al registrar, las imágenes salen de la sesión; si alguna pesaba de más se avisa", () => {
+    const pending: Session = { state: "incidencia_submit_pending", slots: conImagenes(2).slots, counters: {} };
     const tooBig = handleIncidencia(pending, {
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
@@ -349,8 +413,8 @@ describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", ()
       result: { status: "rejected", reason: "media_too_large" },
     });
 
-    expect(tooBig.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
-    expect(texts(tooBig)[0]).toContain("demasiado pesada");
+    expect(tooBig.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
+    expect(texts(tooBig)[0]).toContain("pesa más de 5 MB");
   });
 
   it("'OMITIR' sigue funcionando como atajo determinístico (sin IA): pide confirmar, sin acuse", () => {

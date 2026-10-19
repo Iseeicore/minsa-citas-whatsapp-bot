@@ -18,9 +18,11 @@ import {
   resumenEstablecimientoText,
   resumenRelatoText,
   resumenNombreText,
+  resumenImagenesText,
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
 import { slotText } from "@/lib/fsm/core/slot-readers";
+import { readImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 
 export function askFoto() {
   return sendButtons(FOTO_REQUEST_TEXT, FOTO_BUTTONS);
@@ -40,7 +42,7 @@ export function submitIncidencia(session: Session, from: string): HandlerResult 
     nombreCompleto: next.slots[SlotKey.NOMBRE_COMPLETO] ?? null,
     descripcion: next.slots[SlotKey.DESCRIPCION_INCIDENCIA],
     establecimientoId: next.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] ?? null,
-    mediaDataUri: next.slots[SlotKey.MEDIA_DATA_URI],
+    mediaDataUris: readImagenes(next.slots),
   };
 
   return buildResult(next, [sendText(ENVIANDO_INCIDENCIA_TEXT), query(QueryKind.INCIDENCIA_REGISTER, { submission })]);
@@ -56,12 +58,14 @@ function resumenRegistro(session: Session): string {
   const descripcion = slotText(session.slots, SlotKey.DESCRIPCION_INCIDENCIA);
   const establecimiento = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE];
   const nombre = session.slots[SlotKey.NOMBRE_COMPLETO];
+  const imagenes = readImagenes(session.slots).length;
 
   const lineas = [
     RESUMEN_LISTO_TEXT,
     establecimiento ? resumenEstablecimientoText(establecimiento) : undefined,
     resumenRelatoText(descripcion),
     nombre ? resumenNombreText(nombre) : RESUMEN_ANONIMO_TEXT,
+    imagenes > 0 ? resumenImagenesText(imagenes) : undefined,
     "",
     RESUMEN_DECLARACION_TEXT,
   ];

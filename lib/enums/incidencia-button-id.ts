@@ -8,6 +8,7 @@ export enum IncidenciaButtonId {
   BORRADOR_USAR = "incidencia_borrador_usar",
   BORRADOR_AGREGAR = "incidencia_borrador_agregar",
   FOTO_OMITIR = "incidencia_foto_omitir",
+  FOTO_LISTO = "incidencia_foto_listo",
   CONSENT_SI = "incidencia_consent_si",
   CONSENT_NO = "incidencia_consent_no",
   CONFIRM_REGISTRO_SI = "incidencia_confirmar_registro_si",
