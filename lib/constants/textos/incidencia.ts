@@ -51,7 +51,7 @@ export const AVISO_PRIVACIDAD_TEXT =
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
 
 export const CONSENT_BUTTONS = [
-  { id: IncidenciaButtonId.CONSENT_SI, title: "Autorizo y deseo continuar" },
+  { id: IncidenciaButtonId.CONSENT_SI, title: "Sí, autorizo" },
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
 ];
 
