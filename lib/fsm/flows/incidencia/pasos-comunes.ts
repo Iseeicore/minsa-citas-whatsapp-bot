@@ -40,6 +40,7 @@ export function submitIncidencia(session: Session, from: string): HandlerResult 
     nombreCompleto: next.slots[SlotKey.NOMBRE_COMPLETO] ?? null,
     descripcion: next.slots[SlotKey.DESCRIPCION_INCIDENCIA],
     establecimientoId: next.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] ?? null,
+    mediaDataUri: next.slots[SlotKey.MEDIA_DATA_URI],
   };
 
   return buildResult(next, [sendText(ENVIANDO_INCIDENCIA_TEXT), query(QueryKind.INCIDENCIA_REGISTER, { submission })]);

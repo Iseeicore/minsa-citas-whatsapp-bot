@@ -298,17 +298,60 @@ function awaitingFoto(): Session {
 }
 
 describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", () => {
-  it.each(["image", "document"] as const)(
-    "un archivo (%s) se reconoce, se acusa y pide confirmar el registro (sin guardarlo todavía)",
-    (type) => {
-      const result = handleIncidencia(awaitingFoto(), file(type));
+  it("una imagen con sus bytes se acusa, se guarda en la sesión y pide confirmar el registro", () => {
+    const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: "data:image/png;base64,iVBORw0KGgo=" });
 
-      expect(result.session.state).toBe("incidencia_confirm_registro");
-      expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
-      expect(queries(result)).toHaveLength(0);
-      expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
-    },
-  );
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
+    expect(queries(result)).toHaveLength(0);
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBe("data:image/png;base64,iVBORw0KGgo=");
+  });
+
+  it("una imagen que no se pudo descargar se pide de nuevo y no avanza", () => {
+    const result = handleIncidencia(awaitingFoto(), file("image"));
+
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(texts(result)).toEqual(["No pudimos leer esa imagen. Envíala de nuevo o escribe OMITIR para continuar sin ella."]);
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+  });
+
+  it("un PDF se acusa pero no se guarda", () => {
+    const result = handleIncidencia(awaitingFoto(), file("document"));
+
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+  });
+
+  it("al confirmar, el registro lleva la imagen; sin imagen no lleva el campo con valor", () => {
+    const withImage: Session = {
+      state: "incidencia_confirm_registro",
+      slots: { descripcionIncidencia: "Mala atención", [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,iVBORw0KGgo=" },
+      counters: {},
+    };
+    const sendIt = (session: Session) =>
+      queries(handleIncidencia(session, tap("incidencia_confirmar_registro_si")))[0].payload.submission as { mediaDataUri?: string };
+
+    expect(sendIt(withImage).mediaDataUri).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(sendIt({ ...withImage, slots: { descripcionIncidencia: "Mala atención" } }).mediaDataUri).toBeUndefined();
+  });
+
+  it("al registrar, la imagen sale de la sesión; si pesaba de más se avisa", () => {
+    const pending: Session = {
+      state: "incidencia_submit_pending",
+      slots: { [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,iVBORw0KGgo=" },
+      counters: {},
+    };
+    const tooBig = handleIncidencia(pending, {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "incidencia_register",
+      result: { status: "rejected", reason: "media_too_large" },
+    });
+
+    expect(tooBig.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+    expect(texts(tooBig)[0]).toContain("demasiado pesada");
+  });
 
   it("'OMITIR' sigue funcionando como atajo determinístico (sin IA): pide confirmar, sin acuse", () => {
     const result = handleIncidencia(awaitingFoto(), text("OMITIR"));
@@ -536,10 +579,34 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
     expect(sent(result)[1]).toMatchObject({
       kind: "send_buttons",
       buttons: [
-        { id: "incidencia_consent_si", title: "Autorizo y deseo continuar" },
+        { id: "incidencia_consent_si", title: "Sí, autorizo" },
         { id: "incidencia_consent_no", title: "No autorizo" },
       ],
     });
+  });
+
+  it("los botones de la autorización caben en los 20 caracteres que WhatsApp admite", () => {
+    const result = handleIncidencia(checkPending(), consentCheckResult(false));
+    const buttons = (sent(result)[1] as { buttons: { title: string }[] }).buttons;
+
+    for (const button of buttons) expect(button.title.length).toBeLessThanOrEqual(20);
+  });
+
+  it.each(["Autorizo", "autorizo", "Sí, autorizo", "SI AUTORIZO", "Autorizo y deseo continuar", "¡Autorizo!"])(
+    "escribir «%s» autoriza igual que el botón",
+    (typed) => {
+      const result = handleIncidencia(choice(), text(typed));
+
+      expect(result.session.state).toBe("incidencia_consent_register_pending");
+      expect(queries(result)).toEqual([{ kind: "registrar_consentimiento", payload: {} }]);
+    },
+  );
+
+  it.each(["No autorizo", "no autorizo.", "NO AUTORIZO"])("escribir «%s» cancela sin guardar nada", (typed) => {
+    const result = handleIncidencia(choice(), text(typed));
+
+    expect(result.session.state).toBe("incidencia_cancelled");
+    expect(queries(result)).toHaveLength(0);
   });
 
   it("«Autorizo» deja constancia en la base y recién después pasa al relato", () => {

@@ -56,6 +56,8 @@ import {
   OMITIR_KEYWORD,
   incidenciaRegistradaText,
   INCIDENCIA_CANCELADA_TEXT,
+  IMAGEN_MUY_PESADA_TEXT,
+  IMAGEN_NO_LEIDA_TEXT,
 } from "@/lib/constants/textos/incidencia";
 import { INVALID_DNI_TEXT } from "@/lib/constants/textos/fallas";
 import { LookupStatus } from "@/lib/enums/lookup-status";
@@ -194,6 +196,7 @@ function isFile(event: InboundEvent): boolean {
 }
 
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
+  if (event.type === InboundEventType.IMAGE) return handleImagen(session, event);
   if (isFile(event)) return withAck(askConfirmRegistro(session));
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR) return askConfirmRegistro(session);
 
@@ -211,6 +214,15 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_FOTO_INTENT_PENDING;
   return buildResult(next, [query(QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT, { text: typed })]);
+}
+
+/** La imagen se guarda en la sesión como data URI hasta que se registra la incidencia; sin los bytes (la descarga falló) se pide de nuevo. */
+function handleImagen(session: Session, event: InboundEvent): HandlerResult {
+  if (!event.mediaDataUri) return buildResult(session, [sendText(IMAGEN_NO_LEIDA_TEXT)]);
+
+  const next = cloneSession(session);
+  next.slots[SlotKey.MEDIA_DATA_URI] = event.mediaDataUri;
+  return withAck(askConfirmRegistro(next));
 }
 
 function withAck(result: HandlerResult): HandlerResult {
@@ -238,9 +250,16 @@ function confirmationText(session: Session, codigo: string | undefined): string 
   return `${base} ${adicional}`;
 }
 
+function failureText(reason: string | undefined): string {
+  if (reason === RegistrationRejectReason.DAILY_LIMIT) return DAILY_LIMIT_TEXT;
+  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return IMAGEN_MUY_PESADA_TEXT;
+  return REGISTRO_FALLIDO_TEXT;
+}
+
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; reason?: string; codigo?: string };
   const next = cloneSession(session);
+  delete next.slots[SlotKey.MEDIA_DATA_URI];
 
   if (result.status === RegistrationStatus.ACCEPTED) {
     next.state = SessionState.INCIDENCIA_CONFIRMED;
@@ -248,6 +267,6 @@ function handleSubmitPending(session: Session, event: QueryResultEvent): Handler
   }
 
   next.state = SessionState.INCIDENCIA_FAILED;
-  const message = result.reason === RegistrationRejectReason.DAILY_LIMIT ? DAILY_LIMIT_TEXT : REGISTRO_FALLIDO_TEXT;
+  const message = failureText(result.reason);
   return buildResult(next, [sendText(message)]);
 }

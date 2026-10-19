@@ -112,6 +112,24 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     expect(await prisma.incidenciaPaciente.count({ where: { waId } })).toBe(0);
   });
 
+  it("without an image service the picture is stored in the database as base64, with no schema change, and reads back byte for byte", async () => {
+    vi.stubEnv("MEDIA_STORAGE_BASE_URL", "");
+    const waId = `smoke-${randomUUID()}`;
+    const traceId = `trace-${randomUUID()}`;
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+    const dataUri = `data:image/png;base64,${png.toString("base64")}`;
+
+    const result = await runWithTrace(traceId, {}, () =>
+      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUri: dataUri }),
+    );
+
+    expect(result.status).toBe("accepted");
+    const incidencia = await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } });
+    const [evidencia] = await prisma.evidencia.findMany({ where: { incidenciaPacienteId: incidencia.id } });
+    expect(evidencia).toMatchObject({ tipoEvidenciaId: 1, mimeType: "image/png", tamano: png.length, ruta: dataUri });
+    expect(Buffer.from(evidencia.ruta.split(",")[1], "base64").equals(png)).toBe(true);
+  });
+
   it("stores the photo as evidence of the incident, by the path the image service returned", async () => {
     vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test/files");
     vi.stubGlobal(

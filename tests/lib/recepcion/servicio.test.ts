@@ -201,11 +201,29 @@ describe("the photo that goes with an incident", () => {
     expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
-  it("stores the incident without evidence when no image service is configured", async () => {
+  it("without an image service the image is stored in the database itself, as base64 in the route", async () => {
     db.storageConfigured = false;
 
     await expect(registrarIncidencia({ ...base, mediaDataUri: pngDataUri })).resolves.toEqual({ status: "accepted" });
+
     expect(db.guardarImagen).not.toHaveBeenCalled();
-    expect(db.evidenciaCreate).not.toHaveBeenCalled();
+    expect(db.evidenciaCreate).toHaveBeenCalledWith({
+      data: { incidenciaPacienteId: "i-1", tipoEvidenciaId: 1, mimeType: "image/png", tamano: PNG.length, ruta: pngDataUri },
+    });
+  });
+
+  it("without an image service, an image that is too big or is not an image is refused before saving anything", async () => {
+    db.storageConfigured = false;
+    const big = Buffer.alloc(MAX_IMAGE_BYTES + 1).toString("base64");
+
+    await expect(registrarIncidencia({ ...base, mediaDataUri: `data:image/jpeg;base64,${big}` })).resolves.toEqual({
+      status: "rejected",
+      reason: "media_too_large",
+    });
+    await expect(registrarIncidencia({ ...base, mediaDataUri: "data:text/html;base64,PGI+" })).resolves.toEqual({
+      status: "rejected",
+      reason: "other",
+    });
+    expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 });

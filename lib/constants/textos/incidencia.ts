@@ -104,6 +104,8 @@ export const SEGUIMIENTO_IDENTIFICADO_TEXT = "Si el área responsable necesita i
 export const SEGUIMIENTO_ANONIMO_TEXT = "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.";
 export const DAILY_LIMIT_TEXT =
   "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
+export const IMAGEN_NO_LEIDA_TEXT = "No pudimos leer esa imagen. Envíala de nuevo o escribe OMITIR para continuar sin ella.";
+export const IMAGEN_MUY_PESADA_TEXT = "La imagen es demasiado pesada. Intenta de nuevo con una más liviana (hasta 5 MB).";
 export const REGISTRO_FALLIDO_TEXT = "No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.";
 export const INCIDENCIA_REAUTH_PROMPT_TEXT =
   "⏳ Tu incidencia quedó inactiva por un tiempo. ¿Deseas continuar donde la dejaste?\n\n[1] Sí, continuar\n[2] Cancelar";

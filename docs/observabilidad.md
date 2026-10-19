@@ -55,7 +55,6 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; la incidencia sigue sin imagen |
 | `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). La incidencia llegó al servicio con datos que no pasan la validación; no se guarda |
 | `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): la incidencia no se puede guardar y se le responde error al ciudadano |
-| `incidencia.media_not_stored` | warn | `reason`. El ciudadano adjuntó una foto y todavía no hay servicio de imágenes: la incidencia se guarda sin ella |
 | `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
 | `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
 | `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |

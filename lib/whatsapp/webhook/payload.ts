@@ -1,5 +1,6 @@
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
+import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
 import type { InboundEvent } from "@/lib/fsm/core/types";
 import { SessionState } from "@/lib/enums/session-state";
 
@@ -130,7 +131,10 @@ export async function toInboundEvent(waId: string, message: WhatsAppMessage, ses
   }
 
   if (sessionState === SessionState.INCIDENCIA_AWAITING_FOTO) {
-    if (message.type === "image" && message.image?.id) return { from: waId, type: "image", text: message.image.caption };
+    if (message.type === "image" && message.image?.id) {
+      const mediaDataUri = await downloadWhatsAppMediaAsDataUri(message.image.id);
+      return { from: waId, type: "image", text: message.image.caption, mediaDataUri: mediaDataUri ?? undefined };
+    }
     if (message.type === "document" && message.document?.id) return { from: waId, type: "document" };
   }
 
