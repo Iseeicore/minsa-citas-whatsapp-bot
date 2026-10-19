@@ -34,7 +34,6 @@ export type SlotTypes = {
   [SlotKey.CITA_HORA_CHOICE_A]: string;
   [SlotKey.CITA_DNI_PENDING]: string;
   [SlotKey.DESCRIPCION_INCIDENCIA]: string;
-  [SlotKey.NOMBRE_COMPLETO]: string;
   [SlotKey.CITA_HORAS_DIA]: string;
   [SlotKey.CITA_DEMO_REFERENCIA_CODIGO]: string;
   [SlotKey.CITA_DEMO_HORA_ID]: string;
@@ -162,7 +161,6 @@ export type SendCtaUrlEffect = {
 export type SendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect | SendCtaUrlEffect;
 
 export type QueryEffectKind =
-  | "reniec_lookup"
   | "incidencia_register"
   | "validate_user"
   | "verify_code"

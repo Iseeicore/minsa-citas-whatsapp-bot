@@ -1,5 +1,5 @@
 export enum IncidenciaButtonId {
-  CON_NOMBRE = "incidencia_con_nombre",
+  CON_DOCUMENTO = "incidencia_con_documento",
   ANONIMO = "incidencia_anonimo",
   UBICACION_SI = "incidencia_ubicacion_si",
   UBICACION_NO = "incidencia_ubicacion_no",

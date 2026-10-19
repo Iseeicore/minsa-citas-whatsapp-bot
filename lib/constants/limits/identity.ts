@@ -1,1 +1,3 @@
 export const CARNET_EXTRANJERIA_LENGTH = 9;
+export const DOCUMENTO_MAX_LENGTH = 12;
+export const DOCUMENTO_DIGITOS_VISIBLES = 4;

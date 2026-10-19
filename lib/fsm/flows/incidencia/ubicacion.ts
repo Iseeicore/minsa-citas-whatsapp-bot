@@ -43,7 +43,7 @@ import {
   ubicacionAceptadaText,
   OMITIR_RETRY_TEXT,
   IDENTITY_QUESTION_TEXT,
-  INCIDENCIA_NOMBRE_BUTTONS,
+  INCIDENCIA_IDENTIDAD_BUTTONS,
   UNREADABLE_TEXT_RETRY,
 } from "@/lib/constants/textos/incidencia";
 import { AVISO_EMERGENCIA_TEXT } from "@/lib/constants/textos/fuera-de-alcance";
@@ -169,7 +169,7 @@ function continueAfterUbicacion(next: Session, acknowledgement: string): Handler
   }
   next.counters = omitCounter(next.counters);
   next.state = SessionState.INCIDENCIA_IDENTITY_CHOICE;
-  return buildResult(next, [sendText(acknowledgement), sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_NOMBRE_BUTTONS)]);
+  return buildResult(next, [sendText(acknowledgement), sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_IDENTIDAD_BUTTONS)]);
 }
 
 function omitCounter(counters: Session["counters"]): Session["counters"] {
@@ -206,7 +206,7 @@ export function resendConfirmUbicacion(session: Session): HandlerResult {
 }
 
 export function askIdentityChoice(session: Session): HandlerResult {
-  return buildResult(cloneSession(session), [sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_NOMBRE_BUTTONS)]);
+  return buildResult(cloneSession(session), [sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_IDENTIDAD_BUTTONS)]);
 }
 
 export function offerOmitir(next: Session, lead: string): HandlerResult {

@@ -21,7 +21,6 @@ export enum SlotKey {
   CITA_HORA_CHOICE_A = "citaHoraChoiceA",
   CITA_DNI_PENDING = "citaDniPending",
   DESCRIPCION_INCIDENCIA = "descripcionIncidencia",
-  NOMBRE_COMPLETO = "nombreCompleto",
   CITA_HORAS_DIA = "citaHorasDia",
   CITA_DEMO_REFERENCIA_CODIGO = "citaDemoReferenciaCodigo",
   CITA_DEMO_HORA_ID = "citaDemoHoraId",

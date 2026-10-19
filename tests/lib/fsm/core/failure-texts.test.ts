@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TURN_FAILURE_TEXT as TURN_FAILURE_TEXT_FROM_LOCK } from "@/lib/fsm/session/turn-lock";
-import { TURN_FAILURE_TEXT, INVALID_DOCUMENT_TEXT, INVALID_DNI_TEXT, searchFailureText } from "@/lib/constants/textos/fallas";
+import { TURN_FAILURE_TEXT, INVALID_DOCUMENT_TEXT, searchFailureText } from "@/lib/constants/textos/fallas";
 
 describe("failure texts sent to the citizen", () => {
   it("keeps every text byte for byte as it was before the catalog", () => {
@@ -10,7 +10,6 @@ describe("failure texts sent to the citizen", () => {
     expect(INVALID_DOCUMENT_TEXT).toBe(
       "Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.",
     );
-    expect(INVALID_DNI_TEXT).toBe("Documento inválido. Debe tener 8 dígitos. Intenta de nuevo.");
     expect(searchFailureText("especialidades")).toBe(
       "Ocurrió un error al buscar especialidades disponibles. Intenta iniciar tu cita nuevamente en unos minutos.",
     );

@@ -17,11 +17,12 @@ import {
   ENVIANDO_INCIDENCIA_TEXT,
   resumenEstablecimientoText,
   resumenRelatoText,
-  resumenNombreText,
+  resumenDocumentoText,
   resumenImagenesText,
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
 import { slotText } from "@/lib/fsm/core/slot-readers";
+import { DOCUMENTO_DIGITOS_VISIBLES } from "@/lib/constants/limits/identity";
 import { readImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 import { renderWithinLength } from "@/lib/utils/fit-text";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
@@ -41,7 +42,6 @@ export function submitIncidencia(session: Session, from: string): HandlerResult 
   const submission = {
     waId: from,
     dni: next.slots[SlotKey.DNI] ?? null,
-    nombreCompleto: next.slots[SlotKey.NOMBRE_COMPLETO] ?? null,
     descripcion: next.slots[SlotKey.DESCRIPCION_INCIDENCIA],
     establecimientoId: next.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] ?? null,
     mediaDataUris: readImagenes(next.slots),
@@ -59,15 +59,15 @@ export function afterDescripcion(session: Session): HandlerResult {
 function resumenRegistro(session: Session): string {
   const descripcion = slotText(session.slots, SlotKey.DESCRIPCION_INCIDENCIA);
   const establecimiento = slotText(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE);
-  const nombre = slotText(session.slots, SlotKey.NOMBRE_COMPLETO);
+  const documento = slotText(session.slots, SlotKey.DNI);
   const imagenes = readImagenes(session.slots).length;
 
-  const render = ([relatoMostrado, establecimientoMostrado, nombreMostrado]: string[]): string =>
+  const render = ([relatoMostrado, establecimientoMostrado]: string[]): string =>
     [
       RESUMEN_LISTO_TEXT,
       establecimiento ? resumenEstablecimientoText(establecimientoMostrado) : undefined,
       resumenRelatoText(relatoMostrado),
-      nombre ? resumenNombreText(nombreMostrado) : RESUMEN_ANONIMO_TEXT,
+      documento ? resumenDocumentoText(documento.slice(-DOCUMENTO_DIGITOS_VISIBLES)) : RESUMEN_ANONIMO_TEXT,
       imagenes > 0 ? resumenImagenesText(imagenes) : undefined,
       "",
       RESUMEN_DECLARACION_TEXT,
@@ -75,7 +75,7 @@ function resumenRegistro(session: Session): string {
       .filter((linea) => linea !== undefined)
       .join("\n");
 
-  return renderWithinLength([descripcion, establecimiento, nombre], render, WHATSAPP_INTERACTIVE_BODY_MAX);
+  return renderWithinLength([descripcion, establecimiento], render, WHATSAPP_INTERACTIVE_BODY_MAX);
 }
 
 export function askConfirmRegistro(session: Session): HandlerResult {

@@ -33,19 +33,14 @@ export const UBICACION_CONFIRM_RETRY_TEXT = "¿Es ese el establecimiento donde o
 export const OMITIR_QUESTION_TEXT = "¿Quieres continuar sin indicar el establecimiento?";
 export const OMITIR_RETRY_TEXT = `${OMITIR_QUESTION_TEXT} Toca Sí o No.`;
 export const OMITIR_ACEPTADO_TEXT = "Entendido, seguiremos sin indicar el establecimiento.";
-export const IDENTITY_QUESTION_TEXT = "¿Deseas registrar tu nombre, o prefieres que sea anónimo?";
+export const IDENTITY_QUESTION_TEXT = "¿Deseas ser anónimo o ingresar tu número de documento de identidad?";
 
-export const INCIDENCIA_NOMBRE_BUTTONS = [
-  { id: IncidenciaButtonId.CON_NOMBRE, title: "Sí, doy mi nombre" },
+export const INCIDENCIA_IDENTIDAD_BUTTONS = [
+  { id: IncidenciaButtonId.CON_DOCUMENTO, title: "Ingresar documento" },
   { id: IncidenciaButtonId.ANONIMO, title: "Prefiero ser anónimo" },
 ];
 
-export const ONLY_DNI_TEXT = "Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.";
-export const ONLY_DNI_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, title: "Continuar anónimo" }];
-export const VERIFICANDO_DOCUMENTO_TEXT = "Verificando tu documento…";
-export const RENIEC_FAILED_TEXT = "Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias.";
-export const graciasNombreText = (nombre: string): string => `Gracias, ${nombre}.`;
-export const ASK_NOMBRE_TEXT = "Por favor, ingresa tu nombre.";
+export const CONTINUAR_ANONIMO_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, title: "Continuar anónimo" }];
 export const AVISO_PRIVACIDAD_TEXT =
   "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu denuncia.";
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
@@ -85,7 +80,7 @@ export const LISTO_KEYWORD = "LISTO";
 export const RESUMEN_LISTO_TEXT = "La información está lista para ser registrada.";
 export const resumenEstablecimientoText = (establecimiento: string): string => `Establecimiento: ${establecimiento}`;
 export const resumenRelatoText = (descripcion: string): string => `Relato: «${descripcion}»`;
-export const resumenNombreText = (nombre: string): string => `A nombre de: ${nombre}`;
+export const resumenDocumentoText = (ultimosDigitos: string): string => `Identificado con documento terminado en ${ultimosDigitos}`;
 export const RESUMEN_ANONIMO_TEXT = "De forma anónima";
 export const RESUMEN_DECLARACION_TEXT =
   "Al continuar, confirmas que la información es verdadera según tu conocimiento y que podrá ser revisada por el personal autorizado para gestionar tu denuncia.";
