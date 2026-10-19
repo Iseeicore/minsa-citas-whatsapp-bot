@@ -29,6 +29,14 @@ async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | Re
   }
 }
 
+/** Sin servicio de imágenes la evidencia se guarda en la propia base: la ruta es el data URI (base64) de la imagen. */
+function evidenciaEnLaBase(mediaDataUri: string): DatosEvidencia | RegistrarIncidenciaResult {
+  const image = parseImageDataUri(mediaDataUri);
+  if (image === null) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.OTHER };
+  if ("tooLarge" in image) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.MEDIA_TOO_LARGE };
+  return { mimeType: image.mimeType, tamano: image.bytes.length, ruta: mediaDataUri };
+}
+
 const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult =>
   codigo ? { status: RegistrationStatus.ACCEPTED, codigo } : { status: RegistrationStatus.ACCEPTED };
 
@@ -68,13 +76,9 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
 
   let evidencia: DatosEvidencia | null = null;
   if (mediaDataUri) {
-    if (isMediaStorageConfigured()) {
-      const subida = await subirEvidencia(mediaDataUri);
-      if (!isEvidencia(subida)) return subida;
-      evidencia = subida;
-    } else {
-      logger.warn("incidencia.media_not_stored", { reason: "no hay servicio de imágenes configurado" });
-    }
+    const subida = isMediaStorageConfigured() ? await subirEvidencia(mediaDataUri) : evidenciaEnLaBase(mediaDataUri);
+    if (!isEvidencia(subida)) return subida;
+    evidencia = subida;
   }
 
   try {

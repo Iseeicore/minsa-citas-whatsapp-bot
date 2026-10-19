@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const media = vi.hoisted(() => ({ download: vi.fn(async () => "data:image/png;base64,AAAA") }));
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: media.download }));
@@ -10,18 +10,27 @@ const base = { id: "wamid.1", from_user_id: WA, timestamp: "1" };
 const message = (extra: Partial<WhatsAppMessage> & { type: string }): WhatsAppMessage => ({ ...base, ...extra });
 
 describe("toInboundEvent: what reaches the flow when an incidencia asks for evidence", () => {
-  it("an image while the evidence is asked becomes an image event, and it is never downloaded", async () => {
+  beforeEach(() => media.download.mockClear());
+
+  it("an image while the evidence is asked is downloaded and travels as a data URI", async () => {
     const event = await toInboundEvent(
       WA,
       message({ type: "image", image: { id: "m1", caption: "el cobro" } }),
       "incidencia_awaiting_foto",
     );
 
-    expect(event).toEqual({ from: WA, type: "image", text: "el cobro" });
-    expect(media.download).not.toHaveBeenCalled();
+    expect(event).toEqual({ from: WA, type: "image", text: "el cobro", mediaDataUri: "data:image/png;base64,AAAA" });
+    expect(media.download).toHaveBeenCalledWith("m1");
   });
 
-  it("a document (a PDF) while the evidence is asked becomes a document event, with no download and without its file name", async () => {
+  it("an image that could not be downloaded still reaches the flow, without bytes", async () => {
+    media.download.mockResolvedValueOnce(null as unknown as string);
+    const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto");
+
+    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaDataUri: undefined });
+  });
+
+  it("a document (a PDF) becomes a document event: it is never downloaded and its file name is not read", async () => {
     const event = await toInboundEvent(
       WA,
       message({ type: "document", document: { id: "m2", filename: "recibo-juan-quispe.pdf" } }),

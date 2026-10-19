@@ -298,17 +298,60 @@ function awaitingFoto(): Session {
 }
 
 describe("incidencia_awaiting_foto: la evidencia es opcional y no se guarda", () => {
-  it.each(["image", "document"] as const)(
-    "un archivo (%s) se reconoce, se acusa y pide confirmar el registro (sin guardarlo todavía)",
-    (type) => {
-      const result = handleIncidencia(awaitingFoto(), file(type));
+  it("una imagen con sus bytes se acusa, se guarda en la sesión y pide confirmar el registro", () => {
+    const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: "data:image/png;base64,iVBORw0KGgo=" });
 
-      expect(result.session.state).toBe("incidencia_confirm_registro");
-      expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
-      expect(queries(result)).toHaveLength(0);
-      expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
-    },
-  );
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
+    expect(queries(result)).toHaveLength(0);
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBe("data:image/png;base64,iVBORw0KGgo=");
+  });
+
+  it("una imagen que no se pudo descargar se pide de nuevo y no avanza", () => {
+    const result = handleIncidencia(awaitingFoto(), file("image"));
+
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(texts(result)).toEqual(["No pudimos leer esa imagen. Envíala de nuevo o escribe OMITIR para continuar sin ella."]);
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+  });
+
+  it("un PDF se acusa pero no se guarda", () => {
+    const result = handleIncidencia(awaitingFoto(), file("document"));
+
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(texts(result)[0]).toBe("Ok, se registró tu evidencia.");
+    expect(result.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+  });
+
+  it("al confirmar, el registro lleva la imagen; sin imagen no lleva el campo con valor", () => {
+    const withImage: Session = {
+      state: "incidencia_confirm_registro",
+      slots: { descripcionIncidencia: "Mala atención", [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,iVBORw0KGgo=" },
+      counters: {},
+    };
+    const sendIt = (session: Session) =>
+      queries(handleIncidencia(session, tap("incidencia_confirmar_registro_si")))[0].payload.submission as { mediaDataUri?: string };
+
+    expect(sendIt(withImage).mediaDataUri).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(sendIt({ ...withImage, slots: { descripcionIncidencia: "Mala atención" } }).mediaDataUri).toBeUndefined();
+  });
+
+  it("al registrar, la imagen sale de la sesión; si pesaba de más se avisa", () => {
+    const pending: Session = {
+      state: "incidencia_submit_pending",
+      slots: { [SlotKey.MEDIA_DATA_URI]: "data:image/png;base64,iVBORw0KGgo=" },
+      counters: {},
+    };
+    const tooBig = handleIncidencia(pending, {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "incidencia_register",
+      result: { status: "rejected", reason: "media_too_large" },
+    });
+
+    expect(tooBig.session.slots[SlotKey.MEDIA_DATA_URI]).toBeUndefined();
+    expect(texts(tooBig)[0]).toContain("demasiado pesada");
+  });
 
   it("'OMITIR' sigue funcionando como atajo determinístico (sin IA): pide confirmar, sin acuse", () => {
     const result = handleIncidencia(awaitingFoto(), text("OMITIR"));

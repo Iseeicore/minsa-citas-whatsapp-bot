@@ -31,7 +31,6 @@ export const LOG_EVENTS = [
   "whatsapp.media_failed",
   "incidencia.invalid_submission",
   "incidencia.not_persisted",
-  "incidencia.media_not_stored",
   "incidencia.media_upload_failed",
   "incidencia.persist_failed",
   "incidencia.establecimiento_lookup_failed",
