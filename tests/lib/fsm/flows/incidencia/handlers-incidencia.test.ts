@@ -536,10 +536,34 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
     expect(sent(result)[1]).toMatchObject({
       kind: "send_buttons",
       buttons: [
-        { id: "incidencia_consent_si", title: "Autorizo y deseo continuar" },
+        { id: "incidencia_consent_si", title: "Sí, autorizo" },
         { id: "incidencia_consent_no", title: "No autorizo" },
       ],
     });
+  });
+
+  it("los botones de la autorización caben en los 20 caracteres que WhatsApp admite", () => {
+    const result = handleIncidencia(checkPending(), consentCheckResult(false));
+    const buttons = (sent(result)[1] as { buttons: { title: string }[] }).buttons;
+
+    for (const button of buttons) expect(button.title.length).toBeLessThanOrEqual(20);
+  });
+
+  it.each(["Autorizo", "autorizo", "Sí, autorizo", "SI AUTORIZO", "Autorizo y deseo continuar", "¡Autorizo!"])(
+    "escribir «%s» autoriza igual que el botón",
+    (typed) => {
+      const result = handleIncidencia(choice(), text(typed));
+
+      expect(result.session.state).toBe("incidencia_consent_register_pending");
+      expect(queries(result)).toEqual([{ kind: "registrar_consentimiento", payload: {} }]);
+    },
+  );
+
+  it.each(["No autorizo", "no autorizo.", "NO AUTORIZO"])("escribir «%s» cancela sin guardar nada", (typed) => {
+    const result = handleIncidencia(choice(), text(typed));
+
+    expect(result.session.state).toBe("incidencia_cancelled");
+    expect(queries(result)).toHaveLength(0);
   });
 
   it("«Autorizo» deja constancia en la base y recién después pasa al relato", () => {

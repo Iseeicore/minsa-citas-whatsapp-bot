@@ -1,3 +1,6 @@
+import { CONSENT_ACCEPTED_PHRASE, CONSENT_DECLINED_PHRASE } from "@/lib/constants/regex/incidencia";
+import { WORD_SEPARATORS } from "@/lib/constants/regex/text";
+import { stripAccents } from "@/lib/utils/text-values";
 import { enterDescripcion } from "@/lib/fsm/flows/incidencia/borrador";
 import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
 import { buildResult, cloneSession, query, sendButtons, sendText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
@@ -32,19 +35,13 @@ export function resendConsentimiento(session: Session): HandlerResult {
   return buildResult(cloneSession(session), consentimientoPrompt());
 }
 
-const AUTORIZO = /^(?:si |yo )?autorizo(?: y deseo continuar)?$/;
-const NO_AUTORIZO = /^no autorizo$/;
-
 /** Además de Sí y No, entiende «autorizo» y «no autorizo» escritos, que es lo que la persona responde a la pregunta. */
 function readConsent(event: InboundEvent): Confirmation | undefined {
-  const phrase = (event.text ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+  const phrase = stripAccents((event.text ?? "").toLowerCase())
+    .replace(WORD_SEPARATORS, " ")
     .trim();
-  if (AUTORIZO.test(phrase)) return Confirmation.YES;
-  if (NO_AUTORIZO.test(phrase)) return Confirmation.NO;
+  if (CONSENT_ACCEPTED_PHRASE.test(phrase)) return Confirmation.YES;
+  if (CONSENT_DECLINED_PHRASE.test(phrase)) return Confirmation.NO;
   return readConfirmation(event, IncidenciaButtonId.CONSENT_SI, IncidenciaButtonId.CONSENT_NO);
 }
 
