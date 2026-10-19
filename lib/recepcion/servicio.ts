@@ -56,7 +56,7 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
     logger.error("incidencia.invalid_submission", { fields: parsed.error.issues.map((issue) => issue.path.join(".")) });
     return { status: RegistrationStatus.ERROR };
   }
-  const { waId, dni, nombreCompleto, establecimientoId, descripcion, mediaDataUri } = parsed.data;
+  const { waId, dni, nombreCompleto, establecimientoId, descripcion, mediaDataUris } = parsed.data;
 
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.not_persisted", { reason: "DATABASE_ENABLED=false" });
@@ -74,17 +74,17 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
     return { status: RegistrationStatus.ERROR };
   }
 
-  let evidencia: DatosEvidencia | null = null;
-  if (mediaDataUri) {
+  const evidencias: DatosEvidencia[] = [];
+  for (const mediaDataUri of mediaDataUris) {
     const subida = isMediaStorageConfigured() ? await subirEvidencia(mediaDataUri) : evidenciaEnLaBase(mediaDataUri);
     if (!isEvidencia(subida)) return subida;
-    evidencia = subida;
+    evidencias.push(subida);
   }
 
   try {
     const incidencia = await insertarIncidencia(
       { waId, dni, nombreCompleto, establecimientoId, descripcion, traceId },
-      evidencia,
+      evidencias,
       actorCiudadano(waId),
     );
     return accepted(incidencia.codigo);

@@ -120,7 +120,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const dataUri = `data:image/png;base64,${png.toString("base64")}`;
 
     const result = await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUri: dataUri }),
+      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUris: [dataUri, dataUri] }),
     );
 
     expect(result.status).toBe("accepted");
@@ -141,7 +141,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
     const result = await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUri: `data:image/png;base64,${png.toString("base64")}` }),
+      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUris: [`data:image/png;base64,${png.toString("base64")}`] }),
     );
 
     expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-\d{6,}$/) });

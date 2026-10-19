@@ -20,7 +20,7 @@ vi.mock("@/lib/db/prisma", () => ({
         $executeRaw: db.executeRaw,
         usuario: { upsert: db.usuarioUpsert },
         incidenciaPaciente: { create: db.incidenciaCreate },
-        evidencia: { create: db.evidenciaCreate },
+        evidencia: { createMany: db.evidenciaCreate },
       }),
   },
 }));
@@ -157,7 +157,7 @@ describe("registering an incident directly in the database", () => {
   });
 });
 
-describe("the photo that goes with an incident", () => {
+describe("the photos that go with an incident", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     db.enabled = true;
@@ -165,20 +165,35 @@ describe("the photo that goes with an incident", () => {
   });
 
   it("uploads the image first and stores its evidence in the same transaction as the incident", async () => {
-    await expect(registrarIncidencia({ ...base, mediaDataUri: pngDataUri })).resolves.toEqual({ status: "accepted" });
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri] })).resolves.toEqual({ status: "accepted" });
 
     expect(db.guardarImagen).toHaveBeenCalledTimes(1);
     expect(db.guardarImagen.mock.calls[0][0].equals(PNG)).toBe(true);
     expect(db.guardarImagen.mock.calls[0][1]).toBe("image/png");
     expect(db.evidenciaCreate).toHaveBeenCalledWith({
-      data: { incidenciaPacienteId: "i-1", tipoEvidenciaId: 1, mimeType: "image/png", tamano: PNG.length, ruta: "2026/10/foto.png" },
+      data: [{ incidenciaPacienteId: "i-1", tipoEvidenciaId: 1, mimeType: "image/png", tamano: PNG.length, ruta: "2026/10/foto.png" }],
     });
+  });
+
+  it("stores every image of the incident in the same transaction", async () => {
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri, pngDataUri, pngDataUri] })).resolves.toEqual({
+      status: "accepted",
+    });
+
+    expect(db.guardarImagen).toHaveBeenCalledTimes(3);
+    expect(db.evidenciaCreate).toHaveBeenCalledTimes(1);
+    expect((db.evidenciaCreate.mock.calls[0][0] as { data: unknown[] }).data).toHaveLength(3);
+  });
+
+  it("rejects more images than the limit at the boundary", async () => {
+    await expect(registrarIncidencia({ ...base, mediaDataUris: Array(6).fill(pngDataUri) })).resolves.toEqual({ status: "error" });
+    expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
   it("rejects an oversized image as too large, and stores nothing", async () => {
     const big = Buffer.alloc(MAX_IMAGE_BYTES + 1, 1).toString("base64");
 
-    await expect(registrarIncidencia({ ...base, mediaDataUri: `data:image/jpeg;base64,${big}` })).resolves.toEqual({
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [`data:image/jpeg;base64,${big}`] })).resolves.toEqual({
       status: "rejected",
       reason: "media_too_large",
     });
@@ -187,7 +202,7 @@ describe("the photo that goes with an incident", () => {
   });
 
   it("rejects something that is not an image, and stores nothing", async () => {
-    await expect(registrarIncidencia({ ...base, mediaDataUri: "data:text/html;base64,PGI+" })).resolves.toEqual({
+    await expect(registrarIncidencia({ ...base, mediaDataUris: ["data:text/html;base64,PGI+"] })).resolves.toEqual({
       status: "rejected",
       reason: "other",
     });
@@ -197,18 +212,18 @@ describe("the photo that goes with an incident", () => {
   it("answers an error, storing nothing, when the image service fails (the citizen can retry)", async () => {
     db.guardarImagen.mockRejectedValueOnce(new Error("503"));
 
-    await expect(registrarIncidencia({ ...base, mediaDataUri: pngDataUri })).resolves.toEqual({ status: "error" });
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri] })).resolves.toEqual({ status: "error" });
     expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
   it("without an image service the image is stored in the database itself, as base64 in the route", async () => {
     db.storageConfigured = false;
 
-    await expect(registrarIncidencia({ ...base, mediaDataUri: pngDataUri })).resolves.toEqual({ status: "accepted" });
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri] })).resolves.toEqual({ status: "accepted" });
 
     expect(db.guardarImagen).not.toHaveBeenCalled();
     expect(db.evidenciaCreate).toHaveBeenCalledWith({
-      data: { incidenciaPacienteId: "i-1", tipoEvidenciaId: 1, mimeType: "image/png", tamano: PNG.length, ruta: pngDataUri },
+      data: [{ incidenciaPacienteId: "i-1", tipoEvidenciaId: 1, mimeType: "image/png", tamano: PNG.length, ruta: pngDataUri }],
     });
   });
 
@@ -216,11 +231,11 @@ describe("the photo that goes with an incident", () => {
     db.storageConfigured = false;
     const big = Buffer.alloc(MAX_IMAGE_BYTES + 1).toString("base64");
 
-    await expect(registrarIncidencia({ ...base, mediaDataUri: `data:image/jpeg;base64,${big}` })).resolves.toEqual({
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [`data:image/jpeg;base64,${big}`] })).resolves.toEqual({
       status: "rejected",
       reason: "media_too_large",
     });
-    await expect(registrarIncidencia({ ...base, mediaDataUri: "data:text/html;base64,PGI+" })).resolves.toEqual({
+    await expect(registrarIncidencia({ ...base, mediaDataUris: ["data:text/html;base64,PGI+"] })).resolves.toEqual({
       status: "rejected",
       reason: "other",
     });

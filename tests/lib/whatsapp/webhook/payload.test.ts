@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const media = vi.hoisted(() => ({ download: vi.fn(async () => "data:image/png;base64,AAAA") }));
+const media = vi.hoisted(() => ({ download: vi.fn(async (): Promise<unknown> => ({ dataUri: "data:image/png;base64,AAAA" })) }));
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: media.download }));
 
 import { toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
@@ -23,11 +23,18 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
     expect(media.download).toHaveBeenCalledWith("m1");
   });
 
-  it("an image that could not be downloaded still reaches the flow, without bytes", async () => {
-    media.download.mockResolvedValueOnce(null as unknown as string);
+  it("an image that could not be downloaded still reaches the flow, with the reason", async () => {
+    media.download.mockResolvedValueOnce({ failure: "unreadable" });
     const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto");
 
-    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaDataUri: undefined });
+    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaFailure: "unreadable" });
+  });
+
+  it("an image over the size limit reaches the flow flagged as too large", async () => {
+    media.download.mockResolvedValueOnce({ failure: "too_large" });
+    const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto");
+
+    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaFailure: "too_large" });
   });
 
   it("a document (a PDF) becomes a document event: it is never downloaded and its file name is not read", async () => {

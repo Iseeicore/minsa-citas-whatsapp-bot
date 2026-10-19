@@ -132,8 +132,9 @@ export async function toInboundEvent(waId: string, message: WhatsAppMessage, ses
 
   if (sessionState === SessionState.INCIDENCIA_AWAITING_FOTO) {
     if (message.type === "image" && message.image?.id) {
-      const mediaDataUri = await downloadWhatsAppMediaAsDataUri(message.image.id);
-      return { from: waId, type: "image", text: message.image.caption, mediaDataUri: mediaDataUri ?? undefined };
+      const download = await downloadWhatsAppMediaAsDataUri(message.image.id);
+      const media = "dataUri" in download ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };
+      return { from: waId, type: "image", text: message.image.caption, ...media };
     }
     if (message.type === "document" && message.document?.id) return { from: waId, type: "document" };
   }
