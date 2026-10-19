@@ -68,8 +68,11 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     expect(sticker).toEqual([]);
     await expect(p.state()).resolves.toBe("incidencia_awaiting_foto");
 
-    const confirming = await p.file("document");
-    expect(confirming[0].text).toBe("Ok, se registró tu evidencia.");
+    const rejected = await p.file("document");
+    expect(rejected[0].text).toContain("ese documento no se guardó");
+    await expect(p.state()).resolves.toBe("incidencia_awaiting_foto");
+
+    await p.tap("incidencia_foto_omitir");
     await expect(p.state()).resolves.toBe("incidencia_confirm_registro");
 
     const done = await p.tap("incidencia_confirmar_registro_si");
