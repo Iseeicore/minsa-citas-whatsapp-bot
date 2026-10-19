@@ -37,7 +37,12 @@ const NO_AUTORIZO = /^no autorizo$/;
 
 /** Además de Sí y No, entiende «autorizo» y «no autorizo» escritos, que es lo que la persona responde a la pregunta. */
 function readConsent(event: InboundEvent): Confirmation | undefined {
-  const phrase = (event.text ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const phrase = (event.text ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
   if (AUTORIZO.test(phrase)) return Confirmation.YES;
   if (NO_AUTORIZO.test(phrase)) return Confirmation.NO;
   return readConfirmation(event, IncidenciaButtonId.CONSENT_SI, IncidenciaButtonId.CONSENT_NO);
