@@ -1,5 +1,6 @@
 import { SlotKey } from "@/lib/enums/slot-key";
 import type { Slots } from "@/lib/fsm/core/types";
+import { isString } from "@/lib/utils/type-guards";
 
 /** Las imágenes de la incidencia viven en la sesión como un arreglo JSON de data URI hasta que se registra. */
 export function readImagenes(slots: Slots): string[] {
@@ -8,7 +9,7 @@ export function readImagenes(slots: Slots): string[] {
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    return Array.isArray(parsed) ? parsed.filter(isString) : [];
   } catch {
     return [];
   }
