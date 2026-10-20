@@ -16,6 +16,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   },
 }));
 vi.mock("@/lib/recepcion/servicio", () => ({ registrarIncidencia: store.registrar }));
+vi.mock("@/lib/recepcion/imagenes/almacen", () => ({ crearAlmacenEvidencias: () => ({ guardar: vi.fn() }) }));
 vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
   sendTypingIndicator: vi.fn(async (id: string) => {
     store.log.push(`read:${id}`);
