@@ -19,7 +19,8 @@ afterEach(() => {
 const ROW_CITA = { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" };
 const ROW_INCIDENCIA = { id: MenuChoice.REGISTRAR_INCIDENCIA, title: "Registrar una incidencia" };
 const ROW_CONSULTA = { id: MenuChoice.CONSULTAR_INCIDENCIA, title: "Consultar una incidencia" };
-const ROW_REFERENCIA = { id: MenuChoice.CONSULTAR_REFERENCIA, title: "Consultar referencia" };
+const ROW_REFERENCIA = { id: MenuChoice.CONSULTAR_REFERENCIA, title: "Consultar Referencias" };
+const CHANNELS = [SessionChannel.WHATSAPP, SessionChannel.WEB];
 
 describe("the services", () => {
   it("are all BotServices with their own menu row", () => {
@@ -41,10 +42,9 @@ describe("the services", () => {
     }
   });
 
-  it("the referencia shows its row only in the web channel, the others in both", () => {
-    expect(new ReferenciaService().menuChannels).toEqual([SessionChannel.WEB]);
-    for (const service of [new CitaService(), new IncidenciaService(), new ConsultaService()]) {
-      expect(service.menuChannels).toEqual([SessionChannel.WHATSAPP, SessionChannel.WEB]);
+  it("every service shows its row in both channels, the referencia included", () => {
+    for (const service of [new CitaService(), new ReferenciaService(), new IncidenciaService(), new ConsultaService()]) {
+      expect(service.menuChannels).toEqual(CHANNELS);
     }
   });
 
@@ -76,40 +76,26 @@ describe("the services", () => {
     expect(new ConsultaService().matchesState(SessionState.MAIN_MENU)).toBe(false);
   });
 
-  it("the disabled reply says that only the citas remain, and the referencias in the web channel", () => {
+  it("the disabled reply says that only the citas and the referencias remain, the same in both channels", () => {
     for (const service of [new IncidenciaService(), new ConsultaService()]) {
-      expect(service.disabledReply(SessionChannel.WHATSAPP)).toBe(SERVICE_DISABLED_TEXT);
+      expect(service.disabledReply()).toBe(SERVICE_DISABLED_TEXT);
     }
-    expect(SERVICE_DISABLED_TEXT).toBe("Por ahora solo puedo ayudarte a agendar una cita médica.");
+    expect(SERVICE_DISABLED_TEXT).toBe("Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.");
   });
 });
 
 describe("the ServiceCatalog", () => {
-  it("lists the four rows in the web channel, in the usual order, when the incidencias are on", () => {
+  it.each(CHANNELS)("lists the four rows in the %s channel, in the usual order, when the incidencias are on", (channel) => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
 
-    expect(serviceCatalog.menuRows(SessionChannel.WEB)).toEqual([ROW_CITA, ROW_REFERENCIA, ROW_INCIDENCIA, ROW_CONSULTA]);
+    expect(serviceCatalog.menuRows(channel)).toEqual([ROW_CITA, ROW_REFERENCIA, ROW_INCIDENCIA, ROW_CONSULTA]);
   });
 
-  it("does not list the referencia in the whatsapp channel", () => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", "true");
-
-    expect(serviceCatalog.menuRows(SessionChannel.WHATSAPP)).toEqual([ROW_CITA, ROW_INCIDENCIA, ROW_CONSULTA]);
-  });
-
-  it("lists the cita and the referencia in the web channel when the incidencias are off or undefined", () => {
+  it.each(CHANNELS)("lists the cita and the referencia in the %s channel when the incidencias are off or undefined", (channel) => {
     for (const value of ["false", undefined]) {
       vi.stubEnv("INCIDENCIAS_ENABLED", value);
 
-      expect(serviceCatalog.menuRows(SessionChannel.WEB)).toEqual([ROW_CITA, ROW_REFERENCIA]);
-    }
-  });
-
-  it("lists only the cita in the whatsapp channel when the incidencias are off or undefined", () => {
-    for (const value of ["false", undefined]) {
-      vi.stubEnv("INCIDENCIAS_ENABLED", value);
-
-      expect(serviceCatalog.menuRows(SessionChannel.WHATSAPP)).toEqual([ROW_CITA]);
+      expect(serviceCatalog.menuRows(channel)).toEqual([ROW_CITA, ROW_REFERENCIA]);
     }
   });
 
@@ -154,47 +140,31 @@ describe("the ServiceCatalog", () => {
     }
   });
 
-  it("maps the typed number to the rows VISIBLE in the web channel, so the numbering has no gaps", () => {
+  it.each(CHANNELS)("maps the typed number to the rows visible in the %s channel, so the numbering has no gaps", (channel) => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
-    expect(serviceCatalog.byMenuNumber("1", SessionChannel.WEB)?.id).toBe(MenuChoice.AGENDAR_CITA);
-    expect(serviceCatalog.byMenuNumber(" 2 ", SessionChannel.WEB)?.id).toBe(MenuChoice.CONSULTAR_REFERENCIA);
-    expect(serviceCatalog.byMenuNumber("3", SessionChannel.WEB)?.id).toBe(MenuChoice.REGISTRAR_INCIDENCIA);
-    expect(serviceCatalog.byMenuNumber("4", SessionChannel.WEB)?.id).toBe(MenuChoice.CONSULTAR_INCIDENCIA);
-    expect(serviceCatalog.byMenuNumber("5", SessionChannel.WEB)).toBeUndefined();
+    expect(serviceCatalog.byMenuNumber("1", channel)?.id).toBe(MenuChoice.AGENDAR_CITA);
+    expect(serviceCatalog.byMenuNumber(" 2 ", channel)?.id).toBe(MenuChoice.CONSULTAR_REFERENCIA);
+    expect(serviceCatalog.byMenuNumber("3", channel)?.id).toBe(MenuChoice.REGISTRAR_INCIDENCIA);
+    expect(serviceCatalog.byMenuNumber("4", channel)?.id).toBe(MenuChoice.CONSULTAR_INCIDENCIA);
+    expect(serviceCatalog.byMenuNumber("5", channel)).toBeUndefined();
 
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
-    expect(serviceCatalog.byMenuNumber("1", SessionChannel.WEB)?.id).toBe(MenuChoice.AGENDAR_CITA);
-    expect(serviceCatalog.byMenuNumber("2", SessionChannel.WEB)?.id).toBe(MenuChoice.CONSULTAR_REFERENCIA);
-    expect(serviceCatalog.byMenuNumber("3", SessionChannel.WEB)).toBeUndefined();
-    expect(serviceCatalog.byMenuNumber("hola", SessionChannel.WEB)).toBeUndefined();
+    expect(serviceCatalog.byMenuNumber("1", channel)?.id).toBe(MenuChoice.AGENDAR_CITA);
+    expect(serviceCatalog.byMenuNumber("2", channel)?.id).toBe(MenuChoice.CONSULTAR_REFERENCIA);
+    expect(serviceCatalog.byMenuNumber("3", channel)).toBeUndefined();
+    expect(serviceCatalog.byMenuNumber("hola", channel)).toBeUndefined();
   });
 
-  it("keeps the whatsapp numbering as it was: the referencia has no row there, so no digit points at it", () => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", "true");
-    expect(serviceCatalog.byMenuNumber("1", SessionChannel.WHATSAPP)?.id).toBe(MenuChoice.AGENDAR_CITA);
-    expect(serviceCatalog.byMenuNumber("2", SessionChannel.WHATSAPP)?.id).toBe(MenuChoice.REGISTRAR_INCIDENCIA);
-    expect(serviceCatalog.byMenuNumber("3", SessionChannel.WHATSAPP)?.id).toBe(MenuChoice.CONSULTAR_INCIDENCIA);
-    expect(serviceCatalog.byMenuNumber("4", SessionChannel.WHATSAPP)).toBeUndefined();
-
+  it.each(CHANNELS)("names the disabled service a typed number points at in the %s channel", (channel) => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
-    expect(serviceCatalog.byMenuNumber("1", SessionChannel.WHATSAPP)?.id).toBe(MenuChoice.AGENDAR_CITA);
-    expect(serviceCatalog.byMenuNumber("2", SessionChannel.WHATSAPP)).toBeUndefined();
-  });
-
-  it("names the disabled service a typed number points at, per channel", () => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", "false");
-    expect(serviceCatalog.disabledByMenuNumber("3", SessionChannel.WEB)?.id).toBe(MenuChoice.REGISTRAR_INCIDENCIA);
-    expect(serviceCatalog.disabledByMenuNumber("4", SessionChannel.WEB)?.id).toBe(MenuChoice.CONSULTAR_INCIDENCIA);
-    expect(serviceCatalog.disabledByMenuNumber("2", SessionChannel.WEB)).toBeUndefined();
-    expect(serviceCatalog.disabledByMenuNumber("5", SessionChannel.WEB)).toBeUndefined();
-
-    expect(serviceCatalog.disabledByMenuNumber("2", SessionChannel.WHATSAPP)?.id).toBe(MenuChoice.REGISTRAR_INCIDENCIA);
-    expect(serviceCatalog.disabledByMenuNumber("3", SessionChannel.WHATSAPP)?.id).toBe(MenuChoice.CONSULTAR_INCIDENCIA);
-    expect(serviceCatalog.disabledByMenuNumber("4", SessionChannel.WHATSAPP)).toBeUndefined();
-    expect(serviceCatalog.disabledByMenuNumber("1", SessionChannel.WHATSAPP)).toBeUndefined();
+    expect(serviceCatalog.disabledByMenuNumber("3", channel)?.id).toBe(MenuChoice.REGISTRAR_INCIDENCIA);
+    expect(serviceCatalog.disabledByMenuNumber("4", channel)?.id).toBe(MenuChoice.CONSULTAR_INCIDENCIA);
+    expect(serviceCatalog.disabledByMenuNumber("1", channel)).toBeUndefined();
+    expect(serviceCatalog.disabledByMenuNumber("2", channel)).toBeUndefined();
+    expect(serviceCatalog.disabledByMenuNumber("5", channel)).toBeUndefined();
 
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
-    expect(serviceCatalog.disabledByMenuNumber("3", SessionChannel.WEB)).toBeUndefined();
+    expect(serviceCatalog.disabledByMenuNumber("3", channel)).toBeUndefined();
   });
 
   it("finds the owner of the referencia states and no owner for its queries", () => {

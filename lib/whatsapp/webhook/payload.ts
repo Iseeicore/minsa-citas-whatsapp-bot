@@ -26,6 +26,7 @@ export type WhatsAppMessage = {
     button_reply?: { id: string; title?: string };
     list_reply?: { id: string; title?: string };
   };
+  context?: { id?: string; from?: string };
 };
 
 type WhatsAppStatus = {
@@ -116,17 +117,24 @@ export function extractContentAndMedia(message: WhatsAppMessage): {
   }
 }
 
+export function tapReplyTo(message: WhatsAppMessage): string | undefined {
+  const tapped = message.type === "interactive" && (message.interactive?.button_reply || message.interactive?.list_reply);
+  return tapped ? message.context?.id || undefined : undefined;
+}
+
 export async function toInboundEvent(waId: string, message: WhatsAppMessage, sessionState: string): Promise<InboundEvent | null> {
   if (message.type === "text") {
     return { from: waId, type: "text", text: message.text?.body };
   }
 
   if (message.type === "interactive") {
+    const replyTo = tapReplyTo(message);
+    const context = replyTo ? { replyTo } : {};
     if (message.interactive?.button_reply) {
-      return { from: waId, type: "button", listId: message.interactive.button_reply.id };
+      return { from: waId, type: "button", listId: message.interactive.button_reply.id, ...context };
     }
     if (message.interactive?.list_reply) {
-      return { from: waId, type: "list", listId: message.interactive.list_reply.id };
+      return { from: waId, type: "list", listId: message.interactive.list_reply.id, ...context };
     }
   }
 

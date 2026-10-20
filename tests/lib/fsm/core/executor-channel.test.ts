@@ -45,7 +45,7 @@ describe("the executor hands the channel of the turn to the answer of a query", 
     expect(await menuRowIds(Channel.WEB)).toContain(MenuChoice.CONSULTAR_REFERENCIA);
   });
 
-  it("the whatsapp menu shown after the AI answered does not have it", async () => {
-    expect(await menuRowIds(Channel.WHATSAPP)).not.toContain(MenuChoice.CONSULTAR_REFERENCIA);
+  it("the whatsapp menu shown after the AI answered has it too", async () => {
+    expect(await menuRowIds(Channel.WHATSAPP)).toContain(MenuChoice.CONSULTAR_REFERENCIA);
   });
 });

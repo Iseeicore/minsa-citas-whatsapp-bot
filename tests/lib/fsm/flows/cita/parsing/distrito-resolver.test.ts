@@ -3,6 +3,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { looksLikePlaceName, resolveDistritoCandidates, resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 
 beforeEach(() => {
   vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
@@ -126,5 +127,39 @@ describe("resolveDistritoCandidates: what to do with N candidates (shared by the
 
   it("an empty candidate list also redirects to the national booking site", () => {
     expect(resolveDistritoCandidates(session(), []).session.state).toBe("cita_national_redirect");
+  });
+
+  it("the same candidate repeated by the AI counts once and resolves directly", () => {
+    const result = resolveDistritoCandidates(session(), [
+      candidate("LIMA", "LIMA", "MIRAFLORES"),
+      candidate("Lima", "Lima", "Miraflores"),
+      candidate("LIMA", "LIMA", "MIRAFLORES"),
+    ]);
+
+    expect(result.session.state).toBe("cita_ubigeo_pending");
+    expect(queries(result)).toEqual([
+      { kind: "search_ubigeo", payload: { departamento: "LIMA", provincia: "LIMA", distrito: "MIRAFLORES" } },
+    ]);
+  });
+
+  it("repeated candidates never put two rows with the same id in the list", () => {
+    const result = resolveDistritoCandidates(session(), [
+      candidate("LIMA", "LIMA", "SAN JUAN DE MIRAFLORES"),
+      candidate("LIMA", "HUAROCHIRI", "SAN JUAN DE IRIS"),
+      candidate("LIMA", "LIMA", "SAN JUAN DE MIRAFLORES"),
+    ]);
+
+    expect(sent(result).flatMap(findLimitViolations)).toEqual([]);
+    expect((sent(result)[0] as { rows: Array<{ id: string }> }).rows).toHaveLength(2);
+  });
+
+  it("a candidate whose row id would pass Meta's 200 characters is left out", () => {
+    const result = resolveDistritoCandidates(session(), [
+      candidate("LIMA", "LIMA", "MIRAFLORES"),
+      candidate("LIMA", "P".repeat(150), "D".repeat(60)),
+    ]);
+
+    expect(result.session.state).toBe("cita_ubigeo_pending");
+    expect(result.session.slots[SlotKey.CITA_DISTRITO]).toBe("MIRAFLORES");
   });
 });

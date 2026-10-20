@@ -15,6 +15,7 @@ import {
   mapMessageType,
   mapStatus,
   extractContentAndMedia,
+  tapReplyTo,
 } from "@/lib/whatsapp/webhook/payload";
 import { answerMessage, sendFixedReply, answerFailure } from "@/lib/whatsapp/webhook/answer";
 import { sendTypingIndicator } from "@/lib/whatsapp/whatsapp-send";
@@ -139,7 +140,7 @@ export async function processValue(value: WhatsAppValue) {
     }
     marks.mark("perimeter");
 
-    void sendTypingIndicator(message.id);
+    if (!tapReplyTo(message)) void sendTypingIndicator(message.id);
 
     try {
       const respond = await stageInboundMessage(message, contactsByWaId.get(message.from_user_id), marks);

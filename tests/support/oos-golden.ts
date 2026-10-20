@@ -3,8 +3,6 @@ export const GOLDEN_OOS_MESSAGES: Record<string, string> = {
     "⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS\n\nSi usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato (llamadas gratuitas):\n\n- SAMU: 106 (ambulancias y emergencias médicas)\n- Bomberos: 116 (rescate y urgencias)\n\nAcuda ahora mismo al establecimiento de salud más cercano.",
   "OOS-02":
     "Consulta sobre SIS (Seguro Integral de Salud):\n\nPor este canal no gestionamos afiliaciones ni validaciones de seguro.\n\nPuede verificar si su SIS está activo ingresando a: app.sis.gob.pe/ConsultaWeb o desde la app móvil Asegúrate e Infórmate.\n\nConsultas directas al SIS por WhatsApp: 941 988 565 o llamando gratis a la Línea 113 (Opción 4).\n\nSi ya cuenta con seguro activo y desea agendar una cita médica, escriba CITAS.",
-  "OOS-03":
-    "Gestión de Referencias Médicas:\n\nLas citas para especialidades en hospitales e institutos requieren que su centro de origen haya emitido y tramitado la Hoja de Referencia (REFCON).\n\nDebe consultar el estado de su referencia directamente en la oficina de Admisión/Referencias de su posta o centro de salud de origen.\n\nSi su referencia ya está registrada en MINSA Digital, escriba REFERENCIA para consultarla.\n\nSi desea solicitar una cita en su establecimiento asignado de primer nivel, escriba CITAS.",
   "OOS-04":
     "Entrega de Resultados Médicos:\n\nPor motivos de confidencialidad y reserva de la historia clínica (Ley N° 26842), los resultados de análisis, ecografías o placas se entregan únicamente de forma presencial en el área de Laboratorio o Diagnóstico por Imágenes del centro donde se atendió.\n\nSi requiere una cita médica para lectura de resultados con su médico, escriba CITAS.",
   "OOS-05":

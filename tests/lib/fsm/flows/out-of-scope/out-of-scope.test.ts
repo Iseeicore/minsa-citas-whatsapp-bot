@@ -192,10 +192,9 @@ describe("the words the messages ask the citizen to type", () => {
 });
 
 describe("the messages (spreadsheet texts) and their derivation channels", () => {
-  const CHANNELS: Array<[OosCategory, string[]]> = [
+  const CHANNELS: Array<[keyof typeof OOS_MESSAGES, string[]]> = [
     [OosCategory.OOS_01, ["SAMU: 106", "Bomberos: 116"]],
     [OosCategory.OOS_02, ["app.sis.gob.pe/ConsultaWeb", "941 988 565", "Línea 113"]],
-    [OosCategory.OOS_03, ["REFCON", "Hoja de Referencia", "Admisión/Referencias"]],
     [OosCategory.OOS_04, ["Ley N° 26842", "de forma presencial"]],
     [OosCategory.OOS_05, ["observatorio.digemid.minsa.gob.pe", "INCIDENCIA"]],
     [OosCategory.OOS_06, ["carnetvacunacion.minsa.gob.pe", "Línea 113 (Opción 1)"]],
@@ -204,8 +203,12 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
     [OosCategory.OOS_09, ["Personal/Admisión", "ULE", "SISFOH"]],
   ];
 
-  it("there is one message per category", () => {
-    expect(Object.keys(OOS_MESSAGES).sort()).toEqual(EXAMPLES.map(([category]) => category).sort());
+  it("there is one message per category, except the referencias, which are answered with a choice of buttons", () => {
+    expect(Object.keys(OOS_MESSAGES).sort()).toEqual(
+      EXAMPLES.map(([category]) => category)
+        .filter((category) => category !== OosCategory.OOS_03)
+        .sort(),
+    );
   });
 
   it.each(CHANNELS)("%s names its channel", (category, tokens) => {
@@ -214,13 +217,11 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
 
   it("each one tells the citizen how to go on, with a word the bot understands", () => {
     expect(OOS_MESSAGES["OOS-01"]).not.toMatch(/CONTINUAR|CITAS|RECLAMO/);
-    for (const category of [OosCategory.OOS_02, "OOS-03", "OOS-04", "OOS-07", "OOS-09"] as const)
-      expect(OOS_MESSAGES[category]).toContain("CITAS");
+    for (const category of [OosCategory.OOS_02, "OOS-04", "OOS-07", "OOS-09"] as const) expect(OOS_MESSAGES[category]).toContain("CITAS");
     for (const category of [OosCategory.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("INCIDENCIA");
   });
 
-  it("the referencias answer points to the word that enters the Consultar referencia service", () => {
-    expect(OOS_MESSAGES[OosCategory.OOS_03]).toContain("escriba REFERENCIA ");
+  it("the bare word REFERENCIA is still detected as OOS-03, but enters the Consultar referencia service first", () => {
     expect(isReferenciaKeyword("REFERENCIA")).toBe(true);
     expect(detectOutOfScope("REFERENCIA")).toBe(OosCategory.OOS_03);
   });

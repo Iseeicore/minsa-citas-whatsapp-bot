@@ -9,7 +9,7 @@ const channelValues = Object.values(CHANNELS);
 const allTexts = Object.values(OOS_MESSAGES);
 
 describe("the fixed texts are exactly the ones approved", () => {
-  it("the nine messages are exactly what was approved (change one on purpose: update tests/support/oos-golden.ts too)", () => {
+  it("the eight messages are exactly what was approved (change one on purpose: update tests/support/oos-golden.ts too)", () => {
     expect(OOS_MESSAGES).toEqual(GOLDEN_OOS_MESSAGES);
   });
 });

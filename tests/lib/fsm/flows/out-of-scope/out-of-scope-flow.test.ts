@@ -16,10 +16,9 @@ const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((eff
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const oosNote = (result: HandlerResult) => result.notes?.find((note) => note.kind === "out_of_scope");
 
-const SAMPLE: Array<[OosCategory, string]> = [
+const SAMPLE: Array<[keyof typeof OOS_MESSAGES, string]> = [
   [OosCategory.OOS_01, "Mi mamá no puede respirar"],
   [OosCategory.OOS_02, "¿Mi SIS está activo?"],
-  [OosCategory.OOS_03, "¿Ya aceptaron mi referencia?"],
   [OosCategory.OOS_04, "¿Ya salieron mis análisis de sangre?"],
   [OosCategory.OOS_05, "¿Tienen Paracetamol o Insulina en la posta?"],
   [OosCategory.OOS_06, "¿Qué días vacunan contra la influenza?"],

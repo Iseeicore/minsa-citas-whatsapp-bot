@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatHoraRange, rowToSlot, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
+import { formatHoraRange, orderHorasFromNow, rowToSlot, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
 
 describe("formatHoraRange: 12-hour clock, AM/PM written once", () => {
   it.each([
@@ -17,6 +17,23 @@ describe("formatHoraRange: 12-hour clock, AM/PM written once", () => {
     ["23:45", "00:15", "11:45 PM - 12:15 AM"],
   ])("%s-%s crossing noon or midnight → %s", (start, end, expected) => {
     expect(formatHoraRange(start, end)).toBe(expected);
+  });
+});
+
+describe("orderHorasFromNow: identical MINSA slots collapse into one", () => {
+  it("keeps the first occurrence of a repeated start and end, without adding cupos", () => {
+    const ordered = orderHorasFromNow("31/12/2099", [
+      { horaInicio: "09:00", horaFin: "09:30", cantidadCupos: 1 },
+      { horaInicio: "08:00", horaFin: "08:30", cantidadCupos: 3 },
+      { horaInicio: "08:00", horaFin: "08:30", cantidadCupos: 5 },
+      { horaInicio: "08:00", horaFin: "08:45", cantidadCupos: 2 },
+    ]);
+
+    expect(ordered).toEqual([
+      { horaInicio: "08:00", horaFin: "08:30", cantidadCupos: 3 },
+      { horaInicio: "08:00", horaFin: "08:45", cantidadCupos: 2 },
+      { horaInicio: "09:00", horaFin: "09:30", cantidadCupos: 1 },
+    ]);
   });
 });
 

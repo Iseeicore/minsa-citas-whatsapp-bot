@@ -23,7 +23,7 @@ vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 import { POST } from "@/app/api/sandbox/route";
 import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
-import { FIRST_MESSAGE_REJECTION_WEB_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 
 async function send(body: Record<string, unknown>) {
   const request = new NextRequest("http://localhost/api/sandbox", {
@@ -43,10 +43,10 @@ beforeEach(() => {
 
 describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
   it.each([
-    ["longer than 300 characters", "a".repeat(301), FIRST_MESSAGE_REJECTION_WEB_TEXT],
-    ["with a link", "http://spam.example.org", FIRST_MESSAGE_REJECTION_WEB_TEXT],
-    ["with wa.me", "wa.me/51999999999", FIRST_MESSAGE_REJECTION_WEB_TEXT],
-    ["with a .com domain", "ofertas.com", FIRST_MESSAGE_REJECTION_WEB_TEXT],
+    ["longer than 300 characters", "a".repeat(301), FIRST_MESSAGE_REJECTION_TEXT],
+    ["with a link", "http://spam.example.org", FIRST_MESSAGE_REJECTION_TEXT],
+    ["with wa.me", "wa.me/51999999999", FIRST_MESSAGE_REJECTION_TEXT],
+    ["with a .com domain", "ofertas.com", FIRST_MESSAGE_REJECTION_TEXT],
   ])("a first message %s gets the fixed rejection and never reaches the FSM", async (_name, text, reply) => {
     const { status, json } = await send({ type: "text", text });
 
@@ -111,7 +111,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     const { json } = await send({ type: "text", text: "a".repeat(400), reset: true });
 
     expect(mocks.resetSession).toHaveBeenCalledTimes(1);
-    expect(json.sent[0].text).toBe(FIRST_MESSAGE_REJECTION_WEB_TEXT);
+    expect(json.sent[0].text).toBe(FIRST_MESSAGE_REJECTION_TEXT);
   });
 
   it("after a reset it does not ask the database whether the session exists: it was just deleted", async () => {

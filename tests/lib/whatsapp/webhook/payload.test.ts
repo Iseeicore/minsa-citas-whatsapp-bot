@@ -81,4 +81,25 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
       ),
     ).resolves.toEqual({ from: WA, type: "button", listId: "incidencia_anonimo" });
   });
+
+  it("a tap carries the id of the message its button or list row belonged to", async () => {
+    const context = { from: "15550000000", id: "wamid.resumen" };
+
+    await expect(
+      toInboundEvent(WA, message({ type: "interactive", interactive: { button_reply: { id: "si" } }, context }), "main_menu"),
+    ).resolves.toEqual({ from: WA, type: "button", listId: "si", replyTo: "wamid.resumen" });
+    await expect(
+      toInboundEvent(WA, message({ type: "interactive", interactive: { list_reply: { id: "3" } }, context }), "main_menu"),
+    ).resolves.toEqual({ from: WA, type: "list", listId: "3", replyTo: "wamid.resumen" });
+  });
+
+  it("a quoted text reply is still plain text: its context is not a tap", async () => {
+    const event = await toInboundEvent(
+      WA,
+      message({ type: "text", text: { body: "si" }, context: { from: "15550000000", id: "wamid.resumen" } }),
+      "main_menu",
+    );
+
+    expect(event).toEqual({ from: WA, type: "text", text: "si" });
+  });
 });

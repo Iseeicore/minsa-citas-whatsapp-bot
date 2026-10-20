@@ -16,7 +16,13 @@ import {
   searchingDistritoText,
   UNRECOGNIZED_DISTRITO_TEXT,
 } from "@/lib/constants/textos/cita-ubicacion";
-import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
+import {
+  WHATSAPP_ROW_TITLE_MAX,
+  WHATSAPP_ROW_DESCRIPTION_MAX,
+  WHATSAPP_LIST_MAX_ROWS,
+  WHATSAPP_ROW_ID_MAX,
+} from "@/lib/constants/limits/whatsapp";
+import { uniqueBy } from "@/lib/utils/array-values";
 
 export function looksLikePlaceName(text: string): boolean {
   return PLAUSIBLE_PLACE_NAME.test(text);
@@ -37,6 +43,16 @@ export function enterManualDistritoFlow(session: Session, text: string): Handler
 
 function filterToPilotScope(candidates: DistritoAiCandidateResult[]): DistritoAiCandidateResult[] {
   return candidates.filter((candidate) => isAllowedDepartamento(candidate.departamento));
+}
+
+const candidateRowId = (candidate: DistritoAiCandidateResult): string =>
+  `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`;
+
+function offerableCandidates(candidates: DistritoAiCandidateResult[]): DistritoAiCandidateResult[] {
+  return uniqueBy(
+    candidates.filter((candidate) => candidateRowId(candidate).length <= WHATSAPP_ROW_ID_MAX),
+    (candidate) => normalizeText(candidateRowId(candidate)),
+  );
 }
 
 function trailingWordGroupAttempts(text: string): Array<() => DistritoAiCandidateResult[]> {
@@ -71,7 +87,7 @@ function resolveLocalDistritoCandidates(distritoText: string, contextText: strin
 }
 
 export function resolveDistritoCandidates(session: Session, rawCandidates: DistritoAiCandidateResult[]): HandlerResult {
-  const candidates = filterToPilotScope(rawCandidates);
+  const candidates = offerableCandidates(filterToPilotScope(rawCandidates));
   const next = cloneSession(session);
 
   if (candidates.length === 1) {
@@ -98,7 +114,7 @@ export function resolveDistritoCandidates(session: Session, rawCandidates: Distr
   if (candidates.length > 1) {
     next.state = SessionState.CITA_AWAITING_DISTRITO_DISAMBIGUATION;
     const rows: ListRow[] = candidates.map((candidate) => ({
-      id: `${candidate.departamento}|${candidate.provincia}|${candidate.distrito}`,
+      id: candidateRowId(candidate),
       title: truncateForRow(candidate.distrito, WHATSAPP_ROW_TITLE_MAX),
       description: truncateForRow(`${candidate.provincia} — ${candidate.departamento}`, WHATSAPP_ROW_DESCRIPTION_MAX),
     }));

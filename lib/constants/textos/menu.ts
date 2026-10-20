@@ -22,9 +22,8 @@ export const MENU_PROMPT_TEXT = "¿En qué podemos ayudarte hoy?";
 export const MENU_ROW_CITA_TITLE = "Agendar una cita médica";
 export const MENU_ROW_REGISTRAR_INCIDENCIA_TITLE = "Registrar una incidencia";
 export const MENU_ROW_CONSULTAR_INCIDENCIA_TITLE = "Consultar una incidencia";
-export const MENU_ROW_CONSULTAR_REFERENCIA_TITLE = "Consultar referencia";
-export const SERVICE_DISABLED_TEXT = "Por ahora solo puedo ayudarte a agendar una cita médica.";
-export const SERVICE_DISABLED_WEB_TEXT = "Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.";
+export const MENU_ROW_CONSULTAR_REFERENCIA_TITLE = "Consultar Referencias";
+export const SERVICE_DISABLED_TEXT = "Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.";
 
 export const FIRST_CONTACT_LEAD_TEXT = "¡Hola!";
 
@@ -33,8 +32,8 @@ export const firstContactCitaRequestText = (what: string, where: string): string
 
 export const FIRST_CONTACT_CITA_TEXT = "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:";
 export const REVIEWING_MESSAGE_TEXT = "Un momento, estamos revisando tu mensaje…";
-export const OUT_OF_SCOPE_REQUEST_TEXT = "Solo puedo ayudarte a agendar una cita médica o a registrar una incidencia. Elige una opción:";
-export const OUT_OF_SCOPE_REQUEST_ONLY_CITA_TEXT = "Solo puedo ayudarte a agendar una cita médica. Elige una opción:";
+export const OUT_OF_SCOPE_REQUEST_TEXT =
+  "Solo puedo ayudarte a agendar una cita médica, a consultar una referencia o a registrar una incidencia. Elige una opción:";
 export const OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT =
   "Solo puedo ayudarte a agendar una cita médica o a consultar una referencia. Elige una opción:";
 export const SANDBOX_PAGE_TITLE_TEXT = "MINSA Digital";

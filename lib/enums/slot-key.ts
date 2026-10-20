@@ -59,4 +59,6 @@ export enum SlotKey {
   CONSULTA_TWOFA_ID = "consultaTwofaId",
   CONSULTA_LISTANDO = "consultaListando",
   CONSULTA_LISTADO_DATA = "consultaListadoData",
+  INTERACTIVE_MESSAGE_ID = "interactiveMessageId",
+  INTERACTIVE_MESSAGE_CONSUMED = "interactiveMessageConsumed",
 }

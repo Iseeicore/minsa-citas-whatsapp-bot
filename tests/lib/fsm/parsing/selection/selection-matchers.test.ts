@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   leftoverHint,
   matchAllTokens,
+  matchExactOption,
   matchSelection,
   readOffered,
   serializeOffered,
@@ -134,5 +135,27 @@ describe("offered options slot", () => {
     expect(readOffered({})).toBeUndefined();
     expect(readOffered({ [SlotKey.CITA_OFFERED]: "not json" })).toBeUndefined();
     expect(readOffered({ [SlotKey.CITA_OFFERED]: JSON.stringify({ text: 1 }) })).toBeUndefined();
+  });
+});
+
+describe("matchExactOption", () => {
+  const options: OfferedRow[] = [
+    { id: "a", title: "Consultar referencia" },
+    { id: "b", title: "Agendar cita" },
+  ];
+  const chosen = (text: string) => matchExactOption(text, options)?.id;
+
+  it("reads the option number, in digits or in words", () => {
+    expect([chosen("1"), chosen("2"), chosen("uno"), chosen("dos"), chosen("3")]).toEqual(["a", "b", "a", "b", undefined]);
+  });
+
+  it("takes the exact title, ignoring case, accents and punctuation", () => {
+    expect([chosen("agendar CITA"), chosen("¡Consultar  referencia!"), chosen("Agendár cita.")]).toEqual(["b", "a", "b"]);
+  });
+
+  it("never takes a partial or fuzzy match", () => {
+    for (const text of ["agendar", "consultar", "no quiero cita", "consultar cita mañana", "quiero agendar una cita", ""]) {
+      expect(chosen(text), text).toBeUndefined();
+    }
   });
 });
