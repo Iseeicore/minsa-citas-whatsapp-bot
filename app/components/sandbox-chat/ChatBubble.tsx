@@ -1,5 +1,6 @@
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
+import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { PagerDirection } from "@/lib/enums/pager-direction";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
@@ -14,12 +15,14 @@ import { isPagerButtonSet, pagerDirection } from "@/lib/utils/list-rows";
 
 export function ChatBubble({
   entry,
+  disabled = false,
   onOptionClick,
 }: {
   entry: ChatEntry;
+  disabled?: boolean;
   onOptionClick: (kind: "list" | "buttons", id: string, title: string) => void;
 }) {
-  if (entry.from === "user") {
+  if (entry.from === ChatEntryAuthor.USER) {
     return (
       <div className="mb-3 flex justify-end">
         <div className="max-w-3/4 rounded-2xl rounded-tr-sm bg-sb-navy px-3.5 py-2 text-sm font-medium text-white shadow-sm">
@@ -39,7 +42,7 @@ export function ChatBubble({
         </div>
 
         {effect.kind === SendType.INTERACTIVE_LIST && (
-          <ChatListPicker rows={effect.rows} onSelect={(id, label) => onOptionClick("list", id, label)} />
+          <ChatListPicker rows={effect.rows} disabled={disabled} onSelect={(id, label) => onOptionClick("list", id, label)} />
         )}
 
         {effect.kind === SendType.CTA_URL && <CtaLink href={effect.url} label={effect.buttonText} />}
@@ -50,6 +53,7 @@ export function ChatBubble({
               <PagerBar
                 prev={effect.buttons.find((button) => pagerDirection(button.id) === PagerDirection.PREV)}
                 next={effect.buttons.find((button) => pagerDirection(button.id) === PagerDirection.NEXT)}
+                disabled={disabled}
                 onSelect={(id, title) => onOptionClick("buttons", id, title)}
               />
             </Card>
@@ -60,6 +64,7 @@ export function ChatBubble({
                   key={button.id}
                   variant={ButtonVariant.OPTION}
                   width={ButtonWidth.FULL}
+                  disabled={disabled}
                   onClick={() => onOptionClick("buttons", button.id, button.title)}
                 >
                   {button.title}
