@@ -24,11 +24,14 @@ Primer mensaje
 ├─ pide cita con especialidad o distrito ("cita de pediatría en SJL")
 │                               ► 💬 pide documento (guarda las pistas)
 ├─ urgencia ───────────────────► ⛔ corte de emergencia (106 / 116)
+├─ menciona la referencia sin pedirla ("¿Ya aceptaron mi referencia?", OOS-03)
+│                               ► 🔘 [Consultar referencia] (pide iniciar sesión) / [Agendar cita] (pide documento)
 ├─ fuera de alcance ───────────► 💬 mensaje del canal oficial
-└─ otro texto ─────────────────► 📋 menú (Agendar cita / Consultar referencia solo en el Chat-bot / incidencias con la bandera)
+└─ otro texto ─────────────────► 📋 menú (Agendar cita / Consultar Referencias / incidencias con la bandera)
 
 main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
                                                 ├─ cita ─────────► pide documento
+                                                ├─ referencia ───► Consultar Referencias (pide iniciar sesión)
                                                 ├─ fuera_de_alcance ─► 💬 texto fijo + 📋 menú
                                                 └─ no claro / IA caída ─► 📋 menú
 
@@ -56,6 +59,7 @@ Fecha 📋 🤖          (1 fecha ─► se elige sola)
       ├─ quedan varios ─► 💬 + 📋 establecimientos restantes
       └─ no queda ninguno ─► 🔘 ¿otro distrito cercano?
 Hora 📋              (1 horario ─► 🔘 "Solo hay un horario… ¿Lo confirmas?")
+   │                   (horarios idénticos del MINSA, mismo inicio y fin, cuentan como uno solo)
    ├─ toque en la lista ───────────► reserva directa
    └─ hora escrita ("8 y 45") ─────► 🔘 "¿Confirmas el horario…?" ─► reserva
 
@@ -72,7 +76,7 @@ Después del OTP la cita va directo al distrito: ya no ofrece revisar referencia
 | Paso | El bot envía | Texto libre que entiende | Varias coincidencias | IA |
 |---|---|---|---|---|
 | Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
-| Menú principal | 📋 filas de los servicios (cita; referencia solo en el Chat-bot; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
+| Menú principal | 📋 filas de los servicios (cita; referencia; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
 | Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |
 | Registro pendiente | 🔗 + 🔘 [Ya me registré] | nada (solo el botón) | — | no |
 | OTP | 💬 | 4 a 8 dígitos | — | no |
@@ -191,7 +195,7 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 
 | Qué respondió el MINSA | Respuesta | Sigue en |
 |---|---|---|
-| Ya tiene una cita activa (una por especialidad) | 🔘 *"Ya tienes una cita activa para {especialidad}. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?"* [Sí, otra especialidad] [No, salir] | Especialidad (sin la ya reservada; si no queda ninguna, ¿otro distrito?) |
+| Ya tiene una cita activa (una por especialidad) | 🔘 *"Ya tienes una cita activa para {especialidad}. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?"* [Otra especialidad] [No, salir] | Especialidad (sin la ya reservada; si no queda ninguna, ¿otro distrito?) |
 | Error técnico (HTTP) | *"Tuvimos un problema técnico al intentar reservar tu cita. Vamos a intentarlo de nuevo — estos son los horarios disponibles de la misma fecha:"* | Hora (misma fecha) |
 | Horario tomado ("cupo", "agotado", "ocupado"…) | *"No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:"* | Hora (misma fecha) |
 | 3.ª falla seguida | el mensaje del MINSA, o *"No pudimos agendar tu cita. Intenta de nuevo más tarde."* | ⛔ |
@@ -221,7 +225,7 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 
 ## Dónde interviene la IA
 Cuatro puntos, y en todos primero corre la lógica local; la IA solo entra cuando esa lógica no alcanza:
-1. **Menú:** texto libre sin coincidencia → intención (`cita`, `fuera_de_alcance`, `unclear`).
+1. **Menú:** texto libre sin coincidencia → intención (`cita`, `referencia`, `incidencia` con la bandera, `fuera_de_alcance`, `unclear`).
 2. **Distrito:** la búsqueda local no encontró nada.
 3. **Especialidad y establecimiento:** texto de 5 letras o más que no coincide con la lista.
 4. **Fecha:** frase temporal ("la próxima semana", "a fin de mes").

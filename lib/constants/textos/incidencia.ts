@@ -51,7 +51,7 @@ export const AVISO_PRIVACIDAD_TEXT =
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
 
 export const CONSENT_BUTTONS = [
-  { id: IncidenciaButtonId.CONSENT_SI, title: "Autorizo y deseo continuar" },
+  { id: IncidenciaButtonId.CONSENT_SI, title: "Sí, autorizo" },
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
 ];
 
@@ -79,8 +79,9 @@ export const BORRADOR_QUESTION_TEXT = "¿Usamos tu texto tal cual o quieres agre
 export const FOTO_REQUEST_TEXT =
   "¿Quieres enviar una imagen o un archivo como evidencia? Es opcional: envíalo ahora, o toca Omitir (o escribe OMITIR) para continuar sin él.";
 export const FOTO_BUTTONS = [{ id: IncidenciaButtonId.FOTO_OMITIR, title: "Omitir" }];
-export const EVIDENCIA_ACK_TEXT = "Ok, se registró tu evidencia.";
+export const FOTO_LISTO_BUTTONS = [{ id: IncidenciaButtonId.FOTO_LISTO, title: "Listo, continuar" }];
 export const OMITIR_KEYWORD = "OMITIR";
+export const LISTO_KEYWORD = "LISTO";
 export const RESUMEN_LISTO_TEXT = "La información está lista para ser registrada.";
 export const resumenEstablecimientoText = (establecimiento: string): string => `Establecimiento: ${establecimiento}`;
 export const resumenRelatoText = (descripcion: string): string => `Relato: «${descripcion}»`;
@@ -104,6 +105,18 @@ export const SEGUIMIENTO_IDENTIFICADO_TEXT = "Si el área responsable necesita i
 export const SEGUIMIENTO_ANONIMO_TEXT = "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.";
 export const DAILY_LIMIT_TEXT =
   "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
+export const IMAGEN_MUY_PESADA_TEXT = "No se pudo registrar tu incidencia porque una de las imágenes pesa más de 5 MB.";
+export const imagenRecibidaText = (cantidad: number, maximo: number): string =>
+  `Recibimos tu imagen (${cantidad} de ${maximo}). Si tienes otra como referencia, envíala; si no, toca Listo (o escribe LISTO) para continuar.`;
+export const imagenesCompletasText = (maximo: number): string => `Recibimos tu imagen ${maximo} de ${maximo}: es el máximo por incidencia.`;
+export const imagenNoGuardadaMuyPesadaText = (maximoMb: number): string => `Esa imagen pesa más de ${maximoMb} MB y no se guardó.`;
+export const IMAGEN_NO_DESCARGADA_TEXT = "No pudimos descargar esa imagen desde WhatsApp, por eso no se guardó.";
+export const IMAGEN_NO_VALIDA_TEXT = "Ese archivo no es una imagen válida (JPG o PNG), por eso no se guardó.";
+export const IMAGEN_REPETIDA_TEXT = "Esa imagen ya la habías enviado, no se guardó otra vez.";
+export const DOCUMENTO_NO_GUARDADO_TEXT = "Por ahora solo podemos guardar imágenes (JPG o PNG); ese documento no se guardó.";
+export const SEGUIR_CON_IMAGENES_TEXT = "Puedes enviar otra imagen o tocar Listo (o escribir LISTO) para continuar.";
+export const SEGUIR_SIN_IMAGENES_TEXT = "Puedes enviar otra imagen o tocar Omitir (o escribir OMITIR) para continuar sin ella.";
+export const resumenImagenesText = (cantidad: number): string => `Imágenes adjuntas: ${cantidad}`;
 export const REGISTRO_FALLIDO_TEXT = "No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.";
 export const INCIDENCIA_REAUTH_PROMPT_TEXT =
   "⏳ Tu incidencia quedó inactiva por un tiempo. ¿Deseas continuar donde la dejaste?\n\n[1] Sí, continuar\n[2] Cancelar";

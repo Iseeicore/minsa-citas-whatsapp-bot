@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { declararActor } from "@/lib/db/actor";
 import { runWithTrace } from "@/lib/observability/context";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
+import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 
 const RECIBIDO = 1;
 const VERIFICANDO = 2;
@@ -18,7 +19,9 @@ describe.skipIf(!process.env.DATABASE_URL)("upload requests and received files a
   async function nuevaSolicitud() {
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
-    await runWithTrace(traceId, {}, () => registrarIncidencia({ waId, descripcion: "Reclamo con archivos adjuntos" }));
+    await runWithTrace(traceId, {}, () =>
+      registrarIncidencia({ waId, descripcion: "Reclamo con archivos adjuntos" }, crearAlmacenEvidencias()),
+    );
     const incidencia = await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } });
     const [, solicitud] = await prisma.$transaction([
       declararActor(`ciudadano:${waId}`),

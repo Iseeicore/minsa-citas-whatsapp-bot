@@ -127,7 +127,7 @@ describe("first contact: the welcome names the emergency line", () => {
   });
 });
 
-describe("first contact: answering the [1] / [2] the rejection text offers", () => {
+describe("first contact: answering the [1] / [2] / [3] the rejection text offers", () => {
   it("«1» opens the Cita flow and asks for the DNI", () => {
     const result = handleFirstContact("1", "whatsapp");
 
@@ -137,15 +137,23 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
     expect(sent(result).some((effect) => effect.kind === "send_cta_url" || effect.kind === "send_interactive_list")).toBe(false);
   });
 
-  it("«2» opens the complaint flow", () => {
+  it("«2» opens the referencias, which ask to log in first", () => {
     const result = handleFirstContact(" 2 ", "whatsapp");
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
+    expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
+  });
+
+  it("«3» opens the complaint flow", () => {
+    const result = handleFirstContact(" 3 ", "whatsapp");
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
   });
 
   it("any other number is just text: it gets the menu", () => {
-    for (const message of ["4", "12", "10"]) {
+    for (const message of ["5", "12", "10"]) {
       expect(sent(handleFirstContact(message, "whatsapp")).map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
     }
   });
@@ -154,7 +162,8 @@ describe("first contact: answering the [1] / [2] the rejection text offers", () 
     const finished: Session = { state: "cita_booked", slots: {}, counters: {} };
 
     expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_dni");
-    expect(handle(finished, text("2")).session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(handle(finished, text("2")).session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
+    expect(handle(finished, text("3")).session.state).toBe("incidencia_awaiting_ubicacion");
   });
 });
 

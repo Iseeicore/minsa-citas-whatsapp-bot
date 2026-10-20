@@ -73,6 +73,7 @@ describe("el código en el primer mensaje", () => {
 
     expect(first.session.state).toBe("consulta_awaiting_codigo");
     expect(texts(first)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
+    expect(sent(first)[1]).toMatchObject({ buttons: [{ id: "consulta_codigo_listar", title: "Ver mis incidencias" }] });
   });
 
   it("un código con formato incorrecto no inicia la consulta", () => {
@@ -90,8 +91,8 @@ describe("desde el menú principal", () => {
     expect(step.session.slots).toMatchObject({ consultaCanal: "web", consultaCodigo: CODIGO });
   });
 
-  it("la opción «Consultar una incidencia» del menú (y el 3) piden el código", () => {
-    for (const event of [pick("consultar_incidencia"), text("3")]) {
+  it("la opción «Consultar una incidencia» del menú (y el 4) piden el código", () => {
+    for (const event of [pick("consultar_incidencia"), text("4")]) {
       const step = handle(mainMenu(), event);
 
       expect(step.session.state).toBe("consulta_awaiting_codigo");
@@ -263,7 +264,7 @@ describe("consulta_query_pending: el resultado", () => {
   });
 });
 
-describe("ver todas mis incidencias", () => {
+describe("ver mis incidencias", () => {
   const LISTAR_ID = "consulta_codigo_listar";
   const atCodigo = (channel: InboundEvent["channel"] = "whatsapp"): Session => ({
     state: "consulta_awaiting_codigo",
@@ -271,14 +272,14 @@ describe("ver todas mis incidencias", () => {
     counters: {},
   });
 
-  it("WhatsApp: el botón «Ver todas» busca de inmediato, sin DNI", () => {
+  it("WhatsApp: el botón «Ver mis incidencias» busca de inmediato, sin DNI", () => {
     const step = handle(atCodigo(), pick(LISTAR_ID));
 
     expect(step.session.state).toBe("consulta_listar_pending");
     expect(queries(step)).toEqual([{ kind: "listar_incidencias", payload: { canal: "whatsapp" } }]);
   });
 
-  it("web: el botón «Ver todas» pide DNI+OTP antes de listar", () => {
+  it("web: el botón «Ver mis incidencias» pide DNI+OTP antes de listar", () => {
     let step = handle(atCodigo("web"), pick(LISTAR_ID, "web"));
     expect(step.session.state).toBe("consulta_awaiting_dni");
 

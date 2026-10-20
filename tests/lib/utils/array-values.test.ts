@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrayOr } from "@/lib/utils/array-values";
+import { arrayOr, uniqueBy } from "@/lib/utils/array-values";
 
 describe("arrayOr", () => {
   it("devuelve el mismo arreglo cuando el valor ya es un arreglo", () => {
@@ -26,5 +26,26 @@ describe("arrayOr", () => {
     first.push("a");
 
     expect(arrayOr<string>(undefined)).toEqual([]);
+  });
+});
+
+describe("uniqueBy", () => {
+  it("conserva la primera aparición de cada clave y el orden original", () => {
+    const rows = [
+      { id: "a", title: "Uno" },
+      { id: "b", title: "Dos" },
+      { id: "a", title: "Repetido" },
+      { id: "c", title: "Tres" },
+    ];
+
+    expect(uniqueBy(rows, (row) => row.id)).toEqual([rows[0], rows[1], rows[3]]);
+  });
+
+  it("compara por la clave calculada, no por el valor original", () => {
+    expect(uniqueBy(["Lima", "LIMA", "Cusco"], (value) => value.toUpperCase())).toEqual(["Lima", "Cusco"]);
+  });
+
+  it("sin repetidos devuelve los mismos elementos", () => {
+    expect(uniqueBy([1, 2, 3], String)).toEqual([1, 2, 3]);
   });
 });

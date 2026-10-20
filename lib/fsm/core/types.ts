@@ -4,6 +4,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import type { SessionState } from "@/lib/enums/session-state";
 import type { InternalEventType } from "@/lib/enums/internal-event-type";
+import type { MediaFailure } from "@/lib/enums/media-failure";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -44,7 +45,7 @@ export type SlotTypes = {
   [SlotKey.CITA_OFFERED]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: string;
   [SlotKey.NOMBRE]: string;
-  [SlotKey.MEDIA_DATA_URI]: string;
+  [SlotKey.INCIDENCIA_IMAGENES]: string;
   [SlotKey.CITA_ESTABLECIMIENTOS_DESCARTADOS]: string;
   [SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]: string;
   [SlotKey.AWAITING_CONTINUE]: boolean;
@@ -68,6 +69,8 @@ export type SlotTypes = {
   [SlotKey.CONSULTA_TWOFA_ID]: string;
   [SlotKey.CONSULTA_LISTANDO]: boolean;
   [SlotKey.CONSULTA_LISTADO_DATA]: string;
+  [SlotKey.INTERACTIVE_MESSAGE_ID]: string;
+  [SlotKey.INTERACTIVE_MESSAGE_CONSUMED]: boolean;
 };
 
 export type Slots = { [K in SlotKey]?: SlotTypes[K] };
@@ -93,8 +96,15 @@ export type InboundEvent = {
   listId?: string;
   mediaId?: string;
   mediaDataUri?: string;
+  mediaFailure?: MediaFailure;
   messageId?: string;
+  replyTo?: string;
   channel?: SessionChannel;
+};
+
+export type InteractiveTracking = {
+  messageId?: string;
+  consumed: boolean;
 };
 
 export type QueryResultEvent = {

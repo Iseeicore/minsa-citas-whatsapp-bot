@@ -224,7 +224,7 @@ describe("each AI task's standard schema, translated for Gemini", () => {
     expect(toGeminiSchema(MAIN_MENU_INTENT_RESPONSE_SCHEMA)).toEqual({
       type: "OBJECT",
       properties: {
-        intent: { type: "STRING", enum: ["cita", "incidencia", "fuera_de_alcance", "unclear"] },
+        intent: { type: "STRING", enum: ["cita", "referencia", "incidencia", "fuera_de_alcance", "unclear"] },
         especialidad: { type: "STRING" },
         distrito: { type: "STRING" },
         detalle: { type: "STRING" },

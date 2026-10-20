@@ -2,6 +2,7 @@ export const noPudimosLeerText = (pregunta: string): string => `No pudimos leer 
 export const FALLBACK_TEXT = "No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.";
 export const LIST_PAGE_PREV_BUTTON_TEXT = "Anteriores";
 export const LIST_PAGE_NEXT_BUTTON_TEXT = "Ver más opciones";
+export const LIST_OPEN_BUTTON_TEXT = "Ver opciones";
 export const listPageSummaryText = (first: number, last: number, total: number): string =>
   `Mostrando ${first} a ${last} de ${total} opciones.`;
 export const pageOfText = (page: number, totalPages: number): string => `Página ${page} de ${totalPages}`;
@@ -14,3 +15,6 @@ export const SI_CONFIRMAR_BUTTON_TEXT = "Sí, confirmar";
 export const SI_BUTTON_TEXT = "Sí";
 export const NO_BUTTON_TEXT = "No";
 export const joinWithConjunctionText = (head: string, last: string): string => `${head} y ${last}`;
+export const numberedOptionLineText = (position: number, title: string): string => `${position}. ${title}`;
+export const linkLineText = (label: string, url: string): string => `${label}: ${url}`;
+export const bodyWithOptionLinesText = (body: string, lines: string[]): string => `${body}\n\n${lines.join("\n")}`;

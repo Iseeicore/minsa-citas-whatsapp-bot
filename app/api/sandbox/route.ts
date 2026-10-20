@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { runTurn, runTurnUnlocked, type TurnResult } from "@/lib/fsm/core/executor";
+import { runTurn, runTurnUnlocked, type TurnHooks, type TurnResult } from "@/lib/fsm/core/executor";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
@@ -11,7 +11,7 @@ import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbou
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { closeSession, resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
-import type { SendEffect } from "@/lib/fsm/core/types";
+import type { InteractiveTracking, SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
@@ -21,6 +21,13 @@ import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
+import { trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
+import { randomUuid } from "@/lib/utils/random-uuid";
+
+const SANDBOX_TURN_HOOKS: TurnHooks = {
+  onSend: async () => randomUuid(),
+  onWaitingForQuery: async () => undefined,
+};
 
 const warnedInvalidOrigins = new Set<string>();
 
@@ -66,6 +73,7 @@ const sandboxEventSchema = z.object({
   type: z.enum(["text", "button", "list", "image", "document"]),
   text: z.string().optional(),
   listId: z.string().optional(),
+  replyTo: z.string().optional(),
   mediaId: z.string().optional(),
   mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message, headers: cors });
   }
 
-  const { from, type, text, listId, mediaId, mediaDataUri, reset, resetAll, close } = parsed.data;
+  const { from, type, text, listId, replyTo, mediaId, mediaDataUri, reset, resetAll, close } = parsed.data;
 
   if (close) {
     await closeSession(from);
@@ -108,7 +116,7 @@ export async function POST(request: NextRequest) {
   marks.mark("exists");
 
   if (!hadExistingSession && (type === "text" || type === "image")) {
-    const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text }, SessionChannel.WEB);
+    const payload = checkFirstMessagePayload({ type: type === "image" ? "image" : "text", text });
     if (payload.kind === "rejected") {
       return NextResponse.json(
         buildSandboxReply([{ kind: SendType.TEXT, text: payload.reply }], { state: SessionState.MAIN_MENU, slots: {}, counters: {} }),
@@ -125,7 +133,7 @@ export async function POST(request: NextRequest) {
     turn =
       !hadExistingSession && !abusiveFirstMessage
         ? await startConversation(from, type === "text" ? text : undefined, marks)
-        : await runTurn(from, { from, type, text, listId, mediaId, mediaDataUri, channel: "web" });
+        : await runTurn(from, { from, type, text, listId, replyTo, mediaId, mediaDataUri, channel: "web" }, SANDBOX_TURN_HOOKS);
   } catch (error) {
     if (error instanceof TurnLockTimeoutError) {
       return apiError(ApiErrorCode.BUSY, { headers: cors });
@@ -144,15 +152,19 @@ async function startConversation(from: string, text: string | undefined, marks: 
     marks.mark("lock");
     const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "web" as const };
     const first = handleFirstContact(text, "web");
-    if (first.effects.some(isQueryEffect)) return runTurnUnlocked(from, { from, type: "text", text, channel: SessionChannel.WEB }, undefined, first);
+    if (first.effects.some(isQueryEffect)) {
+      return runTurnUnlocked(from, { from, type: "text", text, channel: SessionChannel.WEB }, SANDBOX_TURN_HOOKS, first);
+    }
 
     return traceTurn(from, { type: text === undefined ? "other" : "text", text }, fresh, async (trace) => {
       for (const note of first.notes ?? []) trace.note(note);
-      await saveSession(from, first.session);
 
       const sent = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-      trace.complete({ session: first.session, sentCount: sent.length });
-      return { sent, session: first.session };
+      const tracking = sent.reduce<InteractiveTracking>((current, effect) => trackSent(current, effect, randomUuid()), { consumed: false });
+      const session = withInteractiveTracking(first.session, tracking);
+      await saveSession(from, session);
+      trace.complete({ session, sentCount: sent.length });
+      return { sent, session };
     });
   });
 }

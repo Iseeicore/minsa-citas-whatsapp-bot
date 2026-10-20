@@ -69,6 +69,38 @@ describe("the read / typing signal on an inbound message", () => {
     expect(state.order.at(-1)).toBe("handle:m1");
   });
 
+  it("waits for the turn when the message is a tap on a button or list row that may be stale", async () => {
+    const tapReply = {
+      id: "tap1",
+      from_user_id: "wa1",
+      timestamp: "1700000000",
+      type: "interactive",
+      interactive: { type: "button_reply", button_reply: { id: "si", title: "Sí" } },
+      context: { from: "15550000000", id: "wamid.out" },
+    };
+    const listReply = { ...tapReply, id: "tap2", interactive: { type: "list_reply", list_reply: { id: "1", title: "Uno" } } };
+
+    await processValue({ messages: [tapReply, listReply] } as unknown as Parameters<typeof processValue>[0]);
+
+    expect(state.typing).not.toHaveBeenCalled();
+    expect(state.order).toContain("handle:tap1");
+    expect(state.order).toContain("handle:tap2");
+  });
+
+  it("still goes out early for a tap that does not say which message it answers", async () => {
+    const tapReply = {
+      id: "tap3",
+      from_user_id: "wa1",
+      timestamp: "1700000000",
+      type: "interactive",
+      interactive: { type: "button_reply", button_reply: { id: "si", title: "Sí" } },
+    };
+
+    await processValue({ messages: [tapReply] } as unknown as Parameters<typeof processValue>[0]);
+
+    expect(state.typing).toHaveBeenCalledWith("tap3");
+  });
+
   it("is never sent for a message the perimeter drops or rejects: spam and stickers get no sign of life", async () => {
     state.decisions.set("spam", { action: PerimeterAction.DROP });
     state.decisions.set("long", { action: PerimeterAction.REJECT, reply: "Mensaje no reconocido." });

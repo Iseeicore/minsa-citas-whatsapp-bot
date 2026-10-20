@@ -60,6 +60,7 @@ export enum SessionState {
   EMERGENCY_CLOSED = "emergency_closed",
   MAIN_MENU = "main_menu",
   MAIN_MENU_INTENT_PENDING = "main_menu_intent_pending",
+  MAIN_MENU_REFERENCIA_CHOICE = "main_menu_referencia_choice",
   REFERENCIA_AWAITING_CITA_OFFER = "referencia_awaiting_cita_offer",
   REFERENCIA_CLOSED = "referencia_closed",
   REFERENCIA_LOOKUP_PENDING = "referencia_lookup_pending",

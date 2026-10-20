@@ -34,7 +34,7 @@ export enum SlotKey {
   CITA_OFFERED = "citaOffered",
   CITA_ESTABLECIMIENTO_NOMBRE = "citaEstablecimientoNombre",
   NOMBRE = "nombre",
-  MEDIA_DATA_URI = "mediaDataUri",
+  INCIDENCIA_IMAGENES = "incidenciaImagenes",
   CITA_ESTABLECIMIENTOS_DESCARTADOS = "citaEstablecimientosDescartados",
   CITA_ESPECIALIDADES_DESCARTADAS = "citaEspecialidadesDescartadas",
   AWAITING_CONTINUE = "awaitingContinue",
@@ -59,4 +59,6 @@ export enum SlotKey {
   CONSULTA_TWOFA_ID = "consultaTwofaId",
   CONSULTA_LISTANDO = "consultaListando",
   CONSULTA_LISTADO_DATA = "consultaListadoData",
+  INTERACTIVE_MESSAGE_ID = "interactiveMessageId",
+  INTERACTIVE_MESSAGE_CONSUMED = "interactiveMessageConsumed",
 }

@@ -10,7 +10,7 @@ describe("buttonClassName reproduce las clases que cada botón tenía escritas a
   it("diálogo de confirmación: cancelar (contorno) y confirmar (primario)", () => {
     expect(classSet(buttonClassName({ variant: ButtonVariant.OUTLINE, size: ButtonSize.MD, width: ButtonWidth.GROW }))).toEqual(
       classSet(
-        "flex-1 rounded-xl border border-sb-navy bg-white px-3 py-2 text-sm font-semibold text-sb-navy transition-colors hover:bg-sb-panel",
+        "flex-1 rounded-xl border border-sb-navy bg-white px-3 py-2 text-sm font-semibold text-sb-navy transition-colors hover:bg-sb-panel disabled:cursor-not-allowed disabled:opacity-50",
       ),
     );
     expect(classSet(buttonClassName({ variant: ButtonVariant.PRIMARY, size: ButtonSize.MD, width: ButtonWidth.GROW }))).toEqual(
@@ -21,7 +21,7 @@ describe("buttonClassName reproduce las clases que cada botón tenía escritas a
   it("botón de opción de respuesta a todo el ancho", () => {
     expect(classSet(buttonClassName({ variant: ButtonVariant.OPTION, size: ButtonSize.MD, width: ButtonWidth.FULL }))).toEqual(
       classSet(
-        "rounded-xl border border-sb-navy bg-sb-navy font-semibold text-white transition-colors hover:bg-sb-navy-dark flex w-full items-center justify-center gap-2 px-3 py-2 text-sm",
+        "rounded-xl border border-sb-navy bg-sb-navy font-semibold text-white transition-colors hover:bg-sb-navy-dark flex w-full items-center justify-center gap-2 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50",
       ),
     );
   });
@@ -31,7 +31,7 @@ describe("buttonClassName reproduce las clases que cada botón tenía escritas a
       classSet(buttonClassName({ variant: ButtonVariant.OUTLINE, size: ButtonSize.SM, width: ButtonWidth.GROW, withIcon: true })),
     ).toEqual(
       classSet(
-        "flex flex-1 items-center justify-center gap-1 rounded-xl border border-sb-navy bg-white px-3 py-1.5 text-xs font-semibold text-sb-navy transition-colors hover:bg-sb-panel",
+        "flex flex-1 items-center justify-center gap-1 rounded-xl border border-sb-navy bg-white px-3 py-1.5 text-xs font-semibold text-sb-navy transition-colors hover:bg-sb-panel disabled:cursor-not-allowed disabled:opacity-50",
       ),
     );
   });
@@ -39,7 +39,7 @@ describe("buttonClassName reproduce las clases que cada botón tenía escritas a
   it("fila de opción de una lista", () => {
     expect(classSet(buttonClassName({ variant: ButtonVariant.LIST_OPTION, size: ButtonSize.LG, width: ButtonWidth.FULL }))).toEqual(
       classSet(
-        "flex w-full items-center gap-2.5 rounded-xl bg-sb-navy px-3 py-2.5 text-left text-white transition-colors hover:bg-sb-navy-dark",
+        "flex w-full items-center gap-2.5 rounded-xl bg-sb-navy px-3 py-2.5 text-left text-white transition-colors hover:bg-sb-navy-dark disabled:cursor-not-allowed disabled:opacity-50",
       ),
     );
   });

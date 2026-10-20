@@ -7,10 +7,6 @@ export const CITA_WITH_WARNING_TEXT = `${RESPECT_REMINDER_TEXT} Continuemos con 
 export const CONTINUE_BUTTON_TEXT = "Continuar";
 export const FORCED_INCIDENCIA_LEAD_TEXT = "Lamentamos lo ocurrido.";
 export const FIRST_MESSAGE_REJECTION_TEXT =
-  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.";
-export const FIRST_MESSAGE_REJECTION_ONLY_CITA_TEXT =
-  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas. Por favor elija una opción: [1] Citas.";
-export const FIRST_MESSAGE_REJECTION_WEB_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas, consulta de referencias y registro de incidencias. Por favor elija una opción: [1] Citas [2] Referencia [3] Incidencias.";
 export const FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y consulta de referencias. Por favor elija una opción: [1] Citas [2] Referencia.";

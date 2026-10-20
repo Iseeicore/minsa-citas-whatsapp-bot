@@ -172,6 +172,16 @@ export function matchSelection(text: string, rows: OfferedRow[], options: MatchO
   return winners.length === 1 ? { kind: MatchKind.MATCH, row: winners[0] } : { kind: MatchKind.AMBIGUOUS, rows: winners };
 }
 
+export function matchExactOption(text: string, rows: OfferedRow[]): OfferedRow | undefined {
+  const normalized = normalize(text);
+  if (!normalized) return undefined;
+
+  const position = parseOrdinal(normalized, rows.length);
+  if (position !== undefined) return rows[position - 1];
+
+  return rows.find((row) => normalize(row.title) === normalized);
+}
+
 const HINT_NOISE_WORDS = new Set([
   "cita",
   "citas",

@@ -31,7 +31,8 @@ const sessionAt = (state: string, slots: Session["slots"] = {}, idleMs = 0): Ses
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const NOTICE = new IncidenciaService().disabledReply(SessionChannel.WHATSAPP);
+const NOTICE = new IncidenciaService().disabledReply();
+const CITA_AND_REFERENCIA = ["agendar_cita", "consultar_referencia"];
 
 const QR = "Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206";
 const CODIGO_MSG = "quiero ver mi incidencia MINSA-2026-000003";
@@ -51,23 +52,27 @@ describe("with INCIDENCIAS_ENABLED off", () => {
   });
 
   describe("the menu", () => {
-    it("has exactly one row: the cita", () => {
+    it("has exactly two rows: the cita and the referencia", () => {
       const [list] = sent(handle(menu(), text("hola")));
 
       expect(list).toMatchObject({ kind: "send_interactive_list" });
-      expect(list.kind === "send_interactive_list" && list.rows).toEqual([{ id: "agendar_cita", title: "Agendar una cita médica" }]);
+      expect(list.kind === "send_interactive_list" && list.rows).toEqual([
+        { id: "agendar_cita", title: "Agendar una cita médica" },
+        { id: "consultar_referencia", title: "Consultar Referencias" },
+      ]);
     });
 
-    it("is the same one-row menu on a first contact that does not know what to answer", () => {
+    it("is the same two-row menu on a first contact that does not know what to answer", () => {
       const result = handleFirstContact("ayuda por favor", "whatsapp");
 
       const [list] = sent(result);
-      expect(list.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["agendar_cita"]);
+      expect(list.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(CITA_AND_REFERENCIA);
     });
 
-    it("the notice says that only the citas are available", () => {
+    it("the notice says that only the citas and the referencias are available", () => {
       expect(NOTICE).toMatch(/cita/i);
-      expect(NOTICE).not.toMatch(/registrar|consultar/i);
+      expect(NOTICE).toMatch(/referencia/i);
+      expect(NOTICE).not.toMatch(/incidencia|registrar/i);
     });
   });
 
@@ -89,16 +94,23 @@ describe("with INCIDENCIAS_ENABLED off", () => {
       expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBe("hola");
     });
 
-    it.each(["2", "3", " 2 "])("typed %j answers with the notice and the one-row menu, without asking the AI", (digit) => {
+    it.each(["3", "4", " 3 "])("typed %j answers with the notice and the two-row menu, without asking the AI", (digit) => {
       const result = handle(menu(), text(digit));
 
       expectNoticeAndMenu(result);
       const [, list] = sent(result);
-      expect(list.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["agendar_cita"]);
+      expect(list.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(CITA_AND_REFERENCIA);
+    });
+
+    it("typed 2 is the referencia, not the notice", () => {
+      const result = handle(menu(), text("2"));
+
+      expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
+      expect(sent(result)).not.toContainEqual({ kind: "send_text", text: NOTICE });
     });
 
     it("a number beyond the known services does not get the notice", () => {
-      expect(sent(handle(menu(), text("4")))).not.toContainEqual({ kind: "send_text", text: NOTICE });
+      expect(sent(handle(menu(), text("5")))).not.toContainEqual({ kind: "send_text", text: NOTICE });
     });
 
     it("the incidencia keyword reports only that the service is disabled", () => {
@@ -133,7 +145,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
       expect(result.notes).toContainEqual({ kind: "first_contact", detail: { route: "menu" } });
     });
 
-    it.each(["2", "3"])("typed %s answers with the notice and the one-row menu", (digit) => {
+    it.each(["3", "4"])("typed %s answers with the notice and the two-row menu", (digit) => {
       const result = handleFirstContact(digit, "whatsapp");
 
       expectNoticeAndMenu(result);
@@ -161,13 +173,21 @@ describe("with INCIDENCIAS_ENABLED off", () => {
       expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
     });
 
-    it("the out-of-scope request names only the citas", () => {
+    it("the out-of-scope request names only the citas and the referencias", () => {
       const result = handleMainMenuIntentPending(pending, aiSays("fuera_de_alcance"));
 
       const [message] = sent(result);
       expect(message).toMatchObject({ kind: "send_text" });
       expect(message.kind === "send_text" && message.text).not.toMatch(/incidencia/i);
       expect(message.kind === "send_text" && message.text).toMatch(/cita/i);
+      expect(message.kind === "send_text" && message.text).toMatch(/referencia/i);
+    });
+
+    it("a referencia intent still opens the referencias", () => {
+      const result = handleMainMenuIntentPending(pending, aiSays("referencia"));
+
+      expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
+      expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
     });
   });
 
@@ -241,7 +261,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
   });
 
   describe("the texts that name the options", () => {
-    it("the out-of-scope request names only the citas", () => {
+    it("the out-of-scope request names only the citas and the referencias", () => {
       const [reply] = sent(
         handleMainMenuIntentPending(sessionAt("main_menu_intent_pending"), {
           from: FROM,
@@ -251,11 +271,14 @@ describe("with INCIDENCIAS_ENABLED off", () => {
         }),
       );
 
-      expect(reply).toEqual({ kind: "send_text", text: "Solo puedo ayudarte a agendar una cita médica. Elige una opción:" });
+      expect(reply).toEqual({
+        kind: "send_text",
+        text: "Solo puedo ayudarte a agendar una cita médica o a consultar una referencia. Elige una opción:",
+      });
     });
 
     it("no out-of-scope answer sends the person to write INCIDENCIA", () => {
-      for (const message of Object.values(OosCategory).map((category) => oosMessage(category))) {
+      for (const message of (Object.keys(OOS_MESSAGES) as Array<keyof typeof OOS_MESSAGES>).map((category) => oosMessage(category))) {
         expect(message).not.toMatch(/incidencia/i);
       }
     });
@@ -284,11 +307,12 @@ describe("with INCIDENCIAS_ENABLED on, nothing changes", () => {
     vi.unstubAllEnvs();
   });
 
-  it("the menu has the three rows", () => {
+  it("the menu has the four rows", () => {
     const [list] = sent(handle(menu(), text("hola")));
 
     expect(list.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual([
       "agendar_cita",
+      "consultar_referencia",
       "registrar_incidencia",
       "consultar_incidencia",
     ]);
@@ -297,14 +321,14 @@ describe("with INCIDENCIAS_ENABLED on, nothing changes", () => {
   it("the buttons, the numbers and the keywords reach their flows", () => {
     expect(handle(menu(), tap(MenuChoice.REGISTRAR_INCIDENCIA)).session.state).toMatch(/^incidencia_/);
     expect(handle(menu(), tap(MenuChoice.CONSULTAR_INCIDENCIA)).session.state).toMatch(/^consulta_/);
-    expect(handle(menu(), text("2")).session.state).toMatch(/^incidencia_/);
-    expect(handle(menu(), text("3")).session.state).toMatch(/^consulta_/);
+    expect(handle(menu(), text("3")).session.state).toMatch(/^incidencia_/);
+    expect(handle(menu(), text("4")).session.state).toMatch(/^consulta_/);
     expect(handle(menu(), text("incidencia")).session.state).toMatch(/^incidencia_/);
-    expect(handleFirstContact("2", "whatsapp").session.state).toMatch(/^incidencia_/);
-    expect(handleFirstContact("3", "whatsapp").session.state).toMatch(/^consulta_/);
+    expect(handleFirstContact("3", "whatsapp").session.state).toMatch(/^incidencia_/);
+    expect(handleFirstContact("4", "whatsapp").session.state).toMatch(/^consulta_/);
   });
 
-  it("the out-of-scope request from the AI keeps naming both options", () => {
+  it("the out-of-scope request from the AI names the three services", () => {
     const result = handleMainMenuIntentPending(sessionAt("main_menu_intent_pending"), {
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
@@ -335,10 +359,10 @@ describe("with INCIDENCIAS_ENABLED not defined, the default", () => {
     vi.unstubAllEnvs();
   });
 
-  it("the menu has one row", () => {
+  it("the menu has two rows: the cita and the referencia", () => {
     const [list] = sent(handle(menu(), text("hola")));
 
-    expect(list.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["agendar_cita"]);
+    expect(list.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(CITA_AND_REFERENCIA);
   });
 
   it.each([

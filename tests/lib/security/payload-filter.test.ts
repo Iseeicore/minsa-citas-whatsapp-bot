@@ -134,9 +134,9 @@ describe("fixed texts", () => {
     );
   });
 
-  it("a first message that is too long, has links or is spam: says what the channel attends and offers [1] / [2]", () => {
+  it("a first message that is too long, has links or is spam: says what the channel attends and offers [1] / [2] / [3]", () => {
     expect(FIRST_MESSAGE_REJECTION_TEXT).toBe(
-      "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de incidencias. Por favor elija una opción: [1] Citas [2] Incidencias.",
+      "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas, consulta de referencias y registro de incidencias. Por favor elija una opción: [1] Citas [2] Referencia [3] Incidencias.",
     );
   });
 });

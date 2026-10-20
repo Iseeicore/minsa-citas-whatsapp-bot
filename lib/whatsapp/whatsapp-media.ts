@@ -1,7 +1,7 @@
+import { MediaFailure } from "@/lib/enums/media-failure";
+import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
 import { logger } from "@/lib/observability/logger";
 import { graphApiBaseUrl, graphAuthHeaders } from "@/lib/whatsapp/graph-api";
-
-const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
 
 type MetaMediaInfo = {
   url?: string;
@@ -9,24 +9,29 @@ type MetaMediaInfo = {
   file_size?: number;
 };
 
-export async function downloadWhatsAppMediaAsDataUri(mediaId: string): Promise<string | null> {
+export type MediaDownload = { dataUri: string } | { failure: MediaFailure };
+
+const failed = (failure: MediaFailure): MediaDownload => ({ failure });
+
+export async function downloadWhatsAppMediaAsDataUri(mediaId: string): Promise<MediaDownload> {
   const headers = graphAuthHeaders();
 
   try {
     const infoResponse = await fetch(`${graphApiBaseUrl()}/${mediaId}`, { headers });
-    if (!infoResponse.ok) return null;
+    if (!infoResponse.ok) return failed(MediaFailure.UNREADABLE);
 
     const info = (await infoResponse.json()) as MetaMediaInfo;
-    if (!info.url || !info.mime_type) return null;
-    if (info.file_size && info.file_size > MAX_MEDIA_BYTES) return null;
+    if (!info.url || !info.mime_type) return failed(MediaFailure.UNREADABLE);
+    if (info.file_size && info.file_size > MAX_IMAGE_BYTES) return failed(MediaFailure.TOO_LARGE);
 
     const mediaResponse = await fetch(info.url, { headers });
-    if (!mediaResponse.ok) return null;
+    if (!mediaResponse.ok) return failed(MediaFailure.UNREADABLE);
 
     const buffer = Buffer.from(await mediaResponse.arrayBuffer());
-    return `data:${info.mime_type};base64,${buffer.toString("base64")}`;
+    if (buffer.length > MAX_IMAGE_BYTES) return failed(MediaFailure.TOO_LARGE);
+    return { dataUri: `data:${info.mime_type};base64,${buffer.toString("base64")}` };
   } catch (error) {
     logger.warn("whatsapp.media_failed", { error });
-    return null;
+    return failed(MediaFailure.UNREADABLE);
   }
 }

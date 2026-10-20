@@ -20,6 +20,7 @@ import { FALLBACK_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, LIST_PAGE_NEXT_BUTTON_TEXT, 
 import { AFFIRMATIVE_REPLIES } from "@/lib/constants/palabras-clave";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
+import { uniqueBy } from "@/lib/utils/array-values";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
@@ -39,10 +40,6 @@ export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_ABANDONED,
   SessionState.EMERGENCY_CLOSED,
 ]);
-
-export function readReply(event: InboundEvent): string | undefined {
-  return event.listId ?? event.text;
-}
 
 export function readTappedId(event: InboundEvent): string | undefined {
   return event.type === InboundEventType.BUTTON || event.type === InboundEventType.LIST ? event.listId : undefined;
@@ -124,9 +121,12 @@ export function truncateForRow(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
+const uniqueRows = (rows: ListRow[]): ListRow[] => uniqueBy(rows, (row) => row.id);
+
 export function offerList(next: Session, text: string, rows: ListRow[]): SendEffect {
-  next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows });
-  return sendList(text, rows);
+  const offered = uniqueRows(rows);
+  next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows: offered });
+  return sendList(text, offered);
 }
 
 export function pageCount(rowCount: number): number {
@@ -147,9 +147,10 @@ export function pageEffects(text: string, rows: ListRow[], page: number): SendEf
 }
 
 export function offerPagedList(next: Session, text: string, rows: ListRow[]): SendEffect[] {
-  next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows });
+  const offered = uniqueRows(rows);
+  next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows: offered });
   delete next.counters[CounterKey.CITA_LIST_PAGE];
-  return pageEffects(text, rows, 0);
+  return pageEffects(text, offered, 0);
 }
 
 export function isAffirmativeReply(text: string): boolean {

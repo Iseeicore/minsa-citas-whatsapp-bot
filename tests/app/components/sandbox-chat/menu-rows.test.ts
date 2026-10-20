@@ -35,10 +35,10 @@ describe("rowPresentation", () => {
     expect(rowPresentation({ id: "otro", title: "Un titulo" })).toEqual({ label: "Un titulo" });
   });
 
-  it("every title the web menu can show fits a row", () => {
-    for (const row of serviceCatalog.menuRows(SessionChannel.WEB)) {
+  it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("every title the %s menu can show fits a row", (channel) => {
+    for (const row of serviceCatalog.menuRows(channel)) {
       expect(row.title.length).toBeLessThanOrEqual(WHATSAPP_ROW_TITLE_MAX);
     }
-    expect(MENU_ROW_CONSULTAR_REFERENCIA_TITLE).toBe("Consultar referencia");
+    expect(MENU_ROW_CONSULTAR_REFERENCIA_TITLE).toBe("Consultar Referencias");
   });
 });

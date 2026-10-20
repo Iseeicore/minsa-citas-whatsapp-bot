@@ -12,4 +12,5 @@ export type SandboxSessionView = {
 export type SandboxReply = {
   sent: SendEffect[];
   session: SandboxSessionView;
+  interactiveId?: string;
 };
