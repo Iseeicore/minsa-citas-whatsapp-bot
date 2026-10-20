@@ -80,8 +80,10 @@ import {
   MIN_DESCRIPCION_LENGTH,
   FOTO_INTENT_MAX_LENGTH,
 } from "@/lib/constants/limits/incidencia";
-import { MAX_IMAGE_BYTES, parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
+import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
+import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/validacion";
 import { MediaFailure } from "@/lib/enums/media-failure";
+import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
 import { readImagenes, writeImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 
 function cancel(): HandlerResult {
@@ -246,6 +248,9 @@ function rechazoDeImagen(session: Session, motivo: string): HandlerResult {
 
 const MAX_IMAGE_MB = MAX_IMAGE_BYTES / (1024 * 1024);
 
+const motivoDeImagenRechazada = (failure: ImageValidationFailure): string =>
+  failure === ImageValidationFailure.TOO_LARGE ? imagenNoGuardadaMuyPesadaText(MAX_IMAGE_MB) : IMAGEN_NO_VALIDA_TEXT;
+
 /** Cada imagen se acumula en la sesión (hasta el máximo) como data URI hasta que se registra la incidencia. */
 function handleImagen(session: Session, event: InboundEvent): HandlerResult {
   const imagenes = readImagenes(session.slots);
@@ -260,9 +265,8 @@ function handleImagen(session: Session, event: InboundEvent): HandlerResult {
   }
   if (!event.mediaDataUri) return rechazoDeImagen(session, IMAGEN_NO_DESCARGADA_TEXT);
 
-  const parsed = parseImageDataUri(event.mediaDataUri);
-  if (parsed === null) return rechazoDeImagen(session, IMAGEN_NO_VALIDA_TEXT);
-  if ("tooLarge" in parsed) return rechazoDeImagen(session, imagenNoGuardadaMuyPesadaText(MAX_IMAGE_MB));
+  const imagen = validarImagen(event.mediaDataUri);
+  if (esImagenRechazada(imagen)) return rechazoDeImagen(session, motivoDeImagenRechazada(imagen.failure));
   if (imagenes.includes(event.mediaDataUri)) return rechazoDeImagen(session, IMAGEN_REPETIDA_TEXT);
 
   const next = cloneSession(session);

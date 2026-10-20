@@ -4,37 +4,33 @@ import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { currentTraceId } from "@/lib/observability/context";
 import { logger } from "@/lib/observability/logger";
 import { registrarIncidenciaSchema, type RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
-import { guardarImagenHttp } from "@/lib/recepcion/imagenes/almacen-http";
-import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
-import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
+import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/validacion";
 import { buscarCodigoPorTrace, contarDelDia, insertarIncidencia, type DatosEvidencia } from "@/lib/recepcion/repositorio";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
+import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
 import { isObject } from "@/lib/utils/type-guards";
 import { MAX_INCIDENCIAS_POR_DIA } from "@/lib/constants/limits/incidencia";
+import type { AlmacenEvidencias } from "@/lib/types/almacen-evidencias.types";
 
 const isUniqueViolation = (error: unknown) => isObject(error) && "code" in error && error.code === "P2002";
 
-async function subirEvidencia(mediaDataUri: string): Promise<DatosEvidencia | RegistrarIncidenciaResult> {
-  const image = parseImageDataUri(mediaDataUri);
-  if (image === null) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.OTHER };
-  if ("tooLarge" in image) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.MEDIA_TOO_LARGE };
+const MOTIVO_DE_RECHAZO: Readonly<Record<ImageValidationFailure, RegistrationRejectReason>> = {
+  [ImageValidationFailure.TOO_LARGE]: RegistrationRejectReason.MEDIA_TOO_LARGE,
+  [ImageValidationFailure.INVALID]: RegistrationRejectReason.OTHER,
+};
+
+async function guardarEvidencia(mediaDataUri: string, almacen: AlmacenEvidencias): Promise<DatosEvidencia | RegistrarIncidenciaResult> {
+  const imagen = validarImagen(mediaDataUri);
+  if (esImagenRechazada(imagen)) return { status: RegistrationStatus.REJECTED, reason: MOTIVO_DE_RECHAZO[imagen.failure] };
 
   try {
-    const { ruta } = await guardarImagenHttp(image.bytes, image.mimeType);
-    return { mimeType: image.mimeType, tamano: image.bytes.length, ruta };
-  } catch (error) {
+    const { ruta } = await almacen.guardar(imagen);
+    return { mimeType: imagen.mimeType, tamano: imagen.bytes.length, ruta };
+  } catch (error: unknown) {
     logger.error("incidencia.media_upload_failed", { error });
     return { status: RegistrationStatus.ERROR };
   }
-}
-
-/** Sin servicio de imágenes la evidencia se guarda en la propia base: la ruta es el data URI (base64) de la imagen. */
-function evidenciaEnLaBase(mediaDataUri: string): DatosEvidencia | RegistrarIncidenciaResult {
-  const image = parseImageDataUri(mediaDataUri);
-  if (image === null) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.OTHER };
-  if ("tooLarge" in image) return { status: RegistrationStatus.REJECTED, reason: RegistrationRejectReason.MEDIA_TOO_LARGE };
-  return { mimeType: image.mimeType, tamano: image.bytes.length, ruta: mediaDataUri };
 }
 
 const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult =>
@@ -50,7 +46,7 @@ async function codigoYaGuardado(traceId: string): Promise<string | null> {
 
 const isEvidencia = (value: DatosEvidencia | RegistrarIncidenciaResult): value is DatosEvidencia => "ruta" in value;
 
-export async function registrarIncidencia(input: unknown): Promise<RegistrarIncidenciaResult> {
+export async function registrarIncidencia(input: unknown, almacen: AlmacenEvidencias): Promise<RegistrarIncidenciaResult> {
   const parsed = registrarIncidenciaSchema.safeParse(input);
   if (!parsed.success) {
     logger.error("incidencia.invalid_submission", { fields: parsed.error.issues.map((issue) => issue.path.join(".")) });
@@ -76,7 +72,7 @@ export async function registrarIncidencia(input: unknown): Promise<RegistrarInci
 
   const evidencias: DatosEvidencia[] = [];
   for (const mediaDataUri of mediaDataUris) {
-    const subida = isMediaStorageConfigured() ? await subirEvidencia(mediaDataUri) : evidenciaEnLaBase(mediaDataUri);
+    const subida = await guardarEvidencia(mediaDataUri, almacen);
     if (!isEvidencia(subida)) return subida;
     evidencias.push(subida);
   }
