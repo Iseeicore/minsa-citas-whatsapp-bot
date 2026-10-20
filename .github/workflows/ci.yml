@@ -100,3 +100,4 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
           DATABASE_ENABLED: "true"
+          INCIDENCIAS_ENABLED: "true"

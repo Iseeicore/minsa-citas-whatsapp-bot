@@ -3,7 +3,7 @@ import {
   buildResult,
   cloneSession,
   omitSlot,
-  readReply,
+  readTappedId,
   sendButtons,
   sendText,
   truncateForRow,
@@ -70,7 +70,7 @@ export function handleConfirmBorrador(session: Session, event: InboundEvent): Ha
   const borrador = session.slots[SlotKey.INCIDENCIA_BORRADOR];
   if (!isUsable(borrador)) return enterDescripcion(session);
 
-  const reply = readReply(event);
+  const reply = readTappedId(event);
   if (reply === IncidenciaButtonId.BORRADOR_USAR) return applyText(session, borrador);
   if (reply === IncidenciaButtonId.BORRADOR_AGREGAR) return askExtra(session);
 

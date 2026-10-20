@@ -3,7 +3,7 @@ import { ConsultaCodigoButtonId } from "@/lib/enums/consulta-codigo-button-id";
 
 export const ASK_CODIGO_TEXT = "Escribe el código de tu incidencia (por ejemplo, MINSA-2026-000001).";
 export const ASK_CODIGO_O_LISTAR_TEXT = "¿Tienes el código, o prefieres ver todas tus incidencias registradas?";
-export const LISTAR_BUTTON_TEXT = "Ver todas mis incidencias";
+export const LISTAR_BUTTON_TEXT = "Ver mis incidencias";
 export const INVALID_CODIGO_TEXT = "El código no tiene el formato correcto. Debe verse así: MINSA-2026-000001. Intenta de nuevo.";
 export const CODIGO_NO_RECONOCIDO_TEXT = "No pudimos reconocer el código. Revísalo e inicia la consulta nuevamente.";
 export const CONSULTA_ASK_DOCUMENTO_TEXT = `Para consultar tu incidencia necesito verificar tu identidad. ${ASK_DOCUMENTO_TEXT}`;

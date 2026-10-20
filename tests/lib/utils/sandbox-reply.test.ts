@@ -66,4 +66,17 @@ describe("buildSandboxReply", () => {
 
     expect(session).toEqual(before);
   });
+
+  it("carries the id of the current interactive message, and none once it was consumed or when there is none", () => {
+    const base = { state: SessionState.INCIDENCIA_CONFIRM_REGISTRO, counters: {} };
+
+    expect(buildSandboxReply(SENT, { ...base, slots: { [SlotKey.INTERACTIVE_MESSAGE_ID]: "web-1" } }).interactiveId).toBe("web-1");
+    expect(
+      buildSandboxReply(SENT, {
+        ...base,
+        slots: { [SlotKey.INTERACTIVE_MESSAGE_ID]: "web-1", [SlotKey.INTERACTIVE_MESSAGE_CONSUMED]: true },
+      }).interactiveId,
+    ).toBeUndefined();
+    expect(buildSandboxReply(SENT, { ...base, slots: {} }).interactiveId).toBeUndefined();
+  });
 });

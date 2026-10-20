@@ -16,7 +16,7 @@ export type DatosIncidencia = {
 
 export type DatosEvidencia = { mimeType: string; tamano: number; ruta: string };
 
-export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvidencia | null, actor: string) {
+export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvidencia[], actor: string) {
   return prisma.$transaction(async (tx) => {
     await declararActorEn(tx, actor);
     const usuario = await tx.usuario.upsert({ where: { waId: datos.waId }, create: { waId: datos.waId }, update: {} });
@@ -35,15 +35,15 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencia: DatosEvide
       },
     });
 
-    if (evidencia) {
-      await tx.evidencia.create({
-        data: {
+    if (evidencias.length > 0) {
+      await tx.evidencia.createMany({
+        data: evidencias.map((evidencia) => ({
           incidenciaPacienteId: incidencia.id,
           tipoEvidenciaId: TipoEvidenciaId.IMAGEN,
           mimeType: evidencia.mimeType,
           tamano: evidencia.tamano,
           ruta: evidencia.ruta,
-        },
+        })),
       });
     }
 

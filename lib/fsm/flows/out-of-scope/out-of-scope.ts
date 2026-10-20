@@ -14,7 +14,7 @@ export type { OosCategory };
 const toPlainWords = (text: string): string =>
   normalizeText(text).replace(SYMBOLS_IN_UPPERCASE_TEXT, " ").replace(ALL_WHITESPACE_RUNS, " ").trim();
 
-export function oosMessage(category: OosCategory): string {
+export function oosMessage(category: keyof typeof OOS_MESSAGES): string {
   return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA) ? OOS_MESSAGES[category] : OOS_MESSAGES_ONLY_CITA[category];
 }
 

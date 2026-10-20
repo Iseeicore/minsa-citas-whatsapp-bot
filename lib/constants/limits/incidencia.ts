@@ -1,6 +1,7 @@
 export const MAX_DESCRIPCION_LENGTH = 1000;
 export const MIN_DESCRIPCION_LENGTH = 20;
 export const MAX_INCIDENCIAS_POR_DIA = 5;
+export const MAX_IMAGENES_POR_INCIDENCIA = 5;
 export const SHOWN_BORRADOR_MAX = 800;
 export const FOTO_INTENT_MAX_LENGTH = 200;
 export const MAX_INTENTOS_UBICACION = 3;

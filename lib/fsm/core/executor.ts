@@ -30,6 +30,16 @@ import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-e
 import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
 import { UnhandledQueryKindError } from "@/lib/errors/unhandled-query-kind-error";
 import { DisabledServiceQueryError } from "@/lib/errors/disabled-service-query-error";
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
+import {
+  acceptTap,
+  consumeOnStateChange,
+  isStaleTap,
+  readInteractiveTracking,
+  trackSent,
+  withInteractiveTracking,
+} from "@/lib/fsm/core/interactive-reply";
 
 export type TurnResult = {
   sent: SendEffect[];
@@ -37,14 +47,15 @@ export type TurnResult = {
 };
 
 export type TurnHooks = {
-  onSend(effect: SendEffect): Promise<void>;
+  onSend(effect: SendEffect): Promise<string | null | void>;
   onWaitingForQuery(): Promise<void>;
+  onAccepted?(): Promise<void>;
 };
 
 const FRESH_SESSION: Session = { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
 
-export function runTurn(from: string, event: InboundEvent): Promise<TurnResult> {
-  return withTurnLock(from, () => runTurnUnlocked(from, event));
+export function runTurn(from: string, event: InboundEvent, hooks?: TurnHooks): Promise<TurnResult> {
+  return withTurnLock(from, () => runTurnUnlocked(from, event, hooks));
 }
 
 export function createRunTurn(lock: TurnLock) {
@@ -54,10 +65,18 @@ export function createRunTurn(lock: TurnLock) {
 export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?: TurnHooks, start?: HandlerResult): Promise<TurnResult> {
   const session = start ? FRESH_SESSION : await getSession(from);
 
+  if (isStaleTap(session, event)) {
+    logger.info("inbound.stale_tap", { waId: tail(from), type: event.type, state: session.state, channel: event.channel });
+    return { sent: [], session };
+  }
+  if (hooks?.onAccepted) await hooks.onAccepted();
+
   return traceTurn(from, event, session, async (trace) => {
     const sent: SendEffect[] = [];
     let currentEvent: HandleEvent = event;
     let currentSession = session;
+    const startTracking = readInteractiveTracking(session.slots);
+    let tracking = acceptTap(startTracking, event);
 
     for (let pass = 1; pass <= MAX_PASSES; pass++) {
       const result = pass === 1 && start ? start : handle(currentSession, currentEvent);
@@ -68,10 +87,12 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
       const sends = result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
       sent.push(...sends);
       if (hooks) {
-        for (const effect of sends) await hooks.onSend(effect);
+        for (const effect of sends) tracking = trackSent(tracking, effect, await hooks.onSend(effect));
       }
 
       if (queries.length === 0) {
+        const settled = consumeOnStateChange(startTracking, tracking, currentSession.state !== session.state);
+        currentSession = withInteractiveTracking(currentSession, settled);
         await saveSession(from, currentSession);
         trace.complete({ session: currentSession, sentCount: sent.length });
         return { sent, session: currentSession };
@@ -133,8 +154,11 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return reniecLookup(payloadText(effect.payload, "dni"));
 
     case QueryKind.INCIDENCIA_REGISTER: {
-      const { registrarIncidencia } = await import("@/lib/recepcion/servicio");
-      return registrarIncidencia(effect.payload.submission);
+      const [{ registrarIncidencia }, { crearAlmacenEvidencias }] = await Promise.all([
+        import("@/lib/recepcion/servicio"),
+        import("@/lib/recepcion/imagenes/almacen"),
+      ]);
+      return registrarIncidencia(effect.payload.submission, crearAlmacenEvidencias());
     }
 
     case QueryKind.CONSULTAR_INCIDENCIA: {

@@ -35,13 +35,15 @@ const buildResponseSchema = (intents: readonly MainMenuIntent[]): JsonSchema => 
 
 export const MAIN_MENU_INTENT_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
   MainMenuIntent.CITA,
+  MainMenuIntent.REFERENCIA,
   MainMenuIntent.INCIDENCIA,
   MainMenuIntent.FUERA_DE_ALCANCE,
   MainMenuIntent.UNCLEAR,
 ]);
 
-const ONLY_CITA_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
+const WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
   MainMenuIntent.CITA,
+  MainMenuIntent.REFERENCIA,
   MainMenuIntent.FUERA_DE_ALCANCE,
   MainMenuIntent.UNCLEAR,
 ]);
@@ -55,6 +57,8 @@ const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
 
 const FAKE_CITA_INTENT_KEYWORDS = ["CITA", "ATENCION", "CONSULTA", "TURNO", "MEDICO", "ATIENDAN"];
 const FAKE_INCIDENCIA_STEMS = ["INCIDENCI", "RECLAM", "QUEJ", "DENUNCI"];
+const FAKE_REFERENCIA_STEMS = ["REFERENCI", "DERIVACI"];
+const FAKE_CITA_WORD = "CITA";
 
 function unclearIntent(reason: string): MainMenuIntentResult {
   logger.warn("ai.fallback", { operation: "analyze_main_menu_intent", fellBackTo: "menu", reason });
@@ -69,7 +73,7 @@ export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null 
       operation: "analyze_main_menu_intent",
       systemPrompt: mainMenuIntentSystemPrompt(incidencias),
       userText: text,
-      schema: incidencias ? MAIN_MENU_INTENT_RESPONSE_SCHEMA : ONLY_CITA_RESPONSE_SCHEMA,
+      schema: incidencias ? MAIN_MENU_INTENT_RESPONSE_SCHEMA : WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA,
     });
     if (!outcome.ok) {
       switch (outcome.failure) {
@@ -88,6 +92,7 @@ export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null 
       const parsed = outcome.json as MainMenuIntentJsonShape;
       const intent = stringOr(parsed.intent).trim().toLowerCase();
       if (intent === MainMenuIntent.FUERA_DE_ALCANCE) return { intent: MainMenuIntent.FUERA_DE_ALCANCE };
+      if (intent === MainMenuIntent.REFERENCIA) return { intent: MainMenuIntent.REFERENCIA };
       if (intent === MainMenuIntent.INCIDENCIA && incidencias) return { intent: MainMenuIntent.INCIDENCIA };
       if (intent !== MainMenuIntent.CITA) return { intent: MainMenuIntent.UNCLEAR };
 
@@ -103,6 +108,9 @@ export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null 
 
   const normalized = normalizeText(text);
   if (incidencias && FAKE_INCIDENCIA_STEMS.some((stem) => normalized.includes(stem))) return { intent: MainMenuIntent.INCIDENCIA };
+  if (FAKE_REFERENCIA_STEMS.some((stem) => normalized.includes(stem)) && !normalized.includes(FAKE_CITA_WORD)) {
+    return { intent: MainMenuIntent.REFERENCIA };
+  }
   const looksLikeCita = FAKE_CITA_INTENT_KEYWORDS.some((keyword) => normalized.includes(keyword));
   if (!looksLikeCita) return { intent: MainMenuIntent.UNCLEAR };
 

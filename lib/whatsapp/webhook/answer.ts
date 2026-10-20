@@ -13,11 +13,12 @@ import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import type { SendEffect } from "@/lib/fsm/core/types";
+import type { InteractiveTracking, SendEffect } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
 import { SessionState } from "@/lib/enums/session-state";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
 import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
+import { trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
 
 const TYPING_DELAY_MS = 1000;
 
@@ -40,11 +41,12 @@ function sleep(ms: number): Promise<void> {
 
 function deliverTo(message: WhatsAppMessage, conversationId: string | null, marks: LatencyMarks | undefined) {
   const first = firstSendMarker(marks);
-  return async (effect: SendEffect) => {
+  return async (effect: SendEffect): Promise<string | null> => {
     first.beforeSend();
     await sendTypingIndicator(message.id);
-    await sendAndRecordEffect(conversationId, message.from_user_id, effect);
+    const sentId = await sendAndRecordEffect(conversationId, message.from_user_id, effect);
     first.afterSend();
+    return sentId;
   };
 }
 
@@ -73,7 +75,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
       {
         onSend: async (effect) => {
           delivered += 1;
-          await deliver(effect);
+          return deliver(effect);
         },
         onWaitingForQuery: () => sendTypingIndicator(message.id),
       },
@@ -85,13 +87,15 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
 
   await traceTurn(waId, { type: message.type, text: firstContactText, messageId: message.id }, fresh, async (trace) => {
     for (const note of first.notes ?? []) trace.note(note);
-    await saveSession(waId, first.session);
 
     const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-    trace.complete({ session: first.session, sentCount: toSend.length });
-
     const deliver = deliverTo(message, conversationId, marks);
-    for (const effect of toSend) await deliver(effect);
+    let tracking: InteractiveTracking = { consumed: false };
+    for (const effect of toSend) tracking = trackSent(tracking, effect, await deliver(effect));
+
+    const session = withInteractiveTracking(first.session, tracking);
+    await saveSession(waId, session);
+    trace.complete({ session, sentCount: toSend.length });
   });
 }
 
@@ -107,15 +111,14 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
   const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
   if (!inboundEvent) return;
 
-  await sendTypingIndicator(message.id);
-
   const first = firstSendMarker(marks);
-  const deliver = async (effect: SendEffect) => {
+  const deliver = async (effect: SendEffect): Promise<string | null> => {
     first.beforeSend();
     await sendTypingIndicator(message.id);
     await sleep(TYPING_DELAY_MS);
-    await sendAndRecordEffect(conversationId, waId, effect);
+    const sentId = await sendAndRecordEffect(conversationId, waId, effect);
     first.afterSend();
+    return sentId;
   };
 
   let delivered = 0;
@@ -125,9 +128,10 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
     {
       onSend: async (effect) => {
         delivered += 1;
-        await deliver(effect);
+        return deliver(effect);
       },
       onWaitingForQuery: () => sendTypingIndicator(message.id),
+      onAccepted: () => sendTypingIndicator(message.id),
     },
   );
 

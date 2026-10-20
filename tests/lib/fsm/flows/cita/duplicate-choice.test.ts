@@ -53,7 +53,7 @@ describe("a duplicate booking means one active cita per especialidad", () => {
         kind: "send_buttons",
         text: "Ya tienes una cita activa para *Pediatría*. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?",
         buttons: [
-          { id: "cita_duplicada_otra_especialidad", title: "Sí, otra especialidad" },
+          { id: "cita_duplicada_otra_especialidad", title: "Otra especialidad" },
           { id: "cita_duplicada_salir", title: "No, salir" },
         ],
       },

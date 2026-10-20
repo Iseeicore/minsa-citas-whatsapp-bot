@@ -19,3 +19,6 @@ export const BARE_CODIGO = /^\s*(?:codigo[-\s]?ipress\s*:?\s*)?(\d{1,9})\s*[.!]?
 export const CODIGO_VALIDO = /^MINSA-\d{4}-\d{6}$/;
 
 export const IMAGE_DATA_URI = /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i;
+
+export const CONSENT_ACCEPTED_PHRASE = /^(?:si |yo )?autorizo(?: y deseo continuar)?$/;
+export const CONSENT_DECLINED_PHRASE = /^no autorizo$/;

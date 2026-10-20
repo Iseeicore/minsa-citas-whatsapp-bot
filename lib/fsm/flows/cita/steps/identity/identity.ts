@@ -5,7 +5,7 @@ import { resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resol
 import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
-import { buildResult, cloneSession, query, readReply, sendText, sendButtons, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query, readTappedId, sendText, sendButtons, readTrimmedText } from "@/lib/fsm/core/handlers-shared";
 import { startReferenciasLookup } from "@/lib/fsm/flows/referencia/lookup";
 import { sendMinsaDigitalCta } from "@/lib/fsm/core/minsa-digital-cta";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
@@ -82,7 +82,7 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
 }
 
 export function handleRegistrationWait(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
+  const replyId = readTappedId(event);
 
   if (replyId === RegistrationButtonId.CANCEL) return askToLeave(session, "local");
 

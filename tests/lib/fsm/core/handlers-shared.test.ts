@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readReply, readTappedId, readTrimmedText, readTypedText } from "@/lib/fsm/core/handlers-shared";
-import type { InboundEvent } from "@/lib/fsm/core/types";
+import { offerList, offerPagedList, readTappedId, readTrimmedText, readTypedText } from "@/lib/fsm/core/handlers-shared";
+import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
+import type { InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 const from = "51999000111";
@@ -27,11 +28,8 @@ describe("readTappedId", () => {
     expect(readTappedId(event({ type: InboundEventType.DOCUMENT, listId: "x" }))).toBeUndefined();
   });
 
-  it("a diferencia de readReply, no acepta como toque un identificador escrito a mano", () => {
-    const typed = event({ type: InboundEventType.TEXT, text: "cita_exit_si" });
-
-    expect(readReply(typed)).toBe("cita_exit_si");
-    expect(readTappedId(typed)).toBeUndefined();
+  it("no acepta como toque un identificador escrito a mano", () => {
+    expect(readTappedId(event({ type: InboundEventType.TEXT, text: "cita_exit_si" }))).toBeUndefined();
   });
 });
 
@@ -68,5 +66,31 @@ describe("readTrimmedText", () => {
   it("no mira el tipo del mensaje: recorta el texto que traiga", () => {
     expect(readTrimmedText(event({ type: InboundEventType.BUTTON, text: " Sí ", listId: "si" }))).toBe("Sí");
     expect(readTrimmedText(event({ type: InboundEventType.IMAGE, text: " pie " }))).toBe("pie");
+  });
+});
+
+describe("offerList y offerPagedList: identificadores de fila únicos", () => {
+  const repeated: ListRow[] = [
+    { id: "08:00|08:30", title: "8:00 - 8:30 AM", description: "1 cupo(s) disponibles" },
+    { id: "09:00|09:30", title: "9:00 - 9:30 AM" },
+    { id: "08:00|08:30", title: "8:00 - 8:30 AM", description: "2 cupo(s) disponibles" },
+  ];
+  const blank = (): Session => ({ state: "cita_awaiting_hora_select", slots: {}, counters: {} });
+  const ids = (rows: ListRow[]): string[] => rows.map((row) => row.id);
+
+  it("offerList envía y recuerda cada identificador una sola vez, quedándose con la primera fila", () => {
+    const session = blank();
+    const effect = offerList(session, "Selecciona:", repeated);
+
+    expect(effect).toEqual({ kind: "send_interactive_list", text: "Selecciona:", rows: [repeated[0], repeated[1]] });
+    expect(ids(readOffered(session.slots)?.rows ?? [])).toEqual(["08:00|08:30", "09:00|09:30"]);
+  });
+
+  it("offerPagedList hace lo mismo antes de paginar", () => {
+    const session = blank();
+    const [effect] = offerPagedList(session, "Selecciona:", repeated);
+
+    expect(effect).toEqual({ kind: "send_interactive_list", text: "Selecciona:", rows: [repeated[0], repeated[1]] });
+    expect(ids(readOffered(session.slots)?.rows ?? [])).toEqual(["08:00|08:30", "09:00|09:30"]);
   });
 });

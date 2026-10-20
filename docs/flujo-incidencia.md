@@ -4,7 +4,7 @@ Cómo empieza y avanza una incidencia (reclamo, queja o denuncia: el ciudadano v
 
 ## Entradas
 
-Todas llegan al mismo paso: la ubicación. Existen solo con `INCIDENCIAS_ENABLED=true` (apagada por defecto): sin ella ninguna entrada abre el flujo y el bot responde que por ahora solo agenda citas, con el menú de una sola fila.
+Todas llegan al mismo paso: la ubicación. Existen solo con `INCIDENCIAS_ENABLED=true` (apagada por defecto): sin ella ninguna entrada abre el flujo y el bot responde que por ahora solo agenda citas y consulta referencias, con el menú de dos filas.
 
 | Entrada | Cómo se reconoce | Dónde |
 |---|---|---|

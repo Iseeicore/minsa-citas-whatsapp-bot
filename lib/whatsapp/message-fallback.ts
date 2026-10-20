@@ -1,0 +1,31 @@
+import type { SendEffect, SendTextEffect } from "@/lib/fsm/core/types";
+import { SendType } from "@/lib/enums/send-type";
+import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
+import { renderWithinLength } from "@/lib/utils/fit-text";
+import { bodyWithOptionLinesText, linkLineText, numberedOptionLineText } from "@/lib/constants/textos/comunes";
+import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
+
+const numberedLines = (titles: string[]): string[] => titles.map((title, index) => numberedOptionLineText(index + 1, title));
+
+function optionLines(effect: SendEffect): string[] {
+  switch (effect.kind) {
+    case SendType.TEXT:
+      return [];
+    case SendType.BUTTONS:
+      return numberedLines(effect.buttons.map((button) => button.title));
+    case SendType.INTERACTIVE_LIST:
+      return numberedLines(effect.rows.map((row) => row.title));
+    case SendType.CTA_URL:
+      return [linkLineText(effect.buttonText, effect.url)];
+  }
+}
+
+function plainText(effect: SendEffect): string {
+  const lines = optionLines(effect);
+  if (lines.length === 0) return effect.text;
+  return renderWithinLength([effect.text], ([body]) => bodyWithOptionLinesText(body, lines), WHATSAPP_TEXT_BODY_MAX);
+}
+
+export function toNumberedTextEffect(effect: SendEffect): SendTextEffect {
+  return { kind: SendType.TEXT, text: truncateForRow(plainText(effect), WHATSAPP_TEXT_BODY_MAX) };
+}

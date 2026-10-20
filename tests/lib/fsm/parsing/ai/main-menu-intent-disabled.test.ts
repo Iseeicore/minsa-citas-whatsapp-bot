@@ -44,7 +44,7 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED on", () => {
 
     await expect(analyzeMainMenuIntent("me trataron mal", client)).resolves.toEqual({ intent: "incidencia" });
 
-    expect(intents(requests[0])).toEqual(["cita", "incidencia", "fuera_de_alcance", "unclear"]);
+    expect(intents(requests[0])).toEqual(["cita", "referencia", "incidencia", "fuera_de_alcance", "unclear"]);
     expect(requests[0].systemPrompt).toContain('"intent": "incidencia"');
     expect(requests[0].systemPrompt).toContain("registrar una incidencia");
   });
@@ -63,7 +63,7 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED not defined", () => {
 
     await expect(analyzeMainMenuIntent("me trataron mal", client)).resolves.toEqual({ intent: "unclear" });
 
-    expect(intents(requests[0])).toEqual(["cita", "fuera_de_alcance", "unclear"]);
+    expect(intents(requests[0])).toEqual(["cita", "referencia", "fuera_de_alcance", "unclear"]);
   });
 });
 
@@ -74,7 +74,7 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED off", () => {
 
     await analyzeMainMenuIntent("quiero una cita", client);
 
-    expect(intents(requests[0])).toEqual(["cita", "fuera_de_alcance", "unclear"]);
+    expect(intents(requests[0])).toEqual(["cita", "referencia", "fuera_de_alcance", "unclear"]);
     expect(requests[0].systemPrompt).not.toMatch(/incidencia|reclamo|queja|denuncia/i);
     expect(requests[0].systemPrompt).toContain("agendar una cita");
   });

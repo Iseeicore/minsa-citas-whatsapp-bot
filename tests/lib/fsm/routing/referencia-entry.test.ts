@@ -5,13 +5,15 @@ import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { isReferenciaKeyword } from "@/lib/fsm/routing/menu-shortcuts";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
-import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
-import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
-import { OUT_OF_SCOPE_REQUEST_TEXT, SERVICE_DISABLED_TEXT, SERVICE_DISABLED_WEB_TEXT } from "@/lib/constants/textos/menu";
+import {
+  REFERENCIA_CHOICE_BUTTONS,
+  REFERENCIA_CHOICE_QUESTION_TEXT,
+  REFERENCIA_LOGIN_REQUIRED_TEXT,
+} from "@/lib/constants/textos/referencia";
+import { OUT_OF_SCOPE_REQUEST_TEXT, SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session, SessionChannel } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { MenuChoice } from "@/lib/enums/menu-choice";
-import { OosCategory } from "@/lib/enums/oos-category";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { SessionChannel as Channel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
@@ -26,6 +28,7 @@ const FROM = "sandbox-referencia-entry";
 const typed = (value: string, channel: SessionChannel): InboundEvent => ({ from: FROM, type: "text", text: value, channel });
 const tapped = (id: string, channel: SessionChannel): InboundEvent => ({ from: FROM, type: "list", listId: id, channel });
 const mainMenu = (slots: Session["slots"] = {}): Session => ({ state: SessionState.MAIN_MENU, slots, counters: {} });
+const CHANNELS = [Channel.WHATSAPP, Channel.WEB];
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] => sent(result).flatMap((effect) => (effect.kind === "send_text" ? [effect.text] : []));
@@ -82,18 +85,18 @@ describe("main menu: entering Consultar referencia", () => {
   it("wins over the out-of-scope rule that used to catch the word", () => {
     const result = handle(mainMenu(), typed("quiero consultar mi referencia", Channel.WHATSAPP));
 
-    expect(texts(result)).not.toContain(OOS_MESSAGES[OosCategory.OOS_03]);
+    expect(result.session.state).not.toBe(SessionState.MAIN_MENU_REFERENCIA_CHOICE);
     expect(result.notes).toContainEqual({ kind: "shortcut", detail: { name: "referencia_keyword" } });
   });
 
   it.each(["¿Ya aceptaron mi referencia?", "Tengo mi hoja de referencia de mi posta para el Hospital Loayza"])(
-    "%j keeps the out-of-scope answer",
+    "%j gets the choice between consulting the referencia and booking a cita",
     (message) => {
       const result = handle(mainMenu(), typed(message, Channel.WEB));
 
-      expect(result.session.state).toBe(SessionState.MAIN_MENU);
+      expect(result.session.state).toBe(SessionState.MAIN_MENU_REFERENCIA_CHOICE);
       expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
-      expect(texts(result)).toEqual([OOS_MESSAGES[OosCategory.OOS_03]]);
+      expect(sent(result)).toEqual([{ kind: "send_buttons", text: REFERENCIA_CHOICE_QUESTION_TEXT, buttons: REFERENCIA_CHOICE_BUTTONS }]);
     },
   );
 
@@ -106,43 +109,40 @@ describe("main menu: entering Consultar referencia", () => {
     expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
   });
 
-  it("the web numbering has the referencia at 2, with the incidencias on or off", () => {
+  it.each(CHANNELS)("the %s numbering has the referencia at 2, with the incidencias on or off", (channel) => {
     for (const value of ["true", "false"]) {
       vi.stubEnv("INCIDENCIAS_ENABLED", value);
 
-      expectLoginForReferencias(handle(mainMenu(), typed("2", Channel.WEB)));
+      expectLoginForReferencias(handle(mainMenu(), typed("2", channel)));
     }
   });
 
-  it("the whatsapp digits never point at the referencia: 2 is still the incidencia, or the notice when it is off", () => {
+  it.each(CHANNELS)("with the incidencias on, the %s digits 3 and 4 open the incidencia and the consulta", (channel) => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
-    const incidencia = handle(mainMenu(), typed("2", Channel.WHATSAPP));
-    expect(incidencia.session.state.startsWith(SessionStatePrefix.INCIDENCIA)).toBe(true);
 
-    vi.stubEnv("INCIDENCIAS_ENABLED", "false");
-    const off = handle(mainMenu(), typed("2", Channel.WHATSAPP));
-    expect(texts(off)).toEqual([SERVICE_DISABLED_TEXT]);
-    expect(off.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
+    expect(handle(mainMenu(), typed("3", channel)).session.state.startsWith(SessionStatePrefix.INCIDENCIA)).toBe(true);
+    expect(handle(mainMenu(), typed("4", channel)).session.state.startsWith(SessionStatePrefix.CONSULTA)).toBe(true);
   });
 
-  it("with the incidencias off, the web digits 3 and 4 answer the notice and show the web menu", () => {
+  it.each(CHANNELS)("with the incidencias off, the %s digits 3 and 4 answer the notice and show the menu", (channel) => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
 
     for (const digit of ["3", "4"]) {
-      const result = handle(mainMenu(), typed(digit, Channel.WEB));
+      const result = handle(mainMenu(), typed(digit, channel));
 
-      expect(result.effects).toEqual([{ kind: "send_text", text: SERVICE_DISABLED_WEB_TEXT }, buildMenuEffect(Channel.WEB)]);
+      expect(result.effects).toEqual([{ kind: "send_text", text: SERVICE_DISABLED_TEXT }, buildMenuEffect(channel)]);
+      expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
     }
   });
 
-  it("the menu it shows follows the channel of the person", () => {
-    const rowIds = (channel: SessionChannel) => {
+  it.each(CHANNELS)("the menu it shows in %s has the referencia row in second place, with the incidencias on or off", (channel) => {
+    for (const value of ["true", "false"]) {
+      vi.stubEnv("INCIDENCIAS_ENABLED", value);
       const list = sent(handle(mainMenu(), typed("hola", channel))).find((effect) => effect.kind === "send_interactive_list");
-      return list?.kind === "send_interactive_list" ? list.rows.map((row) => row.id) : [];
-    };
+      const rowIds = list?.kind === "send_interactive_list" ? list.rows.map((row) => row.id) : [];
 
-    expect(rowIds(Channel.WEB)).toContain(MenuChoice.CONSULTAR_REFERENCIA);
-    expect(rowIds(Channel.WHATSAPP)).not.toContain(MenuChoice.CONSULTAR_REFERENCIA);
+      expect(rowIds.slice(0, 2)).toEqual([MenuChoice.AGENDAR_CITA, MenuChoice.CONSULTAR_REFERENCIA]);
+    }
   });
 
   it("the out-of-scope reply of the AI shows the menu of the channel it came from", () => {
@@ -176,25 +176,22 @@ describe("first contact: entering Consultar referencia", () => {
     }
   });
 
-  it("the web digit 2 enters it, the whatsapp digit 2 does not", () => {
-    expectLoginForReferencias(handleFirstContact("2", Channel.WEB));
-    expect(handleFirstContact("2", Channel.WHATSAPP).session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
+  it.each(CHANNELS)("the digit 2 enters it (%s)", (channel) => {
+    expectLoginForReferencias(handleFirstContact("2", channel));
   });
 
-  it("a referencia that is not a plain request keeps the out-of-scope answer", () => {
+  it("a referencia that is not a plain request gets the choice between consulting it and booking a cita", () => {
     const result = handleFirstContact("¿Ya aceptaron mi referencia?", Channel.WHATSAPP);
 
-    expect(texts(result)).toEqual([OOS_MESSAGES[OosCategory.OOS_03]]);
+    expect(result.session.state).toBe(SessionState.MAIN_MENU_REFERENCIA_CHOICE);
+    expect(sent(result)).toEqual([{ kind: "send_buttons", text: REFERENCIA_CHOICE_QUESTION_TEXT, buttons: REFERENCIA_CHOICE_BUTTONS }]);
   });
 
-  it("a menu shown after a first contact it did not understand follows the channel", () => {
-    const rows = (channel: SessionChannel) => {
-      const list = sent(handleFirstContact("zzzz qwerty asdf", channel)).find((effect) => effect.kind === "send_interactive_list");
-      return list?.kind === "send_interactive_list" ? list.rows.map((row) => row.id) : [];
-    };
+  it.each(CHANNELS)("a menu shown after a first contact it did not understand has the referencia row (%s)", (channel) => {
+    const list = sent(handleFirstContact("zzzz qwerty asdf", channel)).find((effect) => effect.kind === "send_interactive_list");
+    const rowIds = list?.kind === "send_interactive_list" ? list.rows.map((row) => row.id) : [];
 
-    expect(rows(Channel.WEB)).toContain(MenuChoice.CONSULTAR_REFERENCIA);
-    expect(rows(Channel.WHATSAPP)).not.toContain(MenuChoice.CONSULTAR_REFERENCIA);
+    expect(rowIds).toContain(MenuChoice.CONSULTAR_REFERENCIA);
   });
 });
 
@@ -211,6 +208,6 @@ describe("the other doors to the main menu keep the channel", () => {
 
     const result = handle(mainMenu(), typed("Doctora imbécil no me dio mi medicina", Channel.WEB));
 
-    expect(result.effects).toEqual([{ kind: "send_text", text: SERVICE_DISABLED_WEB_TEXT }, buildMenuEffect(Channel.WEB)]);
+    expect(result.effects).toEqual([{ kind: "send_text", text: SERVICE_DISABLED_TEXT }, buildMenuEffect(Channel.WEB)]);
   });
 });

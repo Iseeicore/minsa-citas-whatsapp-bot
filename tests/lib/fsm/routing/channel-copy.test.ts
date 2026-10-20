@@ -3,19 +3,8 @@ import { handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { ConsultaService } from "@/lib/services/consulta-service";
 import { IncidenciaService } from "@/lib/services/incidencia-service";
-import {
-  OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT,
-  OUT_OF_SCOPE_REQUEST_ONLY_CITA_TEXT,
-  OUT_OF_SCOPE_REQUEST_TEXT,
-  SERVICE_DISABLED_TEXT,
-  SERVICE_DISABLED_WEB_TEXT,
-} from "@/lib/constants/textos/menu";
-import {
-  FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT,
-  FIRST_MESSAGE_REJECTION_ONLY_CITA_TEXT,
-  FIRST_MESSAGE_REJECTION_TEXT,
-  FIRST_MESSAGE_REJECTION_WEB_TEXT,
-} from "@/lib/constants/textos/seguridad";
+import { OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT, OUT_OF_SCOPE_REQUEST_TEXT, SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
+import { FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT, FIRST_MESSAGE_REJECTION_TEXT } from "@/lib/constants/textos/seguridad";
 import type { QueryResultEvent, Session, SessionChannel } from "@/lib/fsm/core/types";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { PayloadVerdictKind } from "@/lib/enums/payload-verdict-kind";
@@ -44,48 +33,39 @@ const outOfScopeText = (channel: SessionChannel): unknown => {
   return first.kind === "send_text" ? first.text : undefined;
 };
 
-const rejectionReply = (channel: SessionChannel): string | undefined => {
-  const verdict = checkFirstMessagePayload(TOO_LONG, channel);
+const rejectionReply = (): string | undefined => {
+  const verdict = checkFirstMessagePayload(TOO_LONG);
   return verdict.kind === PayloadVerdictKind.REJECTED ? verdict.reply : undefined;
 };
 
-describe("the texts that list what the bot offers follow the channel and the incidencias flag", () => {
-  it.each([
-    [FLAG_ON, Channel.WHATSAPP, OUT_OF_SCOPE_REQUEST_TEXT],
-    [FLAG_ON, Channel.WEB, OUT_OF_SCOPE_REQUEST_TEXT],
-    [FLAG_OFF, Channel.WHATSAPP, OUT_OF_SCOPE_REQUEST_ONLY_CITA_TEXT],
-    [FLAG_OFF, Channel.WEB, OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT],
-  ])("the out-of-scope request with the flag %s in %s", (flag, channel, expected) => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", flag);
+const CHANNELS = [Channel.WHATSAPP, Channel.WEB];
 
-    expect(outOfScopeText(channel)).toBe(expected);
-  });
-
-  it.each([
-    [FLAG_ON, Channel.WHATSAPP, FIRST_MESSAGE_REJECTION_TEXT],
-    [FLAG_ON, Channel.WEB, FIRST_MESSAGE_REJECTION_WEB_TEXT],
-    [FLAG_OFF, Channel.WHATSAPP, FIRST_MESSAGE_REJECTION_ONLY_CITA_TEXT],
-    [FLAG_OFF, Channel.WEB, FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT],
-  ])("the first-message rejection with the flag %s in %s", (flag, channel, expected) => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", flag);
-
-    expect(rejectionReply(channel)).toBe(expected);
-  });
-
-  it("the first-message rejection of the whatsapp webhook is the default channel", () => {
+describe("the texts that list what the bot offers follow the incidencias flag, the same in both channels", () => {
+  it.each(CHANNELS)("the out-of-scope request in %s", (channel) => {
     vi.stubEnv("INCIDENCIAS_ENABLED", FLAG_ON);
+    expect(outOfScopeText(channel)).toBe(OUT_OF_SCOPE_REQUEST_TEXT);
 
-    expect(checkFirstMessagePayload(TOO_LONG)).toMatchObject({ reply: FIRST_MESSAGE_REJECTION_TEXT });
+    vi.stubEnv("INCIDENCIAS_ENABLED", FLAG_OFF);
+    expect(outOfScopeText(channel)).toBe(OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT);
   });
 
-  it("the web numbers in the rejection point at the web menu rows", () => {
-    expect(FIRST_MESSAGE_REJECTION_WEB_TEXT).toContain("[2] Referencia");
-    expect(FIRST_MESSAGE_REJECTION_WEB_TEXT).toContain("[3] Incidencias");
-    expect(FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT).toContain("[2] Referencia");
+  it("the first-message rejection", () => {
+    vi.stubEnv("INCIDENCIAS_ENABLED", FLAG_ON);
+    expect(rejectionReply()).toBe(FIRST_MESSAGE_REJECTION_TEXT);
+
+    vi.stubEnv("INCIDENCIAS_ENABLED", FLAG_OFF);
+    expect(rejectionReply()).toBe(FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT);
   });
 
-  it.each([new IncidenciaService(), new ConsultaService()])("the disabled reply of the %# service follows the channel", (service) => {
-    expect(service.disabledReply(Channel.WHATSAPP)).toBe(SERVICE_DISABLED_TEXT);
-    expect(service.disabledReply(Channel.WEB)).toBe(SERVICE_DISABLED_WEB_TEXT);
+  it("the numbers in the rejection point at the menu rows", () => {
+    expect(FIRST_MESSAGE_REJECTION_TEXT).toContain("[1] Citas [2] Referencia [3] Incidencias");
+    expect(FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT).toContain("[1] Citas [2] Referencia.");
   });
+
+  it.each([new IncidenciaService(), new ConsultaService()])(
+    "the disabled reply of the %# service names the cita and the referencia",
+    (service) => {
+      expect(service.disabledReply()).toBe(SERVICE_DISABLED_TEXT);
+    },
+  );
 });
