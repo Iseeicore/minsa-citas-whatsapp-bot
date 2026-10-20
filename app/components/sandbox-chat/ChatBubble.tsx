@@ -1,5 +1,6 @@
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
+import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { PagerDirection } from "@/lib/enums/pager-direction";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
@@ -21,7 +22,7 @@ export function ChatBubble({
   disabled?: boolean;
   onOptionClick: (kind: "list" | "buttons", id: string, title: string) => void;
 }) {
-  if (entry.from === "user") {
+  if (entry.from === ChatEntryAuthor.USER) {
     return (
       <div className="mb-3 flex justify-end">
         <div className="max-w-3/4 rounded-2xl rounded-tr-sm bg-sb-navy px-3.5 py-2 text-sm font-medium text-white shadow-sm">

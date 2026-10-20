@@ -19,6 +19,7 @@ import { Button } from "@/app/components/ui/Button";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
+import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
@@ -85,7 +86,7 @@ export default function Sandbox({
     const esBienvenida = payload.reset === true || payload.resetAll === true || entries.length === 0;
 
     if (userDisplayText) {
-      setEntries((prev) => [...prev, { id: randomUuid(), from: "user", text: userDisplayText }]);
+      setEntries((prev) => [...prev, { id: randomUuid(), from: ChatEntryAuthor.USER, text: userDisplayText }]);
     }
 
     setLoading(true);
@@ -116,7 +117,7 @@ export default function Sandbox({
           setTyping(false);
         }
         const interactiveId = index === lastInteractive ? data.interactiveId : undefined;
-        setEntries((prev) => [...prev, { id: randomUuid(), from: "bot" as const, effect, interactiveId }]);
+        setEntries((prev) => [...prev, { id: randomUuid(), from: ChatEntryAuthor.BOT, effect, interactiveId }]);
       }
 
       setSession(data.session);
@@ -204,8 +205,8 @@ export default function Sandbox({
               <ChatBubble
                 key={entry.id}
                 entry={entry}
-                disabled={entry.from === "bot" && entry.interactiveId !== currentInteractiveId}
-                onOptionClick={(kind, id, title) => handleOptionClick(kind, id, title, entry.from === "bot" ? entry.interactiveId : undefined)}
+                disabled={entry.from === ChatEntryAuthor.BOT && entry.interactiveId !== currentInteractiveId}
+                onOptionClick={(kind, id, title) => handleOptionClick(kind, id, title, entry.from === ChatEntryAuthor.BOT ? entry.interactiveId : undefined)}
               />
             ))}
 
