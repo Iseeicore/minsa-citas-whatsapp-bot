@@ -4,12 +4,13 @@ import { describe, expect, it } from "vitest";
 import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
+import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 
 const BUTTON_TAG = /<button\b[^>]*>/g;
 
 const buttonsEntry: ChatEntry = {
   id: "e1",
-  from: "bot",
+  from: ChatEntryAuthor.BOT,
   effect: {
     kind: SendType.BUTTONS,
     text: "¿Registrar?",
@@ -22,7 +23,7 @@ const buttonsEntry: ChatEntry = {
 
 const listEntry: ChatEntry = {
   id: "e2",
-  from: "bot",
+  from: ChatEntryAuthor.BOT,
   effect: { kind: SendType.INTERACTIVE_LIST, text: "Elige", rows: [{ id: "1", title: "Uno" }] },
 };
 
