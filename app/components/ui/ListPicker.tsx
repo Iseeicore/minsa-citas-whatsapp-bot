@@ -20,6 +20,7 @@ export function ListPicker({
   onSelect,
   pager: externalPager,
   presentItem = plainPresentation,
+  disabled = false,
 }: {
   items: ListRow[];
   searchThreshold: number;
@@ -27,6 +28,7 @@ export function ListPicker({
   onSelect: (id: string, label: string) => void;
   pager?: ListPager;
   presentItem?: (item: ListRow) => ListItemPresentation;
+  disabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -66,6 +68,7 @@ export function ListPicker({
               title={label}
               description={item.description}
               Icon={Icon}
+              disabled={disabled}
               onClick={() => onSelect(item.id, label)}
             />
           );
@@ -77,7 +80,13 @@ export function ListPicker({
 
       {view.pager && (
         <div className="border-t border-sb-bubble-border pt-2">
-          <PagerBar prev={view.pager.prev} next={view.pager.next} label={view.pager.label} onSelect={handlePagerSelect} />
+          <PagerBar
+            prev={view.pager.prev}
+            next={view.pager.next}
+            label={view.pager.label}
+            disabled={disabled}
+            onSelect={handlePagerSelect}
+          />
         </div>
       )}
     </Card>

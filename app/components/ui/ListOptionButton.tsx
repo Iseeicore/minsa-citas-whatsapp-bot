@@ -8,15 +8,17 @@ export function ListOptionButton({
   title,
   description,
   Icon,
+  disabled = false,
   onClick,
 }: {
   title: string;
   description?: string;
   Icon?: ComponentType<{ className?: string }>;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
-    <Button variant={ButtonVariant.LIST_OPTION} width={ButtonWidth.FULL} onClick={onClick}>
+    <Button variant={ButtonVariant.LIST_OPTION} width={ButtonWidth.FULL} disabled={disabled} onClick={onClick}>
       {Icon && <Icon className="h-4 w-4 shrink-0" />}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{title}</span>
