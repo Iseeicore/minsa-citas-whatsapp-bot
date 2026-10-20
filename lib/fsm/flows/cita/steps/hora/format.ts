@@ -4,6 +4,7 @@ import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import type { HoraSlot } from "@/lib/fsm/parsing/date/time-parser";
 import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { nowInLima } from "@/lib/time/lima-clock";
+import { uniqueBy } from "@/lib/utils/array-values";
 import { MeridiemPeriod } from "@/lib/enums/meridiem-period";
 import { cuposDisponiblesText } from "@/lib/constants/textos/cita-fecha-hora";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
@@ -15,7 +16,7 @@ export type HoraResultItem = {
 };
 
 export function orderHorasFromNow(citaFecha: string, items: HoraResultItem[]): HoraResultItem[] {
-  const sorted = [...items].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  const sorted = uniqueBy(items, (item) => `${item.horaInicio}|${item.horaFin}`).sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
   const now = nowInLima();
   if (formatFechaForApi(citaFecha) !== now.fecha) return sorted;
   return sorted.filter((item) => item.horaInicio > now.hora);

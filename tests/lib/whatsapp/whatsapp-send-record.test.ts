@@ -65,4 +65,64 @@ describe("recording what the bot sends", () => {
 
     expect(db.mensajeCreate).not.toHaveBeenCalled();
   });
+
+  it("records the plain-text fallback that actually reached the person when Meta rejected the interactive message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn(async () => graphOk())
+        .mockImplementationOnce(async () => new Response(JSON.stringify({ error: { code: 131009 } }), { status: 400 })),
+    );
+
+    await sendAndRecordEffect("user-1", "51987654321", {
+      kind: SendType.BUTTONS,
+      text: "¿Confirmas?",
+      buttons: [
+        { id: "si", title: "Sí" },
+        { id: "no", title: "No" },
+      ],
+    });
+
+    expect(db.mensajeCreate).toHaveBeenCalledTimes(1);
+    expect(db.mensajeCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ contenido: "¿Confirmas?\n\n1. Sí\n2. No", waMessageId: "wamid.out-1" }),
+    });
+  });
+
+  it("records nothing when both the message and its fallback were rejected", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 400 })),
+    );
+
+    await sendAndRecordEffect("user-1", "51987654321", {
+      kind: SendType.BUTTONS,
+      text: "¿Confirmas?",
+      buttons: [{ id: "si", title: "Sí" }],
+    });
+
+    expect(db.mensajeCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns the id Meta gave to the delivered message, with or without a stored user", async () => {
+    await expect(sendAndRecordEffect("user-1", "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toBe("wamid.out-1");
+    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toBe("wamid.out-1");
+  });
+
+  it("returns the id of the plain-text fallback when that is what reached the person, and null when nothing did", async () => {
+    const buttons = { kind: SendType.BUTTONS as const, text: "¿Confirmas?", buttons: [{ id: "si", title: "Sí" }] };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn(async () => graphOk())
+        .mockImplementationOnce(async () => new Response(JSON.stringify({ error: { code: 131009 } }), { status: 400 })),
+    );
+    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toBe("wamid.out-1");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 400 })),
+    );
+    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toBeNull();
+  });
 });

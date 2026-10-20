@@ -13,6 +13,6 @@ export function emergencyCut(fromState: string): HandlerResult {
 }
 
 export function isEmergencyTurn(state: string, text: string): boolean {
-  const atMenu = state === SessionState.MAIN_MENU || TERMINAL_STATES.has(state);
+  const atMenu = state === SessionState.MAIN_MENU || state === SessionState.MAIN_MENU_REFERENCIA_CHOICE || TERMINAL_STATES.has(state);
   return atMenu ? isEmergency(text) : isEmergencyInFlow(text);
 }

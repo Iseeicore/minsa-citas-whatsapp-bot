@@ -22,7 +22,9 @@ const STORY = "El doctor me trató mal y además me cobraron sin recibo en la ve
 
 describe("the AI recognises an incidencia", () => {
   it("the schema lets the model answer «incidencia»", () => {
-    expect(JSON.stringify(MAIN_MENU_INTENT_RESPONSE_SCHEMA)).toContain('"enum":["cita","incidencia","fuera_de_alcance","unclear"]');
+    expect(JSON.stringify(MAIN_MENU_INTENT_RESPONSE_SCHEMA)).toContain(
+      '"enum":["cita","referencia","incidencia","fuera_de_alcance","unclear"]',
+    );
   });
 
   it.each(["incidencia", "Incidencia", " INCIDENCIA "])("reads %j as an incidencia", async (intent) => {
@@ -104,7 +106,7 @@ describe("what the menu does with that answer", () => {
   });
 
   it("any other answer leaves no draft behind", () => {
-    for (const intent of ["cita", "unclear", "fuera_de_alcance"]) {
+    for (const intent of ["cita", "referencia", "unclear", "fuera_de_alcance"]) {
       const asked = handle(menu(), text(STORY));
       const result = handle(asked.session, answer({ intent }));
       expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR], intent).toBeUndefined();

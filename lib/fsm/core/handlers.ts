@@ -14,7 +14,7 @@ import { serviceCatalog } from "@/lib/services/service-catalog";
 import { SessionStatePrefix } from "@/lib/enums/session-state-prefix";
 import { emergencyCut, isEmergencyTurn } from "@/lib/fsm/flows/emergency/emergency";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
-import { handleAwaitingFlowStart, handleMainMenu, handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
+import { handleAwaitingFlowStart, handleMainMenu, handleMainMenuIntentPending, handleReferenciaChoice } from "@/lib/fsm/routing/main-menu";
 import { applyLexicalGuard } from "@/lib/fsm/routing/lexical-guard-routing";
 import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/session-reauth";
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
@@ -84,6 +84,10 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
 
   if (session.state === SessionState.MAIN_MENU_INTENT_PENDING) {
     return handleMainMenuIntentPending(session, event as QueryResultEvent);
+  }
+
+  if (session.state === SessionState.MAIN_MENU_REFERENCIA_CHOICE) {
+    return handleReferenciaChoice(session, event as InboundEvent);
   }
 
   if (session.state === SessionState.AWAITING_FLOW_START) {

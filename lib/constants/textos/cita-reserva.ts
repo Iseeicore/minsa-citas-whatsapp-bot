@@ -24,7 +24,7 @@ export const BOOKING_IN_PROGRESS_TEXT = "Agendando tu cita…";
 export const DUPLICATE_QUESTION_TEXT = "El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?";
 export const duplicateActiveText = (especialidad: string): string =>
   `Ya tienes una cita activa para ${especialidad}. ${DUPLICATE_QUESTION_TEXT}`;
-export const DUPLICATE_YES_BUTTON_TEXT = "Sí, otra especialidad";
+export const DUPLICATE_YES_BUTTON_TEXT = "Otra especialidad";
 export const SEARCHING_OTHER_ESPECIALIDADES_TEXT = "Buscando otras especialidades disponibles…";
 
 export const REFERENCIA_ESTADO_LABELS: Record<number, string> = {

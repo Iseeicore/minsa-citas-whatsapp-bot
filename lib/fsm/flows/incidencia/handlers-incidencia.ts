@@ -20,7 +20,7 @@ import {
   buildResult,
   cloneSession,
   query,
-  readReply,
+  readTappedId,
   sendButtons,
   sendText,
   withRejectionNotice,
@@ -136,7 +136,7 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
 }
 
 function handleIdentityChoice(session: Session, event: InboundEvent): HandlerResult {
-  const replyId = readReply(event);
+  const replyId = readTappedId(event);
   const next = cloneSession(session);
 
   if (replyId === IncidenciaButtonId.CON_NOMBRE) {
@@ -150,7 +150,7 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  if (readReply(event) === IncidenciaButtonId.ANONIMO) return askConsentimiento(cloneSession(session));
+  if (readTappedId(event) === IncidenciaButtonId.ANONIMO) return askConsentimiento(cloneSession(session));
 
   const documento = readTrimmedText(event);
 

@@ -18,6 +18,7 @@ import { Banner } from "@/app/components/ui/Banner";
 import { Button } from "@/app/components/ui/Button";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonVariant } from "@/lib/enums/button-variant";
+import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
@@ -45,6 +46,7 @@ export default function Sandbox({
   const [typing, setTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SandboxSessionView | null>(null);
+  const [currentInteractiveId, setCurrentInteractiveId] = useState<string | undefined>(undefined);
   const [dniValue, setDniValue] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const welcomeRequestedRef = useRef(false);
@@ -71,6 +73,7 @@ export default function Sandbox({
       type: InboundEventType;
       text?: string;
       listId?: string;
+      replyTo?: string;
       mediaDataUri?: string;
       reset?: boolean;
       resetAll?: boolean;
@@ -103,14 +106,17 @@ export default function Sandbox({
       }
 
       const data = (await res.json()) as SandboxReply;
+      const lastInteractive = data.sent.map(isInteractiveEffect).lastIndexOf(true);
+      setCurrentInteractiveId(data.interactiveId);
 
-      for (const effect of data.sent) {
+      for (const [index, effect] of data.sent.entries()) {
         if (!esBienvenida) {
           setTyping(true);
           await sleep(500);
           setTyping(false);
         }
-        setEntries((prev) => [...prev, { id: randomUuid(), from: "bot" as const, effect }]);
+        const interactiveId = index === lastInteractive ? data.interactiveId : undefined;
+        setEntries((prev) => [...prev, { id: randomUuid(), from: "bot" as const, effect, interactiveId }]);
       }
 
       setSession(data.session);
@@ -129,8 +135,8 @@ export default function Sandbox({
     sendTurn({ type: "text", text }, text);
   }
 
-  function handleOptionClick(kind: "list" | "buttons", id: string, title: string) {
-    sendTurn({ type: kind === "list" ? "list" : "button", listId: id }, title);
+  function handleOptionClick(kind: "list" | "buttons", id: string, title: string, replyTo: string | undefined) {
+    sendTurn({ type: kind === "list" ? "list" : "button", listId: id, replyTo }, title);
   }
 
   function handleReset() {
@@ -139,6 +145,7 @@ export default function Sandbox({
     }
     setEntries([]);
     setSession(null);
+    setCurrentInteractiveId(undefined);
     setDniValue("");
     sendTurn({ type: "text", resetAll: true });
   }
@@ -194,7 +201,12 @@ export default function Sandbox({
 
           <div className="flex-1 overflow-y-auto px-4 py-3">
             {entries.map((entry) => (
-              <ChatBubble key={entry.id} entry={entry} onOptionClick={handleOptionClick} />
+              <ChatBubble
+                key={entry.id}
+                entry={entry}
+                disabled={entry.from === "bot" && entry.interactiveId !== currentInteractiveId}
+                onOptionClick={(kind, id, title) => handleOptionClick(kind, id, title, entry.from === "bot" ? entry.interactiveId : undefined)}
+              />
             ))}
 
             {typing && <TypingIndicator />}

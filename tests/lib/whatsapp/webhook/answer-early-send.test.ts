@@ -44,8 +44,9 @@ describe("answerMessage: the citizen never waits in silence", () => {
     vi.clearAllMocks();
   });
 
-  it("shows the typing indicator before the turn starts", async () => {
-    mocks.runTurnUnlocked.mockImplementation(async () => {
+  it("shows the typing indicator as soon as the turn accepts the message, before its work", async () => {
+    mocks.runTurnUnlocked.mockImplementation(async (_waId: string, _event: unknown, hooks?: TurnHooks) => {
+      await hooks?.onAccepted?.();
       calls.log.push("turn");
       return { sent: [], session: { state: "cita_awaiting_dni", slots: {}, counters: {} } };
     });
@@ -54,6 +55,14 @@ describe("answerMessage: the citizen never waits in silence", () => {
 
     expect(calls.log[0]).toBe("typing");
     expect(calls.log.indexOf("turn")).toBeGreaterThan(0);
+  });
+
+  it("does not mark the message as read when the turn ignores it", async () => {
+    mocks.runTurnUnlocked.mockImplementation(async () => ({ sent: [], session: { state: "cita_awaiting_dni", slots: {}, counters: {} } }));
+
+    await answerMessage(MESSAGE, null);
+
+    expect(calls.log).toEqual([]);
   });
 
   it("sends the message produced before a query right away, re-shows typing during the wait, and never sends twice", async () => {

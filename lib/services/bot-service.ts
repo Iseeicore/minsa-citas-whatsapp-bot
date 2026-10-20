@@ -1,12 +1,7 @@
 import type { ListRow, QueryEffectKind, SessionChannel } from "@/lib/fsm/core/types";
 import type { MenuChoice } from "@/lib/enums/menu-choice";
 import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
-import { SERVICE_DISABLED_TEXT, SERVICE_DISABLED_WEB_TEXT } from "@/lib/constants/textos/menu";
-
-const DISABLED_REPLY_BY_CHANNEL: Record<SessionChannel, string> = {
-  [SessionChannelEnum.WEB]: SERVICE_DISABLED_WEB_TEXT,
-  [SessionChannelEnum.WHATSAPP]: SERVICE_DISABLED_TEXT,
-};
+import { SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
 
 export abstract class BotService {
   abstract readonly id: MenuChoice;
@@ -20,7 +15,7 @@ export abstract class BotService {
     return true;
   }
 
-  disabledReply(channel: SessionChannel): string {
-    return DISABLED_REPLY_BY_CHANNEL[channel];
+  disabledReply(): string {
+    return SERVICE_DISABLED_TEXT;
   }
 }

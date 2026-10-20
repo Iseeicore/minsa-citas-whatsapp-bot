@@ -1,28 +1,47 @@
 # Flujo de referencias
 
-Cómo consulta la persona sus referencias médicas con el servicio «Consultar referencia» y cómo se enlaza con la cita. Código en `lib/fsm/flows/referencia/`; reutiliza los pasos de identidad y de selección de referencia de cita, que tiene su propio árbol en [flujo-cita.md](flujo-cita.md). Para el servicio hermano de incidencias, ver [flujo-incidencia.md](flujo-incidencia.md).
+Cómo consulta la persona sus referencias médicas con el servicio «Consultar Referencias» y cómo se enlaza con la cita. Código en `lib/fsm/flows/referencia/`; reutiliza los pasos de identidad y de selección de referencia de cita, que tiene su propio árbol en [flujo-cita.md](flujo-cita.md). Para el servicio hermano de incidencias, ver [flujo-incidencia.md](flujo-incidencia.md).
 
 ## Entradas
 
-No lleva bandera: está siempre disponible. La lógica es la misma en los dos canales; solo cambia cómo se llega.
+No lleva bandera: está siempre disponible. La lógica, la fila del menú y la numeración son las mismas en whatsapp-bot y en el Chat-bot.
 
 | Entrada | Canal | Cómo se reconoce | Dónde |
 |---|---|---|---|
-| Fila «Consultar referencia» | Chat-bot | Fila del menú (`consultar_referencia`) o el número `2` | `main-menu.ts`, `first-contact.ts` |
+| Fila «Consultar Referencias» | whatsapp-bot y Chat-bot | Fila del menú (`consultar_referencia`) o el número `2` | `main-menu.ts`, `first-contact.ts` |
 | Palabra clave | whatsapp-bot y Chat-bot | Mensaje corto (hasta 8 palabras) que dice «referencia» o «referencias» y solo lleva palabras de relleno (quiero, deseo, necesito, consultar, ver, revisar, saber, mi, mis, de, la, las, el, estado, médica): «referencia», «quiero consultar mi referencia», «estado de mi referencia». Va **antes** de fuera de alcance | `isReferenciaKeyword` en `menu-shortcuts.ts`; las palabras, en `lib/constants/palabras-clave.ts` |
+| Botón «Consultar referencia» | whatsapp-bot y Chat-bot | Respuesta a la elección que reciben los mensajes OOS-03 (ver abajo) | `handleReferenciaChoice` en `main-menu.ts` |
+| Intención de la IA | whatsapp-bot y Chat-bot | Texto libre del menú principal que no reconoció ningún atajo y que la IA lee como un pedido de ver la referencia o la derivación (por ejemplo, con la palabra mal escrita: «quiero ver mi refrencia del hospital») | intención `referencia` en `lib/fsm/parsing/ai/main-menu-intent.ts`; el prompt, en `lib/constants/prompts/main-menu-intent.ts`; la entrada, en `handleMainMenuIntentPending` |
 
-**whatsapp-bot no tiene fila ni botón.** Su lista es la de siempre y sus números escritos siguen apuntando a lo mismo: con incidencias encendidas, `1` cita, `2` registrar y `3` consultar una incidencia. En el Chat-bot la fila ocupa el segundo lugar:
+La fila ocupa el segundo lugar en los dos canales, y los números escritos apuntan a lo mismo en whatsapp-bot y en el Chat-bot:
 
-| Número escrito | whatsapp-bot | Chat-bot |
+| Número escrito | Con incidencias encendidas | Con incidencias apagadas |
 |---|---|---|
 | `1` | Agendar una cita médica | Agendar una cita médica |
-| `2` | Registrar una incidencia | Consultar referencia |
-| `3` | Consultar una incidencia | Registrar una incidencia |
-| `4` | no existe | Consultar una incidencia |
+| `2` | Consultar Referencias | Consultar Referencias |
+| `3` | Registrar una incidencia | «Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.» y el menú |
+| `4` | Consultar una incidencia | el mismo aviso y el menú |
 
-Con `INCIDENCIAS_ENABLED` apagada solo quedan `1` (cita) y, en el Chat-bot, `2` (referencia). Los números de las filas apagadas responden que por ahora solo se agenda una cita.
+El texto de rechazo del primer mensaje ofrece la misma numeración: «[1] Citas [2] Referencia [3] Incidencias», o «[1] Citas [2] Referencia» con las incidencias apagadas.
 
-Un mensaje que menciona la referencia sin ser un pedido corto («¿Ya aceptaron mi referencia?», «tengo mi hoja de referencia…», «¿qué es la contrarreferencia?») sigue recibiendo la respuesta de fuera de alcance OOS-03. Esa respuesta ahora termina diciendo que, si la referencia ya está registrada en MINSA Digital, se escriba REFERENCIA.
+La IA del menú distingue la referencia de la cita: un pedido de cita es `cita` aunque mencione la referencia («quiero sacar cita», «cita por referencia»), y solo el pedido de ver la referencia o su estado es `referencia`. La palabra clave va antes de la IA.
+
+Un mensaje que menciona la referencia sin ser un pedido corto («¿Ya aceptaron mi referencia?», «quiero una cita por referencia», «tengo mi hoja de referencia…», «¿qué es la contrarreferencia?») sigue cayendo en la categoría de fuera de alcance OOS-03, en el primer mensaje y en el menú, en los dos canales. Ya no recibe un texto largo: recibe un solo mensaje con dos botones (estado `main_menu_referencia_choice`):
+
+> Gestión de Referencias Médicas:
+>
+> Para una cita en hospital o instituto, tu centro de origen debe emitir la Hoja de Referencia (REFCON).
+>
+> ¿Qué deseas hacer?
+>
+> [Consultar referencia] [Agendar cita]
+
+- **Consultar referencia**, escribir `1` o `uno`, el título exacto del botón o el pedido corto de la referencia («referencia», «quiero consultar mi referencia»): la misma entrada que la fila «Consultar Referencias» (pide iniciar sesión).
+- **Agendar cita**, escribir `2` o `dos`, el título exacto del botón, `CITA` o `CITAS`: la misma entrada que la palabra CITAS en el menú (pide el documento).
+- El título se compara sin importar mayúsculas, tildes ni signos, pero completo: «agendar», «no quiero cita» o «consultar cita mañana» no cuentan y repiten los botones.
+- Los números siguen el orden de los botones, no el del menú principal (donde `1` es la cita y `2` la referencia).
+- Cualquier otra respuesta repite los botones con el aviso «No pudimos identificar tu respuesta…»; un insulto, el recordatorio de respeto y los botones; una emergencia corta la conversación igual que en el menú, sin límite de largo. Un toque en un botón de un mensaje anterior se ignora, como en el resto del bot.
+- La emergencia (OOS-01), los atajos de mayor prioridad y el pedido corto de la referencia se revisan antes. «punto de referencia» (una dirección) no cuenta como referencia.
 
 Las demos del piloto comercial (DNI `10308523` y `47391441`) solo se alcanzan por este servicio: después de iniciar sesión con normalidad, en lugar de consultar MINSA se muestran sus referencias de demostración (`lib/fsm/flows/cita/steps/demo/`). En la cita esos documentos siguen el camino normal.
 
@@ -57,6 +76,6 @@ Los estados que esperan una respuesta de una persona ya verificada vigilan la in
 
 ## Lo que todavía no hace
 
-- La IA no tiene una intención «referencia»: se entra por la fila del Chat-bot o por palabra clave.
+- Un mensaje con la palabra exacta «referencia» que no es un pedido corto recibe la elección de OOS-03 (Consultar referencia / Agendar cita) antes de llegar a la IA, así que la intención `referencia` de la IA solo ve los textos sin esa palabra (mal escrita, «derivación»).
 - El mensaje de sesión vencida dice «tu cita» aunque la persona venga de consultar una referencia.
 - No hay nada más que hacer con una referencia que reservar una cita con ella.

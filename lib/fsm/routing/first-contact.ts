@@ -1,5 +1,5 @@
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
-import { beginCita, buildMenuEffect, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { beginCita, buildMenuEffect, disabledServiceReply, outOfScopeReply } from "@/lib/fsm/routing/flow-entry";
 import { consultaService, incidenciaService, serviceCatalog } from "@/lib/services/service-catalog";
 import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { beginReferencias } from "@/lib/fsm/flows/referencia/handlers-referencia";
@@ -7,9 +7,9 @@ import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/te
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
-import { buildResult, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, withNote } from "@/lib/fsm/core/handlers-shared";
 import { detectCitaRequest, isGreeting, isIncidenciaKeyword, isReferenciaKeyword } from "@/lib/fsm/routing/menu-shortcuts";
-import { detectOutOfScope, isCitaKeyword, oosMessage } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
+import { detectOutOfScope, isCitaKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { OosCategory } from "@/lib/enums/oos-category";
 import { buildWelcomeEffects } from "@/lib/fsm/routing/welcome";
 import type { HandlerResult, SessionChannel } from "@/lib/fsm/core/types";
@@ -64,8 +64,7 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
   const outOfScope = detectOutOfScope(message);
   if (outOfScope === OosCategory.OOS_01) return routed("out_of_scope", emergencyCut("first_contact"));
   if (outOfScope) {
-    const reply = buildResult({ state: SessionState.MAIN_MENU, slots: {}, counters: {} }, [sendText(oosMessage(outOfScope))]);
-    return withNote(routed("out_of_scope", reply), { kind: "out_of_scope", detail: { category: outOfScope } });
+    return withNote(routed("out_of_scope", outOfScopeReply(outOfScope)), { kind: "out_of_scope", detail: { category: outOfScope } });
   }
 
   if (inicio) {

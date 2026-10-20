@@ -3,7 +3,7 @@ import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import { disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { askReferenciaChoice, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
 import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { channelOf } from "@/lib/fsm/core/channel";
@@ -51,6 +51,7 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
 const BUTTON_STATE_REPROMPTS: Record<string, (session: Session) => HandlerResult> = {
   [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
+  [SessionState.MAIN_MENU_REFERENCIA_CHOICE]: askReferenciaChoice,
 };
 
 function institutionalWarningText(): string {

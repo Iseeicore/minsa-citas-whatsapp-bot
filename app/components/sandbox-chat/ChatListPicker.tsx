@@ -8,9 +8,11 @@ const PAGE_SIZE = 5;
 
 export function ChatListPicker({
   rows,
+  disabled = false,
   onSelect,
 }: {
   rows: ListRow[];
+  disabled?: boolean;
   onSelect: (id: string, label: string) => void;
 }) {
   const { items, pager } = splitPagerRows(rows);
@@ -22,6 +24,7 @@ export function ChatListPicker({
       searchThreshold={SEARCH_THRESHOLD}
       pageSize={PAGE_SIZE}
       presentItem={rowPresentation}
+      disabled={disabled}
       onSelect={onSelect}
     />
   );

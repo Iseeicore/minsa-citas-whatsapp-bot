@@ -212,7 +212,16 @@ describe("main_menu — numeric shortcut", () => {
     expect(result.session.slots[SlotKey.INITIAL_MESSAGE_TEXT]).toBeUndefined();
   });
 
-  it.each(["2", " 2 "])("%j goes straight to the incidencia flow without reprinting the menu", (message) => {
+  it.each(["2", " 2 "])("%j goes straight to the login of the referencias without reprinting the menu", (message) => {
+    const result = handle(sessionAt("main_menu"), text(message));
+
+    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(hasQuery(result)).toBe(false);
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text"]);
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
+  });
+
+  it.each(["3", " 3 "])("%j goes straight to the incidencia flow without reprinting the menu", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
@@ -221,7 +230,7 @@ describe("main_menu — numeric shortcut", () => {
     expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("registrar_incidencia");
   });
 
-  it.each(["3", "0", "11", "12", "1 2", "uno"])("%j is not a menu shortcut and follows the normal path", (message) => {
+  it.each(["5", "0", "11", "12", "1 2", "uno"])("%j is not a menu shortcut and follows the normal path", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 
     expect(["cita_awaiting_dni", "incidencia_identity_choice"]).not.toContain(result.session.state);

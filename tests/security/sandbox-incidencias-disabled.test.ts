@@ -17,7 +17,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 }));
 
 import { POST } from "@/app/api/sandbox/route";
-import { SERVICE_DISABLED_WEB_TEXT } from "@/lib/constants/textos/menu";
+import { SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 
 const FROM = "sandbox-incidencias-off";
@@ -49,7 +49,7 @@ describe("the Sandbox with INCIDENCIAS_ENABLED off", () => {
     const reply = await send({ type: "image", mediaId: "media-1", mediaDataUri: "data:image/png;base64,AAAA" });
 
     expect(reply.session.state).toBe("main_menu");
-    expect(reply.sent[0]).toEqual({ kind: "send_text", text: SERVICE_DISABLED_WEB_TEXT });
+    expect(reply.sent[0]).toEqual({ kind: "send_text", text: SERVICE_DISABLED_TEXT });
     expect(reply.sent[1].rows?.map((row) => row.id)).toEqual(["agendar_cita", "consultar_referencia"]);
     expect(store.sessions.get(FROM)?.state).toBe("main_menu");
   });
@@ -58,7 +58,7 @@ describe("the Sandbox with INCIDENCIAS_ENABLED off", () => {
     const reply = await send({ type: "text", text: digit });
 
     expect(reply.session.state).toBe("main_menu");
-    expect(reply.sent[0]).toEqual({ kind: "send_text", text: SERVICE_DISABLED_WEB_TEXT });
+    expect(reply.sent[0]).toEqual({ kind: "send_text", text: SERVICE_DISABLED_TEXT });
     expect(reply.sent[1].rows?.map((row) => row.id)).toEqual(["agendar_cita", "consultar_referencia"]);
   });
 

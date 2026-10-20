@@ -69,6 +69,8 @@ export type SlotTypes = {
   [SlotKey.CONSULTA_TWOFA_ID]: string;
   [SlotKey.CONSULTA_LISTANDO]: boolean;
   [SlotKey.CONSULTA_LISTADO_DATA]: string;
+  [SlotKey.INTERACTIVE_MESSAGE_ID]: string;
+  [SlotKey.INTERACTIVE_MESSAGE_CONSUMED]: boolean;
 };
 
 export type Slots = { [K in SlotKey]?: SlotTypes[K] };
@@ -96,7 +98,13 @@ export type InboundEvent = {
   mediaDataUri?: string;
   mediaFailure?: MediaFailure;
   messageId?: string;
+  replyTo?: string;
   channel?: SessionChannel;
+};
+
+export type InteractiveTracking = {
+  messageId?: string;
+  consumed: boolean;
 };
 
 export type QueryResultEvent = {
