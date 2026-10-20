@@ -4,8 +4,21 @@ import { guardarImagenHttp } from "@/lib/recepcion/imagenes/almacen-http";
 import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { ImageStorageError } from "@/lib/errors/image-storage-error";
 import { ImageStorageFailure } from "@/lib/enums/image-storage-failure";
+import { ImageMimeType } from "@/lib/enums/image-mime-type";
+import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
+import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/validacion";
+import { almacenEnLaBase } from "@/lib/recepcion/imagenes/almacen-base-de-datos";
+import { almacenHttp } from "@/lib/recepcion/imagenes/almacen-http";
+import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 
 const PNG_BASE64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]).toString("base64");
+
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d]);
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+const WEBP = Buffer.concat([Buffer.from("RIFF"), Buffer.from([0x24, 0, 0, 0]), Buffer.from("WEBPVP8 ")]);
+const GIF = Buffer.concat([Buffer.from("GIF89a"), Buffer.from([1, 0, 1, 0])]);
+const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+const dataUri = (mimeType: string, bytes: Buffer) => `data:${mimeType};base64,${bytes.toString("base64")}`;
 
 describe("reading an image data URI", () => {
   it("returns the mime type and the bytes of an image", () => {
@@ -97,5 +110,98 @@ describe("the image storage service", () => {
       message: "El servicio de imágenes no devolvió una ruta",
       failure: ImageStorageFailure.MISSING_PATH,
     });
+  });
+});
+
+describe("validating an evidence image before storing it", () => {
+  it.each([
+    [ImageMimeType.JPEG, JPEG],
+    [ImageMimeType.PNG, PNG],
+    [ImageMimeType.WEBP, WEBP],
+  ])("accepts %s when its bytes carry the matching file signature", (mimeType, bytes) => {
+    expect(validarImagen(dataUri(mimeType, bytes))).toEqual({ mimeType, bytes });
+  });
+
+  it("normalizes the declared type to lower case before checking it", () => {
+    expect(validarImagen(dataUri("image/PNG", PNG))).toEqual({ mimeType: ImageMimeType.PNG, bytes: PNG });
+  });
+
+  it.each([
+    ["an SVG", dataUri("image/svg+xml", SVG)],
+    ["a GIF", dataUri("image/gif", GIF)],
+    ["a PNG declared as JPEG", dataUri("image/jpeg", PNG)],
+    ["a JPEG declared as PNG", dataUri("image/png", JPEG)],
+    ["a RIFF file that is not WEBP", dataUri("image/webp", Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WAVE")]))],
+    ["a truncated PNG signature", dataUri("image/png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]))],
+    ["an SVG disguised with a PNG type", dataUri("image/png", SVG)],
+    ["something that is not a data URI", "not a data uri"],
+    ["a non image data URI", "data:text/html;base64,PGI+"],
+  ])("rejects %s as an invalid image", (_, value) => {
+    expect(validarImagen(value)).toEqual({ failure: ImageValidationFailure.INVALID });
+  });
+
+  it("rejects an image over the size limit as too large, before looking at its signature", () => {
+    const big = Buffer.alloc(MAX_IMAGE_BYTES + 1, 1).toString("base64");
+
+    expect(validarImagen(`data:image/jpeg;base64,${big}`)).toEqual({ failure: ImageValidationFailure.TOO_LARGE });
+  });
+
+  it("tells a rejection apart from a validated image", () => {
+    expect(esImagenRechazada(validarImagen("not a data uri"))).toBe(true);
+    expect(esImagenRechazada(validarImagen(dataUri(ImageMimeType.PNG, PNG)))).toBe(false);
+  });
+});
+
+describe("storing evidence images", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [ImageMimeType.JPEG, JPEG],
+    [ImageMimeType.PNG, PNG],
+    [ImageMimeType.WEBP, WEBP],
+  ])("in the database, the route of a canonical %s data URI is byte-identical to the data URI received", async (mimeType, bytes) => {
+    const received = dataUri(mimeType, bytes);
+    const imagen = validarImagen(received);
+    if (esImagenRechazada(imagen)) throw new TypeError("fixture must be a valid image");
+
+    await expect(almacenEnLaBase.guardar(imagen)).resolves.toEqual({ ruta: received });
+  });
+
+  it("through the image service, posts the validated bytes with their type and returns the stored path", async () => {
+    vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test/files");
+    const fetchMock = vi.fn<(...args: unknown[]) => Promise<Response>>(
+      async () => new Response(JSON.stringify({ ruta: "2026/10/abc.png" }), { status: 201 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(almacenHttp.guardar({ mimeType: ImageMimeType.PNG, bytes: PNG })).resolves.toEqual({ ruta: "2026/10/abc.png" });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ "Content-Type": "image/png" });
+    expect(Buffer.from(init.body as Uint8Array).equals(PNG)).toBe(true);
+  });
+
+  it("through the image service, keeps failing with the storage error", async () => {
+    vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test/files");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("boom", { status: 503 })),
+    );
+
+    const rejected = await almacenHttp.guardar({ mimeType: ImageMimeType.PNG, bytes: PNG }).catch((caught: unknown) => caught);
+
+    expect(rejected).toBeInstanceOf(ImageStorageError);
+    expect(rejected).toMatchObject({ failure: ImageStorageFailure.BAD_STATUS, status: 503 });
+  });
+
+  it("uses the image service only when it is configured, and the database otherwise", () => {
+    vi.stubEnv("MEDIA_STORAGE_BASE_URL", "https://media.example.test/files");
+    expect(crearAlmacenEvidencias()).toBe(almacenHttp);
+
+    vi.stubEnv("MEDIA_STORAGE_BASE_URL", "");
+    expect(crearAlmacenEvidencias()).toBe(almacenEnLaBase);
   });
 });

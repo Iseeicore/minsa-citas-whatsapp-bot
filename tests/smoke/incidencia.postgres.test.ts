@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { runWithTrace } from "@/lib/observability/context";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
+import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 
 describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a real PostgreSQL", () => {
   afterAll(async () => {
@@ -20,7 +21,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const traceId = `trace-${randomUUID()}`;
 
     const result = await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Me cobraron por una atencion gratuita" }),
+      registrarIncidencia({ waId, descripcion: "Me cobraron por una atencion gratuita" }, crearAlmacenEvidencias()),
     );
 
     expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-\d{6,}$/) });
@@ -51,7 +52,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const traceId = `trace-${randomUUID()}`;
 
     await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, nombreCompleto: "Ana Torres", descripcion: "El consultorio estaba cerrado" }),
+      registrarIncidencia({ waId, nombreCompleto: "Ana Torres", descripcion: "El consultorio estaba cerrado" }, crearAlmacenEvidencias()),
     );
 
     expect(await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } })).toMatchObject({
@@ -64,7 +65,8 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
   it("a repeated turn (same trace id) leaves one incident and still answers accepted", async () => {
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
-    const submit = () => runWithTrace(traceId, {}, () => registrarIncidencia({ waId, descripcion: "Texto del reclamo" }));
+    const submit = () =>
+      runWithTrace(traceId, {}, () => registrarIncidencia({ waId, descripcion: "Texto del reclamo" }, crearAlmacenEvidencias()));
 
     const first = await submit();
     const second = await submit();
@@ -81,7 +83,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const dosDeMayo = await prisma.establecimientoSalud.findUniqueOrThrow({ where: { codigoRenipress: "6206" } });
     const submit = () =>
       runWithTrace(traceId, {}, () =>
-        registrarIncidencia({ waId, establecimientoId: dosDeMayo.id, descripcion: "Me cobraron sin recibo" }),
+        registrarIncidencia({ waId, establecimientoId: dosDeMayo.id, descripcion: "Me cobraron sin recibo" }, crearAlmacenEvidencias()),
       );
 
     const first = await submit();
@@ -99,7 +101,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const traceId = `trace-${randomUUID()}`;
 
     await expect(
-      runWithTrace(traceId, {}, () => registrarIncidencia({ waId, establecimientoId: 999999, descripcion: "x" })),
+      runWithTrace(traceId, {}, () => registrarIncidencia({ waId, establecimientoId: 999999, descripcion: "x" }, crearAlmacenEvidencias())),
     ).resolves.toEqual({ status: "error" });
     expect(await prisma.incidenciaPaciente.count({ where: { traceId } })).toBe(0);
   });
@@ -107,7 +109,9 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
   it("refuses an invalid DNI before reaching the database", async () => {
     const waId = `smoke-${randomUUID()}`;
 
-    await expect(registrarIncidencia({ waId, dni: "abc", descripcion: "x" })).resolves.toEqual({ status: "error" });
+    await expect(registrarIncidencia({ waId, dni: "abc", descripcion: "x" }, crearAlmacenEvidencias())).resolves.toEqual({
+      status: "error",
+    });
 
     expect(await prisma.incidenciaPaciente.count({ where: { waId } })).toBe(0);
   });
@@ -120,7 +124,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const dataUri = `data:image/png;base64,${png.toString("base64")}`;
 
     const result = await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUris: [dataUri, dataUri] }),
+      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUris: [dataUri, dataUri] }, crearAlmacenEvidencias()),
     );
 
     expect(result.status).toBe("accepted");
@@ -138,10 +142,13 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     );
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
-    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 
     const result = await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUris: [`data:image/png;base64,${png.toString("base64")}`] }),
+      registrarIncidencia(
+        { waId, descripcion: "Mala atencion", mediaDataUris: [`data:image/png;base64,${png.toString("base64")}`] },
+        crearAlmacenEvidencias(),
+      ),
     );
 
     expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-\d{6,}$/) });

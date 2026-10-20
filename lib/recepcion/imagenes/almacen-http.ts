@@ -3,6 +3,7 @@ import { mediaStorageConfig } from "@/lib/recepcion/imagenes/config";
 import { isString } from "@/lib/utils/type-guards";
 import { ImageStorageError } from "@/lib/errors/image-storage-error";
 import { ImageStorageFailure } from "@/lib/enums/image-storage-failure";
+import type { AlmacenEvidencias } from "@/lib/types/almacen-evidencias.types";
 
 export async function guardarImagenHttp(bytes: Buffer, mimeType: string): Promise<{ ruta: string }> {
   const { baseUrl, token, timeoutMs } = mediaStorageConfig();
@@ -20,3 +21,7 @@ export async function guardarImagenHttp(bytes: Buffer, mimeType: string): Promis
   if (!isString(body?.ruta) || body.ruta === "") throw new ImageStorageError(ImageStorageFailure.MISSING_PATH);
   return { ruta: body.ruta };
 }
+
+export const almacenHttp: AlmacenEvidencias = {
+  guardar: ({ bytes, mimeType }) => guardarImagenHttp(bytes, mimeType),
+};

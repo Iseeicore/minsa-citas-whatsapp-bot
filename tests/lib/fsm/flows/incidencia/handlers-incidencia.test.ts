@@ -298,12 +298,14 @@ describe("el registro final: con la persona o anónimo", () => {
 
 const PNG_A = "data:image/png;base64,iVBORw0KGgo=";
 const PNG_B = "data:image/png;base64,iVBORw0KGgoAAAA=";
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const pngDe = (indice: number) => `data:image/png;base64,${Buffer.concat([PNG_SIGNATURE, Buffer.from([indice])]).toString("base64")}`;
 const imagenesDe = (result: HandlerResult): string[] => JSON.parse(result.session.slots[SlotKey.INCIDENCIA_IMAGENES] ?? "[]");
 const conImagenes = (cantidad: number): Session => ({
   state: "incidencia_awaiting_foto",
   slots: {
     descripcionIncidencia: "Mala atención",
-    [SlotKey.INCIDENCIA_IMAGENES]: JSON.stringify(Array.from({ length: cantidad }, (_, i) => `data:image/png;base64,AAAA${i}`)),
+    [SlotKey.INCIDENCIA_IMAGENES]: JSON.stringify(Array.from({ length: cantidad }, (_, i) => pngDe(i))),
   },
   counters: {},
 });
@@ -338,7 +340,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
   });
 
   it("una imagen repetida no se guarda dos veces y se dice por qué", () => {
-    const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri: "data:image/png;base64,AAAA0" });
+    const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri: pngDe(0) });
 
     expect(imagenesDe(result)).toHaveLength(1);
     expect(texts(result)[0]).toContain("ya la habías enviado");
@@ -374,6 +376,27 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: "data:text/html;base64,PGI+" });
 
     expect(texts(result)[0]).toContain("no es una imagen válida");
+  });
+
+  it.each([
+    ["un SVG", `data:image/svg+xml;base64,${Buffer.from("<svg></svg>").toString("base64")}`],
+    ["un GIF", `data:image/gif;base64,${Buffer.from("GIF89a").toString("base64")}`],
+    ["un PNG que dice ser JPEG", `data:image/jpeg;base64,${PNG_SIGNATURE.toString("base64")}`],
+    ["un texto que dice ser PNG", `data:image/png;base64,${Buffer.from("<svg></svg>").toString("base64")}`],
+  ])("%s se rechaza al subirlo como imagen no válida, conservando las anteriores", (_, mediaDataUri) => {
+    const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri });
+
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(texts(result)[0]).toContain("no es una imagen válida");
+    expect(imagenesDe(result)).toHaveLength(1);
+  });
+
+  it("una imagen WEBP con su firma real se guarda", () => {
+    const webp = Buffer.concat([Buffer.from("RIFF"), Buffer.from([0x24, 0, 0, 0]), Buffer.from("WEBPVP8 ")]);
+    const mediaDataUri = `data:image/webp;base64,${webp.toString("base64")}`;
+    const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri });
+
+    expect(imagenesDe(result)).toEqual([mediaDataUri]);
   });
 
   it("un PDF no se guarda y se dice, sin dar la evidencia por registrada", () => {

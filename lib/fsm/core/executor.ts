@@ -133,8 +133,11 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return reniecLookup(payloadText(effect.payload, "dni"));
 
     case QueryKind.INCIDENCIA_REGISTER: {
-      const { registrarIncidencia } = await import("@/lib/recepcion/servicio");
-      return registrarIncidencia(effect.payload.submission);
+      const [{ registrarIncidencia }, { crearAlmacenEvidencias }] = await Promise.all([
+        import("@/lib/recepcion/servicio"),
+        import("@/lib/recepcion/imagenes/almacen"),
+      ]);
+      return registrarIncidencia(effect.payload.submission, crearAlmacenEvidencias());
     }
 
     case QueryKind.CONSULTAR_INCIDENCIA: {
