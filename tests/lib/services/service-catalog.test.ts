@@ -17,8 +17,8 @@ afterEach(() => {
 });
 
 const ROW_CITA = { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" };
-const ROW_INCIDENCIA = { id: MenuChoice.REGISTRAR_INCIDENCIA, title: "Registrar una incidencia" };
-const ROW_CONSULTA = { id: MenuChoice.CONSULTAR_INCIDENCIA, title: "Consultar una incidencia" };
+const ROW_INCIDENCIA = { id: MenuChoice.REGISTRAR_INCIDENCIA, title: "Denuncia anticorrupción" };
+const ROW_CONSULTA = { id: MenuChoice.CONSULTAR_INCIDENCIA, title: "Consultar mi denuncia" };
 const ROW_REFERENCIA = { id: MenuChoice.CONSULTAR_REFERENCIA, title: "Consultar Referencias" };
 const CHANNELS = [SessionChannel.WHATSAPP, SessionChannel.WEB];
 

@@ -27,6 +27,9 @@ describe("lexical guard — legitimate messages must be ALLOWED", () => {
     "La atención fue pésima, no me atendieron",
     "quiero hacer un reclamo",
     "RECLAMO",
+    "denuncia anticorrupción",
+    "me pidieron una coima en la posta",
+    "hay corrupción y sobornos en el hospital",
     "hola",
     "1",
     "2",
@@ -82,6 +85,8 @@ describe("lexical guard — aggression + intent", () => {
     expect(action("Doctora imbécil no me dio mi medicina")).toBe("FORCE_INCIDENCIA");
     expect(action("maldita posta no me atiende el doctor")).toBe("FORCE_INCIDENCIA");
     expect(action("maldita posta atienden pésimo")).toBe("FORCE_INCIDENCIA");
+    expect(action("ladrones corruptos")).toBe("FORCE_INCIDENCIA");
+    expect(action("ladrones, me pidieron coima")).toBe("FORCE_INCIDENCIA");
   });
 
   it("gives the complaint route precedence over the cita route", () => {

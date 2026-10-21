@@ -76,7 +76,7 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     await expect(p.state()).resolves.toBe("incidencia_confirm_registro");
 
     const done = await p.tap("incidencia_confirmar_registro_si");
-    expect(done.map((effect) => effect.text)).toEqual(["Enviando tu incidencia…", expect.stringMatching(/código MINSA-\d{4}-\d{6,}/)]);
+    expect(done.map((effect) => effect.text)).toEqual(["Enviando tu denuncia…", expect.stringMatching(/código MINSA-\d{4}-\d{6,}/)]);
 
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.waId }, include: { establecimiento: true } });
     expect(saved.establecimiento?.codigoRenipress).toBe("6206");
@@ -99,7 +99,7 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     await p.text(QR);
 
     const closed = await p.text("quiero cerrar");
-    expect(closed[0].text).toContain("no se registró ninguna incidencia");
+    expect(closed[0].text).toContain("no se registró ninguna denuncia");
     await expect(p.state()).resolves.toBe("incidencia_cancelled");
     expect(await prisma.incidenciaPaciente.count({ where: { waId: p.waId } })).toBe(0);
   }, 60_000);

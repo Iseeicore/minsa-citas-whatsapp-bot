@@ -38,17 +38,28 @@ describe("parseCodigoIncidencia", () => {
 });
 
 describe("isConsultaKeyword", () => {
-  it.each(["quiero consultar mi incidencia", "quiero ver el estado de mi incidencia", "seguimiento de mi reporte"])(
-    "%j pide consultar",
-    (text) => {
-      expect(isConsultaKeyword(text)).toBe(true);
-    },
-  );
+  it.each([
+    "quiero consultar mi incidencia",
+    "quiero ver el estado de mi incidencia",
+    "seguimiento de mi reporte",
+    "consultar mi denuncia",
+    "ver mis denuncias",
+    "quiero ver el estado de la denuncia que hice",
+  ])("%j pide consultar", (text) => {
+    expect(isConsultaKeyword(text)).toBe(true);
+  });
 
-  it.each(["quiero registrar una incidencia", "quiero presentar una incidencia", "hola", "quiero ver mi cita"])(
-    "%j no pide consultar",
-    (text) => {
-      expect(isConsultaKeyword(text)).toBe(false);
-    },
-  );
+  it.each([
+    "quiero registrar una incidencia",
+    "quiero presentar una incidencia",
+    "hola",
+    "quiero ver mi cita",
+    "quiero presentar una denuncia anticorrupción",
+    "quiero saber cómo hacer una denuncia",
+    "quiero saber como poner una denuncia",
+    "quiero saber cómo formular una denuncia",
+    "quiero saber cómo interponer una denuncia",
+  ])("%j no pide consultar", (text) => {
+    expect(isConsultaKeyword(text)).toBe(false);
+  });
 });

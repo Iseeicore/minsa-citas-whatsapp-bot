@@ -43,6 +43,6 @@ describe("the first-message rejection with INCIDENCIAS_ENABLED on", () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
 
     expect(checkFirstMessagePayload(message)).toMatchObject({ reply: FIRST_MESSAGE_REJECTION_TEXT });
-    expect(FIRST_MESSAGE_REJECTION_TEXT).toContain("[2] Referencia [3] Incidencias");
+    expect(FIRST_MESSAGE_REJECTION_TEXT).toContain("[2] Referencia [3] Denuncias anticorrupción");
   });
 });

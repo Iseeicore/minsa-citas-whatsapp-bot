@@ -46,7 +46,7 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED on", () => {
 
     expect(intents(requests[0])).toEqual(["cita", "referencia", "incidencia", "fuera_de_alcance", "unclear"]);
     expect(requests[0].systemPrompt).toContain('"intent": "incidencia"');
-    expect(requests[0].systemPrompt).toContain("registrar una incidencia");
+    expect(requests[0].systemPrompt).toContain("registrar una denuncia anticorrupción");
   });
 
   it("the offline stand-in still recognizes a complaint", async () => {
@@ -54,6 +54,15 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED on", () => {
 
     await expect(analyzeMainMenuIntent("quiero poner un reclamo", null)).resolves.toEqual({ intent: "incidencia" });
   });
+
+  it.each(["hay corrupción en la posta", "me pidieron una coima", "quisieron un soborno"])(
+    "the offline stand-in reads %j as an incidencia",
+    async (message) => {
+      vi.stubEnv("INCIDENCIAS_ENABLED", "true");
+
+      await expect(analyzeMainMenuIntent(message, null)).resolves.toEqual({ intent: "incidencia" });
+    },
+  );
 });
 
 describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED not defined", () => {
@@ -75,7 +84,7 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED off", () => {
     await analyzeMainMenuIntent("quiero una cita", client);
 
     expect(intents(requests[0])).toEqual(["cita", "referencia", "fuera_de_alcance", "unclear"]);
-    expect(requests[0].systemPrompt).not.toMatch(/incidencia|reclamo|queja|denuncia/i);
+    expect(requests[0].systemPrompt).not.toMatch(/incidencia|reclamo|queja|denuncia|corrup|coima|soborn|anticorrup/i);
     expect(requests[0].systemPrompt).toContain("agendar una cita");
   });
 

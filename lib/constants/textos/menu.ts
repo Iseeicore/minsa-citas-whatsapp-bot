@@ -20,8 +20,8 @@ export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
 export const MENU_PROMPT_TEXT = "¿En qué podemos ayudarte hoy?";
 
 export const MENU_ROW_CITA_TITLE = "Agendar una cita médica";
-export const MENU_ROW_REGISTRAR_INCIDENCIA_TITLE = "Registrar una incidencia";
-export const MENU_ROW_CONSULTAR_INCIDENCIA_TITLE = "Consultar una incidencia";
+export const MENU_ROW_REGISTRAR_INCIDENCIA_TITLE = "Denuncia anticorrupción";
+export const MENU_ROW_CONSULTAR_INCIDENCIA_TITLE = "Consultar mi denuncia";
 export const MENU_ROW_CONSULTAR_REFERENCIA_TITLE = "Consultar Referencias";
 export const SERVICE_DISABLED_TEXT = "Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.";
 
@@ -33,11 +33,11 @@ export const firstContactCitaRequestText = (what: string, where: string): string
 export const FIRST_CONTACT_CITA_TEXT = "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:";
 export const REVIEWING_MESSAGE_TEXT = "Un momento, estamos revisando tu mensaje…";
 export const OUT_OF_SCOPE_REQUEST_TEXT =
-  "Solo puedo ayudarte a agendar una cita médica, a consultar una referencia o a registrar una incidencia. Elige una opción:";
+  "Solo puedo ayudarte a agendar una cita médica, a consultar una referencia o a registrar una denuncia anticorrupción. Elige una opción:";
 export const OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT =
   "Solo puedo ayudarte a agendar una cita médica o a consultar una referencia. Elige una opción:";
 export const SANDBOX_PAGE_TITLE_TEXT = "MINSA Digital";
-export const SANDBOX_PAGE_DESCRIPTION_TEXT = "Agenda tu cita o registra una incidencia con el Ministerio de Salud del Perú.";
+export const SANDBOX_PAGE_DESCRIPTION_TEXT = "Agenda tu cita o registra una denuncia anticorrupción con el Ministerio de Salud del Perú.";
 export const SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT = "Agenda tu cita o consulta tu referencia con el Ministerio de Salud del Perú.";
 export const CITA_INTENT_DETECTED_TEXT =
   "¡Entendido! Quieres agendar una cita médica. Antes de continuar necesito verificar tu identidad — ingresa tu número de documento.";

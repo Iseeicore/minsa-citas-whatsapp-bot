@@ -14,7 +14,7 @@ describe("the sandbox page description", () => {
   it("names the incidencias when INCIDENCIAS_ENABLED is on", () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
 
-    expect(generateMetadata().description).toBe("Agenda tu cita o registra una incidencia con el Ministerio de Salud del Perú.");
+    expect(generateMetadata().description).toBe("Agenda tu cita o registra una denuncia anticorrupción con el Ministerio de Salud del Perú.");
   });
 
   it("names the citas and the referencias when it is off", () => {

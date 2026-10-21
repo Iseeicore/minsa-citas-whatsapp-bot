@@ -1,12 +1,13 @@
 export const CODIGO_EN_TEXTO = /(?<![A-Z0-9-])MINSA-\d{4}-\d{6}(?![A-Z0-9-])/i;
 export const CODIGO_EXACTO = /^MINSA-\d{4}-\d{6}$/i;
-export const CONSULTA_KEYWORD = /\b(?:consultar|consulta|revisar|ver|saber|estado|seguimiento)\b.{0,30}\b(?:incidencia|reporte)\b/i;
-export const REGISTRO_KEYWORD = /\b(?:registrar|presentar|reportar|ingresar|denunciar)\b/i;
+export const CONSULTA_KEYWORD =
+  /\b(?:consultar|consulta|revisar|ver|saber|estado|seguimiento)\b.{0,30}\b(?:incidencia|reporte|denuncias?)\b/i;
+export const REGISTRO_KEYWORD = /\b(?:registrar|presentar|reportar|ingresar|denunciar|hacer|poner|formular|interponer)\b/i;
 
 export const CODIGO_IPRESS_LABEL = /codigo[-\s]?ipress\s*:?\s*/i;
 export const INCIDENCIA_WORD = /\bincidencia\b/i;
 export const INICIO_SENTENCE =
-  /^\s*(?:hola\b[\s,!.]*)?(?:buen[oa]s\s+\p{L}+[\s,!.]*)?quiero\s+(?:presentar|reportar|registrar)\s+una\s+incidencia\b/iu;
+  /^\s*(?:hola\b[\s,!.]*)?(?:buen[oa]s\s+\p{L}+[\s,!.]*)?quiero\s+(?:presentar|reportar|registrar)\s+una\s+(?:incidencia|denuncia(?:\s+anticorrupci[oó]n)?)\b/iu;
 export const LEADING_NUMERIC_TOKEN = /^(\d+)(?![\p{L}\d_])/u;
 export const LEADING_PREPOSITIONS = /^(?:(?:en|de|del|el|la|los|las|sobre|por)\s+)+/i;
 export const LEADING_ZEROS = /^0+/;

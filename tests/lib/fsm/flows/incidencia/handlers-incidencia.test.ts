@@ -335,7 +335,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     const result = handleIncidencia(conImagenes(4), { ...file("image"), mediaDataUri: PNG_B });
 
     expect(result.session.state).toBe("incidencia_confirm_registro");
-    expect(texts(result)[0]).toContain("es el máximo por incidencia");
+    expect(texts(result)[0]).toContain("es el máximo por denuncia");
     expect(imagenesDe(result)).toHaveLength(5);
   });
 
@@ -538,7 +538,7 @@ describe("«quiero cerrar» cancela desde cualquier paso", () => {
 
     expect(result.session).toEqual({ state: "incidencia_cancelled", slots: {}, counters: {} });
     expect(queries(result)).toHaveLength(0);
-    expect(texts(result)[0]).toContain("no se registró ninguna incidencia");
+    expect(texts(result)[0]).toContain("no se registró ninguna denuncia");
     expect(result.outcome).toBe("closed");
   });
 
@@ -597,7 +597,7 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
 
     expect(result.session.state).toBe("incidencia_confirmed");
-    expect(texts(result)).toEqual(["Gracias por tu reporte de incidencia, ya se registró."]);
+    expect(texts(result)).toEqual(["Gracias por tu denuncia, ya se registró."]);
     expect(result.outcome).toBe("closed");
   });
 
@@ -606,7 +606,7 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     const result = handleIncidencia(withPlace, submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
 
     expect(texts(result)).toEqual([
-      "¡Gracias! Tu incidencia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.",
+      "¡Gracias! Tu denuncia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta denuncia.",
     ]);
   });
 
@@ -618,15 +618,13 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     const result = handleIncidencia(withPlace, submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
 
     expect(texts(result)).toEqual([
-      "¡Gracias! Tu incidencia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Si el área responsable necesita información adicional, se comunicará contigo.",
+      "¡Gracias! Tu denuncia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Si el área responsable necesita información adicional, se comunicará contigo.",
     ]);
   });
 
   it("aceptado con establecimiento pero sin código (una reentrega que no lo pudo leer): solo agradece", () => {
     const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
-    expect(texts(handleIncidencia(withPlace, submitResult({ status: "accepted" })))).toEqual([
-      "Gracias por tu reporte de incidencia, ya se registró.",
-    ]);
+    expect(texts(handleIncidencia(withPlace, submitResult({ status: "accepted" })))).toEqual(["Gracias por tu denuncia, ya se registró."]);
   });
   it("tope diario alcanzado: avisa que podrá registrar otra mañana y cierra", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "rejected", reason: "daily_limit" }));
@@ -639,7 +637,7 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "error" }));
 
     expect(result.session.state).toBe("incidencia_failed");
-    expect(texts(result)[0]).toContain("No pudimos registrar tu incidencia");
+    expect(texts(result)[0]).toContain("No pudimos registrar tu denuncia");
   });
 });
 
@@ -714,7 +712,7 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
 
     expect(result.session).toEqual({ state: "incidencia_cancelled", slots: {}, counters: {} });
     expect(queries(result)).toHaveLength(0);
-    expect(texts(result)[0]).toContain("No se registrará tu incidencia por este canal");
+    expect(texts(result)[0]).toContain("No se registrará tu denuncia por este canal");
   });
 
   it("una respuesta ambigua avisa que no se entendió y repite los botones", () => {

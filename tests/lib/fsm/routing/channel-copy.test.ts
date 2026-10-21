@@ -58,7 +58,7 @@ describe("the texts that list what the bot offers follow the incidencias flag, t
   });
 
   it("the numbers in the rejection point at the menu rows", () => {
-    expect(FIRST_MESSAGE_REJECTION_TEXT).toContain("[1] Citas [2] Referencia [3] Incidencias");
+    expect(FIRST_MESSAGE_REJECTION_TEXT).toContain("[1] Citas [2] Referencia [3] Denuncias anticorrupción");
     expect(FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT).toContain("[1] Citas [2] Referencia.");
   });
 
