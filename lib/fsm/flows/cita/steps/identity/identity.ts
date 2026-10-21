@@ -126,7 +126,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   ]);
 }
 
-export function continueCitaAfterVerification(session: Session): HandlerResult {
+export function continueCitaAfterVerification(session: Session, askText: string = VERIFIED_ASK_DISTRITO_TEXT): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
 
@@ -141,7 +141,7 @@ export function continueCitaAfterVerification(session: Session): HandlerResult {
     return resolveDistritoText(next, initialMessageText, undefined);
   }
 
-  return buildResult(next, [sendText(VERIFIED_ASK_DISTRITO_TEXT)]);
+  return buildResult(next, [sendText(askText)]);
 }
 
 export function handleVerifyPending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -172,6 +172,12 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     if (resumeState) {
       delete next.slots[SlotKey.CITA_RESUME_STATE];
       return resumeAfterReverification(next, resumeState);
+    }
+
+    if (next.slots[SlotKey.CITA_REFERENCIAS_CONSULTADAS] !== true) {
+      next.slots[SlotKey.POST_LOGIN_FLOW] = PostLoginFlow.CITA;
+      next.slots[SlotKey.CITA_REFERENCIAS_CONSULTADAS] = true;
+      return startReferenciasLookup(next);
     }
 
     return continueCitaAfterVerification(next);

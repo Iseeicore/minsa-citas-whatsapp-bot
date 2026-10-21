@@ -52,6 +52,8 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
     step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw" }));
     step = handle(step.session, text("1234"));
     step = handle(step.session, result("verify_code", { status: "verified", token: "jwt" }));
+    expect(queries(step).map((effect) => effect.kind)).toEqual(["list_references"]);
+    step = handle(step.session, result("list_references", { statusReference: "empty", message: "", data: [] }));
 
     expect(step.session.state).toBe("cita_ubigeo_pending");
     const [search] = queries(step);

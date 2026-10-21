@@ -5,6 +5,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import type { SessionState } from "@/lib/enums/session-state";
 import type { InternalEventType } from "@/lib/enums/internal-event-type";
 import type { MediaFailure } from "@/lib/enums/media-failure";
+import type { ReferenciaTono } from "@/lib/enums/referencia-tono";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -52,6 +53,8 @@ export type SlotTypes = {
   [SlotKey.CITA_OFFERED_NAMES]: string;
   [SlotKey.CITA_REFERENCIAS_DATA]: string;
   [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: string;
+  [SlotKey.CITA_REFERENCIAS_CONSULTADAS]: boolean;
+  [SlotKey.CITA_REFERENCIAS_SIN_CUPOS]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE]: string;
@@ -126,6 +129,8 @@ export type ListRow = {
   id: string;
   title: string;
   description?: string;
+  disabled?: boolean;
+  tone?: ReferenciaTono;
 };
 
 export type SendInteractiveListEffect = {

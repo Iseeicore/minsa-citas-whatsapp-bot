@@ -5,6 +5,7 @@ import type { HandlerResult, QueryEffect, QueryResultEvent, SendEffect, Session 
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { REFERENCIA_SIN_OTRAS_TEXT } from "@/lib/constants/textos/referencia";
 
 const FROM = "sandbox-referencia-booking";
 
@@ -37,20 +38,20 @@ function fechaPending(withReferencia: boolean): Session {
 }
 
 describe("referencia médica: no hay fechas con cupo en el destino", () => {
-  it("cierra con una disculpa y la recomendación de acudir a su centro de salud, sin buscar otro establecimiento", () => {
+  it("ya no cierra: sin otra referencia con programación, sigue con la cita sin referencia y conserva la sesión", () => {
     const result = handle(fechaPending(true), fechasResult({ status: "empty" }));
 
-    expect(result.session.state).toBe("cita_declined_closed");
-    const mensaje = texts(result);
-    expect(mensaje).toContain("referencia médica");
-    expect(mensaje).toContain("centro de salud principal");
+    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(texts(result)).toContain(REFERENCIA_SIN_OTRAS_TEXT);
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(queries(result)).toHaveLength(0);
   });
 
   it("también cuando MINSA responde found con la lista vacía", () => {
     const result = handle(fechaPending(true), fechasResult({ status: "found", items: [] }));
 
-    expect(result.session.state).toBe("cita_declined_closed");
+    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
   });
 
   it("en una cita normal el comportamiento no cambia: no se cierra con el mensaje de referencia", () => {

@@ -6,6 +6,7 @@ import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { askReferenciaChoice, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
 import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
+import { askReferenciaEleccion, askReferenciaSinCupos } from "@/lib/fsm/flows/referencia/cita-con-referencia";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 import { evaluateLexicalGuard, type LexicalAction } from "@/lib/security/lexical-guard";
@@ -51,6 +52,8 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
 const BUTTON_STATE_REPROMPTS: Record<string, (session: Session) => HandlerResult> = {
   [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
+  [SessionState.CITA_AWAITING_REFERENCIA_ELECCION]: askReferenciaEleccion,
+  [SessionState.CITA_AWAITING_REFERENCIA_SIN_CUPOS]: askReferenciaSinCupos,
   [SessionState.MAIN_MENU_REFERENCIA_CHOICE]: askReferenciaChoice,
 };
 
@@ -107,7 +110,7 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
     return withNote(
       buildResult(session, [
         sendText(RESPECT_REMINDER_TEXT),
-        ...(offered ? pageEffects(offered.text, offered.rows, session.counters[CounterKey.CITA_LIST_PAGE] ?? 0) : []),
+        ...(offered ? pageEffects(offered.text, offered.rows, session.counters[CounterKey.CITA_LIST_PAGE] ?? 0, offered.pageSize) : []),
       ]),
       verdict,
     );

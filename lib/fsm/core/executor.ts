@@ -12,6 +12,7 @@ import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/form
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { listReferences } from "@/lib/integrations/minsa/references";
+import { demoListReferences } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { reniecLookup } from "@/lib/integrations/reniec";
 import { traceTurn } from "@/lib/observability/tracer";
 import type { ExternalService } from "@/lib/observability/types";
@@ -257,8 +258,10 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
         bearer,
       );
 
-    case QueryKind.LIST_REFERENCES:
-      return listReferences(payloadText(effect.payload, "numeroDocumento"), payloadText(effect.payload, "tipoDocumento"), bearer);
+    case QueryKind.LIST_REFERENCES: {
+      const numeroDocumento = payloadText(effect.payload, "numeroDocumento");
+      return demoListReferences(numeroDocumento) ?? listReferences(numeroDocumento, payloadText(effect.payload, "tipoDocumento"), bearer);
+    }
 
     case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
       return analyzeFotoIntent(payloadText(effect.payload, "text"));

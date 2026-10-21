@@ -3,6 +3,7 @@ export enum ButtonVariant {
   OUTLINE = "outline",
   OPTION = "option",
   LIST_OPTION = "list_option",
+  LIST_OPTION_MUTED = "list_option_muted",
   ACCENT = "accent",
   PILL_ON_DARK = "pill_on_dark",
   PILL_NEUTRAL = "pill_neutral",

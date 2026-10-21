@@ -6,6 +6,7 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { isRecord } from "@/lib/utils/type-guards";
 import { arrayOr } from "@/lib/utils/array-values";
 import { readString, readNumber } from "@/lib/utils/record-readers";
+import { REFERENCIAS_TIMEOUT_MS } from "@/lib/constants/limits/referencia";
 
 const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA: ListReferencesResult = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
@@ -39,6 +40,7 @@ function parseReferencia(row: RawRow): ReferenciaItem | undefined {
     codigoIpressDestino: codigoDe(row.ipress_destino),
     codigoUpsDestino: codigoDe(row.ups_destino),
     estado,
+    estadoDescripcion: descripcionDe(row.estado),
   };
 }
 
@@ -62,18 +64,27 @@ function readReferencesResponse(body: unknown): ListReferencesResult {
   };
 }
 
+async function postReferences(numeroDocumento: string, tipoDocumento: string, bearer: string): Promise<Response | undefined> {
+  try {
+    return await postWithBearer(
+      MinsaEndpoint.REFERENCIAS,
+      {
+        numero_documento: numeroDocumento,
+        tipo_documento: tipoDocumento,
+      },
+      bearer,
+      REFERENCIAS_TIMEOUT_MS,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 export async function listReferences(numeroDocumento: string, tipoDocumento: string, bearer: string): Promise<ListReferencesResult> {
   if (!isRealMinsaEnabled()) return SIN_REFERENCIAS;
 
-  const response = await postWithBearer(
-    MinsaEndpoint.REFERENCIAS,
-    {
-      numero_documento: numeroDocumento,
-      tipo_documento: tipoDocumento,
-    },
-    bearer,
-  );
-  if (!response.ok) return SIN_RESPUESTA;
+  const response = await postReferences(numeroDocumento, tipoDocumento, bearer);
+  if (!response?.ok) return SIN_RESPUESTA;
 
   const body: unknown = await response.json().catch(() => undefined);
   return readReferencesResponse(body);

@@ -9,6 +9,7 @@ import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import { abandonedText, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { askReferenciaEleccion, askReferenciaSinCupos } from "@/lib/fsm/flows/referencia/cita-con-referencia";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
@@ -47,6 +48,8 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_HORA_SELECT,
   SessionState.CITA_AWAITING_REFERENCIA_SELECT,
   SessionState.CITA_AWAITING_REFERENCIA_CONFIRM,
+  SessionState.CITA_AWAITING_REFERENCIA_ELECCION,
+  SessionState.CITA_AWAITING_REFERENCIA_SIN_CUPOS,
   SessionState.REFERENCIA_AWAITING_CITA_OFFER,
 ]);
 
@@ -79,6 +82,8 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
     return handleRegistrationWait(restored, { ...event, type: InboundEventType.TEXT, text: "" });
   if (restored.state === SessionState.CITA_AWAITING_REFERENCIA_CONFIRM) return reshowReferenciaConfirmation(restored);
   if (restored.state === SessionState.REFERENCIA_AWAITING_CITA_OFFER) return askCitaOffer(restored);
+  if (restored.state === SessionState.CITA_AWAITING_REFERENCIA_ELECCION) return askReferenciaEleccion(restored);
+  if (restored.state === SessionState.CITA_AWAITING_REFERENCIA_SIN_CUPOS) return askReferenciaSinCupos(restored);
   return reshowOffered(restored, readOffered(restored.slots));
 }
 
