@@ -18,7 +18,7 @@ export const OMITIR_BUTTONS = [
   { id: IncidenciaButtonId.OMITIR_NO, title: "No, indicarlo" },
 ];
 
-export const INCIDENCIA_LEAD_IN_TEXT = "Vamos a registrar tu incidencia.";
+export const INCIDENCIA_LEAD_IN_TEXT = "Vamos a registrar tu denuncia.";
 export const UBICACION_NO_UBICADA_TEXT = "Disculpa, no logramos ubicar el establecimiento.";
 export const ubicacionDistritoLineText = (distrito: string): string => `\nDistrito: ${distrito}`;
 
@@ -28,7 +28,7 @@ export const confirmUbicacionText = (nombre: string, codigoRenipress: string, di
 export const UBICACION_NO_DISPONIBLE_TEXT = "No pudimos buscar el establecimiento en este momento.";
 export const UBICACION_VARIOS_TEXT = "Hay varios establecimientos que se parecen. Escribe su nombre completo o su código IPRESS.";
 export const UBICACION_NO_ENCONTRADA_TEXT = "No encontré ese establecimiento. Escribe su nombre completo o su código IPRESS.";
-export const ubicacionAceptadaText = (nombre: string): string => `Perfecto, registraremos tu incidencia en *${nombre}*.`;
+export const ubicacionAceptadaText = (nombre: string): string => `Perfecto, registraremos tu denuncia en *${nombre}*.`;
 export const UBICACION_CONFIRM_RETRY_TEXT = "¿Es ese el establecimiento donde ocurrió? Toca Sí o No.";
 export const OMITIR_QUESTION_TEXT = "¿Quieres continuar sin indicar el establecimiento?";
 export const OMITIR_RETRY_TEXT = `${OMITIR_QUESTION_TEXT} Toca Sí o No.`;
@@ -47,7 +47,7 @@ export const RENIEC_FAILED_TEXT = "Disculpa, nuestro servicio no responde. Discu
 export const graciasNombreText = (nombre: string): string => `Gracias, ${nombre}.`;
 export const ASK_NOMBRE_TEXT = "Por favor, ingresa tu nombre.";
 export const AVISO_PRIVACIDAD_TEXT =
-  "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu incidencia.";
+  "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu denuncia.";
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
 
 export const CONSENT_BUTTONS = [
@@ -55,8 +55,8 @@ export const CONSENT_BUTTONS = [
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
 ];
 
-export const ASK_DESCRIPCION_TEXT = `Cuéntanos tu incidencia (hasta ${MAX_DESCRIPCION_LENGTH} caracteres).`;
-export const descripcionTooLongText = (maximo: number): string => `Escribe tu incidencia en hasta ${maximo} caracteres.`;
+export const ASK_DESCRIPCION_TEXT = `Cuéntanos tu denuncia (hasta ${MAX_DESCRIPCION_LENGTH} caracteres).`;
+export const descripcionTooLongText = (maximo: number): string => `Escribe tu denuncia en hasta ${maximo} caracteres.`;
 
 export const descripcionTooShortText = (minimo: number): string =>
   `Cuéntanos un poco más: escribe al menos ${minimo} caracteres para poder entender lo que pasó.`;
@@ -88,27 +88,27 @@ export const resumenRelatoText = (descripcion: string): string => `Relato: «${d
 export const resumenNombreText = (nombre: string): string => `A nombre de: ${nombre}`;
 export const RESUMEN_ANONIMO_TEXT = "De forma anónima";
 export const RESUMEN_DECLARACION_TEXT =
-  "Al continuar, confirmas que la información es verdadera según tu conocimiento y que podrá ser revisada por el personal autorizado para gestionar tu incidencia.";
+  "Al continuar, confirmas que la información es verdadera según tu conocimiento y que podrá ser revisada por el personal autorizado para gestionar tu denuncia.";
 
 export const CONFIRM_REGISTRO_BUTTONS = [
   { id: IncidenciaButtonId.CONFIRM_REGISTRO_SI, title: "Registrar" },
   { id: IncidenciaButtonId.CONFIRM_REGISTRO_NO, title: "Cancelar" },
 ];
 
-export const ENVIANDO_INCIDENCIA_TEXT = "Enviando tu incidencia…";
-export const INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT = "Gracias por tu reporte de incidencia, ya se registró.";
+export const ENVIANDO_INCIDENCIA_TEXT = "Enviando tu denuncia…";
+export const INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT = "Gracias por tu denuncia, ya se registró.";
 
 export const incidenciaRegistradaText = (codigo: string): string =>
-  `¡Gracias! Tu incidencia quedó registrada con el código ${codigo}. Guárdalo para darle seguimiento.`;
+  `¡Gracias! Tu denuncia quedó registrada con el código ${codigo}. Guárdalo para darle seguimiento.`;
 
 export const SEGUIMIENTO_IDENTIFICADO_TEXT = "Si el área responsable necesita información adicional, se comunicará contigo.";
-export const SEGUIMIENTO_ANONIMO_TEXT = "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta incidencia.";
+export const SEGUIMIENTO_ANONIMO_TEXT = "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta denuncia.";
 export const DAILY_LIMIT_TEXT =
-  "Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
-export const IMAGEN_MUY_PESADA_TEXT = "No se pudo registrar tu incidencia porque una de las imágenes pesa más de 5 MB.";
+  "Hoy ya registraste el máximo de denuncias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
+export const IMAGEN_MUY_PESADA_TEXT = "No se pudo registrar tu denuncia porque una de las imágenes pesa más de 5 MB.";
 export const imagenRecibidaText = (cantidad: number, maximo: number): string =>
   `Recibimos tu imagen (${cantidad} de ${maximo}). Si tienes otra como referencia, envíala; si no, toca Listo (o escribe LISTO) para continuar.`;
-export const imagenesCompletasText = (maximo: number): string => `Recibimos tu imagen ${maximo} de ${maximo}: es el máximo por incidencia.`;
+export const imagenesCompletasText = (maximo: number): string => `Recibimos tu imagen ${maximo} de ${maximo}: es el máximo por denuncia.`;
 export const imagenNoGuardadaMuyPesadaText = (maximoMb: number): string => `Esa imagen pesa más de ${maximoMb} MB y no se guardó.`;
 export const IMAGEN_NO_DESCARGADA_TEXT = "No pudimos descargar esa imagen desde WhatsApp, por eso no se guardó.";
 export const IMAGEN_NO_VALIDA_TEXT = "Ese archivo no es una imagen válida (JPG o PNG), por eso no se guardó.";
@@ -117,9 +117,9 @@ export const DOCUMENTO_NO_GUARDADO_TEXT = "Por ahora solo podemos guardar imáge
 export const SEGUIR_CON_IMAGENES_TEXT = "Puedes enviar otra imagen o tocar Listo (o escribir LISTO) para continuar.";
 export const SEGUIR_SIN_IMAGENES_TEXT = "Puedes enviar otra imagen o tocar Omitir (o escribir OMITIR) para continuar sin ella.";
 export const resumenImagenesText = (cantidad: number): string => `Imágenes adjuntas: ${cantidad}`;
-export const REGISTRO_FALLIDO_TEXT = "No pudimos registrar tu incidencia en este momento. Por favor, intenta de nuevo más tarde.";
+export const REGISTRO_FALLIDO_TEXT = "No pudimos registrar tu denuncia en este momento. Por favor, intenta de nuevo más tarde.";
 export const INCIDENCIA_REAUTH_PROMPT_TEXT =
-  "⏳ Tu incidencia quedó inactiva por un tiempo. ¿Deseas continuar donde la dejaste?\n\n[1] Sí, continuar\n[2] Cancelar";
+  "⏳ Tu denuncia quedó inactiva por un tiempo. ¿Deseas continuar donde la dejaste?\n\n[1] Sí, continuar\n[2] Cancelar";
 
 export const INCIDENCIA_REAUTH_BUTTONS = [
   { id: IncidenciaButtonId.REAUTH_SI, title: "Sí, continuar" },
@@ -128,6 +128,6 @@ export const INCIDENCIA_REAUTH_BUTTONS = [
 
 export const INCIDENCIA_RETOMADA_TEXT = "¡Listo! Continuemos donde quedaste.";
 export const INCIDENCIA_CANCELADA_TEXT =
-  "Entendido, no se registró ninguna incidencia. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+  "Entendido, no se registró ninguna denuncia. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
 export const NO_AUTORIZO_TEXT =
-  "Entendido. No se registrará tu incidencia por este canal. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+  "Entendido. No se registrará tu denuncia por este canal. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";

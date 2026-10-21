@@ -106,13 +106,13 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     const result = await say("Doctora imbécil no me dio mi medicina");
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(result.texts.some((line) => line.includes("registrar tu incidencia"))).toBe(true);
+    expect(result.texts.some((line) => line.includes("registrar tu denuncia"))).toBe(true);
   });
 
   it("answers a pure insult with the institutional warning and lets the citizen continue", async () => {
     const warning = await say("hdp");
     expect(warning.session.state).toBe("main_menu");
-    expect(warning.texts[0]).toContain("escriba INCIDENCIA");
+    expect(warning.texts[0]).toContain("escriba DENUNCIA");
 
     const menu = await runTurn(FROM, { from: FROM, type: "button", listId: "continuar_menu" });
     expect(menu.sent[0].kind).toBe("send_interactive_list");

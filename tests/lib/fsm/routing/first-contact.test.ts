@@ -175,6 +175,11 @@ describe("first contact: a request to file a complaint", () => {
     "INCIDENCIA",
     "quiero presentar una incidencia",
     "quiero hacer una denuncia",
+    "denuncia anticorrupción",
+    "Denuncia anticorrupción",
+    "corrupción",
+    "coima",
+    "quiero presentar una denuncia anticorrupción",
   ])("%j goes straight to the complaint flow", (message) => {
     const result = handleFirstContact(message, "whatsapp");
 
@@ -182,7 +187,7 @@ describe("first contact: a request to file a complaint", () => {
     expect(sent(result)).toHaveLength(2);
     expect(sent(result)[1]).toEqual({
       kind: "send_text",
-      text: "¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
+      text: "¡Hola! Vamos a registrar tu denuncia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
     });
   });
 });

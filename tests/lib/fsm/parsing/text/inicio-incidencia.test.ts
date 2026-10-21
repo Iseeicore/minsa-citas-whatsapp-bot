@@ -164,6 +164,17 @@ describe("parseInicioIncidencia: only the name, without the code", () => {
     expect(parseInicioIncidencia("quiero presentar una incidencia.")).toEqual({ origen: "texto" });
   });
 
+  it("reads the same sentence when the person asks for a denuncia anticorrupción", () => {
+    expect(parseInicioIncidencia("Hola quiero presentar una denuncia anticorrupción")).toEqual({ origen: "texto" });
+    expect(parseInicioIncidencia("quiero presentar una denuncia anticorrupcion.")).toEqual({ origen: "texto" });
+    expect(parseInicioIncidencia("quiero presentar una denuncia")).toEqual({ origen: "texto" });
+    expect(parseInicioIncidencia("quiero presentar una denuncia anticorrupción en el HOSPITAL NACIONAL DOS DE MAYO")).toEqual({
+      origen: "texto",
+      nombre: "HOSPITAL NACIONAL DOS DE MAYO",
+      resto: "en el HOSPITAL NACIONAL DOS DE MAYO",
+    });
+  });
+
   it("a long story is not a name: it stays as a draft and the place will be asked", () => {
     const story = "porque el doctor me atendió mal y además me cobraron sin recibo en la ventanilla de admisión";
     expect(parseInicioIncidencia(`quiero presentar una incidencia ${story}`)).toEqual({ origen: "texto", resto: story });

@@ -44,8 +44,8 @@ describe("buildWelcomeEffect", () => {
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
         { id: "consultar_referencia", title: "Consultar Referencias" },
-        { id: "registrar_incidencia", title: "Registrar una incidencia" },
-        { id: "consultar_incidencia", title: "Consultar una incidencia" },
+        { id: "registrar_incidencia", title: "Denuncia anticorrupción" },
+        { id: "consultar_incidencia", title: "Consultar mi denuncia" },
       ],
     });
   });
@@ -82,8 +82,8 @@ describe("buildWelcomeEffects", () => {
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
         { id: "consultar_referencia", title: "Consultar Referencias" },
-        { id: "registrar_incidencia", title: "Registrar una incidencia" },
-        { id: "consultar_incidencia", title: "Consultar una incidencia" },
+        { id: "registrar_incidencia", title: "Denuncia anticorrupción" },
+        { id: "consultar_incidencia", title: "Consultar mi denuncia" },
       ],
     });
   });
