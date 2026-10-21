@@ -11,21 +11,17 @@ variables:
 deploy desarrollo:
   stage: deploy
   image: registry.minsa.gob.pe/oidt/images/ansible:2.15
-
   script:
     - cd /playbooks/k8s
     - ansible-playbook dminsadigital-bot.yml -vv
-
   only:
     - develop
 
 deploy calidad:
   stage: deploy
   image: registry.minsa.gob.pe/oidt/images/ansible:2.15
-
   script:
     - cd /playbooks/k8s
     - ansible-playbook qminsadigital-bot.yml -vv
-
   only:
-    - /^release\/.*$/
+    - /^release/*/
