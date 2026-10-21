@@ -73,7 +73,14 @@ describe("el código en el primer mensaje", () => {
 
     expect(first.session.state).toBe("consulta_awaiting_codigo");
     expect(texts(first)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
-    expect(sent(first)[1]).toMatchObject({ buttons: [{ id: "consulta_codigo_listar", title: "Ver mis incidencias" }] });
+    expect(sent(first)[1]).toMatchObject({ buttons: [{ id: "consulta_codigo_listar", title: "Ver mis denuncias" }] });
+  });
+
+  it.each(["consultar mi denuncia", "Consultar mi denuncia", "quiero ver mis denuncias"])("sin código, %j pide el código", (message) => {
+    const first = handleFirstContact(message, "whatsapp");
+
+    expect(first.session.state).toBe("consulta_awaiting_codigo");
+    expect(texts(first)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
   });
 
   it("un código con formato incorrecto no inicia la consulta", () => {
@@ -91,13 +98,20 @@ describe("desde el menú principal", () => {
     expect(step.session.slots).toMatchObject({ consultaCanal: "web", consultaCodigo: CODIGO });
   });
 
-  it("la opción «Consultar una incidencia» del menú (y el 4) piden el código", () => {
+  it("la opción «Consultar mi denuncia» del menú (y el 4) piden el código", () => {
     for (const event of [pick("consultar_incidencia"), text("4")]) {
       const step = handle(mainMenu(), event);
 
       expect(step.session.state).toBe("consulta_awaiting_codigo");
       expect(texts(step)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
     }
+  });
+
+  it("escribir «consultar mi denuncia» pide el código", () => {
+    const step = handle(mainMenu(), text("consultar mi denuncia"));
+
+    expect(step.session.state).toBe("consulta_awaiting_codigo");
+    expect(texts(step)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
   });
 });
 
@@ -232,7 +246,7 @@ describe("consulta_query_pending: el resultado", () => {
 
     expect(step.session.state).toBe("consulta_completed");
     expect(step.session.slots).toEqual({});
-    expect(texts(step)).toEqual([`Incidencia ${CODIGO}\nEstado: Derivada al área responsable\nFecha de registro: 09/10/2026`]);
+    expect(texts(step)).toEqual([`Denuncia ${CODIGO}\nEstado: Derivada al área responsable\nFecha de registro: 09/10/2026`]);
     expect(texts(step)[0]).not.toMatch(/secreta|12345678/);
   });
 
@@ -272,14 +286,14 @@ describe("ver mis incidencias", () => {
     counters: {},
   });
 
-  it("WhatsApp: el botón «Ver mis incidencias» busca de inmediato, sin DNI", () => {
+  it("WhatsApp: el botón «Ver mis denuncias» busca de inmediato, sin DNI", () => {
     const step = handle(atCodigo(), pick(LISTAR_ID));
 
     expect(step.session.state).toBe("consulta_listar_pending");
     expect(queries(step)).toEqual([{ kind: "listar_incidencias", payload: { canal: "whatsapp" } }]);
   });
 
-  it("web: el botón «Ver mis incidencias» pide DNI+OTP antes de listar", () => {
+  it("web: el botón «Ver mis denuncias» pide DNI+OTP antes de listar", () => {
     let step = handle(atCodigo("web"), pick(LISTAR_ID, "web"));
     expect(step.session.state).toBe("consulta_awaiting_dni");
 
@@ -299,7 +313,7 @@ describe("ver mis incidencias", () => {
       const step = handle(pendingListar(), result("listar_incidencias", { status: "empty" }));
 
       expect(step.session.state).toBe("consulta_completed");
-      expect(texts(step)).toEqual(["No tienes incidencias registradas."]);
+      expect(texts(step)).toEqual(["No tienes denuncias registradas."]);
     });
 
     it("con incidencias, ofrece la lista paginada (mismo mecanismo que las referencias de citas)", () => {
@@ -316,7 +330,7 @@ describe("ver mis incidencias", () => {
 
       expect(step.session.state).toBe("consulta_awaiting_listado");
       const listEffect = step.effects.find((e) => "rows" in e) as { text: string; rows: { id: string; title: string }[] };
-      expect(listEffect.text).toBe("Estas son tus incidencias:");
+      expect(listEffect.text).toBe("Estas son tus denuncias:");
       expect(listEffect.rows.map((r) => r.id)).toEqual([CODIGO, "MINSA-2026-000009"]);
     });
 
@@ -340,6 +354,6 @@ describe("ver mis incidencias", () => {
     const step = handle(listado, pick(CODIGO));
 
     expect(step.session.state).toBe("consulta_completed");
-    expect(texts(step)).toEqual([`Incidencia ${CODIGO}\nEstado: Resuelta\nFecha de registro: 09/10/2026`]);
+    expect(texts(step)).toEqual([`Denuncia ${CODIGO}\nEstado: Resuelta\nFecha de registro: 09/10/2026`]);
   });
 });

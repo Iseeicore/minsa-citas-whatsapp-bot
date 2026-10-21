@@ -64,7 +64,7 @@ describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la b
     const codigo = await registrar(ana.waId);
 
     const propia = await ana.text(`quiero ver mi incidencia ${codigo}`);
-    expect(propia.join("\n")).toContain(`Incidencia ${codigo}`);
+    expect(propia.join("\n")).toContain(`Denuncia ${codigo}`);
     expect(propia.join("\n")).toContain("Estado: Recibida, pendiente de revisión");
     expect(propia.join("\n")).not.toContain("consultorio");
 
@@ -95,7 +95,7 @@ describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la b
     await processValue({ user_id_update: [{ user_id: { previous: ana.waId, current: nuevo } }] });
 
     const respuesta = await person(nuevo).text(`mi incidencia ${codigo}`);
-    expect(respuesta.join("\n")).toContain(`Incidencia ${codigo}`);
+    expect(respuesta.join("\n")).toContain(`Denuncia ${codigo}`);
     expect((await ana.text(`mi incidencia ${codigo}`)).at(-1)).toBe(NO_UBICADA_TEXT);
   });
 });

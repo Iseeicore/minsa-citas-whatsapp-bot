@@ -138,7 +138,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     await p.say("omitir");
     const done = await p.tap("incidencia_confirmar_registro_si");
 
-    expect(textOf(done.sent.at(-1))).toBe("Gracias por tu reporte de incidencia, ya se registró.");
+    expect(textOf(done.sent.at(-1))).toBe("Gracias por tu denuncia, ya se registró.");
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from } });
     expect(saved.establecimientoId).toBeNull();
   });
@@ -168,7 +168,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     const closed = await p.say("quiero cerrar");
 
     expect(closed.session.state).toBe("incidencia_cancelled");
-    expect(textOf(closed.sent[0])).toContain("no se registró ninguna incidencia");
+    expect(textOf(closed.sent[0])).toContain("no se registró ninguna denuncia");
     expect(await prisma.incidenciaPaciente.count({ where: { waId: p.from } })).toBe(0);
 
     const again = await p.say("hola");

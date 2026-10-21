@@ -92,6 +92,12 @@ export const INCIDENCIA_KEY_WORDS = new Set([
   "DENUNCIA",
   "DENUNCIAS",
   "RECLAMACIONES",
+  "ANTICORRUPCION",
+  "CORRUPCION",
+  "COIMA",
+  "COIMAS",
+  "SOBORNO",
+  "SOBORNOS",
 ]);
 
 export const INCIDENCIA_FILLER_WORDS = new Set([

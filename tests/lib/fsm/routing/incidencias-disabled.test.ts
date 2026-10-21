@@ -72,7 +72,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
     it("the notice says that only the citas and the referencias are available", () => {
       expect(NOTICE).toMatch(/cita/i);
       expect(NOTICE).toMatch(/referencia/i);
-      expect(NOTICE).not.toMatch(/incidencia|registrar/i);
+      expect(NOTICE).not.toMatch(/incidencia|denuncia|registrar/i);
     });
   });
 
@@ -178,7 +178,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
 
       const [message] = sent(result);
       expect(message).toMatchObject({ kind: "send_text" });
-      expect(message.kind === "send_text" && message.text).not.toMatch(/incidencia/i);
+      expect(message.kind === "send_text" && message.text).not.toMatch(/incidencia|denuncia/i);
       expect(message.kind === "send_text" && message.text).toMatch(/cita/i);
       expect(message.kind === "send_text" && message.text).toMatch(/referencia/i);
     });
@@ -201,7 +201,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
 
       expect(warning).toMatchObject({ kind: "send_buttons" });
       expect(warning.kind === "send_buttons" && warning.text).not.toBe(INSTITUTIONAL_WARNING_TEXT);
-      expect(warning.kind === "send_buttons" && warning.text).not.toMatch(/incidencia/i);
+      expect(warning.kind === "send_buttons" && warning.text).not.toMatch(/incidencia|denuncia/i);
       expect(warning.kind === "send_buttons" && warning.text).toBe(RESPECT_REMINDER_TEXT);
     });
   });
@@ -279,7 +279,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
 
     it("no out-of-scope answer sends the person to write INCIDENCIA", () => {
       for (const message of (Object.keys(OOS_MESSAGES) as Array<keyof typeof OOS_MESSAGES>).map((category) => oosMessage(category))) {
-        expect(message).not.toMatch(/incidencia/i);
+        expect(message).not.toMatch(/incidencia|denuncia/i);
       }
     });
 
@@ -293,7 +293,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
       const first = sent(handleFirstContact("¿dónde puedo ver el estado de mi reclamo?", "whatsapp"));
 
       for (const effects of [inMenu, first]) {
-        expect(JSON.stringify(effects)).not.toMatch(/escriba INCIDENCIA/);
+        expect(JSON.stringify(effects)).not.toMatch(/escriba DENUNCIA/);
       }
     });
   });

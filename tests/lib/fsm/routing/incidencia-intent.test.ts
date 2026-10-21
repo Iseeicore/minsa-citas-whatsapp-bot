@@ -48,6 +48,10 @@ describe("without the AI, the words of an incidencia are read inside a longer se
     "necesito hacer un reclamo por un cobro indebido",
     "quiero hacer una denuncia de lo que pasó en el hospital",
     "tengo una incidencia que reportar sobre el trato recibido",
+    "hay corrupción en el hospital de mi barrio",
+    "en la posta me pidieron una coima",
+    "el encargado quiso un soborno para darme la medicina",
+    "quiero hacer una denuncia anticorrupción",
   ])("%j is an incidencia", async (message) => {
     await expect(analyzeMainMenuIntent(message, null)).resolves.toEqual({ intent: "incidencia" });
   });
