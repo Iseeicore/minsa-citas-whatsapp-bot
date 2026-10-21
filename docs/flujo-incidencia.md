@@ -1,6 +1,6 @@
 # Flujo de incidencia
 
-Cómo empieza y avanza una incidencia (reclamo, queja o denuncia: el ciudadano ve una sola palabra, «incidencia»). Código en `lib/fsm/flows/incidencia/`; cita tiene su propio árbol en [flujo-cita.md](flujo-cita.md).
+Cómo empieza y avanza una incidencia (reclamo, queja, denuncia o corrupción: el ciudadano ve «denuncia anticorrupción», y dentro del flujo «tu denuncia»). Código en `lib/fsm/flows/incidencia/`; cita tiene su propio árbol en [flujo-cita.md](flujo-cita.md).
 
 ## Entradas
 
@@ -9,9 +9,9 @@ Todas llegan al mismo paso: la ubicación. Existen solo con `INCIDENCIAS_ENABLED
 | Entrada | Cómo se reconoce | Dónde |
 |---|---|---|
 | **QR** del establecimiento | Mensaje con la etiqueta `CODIGO-IPRESS` y un valor: `Hola quiero presentar una incidencia {Nombre} - CODIGO-IPRESS {código}`. Va **antes** de saludo, emergencia, fuera de alcance y cita | `parseInicioIncidencia` |
-| Texto que la anuncia | Empieza con «quiero presentar / reportar / registrar una incidencia». Lo que sigue se toma como nombre candidato | `parseInicioIncidencia` |
-| Menú | Fila «Registrar una incidencia», o `2` (con la bandera encendida) | `main-menu.ts`, `first-contact.ts` |
-| Palabra suelta | `incidencia`, `reclamo`, `queja`, `denuncia` (y plurales), y los insultos con queja de servicio | `menu-shortcuts.ts`, `lexical-guard-routing.ts` |
+| Texto que la anuncia | Empieza con «quiero presentar / reportar / registrar una incidencia» o «… una denuncia» (con o sin «anticorrupción»). Lo que sigue se toma como nombre candidato | `parseInicioIncidencia` |
+| Menú | Fila «Denuncia anticorrupción», o `2` (con la bandera encendida) | `main-menu.ts`, `first-contact.ts` |
+| Palabra suelta | `incidencia`, `reclamo`, `queja`, `denuncia`, `anticorrupción`, `corrupción`, `coima`, `soborno` (y plurales), y los insultos con queja de servicio | `menu-shortcuts.ts`, `lexical-guard-routing.ts` |
 
 La parte precargada por el QR no pasa por el filtro de insultos ni por el de emergencia (hay centros que se llaman «C.S.M.»): solo cuenta lo que la persona agregó después del código (`textoDeLaPersona`).
 

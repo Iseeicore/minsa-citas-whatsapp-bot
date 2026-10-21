@@ -130,7 +130,7 @@ async function section1() {
     const c2 = ctxFor("1.1g-referencia", s);
     await c2.send({ type: "text", text: "2", reset: true }, { expect: "iniciar sesión" });
     const c3 = ctxFor("1.1g-incidencia", s);
-    await c3.send({ type: "text", text: "3", reset: true }, { expect: "registrar tu incidencia" });
+    await c3.send({ type: "text", text: "3", reset: true }, { expect: "registrar tu denuncia" });
   })();
 
   const links = [
@@ -217,7 +217,7 @@ async function section2() {
   ]) {
     const ctx = ctxFor(id, s);
     await welcome(ctx);
-    await ctx.send({ type: "text", text }, { expect: "registrar tu incidencia" });
+    await ctx.send({ type: "text", text }, { expect: "registrar tu denuncia" });
   }
 
   await (async () => {
@@ -359,7 +359,7 @@ async function section3HappyPath() {
     { type: "text", text: "Sabes quiero una cita para san Juan de Lurigancho para medicina general", reset: true },
     { expect: "San Juan de Lurigancho" },
   );
-  await ctxFor("3.1d", s).send({ type: "text", text: "Quiero poner una queja", reset: true }, { expect: "registrar tu incidencia" });
+  await ctxFor("3.1d", s).send({ type: "text", text: "Quiero poner una queja", reset: true }, { expect: "registrar tu denuncia" });
   await ctxFor("3.1e", s).send({ type: "text", text: "necesito hablar con alguien", reset: true }, { expect: MENU_TEXT });
 
   const ctx = ctxFor("3.happy", s);

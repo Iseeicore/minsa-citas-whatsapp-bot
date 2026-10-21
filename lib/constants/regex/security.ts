@@ -56,6 +56,9 @@ export const COMPLAINT_TOKEN_PATTERNS: RegExp[] = [
   /^maltrat\w*$/,
   /^abus\w*$/,
   /^demor\w*$/,
+  /^corrup\w*$/,
+  /^coima\w*$/,
+  /^soborn\w*$/,
 ];
 
 export const COMPLAINT_PHRASE_PATTERNS: RegExp[] = [

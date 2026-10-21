@@ -196,7 +196,7 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
     [OosCategory.OOS_01, ["SAMU: 106", "Bomberos: 116"]],
     [OosCategory.OOS_02, ["app.sis.gob.pe/ConsultaWeb", "941 988 565", "Línea 113"]],
     [OosCategory.OOS_04, ["Ley N° 26842", "de forma presencial"]],
-    [OosCategory.OOS_05, ["observatorio.digemid.minsa.gob.pe", "INCIDENCIA"]],
+    [OosCategory.OOS_05, ["observatorio.digemid.minsa.gob.pe", "DENUNCIA"]],
     [OosCategory.OOS_06, ["carnetvacunacion.minsa.gob.pe", "Línea 113 (Opción 1)"]],
     [OosCategory.OOS_07, ["Infosalud", "Línea 113"]],
     [OosCategory.OOS_08, ["SUSALUD", "113 (Opción 7)", "PAUS", "30 días hábiles"]],
@@ -218,7 +218,7 @@ describe("the messages (spreadsheet texts) and their derivation channels", () =>
   it("each one tells the citizen how to go on, with a word the bot understands", () => {
     expect(OOS_MESSAGES["OOS-01"]).not.toMatch(/CONTINUAR|CITAS|RECLAMO/);
     for (const category of [OosCategory.OOS_02, "OOS-04", "OOS-07", "OOS-09"] as const) expect(OOS_MESSAGES[category]).toContain("CITAS");
-    for (const category of [OosCategory.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("INCIDENCIA");
+    for (const category of [OosCategory.OOS_05, "OOS-08"] as const) expect(OOS_MESSAGES[category]).toContain("DENUNCIA");
   });
 
   it("the bare word REFERENCIA is still detected as OOS-03, but enters the Consultar referencia service first", () => {

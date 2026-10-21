@@ -1,15 +1,15 @@
 import { PROMPT_GUARDRAILS } from "@/lib/constants/prompts/guardrails";
 
 const MENU_OPTIONS_TEXT =
-  "El menú ofrece tres opciones: agendar una cita médica, consultar una referencia médica, o registrar una incidencia (reclamo, queja o denuncia).";
+  "El menú ofrece tres opciones: agendar una cita médica, consultar una referencia médica, o registrar una denuncia anticorrupción (reclamo, queja o denuncia).";
 const MENU_OPTIONS_WITHOUT_INCIDENCIAS_TEXT = "El menú ofrece dos opciones: agendar una cita médica, o consultar una referencia médica.";
 const INTENT_OPTIONS_TEXT = '"cita" | "referencia" | "incidencia" | "fuera_de_alcance" | "unclear"';
 const INTENT_OPTIONS_WITHOUT_INCIDENCIAS_TEXT = '"cita" | "referencia" | "fuera_de_alcance" | "unclear"';
-const SCOPE_TEXT = "agendar una cita médica, de consultar una referencia médica o de registrar una incidencia";
+const SCOPE_TEXT = "agendar una cita médica, de consultar una referencia médica o de registrar una denuncia anticorrupción";
 const SCOPE_WITHOUT_INCIDENCIAS_TEXT = "agendar una cita médica o de consultar una referencia médica";
 const REFERENCIA_BULLET = `- Si el ciudadano quiere CONSULTAR UNA REFERENCIA MÉDICA (ver sus referencias, saber su estado o si ya aceptaron la derivación que su establecimiento de origen le emitió hacia otro establecimiento), devolvé "intent": "referencia", aunque escriba la palabra con errores de tipeo o hable de una "derivación". Si pide una cita, devolvé "cita" aunque mencione su referencia: por ejemplo «quiero sacar cita» o «cita por referencia» son "cita".
 `;
-const INCIDENCIA_BULLET = `- Si el ciudadano quiere REGISTRAR UNA INCIDENCIA, devolvé "intent": "incidencia". Incluye reclamo, queja o denuncia, y cualquier relato de un mal servicio recibido en un establecimiento de salud (mal trato, cobro indebido, falta de atención o de medicamentos, pedido de dinero o de favores), aunque no use la palabra "incidencia". No es incidencia si solo pregunta por el estado de un reclamo que ya presentó. Si además pide una cita, devolvé "cita".
+const INCIDENCIA_BULLET = `- Si el ciudadano quiere REGISTRAR UNA DENUNCIA ANTICORRUPCIÓN, devolvé "intent": "incidencia". Incluye reclamo, queja o denuncia, y cualquier relato de un mal servicio recibido en un establecimiento de salud (mal trato, cobro indebido, falta de atención o de medicamentos, pedido de dinero o de favores, corrupción, coima o soborno), aunque no use la palabra "denuncia". No es una denuncia nueva si solo pregunta por el estado de un reclamo que ya presentó. Si además pide una cita, devolvé "cita".
 `;
 
 export const mainMenuIntentSystemPrompt = (

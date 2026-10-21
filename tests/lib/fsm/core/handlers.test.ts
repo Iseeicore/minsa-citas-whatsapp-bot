@@ -91,6 +91,12 @@ describe("main_menu — incidencia keywords", () => {
     "quiero presentar una incidencia",
     "denuncia",
     "quiero hacer una denuncia",
+    "denuncia anticorrupción",
+    "Denuncia anticorrupción",
+    "corrupción",
+    "coima",
+    "soborno",
+    "quiero presentar una denuncia anticorrupción",
   ])("%s starts the incidencia flow without AI", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 

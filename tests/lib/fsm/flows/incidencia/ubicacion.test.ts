@@ -111,7 +111,7 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
       { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
       {
         kind: "send_text",
-        text: "¡Hola! Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
+        text: "¡Hola! Vamos a registrar tu denuncia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
       },
     ]);
   });
@@ -123,7 +123,7 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
       { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
       {
         kind: "send_text",
-        text: "Vamos a registrar tu incidencia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
+        text: "Vamos a registrar tu denuncia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
       },
     ]);
   });
