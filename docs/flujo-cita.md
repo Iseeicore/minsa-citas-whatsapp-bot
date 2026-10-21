@@ -67,9 +67,16 @@ Reserva 💬 "Agendando tu cita…"
 └─ éxito ─► 💬 constancia + 🔗 "Ver mi cita" + 💬 despedida ⛔
 ```
 
-### La cita no consulta referencias
+### La cita consulta las referencias una vez
 
-Después del OTP la cita va directo al distrito: ya no ofrece revisar referencias por su cuenta. Las referencias son un servicio aparte, [Consultar referencia](flujo-referencias.md), que reutiliza los pasos de documento y OTP de este flujo y, al elegir una referencia, vuelve a la cita en las fechas del establecimiento de esa referencia. También vuelve aquí quien no tiene referencias y acepta agendar: sigue en el distrito sin repetir documento ni código.
+Después del OTP la cita marca el propósito `cita` y consulta las referencias del documento con «Un momento, estamos analizando tu cuenta…» (estado `referencia_lookup_pending`). Se consulta una sola vez por sesión (`citaReferenciasConsultadas`); una re-verificación por sesión vencida retoma donde estaba y no vuelve a consultar.
+
+- **Con al menos una referencia en estado 3, 5 o 7:** pregunta «Detectamos que tienes referencias médicas. ¿Cómo deseas agendar tu cita?» con **Con referencia** / **Sin referencia** (estado `cita_awaiting_referencia_eleccion`).
+  - **Con referencia:** lista de 5 en 5 solo con las que permiten agendar, la confirmación de [Consultar referencia](flujo-referencias.md) y luego las fechas del destino de la referencia; la reserva envía `referencia_id`.
+  - **Sin referencia:** sigue en el distrito, sin repetir documento ni código.
+- **Sin ninguna que permita agendar, sin referencias o si la consulta falla** (incluido un error de red o el tiempo máximo): sigue en el distrito sin preguntar, igual que antes.
+
+Si el destino de la referencia no tiene fechas, no se cierra la sesión: se ofrece «Esta referencia no tiene programación de atención disponible por ahora. ¿Qué deseas hacer?» con **Ver otra referencia** / **Cita sin referencia** (estado `cita_awaiting_referencia_sin_cupos`); ver el detalle en [flujo-referencias.md](flujo-referencias.md). También vuelve al distrito quien consultó sus referencias, no tenía y acepta agendar.
 
 ## Paso a paso: qué envía y qué texto libre entiende
 

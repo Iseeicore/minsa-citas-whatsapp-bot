@@ -1,6 +1,4 @@
-import { CLOCK_TIME } from "@/lib/constants/regex/text";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
-import { formatHora12 } from "@/lib/fsm/flows/cita/steps/hora/format";
 import {
   buildResult,
   cloneSession,
@@ -8,12 +6,14 @@ import {
   query,
   sendButtons,
   sendText,
-  truncateForRow,
   readTappedId,
+  withLeadingText,
 } from "@/lib/fsm/core/handlers-shared";
 import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/identity";
-import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
+import { presentarReferencia, referenciaRows } from "@/lib/fsm/flows/referencia/presentacion";
+import { rechazarReferenciaBloqueada, referenciaBloqueadaAviso } from "@/lib/fsm/flows/referencia/bloqueo";
+import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -21,53 +21,52 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
+import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import {
-  REFERENCIA_ESTADO_LABELS,
-  REFERENCIAS_LIST_TEXT,
   REFERENCIA_CONFIRM_QUESTION_TEXT,
   searchingFechasForReferenciaText,
-  referenciaDetalleText,
   REFERENCIA_CONFIRM_BUTTONS,
 } from "@/lib/constants/textos/cita-reserva";
+import { REFERENCIAS_CITA_LIST_TEXT, REFERENCIAS_LIST_TEXT, referenciaDetalleText } from "@/lib/constants/textos/referencia";
+import { REFERENCIAS_PAGE_SIZE } from "@/lib/constants/limits/referencia";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { arrayOr } from "@/lib/utils/array-values";
-import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
-function formatFechaHora12(fechaHora: string): string {
-  const [fecha, hora] = fechaHora.split(" ");
-  if (!fecha || !hora || !CLOCK_TIME.test(hora)) return fechaHora;
-  return `${fecha} ${formatHora12(hora)}`;
-}
-
-function readReferencias(session: Session): ReferenciaItem[] {
+export function readReferencias(session: Session): ReferenciaItem[] {
   const raw = session.slots[SlotKey.CITA_REFERENCIAS_DATA];
   if (!isString(raw)) return [];
   return arrayOr<ReferenciaItem>(parseJsonOr(raw, []));
 }
 
-function referenciaRows(items: ReferenciaItem[]): ListRow[] {
-  return items.map((item) => ({
-    id: item.idReferencia,
-    title: truncateForRow(item.ipressDestino, WHATSAPP_ROW_TITLE_MAX),
-    description: truncateForRow(`${formatFechaHora12(item.fechaInicio)} · ${item.ipressOrigen}`, WHATSAPP_ROW_DESCRIPTION_MAX),
-  }));
+export function readReferenciasSinCupos(slots: Session["slots"]): string[] {
+  const raw = slots[SlotKey.CITA_REFERENCIAS_SIN_CUPOS];
+  if (!isString(raw)) return [];
+  return arrayOr<unknown>(parseJsonOr(raw, [])).filter(isString);
 }
+
+const esCaminoCita = (session: Session): boolean => session.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.CITA;
 
 export function offerReferenciasList(session: Session): HandlerResult {
   const next = cloneSession(session);
   delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
   next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
-  return buildResult(next, offerPagedList(next, REFERENCIAS_LIST_TEXT, referenciaRows(readReferencias(next))));
+  const cita = esCaminoCita(next);
+  const rows = referenciaRows(readReferencias(next), { soloAgendables: cita, sinProgramacion: readReferenciasSinCupos(next.slots) });
+  return buildResult(next, offerPagedList(next, cita ? REFERENCIAS_CITA_LIST_TEXT : REFERENCIAS_LIST_TEXT, rows, REFERENCIAS_PAGE_SIZE));
 }
 
 function continueWithReferencia(session: Session, item: ReferenciaItem | undefined): HandlerResult {
+  const aviso = referenciaBloqueadaAviso(item, readReferenciasSinCupos(session.slots));
+  if (aviso) return withLeadingText(offerReferenciasList(session), aviso);
+
   const next = cloneSession(session);
-  delete next.slots[SlotKey.POST_LOGIN_FLOW];
+  if (!esCaminoCita(next)) delete next.slots[SlotKey.POST_LOGIN_FLOW];
 
   if (!item?.codigoIpressDestino || !item.codigoUpsDestino) {
     delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
+    delete next.slots[SlotKey.POST_LOGIN_FLOW];
     return continueCitaAfterVerification(next);
   }
 
@@ -83,16 +82,9 @@ function continueWithReferencia(session: Session, item: ReferenciaItem | undefin
 }
 
 function askReferenciaConfirmation(session: Session, item: ReferenciaItem | undefined): HandlerResult {
-  const detalle = referenciaDetalleText({
-    numero: item?.numero ?? "",
-    fecha: formatFechaHora12(item?.fechaInicio ?? ""),
-    origen: item?.ipressOrigen ?? "",
-    upsOrigen: item?.upsOrigen ?? "",
-    destino: item?.ipressDestino ?? "",
-    upsDestino: item?.upsDestino ?? "",
-    estado: REFERENCIA_ESTADO_LABELS[item?.estado ?? 0] ?? "",
-  });
-  return buildResult(session, [sendText(detalle), sendButtons(REFERENCIA_CONFIRM_QUESTION_TEXT, REFERENCIA_CONFIRM_BUTTONS)]);
+  const confirmation = sendButtons(REFERENCIA_CONFIRM_QUESTION_TEXT, REFERENCIA_CONFIRM_BUTTONS);
+  if (!item) return buildResult(session, [confirmation]);
+  return buildResult(session, [sendText(referenciaDetalleText(presentarReferencia(item).detalle)), confirmation]);
 }
 
 export function handleAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {
@@ -100,6 +92,9 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
   if ("result" in outcome) return outcome.result;
 
   const item = readReferencias(session).find((r) => r.idReferencia === outcome.replyId);
+  const blocked = rechazarReferenciaBloqueada(session, item, readReferenciasSinCupos(session.slots));
+  if (blocked) return blocked;
+
   const next = clearOffered(session);
   next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = outcome.replyId;
   next.state = SessionState.CITA_AWAITING_REFERENCIA_CONFIRM;

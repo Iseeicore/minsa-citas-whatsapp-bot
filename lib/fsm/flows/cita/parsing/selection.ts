@@ -36,23 +36,23 @@ export function reshowOffered(
   message: string = SELECTION_REJECTION_TEXT,
 ): HandlerResult {
   const effects: SendEffect[] = [sendText(message)];
-  if (offered) effects.push(...pageEffects(offered.text, offered.rows, session.counters[CounterKey.CITA_LIST_PAGE] ?? 0));
+  if (offered) effects.push(...pageEffects(offered.text, offered.rows, session.counters[CounterKey.CITA_LIST_PAGE] ?? 0, offered.pageSize));
   return buildResult(session, effects);
 }
 
-function narrowOffered(session: Session, rows: OfferedRow[]): HandlerResult {
+function narrowOffered(session: Session, offered: OfferedList, rows: OfferedRow[]): HandlerResult {
   const next = cloneSession(session);
-  return buildResult(next, offerPagedList(next, NARROWED_LIST_TEXT, rows));
+  return buildResult(next, offerPagedList(next, NARROWED_LIST_TEXT, rows, offered.pageSize));
 }
 
 function turnPage(session: Session, offered: OfferedList, id: string): HandlerResult {
   const next = cloneSession(session);
   const current = next.counters[CounterKey.CITA_LIST_PAGE] ?? 0;
   const target = id === ListPageButtonId.NEXT ? current + 1 : current - 1;
-  const page = Math.min(Math.max(target, 0), pageCount(offered.rows.length) - 1);
+  const page = Math.min(Math.max(target, 0), pageCount(offered.rows.length, offered.pageSize) - 1);
   if (page === 0) delete next.counters[CounterKey.CITA_LIST_PAGE];
   else next.counters[CounterKey.CITA_LIST_PAGE] = page;
-  return buildResult(next, pageEffects(offered.text, offered.rows, page));
+  return buildResult(next, pageEffects(offered.text, offered.rows, page, offered.pageSize));
 }
 
 export type CustomMatch = SelectionMatch | { kind: MatchKind.NOTICE; text: string } | { kind: MatchKind.HANDLED; result: HandlerResult };
@@ -85,13 +85,13 @@ export function resolveSelection(session: Session, event: InboundEvent, options:
 
   const custom = options.customMatch?.(typed, offered.rows);
   if (custom?.kind === MatchKind.MATCH) return { replyId: custom.row.id, typed };
-  if (custom?.kind === MatchKind.AMBIGUOUS) return { result: narrowOffered(session, custom.rows) };
+  if (custom?.kind === MatchKind.AMBIGUOUS) return { result: narrowOffered(session, offered, custom.rows) };
   if (custom?.kind === MatchKind.NOTICE) return { result: reshowOffered(session, offered, custom.text) };
   if (custom?.kind === MatchKind.HANDLED) return { result: custom.result };
 
   const match = matchSelection(typed, offered.rows, { includeDescription: options.includeDescription });
   if (match.kind === MatchKind.MATCH) return { replyId: match.row.id, typed };
-  if (match.kind === MatchKind.AMBIGUOUS) return { result: narrowOffered(session, match.rows) };
+  if (match.kind === MatchKind.AMBIGUOUS) return { result: narrowOffered(session, offered, match.rows) };
 
   return { result: options.onNoMatchText?.(typed) ?? reshowOffered(session, offered) };
 }

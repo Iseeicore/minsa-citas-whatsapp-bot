@@ -110,6 +110,53 @@ describe("a list longer than WhatsApp's 10 rows is paged", () => {
   });
 });
 
+describe("a list can ask for a smaller page", () => {
+  it("7 rows with a page of 5: the first page shows 5 rows and the button", () => {
+    const session = blank();
+    const effects = offerPagedList(session, "Selecciona:", rows(7), 5);
+
+    expect(listIds(effects)).toEqual(rows(5).map((row) => row.id));
+    expect(effects[1]).toEqual({
+      kind: "send_buttons",
+      text: "Mostrando 1 a 5 de 7 opciones.",
+      buttons: [{ id: "lista_pagina_siguiente", title: "Ver más opciones" }],
+    });
+    expect(readOffered(session.slots)?.pageSize).toBe(5);
+  });
+
+  it("the page buttons move by the size the list was offered with", () => {
+    const listed = blank();
+    offerPagedList(listed, "Selecciona la especialidad:", rows(7), 5);
+
+    const second = handle(listed, tap("lista_pagina_siguiente"));
+    expect(listIds(sent(second))).toEqual(["R6", "R7"]);
+    expect(buttonIds(sent(second))).toEqual(["lista_pagina_anterior"]);
+    expect((sent(second)[1] as { text: string }).text).toBe("Mostrando 6 a 7 de 7 opciones.");
+
+    const reshown = handle(second.session, text("123456789"));
+    expect(listIds(sent(reshown))).toEqual(["R6", "R7"]);
+  });
+
+  it("an ambiguous name narrows the list and keeps the page size", () => {
+    const listed = blank();
+    const named: ListRow[] = Array.from({ length: 7 }, (_, index) => ({ id: `N${index + 1}`, title: `Hospital Central ${index + 1}` }));
+    offerPagedList(listed, "Selecciona:", named, 5);
+
+    const result = handle(listed, text("hospital central"));
+
+    expect(listIds(sent(result))).toEqual(["N1", "N2", "N3", "N4", "N5"]);
+    expect(readOffered(result.session.slots)?.pageSize).toBe(5);
+  });
+
+  it("without a page size every other list still pages by 10", () => {
+    const session = blank();
+    const effects = offerPagedList(session, "Selecciona:", rows(11));
+
+    expect(listIds(effects)).toHaveLength(10);
+    expect(readOffered(session.slots)?.pageSize).toBeUndefined();
+  });
+});
+
 describe("the catalog lists that MINSA can return without a cap are paged", () => {
   it("12 especialidades go out as a page of 10 plus the button", () => {
     const pending: Session = {

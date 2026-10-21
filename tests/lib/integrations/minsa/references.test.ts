@@ -75,6 +75,7 @@ describe("MINSA real — listReferences", () => {
       codigoIpressDestino: "5987",
       codigoUpsDestino: "222800",
       estado: 7,
+      estadoDescripcion: "PACIENTE CITADO",
     },
     {
       idReferencia: "1364178",
@@ -87,6 +88,7 @@ describe("MINSA real — listReferences", () => {
       codigoIpressDestino: "6206",
       codigoUpsDestino: "230101",
       estado: 5,
+      estadoDescripcion: "PACIENTE RECIBIDO",
     },
   ];
 
@@ -117,6 +119,18 @@ describe("MINSA real — listReferences", () => {
       await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual(SIN_REFERENCIAS);
     });
 
+    it("guarda la descripción del estado tal como la envía el backend", async () => {
+      const sinDescripcion = { ...FILAS[0], estado: { codigo: "2" } };
+      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "", data: [FILAS[1], sinDescripcion] }));
+
+      const result = await listReferences("40488601", "01", "token-real");
+
+      expect(result.data.map((item) => [item.estado, item.estadoDescripcion])).toEqual([
+        [5, "PACIENTE RECIBIDO"],
+        [2, ""],
+      ]);
+    });
+
     it("el estado no se deduce de las filas: manda el del backend", async () => {
       vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, message: "", data: FILAS }));
 
@@ -131,7 +145,7 @@ describe("MINSA real — listReferences", () => {
 
       const result = await listReferences("40488601", "01", "token-real");
 
-      expect(result.data).toEqual([{ ...REFERENCIAS[0], idReferencia: "999", estado: 1 }]);
+      expect(result.data).toEqual([{ ...REFERENCIAS[0], idReferencia: "999", estado: 1, estadoDescripcion: "REGISTRADO" }]);
     });
   });
 
@@ -220,6 +234,7 @@ describe("MINSA real — listReferences", () => {
         codigoIpressDestino: "5987",
         codigoUpsDestino: "221303",
         estado: 7,
+        estadoDescripcion: "PACIENTE CITADO",
       });
     });
 
@@ -302,6 +317,28 @@ describe("MINSA real — listReferences", () => {
       vi.stubGlobal("fetch", minsaResponding("", 500));
 
       await expect(listReferences("12345678", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
+    });
+
+    it("un error de red es error y no hace caer el turno", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
+
+      await expect(listReferences("12345678", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
+    });
+
+    it("una consulta que supera el tiempo máximo es error", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("The operation was aborted due to timeout", "TimeoutError")));
+
+      await expect(listReferences("12345678", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
+    });
+
+    it("la consulta lleva un tiempo máximo", async () => {
+      const fetchMock = minsaResponding([]);
+      vi.stubGlobal("fetch", fetchMock);
+
+      await listReferences("12345678", "01", "token-real");
+
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(init.signal).toBeInstanceOf(AbortSignal);
     });
 
     it("un cuerpo que no es JSON es error", async () => {

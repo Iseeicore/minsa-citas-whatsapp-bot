@@ -81,11 +81,15 @@ describe("referencias tras verificar el código", () => {
     expect(queries(result)).toEqual([{ kind: "list_references", payload: { numeroDocumento: documento, tipoDocumento: tipo } }]);
   });
 
-  it.each(["12345678", "123456789"])("%s no consulta referencias cuando la persona entró por la cita", (documento) => {
+  it.each([
+    ["12345678", "01"],
+    ["123456789", "03"],
+  ])("%s también consulta las referencias con tipo %s cuando la persona entró por la cita", (documento, tipo) => {
     const result = handle(at("cita_verify_pending", { [SlotKey.CITA_DNI_PENDING]: documento }), verified());
 
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(result.session.state).toBe("referencia_lookup_pending");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe(documento);
-    expect(queries(result)).toEqual([]);
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA);
+    expect(queries(result)).toEqual([{ kind: "list_references", payload: { numeroDocumento: documento, tipoDocumento: tipo } }]);
   });
 });

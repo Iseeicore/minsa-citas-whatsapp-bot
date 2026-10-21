@@ -33,3 +33,5 @@ export const TEMPORAL_PHRASE =
 export const SLOT_STARTING_WITH_CLOCK_TIME = /^\d{2}:\d{2}\|/;
 
 export const ISO_DATE_HYPHENS = /-/g;
+
+export const REFERENCIA_FECHA_HORA = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/;

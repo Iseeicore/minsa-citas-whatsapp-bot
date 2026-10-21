@@ -14,6 +14,7 @@ import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-fai
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
+import { offerReferenciaSinCupos } from "@/lib/fsm/flows/referencia/cita-con-referencia";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { TEMPORAL_PHRASE } from "@/lib/constants/regex/date-time";
@@ -84,7 +85,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
     return buildResult(next, offerPagedList(next, SELECT_FECHA_TEXT, rows));
   }
 
-  if (referenciaSeleccionadaId(next.slots)) return closeWithApology("referencia_sin_cupos");
+  if (referenciaSeleccionadaId(next.slots)) return offerReferenciaSinCupos(next);
 
   return searchOtherEstablecimiento(next);
 }

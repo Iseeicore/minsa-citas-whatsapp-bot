@@ -60,6 +60,7 @@ const UNA_REFERENCIA: ListReferencesResult = {
       codigoIpressDestino: "5987",
       codigoUpsDestino: "222800",
       estado: 7,
+      estadoDescripcion: "PACIENTE CITADO",
     },
   ],
 };
@@ -195,19 +196,20 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(next.session.state).toBe("main_menu");
   });
 
-  it("la cita normal ya no consulta las referencias después del código", async () => {
+  it("la cita consulta las referencias una vez y, sin referencias, sigue al distrito", async () => {
     const otp = await login();
 
     expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(referencias.calls).toBe(0);
+    expect(referencias.calls).toBe(1);
   });
 
-  it("la cita con referencias disponibles tampoco las ofrece", async () => {
+  it("la cita con referencias que permiten agendar pregunta si se agenda con o sin referencia", async () => {
     referencias.result = UNA_REFERENCIA;
 
     const otp = await login();
 
-    expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(referencias.calls).toBe(0);
+    expect(otp.session.state).toBe("cita_awaiting_referencia_eleccion");
+    expect(otp.texts).toContain("[buttons] Detectamos que tienes referencias médicas. ¿Cómo deseas agendar tu cita?");
+    expect(referencias.calls).toBe(1);
   });
 });

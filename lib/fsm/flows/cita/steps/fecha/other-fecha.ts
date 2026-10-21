@@ -21,7 +21,6 @@ import { SessionState } from "@/lib/enums/session-state";
 import {
   OTHER_FECHA_DECLINED_TEXT,
   OTHER_FECHA_NO_DATES_TEXT,
-  REFERENCIA_SIN_CUPOS_TEXT,
   OTHER_FECHA_ONLY_DECLINED_INTRO_TEXT,
   OTHER_FECHA_NO_HORARIOS_INTRO_TEXT,
   OTHER_FECHA_QUESTION_TEXT,
@@ -45,12 +44,11 @@ export function discardedDates(slots: Session["slots"]): string[] {
   return slotText(slots, SlotKey.CITA_FECHAS_DESCARTADAS).split(",").filter(Boolean);
 }
 
-type CloseReason = "declined" | "no_other_dates" | "referencia_sin_cupos";
+type CloseReason = "declined" | "no_other_dates";
 
 const CLOSE_TEXT_BY_REASON: Record<CloseReason, string> = {
   declined: OTHER_FECHA_DECLINED_TEXT,
   no_other_dates: OTHER_FECHA_NO_DATES_TEXT,
-  referencia_sin_cupos: REFERENCIA_SIN_CUPOS_TEXT,
 };
 
 export function closeWithApology(reason: CloseReason): HandlerResult {

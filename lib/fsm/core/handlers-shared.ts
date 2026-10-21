@@ -129,16 +129,16 @@ export function offerList(next: Session, text: string, rows: ListRow[]): SendEff
   return sendList(text, offered);
 }
 
-export function pageCount(rowCount: number): number {
-  return Math.max(1, Math.ceil(rowCount / WHATSAPP_LIST_MAX_ROWS));
+export function pageCount(rowCount: number, pageSize: number = WHATSAPP_LIST_MAX_ROWS): number {
+  return Math.max(1, Math.ceil(rowCount / pageSize));
 }
 
-export function pageEffects(text: string, rows: ListRow[], page: number): SendEffect[] {
-  if (rows.length <= WHATSAPP_LIST_MAX_ROWS) return [sendList(text, rows)];
+export function pageEffects(text: string, rows: ListRow[], page: number, pageSize: number = WHATSAPP_LIST_MAX_ROWS): SendEffect[] {
+  if (rows.length <= pageSize) return [sendList(text, rows)];
 
-  const current = Math.min(Math.max(page, 0), pageCount(rows.length) - 1);
-  const start = current * WHATSAPP_LIST_MAX_ROWS;
-  const visible = rows.slice(start, start + WHATSAPP_LIST_MAX_ROWS);
+  const current = Math.min(Math.max(page, 0), pageCount(rows.length, pageSize) - 1);
+  const start = current * pageSize;
+  const visible = rows.slice(start, start + pageSize);
   const buttons: ButtonOption[] = [];
   if (current > 0) buttons.push({ id: ListPageButtonId.PREV, title: LIST_PAGE_PREV_BUTTON_TEXT });
   if (start + visible.length < rows.length) buttons.push({ id: ListPageButtonId.NEXT, title: LIST_PAGE_NEXT_BUTTON_TEXT });
@@ -146,11 +146,11 @@ export function pageEffects(text: string, rows: ListRow[], page: number): SendEf
   return [sendList(text, visible), sendButtons(listPageSummaryText(start + 1, start + visible.length, rows.length), buttons)];
 }
 
-export function offerPagedList(next: Session, text: string, rows: ListRow[]): SendEffect[] {
+export function offerPagedList(next: Session, text: string, rows: ListRow[], pageSize?: number): SendEffect[] {
   const offered = uniqueRows(rows);
-  next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows: offered });
+  next.slots[SlotKey.CITA_OFFERED] = serializeOffered(pageSize ? { text, rows: offered, pageSize } : { text, rows: offered });
   delete next.counters[CounterKey.CITA_LIST_PAGE];
-  return pageEffects(text, offered, 0);
+  return pageEffects(text, offered, 0, pageSize);
 }
 
 export function isAffirmativeReply(text: string): boolean {

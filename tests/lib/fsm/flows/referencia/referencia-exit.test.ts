@@ -11,8 +11,12 @@ import {
   REFERENCIA_ABANDONED_TEXT,
   REFERENCIA_EXIT_QUESTION_TEXT,
 } from "@/lib/constants/textos/cita-salida";
-import { REFERENCIAS_LIST_TEXT, REFERENCIA_CONFIRM_BUTTONS, REFERENCIA_CONFIRM_QUESTION_TEXT } from "@/lib/constants/textos/cita-reserva";
-import { REFERENCIA_CITA_OFFER_BUTTONS, REFERENCIA_CITA_OFFER_QUESTION_TEXT } from "@/lib/constants/textos/referencia";
+import { REFERENCIA_CONFIRM_BUTTONS, REFERENCIA_CONFIRM_QUESTION_TEXT } from "@/lib/constants/textos/cita-reserva";
+import {
+  REFERENCIAS_LIST_TEXT,
+  REFERENCIA_CITA_OFFER_BUTTONS,
+  REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+} from "@/lib/constants/textos/referencia";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";

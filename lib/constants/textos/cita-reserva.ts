@@ -27,34 +27,9 @@ export const duplicateActiveText = (especialidad: string): string =>
 export const DUPLICATE_YES_BUTTON_TEXT = "Otra especialidad";
 export const SEARCHING_OTHER_ESPECIALIDADES_TEXT = "Buscando otras especialidades disponibles…";
 
-export const REFERENCIA_ESTADO_LABELS: Record<number, string> = {
-  3: "ACEPTADO",
-  5: "PACIENTE RECIBIDO",
-  7: "PACIENTE CITADO",
-};
-
-export const REFERENCIAS_LIST_TEXT = "Estas son tus referencias:";
 export const searchingFechasForReferenciaText = (destino: string): string =>
   `Perfecto. Buscando fechas disponibles para tu referencia en *${destino}*…`;
 export const REFERENCIA_CONFIRM_QUESTION_TEXT = "¿Es esta tu referencia?";
-
-export type ReferenciaDetalle = {
-  numero: string;
-  fecha: string;
-  origen: string;
-  upsOrigen: string;
-  destino: string;
-  upsDestino: string;
-  estado: string;
-};
-
-export const referenciaDetalleText = (referencia: ReferenciaDetalle): string => `N° : ${referencia.numero}
-Fecha: ${referencia.fecha}
-Origen: ${referencia.origen} (${referencia.upsOrigen})
-Destino: ${referencia.destino} (${referencia.upsDestino})
-Estado: ${referencia.estado}
-
-${REFERENCIA_CONFIRM_QUESTION_TEXT}`;
 
 export const REFERENCIA_CONFIRM_NO_BUTTON_TEXT = "No, ver otra";
 

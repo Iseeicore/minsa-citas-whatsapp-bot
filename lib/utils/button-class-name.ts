@@ -17,6 +17,8 @@ const VARIANT_CLASS_NAME: Record<ButtonVariant, string> = {
     STALE_OPTION_STATE,
   ),
   [ButtonVariant.LIST_OPTION]: cn("rounded-xl bg-sb-navy text-left text-white transition-colors hover:bg-sb-navy-dark", STALE_OPTION_STATE),
+  [ButtonVariant.LIST_OPTION_MUTED]:
+    "cursor-not-allowed rounded-xl border border-sb-bubble-border bg-sb-muted text-left text-sb-muted-text",
   [ButtonVariant.ACCENT]: "rounded-lg bg-sb-accent font-medium text-white transition-opacity disabled:opacity-40",
   [ButtonVariant.PILL_ON_DARK]: "rounded-full border border-white/40 font-medium text-white/90 hover:bg-white/10 disabled:opacity-50",
   [ButtonVariant.PILL_NEUTRAL]: "rounded-full border border-gray-300 bg-white font-medium text-gray-600 hover:bg-gray-50",
@@ -32,6 +34,7 @@ const VARIANT_CLASS_NAME: Record<ButtonVariant, string> = {
 const VARIANT_LAYOUT_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
   [ButtonVariant.OPTION]: "flex items-center justify-center gap-2",
   [ButtonVariant.LIST_OPTION]: "flex items-center gap-2.5",
+  [ButtonVariant.LIST_OPTION_MUTED]: "flex items-center gap-2.5",
   [ButtonVariant.ROW]: "flex items-center gap-3",
   [ButtonVariant.ICON_PLAIN]: "flex-shrink-0",
   [ButtonVariant.ICON_CONTROL]: "flex-shrink-0",
@@ -76,6 +79,7 @@ const DEFAULT_SIZE: Record<ButtonVariant, ButtonSize> = {
   [ButtonVariant.OUTLINE]: ButtonSize.MD,
   [ButtonVariant.OPTION]: ButtonSize.MD,
   [ButtonVariant.LIST_OPTION]: ButtonSize.LG,
+  [ButtonVariant.LIST_OPTION_MUTED]: ButtonSize.LG,
   [ButtonVariant.ACCENT]: ButtonSize.MD,
   [ButtonVariant.PILL_ON_DARK]: ButtonSize.XS,
   [ButtonVariant.PILL_NEUTRAL]: ButtonSize.XS,

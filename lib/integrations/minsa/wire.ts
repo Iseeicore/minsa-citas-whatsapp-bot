@@ -54,7 +54,7 @@ export async function postSigned(path: string, body: Record<string, unknown>): P
   });
 }
 
-export async function postWithBearer(path: string, body: Record<string, unknown>, bearer: string): Promise<Response> {
+export async function postWithBearer(path: string, body: Record<string, unknown>, bearer: string, timeoutMs?: number): Promise<Response> {
   if (isRealMinsaEnabled() && minsaDigitalOrigin() === null) {
     logger.error("minsa.request_blocked", { path, reason: "MINSA_DIGITAL_APP_URL_MISSING" });
     return new Response(null, { status: HTTP_SERVICE_UNAVAILABLE });
@@ -69,6 +69,7 @@ export async function postWithBearer(path: string, body: Record<string, unknown>
       ...minsaDigitalBrowserHeaders(),
     },
     body: JSON.stringify(body),
+    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
   });
 }
 

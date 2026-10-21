@@ -68,6 +68,8 @@ export function ListPicker({
               title={label}
               description={item.description}
               Icon={Icon}
+              tone={item.tone}
+              unavailable={item.disabled}
               disabled={disabled}
               onClick={() => onSelect(item.id, label)}
             />

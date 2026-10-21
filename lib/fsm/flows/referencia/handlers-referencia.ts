@@ -11,6 +11,7 @@ import {
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import { offerReferenciasList } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { continueCitaConReferencias } from "@/lib/fsm/flows/referencia/cita-con-referencia";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult } from "@/lib/integrations/minsa/types";
 import {
@@ -45,6 +46,8 @@ export function askCitaOffer(session: Session): HandlerResult {
 
 export function handleReferenciaLookupPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as ListReferencesResult;
+  if (session.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.CITA) return continueCitaConReferencias(session, result);
+
   const next = cloneSession(session);
 
   if (result.statusReference === ReferenceStatus.FOUND && result.data.length > 0) {
