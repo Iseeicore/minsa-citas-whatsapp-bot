@@ -9,6 +9,7 @@ import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
   REFERENCIA_GOODBYE_TEXT,
+  REFERENCIA_LOOKUP_FAILED_TEXT,
   REFERENCIA_NONE_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
@@ -142,21 +143,39 @@ describe("the lookup", () => {
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
   });
 
-  it.each([ReferenceStatus.EMPTY, ReferenceStatus.ERROR, "otro"])(
-    "without referencias (%s): says so and offers a cita, with no list",
-    (statusReference) => {
-      const result = handle(lookupPending(), queryResult(QueryKind.LIST_REFERENCES, { statusReference, message: "", data: [] }));
+  it.each([ReferenceStatus.EMPTY, "otro"])("without referencias (%s): says so and offers a cita, with no list", (statusReference) => {
+    const result = handle(lookupPending(), queryResult(QueryKind.LIST_REFERENCES, { statusReference, message: "", data: [] }));
 
-      expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
-      expect(texts(result)).toEqual([REFERENCIA_NONE_TEXT]);
-      expect(buttons(result)).toEqual({
-        kind: "send_buttons",
-        text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-        buttons: REFERENCIA_CITA_OFFER_BUTTONS,
-      });
-      expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
-    },
-  );
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+    expect(texts(result)).toEqual([REFERENCIA_NONE_TEXT]);
+    expect(buttons(result)).toEqual({
+      kind: "send_buttons",
+      text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+      buttons: REFERENCIA_CITA_OFFER_BUTTONS,
+    });
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
+  });
+
+  it("when the lookup fails: says it could not check, not that there are none, and still offers a cita", () => {
+    const result = handle(
+      lookupPending(),
+      queryResult(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.ERROR, message: "", data: [] }),
+    );
+
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+    expect(texts(result)).toEqual([REFERENCIA_LOOKUP_FAILED_TEXT]);
+    expect(texts(result)).not.toContain(REFERENCIA_NONE_TEXT);
+    expect(buttons(result)).toEqual({
+      kind: "send_buttons",
+      text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+      buttons: REFERENCIA_CITA_OFFER_BUTTONS,
+    });
+    expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
+  });
+
+  it("the lookup failure text is the agreed wording", () => {
+    expect(REFERENCIA_LOOKUP_FAILED_TEXT).toBe("No pudimos consultar tus referencias en este momento. Inténtalo de nuevo más tarde.");
+  });
 
   it("found with no referencias left is treated as no referencias, never an empty list", () => {
     const result = handle(
