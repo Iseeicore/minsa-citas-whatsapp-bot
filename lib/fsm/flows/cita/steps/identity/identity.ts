@@ -1,7 +1,6 @@
-import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { isValidDocumentoFormat, isValidOtpFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { validateUserQuery } from "@/lib/fsm/flows/cita/steps/identity/validate-user-query";
-import { resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
+import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/continuation";
 import { isDemoReferenciaDni } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { offerDemoReferencias } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
@@ -26,7 +25,6 @@ import {
   REGISTRATION_RETRY_PROMPT_TEXT,
   VALIDATING_AGAIN_TEXT,
   OTP_LOCKED_TEXT,
-  VERIFIED_ASK_DISTRITO_TEXT,
   REGISTRATION_BUTTONS,
 } from "@/lib/constants/textos/cita-identidad";
 import { VALIDANDO_DOCUMENTO_TEXT, ASK_OTP_TEXT, VERIFICANDO_CODIGO_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
@@ -126,23 +124,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
   ]);
 }
 
-export function continueCitaAfterVerification(session: Session): HandlerResult {
-  const next = cloneSession(session);
-  next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
-
-  const distritoHint = next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
-  if (distritoHint) {
-    delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
-    return resolveDistritoText(next, distritoHint, next.slots[SlotKey.INITIAL_MESSAGE_TEXT]);
-  }
-
-  const initialMessageText = next.slots[SlotKey.INITIAL_MESSAGE_TEXT];
-  if (initialMessageText && mentionsPlacePreposition(initialMessageText)) {
-    return resolveDistritoText(next, initialMessageText, undefined);
-  }
-
-  return buildResult(next, [sendText(VERIFIED_ASK_DISTRITO_TEXT)]);
-}
+export { continueCitaAfterVerification };
 
 export function handleVerifyPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; token?: string };
@@ -158,24 +140,33 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     next.slots[SlotKey.CITA_BEARER] = result.token;
     next.slots[SlotKey.CITA_DNI] = dni ?? null;
 
-    if (next.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.REFERENCIAS) {
-      if (isDemoReferenciaDni(stringOrUndefined(dni))) {
-        delete next.slots[SlotKey.POST_LOGIN_FLOW];
-        delete next.slots[SlotKey.CITA_RESUME_STATE];
-        delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
-        return offerDemoReferencias(next);
-      }
-      return startReferenciasLookup(next);
-    }
-
-    const resumeState = next.slots[SlotKey.CITA_RESUME_STATE];
-    if (resumeState) {
-      delete next.slots[SlotKey.CITA_RESUME_STATE];
-      return resumeAfterReverification(next, resumeState);
-    }
-
-    return continueCitaAfterVerification(next);
+    return continueVerifiedFlow(next);
   }
 
   return failOtpAttempt(session);
+}
+
+function continueVerifiedFlow(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  if (next.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.REFERENCIAS) {
+    if (!isDemoReferenciaDni(stringOrUndefined(next.slots[SlotKey.CITA_DNI]))) return startReferenciasLookup(next);
+    delete next.slots[SlotKey.POST_LOGIN_FLOW];
+    delete next.slots[SlotKey.CITA_RESUME_STATE];
+    delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
+    return offerDemoReferencias(next);
+  }
+
+  const resumeState = next.slots[SlotKey.CITA_RESUME_STATE];
+  if (resumeState) {
+    delete next.slots[SlotKey.CITA_RESUME_STATE];
+    return resumeAfterReverification(next, resumeState);
+  }
+
+  const needsAppointmentMode = !next.slots[SlotKey.CITA_APPOINTMENT_MODE];
+  if (next.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.CITA_REFERENCIAS || needsAppointmentMode) {
+    next.slots[SlotKey.POST_LOGIN_FLOW] = PostLoginFlow.CITA_REFERENCIAS;
+    return startReferenciasLookup(next);
+  }
+
+  return continueCitaAfterVerification(next);
 }

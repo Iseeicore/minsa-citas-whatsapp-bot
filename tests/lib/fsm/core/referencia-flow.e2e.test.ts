@@ -108,11 +108,9 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(referencias.calls).toBe(1);
 
     const selected = await say(tap("1364486"));
-    expect(selected.session.state).toBe("cita_awaiting_referencia_confirm");
-
-    const confirmed = await say(text("sí"));
-    expect(confirmed.session.state).toBe("cita_awaiting_fecha_select");
-    expect(confirmed.texts.some((line) => line.includes("distrito"))).toBe(false);
+    expect(selected.session.state).toBe("cita_awaiting_fecha_select");
+    expect(selected.texts.some((line) => line.includes("distrito"))).toBe(false);
+    expect(selected.texts.join(" ")).not.toContain("¿Es esta tu referencia?");
 
     const fecha = await say(text("la segunda"));
     expect(fecha.session.state).toBe("cita_awaiting_hora_select");
@@ -167,19 +165,19 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(next.session.state).toBe("main_menu");
   });
 
-  it("la cita normal ya no consulta las referencias después del código", async () => {
+  it("la cita normal consulta referencias y avanza directamente cuando no hay ninguna", async () => {
     const otp = await login();
 
     expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(referencias.calls).toBe(0);
+    expect(referencias.calls).toBe(1);
   });
 
-  it("la cita con referencias disponibles tampoco las ofrece", async () => {
+  it("la cita con referencias disponibles ofrece ambas modalidades antes de continuar", async () => {
     referencias.result = UNA_REFERENCIA;
 
     const otp = await login();
 
-    expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(referencias.calls).toBe(0);
+    expect(otp.session.state).toBe("referencia_awaiting_appointment_mode");
+    expect(referencias.calls).toBe(1);
   });
 });

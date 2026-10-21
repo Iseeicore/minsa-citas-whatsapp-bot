@@ -1,12 +1,12 @@
 # Flujo de cita: árbol de ramificaciones
 
-Mapa de cada paso del flujo de cita: qué envía el bot (lista, botones o texto), qué texto libre entiende, qué pasa con varias coincidencias y cada rama de error. Sirve para QA, para el diseño de conversaciones y para ubicar un bug. Refleja el código de `lib/fsm/` en `main`.
+Mapa de cada paso del flujo de cita: qué envía el bot (lista, botones o texto), qué texto libre entiende, qué pasa con varias coincidencias y cada rama de error. Sirve para QA, para el diseño de conversaciones y para ubicar un bug. Refleja el código de `lib/fsm/` en la rama de trabajo local.
 
 ## Leyenda
 
 | Símbolo | Qué envía el bot |
 |---|---|
-| 📋 **LISTA** | Lista interactiva de WhatsApp (hasta 10 filas: título ≤ 24, descripción ≤ 72). Con más de 10 opciones se muestra por páginas de 10 con 🔘 [Ver más opciones] / [Anteriores] (*"Mostrando 1 a 10 de N opciones."*); escribir el nombre o el número de una fila de otra página también la elige |
+| 📋 **LISTA** | Lista de WhatsApp con hasta 10 filas: título ≤24 y descripción ≤72. La cita nueva conserva páginas de 10; referencias reales y su disponibilidad usan 7 opciones más los controles de página/cambio de la misma lista. |
 | 🔘 **BOTONES** | Botones de respuesta rápida (1 a 3) |
 | 🔗 **CTA** | Mensaje con un botón que abre una URL |
 | 💬 **TEXTO** | Mensaje de texto simple |
@@ -38,7 +38,7 @@ main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
 Documento 💬  (8 dígitos: DNI "01" · 9 dígitos: carnet de extranjería "03")
 └─ válido ─► MINSA valida  (envía numero_documento, tipo_documento y conversation_id)
    ├─ registrado ─► 💬 "Te enviamos un código…" ─► OTP
-   │                └─ correcto ─► 💬 "¡Verificado! ¿En qué distrito…?"
+   │                └─ correcto ─► consulta referencias (web y WhatsApp) ─► modalidad o nueva cita
    └─ no registrado ─► 💬 "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse."
                        + 🔗 MINSADIGITAL + 🔘 [Ya me registré]  (máx. 3 intentos ⛔)
 
@@ -67,9 +67,32 @@ Reserva 💬 "Agendando tu cita…"
 └─ éxito ─► 💬 constancia + 🔗 "Ver mi cita" + 💬 despedida ⛔
 ```
 
-### La cita no consulta referencias
+### Elección de cita nueva o con referencia en ambos canales
 
-Después del OTP la cita va directo al distrito: ya no ofrece revisar referencias por su cuenta. Las referencias son un servicio aparte, [Consultar referencia](flujo-referencias.md), que reutiliza los pasos de documento y OTP de este flujo y, al elegir una referencia, vuelve a la cita en las fechas del establecimiento de esa referencia. También vuelve aquí quien no tiene referencias y acepta agendar: sigue en el distrito sin repetir documento ni código.
+En WhatsApp y en el Chat-bot web, después del OTP se consultan las referencias antes de usar las pistas de distrito o especialidad del mensaje inicial. Las referencias reales comparten este recorrido en ambos canales; las demos conservan sus pasos anteriores:
+
+```text
+OTP → consultar referencias → Nueva cita / Cita con referencia
+Cita con referencia → elegir referencia → fechas → horario → resumen → confirmar reserva
+                                         └──────── Cambiar referencia ──────► listado
+Sin fechas con cupos → ¿Deseas seleccionar otra referencia? → Sí: listado / No: despedida y cierre
+```
+
+1. Con resultado interno `found` y referencias, el estado `referencia_awaiting_appointment_mode` ofrece **Nueva cita** y **Cita con referencia**. MINSA devuelve un arreglo raíz, sin exigir `status_reference`; el adaptador determina ese resultado interno. No se agregan restricciones por estado de la referencia: se conservan las devueltas por MINSA, conforme a la decisión del responsable.
+2. **Nueva cita** limpia la selección y los datos de referencia y continúa el flujo normal con la identidad verificada. Conserva las pistas del pedido inicial cuando todavía corresponden.
+3. **Cita con referencia** muestra tarjetas web con la especialidad o atención primero, el número y estado separados y los datos completos de destino, origen y fecha de referencia. Los nombres largos ocupan varias líneas. Si MINSA no envía la descripción de la especialidad, se indica «Especialidad no informada», conservando su código para la disponibilidad. Los metadatos públicos de presentación no incluyen documento, token ni códigos de integración.
+4. Elegir una referencia válida inicia directamente la búsqueda de fechas, sin la pregunta «¿Es esta tu referencia?». Se usan los códigos IPRESS y UPS exactos de esa referencia, sin sustituirlos por nombres ni por los de otra referencia del mismo hospital. Se retiran las pistas iniciales incompatibles. En ambos canales sólo se ofrecen fechas y horarios con `cantidadCupos > 0`. Elegir un horario, tanto con un toque como con texto, muestra el resumen; sólo su confirmación final permite enviar la reserva con `referencia_id`.
+5. Con respuesta `empty`, se informa que no hay referencias registradas y continúa la nueva cita sin repetir documento u OTP.
+6. Un error, una respuesta no reconocida o `found` sin referencias válidas activa `referencia_awaiting_lookup_retry`. Se ofrece **Reintentar consulta** o **Nueva cita**. Un fallo técnico no se presenta como ausencia de referencias.
+7. **Cambiar referencia**, también escribiendo ese texto, vuelve al listado desde fechas, horarios, desambiguación de hora, elección de otra fecha y resumen final. Elimina destino, especialidad, fecha, horarios, selección y contadores de la reserva anterior; conserva identidad y referencias. La siguiente selección consulta los códigos de la nueva referencia. La lista, su paginación y esta acción comparten una única interacción; elegir una fecha u hora sigue siendo posible sin que otro mensaje de botones desactive la lista.
+
+Una referencia incompleta no cambia silenciosamente a otra cita ni permite inventar su destino. El bot informa el problema y vuelve a la elección. Un duplicado de reserva con referencia también vuelve a la elección sin ofrecer otra especialidad ligada al identificador anterior. Si no quedan fechas con cupos, entra en `referencia_awaiting_other_reference` y pregunta «No encontramos cupos disponibles para esta referencia. ¿Deseas seleccionar otra referencia?», con **Sí** y **No, salir**. **Sí** limpia la selección anterior y recupera sus referencias, conservando la identidad; **No** utiliza la despedida de referencias ya existente y termina en `referencia_closed`, sin credenciales, datos de cita ni contadores. El ejecutor conserva únicamente el control interno de la interacción consumida para rechazar botones antiguos. Antes de responder no muestra el listado ni consulta otra disponibilidad. Una respuesta desconocida repite la pregunta. Si no hay horarios disponibles para una fecha, permite buscar otra fecha o cambiar de referencia. Un error técnico al consultar fechas u horarios muestra el aviso de error y recupera el listado; no se presenta como falta de disponibilidad. Estas recuperaciones corresponden a referencias reales en ambos canales.
+
+WhatsApp muestra especialidad primero, con título de hasta 24 caracteres y descripción de destino, número, fecha y estado de hasta 72. Referencias y disponibilidad se paginan en grupos de 7 opciones; los controles de página y **Cambiar referencia** son filas de la misma lista Graph. Hasta 7 opciones y 3 controles respetan el máximo de 10 filas y conservan una sola interacción vigente. La confirmación final tiene como máximo 3 botones. El respaldo de texto ante HTTP 400 de Graph conserva la navegación y el cambio sin numerarlos como opciones reservables; admite escribir sus títulos.
+
+La sesión se comprueba también en los estados nuevos de elección y reintento. Al verificar de nuevo se vuelve a consultar cuando corresponde, mientras una reserva ya encaminada a fechas u horarios recupera ese paso. Si el mensaje que encontró la sesión vencida era **Cambiar referencia**, se conserva esa intención: primero se verifica otro OTP y después se actualiza el listado, sin consultar con el token vencido. Los botones de mensajes anteriores siguen sujetos al control de interacción vigente.
+
+El servicio separado [Consultar Referencias](flujo-referencias.md) mantiene su entrada. La referencia aporta destino y especialidad; la API de reserva sigue necesitando una fecha de cita y una hora. Si sólo existe una fecha disponible, el comportamiento actual la informa y continúa al horario.
 
 ## Paso a paso: qué envía y qué texto libre entiende
 
@@ -173,7 +196,7 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 
 [1] Sí, enviar código
 [2] Cancelar"* con [Sí, enviar código] [Cancelar].
-  - El mensaje que llegó en ese momento **no se procesa**.
+  - El mensaje que llegó en ese momento **no se procesa**. En una referencia real de ambos canales se conserva la intención explícita **Cambiar referencia**, para recuperar el listado sólo después de verificar otro OTP.
 - **Qué pasa después:**
   - **Sí** → nuevo OTP y el flujo retoma donde estaba.
   - **Cancelar** → 🔘 *"Parece que prefieres no continuar con tu cita… ¿Deseas salir?"*: **Sí** cierra la cita (`cita_abandoned`); **No** vuelve a mostrar la alerta.
@@ -193,6 +216,8 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 
 ### Error al registrar la cita
 
+La tabla describe el recorrido general. En una referencia real de ambos canales, un duplicado vuelve a la elección de modalidad y un error técnico de consulta de fechas u horarios recupera el listado con un aviso. Nunca cambia automáticamente el establecimiento o la especialidad asociados a la referencia.
+
 | Qué respondió el MINSA | Respuesta | Sigue en |
 |---|---|---|
 | Ya tiene una cita activa (una por especialidad) | 🔘 *"Ya tienes una cita activa para {especialidad}. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?"* [Otra especialidad] [No, salir] | Especialidad (sin la ya reservada; si no queda ninguna, ¿otro distrito?) |
@@ -203,6 +228,8 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 | Error al buscar especialidades, establecimientos, fechas u horarios | *"Ocurrió un error al buscar {…} disponibles. Intenta iniciar tu cita nuevamente en unos minutos."* | ⛔ |
 
 ### Sin cobertura
+
+En referencias reales de ambos canales no se buscan otros establecimientos para el mismo identificador: se conserva el IPRESS/UPS de destino y se permite elegir otra referencia. Las reglas siguientes corresponden a la búsqueda general de una cita nueva.
 - **Sin especialidades o establecimientos:** 🔘 *"No encontramos … disponibles … ¿Deseas buscar en otro distrito cercano?"* con [Sí, otro distrito] [No, salir].
 - **Establecimientos paginados por el MINSA:** se piden de 5 en 5 (`page_size: 5`). Si hay más páginas, la lista termina con las filas «Ver más establecimientos» y «Ver anteriores», que vuelven a consultar la página siguiente o anterior. Un único resultado solo se elige solo cuando es el único de todas las páginas, y al descartar los de una página por falta de fechas el bot sigue con la siguiente antes de ofrecer otro distrito.
 - **Cambio de ubicación a mitad de la lista:** en las listas de especialidad y de establecimiento, frases como «ya no quiero esta ubicación» u «otro distrito» (o la IA) preguntan [Sí, otro distrito] [No, salir]; el sí borra los datos ligados al distrito y pide el nuevo.

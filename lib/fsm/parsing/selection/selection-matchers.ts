@@ -1,5 +1,5 @@
 import { WORD_SEPARATORS } from "@/lib/constants/regex/text";
-import type { Session } from "@/lib/fsm/core/types";
+import type { ListRow, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
 import { MatchKind } from "@/lib/enums/match-kind";
@@ -8,7 +8,7 @@ import { stripAccents } from "@/lib/utils/text-values";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { MIN_PREFIX_MATCH_LENGTH, MIN_TOKEN_LENGTH } from "@/lib/constants/limits/selection";
 
-export type OfferedRow = { id: string; title: string; description?: string };
+export type OfferedRow = ListRow;
 export type OfferedList = { text: string; rows: OfferedRow[] };
 
 export function serializeOffered(list: OfferedList): string {

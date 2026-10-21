@@ -92,12 +92,12 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(result.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
   });
 
-  it("cita (no purpose): goes straight to the distrito and never looks the referencias up", () => {
+  it("cita (no purpose): checks references before deciding whether to request a district", () => {
     const result = handle(verifyPending(DNI), verified);
 
-    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
-    expect(texts(result)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
-    expect(queries(result)).toEqual([]);
+    expect(result.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
+    expect(texts(result)).toEqual([ANALYZING_CUENTA_TEXT]);
+    expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
   });
 
@@ -108,7 +108,8 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(queries(demo)).toEqual([]);
 
     const cita = handle(verifyPending(dni), verified);
-    expect(cita.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(cita.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
+    expect(queries(cita)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: dni, tipoDocumento: "01" } }]);
   });
 
   it("a wrong code keeps the purpose for the next try", () => {
@@ -135,8 +136,8 @@ describe("the lookup", () => {
     expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["1364486"]);
     expect(list?.kind === "send_interactive_list" && list.rows[0]).toEqual({
       id: "1364486",
-      title: "HOSPITAL MARIA AUXILIAD…",
-      description: "24/07/2024 11:03 PM · SAN FERNANDO",
+      title: "GASTROENTEROLOGÍA",
+      description: "HOSPITAL MARIA AUXILIADORA · N° 00123 · 24/07/2024 · PACIENTE CITADO",
     });
     expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBe(JSON.stringify([REFERENCIA]));
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
@@ -253,14 +254,15 @@ describe("with referencias: the existing selection and confirmation", () => {
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_FECHAS, payload: { codEess: "5987", especialidadId: "222800" } }]);
   });
 
-  it("a referencia without destination codes continues the normal cita and leaves the purpose behind", () => {
+  it("a referencia without destination codes returns to appointment modes without silently choosing a new destination", () => {
     const session = confirmPending();
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([{ ...REFERENCIA, codigoIpressDestino: "", codigoUpsDestino: "" }]);
 
     const result = handle(session, text("si"));
 
-    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
-    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
+    expect(queries(result)).toEqual([]);
   });
 
   it("asking for another one keeps the purpose", () => {

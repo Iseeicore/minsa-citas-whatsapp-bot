@@ -1,19 +1,15 @@
+import { z } from "zod";
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
-import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { isRecord } from "@/lib/utils/type-guards";
-import { arrayOr } from "@/lib/utils/array-values";
 import { readString, readNumber } from "@/lib/utils/record-readers";
 
 const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA: ListReferencesResult = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
-const STATUS_REFERENCE_VALUES: ReadonlySet<string> = new Set(Object.values(ReferenceStatus));
-
-function isReferenceStatus(value: string | undefined): value is ReferenceStatus {
-  return value !== undefined && STATUS_REFERENCE_VALUES.has(value);
-}
+const referencesResponseSchema = z.array(z.unknown());
 
 function descripcionDe(value: unknown): string {
   return isRecord(value) ? (readString(value, "descripcion") ?? "") : "";
@@ -43,26 +39,30 @@ function parseReferencia(row: RawRow): ReferenciaItem | undefined {
 }
 
 function readReferencesResponse(body: unknown): ListReferencesResult {
-  if (!isRecord(body)) return SIN_RESPUESTA;
+  const parsed = referencesResponseSchema.safeParse(body);
+  if (!parsed.success) return SIN_RESPUESTA;
+  if (parsed.data.length === 0) return SIN_REFERENCIAS;
 
-  const statusReference = readString(body, "status_reference");
-  if (!isReferenceStatus(statusReference)) return SIN_RESPUESTA;
-
-  const rows = arrayOr(body.data);
+  const data = parseRows(MinsaEndpoint.REFERENCIAS, parsed.data, parseReferencia);
+  if (data.length === 0) return SIN_RESPUESTA;
   return {
-    statusReference,
-    message: readString(body, "message") ?? "",
-    data: parseRows(MinsaEndpoint.REFERENCIAS, rows, parseReferencia),
+    statusReference: ReferenceStatus.FOUND,
+    message: "",
+    data,
   };
 }
 
-export async function listReferences(numeroDocumento: string, tipoDocumento: string): Promise<ListReferencesResult> {
+export async function listReferences(numeroDocumento: string, tipoDocumento: string, bearer: string): Promise<ListReferencesResult> {
   if (!isRealMinsaEnabled()) return SIN_REFERENCIAS;
 
-  const response = await postSigned(MinsaEndpoint.REFERENCIAS, {
-    numero_documento: numeroDocumento,
-    tipo_documento: tipoDocumento,
-  });
+  const response = await postWithBearer(
+    MinsaEndpoint.REFERENCIAS,
+    {
+      numero_documento: numeroDocumento,
+      tipo_documento: tipoDocumento,
+    },
+    bearer,
+  );
   if (!response.ok) return SIN_RESPUESTA;
 
   const body: unknown = await response.json().catch(() => undefined);

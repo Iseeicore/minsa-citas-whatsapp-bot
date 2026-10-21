@@ -46,6 +46,7 @@ export const SANDBOX_VISIBLE_SLOT_KEYS = [
 ] as const satisfies readonly SlotKey[];
 
 export const SANDBOX_WITHHELD_SLOT_KEYS = [
+  SlotKey.CITA_APPOINTMENT_MODE,
   SlotKey.CITA_BEARER,
   SlotKey.CITA_TWOFA_ID,
   SlotKey.CONSULTA_TWOFA_ID,

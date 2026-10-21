@@ -11,6 +11,7 @@ import type {
   QueryEffect,
   QueryEffectKind,
   SendEffect,
+  SendInteractiveListEffect,
   Session,
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -21,6 +22,9 @@ import { AFFIRMATIVE_REPLIES } from "@/lib/constants/palabras-clave";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 import { uniqueBy } from "@/lib/utils/array-values";
+import { channelOf } from "@/lib/fsm/core/channel";
+import { SessionChannel } from "@/lib/enums/session-channel";
+import { WHATSAPP_REFERENCE_LIST_PAGE_SIZE } from "@/lib/constants/limits/whatsapp-reference";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
@@ -58,6 +62,7 @@ export function cloneSession(session: Session): Session {
     state: session.state,
     slots: { ...session.slots },
     counters: { ...session.counters },
+    ...(session.channel ? { channel: session.channel } : {}),
   };
 }
 
@@ -73,7 +78,7 @@ export function withRejectionNotice(result: HandlerResult, text: string = FALLBA
   return withLeadingText(result, text);
 }
 
-export function sendList(text: string, rows: ListRow[]): SendEffect {
+export function sendList(text: string, rows: ListRow[]): SendInteractiveListEffect {
   return { kind: SendType.INTERACTIVE_LIST, text, rows };
 }
 
@@ -129,28 +134,39 @@ export function offerList(next: Session, text: string, rows: ListRow[]): SendEff
   return sendList(text, offered);
 }
 
-export function pageCount(rowCount: number): number {
-  return Math.max(1, Math.ceil(rowCount / WHATSAPP_LIST_MAX_ROWS));
+export function listPageSize(session?: Session): number {
+  const reference =
+    session?.state === SessionState.CITA_AWAITING_REFERENCIA_SELECT || !!session?.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
+  return session && channelOf(session) === SessionChannel.WHATSAPP && reference
+    ? WHATSAPP_REFERENCE_LIST_PAGE_SIZE
+    : WHATSAPP_LIST_MAX_ROWS;
 }
 
-export function pageEffects(text: string, rows: ListRow[], page: number): SendEffect[] {
-  if (rows.length <= WHATSAPP_LIST_MAX_ROWS) return [sendList(text, rows)];
+export function pageCount(rowCount: number, session?: Session): number {
+  return Math.max(1, Math.ceil(rowCount / listPageSize(session)));
+}
 
-  const current = Math.min(Math.max(page, 0), pageCount(rows.length) - 1);
-  const start = current * WHATSAPP_LIST_MAX_ROWS;
-  const visible = rows.slice(start, start + WHATSAPP_LIST_MAX_ROWS);
+export function pageEffects(text: string, rows: ListRow[], page: number, session?: Session): SendEffect[] {
+  const size = listPageSize(session);
+  if (rows.length <= size) return [sendList(text, rows)];
+
+  const current = Math.min(Math.max(page, 0), pageCount(rows.length, session) - 1);
+  const start = current * size;
+  const visible = rows.slice(start, start + size);
   const buttons: ButtonOption[] = [];
   if (current > 0) buttons.push({ id: ListPageButtonId.PREV, title: LIST_PAGE_PREV_BUTTON_TEXT });
   if (start + visible.length < rows.length) buttons.push({ id: ListPageButtonId.NEXT, title: LIST_PAGE_NEXT_BUTTON_TEXT });
 
-  return [sendList(text, visible), sendButtons(listPageSummaryText(start + 1, start + visible.length, rows.length), buttons)];
+  const list = sendList(text, visible);
+  if (size < WHATSAPP_LIST_MAX_ROWS) return [{ ...list, actions: buttons }];
+  return [list, sendButtons(listPageSummaryText(start + 1, start + visible.length, rows.length), buttons)];
 }
 
 export function offerPagedList(next: Session, text: string, rows: ListRow[]): SendEffect[] {
   const offered = uniqueRows(rows);
   next.slots[SlotKey.CITA_OFFERED] = serializeOffered({ text, rows: offered });
   delete next.counters[CounterKey.CITA_LIST_PAGE];
-  return pageEffects(text, offered, 0);
+  return pageEffects(text, offered, 0, next);
 }
 
 export function isAffirmativeReply(text: string): boolean {

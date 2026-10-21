@@ -258,7 +258,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       );
 
     case QueryKind.LIST_REFERENCES:
-      return listReferences(payloadText(effect.payload, "numeroDocumento"), payloadText(effect.payload, "tipoDocumento"));
+      return listReferences(payloadText(effect.payload, "numeroDocumento"), payloadText(effect.payload, "tipoDocumento"), bearer);
 
     case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
       return analyzeFotoIntent(payloadText(effect.payload, "text"));

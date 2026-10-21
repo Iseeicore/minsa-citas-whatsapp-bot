@@ -4,6 +4,7 @@ import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { renderWithinLength } from "@/lib/utils/fit-text";
 import { bodyWithOptionLinesText, linkLineText, numberedOptionLineText } from "@/lib/constants/textos/comunes";
 import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 
 const numberedLines = (titles: string[]): string[] => titles.map((title, index) => numberedOptionLineText(index + 1, title));
 
@@ -12,9 +13,12 @@ function optionLines(effect: SendEffect): string[] {
     case SendType.TEXT:
       return [];
     case SendType.BUTTONS:
-      return numberedLines(effect.buttons.map((button) => button.title));
+      return [
+        ...numberedLines(effect.buttons.filter((button) => button.id !== ReferenciaActionButtonId.CHANGE).map((button) => button.title)),
+        ...effect.buttons.filter((button) => button.id === ReferenciaActionButtonId.CHANGE).map((button) => button.title),
+      ];
     case SendType.INTERACTIVE_LIST:
-      return numberedLines(effect.rows.map((row) => row.title));
+      return [...numberedLines(effect.rows.map((row) => row.title)), ...(effect.actions ?? []).map((action) => action.title)];
     case SendType.CTA_URL:
       return [linkLineText(effect.buttonText, effect.url)];
   }

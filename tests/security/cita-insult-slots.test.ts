@@ -46,12 +46,16 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
     expect(routed.session.slots).toEqual({});
   });
 
-  it("the existing flow then resolves San Borja right after the OTP, with no extra question", () => {
+  it("resolves San Borja without another location question after OTP confirms there are no references", () => {
     let step = handle(menu(), text(MESSAGE));
     step = handle(step.session, text("12345678"));
     step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw" }));
     step = handle(step.session, text("1234"));
     step = handle(step.session, result("verify_code", { status: "verified", token: "jwt" }));
+    expect(step.session.state).toBe("referencia_lookup_pending");
+    expect(step.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("San Borja");
+    expect(queries(step).map((effect) => effect.kind)).toEqual(["list_references"]);
+    step = handle(step.session, result("list_references", { statusReference: "empty", message: "", data: [] }));
 
     expect(step.session.state).toBe("cita_ubigeo_pending");
     const [search] = queries(step);

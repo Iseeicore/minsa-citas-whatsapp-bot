@@ -3,7 +3,15 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { closeWithApology, discardedDates } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { buildResult, cloneSession, offerPagedList, query, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  offerPagedList,
+  query,
+  sendText,
+  truncateForRow,
+  withLeadingText,
+} from "@/lib/fsm/core/handlers-shared";
 import { formatFechaForApi } from "@/lib/integrations/minsa/format";
 import { formatDateLong, formatDateShort, matchFechaText, parseOfferedDate } from "@/lib/fsm/parsing/date/date-parser";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -13,11 +21,14 @@ import { todayInLima } from "@/lib/time/lima-clock";
 import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
-import { referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
+import { isReferenceAppointment, referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
+import { restartReferenceSelection } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { TEMPORAL_PHRASE } from "@/lib/constants/regex/date-time";
 import { REVIEWING_ANSWER_TEXT } from "@/lib/constants/textos/comunes";
+import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
+import { searchFailureText } from "@/lib/constants/textos/fallas";
 import {
   SEARCHING_HORARIOS_TEXT,
   fechaFoundText,
@@ -50,14 +61,19 @@ function displayFechaShort(fechaCupo: string): string {
 export function handleFechaPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; items?: FechaResultItem[] };
   const next = cloneSession(session);
+  const referenceAppointment = isReferenceAppointment(next);
+  if (referenceAppointment && result.status === CatalogStatus.ERROR) {
+    return withLeadingText(restartReferenceSelection(next), searchFailureText(SearchSubject.FECHAS));
+  }
 
   const failure = searchFailureGate(next, result.status, SessionState.CITA_FECHA_PENDING, SearchSubject.FECHAS);
   if (failure) return failure;
 
   const discarded = discardedDates(next.slots).map(formatFechaForApi);
   const dates = (result.status === CatalogStatus.FOUND ? (result.items ?? []) : []).filter(
-    (item) => !discarded.includes(formatFechaForApi(item.fechaCupo)),
+    (item) => !discarded.includes(formatFechaForApi(item.fechaCupo)) && (!referenceAppointment || item.cantidadCupos > 0),
   );
+  if (referenceAppointment && dates.length === 0) return askOtherReference(next);
   if (discarded.length > 0 && dates.length === 0) return closeWithApology("no_other_dates");
 
   if (dates.length === 1) {

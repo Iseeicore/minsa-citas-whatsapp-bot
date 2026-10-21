@@ -2,7 +2,7 @@ import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handl
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { matchHoraTyped } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
-import { askHoraConfirmation, startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
+import { askHoraConfirmation, chooseHora } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
@@ -41,6 +41,5 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
 
   if (outcome.typed !== undefined) return askHoraConfirmation(session, replyId);
 
-  const [horaInicio] = replyId.split("|");
-  return startBooking(session, horaInicio);
+  return chooseHora(session, replyId);
 }

@@ -10,6 +10,8 @@ import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/iden
 import { abandonedText, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
+import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -48,7 +50,18 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_REFERENCIA_SELECT,
   SessionState.CITA_AWAITING_REFERENCIA_CONFIRM,
   SessionState.REFERENCIA_AWAITING_CITA_OFFER,
+  SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE,
+  SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY,
+  SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE,
 ]);
+
+const BUTTON_REPROMPTS: Readonly<Record<string, ((session: Session) => HandlerResult) | undefined>> = {
+  [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
+  [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
+  [SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE]: askAppointmentMode,
+  [SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY]: askReferenceLookupRetry,
+  [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: askOtherReference,
+};
 
 const CHANGE_DISTRITO_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT,
@@ -77,8 +90,8 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
   if (prompt) return buildResult(restored, [sendText(prompt)]);
   if (restored.state === SessionState.CITA_REGISTRATION_WAIT)
     return handleRegistrationWait(restored, { ...event, type: InboundEventType.TEXT, text: "" });
-  if (restored.state === SessionState.CITA_AWAITING_REFERENCIA_CONFIRM) return reshowReferenciaConfirmation(restored);
-  if (restored.state === SessionState.REFERENCIA_AWAITING_CITA_OFFER) return askCitaOffer(restored);
+  const reprompt = BUTTON_REPROMPTS[restored.state];
+  if (reprompt) return reprompt(restored);
   return reshowOffered(restored, readOffered(restored.slots));
 }
 

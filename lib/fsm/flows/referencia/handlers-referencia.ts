@@ -9,14 +9,17 @@ import {
   withRejectionNotice,
 } from "@/lib/fsm/core/handlers-shared";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
-import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/identity";
+import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/continuation";
 import { offerReferenciasList } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { handleAppointmentReferenceLookup } from "@/lib/fsm/flows/referencia/appointment-lookup";
+import { handleAppointmentMode, handleReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode";
+import { handleOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
+import { closeReferencia } from "@/lib/fsm/flows/referencia/close-reference";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult } from "@/lib/integrations/minsa/types";
 import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-  REFERENCIA_GOODBYE_TEXT,
   REFERENCIA_LOGIN_REQUIRED_TEXT,
   REFERENCIA_NONE_TEXT,
 } from "@/lib/constants/textos/referencia";
@@ -28,6 +31,7 @@ import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-b
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
+import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 export function beginReferencias(slots: Session["slots"]): HandlerResult {
   const next: Session = {
@@ -44,6 +48,9 @@ export function askCitaOffer(session: Session): HandlerResult {
 
 export function handleReferenciaLookupPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as ListReferencesResult;
+  if (session.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.CITA_REFERENCIAS) {
+    return handleAppointmentReferenceLookup(session, result);
+  }
   const next = cloneSession(session);
 
   if (result.statusReference === ReferenceStatus.FOUND && result.data.length > 0) {
@@ -64,19 +71,33 @@ export function handleReferenciaAwaitingCitaOffer(session: Session, event: Inbou
   }
 
   if (reply === ReferenciaCitaOfferButtonId.NO || typed === Confirmation.NO) {
-    return buildResult({ state: SessionState.REFERENCIA_CLOSED, slots: {}, counters: {} }, [sendText(REFERENCIA_GOODBYE_TEXT)]);
+    return closeReferencia();
   }
 
   return withRejectionNotice(askCitaOffer(session));
 }
 
+type ActiveReferenciaState = Exclude<Extract<Session["state"], `referencia_${string}`>, `${SessionState.REFERENCIA_CLOSED}`>;
+
+const REFERENCIA_HANDLERS: Readonly<Record<ActiveReferenciaState, (session: Session, event: HandleEvent) => HandlerResult>> = {
+  [SessionState.REFERENCIA_LOOKUP_PENDING]: (session, event) =>
+    event.type === InternalEventType.QUERY_RESULT ? handleReferenciaLookupPending(session, event) : buildResult(session, []),
+  [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: (session, event) =>
+    event.type !== InternalEventType.QUERY_RESULT ? handleReferenciaAwaitingCitaOffer(session, event) : buildResult(session, []),
+  [SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE]: (session, event) =>
+    event.type !== InternalEventType.QUERY_RESULT ? handleAppointmentMode(session, event) : buildResult(session, []),
+  [SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY]: (session, event) =>
+    event.type !== InternalEventType.QUERY_RESULT ? handleReferenceLookupRetry(session, event) : buildResult(session, []),
+  [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: (session, event) =>
+    event.type !== InternalEventType.QUERY_RESULT ? handleOtherReference(session, event) : buildResult(session, []),
+};
+
+const REFERENCIA_HANDLER_BY_STATE = new Map<string, (session: Session, event: HandleEvent) => HandlerResult>(
+  Object.entries(REFERENCIA_HANDLERS),
+);
+
 export function handleReferencia(session: Session, event: HandleEvent): HandlerResult {
-  switch (session.state) {
-    case SessionState.REFERENCIA_LOOKUP_PENDING:
-      return handleReferenciaLookupPending(session, event as QueryResultEvent);
-    case SessionState.REFERENCIA_AWAITING_CITA_OFFER:
-      return handleReferenciaAwaitingCitaOffer(session, event as InboundEvent);
-    default:
-      throw new UnknownStateError("handleReferencia", session.state);
-  }
+  const handler = REFERENCIA_HANDLER_BY_STATE.get(session.state);
+  if (!handler) throw new UnknownStateError("handleReferencia", session.state);
+  return handler(session, event);
 }
