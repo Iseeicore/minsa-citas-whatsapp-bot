@@ -1,6 +1,6 @@
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { parseRows, type RawRow } from "@/lib/integrations/minsa/row-readers";
-import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
+import { postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { isRecord } from "@/lib/utils/type-guards";
@@ -42,7 +42,13 @@ function parseReferencia(row: RawRow): ReferenciaItem | undefined {
   };
 }
 
+function readBareReferences(rows: unknown[]): ListReferencesResult {
+  const data = parseRows(MinsaEndpoint.REFERENCIAS, rows, parseReferencia);
+  return data.length > 0 ? { statusReference: ReferenceStatus.FOUND, message: "", data } : SIN_REFERENCIAS;
+}
+
 function readReferencesResponse(body: unknown): ListReferencesResult {
+  if (Array.isArray(body)) return readBareReferences(body);
   if (!isRecord(body)) return SIN_RESPUESTA;
 
   const statusReference = readString(body, "status_reference");
@@ -56,13 +62,17 @@ function readReferencesResponse(body: unknown): ListReferencesResult {
   };
 }
 
-export async function listReferences(numeroDocumento: string, tipoDocumento: string): Promise<ListReferencesResult> {
+export async function listReferences(numeroDocumento: string, tipoDocumento: string, bearer: string): Promise<ListReferencesResult> {
   if (!isRealMinsaEnabled()) return SIN_REFERENCIAS;
 
-  const response = await postSigned(MinsaEndpoint.REFERENCIAS, {
-    numero_documento: numeroDocumento,
-    tipo_documento: tipoDocumento,
-  });
+  const response = await postWithBearer(
+    MinsaEndpoint.REFERENCIAS,
+    {
+      numero_documento: numeroDocumento,
+      tipo_documento: tipoDocumento,
+    },
+    bearer,
+  );
   if (!response.ok) return SIN_RESPUESTA;
 
   const body: unknown = await response.json().catch(() => undefined);
