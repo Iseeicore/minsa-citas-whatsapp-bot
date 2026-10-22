@@ -7,6 +7,7 @@ import {
   CITA_REFERENCIA_CHANGE_BUTTON,
   CITA_REFERENCIA_MODE_BUTTONS,
   CITA_REFERENCIA_RETRY_BUTTONS,
+  CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT,
 } from "@/lib/constants/textos/cita-referencia";
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
@@ -26,7 +27,7 @@ import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 
 const FROM = "51900000001";
 const NOW = Date.parse("2026-10-21T15:00:00Z");
-const REFERENCES: ReferenciaItem[] = [3, 5, 7].map((estado, index) => ({
+const REFERENCES: ReferenciaItem[] = [3, 5, 5].map((estado, index) => ({
   idReferencia: `synthetic-reference-${index}`,
   numero: `0000${index}`,
   fechaInicio: "20/10/2026 10:00",
@@ -104,7 +105,7 @@ function hours(): HandlerResult {
 }
 
 describe("WhatsApp agenda con referencias mediante el mismo recorrido que el chat web", () => {
-  it("tras OTP consulta primero las referencias y ofrece ambas modalidades conservando los tres estados MINSA", () => {
+  it("tras OTP consulta primero las referencias y ofrece ambas modalidades conservando las referencias de MINSA", () => {
     expect(queries(verified())).toEqual([
       { kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: "12345678", tipoDocumento: "01" } },
     ]);
@@ -112,6 +113,45 @@ describe("WhatsApp agenda con referencias mediante el mismo recorrido que el cha
     expect(result.session.channel).toBe(SessionChannel.WHATSAPP);
     expect(buttons(result)?.buttons).toEqual(CITA_REFERENCIA_MODE_BUTTONS);
     expect(JSON.parse(String(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]))).toEqual(REFERENCES);
+  });
+
+  it("si ninguna referencia permite agendar no pregunta la modalidad y continúa con una cita nueva", () => {
+    const blocked = REFERENCES.map((item, index) => ({ ...item, estado: [1, 2, 9][index], estadoDescripcion: "PENDIENTE" }));
+    const result = turn(
+      verified().session,
+      query(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, data: blocked, message: "" }),
+    );
+
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
+    expect(result.effects[0]).toEqual({ kind: SendType.TEXT, text: CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT });
+    expect(buttons(result)).toBeUndefined();
+    expect(queries(result)).toEqual([]);
+  });
+
+  it("con solo referencias PACIENTE CITADO (7) no pregunta la modalidad y continúa con una cita nueva", () => {
+    const citadas = REFERENCES.map((item) => ({ ...item, estado: 7 }));
+    const result = turn(
+      verified().session,
+      query(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, data: citadas, message: "" }),
+    );
+
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+    expect(result.effects[0]).toEqual({ kind: SendType.TEXT, text: CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT });
+    expect(buttons(result)).toBeUndefined();
+  });
+
+  it("con al menos una referencia que permite agendar pregunta la modalidad como siempre", () => {
+    const mixed = [{ ...REFERENCES[0], estado: 1 }, REFERENCES[1]];
+    const result = turn(
+      verified().session,
+      query(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, data: mixed, message: "" }),
+    );
+
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(buttons(result)?.buttons).toEqual(CITA_REFERENCIA_MODE_BUTTONS);
   });
 
   it("sin referencias inicia cita nueva y ante error permite reintentar sin afirmar que no existen", () => {

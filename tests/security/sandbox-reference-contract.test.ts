@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { CITA_REFERENCIA_LOOKUP_ERROR_TEXT, CITA_REFERENCIA_NONE_TEXT } from "@/lib/constants/textos/cita-referencia";
-import { REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT } from "@/lib/constants/textos/cita-reserva";
+import {
+  REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT,
+  REFERENCIA_SIN_PROGRAMACION_ETIQUETA,
+  REFERENCIA_SIN_PROGRAMACION_TEXT,
+} from "@/lib/constants/textos/cita-reserva";
 import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -11,7 +15,7 @@ import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
-import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -58,7 +62,7 @@ const REFERENCE_ROWS = ["opaque-ref-01-z4", "opaque-ref-02-k8", "opaque-ref-03-b
       codigo: index === 4 ? "0223300" : index < 3 ? "0222800" : "0230101",
       descripcion: index === 4 ? "TRAUMATOLOGIA" : index < 3 ? "CARDIOLOGÍA" : "",
     },
-    estado: { codigo: "7", descripcion: "PACIENTE CITADO" },
+    estado: { codigo: "5", descripcion: "PACIENTE RECIBIDO" },
   }),
 );
 
@@ -421,68 +425,78 @@ describe("referencias: contrato HTTP real a traves del chat, la FSM y los adapta
   });
 
   it.each([
-    ["empty", "button", OtherReferenciaButtonId.YES, true],
-    ["zero", "text", "sí", true],
-    ["empty", "text", "1", true],
-    ["zero", "button", OtherReferenciaButtonId.NO, false],
-    ["empty", "text", "no", false],
-    ["zero", "text", "2", false],
-  ] as const)("sin fechas %s espera decidir mediante %s/%s antes de cambiar referencia", async (quota, type, answer, continues) => {
-    dateRowsOverride = quota === "empty" ? [] : DATE_ROWS.map((row) => ({ ...row, cantidad_cupos: 0 }));
-    const list = await offerReferences();
-    let question = await tap(list, REFERENCE_ROWS[0].id_referencia);
-    expect(question.session.state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
-    expect(question.sent.some((effect) => effect.kind === SendType.INTERACTIVE_LIST)).toBe(false);
-    const choices = question.sent.find((effect) => effect.kind === SendType.BUTTONS);
-    expect(choices?.kind === SendType.BUTTONS && choices.buttons.map((button) => button.id)).toEqual([
-      OtherReferenciaButtonId.YES,
-      OtherReferenciaButtonId.NO,
-    ]);
-    expect(choices?.text).toContain("¿Deseas seleccionar otra referencia?");
-    const requestsBefore = fetchMock.mock.calls.length;
-    question = await send({ type: InboundEventType.TEXT, text: "no entiendo" });
-    expect(question.session.state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
-    expect(question.sent.some((effect) => effect.kind === SendType.INTERACTIVE_LIST)).toBe(false);
-    expect(fetchMock).toHaveBeenCalledTimes(requestsBefore);
-    expect(requestsFor(MinsaEndpoint.HORAS)).toHaveLength(0);
-    expect(requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
-    const reply = type === "button" ? await tap(question, answer) : await send({ type: InboundEventType.TEXT, text: answer });
-    expect(fetchMock).toHaveBeenCalledTimes(requestsBefore);
-    if (!continues) {
-      expect(reply.session.state).toBe(SessionState.REFERENCIA_CLOSED);
-      expect(textOf(reply)).toBe(REFERENCIA_GOODBYE_TEXT);
-      expect(reply.sent.some((effect) => effect.kind === SendType.INTERACTIVE_LIST)).toBe(false);
-      expect(Object.keys(mocks.sessions.get(FROM)?.slots ?? {}).sort()).toEqual(
-        [SlotKey.INTERACTIVE_MESSAGE_ID, SlotKey.INTERACTIVE_MESSAGE_CONSUMED].sort(),
-      );
-      expect(mocks.sessions.get(FROM)?.slots[SlotKey.INTERACTIVE_MESSAGE_CONSUMED]).toBe(true);
-      expect(mocks.sessions.get(FROM)?.counters).toEqual({});
-      expect(reply.interactiveId).toBeUndefined();
-      const stale = await tap(question, OtherReferenciaButtonId.YES);
-      expect(stale.session.state).toBe(SessionState.REFERENCIA_CLOSED);
-      expect(stale.sent).toEqual([]);
-      expect(stale.interactiveId).toBeUndefined();
+    ["empty", "button", OtherReferenciaCitaButtonId.REFERENCES, "lista"],
+    ["zero", "text", "referencias", "lista"],
+    ["empty", "text", "1", "lista"],
+    ["zero", "button", OtherReferenciaCitaButtonId.NEW_APPOINTMENT, "cita"],
+    ["empty", "text", "cita médica", "cita"],
+    ["zero", "text", "salir", "salir"],
+  ] as const)(
+    "agendar sin fechas %s espera decidir mediante %s/%s entre referencias y cita médica",
+    async (quota, type, answer, outcome) => {
+      dateRowsOverride = quota === "empty" ? [] : DATE_ROWS.map((row) => ({ ...row, cantidad_cupos: 0 }));
+      const list = await offerReferences();
+      let question = await tap(list, REFERENCE_ROWS[0].id_referencia);
+      expect(question.session.state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
+      expect(question.sent.some((effect) => effect.kind === SendType.INTERACTIVE_LIST)).toBe(false);
+      const choices = question.sent.find((effect) => effect.kind === SendType.BUTTONS);
+      expect(choices?.kind === SendType.BUTTONS && choices.buttons.map((button) => button.id)).toEqual([
+        OtherReferenciaCitaButtonId.REFERENCES,
+        OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
+      ]);
+      expect(choices?.text).toContain("¿Deseas continuar con tus referencias o con una cita médica?");
+      const requestsBefore = fetchMock.mock.calls.length;
+      question = await send({ type: InboundEventType.TEXT, text: "no entiendo" });
+      expect(question.session.state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
+      expect(question.sent.some((effect) => effect.kind === SendType.INTERACTIVE_LIST)).toBe(false);
       expect(fetchMock).toHaveBeenCalledTimes(requestsBefore);
-      const welcome = await send({ type: InboundEventType.TEXT, text: "hola" });
-      expect(welcome.session.state).toBe(SessionState.MAIN_MENU);
-      expect(textOf(welcome)).toContain("MINSA Digital");
+      expect(requestsFor(MinsaEndpoint.HORAS)).toHaveLength(0);
+      expect(requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
+      const reply = type === "button" ? await tap(question, answer) : await send({ type: InboundEventType.TEXT, text: answer });
       expect(fetchMock).toHaveBeenCalledTimes(requestsBefore);
-      return;
-    }
-    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
-    expect(listEffect(reply).rows.map((row) => row.id)).toEqual(REFERENCE_ROWS.map((row) => row.id_referencia));
-    expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_DNI]).toBe(DOCUMENTO);
-    expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_BEARER]).toBe(TOKEN);
-    dateRowsOverride = undefined;
-    const dates = await tap(reply, REFERENCE_ROWS[4].id_referencia);
-    expect(dates.session.state).toBe(SessionState.CITA_AWAITING_FECHA_SELECT);
-    expectAuthenticatedRequest(MinsaEndpoint.FECHAS, { cod_eess: "009999", especialidad_id: "0223300" });
-    const times = await tap(dates, OTHER_DATE_ROWS[0].fecha_cupo);
-    expect(times.session.state).toBe(SessionState.CITA_AWAITING_HORA_SELECT);
-    expectAuthenticatedRequest(MinsaEndpoint.HORAS, { cod_eess: "009999", especialidad_id: "0223300", fecha: "20990103" });
-    expect(requestsFor(MinsaEndpoint.REFERENCIAS)).toHaveLength(1);
-    expect(requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
-  });
+      if (outcome === "salir") {
+        expect(reply.session.state).toBe(SessionState.REFERENCIA_CLOSED);
+        expect(textOf(reply)).toBe(REFERENCIA_GOODBYE_TEXT);
+        expect(Object.keys(mocks.sessions.get(FROM)?.slots ?? {}).sort()).toEqual(
+          [SlotKey.INTERACTIVE_MESSAGE_ID, SlotKey.INTERACTIVE_MESSAGE_CONSUMED].sort(),
+        );
+        const stale = await tap(question, OtherReferenciaCitaButtonId.REFERENCES);
+        expect(stale.session.state).toBe(SessionState.REFERENCIA_CLOSED);
+        expect(stale.sent).toEqual([]);
+        expect(fetchMock).toHaveBeenCalledTimes(requestsBefore);
+        return;
+      }
+      if (outcome === "cita") {
+        expect(reply.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+        expect(reply.sent.some((effect) => effect.kind === SendType.INTERACTIVE_LIST)).toBe(false);
+        const saved = mocks.sessions.get(FROM)?.slots ?? {};
+        expect(saved[SlotKey.CITA_BEARER]).toBe(TOKEN);
+        expect(saved[SlotKey.CITA_DNI]).toBe(DOCUMENTO);
+        expect(saved[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
+        expect(saved[SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION]).toBeUndefined();
+        expect(saved[SlotKey.CITA_COD_EESS]).toBeUndefined();
+        return;
+      }
+      expect(reply.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+      const rows = listEffect(reply).rows;
+      expect(rows.map((row) => row.id)).toEqual([...REFERENCE_ROWS.slice(1), REFERENCE_ROWS[0]].map((row) => row.id_referencia));
+      expect(rows.at(-1)).toMatchObject({ disabled: true, referencia: { estado: REFERENCIA_SIN_PROGRAMACION_ETIQUETA } });
+      const blocked = await tap(reply, REFERENCE_ROWS[0].id_referencia);
+      expect(textOf(blocked)).toContain(REFERENCIA_SIN_PROGRAMACION_TEXT);
+      expect(blocked.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+      expect(fetchMock).toHaveBeenCalledTimes(requestsBefore);
+      expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_BEARER]).toBe(TOKEN);
+      dateRowsOverride = undefined;
+      const dates = await tap(blocked, REFERENCE_ROWS[4].id_referencia);
+      expect(dates.session.state).toBe(SessionState.CITA_AWAITING_FECHA_SELECT);
+      expectAuthenticatedRequest(MinsaEndpoint.FECHAS, { cod_eess: "009999", especialidad_id: "0223300" });
+      const times = await tap(dates, OTHER_DATE_ROWS[0].fecha_cupo);
+      expect(times.session.state).toBe(SessionState.CITA_AWAITING_HORA_SELECT);
+      expectAuthenticatedRequest(MinsaEndpoint.HORAS, { cod_eess: "009999", especialidad_id: "0223300", fecha: "20990103" });
+      expect(requestsFor(MinsaEndpoint.REFERENCIAS)).toHaveLength(1);
+      expect(requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
+    },
+  );
 
   it("el arreglo vacio confirma ausencia y continua una nueva cita sin repetir OTP", async () => {
     referencesBody = [];

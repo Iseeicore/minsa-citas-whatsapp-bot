@@ -21,7 +21,11 @@ import { todayInLima } from "@/lib/time/lima-clock";
 import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { searchOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { askToLeave } from "@/lib/fsm/flows/cita/steps/exit/exit";
-import { isReferenceAppointment, referenciaSeleccionadaId } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
+import {
+  isReferenceAppointment,
+  marcarReferenciaSinProgramacion,
+  referenciaSeleccionadaId,
+} from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
 import { restartReferenceSelection } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -73,7 +77,7 @@ export function handleFechaPending(session: Session, event: QueryResultEvent): H
   const dates = (result.status === CatalogStatus.FOUND ? (result.items ?? []) : []).filter(
     (item) => !discarded.includes(formatFechaForApi(item.fechaCupo)) && (!referenceAppointment || item.cantidadCupos > 0),
   );
-  if (referenceAppointment && dates.length === 0) return askOtherReference(next);
+  if (referenceAppointment && dates.length === 0) return askOtherReference(marcarReferenciaSinProgramacion(next));
   if (discarded.length > 0 && dates.length === 0) return closeWithApology("no_other_dates");
 
   if (dates.length === 1) {
