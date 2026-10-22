@@ -55,6 +55,7 @@ export type SlotTypes = {
   [SlotKey.CITA_OFFERED_NAMES]: string;
   [SlotKey.CITA_REFERENCIAS_DATA]: string;
   [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: string;
+  [SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE]: string;
@@ -129,6 +130,7 @@ export type ListRow = {
   id: string;
   title: string;
   description?: string;
+  disabled?: boolean;
   referencia?: ReferenciaListaDetalle;
 };
 

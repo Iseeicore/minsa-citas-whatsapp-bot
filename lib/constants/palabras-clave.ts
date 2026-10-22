@@ -1,4 +1,5 @@
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
+import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 
@@ -30,6 +31,20 @@ export const CITA_REFERENCIA_RETRY_ANSWERS: Readonly<Record<string, CitaReferenc
   NUEVA: CitaReferenciaButtonId.NEW,
   "NUEVA CITA": CitaReferenciaButtonId.NEW,
   "CITA NUEVA": CitaReferenciaButtonId.NEW,
+};
+
+export const CITA_REFERENCIA_SIN_FECHAS_ANSWERS: Readonly<Record<string, OtherReferenciaCitaButtonId | undefined>> = {
+  "1": OtherReferenciaCitaButtonId.REFERENCES,
+  REFERENCIAS: OtherReferenciaCitaButtonId.REFERENCES,
+  REFERENCIA: OtherReferenciaCitaButtonId.REFERENCES,
+  "MIS REFERENCIAS": OtherReferenciaCitaButtonId.REFERENCES,
+  "OTRA REFERENCIA": OtherReferenciaCitaButtonId.REFERENCES,
+  "2": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
+  CITA: OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
+  "CITA MEDICA": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
+  "NUEVA CITA": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
+  "CITA NUEVA": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
+  NUEVA: OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
 };
 
 export const CITA_KEYWORD = "CITA";
