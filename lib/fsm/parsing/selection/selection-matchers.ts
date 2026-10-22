@@ -1,18 +1,15 @@
 import { WORD_SEPARATORS } from "@/lib/constants/regex/text";
-import type { Session } from "@/lib/fsm/core/types";
+import type { ListRow, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
 import { MatchKind } from "@/lib/enums/match-kind";
-import { isBoolean, isFiniteNumber, isString } from "@/lib/utils/type-guards";
+import { isString } from "@/lib/utils/type-guards";
 import { stripAccents } from "@/lib/utils/text-values";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { MIN_PREFIX_MATCH_LENGTH, MIN_TOKEN_LENGTH } from "@/lib/constants/limits/selection";
-import { ReferenciaTono } from "@/lib/enums/referencia-tono";
 
-export type OfferedRow = { id: string; title: string; description?: string; disabled?: boolean; tone?: ReferenciaTono };
-export type OfferedList = { text: string; rows: OfferedRow[]; pageSize?: number };
-
-const TONE_VALUES: ReadonlySet<string> = new Set(Object.values(ReferenciaTono));
+export type OfferedRow = ListRow;
+export type OfferedList = { text: string; rows: OfferedRow[] };
 
 export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
@@ -20,17 +17,7 @@ export function serializeOffered(list: OfferedList): string {
 
 function isOfferedRow(value: unknown): value is OfferedRow {
   const row = value as Partial<OfferedRow> | null;
-  return (
-    isString(row?.id) &&
-    isString(row?.title) &&
-    (row.description === undefined || isString(row.description)) &&
-    (row.disabled === undefined || isBoolean(row.disabled)) &&
-    (row.tone === undefined || (isString(row.tone) && TONE_VALUES.has(row.tone)))
-  );
-}
-
-function isPageSize(value: unknown): value is number {
-  return isFiniteNumber(value) && Number.isInteger(value) && value > 0;
+  return isString(row?.id) && isString(row?.title) && (row.description === undefined || isString(row.description));
 }
 
 export function readOffered(slots: Session["slots"]): OfferedList | undefined {
@@ -40,9 +27,7 @@ export function readOffered(slots: Session["slots"]): OfferedList | undefined {
   const parsed = parseJsonOr(raw, null) as Partial<OfferedList> | null;
   if (!isString(parsed?.text) || !Array.isArray(parsed.rows)) return undefined;
   if (!parsed.rows.every(isOfferedRow)) return undefined;
-  return isPageSize(parsed.pageSize)
-    ? { text: parsed.text, rows: parsed.rows, pageSize: parsed.pageSize }
-    : { text: parsed.text, rows: parsed.rows };
+  return { text: parsed.text, rows: parsed.rows };
 }
 
 export type SelectionMatch =

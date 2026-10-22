@@ -329,7 +329,7 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.4b | Reiniciar, `1` y `123456789` (9 dígitos) | `Validando tu documento…` y `Te enviamos un código a tu teléfono o correo registrado. Escríbelo en el siguiente mensaje.` | Carnet de extranjería: llamada a MINSA (fake) con `tipo_documento` `03`; luego el código `1234` y las referencias se piden con tipo `03`. | ☐ ☐ |
 | 3.5 | `0000` | `Código incorrecto. Te quedan 2 intento(s).` | Cuenta el intento. | ☐ ☐ |
 | 3.5b | Reiniciar, llegar al paso del código y escribir `{ds`, luego `hola` y luego `???`. | `Código incorrecto. Te quedan 2 intento(s).`, `Código incorrecto. Te quedan 1 intento(s).` y `Superaste el número de intentos permitidos. Por favor, inicia el proceso nuevamente más tarde.` | Un mensaje con formato inválido (letras, símbolos, muy corto o muy largo, o un toque de botón) cuenta como intento fallido igual que un código incorrecto y **no** consulta a MINSA. Vale también para la consulta de incidencias y para la reverificación por inactividad. | ☐ ☐ |
-| 3.6 | `1234` | `Verificando código…` y `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` | Guarda el token. | ☐ ☐ |
+| 3.6 | `1234` | `Verificando código…` y `Un momento, estamos analizando tu cuenta…`. En modo fake sin referencias, informa esa ausencia y continúa al distrito. Si el proveedor devuelve referencias, ofrece **Nueva cita** / **Cita con referencia**. | Guarda el token y consulta referencias antes del distrito, en web y WhatsApp. | ☐ ☐ |
 | 3.7 | `asdfghjk` | `No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:` | **Sin IA:** el filtro de basura lo corta antes de Gemini. Sigue en el mismo paso. | ☐ ☐ |
 | 3.8 | `qwertyuiop` | El mismo mensaje. | Igual. | ☐ ☐ |
 | 3.9 | `Lurigancjo` (error leve) | **Modo real:** `Buscando tu distrito: "Lurigancjo"…` y continúa (la IA lo corrige). **Modo fake:** `Buscando tu distrito: "Lurigancjo"…` y el botón **Cita Nivel Global** (el fake no corrige errores). | En modo real: **1 llamada a IA**. Aquí sí se llama a la IA (no es basura). | ☐ ☐ |
@@ -438,18 +438,107 @@ Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_U
 |---|---|---|---|---|
 | 3.18a | En el menú tocar **Consultar Referencias** (o escribir `2`), o escribir `referencia` o `quiero consultar mi referencia`. Vale en whatsapp-bot y en el Chat-bot. | `Para consultar tu referencia debes iniciar sesión. Ingresa tu número de documento.` | Estado `cita_awaiting_dni` con el dato `postLoginFlow` = `referencias` (panel Debug). Sin IA. | ☐ ☐ |
 | 3.18b | Tras 3.18a, escribir `12345678` y luego `1234` (modo fake). | `Validando tu documento…`, el aviso del código, `Verificando código…` y `Un momento, estamos analizando tu cuenta…`. **No** pregunta el distrito. | Mismos pasos de identidad que la cita (3.4 y 3.6). Estado `referencia_lookup_pending` y consulta `list_references` con tipo `01`. | ☐ ☐ |
-| 3.18c | **Con referencias** (MINSA real con un documento que las tenga, o un DNI demo): terminar el OTP. | Real: la lista `Estas son tus referencias:` (título: el destino, hasta 24 caracteres; descripción: fecha en 12 horas · origen). Demo: la lista de referencias de demostración. **No** aparece `¿Deseas revisar tus referencias?`. | Estado `cita_awaiting_referencia_select`. Más de 10 referencias se paginan como cualquier lista. | ☐ ☐ |
-| 3.18d | Elegir una referencia y tocar **Sí**; en otra prueba tocar **No, ver otra**. | Detalle `N° : …`, `Fecha: …`, `Origen: …`, `Destino: …`, `Estado: …` y `¿Es esta tu referencia?`. Con **Sí**: `Perfecto. Buscando fechas disponibles para tu referencia en *{destino}*…` y la lista de fechas, **sin** preguntar distrito. Con **No, ver otra**: la lista otra vez. | La reserva se envía con `referencia_id`. Demo: sigue por horas y constancia (`cita_booked`). | ☐ ☐ |
+| 3.18c | **Con referencias** (MINSA real con un documento que las tenga, o un DNI demo): terminar el OTP. | Lista `Estas son tus referencias:`. Web: tarjetas de 3.19b. WhatsApp real: especialidad primero, título de hasta 24 caracteres y descripción de hasta 72. Las demos conservan su listado. | Estado `cita_awaiting_referencia_select`; web pagina 10 opciones y WhatsApp 7. | ☐ ☐ |
+| 3.18d | Elegir una referencia real en web y WhatsApp; repetir con una demo. | Ambos canales reales consultan fechas directamente, sin `¿Es esta tu referencia?`. Se ofrece **Cambiar referencia** y se exige confirmar el resumen final antes de reservar. | La reserva mantiene `referencia_id`; las demos conservan su detalle y confirmación propios. | ☐ ☐ |
 | 3.18e | **Sin referencias** (modo fake con `12345678`, o un documento sin referencias en MINSA real): terminar el OTP. | `No cuentas con referencias registradas.` y `¿Deseas agendar una cita?` con **[Sí]** y **[No]**. | Estado `referencia_awaiting_cita_offer`. Vale para `empty`, `error` y cualquier otro estado de la consulta. | ☐ ☐ |
 | 3.18f | Tras 3.18e, tocar **Sí** (o escribir `sí`). | `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` **Sin** pedir documento ni código otra vez. | Estado `cita_awaiting_distrito_ai` con el token y el DNI ya guardados. Sigue como la cita desde 3.7. | ☐ ☐ |
 | 3.18g | Repetir hasta 3.18e y tocar **No** (o escribir `no`). | `Entendido. Cuando necesites consultar una referencia o agendar una cita, escríbenos. ¡Que tengas un buen día!` | Estado terminal `referencia_closed`, sesión vacía sin token. Escribir `Hola` después da la bienvenida. | ☐ ☐ |
 | 3.18h | Repetir hasta 3.18e y escribir `mmm no se`. | `No pudimos identificar tu respuesta. Selecciona una de las opciones mostradas.` y otra vez `¿Deseas agendar una cita?` con los botones. | No avanza. | ☐ ☐ |
 | 3.18i | **Token vencido o inactividad:** en 3.18e (o en la lista de 3.18c) esperar más de 10 minutos y escribir cualquier cosa. | La alerta de sesión expirada de 3.15a con **[Sí, enviar código]** y **[Cancelar]**. Con **Sí**: nuevo código, `Verificando código…` y otra vez la consulta de referencias (3.18c o 3.18e). | Estado `cita_awaiting_reauth`; se borra el token y se conservan el DNI y `postLoginFlow`. El mensaje que llegó no se procesa. Pasa igual si el token del MINSA vence en menos de 30 s. Con **Cancelar**: lo mismo que en 3.15c. | ☐ ☐ |
-| 3.18j | **Cita normal:** `1` (o `quiero una cita`), documento y OTP. | `¡Verificado! Cuéntanos en qué distrito buscas atención (ej. "Miraflores").` directo. **No** aparece `¿Deseas revisar tus referencias?` ni una lista de referencias. | Sin consulta `list_references`. Los DNI demo, en la cita, siguen el camino normal. | ☐ ☐ |
+| 3.18j | **Cita normal en ambos canales:** `1` (o `quiero una cita`), documento y OTP. | Consulta referencias; si existen ofrece **Nueva cita** / **Cita con referencia**, y con arreglo vacío continúa por distrito. | Consulta previa `list_references` en web y WhatsApp; ver 3.19. Los DNI demo no activan referencias ficticias al entrar por Agendar. | ☐ ☐ |
 | 3.18k | **whatsapp-bot y Chat-bot:** con incidencias encendidas, escribir `2`, `3` y `4` en el menú. | `2` pide iniciar sesión para la referencia, `3` abre el registro de una incidencia y `4` la consulta de una incidencia. Con incidencias apagadas, `3` y `4` responden `Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.` y el menú. | Los dos canales tienen la misma lista y la misma numeración. | ☐ ☐ |
 | 3.18l | Solo con IA real (`SANDBOX_USE_REAL_AI=true`): en el menú escribir `quiero ver mi refrencia del hospital`; en otra prueba, `me derivaron al hospital y quiero que me atiendan allá`. | El primero: `Un momento, estamos revisando tu mensaje…` y luego `Para consultar tu referencia debes iniciar sesión. Ingresa tu número de documento.`. El segundo: el inicio de la cita (pide el documento), **no** la referencia. | Intención `referencia` de la IA (log `turn.note` `referencia_ai`). Un pedido de cita, aunque mencione la referencia o la derivación, sigue siendo `cita`. Un mensaje con la palabra exacta «referencia» que no es un pedido corto no llega a la IA: recibe la elección de OOS-03 (3.16d). | ☐ ☐ |
 
 ---
+
+### 3.19 Agendar en web y WhatsApp: nueva cita o con referencia
+
+Estos casos corresponden al Chat-bot web y WhatsApp. Los estados y respuestas se comprueban en la interfaz o en pruebas del webhook con datos sintéticos; no se comparten tokens, cookies, documentos ni datos de ciudadanos. Para variar respuestas se utiliza transporte HTTP simulado fuera de producción. El modo fake normal devuelve `empty`; no se agregan documentos mágicos. Las demos mantienen sus pasos anteriores.
+
+| Caso | Preparación y acción | Resultado esperado |
+|---|---|---|
+| 3.19a | Entrar por Agendar, validar documento y OTP; MINSA devuelve referencias. | Se consulta antes de usar pistas de distrito o especialidad. Aparece «Tienes referencias registradas. ¿Cómo deseas agendar tu cita?» con Nueva cita y Cita con referencia. |
+| 3.19b | MINSA devuelve referencias de distintas especialidades y estados 3, 5 y 7. Elegir Cita con referencia. | Se mantienen todas las referencias recibidas. Web: tarjetas con especialidad y seis campos completos. WhatsApp: especialidad primero, título ≤24 y descripción ≤72; listas de 7 opciones más controles de página. |
+| 3.19c | Seleccionar una referencia real en web y WhatsApp. | Consulta fechas directamente, sin `¿Es esta tu referencia?` ni Sí/No intermedios. Usa IPRESS/UPS exactos y conserva su identificador, sin preguntar distrito ni reutilizar preferencias incompatibles. No crea una reserva. |
+| 3.19d | Tocar un horario de la referencia o elegirlo mediante texto. | Aparece el resumen de referencia, especialidad, establecimiento, fecha y horario. No se llama a reservar hasta confirmar. |
+| 3.19e | Confirmar el resumen. | La reserva envía el destino, especialidad, fecha y hora elegidos junto con el identificador de esa referencia. Se entrega la constancia. |
+| 3.19f | Elegir Nueva cita cuando hay referencias. | Continúa el recorrido normal sin repetir documento u OTP, sin conservar un identificador de referencia para la reserva. |
+| 3.19g | MINSA responde con el arreglo vacío `[]`. | El adaptador obtiene `empty`; informa que no hay referencias y continúa la nueva cita sin una elección innecesaria. |
+| 3.19h | La consulta falla o devuelve una respuesta incompatible o una colección no vacía sin filas válidas. | El adaptador obtiene `error`; informa el fallo y ofrece Reintentar consulta o Nueva cita. No afirma que no existan referencias. Reintentar vuelve a consultar con la misma identidad vigente. |
+| 3.19i | Elegir una referencia sin códigos de destino o especialidad, o una referencia que desapareció del listado. | Explica el problema y vuelve a la elección o al reintento; no inventa otro destino ni convierte silenciosamente la operación en cita normal. |
+| 3.19j | MINSA rechaza la reserva porque ya existe una cita de esa especialidad. | Conserva destino y especialidad de la referencia y vuelve a la elección. Una nueva cita exige elegir esa modalidad para retirar el identificador anterior. |
+| 3.19k | Vence la sesión en la elección, reintento o selección de referencia. | Pide verificar de nuevo y recupera el recorrido correspondiente. Si ya se elegían fechas u horarios, recupera ese paso. |
+| 3.19l | Usar un botón anterior o enviar dos veces la confirmación, en web y WhatsApp. | El control de interacción rechaza el botón antiguo y no crea una segunda reserva. La firma y deduplicación del webhook siguen vigentes. |
+| 3.19m | Tras errores y una reserva duplicada, elegir otra referencia; provocar un primer error técnico en su reserva. | La nueva selección reinicia páginas y presupuesto de reintentos. El primer error permite reintentar con los códigos de la nueva referencia. Si antes venció la sesión, el OTP recupera la selección de referencias. |
+| 3.19n | Consultar referencias después del OTP, reintentar un fallo y repetir después de verificar una sesión vencida. | La petición del servidor a MINSA incluye `Authorization: Bearer` con el token vigente; tras verificar de nuevo usa el token renovado. El cuerpo conserva sólo número y tipo de documento. Se comprueba con tokens sintéticos en el proveedor de prueba, sin imprimir ni copiar tokens reales. |
+| 3.19o | El proveedor devuelve directamente un arreglo con varias referencias del mismo hospital, identificadores opacos, estados como cadenas y una descripción UPS vacía. Repetir con `[]` y con un arreglo sin filas válidas. | Las referencias válidas aparecen en la elección y el listado, sin exigir `status_reference`. Se conservan números y códigos originales. `[]` continúa la cita nueva; una colección inválida permite reintentar. La prueba HTTP usa el adaptador real y simula únicamente la comunicación externa. |
+| 3.19p | Revisar tarjetas a 320, 375 y 1440 píxeles, con nombres largos y especialidad vacía; buscar por datos que no caben en la fila antigua, paginar y elegir con Enter. | La especialidad o atención aparece primero. Los seis campos permanecen completos, sin desbordamiento horizontal; el chat queda dentro de la ventana. La búsqueda encuentra los metadatos completos. La selección conserva el ID y muestra la especialidad y el número en el mensaje elegido. Las tarjetas anteriores quedan deshabilitadas. |
+| 3.19q | Pulsar o escribir Cambiar referencia desde fechas, horarios, elección de otra fecha y resumen final. Elegir después otra referencia. | Vuelve al listado sin repetir identidad vigente. Retira selección, IPRESS/UPS, fecha, horarios, descartes y contadores anteriores. La nueva elección consulta los códigos exactos de la otra referencia; no reserva automáticamente. |
+| 3.19r | Paginar fechas u horarios y usar Cambiar referencia con ratón y teclado. Elegir también una opción de la lista actual y probar después un botón antiguo. | Lista, navegación y cambio pertenecen a una única interacción activa. Las filas siguen disponibles junto con sus acciones; la paginación funciona y los mensajes anteriores quedan deshabilitados. |
+| 3.19s | Con la sesión vencida, pulsar Cambiar referencia y completar una nueva verificación OTP. | Primero solicita verificar la identidad, sin consultar con el token vencido. Conserva la intención de cambiar y después del OTP actualiza las referencias y recupera su listado, en vez de volver a la disponibilidad anterior. |
+| 3.19t | Simular fechas con cupos cero o negativos y horarios sin cupos positivos; repetir con una colección vacía. | En ambos canales sólo se ofrecen cupos mayores que cero. Sin fechas, pregunta «No encontramos cupos disponibles para esta referencia. ¿Deseas seleccionar otra referencia?» con **Sí** y **No, salir**, sin mostrar el listado ni consultar otra disponibilidad. Sin horarios de un día, permite otra fecha o Cambiar referencia. |
+| 3.19t-bis | Ante la pregunta anterior, pulsar **Sí** o escribir `sí`/`1`. | Recupera sus referencias con la identidad vigente. La nueva selección limpia los datos anteriores y consulta el IPRESS/UPS exacto de la referencia elegida. Si la sesión venció, verifica otro OTP antes de recuperar las referencias. |
+| 3.19t-ter | Ante la pregunta anterior, pulsar **No, salir** o escribir `no`/`2`. Repetir con sesión vencida. | Envía la despedida existente de referencias y cierra en `referencia_closed`, sin token, datos de cita ni contadores. No exige otro OTP para cerrar. Un saludo posterior inicia una conversación nueva. |
+| 3.19t-quater | Ante la pregunta anterior, responder un texto que no es sí/no o pulsar un botón ajeno. | Repite la pregunta sin elegir una referencia, consultar disponibilidad ni reservar. |
+| 3.19u | Simular un error técnico al consultar fechas u horarios de una referencia. | Muestra un aviso de error, distinto de la falta de cupos, y recupera el listado para poder continuar. Una respuesta 401 conserva la reverificación del flujo; no se inventa disponibilidad. |
+| 3.19v | Elegir entre referencias del mismo hospital con UPS diferentes y después cambiar de referencia. | Cada consulta usa el IPRESS/UPS original de la referencia elegida, incluso con descripciones similares o vacías. Resumen y reserva corresponden a ese identificador. |
+| 3.19w | En WhatsApp, recorrer todas las páginas de 21 referencias, fechas y horarios y cambiar referencia desde fechas/horarios/resumen. | Grupos de 7 opciones con página/cambio en la misma lista Graph; ≤10 filas totales y ninguna opción perdida. Confirmación final con ≤3 botones. |
+| 3.19x | Usar firma inválida y token vencido al confirmar; duplicar un mensaje firmado y una selección antigua. | Rechaza la firma antes de la FSM, exige OTP antes de reservar con token vencido y no duplica ni acepta opciones de mensajes anteriores. MINSA y Graph simulados, sin reservas reales. |
+| 3.19y | Hacer que Graph rechace una interacción con HTTP 400; escribir el título de página o Cambiar referencia que aparece en el texto de respaldo. | Conserva opciones, navegación y cambio. Los controles se muestran sin numerarlos como horarios/fechas seleccionables; escribir su título continúa por el paso correcto. Un error distinto de 400 no dispara este respaldo. |
+
+#### Validación de la elección cuando faltan cupos: 21 de octubre de 2026
+
+| Comprobación | Resultado y alcance |
+|---|---|
+| Suite completa Vitest | **3.467 aprobadas, ninguna fallida y 13 omitidas** por la configuración existente; 3.480 en total, en 779 suites. |
+| Integración HTTP web y WhatsApp | **42/42 aprobadas**: 18 web y 24 WhatsApp. Fechas vacías o con cupos no positivos preguntan antes de mostrar referencias. Sí conserva la identidad y consulta el destino de la nueva selección; No usa la despedida existente, elimina credenciales y datos de cita y conserva sólo el control de interacción consumida. Los botones antiguos no reabren la conversación y un saludo permite empezar otra. MINSA y Meta simulados. |
+| Vencimiento de sesión | La opción **No** cierra sin solicitar OTP. **Sí** vencido reautentica antes de recuperar referencias frescas. Una respuesta desconocida vencida reautentica y retoma la pregunta, sin listar ni consultar disponibilidad hasta recibir Sí. |
+| Tipos, lint y formato | `npx tsc --noEmit` y `npm run format:check` completos aprobados; ESLint, incluido `import/no-cycle`, aprobado en los archivos cambiados. |
+| Rendimiento separado | **17/17 aprobadas**, ejecutadas fuera de las otras comprobaciones. P99 de la guarda léxica: 258,2 µs sobre 10.000 mensajes, por debajo del límite de 2 ms. |
+| Alcance local | Se modificó el proyecto Node. Python, `.env`, esquemas y migraciones permanecen fuera de esta entrega; sin commits, publicaciones, mensajes Meta ni reservas reales. El demo local en memoria sigue operativo. |
+
+#### Validación anterior de la extensión a WhatsApp: 21 de octubre de 2026
+
+| Comprobación | Resultado y alcance |
+|---|---|
+| Suite completa Vitest | **3.405 aprobadas, ninguna fallida y 13 omitidas** por la configuración existente; 3.418 en total, en 773 suites. |
+| Webhook de referencias | **15 pruebas nativas aprobadas**, incluidas las negativas y el caso Graph HTTP 400. `tests/security/whatsapp-reference-contract.test.ts` recorre webhook firmado, FSM y adaptadores reales con MINSA y Graph simulados: modalidad tras OTP, cambio desde fechas/horarios/resumen, bearer/códigos exactos, página completa de 21 opciones y confirmación final. Son parte de la suite global, no se suman otra vez. |
+| Respaldo de Graph | Pruebas aprobadas: HTTP 400 conserva página y cambio en texto sin numerarlos como opciones reservables; escribir sus títulos permite continuar. Otros errores no activan ese respaldo. |
+| Tipos, lint y formato | `npx tsc --noEmit`, `npm run lint` y `npm run format:check` completos aprobados, además del foco de los archivos finales de respaldo. |
+| Rendimiento separado | **17/17 aprobadas**, ejecutadas fuera de la suite principal. P99: 392,9 µs en 10.000 mensajes, por debajo del límite de 2 ms. |
+| Seguridad y límites | Se conservan firma, deduplicación, candado y control de interacción por mensaje. Listas Graph con 7 opciones más controles, ≤10 filas; título ≤24, descripción ≤72, resumen ≤3 botones. |
+| Alcance externo | No se enviaron mensajes a Meta ni consultas/reservas reales a MINSA. Sin modificaciones de `.env`, SQL o migraciones; sin commits ni publicaciones. El demo y los servicios existentes se conservan. |
+
+La validación usa datos sintéticos y transporte HTTP simulado. No acredita cupos disponibles ni aceptación de los mensajes en una cuenta Meta real. Las tarjetas web mantienen el diseño anterior ya validado; esta extensión adapta la misma funcionalidad al transporte WhatsApp.
+
+#### Validación local anterior del chat web: 21 de octubre de 2026
+
+| Comprobación | Resultado |
+|---|---|
+| Suite completa de Vitest | 3321 pruebas aprobadas, ninguna fallida y 13 omitidas por la configuración existente; 3334 en total. |
+| TypeScript | `npx tsc --noEmit` aprobado. |
+| Integración HTTP de esta funcionalidad | Aprobada con comunicación externa simulada: selección directa, Cambio de referencia en fechas, horarios y resumen, paginación, interacción vigente, códigos de otro destino y nueva verificación. Las lecturas de sesión descartan el canal como el repositorio PostgreSQL. |
+| Adaptador y autenticación de referencias | Se verifican arreglo raíz, identificadores opacos, ceros iniciales, UPS sin descripción, estados sin filtrar, Bearer exacto y cuerpo sin token. Las pruebas de frontera recorren ruta, ejecutor y adaptadores reales con HTTP externo simulado; no sustituyen el adaptador de referencias. |
+| Navegador de esta entrega | Chrome automatizado en 375 y 1440 píxeles, con la API del chat interceptada mediante respuestas sintéticas. Aprobados referencia → fechas → horarios → resumen, Cambiar referencia en los tres pasos con teclado, opciones anteriores deshabilitadas y lista con su acción activas simultáneamente. Sin desbordamiento horizontal, panel dentro de la ventana, sin errores JavaScript ni reservas reales. |
+| Tarjetas y búsqueda automática | Aprobadas dentro de la suite: campos completos, identificadores y metadatos, entrada inmutable, botones deshabilitados y escape de HTML remoto. La revisión anterior de tarjetas también cubrió 320 píxeles. |
+| Rendimiento | 17 pruebas aprobadas, ejecutadas por separado de la suite principal. |
+| Formato | Comprobación completa de Prettier aprobada. |
+| ESLint | `npm run lint` completo aprobado. |
+| Demo con la configuración local del usuario | `/sandbox` respondió 200 y `/api/health` respondió 200 con `status: ok`. El proceso existente continúa ejecutándose y recibió los cambios en desarrollo. |
+
+Estas comprobaciones utilizan datos sintéticos, HTTP externo simulado o respuestas de la API interceptadas en el navegador. No se enviaron reservas a MINSA ni mensajes a Meta. La comprobación PostgreSQL se limitó a conexión y lectura de metadatos; no se ejecutaron migraciones ni pruebas de carga contra la base real. La validación del usuario contra MINSA real sigue pendiente: no se han confirmado cupos reales ni una reserva real con este recorrido final.
+
+#### Revisión de la interfaz de tarjetas
+
+Alcance de la revisión anterior: tarjetas de referencias web, metadatos, selector y búsqueda, con datos sintéticos. En la extensión posterior también se adapta WhatsApp a especialidad primero y límites Graph. Para ver el formato actualizado en una conversación antigua se debe volver a consultar: el historial conserva la respuesta recibida previamente.
+
+| Filtro | Veredicto | Evidencia |
+|---|---|---|
+| FE-01: estructura | PASA | Componentes separados para tarjeta, campos y selector; contrato tipado; utilidad de búsqueda con pruebas; convenciones de UI y regex aprobadas. |
+| FE-02: estilos | PASA | Botón, insignia e íconos existentes, tokens de Tailwind sin valores arbitrarios; nombres completos con salto de línea y revisión en navegador. |
+| FE-03: datos | PASA | Metadatos producidos por el servidor sin documento, token ni códigos; ninguna petición ni almacenamiento nuevo en la interfaz. |
+| FE-04: formato | PASA | Sin comentarios ni datos de prueba en producción; formato de los archivos modificados aprobado. |
+| FE-05: entrega | PASA local | Se conserva la rama del usuario; sin commits ni publicaciones, conforme a su instrucción. |
 
 ## 4. Concurrencia manual: el candado por `waId`
 
@@ -545,7 +634,7 @@ Si en 4.2a **no** aparece ningún `turn_lock.waited` con `layer: "process"`, no 
 |---|---|---|---|---|
 | 1. Perímetro | 1.1 – 1.6 | | | |
 | 2. Filtro léxico | 2.1 – 2.4 | | | |
-| 3. Camino feliz | 3.1 – 3.18 | | | |
+| 3. Camino feliz | 3.1 – 3.19 | | | |
 | 4. Concurrencia | 4.2 – 4.3 | | | |
 | 7. IA | 7.1 – 7.4 | | | |
 

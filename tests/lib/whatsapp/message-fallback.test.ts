@@ -3,6 +3,7 @@ import { toNumberedTextEffect } from "@/lib/whatsapp/message-fallback";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import { SendType } from "@/lib/enums/send-type";
 import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 
 describe("toNumberedTextEffect: a message Meta would refuse becomes a plain text with numbered options", () => {
   it("writes the body and then the buttons as a numbered list", () => {
@@ -44,6 +45,36 @@ describe("toNumberedTextEffect: a message Meta would refuse becomes a plain text
     });
 
     expect(effect).toEqual({ kind: SendType.TEXT, text: "Regístrate aquí\n\nIr al portal: https://example.org" });
+  });
+
+  it("numbers only selectable rows and leaves reference navigation as commands", () => {
+    const result = toNumberedTextEffect({
+      kind: SendType.INTERACTIVE_LIST,
+      text: "Elige fecha",
+      rows: [
+        { id: "date-one", title: "Fecha uno" },
+        { id: "date-two", title: "Fecha dos" },
+      ],
+      actions: [
+        { id: "previous", title: "Anteriores" },
+        { id: "next", title: "Ver más opciones" },
+        { id: ReferenciaActionButtonId.CHANGE, title: "Cambiar referencia" },
+      ],
+    });
+    expect(result.text).toBe("Elige fecha\n\n1. Fecha uno\n2. Fecha dos\nAnteriores\nVer más opciones\nCambiar referencia");
+  });
+
+  it("keeps confirmation numbers aligned with Sí and No while Cambiar referencia is a command", () => {
+    const result = toNumberedTextEffect({
+      kind: SendType.BUTTONS,
+      text: "¿Confirmas?",
+      buttons: [
+        { id: "yes", title: "Sí" },
+        { id: "no", title: "No" },
+        { id: ReferenciaActionButtonId.CHANGE, title: "Cambiar referencia" },
+      ],
+    });
+    expect(result.text).toBe("¿Confirmas?\n\n1. Sí\n2. No\nCambiar referencia");
   });
 
   it("shortens the body, never the options, when everything does not fit in a text message", () => {

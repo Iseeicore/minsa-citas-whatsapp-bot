@@ -50,12 +50,6 @@ export function formatHora12(start: string): string {
   return `${clock} ${period}`;
 }
 
-export function formatFechaHora12(fechaHora: string): string {
-  const [fecha, hora] = fechaHora.split(" ");
-  if (!fecha || !hora || !CLOCK_TIME.test(hora)) return fechaHora;
-  return `${fecha} ${formatHora12(hora)}`;
-}
-
 export function formatHoraRange(start: string, end: string): string {
   const from = clock12(start);
   const to = clock12(end);

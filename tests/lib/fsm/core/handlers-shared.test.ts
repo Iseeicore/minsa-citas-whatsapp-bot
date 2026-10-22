@@ -1,14 +1,40 @@
 import { describe, expect, it } from "vitest";
-import { offerList, offerPagedList, readTappedId, readTrimmedText, readTypedText } from "@/lib/fsm/core/handlers-shared";
+import { cloneSession, offerList, offerPagedList, readTappedId, readTrimmedText, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { SessionChannel } from "@/lib/enums/session-channel";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 
 const from = "51999000111";
 
 function event(fields: Partial<InboundEvent>): InboundEvent {
   return { from, type: InboundEventType.TEXT, ...fields };
 }
+
+describe("cloneSession", () => {
+  it.each([SessionChannel.WEB, SessionChannel.WHATSAPP])("conserva el canal %s sin compartir datos mutables", (channel) => {
+    const session: Session = {
+      state: "cita_awaiting_hora_select",
+      channel,
+      slots: { [SlotKey.CITA_DNI]: "12345678" },
+      counters: { [CounterKey.CITA_HORA_PAGE]: 1 },
+    };
+
+    const cloned = cloneSession(session);
+    cloned.slots[SlotKey.CITA_DNI] = "87654321";
+    cloned.counters[CounterKey.CITA_HORA_PAGE] = 2;
+
+    expect(cloned.channel).toBe(channel);
+    expect(session.slots[SlotKey.CITA_DNI]).toBe("12345678");
+    expect(session.counters[CounterKey.CITA_HORA_PAGE]).toBe(1);
+  });
+
+  it("mantiene la forma de las sesiones antiguas sin canal", () => {
+    expect(cloneSession({ state: "main_menu", slots: {}, counters: {} })).toEqual({ state: "main_menu", slots: {}, counters: {} });
+  });
+});
 
 describe("readTappedId", () => {
   it("devuelve el identificador cuando la persona tocó un botón o una fila de lista", () => {

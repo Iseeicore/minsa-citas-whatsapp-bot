@@ -2,15 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult } from "@/lib/integrations/minsa/types";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
-import { SlotKey } from "@/lib/enums/slot-key";
 
 const store = vi.hoisted(() => new Map<string, unknown>());
 const bookingCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-const referencias = vi.hoisted(() => ({
-  result: { statusReference: "empty", message: "", data: [] } as ListReferencesResult,
-  calls: 0,
-  args: [] as string[][],
-}));
+const referencias = vi.hoisted(() => ({ result: { statusReference: "empty", message: "", data: [] } as ListReferencesResult, calls: 0 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
   getSession: async (from: string) => (store.get(from) as Session | undefined) ?? { state: "main_menu", slots: {}, counters: {} },
@@ -31,9 +26,8 @@ vi.mock("@/lib/integrations/minsa/booking", async (importOriginal) => {
 });
 
 vi.mock("@/lib/integrations/minsa/references", () => ({
-  listReferences: async (...args: string[]): Promise<ListReferencesResult> => {
+  listReferences: async (): Promise<ListReferencesResult> => {
     referencias.calls += 1;
-    referencias.args.push(args);
     return referencias.result;
   },
 }));
@@ -44,7 +38,6 @@ const FROM = "sandbox-referencia-e2e";
 const DOCUMENTO = "12345678";
 
 const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
-const CONSULTA_FALLIDA: ListReferencesResult = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
 const UNA_REFERENCIA: ListReferencesResult = {
   statusReference: ReferenceStatus.FOUND,
   message: "",
@@ -60,7 +53,6 @@ const UNA_REFERENCIA: ListReferencesResult = {
       codigoIpressDestino: "5987",
       codigoUpsDestino: "222800",
       estado: 7,
-      estadoDescripcion: "PACIENTE CITADO",
     },
   ],
 };
@@ -97,7 +89,6 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     bookingCalls.length = 0;
     referencias.result = SIN_REFERENCIAS;
     referencias.calls = 0;
-    referencias.args = [];
     delete process.env.SANDBOX_USE_REAL_MINSA;
     delete process.env.SANDBOX_USE_REAL_RENIEC;
     delete process.env.SANDBOX_USE_REAL_AI;
@@ -117,11 +108,9 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(referencias.calls).toBe(1);
 
     const selected = await say(tap("1364486"));
-    expect(selected.session.state).toBe("cita_awaiting_referencia_confirm");
-
-    const confirmed = await say(text("sí"));
-    expect(confirmed.session.state).toBe("cita_awaiting_fecha_select");
-    expect(confirmed.texts.some((line) => line.includes("distrito"))).toBe(false);
+    expect(selected.session.state).toBe("cita_awaiting_fecha_select");
+    expect(selected.texts.some((line) => line.includes("distrito"))).toBe(false);
+    expect(selected.texts.join(" ")).not.toContain("¿Es esta tu referencia?");
 
     const fecha = await say(text("la segunda"));
     expect(fecha.session.state).toBe("cita_awaiting_hora_select");
@@ -162,26 +151,6 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(bookingCalls[0]).not.toHaveProperty("referenciaId");
   });
 
-  it("consulta las referencias con el token del ciudadano que inició sesión", async () => {
-    const otp = await loginForReferencias();
-
-    const bearer = otp.session.slots[SlotKey.CITA_BEARER];
-    expect(bearer).toEqual(expect.any(String));
-    expect(bearer).not.toBe("");
-    expect(referencias.args).toEqual([[DOCUMENTO, "01", bearer]]);
-  });
-
-  it("si la consulta falla, avisa que no se pudo consultar y aun así ofrece la cita", async () => {
-    referencias.result = CONSULTA_FALLIDA;
-
-    const otp = await loginForReferencias();
-
-    expect(otp.session.state).toBe("referencia_awaiting_cita_offer");
-    expect(otp.texts.join(" ")).toContain("No pudimos consultar tus referencias en este momento. Inténtalo de nuevo más tarde.");
-    expect(otp.texts.join(" ")).not.toContain("No cuentas con referencias registradas.");
-    expect(otp.texts.join(" ")).toContain("¿Deseas agendar una cita?");
-  });
-
   it("sin referencias, rechaza la cita: se despide y la siguiente conversación empieza de cero", async () => {
     await loginForReferencias();
 
@@ -196,20 +165,19 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(next.session.state).toBe("main_menu");
   });
 
-  it("la cita consulta las referencias una vez y, sin referencias, sigue al distrito", async () => {
+  it("la cita normal consulta referencias y avanza directamente cuando no hay ninguna", async () => {
     const otp = await login();
 
     expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
     expect(referencias.calls).toBe(1);
   });
 
-  it("la cita con referencias que permiten agendar pregunta si se agenda con o sin referencia", async () => {
+  it("la cita con referencias disponibles ofrece ambas modalidades antes de continuar", async () => {
     referencias.result = UNA_REFERENCIA;
 
     const otp = await login();
 
-    expect(otp.session.state).toBe("cita_awaiting_referencia_eleccion");
-    expect(otp.texts).toContain("[buttons] Detectamos que tienes referencias médicas. ¿Cómo deseas agendar tu cita?");
+    expect(otp.session.state).toBe("referencia_awaiting_appointment_mode");
     expect(referencias.calls).toBe(1);
   });
 });

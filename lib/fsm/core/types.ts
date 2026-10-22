@@ -1,11 +1,12 @@
 import type { TurnNote } from "@/lib/observability/types";
+import type { ReferenciaListaDetalle } from "@/lib/types/referencia-lista-detalle";
 import { SendType } from "@/lib/enums/send-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import type { SessionState } from "@/lib/enums/session-state";
 import type { InternalEventType } from "@/lib/enums/internal-event-type";
 import type { MediaFailure } from "@/lib/enums/media-failure";
-import type { ReferenciaTono } from "@/lib/enums/referencia-tono";
+import type { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -41,6 +42,7 @@ export type SlotTypes = {
   [SlotKey.CITA_HORA_CHOICE_B]: string;
   [SlotKey.MENU_CHOICE]: string;
   [SlotKey.POST_LOGIN_FLOW]: string;
+  [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode;
   [SlotKey.DNI]: string;
   [SlotKey.CITA_TWOFA_ID]: string;
   [SlotKey.CITA_OFFERED]: string;
@@ -53,8 +55,6 @@ export type SlotTypes = {
   [SlotKey.CITA_OFFERED_NAMES]: string;
   [SlotKey.CITA_REFERENCIAS_DATA]: string;
   [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: string;
-  [SlotKey.CITA_REFERENCIAS_CONSULTADAS]: boolean;
-  [SlotKey.CITA_REFERENCIAS_SIN_CUPOS]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE]: string;
@@ -129,14 +129,14 @@ export type ListRow = {
   id: string;
   title: string;
   description?: string;
-  disabled?: boolean;
-  tone?: ReferenciaTono;
+  referencia?: ReferenciaListaDetalle;
 };
 
 export type SendInteractiveListEffect = {
   kind: SendType.INTERACTIVE_LIST;
   text: string;
   rows: ListRow[];
+  actions?: ButtonOption[];
 };
 
 export type ButtonOption = {

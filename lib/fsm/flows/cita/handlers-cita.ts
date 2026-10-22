@@ -40,7 +40,6 @@ import {
   handleDemoAwaitingReferenciaSelect,
 } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { handleAwaitingReferenciaConfirm, handleAwaitingReferenciaSelect } from "@/lib/fsm/flows/cita/steps/booking/references";
-import { handleAwaitingReferenciaEleccion, handleAwaitingReferenciaSinCupos } from "@/lib/fsm/flows/referencia/cita-con-referencia";
 import { SessionState } from "@/lib/enums/session-state";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 
@@ -120,10 +119,6 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleAwaitingReferenciaSelect(session, event as InboundEvent);
     case SessionState.CITA_AWAITING_REFERENCIA_CONFIRM:
       return handleAwaitingReferenciaConfirm(session, event as InboundEvent);
-    case SessionState.CITA_AWAITING_REFERENCIA_ELECCION:
-      return handleAwaitingReferenciaEleccion(session, event as InboundEvent);
-    case SessionState.CITA_AWAITING_REFERENCIA_SIN_CUPOS:
-      return handleAwaitingReferenciaSinCupos(session, event as InboundEvent);
     default:
       throw new UnknownStateError("handleCita", session.state);
   }

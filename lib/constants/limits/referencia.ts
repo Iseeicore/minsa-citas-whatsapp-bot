@@ -1,2 +1,0 @@
-export const REFERENCIAS_PAGE_SIZE = 5;
-export const REFERENCIAS_TIMEOUT_MS = 8_000;

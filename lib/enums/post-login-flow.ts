@@ -1,4 +1,4 @@
 export enum PostLoginFlow {
   REFERENCIAS = "referencias",
-  CITA = "cita",
+  CITA_REFERENCIAS = "cita_referencias",
 }

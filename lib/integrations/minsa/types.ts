@@ -97,7 +97,6 @@ export type ReferenciaItem = {
   codigoIpressDestino: string;
   codigoUpsDestino: string;
   estado: number;
-  estadoDescripcion?: string;
 };
 
 export type ListReferencesResult = {

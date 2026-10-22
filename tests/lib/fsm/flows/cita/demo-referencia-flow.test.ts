@@ -2,16 +2,13 @@ import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleVerifyPending } from "@/lib/fsm/flows/cita/steps/identity/identity";
-import { readOffered, serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import {
   DEMO_PEDIATRIA_DNI,
   DEMO_REFERENCIA_DNI,
   demoHoraSlots,
-  demoListReferences,
-  demoReferenciaItem,
   demoReferenciasForDni,
 } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
-import { esReferenciaAgendable, referenciaRows } from "@/lib/fsm/flows/referencia/presentacion";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
@@ -52,7 +49,7 @@ function verifyPending(
 }
 
 describe("verificación con los DNI demo (10308523 y 47391441)", () => {
-  it("10308523 ignora cualquier pista de ubicación y ve sus 4 referencias, la bloqueada al final y en gris", () => {
+  it("10308523 ignora cualquier pista de ubicación y ve solo sus 3 referencias", () => {
     const result = handleVerifyPending(
       verifyPending(DEMO_REFERENCIA_DNI, {
         [SlotKey.CITA_DISTRITO_HINT_TEXT]: "Miraflores",
@@ -62,16 +59,8 @@ describe("verificación con los DNI demo (10308523 y 47391441)", () => {
     );
 
     expect(result.session.state).toBe("cita_demo_awaiting_referencia_select");
-    const items = demoReferenciasForDni(DEMO_REFERENCIA_DNI).map(demoReferenciaItem);
-    expect(items.filter(esReferenciaAgendable)).toHaveLength(3);
-    expect(listRows(result)).toHaveLength(4);
-    expect(
-      listRows(result)
-        ?.slice(0, 3)
-        .every((row) => !row.disabled),
-    ).toBe(true);
-    expect(listRows(result)?.[3]).toMatchObject({ id: DEMO_BLOQUEADA_CODIGO, disabled: true });
-    expect(readOffered(result.session.slots)?.pageSize).toBe(5);
+    expect(listRows(result)).toHaveLength(3);
+    expect(listRows(result)?.map((r) => r.id)).toEqual(demoReferenciasForDni(DEMO_REFERENCIA_DNI).map((r) => r.codigo));
   });
 
   it("47391441 ve solo la referencia de Pediatría en San Bartolomé", () => {
@@ -90,32 +79,19 @@ describe("verificación con los DNI demo (10308523 y 47391441)", () => {
     expect(result.session.state).toBe("referencia_lookup_pending");
   });
 
-  it.each([DEMO_REFERENCIA_DNI, DEMO_PEDIATRIA_DNI])("%s en la cita consulta las referencias como cualquier documento", (dni) => {
-    const result = handleVerifyPending(verifyPending(dni, {}, {}), verifyResult({ status: "verified", token: "token-demo" }));
+  it.each([DEMO_REFERENCIA_DNI, DEMO_PEDIATRIA_DNI])(
+    "%s solo llega al demo por el servicio de referencias: en la cita consulta las referencias reales",
+    (dni) => {
+      const result = handleVerifyPending(verifyPending(dni, {}, {}), verifyResult({ status: "verified", token: "token-demo" }));
 
-    expect(result.session.state).toBe("referencia_lookup_pending");
-    expect(listRows(result)).toBeUndefined();
-  });
-
-  it("en el Sandbox, la consulta de referencias de un DNI demo trae sus referencias, con códigos para agendar", () => {
-    delete process.env.SANDBOX_USE_REAL_MINSA;
-    const result = demoListReferences(DEMO_REFERENCIA_DNI);
-
-    expect(result?.statusReference).toBe("found");
-    expect(result?.data.map((item) => item.idReferencia)).toEqual(demoReferenciasForDni(DEMO_REFERENCIA_DNI).map((r) => r.codigo));
-    expect(result?.data.filter(esReferenciaAgendable).every((item) => item.codigoIpressDestino && item.codigoUpsDestino)).toBe(true);
-  });
-
-  it("un DNI que no es demo, o el MINSA real, no reciben referencias de demo", () => {
-    expect(demoListReferences("12345678")).toBeUndefined();
-    process.env.SANDBOX_USE_REAL_MINSA = "true";
-    expect(demoListReferences(DEMO_REFERENCIA_DNI)).toBeUndefined();
-    delete process.env.SANDBOX_USE_REAL_MINSA;
-  });
+      expect(result.session.state).toBe("referencia_lookup_pending");
+      expect(result.effects.filter(isQueryEffect)).toEqual([
+        { kind: "list_references", payload: { numeroDocumento: dni, tipoDocumento: "01" } },
+      ]);
+      expect(listRows(result)).toBeUndefined();
+    },
+  );
 });
-
-const DEMO_BLOQUEADA_CODIGO = "00005944";
-const BLOQUEADA_TEXT = "Esta referencia está en estado Registrado y no permite agendar una cita. Elige otra.";
 
 function referenciaOffered(dni: string): Session {
   return {
@@ -125,8 +101,11 @@ function referenciaOffered(dni: string): Session {
       [SlotKey.CITA_DNI]: dni,
       [SlotKey.CITA_OFFERED]: serializeOffered({
         text: "Un momento, estamos analizando tu cuenta… cuenta con referencias:",
-        pageSize: 5,
-        rows: referenciaRows(demoReferenciasForDni(dni).map(demoReferenciaItem)),
+        rows: demoReferenciasForDni(dni).map((r) => ({
+          id: r.codigo,
+          title: r.hospital.slice(0, 24),
+          description: `${r.red} · ${r.ris} · ${r.distrito}`,
+        })),
       }),
     },
     counters: {},
@@ -149,16 +128,6 @@ describe("selección de referencia demo", () => {
     const result = handle(referenciaOffered(DEMO_REFERENCIA_DNI), text("HOSPITAL NACIONAL DOS DE MAYO"));
     expect(result.session.state).toBe("cita_demo_awaiting_hora_select");
     expect(result.session.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO]).toBe("00006206");
-  });
-
-  it("la referencia bloqueada: avisa, vuelve la misma lista y no pasa a elegir hora", () => {
-    const session = referenciaOffered(DEMO_REFERENCIA_DNI);
-    const result = handle(session, tap(DEMO_BLOQUEADA_CODIGO));
-
-    expect(result.session.state).toBe("cita_demo_awaiting_referencia_select");
-    expect(texts(result)).toEqual([BLOQUEADA_TEXT]);
-    expect(listRows(result)?.map((r) => r.id)).toEqual(readOffered(session.slots)?.rows.map((r) => r.id));
-    expect(result.session.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO]).toBeUndefined();
   });
 });
 

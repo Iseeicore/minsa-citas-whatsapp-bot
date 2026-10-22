@@ -4,6 +4,7 @@ import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-i
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { PagerDirection } from "@/lib/enums/pager-direction";
+import type { ListRow } from "@/lib/fsm/core/types";
 
 const rows = [
   { id: "1", title: "Medicina General", description: "Medicina General / Atención del Adulto · 78 cupos" },
@@ -25,6 +26,52 @@ describe("filterRows", () => {
   it("exige que todas las palabras escritas aparezcan, en cualquier orden", () => {
     expect(filterRows(rows, "general medicina").map((row) => row.id)).toEqual(["1"]);
     expect(filterRows(rows, "general pediatria")).toEqual([]);
+  });
+});
+
+describe("filterRows con el detalle completo de referencias", () => {
+  const referenceRows: ListRow[] = [
+    {
+      id: "ref-search+/==",
+      title: "Atencion especializada",
+      description: "Texto resumido",
+      referencia: {
+        especialidad: "Atencion especializada integral de enfermedades cardiovasculares avanzadas",
+        numero: "0000000427",
+        destino: "Instituto Nacional Especializado de Diagnostico y Tratamiento Multidisciplinario",
+        origen: "Centro de Salud San Francisco de la Esperanza Alta",
+        fecha: "17/10/2026 08:00",
+        estado: "PACIENTE RECIBIDO",
+      },
+    },
+    { id: "other-reference", title: "Otra atencion", description: "Otra referencia" },
+  ];
+
+  it.each([
+    ["especialidad", "CARDIOVASCULARES avanzadas"],
+    ["origen", "esperanza alta"],
+    ["destino", "tratamiento multidisciplinario"],
+    ["numero", "0000000427"],
+    ["estado", "paciente recibido"],
+    ["fecha", "17/10/2026"],
+  ])("encuentra %s aunque el texto buscado no figure en titulo ni descripcion", (_field, query) => {
+    expect(filterRows(referenceRows, query)).toEqual([referenceRows[0]]);
+  });
+
+  it("combina palabras del detalle completo y conserva la referencia, su identificador y las entradas inmutables", () => {
+    const snapshot = structuredClone(referenceRows);
+    Object.freeze(referenceRows[0].referencia);
+    for (const row of referenceRows) Object.freeze(row);
+    Object.freeze(referenceRows);
+
+    const filtered = filterRows(referenceRows, "cardiovasculares esperanza 0000000427");
+
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]).toBe(referenceRows[0]);
+    expect(filtered[0].id).toBe("ref-search+/==");
+    expect(filtered[0].referencia).toBe(referenceRows[0].referencia);
+    expect(referenceRows).toEqual(snapshot);
+    expect(filterRows(referenceRows, "cardiovasculares inexistente")).toEqual([]);
   });
 });
 

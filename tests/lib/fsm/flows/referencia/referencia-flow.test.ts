@@ -4,12 +4,11 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { ANALYZING_CUENTA_TEXT, VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
+import { REFERENCIAS_LIST_TEXT } from "@/lib/constants/textos/cita-reserva";
 import {
-  REFERENCIAS_LIST_TEXT,
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
   REFERENCIA_GOODBYE_TEXT,
-  REFERENCIA_LOOKUP_FAILED_TEXT,
   REFERENCIA_NONE_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
@@ -24,7 +23,6 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { ReferenciaTono } from "@/lib/enums/referencia-tono";
 
 const FROM = "sandbox-referencia-flow";
 const DNI = "12345678";
@@ -94,13 +92,12 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(result.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
   });
 
-  it("cita (no purpose): looks the referencias up once, under the cita purpose", () => {
+  it("cita (no purpose): checks references before deciding whether to request a district", () => {
     const result = handle(verifyPending(DNI), verified);
 
     expect(result.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
     expect(texts(result)).toEqual([ANALYZING_CUENTA_TEXT]);
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
-    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
   });
 
@@ -112,6 +109,7 @@ describe("after the OTP: the purpose decides what comes next", () => {
 
     const cita = handle(verifyPending(dni), verified);
     expect(cita.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
+    expect(queries(cita)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: dni, tipoDocumento: "01" } }]);
   });
 
   it("a wrong code keeps the purpose for the next try", () => {
@@ -138,47 +136,28 @@ describe("the lookup", () => {
     expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["1364486"]);
     expect(list?.kind === "send_interactive_list" && list.rows[0]).toEqual({
       id: "1364486",
-      title: "Hosp. Maria Auxiliadora",
-      description: "Paciente citado · N° 00123 · 24/07/2024",
-      tone: ReferenciaTono.INFO,
+      title: "GASTROENTEROLOGÍA",
+      description: "HOSPITAL MARIA AUXILIADORA · N° 00123 · 24/07/2024 · PACIENTE CITADO",
     });
     expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBe(JSON.stringify([REFERENCIA]));
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
   });
 
-  it.each([ReferenceStatus.EMPTY, "otro"])("without referencias (%s): says so and offers a cita, with no list", (statusReference) => {
-    const result = handle(lookupPending(), queryResult(QueryKind.LIST_REFERENCES, { statusReference, message: "", data: [] }));
+  it.each([ReferenceStatus.EMPTY, ReferenceStatus.ERROR, "otro"])(
+    "without referencias (%s): says so and offers a cita, with no list",
+    (statusReference) => {
+      const result = handle(lookupPending(), queryResult(QueryKind.LIST_REFERENCES, { statusReference, message: "", data: [] }));
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
-    expect(texts(result)).toEqual([REFERENCIA_NONE_TEXT]);
-    expect(buttons(result)).toEqual({
-      kind: "send_buttons",
-      text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-      buttons: REFERENCIA_CITA_OFFER_BUTTONS,
-    });
-    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
-  });
-
-  it("when the lookup fails: says it could not check, not that there are none, and still offers a cita", () => {
-    const result = handle(
-      lookupPending(),
-      queryResult(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.ERROR, message: "", data: [] }),
-    );
-
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
-    expect(texts(result)).toEqual([REFERENCIA_LOOKUP_FAILED_TEXT]);
-    expect(texts(result)).not.toContain(REFERENCIA_NONE_TEXT);
-    expect(buttons(result)).toEqual({
-      kind: "send_buttons",
-      text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-      buttons: REFERENCIA_CITA_OFFER_BUTTONS,
-    });
-    expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
-  });
-
-  it("the lookup failure text is the agreed wording", () => {
-    expect(REFERENCIA_LOOKUP_FAILED_TEXT).toBe("No pudimos consultar tus referencias en este momento. Inténtalo de nuevo más tarde.");
-  });
+      expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+      expect(texts(result)).toEqual([REFERENCIA_NONE_TEXT]);
+      expect(buttons(result)).toEqual({
+        kind: "send_buttons",
+        text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+        buttons: REFERENCIA_CITA_OFFER_BUTTONS,
+      });
+      expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
+    },
+  );
 
   it("found with no referencias left is treated as no referencias, never an empty list", () => {
     const result = handle(
@@ -275,14 +254,15 @@ describe("with referencias: the existing selection and confirmation", () => {
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_FECHAS, payload: { codEess: "5987", especialidadId: "222800" } }]);
   });
 
-  it("a referencia without destination codes continues the normal cita and leaves the purpose behind", () => {
+  it("a referencia without destination codes returns to appointment modes without silently choosing a new destination", () => {
     const session = confirmPending();
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([{ ...REFERENCIA, codigoIpressDestino: "", codigoUpsDestino: "" }]);
 
     const result = handle(session, text("si"));
 
-    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
-    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
+    expect(queries(result)).toEqual([]);
   });
 
   it("asking for another one keeps the purpose", () => {

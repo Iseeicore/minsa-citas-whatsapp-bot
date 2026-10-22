@@ -12,6 +12,7 @@ export const SELECT_FECHA_TEXT = "Selecciona la fecha:";
 export const noCuposForFechaText = (fecha: string): string => `No hay cupos para ${fecha}. Elige una de las fechas disponibles:`;
 export const OTHER_FECHA_DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${CITA_FAREWELL_TEXT}`;
 export const OTHER_FECHA_NO_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${CITA_FAREWELL_TEXT}`;
+export const REFERENCIA_SIN_CUPOS_TEXT = `Lo sentimos mucho. Para tu referencia médica no encontramos cupos disponibles en nuestro canal en este momento. Te recomendamos comunicarte con tu centro de salud principal para que te derive a otra área. ${CITA_FAREWELL_TEXT}`;
 export const OTHER_FECHA_ONLY_DECLINED_INTRO_TEXT =
   "Entendido, ese horario no te conviene. Como era el único horario disponible para esa fecha, te recomiendo elegir otra fecha.";
 export const OTHER_FECHA_NO_HORARIOS_INTRO_TEXT = "No hay horarios disponibles para esa fecha.";

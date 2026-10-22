@@ -9,6 +9,7 @@ import { SEARCHING_UBIGEO_TEXT, SEARCHING_ESPECIALIDADES_TEXT } from "@/lib/cons
 import { SEARCHING_FECHAS_TEXT, SEARCHING_HORARIOS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { SEARCHING_ESTABLECIMIENTOS_TEXT } from "@/lib/constants/textos/cita-catalogo";
 import { slotText } from "@/lib/fsm/core/slot-readers";
+import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 
 export function beginReverification(session: Session, resumeState: string): HandlerResult {
   const next = cloneSession(session);
@@ -23,6 +24,9 @@ export function resumeAfterReverification(session: Session, resumeState: string)
   next.state = resumeState as Session["state"];
 
   switch (resumeState) {
+    case SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE:
+      return askOtherReference(next);
+
     case SessionState.CITA_UBIGEO_PENDING:
       return buildResult(next, [
         sendText(reverifiedText(SEARCHING_UBIGEO_TEXT)),

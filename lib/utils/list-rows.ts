@@ -27,7 +27,7 @@ export function filterRows(rows: ListRow[], query: string): ListRow[] {
   if (tokens.length === 0) return rows;
 
   return rows.filter((row) => {
-    const haystack = normalizeText(`${row.title} ${row.description ?? ""}`);
+    const haystack = normalizeText([row.title, row.description ?? "", ...Object.values(row.referencia ?? {})].join(" "));
     return tokens.every((token) => haystack.includes(token));
   });
 }

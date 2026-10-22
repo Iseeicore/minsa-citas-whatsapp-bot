@@ -2,9 +2,7 @@ import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { PagerDirection } from "@/lib/enums/pager-direction";
-import { ButtonVariant } from "@/lib/enums/button-variant";
-import { ButtonWidth } from "@/lib/enums/button-width";
-import { Button } from "@/app/components/ui/Button";
+import { ReplyButtons } from "@/app/components/ui/ReplyButtons";
 import { Card } from "@/app/components/ui/Card";
 import { CtaLink } from "@/app/components/ui/CtaLink";
 import { PagerBar } from "@/app/components/ui/PagerBar";
@@ -42,7 +40,13 @@ export function ChatBubble({
         </div>
 
         {effect.kind === SendType.INTERACTIVE_LIST && (
-          <ChatListPicker rows={effect.rows} disabled={disabled} onSelect={(id, label) => onOptionClick("list", id, label)} />
+          <ChatListPicker
+            rows={effect.rows}
+            actions={effect.actions}
+            disabled={disabled}
+            onSelect={(id, label) => onOptionClick("list", id, label)}
+            onActionSelect={(id, label) => onOptionClick("buttons", id, label)}
+          />
         )}
 
         {effect.kind === SendType.CTA_URL && <CtaLink href={effect.url} label={effect.buttonText} />}
@@ -58,19 +62,7 @@ export function ChatBubble({
               />
             </Card>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              {effect.buttons.map((button) => (
-                <Button
-                  key={button.id}
-                  variant={ButtonVariant.OPTION}
-                  width={ButtonWidth.FULL}
-                  disabled={disabled}
-                  onClick={() => onOptionClick("buttons", button.id, button.title)}
-                >
-                  {button.title}
-                </Button>
-              ))}
-            </div>
+            <ReplyButtons buttons={effect.buttons} disabled={disabled} onSelect={(id, title) => onOptionClick("buttons", id, title)} />
           ))}
       </div>
     </BotMessageRow>

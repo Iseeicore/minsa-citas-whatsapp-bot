@@ -1,19 +1,24 @@
 import { CLOCK_TIME } from "@/lib/constants/regex/text";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
-import { buildResult, cloneSession, offerPagedList, sendButtons, sendText, readTappedId } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  offerPagedList,
+  sendButtons,
+  sendText,
+  truncateForRow,
+  readTappedId,
+} from "@/lib/fsm/core/handlers-shared";
 import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import {
   DEMO_HORA_FIN,
   DEMO_HORA_INICIO,
   DEMO_REFERENCIAS,
   demoHoraSlots,
-  demoReferenciaItem,
   demoReferenciasForDni,
 } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
-import { referenciaRows } from "@/lib/fsm/flows/referencia/presentacion";
-import { rechazarReferenciaBloqueada } from "@/lib/fsm/flows/referencia/bloqueo";
 import { formatHoraRange, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
-import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import { DemoConfirmButtonId } from "@/lib/enums/demo-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -31,7 +36,15 @@ import {
 } from "@/lib/constants/textos/cita-demo";
 import { constanciaCitaText } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
-import { REFERENCIAS_PAGE_SIZE } from "@/lib/constants/limits/referencia";
+import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
+
+function referenciaRows(dni: string): ListRow[] {
+  return demoReferenciasForDni(dni).map((referencia) => ({
+    id: referencia.codigo,
+    title: truncateForRow(referencia.hospital, WHATSAPP_ROW_TITLE_MAX),
+    description: truncateForRow(`${referencia.red} · ${referencia.ris} · ${referencia.distrito}`, WHATSAPP_ROW_DESCRIPTION_MAX),
+  }));
+}
 
 export function offerDemoReferencias(session: Session): HandlerResult {
   const next = cloneSession(session);
@@ -39,8 +52,7 @@ export function offerDemoReferencias(session: Session): HandlerResult {
   delete next.slots[SlotKey.CITA_DEMO_REFERENCIA_CODIGO];
   delete next.slots[SlotKey.CITA_DEMO_HORA_ID];
   const dni = slotText(next.slots, SlotKey.CITA_DNI);
-  const rows = referenciaRows(demoReferenciasForDni(dni).map(demoReferenciaItem));
-  return buildResult(next, offerPagedList(next, DEMO_ANALYZING_TEXT, rows, REFERENCIAS_PAGE_SIZE));
+  return buildResult(next, offerPagedList(next, DEMO_ANALYZING_TEXT, referenciaRows(dni)));
 }
 
 function offerDemoHoras(session: Session, codigo: string): HandlerResult {
@@ -64,10 +76,6 @@ function askDemoConfirmation(session: Session, codigo: string, horaId: string): 
 export function handleDemoAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event);
   if ("result" in outcome) return outcome.result;
-
-  const referencia = DEMO_REFERENCIAS.find((item) => item.codigo === outcome.replyId);
-  const blocked = rechazarReferenciaBloqueada(session, referencia && demoReferenciaItem(referencia));
-  if (blocked) return blocked;
 
   const next = clearOffered(session);
   return offerDemoHoras(next, outcome.replyId);
