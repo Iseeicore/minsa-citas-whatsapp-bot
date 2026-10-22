@@ -39,7 +39,7 @@ const REFERENCIA: ReferenciaItem = {
   upsDestino: "GASTROENTEROLOGIA",
   codigoIpressDestino: "5987",
   codigoUpsDestino: "222800",
-  estado: 7,
+  estado: 5,
 };
 
 const OFFERED = serializeOffered({

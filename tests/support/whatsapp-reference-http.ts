@@ -6,7 +6,7 @@ export const WHATSAPP_REFERENCE_TOKEN = "synthetic-whatsapp-reference-session-to
 export const WHATSAPP_REFERENCE_DOCUMENT = "23456789";
 export const WHATSAPP_REFERENCE_API = "https://synthetic-reference-api.test";
 
-export const WHATSAPP_REFERENCE_ROWS = [3, 5, 7].map((state, index) => ({
+export const WHATSAPP_REFERENCE_ROWS = [3, 5, 5].map((state, index) => ({
   id_referencia: `synthetic-reference-${index}`,
   nro_referencia: `00${index + 1}`,
   fecha_inicio: "01/10/2098 13:19",

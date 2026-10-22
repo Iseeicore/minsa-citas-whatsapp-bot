@@ -83,6 +83,7 @@ describe("respuesta real de MINSA: listReferences", () => {
       codigoIpressDestino: "005987",
       codigoUpsDestino: "0222800",
       estado: 3,
+      estadoDescripcion: "ACEPTADO",
     },
     {
       idReferencia: "ref-B_2opaque==",
@@ -95,6 +96,7 @@ describe("respuesta real de MINSA: listReferences", () => {
       codigoIpressDestino: "005987",
       codigoUpsDestino: "0222800",
       estado: 5,
+      estadoDescripcion: "PACIENTE RECIBIDO",
     },
     {
       idReferencia: "opaque-referencia-3-xYz",
@@ -107,6 +109,7 @@ describe("respuesta real de MINSA: listReferences", () => {
       codigoIpressDestino: "006206",
       codigoUpsDestino: "0230101",
       estado: 7,
+      estadoDescripcion: "PACIENTE CITADO",
     },
   ];
 
@@ -168,7 +171,20 @@ describe("respuesta real de MINSA: listReferences", () => {
 
     const result = await listReferences("40488601", "01", SESSION_TOKEN);
 
-    expect(result.data).toEqual([{ ...REFERENCIAS[0], estado: 1 }]);
+    expect(result.data).toEqual([{ ...REFERENCIAS[0], estado: 1, estadoDescripcion: "REGISTRADO" }]);
+  });
+
+  it("conserva la descripcion del estado que manda MINSA y la deja vacia si no llega", async () => {
+    const sinDescripcion = { ...FILAS[0], id_referencia: "sin-descripcion", estado: { codigo: "9" } };
+    const anulada = { ...FILAS[1], estado: { codigo: "4", descripcion: "ANULADO" } };
+    vi.stubGlobal("fetch", minsaResponding([sinDescripcion, anulada]));
+
+    const result = await listReferences("40488601", "01", SESSION_TOKEN);
+
+    expect(result.data.map((item) => [item.estado, item.estadoDescripcion])).toEqual([
+      [9, ""],
+      [4, "ANULADO"],
+    ]);
   });
 
   it.each([

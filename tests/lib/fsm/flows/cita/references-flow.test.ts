@@ -9,7 +9,8 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
-import { REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT } from "@/lib/constants/textos/cita-reserva";
+import { REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT, referenciaBloqueadaText } from "@/lib/constants/textos/cita-reserva";
+import { CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT } from "@/lib/constants/textos/cita-referencia";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { offerReferenciasList, restartReferenceSelection } from "@/lib/fsm/flows/cita/steps/booking/references";
@@ -41,7 +42,7 @@ const REFERENCIA: ReferenciaItem = {
   upsDestino: "GASTROENTEROLOGÍA",
   codigoIpressDestino: "5987",
   codigoUpsDestino: "222800",
-  estado: 7,
+  estado: 5,
 };
 
 function referenciaOffered(): Session {
@@ -162,6 +163,7 @@ describe("referencias para agendar en el chat web", () => {
     expect(rows?.[0].description).toContain("N° 000");
     expect(rows?.[0].description).toContain("24/07/2024");
     expect(rows?.[0].description).toContain("ACEPTADO");
+    expect(rows?.map((row) => row.disabled)).toEqual([undefined, undefined, true]);
     expect(rows?.every((row) => row.title.length <= 24 && (row.description?.length ?? 0) <= 72)).toBe(true);
   });
 
@@ -188,7 +190,7 @@ describe("referencias para agendar en el chat web", () => {
       destino: reference.ipressDestino,
       origen: reference.ipressOrigen,
       fecha: "24/07/2024",
-      estado: "PACIENTE CITADO",
+      estado: "PACIENTE RECIBIDO",
     });
     expect(readOffered(result.session.slots)?.rows[0].referencia).toEqual(row?.referencia);
     expect(session).toEqual(original);
@@ -219,7 +221,7 @@ describe("referencias para agendar en el chat web", () => {
       {
         id: REFERENCIA.idReferencia,
         title: "GASTROENTEROLOGÍA",
-        description: "HOSPITAL MARIA AUXILIADORA · N° 00123 · 24/07/2024 · PACIENTE CITADO",
+        description: "HOSPITAL MARIA AUXILIADORA · N° 00123 · 24/07/2024 · PACIENTE RECIBIDO",
       },
     ]);
     expect(readOffered(result.session.slots)?.rows[0]).not.toHaveProperty("referencia");
@@ -467,5 +469,194 @@ describe("referencias para agendar en el chat web", () => {
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
+  });
+});
+
+describe("referencias en todos los estados", () => {
+  const conEstado = (id: string, estado: number, extra: Partial<ReferenciaItem> = {}): ReferenciaItem => ({
+    ...REFERENCIA,
+    idReferencia: id,
+    numero: `n-${id}`,
+    upsDestino: `ESPECIALIDAD ${id}`,
+    codigoIpressDestino: `eess-${id}`,
+    codigoUpsDestino: `ups-${id}`,
+    estado,
+    ...extra,
+  });
+  const PENDIENTE = conEstado("pendiente", 1, { upsDestino: "NEUROLOGÍA", estadoDescripcion: "PENDIENTE" });
+  const ACEPTADA = conEstado("aceptada", 3, { upsDestino: "CARDIOLOGÍA" });
+  const SIN_DESCRIPCION = conEstado("sin-descripcion", 9, { numero: "009", upsDestino: "DERMATOLOGÍA" });
+  const RECIBIDA = conEstado("recibida", 5, { upsDestino: "GASTROENTEROLOGÍA" });
+  const MINSA_ORDER = [PENDIENTE, ACEPTADA, SIN_DESCRIPCION, RECIBIDA];
+
+  const listed = (channel: SessionChannel, items: ReferenciaItem[] = MINSA_ORDER): Session => {
+    const session = referenciaConfirmPending();
+    session.channel = channel;
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(items);
+    return offerReferenciasList(session).session;
+  };
+
+  const expectRejectedOnSamePage = (before: Session, result: HandlerResult, etiqueta: string) => {
+    expect(texts(result)[0]).toBe(referenciaBloqueadaText(etiqueta));
+    expect(result.session).toEqual(before);
+    expect(result.effects.some(isQueryEffect)).toBe(false);
+    const page = before.counters[CounterKey.CITA_LIST_PAGE] ?? 0;
+    const size = before.channel === SessionChannel.WHATSAPP ? 7 : 10;
+    const expected = readOffered(before.slots)?.rows.slice(page * size, (page + 1) * size);
+    expect(listRows(result)).toEqual(expected);
+  };
+
+  it("WhatsApp muestra todas las referencias, primero las seleccionables y marca las bloqueadas con su estado", () => {
+    const session = referenciaConfirmPending();
+    session.channel = SessionChannel.WHATSAPP;
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(MINSA_ORDER);
+
+    const result = offerReferenciasList(session);
+    const rows = listRows(result);
+
+    expect(rows?.map((row) => row.id)).toEqual(["aceptada", "recibida", "pendiente", "sin-descripcion"]);
+    expect(rows?.map((row) => row.disabled)).toEqual([undefined, undefined, true, true]);
+    expect(rows?.map((row) => row.description?.split(" · ").at(-1))).toEqual(["ACEPTADO", "PACIENTE RECIBIDO", "PENDIENTE", "Código 9"]);
+    expect(readOffered(result.session.slots)?.rows).toEqual(rows);
+  });
+
+  it("web conserva la etiqueta del estado en la tarjeta y la marca como no seleccionable", () => {
+    const rows = readOffered(listed(SessionChannel.WEB).slots)?.rows;
+
+    expect(rows?.map((row) => [row.id, row.referencia?.estado, row.disabled])).toEqual([
+      ["aceptada", "ACEPTADO", undefined],
+      ["recibida", "PACIENTE RECIBIDO", undefined],
+      ["pendiente", "PENDIENTE", true],
+      ["sin-descripcion", "Código 9", true],
+    ]);
+  });
+
+  it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
+    "%s rechaza el toque de una referencia bloqueada y repite la misma página",
+    (channel) => {
+      const before = listed(channel);
+
+      expectRejectedOnSamePage(before, handle(before, tap(PENDIENTE.idReferencia)), "PENDIENTE");
+      expectRejectedOnSamePage(before, handle(before, tap(SIN_DESCRIPCION.idReferencia)), "Código 9");
+    },
+  );
+
+  it("WhatsApp resuelve el número escrito sobre la página visible ya ordenada", () => {
+    const items = [
+      ...Array.from({ length: 3 }, (_, index) => conEstado(`bloqueada-${index}`, 2, { estadoDescripcion: "OBSERVADO" })),
+      ...Array.from({ length: 6 }, (_, index) => conEstado(`aceptada-${index}`, 3)),
+    ];
+    const first = listed(SessionChannel.WHATSAPP, items);
+
+    expect(readOffered(first.slots)?.rows.map((row) => row.id)).toEqual([
+      ...Array.from({ length: 6 }, (_, index) => `aceptada-${index}`),
+      ...Array.from({ length: 3 }, (_, index) => `bloqueada-${index}`),
+    ]);
+    expectRejectedOnSamePage(first, handle(first, text("7")), "OBSERVADO");
+
+    const second = handle(first, tap(ListPageButtonId.NEXT)).session;
+    expect(second.counters[CounterKey.CITA_LIST_PAGE]).toBe(1);
+    expectRejectedOnSamePage(second, handle(second, text("1")), "OBSERVADO");
+
+    const chosen = handle(first, text("1"));
+    expect(chosen.session.state).toBe("cita_fecha_pending");
+    expect(chosen.effects.filter(isQueryEffect)).toEqual([
+      { kind: "list_fechas", payload: { codEess: "eess-aceptada-0", especialidadId: "ups-aceptada-0" } },
+    ]);
+  });
+
+  it("web resuelve nombres y ordinales contra las filas ordenadas y rechaza las bloqueadas", () => {
+    const before = listed(SessionChannel.WEB);
+
+    expectRejectedOnSamePage(before, handle(before, text("neurologia")), "PENDIENTE");
+    expectRejectedOnSamePage(before, handle(before, text("la tercera")), "PENDIENTE");
+    expectRejectedOnSamePage(before, handle(before, text("la ultima")), "Código 9");
+
+    const chosen = handle(before, text("la primera"));
+    expect(chosen.session.state).toBe("cita_fecha_pending");
+    expect(chosen.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe(ACEPTADA.idReferencia);
+    expect(chosen.effects.filter(isQueryEffect)).toEqual([
+      { kind: "list_fechas", payload: { codEess: "eess-aceptada", especialidadId: "ups-aceptada" } },
+    ]);
+  });
+
+  it("una referencia seleccionable sigue el flujo actual aunque haya bloqueadas en la lista", () => {
+    const chosen = handle(listed(SessionChannel.WHATSAPP), tap(RECIBIDA.idReferencia));
+
+    expect(chosen.session.state).toBe("cita_fecha_pending");
+    expect(chosen.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe(RECIBIDA.idReferencia);
+    expect(chosen.effects.filter(isQueryEffect)).toEqual([
+      { kind: "list_fechas", payload: { codEess: "eess-recibida", especialidadId: "ups-recibida" } },
+    ]);
+  });
+
+  it("WhatsApp conserva número, fecha y estado completos y acorta solo el destino largo", () => {
+    const largo = conEstado("largo", 7, {
+      numero: "02441",
+      fechaInicio: "12/12/2017 08:00",
+      ipressDestino: "HOSPITAL NACIONAL ARZOBISPO LOAYZA DE LA CIUDAD DE LIMA METROPOLITANA",
+    });
+    const row = readOffered(listed(SessionChannel.WHATSAPP, [largo]).slots)?.rows[0];
+
+    expect(row?.description?.length).toBeLessThanOrEqual(72);
+    expect(row?.description?.startsWith("HOSPITAL NACIONAL ARZOBISPO")).toBe(true);
+    expect(row?.description?.endsWith("… · N° 02441 · 12/12/2017 · PACIENTE CITADO")).toBe(true);
+  });
+
+  it.each([
+    ["volver a elegir referencia", (session: Session) => restartReferenceSelection(session)],
+    [
+      "elegir Cita con referencia",
+      (session: Session) => handle({ ...session, state: "referencia_awaiting_appointment_mode" }, tap(CitaReferenciaButtonId.REFERENCE)),
+    ],
+  ])("al %s sin ninguna que permita agendar continúa con una cita nueva en vez de una lista sin salida", (_caso, act) => {
+    const session = referenciaConfirmPending();
+    session.channel = SessionChannel.WHATSAPP;
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([PENDIENTE, SIN_DESCRIPCION]);
+
+    const result = act(session);
+
+    expect(texts(result)[0]).toBe(CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
+    expect(listRows(result)).toBeUndefined();
+    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
+  });
+
+  it("PACIENTE CITADO (7) se muestra con su etiqueta después de 3 y 5, bloqueada y rechazada por toque, número y nombre", () => {
+    const citada = conEstado("citada-7", 7, { upsDestino: "OFTALMOLOGÍA" });
+    const recibida = conEstado("recibida-5", 5, { upsDestino: "PEDIATRÍA" });
+    const items = [citada, ACEPTADA, recibida];
+
+    const whatsapp = listed(SessionChannel.WHATSAPP, items);
+    const rows = readOffered(whatsapp.slots)?.rows;
+    expect(rows?.map((row) => [row.id, row.disabled])).toEqual([
+      ["aceptada", undefined],
+      ["recibida-5", undefined],
+      ["citada-7", true],
+    ]);
+    expect(rows?.[2].description?.endsWith("PACIENTE CITADO")).toBe(true);
+    expectRejectedOnSamePage(whatsapp, handle(whatsapp, tap("citada-7")), "PACIENTE CITADO");
+    expectRejectedOnSamePage(whatsapp, handle(whatsapp, text("3")), "PACIENTE CITADO");
+
+    const web = listed(SessionChannel.WEB, items);
+    expect(readOffered(web.slots)?.rows[2]).toMatchObject({ disabled: true, referencia: { estado: "PACIENTE CITADO" } });
+    expectRejectedOnSamePage(web, handle(web, text("oftalmologia")), "PACIENTE CITADO");
+    expectRejectedOnSamePage(web, handle(web, tap("citada-7")), "PACIENTE CITADO");
+  });
+
+  it("el segundo control impide agendar con una referencia bloqueada aunque llegue confirmada", () => {
+    const session = referenciaConfirmPending();
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(MINSA_ORDER);
+    session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = PENDIENTE.idReferencia;
+
+    const result = handle(session, text("si"));
+
+    expect(result.effects.some(isQueryEffect)).toBe(false);
+    expect(texts(result)[0]).toBe(referenciaBloqueadaText("PENDIENTE"));
+    expect(result.session.state).toBe("cita_awaiting_referencia_select");
+    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
+    expect(listRows(result)?.map((row) => row.id)).toEqual(["aceptada", "recibida", "pendiente", "sin-descripcion"]);
   });
 });

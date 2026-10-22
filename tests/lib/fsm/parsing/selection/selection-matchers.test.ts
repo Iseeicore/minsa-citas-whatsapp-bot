@@ -131,6 +131,16 @@ describe("offered options slot", () => {
     expect(readOffered({ [SlotKey.CITA_OFFERED]: serializeOffered(offered) })).toEqual(offered);
   });
 
+  it("keeps the disabled flag of a row through serialization", () => {
+    const offered = { text: "Referencias", rows: [{ id: "a", title: "A" }, { id: "b", title: "B", disabled: true }] };
+    expect(readOffered({ [SlotKey.CITA_OFFERED]: serializeOffered(offered) })).toEqual(offered);
+  });
+
+  it("rejects a slot whose disabled flag is not a boolean", () => {
+    const corrupt = JSON.stringify({ text: "Referencias", rows: [{ id: "b", title: "B", disabled: "true" }] });
+    expect(readOffered({ [SlotKey.CITA_OFFERED]: corrupt })).toBeUndefined();
+  });
+
   it("returns undefined for a missing or corrupt slot", () => {
     expect(readOffered({})).toBeUndefined();
     expect(readOffered({ [SlotKey.CITA_OFFERED]: "not json" })).toBeUndefined();

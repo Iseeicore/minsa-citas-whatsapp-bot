@@ -32,6 +32,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
+import { CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT } from "@/lib/constants/textos/cita-referencia";
 
 const mocks = vi.hoisted(() => ({
   sessions: new Map<string, Session>(),
@@ -90,16 +91,16 @@ const FECHA = "01/01/2099";
 const FECHA_API = "20990101";
 const HORA = "09:00|09:30";
 
-const REFERENCIAS: ReferenciaItem[] = [3, 5, 7].map((estado, index) => ({
-  idReferencia: `ref-${estado}`,
-  numero: `000${estado}`,
+const REFERENCIAS: ReferenciaItem[] = [3, 5, 5].map((estado, index) => ({
+  idReferencia: `ref-${index + 1}`,
+  numero: `000${index + 1}`,
   fechaInicio: "01/10/2026 10:00",
   ipressOrigen: "CENTRO DE ORIGEN",
-  ipressDestino: `HOSPITAL ${estado}`,
+  ipressDestino: `HOSPITAL ${index + 1}`,
   upsOrigen: "MEDICINA GENERAL",
   upsDestino: ["CARDIOLOGIA", "TRAUMATOLOGIA", "NEUROLOGIA"][index],
-  codigoIpressDestino: `eess-${estado}`,
-  codigoUpsDestino: `ups-${estado}`,
+  codigoIpressDestino: `eess-${index + 1}`,
+  codigoUpsDestino: `ups-${index + 1}`,
   estado,
 }));
 
@@ -339,6 +340,47 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     expect(mocks.bookAppointment).toHaveBeenCalledTimes(1);
   });
 
+  it("si ninguna referencia permite agendar continua con una nueva cita sin preguntar la modalidad", async () => {
+    mocks.listReferences.mockResolvedValue({
+      statusReference: ReferenceStatus.FOUND,
+      message: "",
+      data: REFERENCIAS.map((item, index) => ({ ...item, estado: [1, 2, 9][index], estadoDescripcion: "OBSERVADO" })),
+    });
+    const reply = await verify();
+
+    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(reply.sent.some((effect) => effect.kind === SendType.BUTTONS)).toBe(false);
+    expect(texts(reply)).toContain(CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
+    expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+    expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_BEARER]).toBe(TOKEN);
+    expectNoCatalogSearch();
+  });
+
+  it("con solo referencias PACIENTE CITADO (7) continua con una nueva cita sin preguntar la modalidad", async () => {
+    mocks.listReferences.mockResolvedValue({
+      statusReference: ReferenceStatus.FOUND,
+      message: "",
+      data: REFERENCIAS.map((item) => ({ ...item, estado: 7 })),
+    });
+    const reply = await verify();
+
+    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(reply.sent.some((effect) => effect.kind === SendType.BUTTONS)).toBe(false);
+    expect(texts(reply)).toContain(CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
+    expectNoCatalogSearch();
+  });
+
+  it("con una sola referencia que permite agendar entre bloqueadas sigue preguntando la modalidad", async () => {
+    mocks.listReferences.mockResolvedValue({
+      statusReference: ReferenceStatus.FOUND,
+      message: "",
+      data: [{ ...REFERENCIAS[0], estado: 1 }, REFERENCIAS[1]],
+    });
+    const reply = await verify();
+
+    expect(reply.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+  });
+
   it("una consulta exitosa sin referencias continua directamente con una nueva cita", async () => {
     mocks.listReferences.mockResolvedValue({ statusReference: ReferenceStatus.EMPTY, message: "", data: [] });
     const reply = await verify();
@@ -399,6 +441,20 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     expectNoCatalogSearch();
     const current = await tap(mode, CitaReferenciaButtonId.REFERENCE);
     expect(current.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+  });
+
+  it("WhatsApp sin referencias que permitan agendar continua con una nueva cita como el chat web", async () => {
+    mocks.listReferences.mockResolvedValue({
+      statusReference: ReferenceStatus.FOUND,
+      message: "",
+      data: REFERENCIAS.map((item) => ({ ...item, estado: 4, estadoDescripcion: "ANULADO" })),
+    });
+    mocks.sessions.set(FROM, otpSession(SessionChannel.WHATSAPP));
+    const result = await runTurn(FROM, { from: FROM, type: InboundEventType.TEXT, text: "123456", channel: SessionChannel.WHATSAPP });
+
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+    expectNoCatalogSearch();
   });
 
   it("WhatsApp consulta referencias despues del OTP y ofrece las mismas modalidades que el chat web", async () => {

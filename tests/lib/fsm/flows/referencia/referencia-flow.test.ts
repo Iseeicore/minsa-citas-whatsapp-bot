@@ -54,7 +54,7 @@ const REFERENCIA: ReferenciaItem = {
   upsDestino: "GASTROENTEROLOGÍA",
   codigoIpressDestino: "5987",
   codigoUpsDestino: "222800",
-  estado: 7,
+  estado: 5,
 };
 
 function verifyPending(dni: string, slots: Session["slots"] = {}): Session {
@@ -137,7 +137,7 @@ describe("the lookup", () => {
     expect(list?.kind === "send_interactive_list" && list.rows[0]).toEqual({
       id: "1364486",
       title: "GASTROENTEROLOGÍA",
-      description: "HOSPITAL MARIA AUXILIADORA · N° 00123 · 24/07/2024 · PACIENTE CITADO",
+      description: "HOSPITAL MARIA AUXILIADORA · N° 00123 · 24/07/2024 · PACIENTE RECIBIDO",
     });
     expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBe(JSON.stringify([REFERENCIA]));
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);

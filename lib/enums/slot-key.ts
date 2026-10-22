@@ -42,6 +42,7 @@ export enum SlotKey {
   CITA_OFFERED_NAMES = "citaOfferedNames",
   CITA_REFERENCIAS_DATA = "citaReferenciasData",
   CITA_REFERENCIA_SELECCIONADA_ID = "citaReferenciaSeleccionadaId",
+  CITA_REFERENCIAS_SIN_PROGRAMACION = "citaReferenciasSinProgramacion",
   CITA_ESTABLECIMIENTO_SIN_FECHAS = "citaEstablecimientoSinFechas",
   CITA_ESTABLECIMIENTO_PROPUESTO = "citaEstablecimientoPropuesto",
   CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE = "citaEstablecimientoPropuestoNombre",

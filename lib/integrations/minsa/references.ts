@@ -35,6 +35,7 @@ function parseReferencia(row: RawRow): ReferenciaItem | undefined {
     codigoIpressDestino: codigoDe(row.ipress_destino),
     codigoUpsDestino: codigoDe(row.ups_destino),
     estado,
+    estadoDescripcion: descripcionDe(row.estado),
   };
 }
 
