@@ -3,6 +3,7 @@ import type { WhatsAppLimitViolation } from "@/lib/types/whatsapp-limit.types";
 import { SendType } from "@/lib/enums/send-type";
 import { WhatsAppLimitField } from "@/lib/enums/whatsapp-limit-field";
 import { WhatsAppLimitRule } from "@/lib/enums/whatsapp-limit-rule";
+import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
 import { LIST_OPEN_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import {
   BUTTON_TITLE_MAX,
@@ -79,7 +80,7 @@ export function findLimitViolations(effect: SendEffect): WhatsAppLimitViolation[
     case SendType.BUTTONS:
       return [...interactiveBodyViolations(effect.text), ...buttonViolations(effect.buttons)];
     case SendType.INTERACTIVE_LIST:
-      return [...interactiveBodyViolations(effect.text), ...rowViolations(effect.rows)];
+      return [...interactiveBodyViolations(effect.text), ...rowViolations(whatsappListRows(effect))];
     case SendType.CTA_URL:
       return [
         ...interactiveBodyViolations(effect.text),

@@ -9,7 +9,10 @@ import {
   withNote,
   readTappedId,
   readTypedText,
+  withLeadingText,
 } from "@/lib/fsm/core/handlers-shared";
+import { isReferenceAppointment } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
+import { askAppointmentMode } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -25,6 +28,7 @@ import {
   duplicateActiveText,
   SEARCHING_OTHER_ESPECIALIDADES_TEXT,
   DUPLICATE_BUTTONS,
+  REFERENCIA_DUPLICATE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import { OTHER_ESPECIALIDAD_ANSWERS, DUPLICATE_EXIT_ANSWERS } from "@/lib/constants/palabras-clave";
 import { slotText } from "@/lib/fsm/core/slot-readers";
@@ -49,6 +53,9 @@ export function discardedEspecialidades(slots: Session["slots"]): string[] {
 }
 
 export function offerOtherEspecialidad(session: Session): HandlerResult {
+  if (isReferenceAppointment(session)) {
+    return withLeadingText(askAppointmentMode(session), REFERENCIA_DUPLICATE_TEXT);
+  }
   const next = cloneSession(session);
   const taken = slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID);
   const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]

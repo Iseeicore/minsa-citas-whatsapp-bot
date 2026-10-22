@@ -9,7 +9,6 @@ import {
   type OfferedRow,
 } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { ReferenciaTono } from "@/lib/enums/referencia-tono";
 
 const ubigeoRows: OfferedRow[] = [
   { id: "150101", title: "San Juan de Lurigancho", description: "Lima — Lima" },
@@ -130,26 +129,6 @@ describe("offered options slot", () => {
   it("round-trips through a JSON string slot", () => {
     const offered = { text: "Selecciona la especialidad:", rows: especialidadRows };
     expect(readOffered({ [SlotKey.CITA_OFFERED]: serializeOffered(offered) })).toEqual(offered);
-  });
-
-  it("keeps the page size and each row's disabled flag and tone", () => {
-    const offered = {
-      text: "Referencias:",
-      pageSize: 5,
-      rows: [
-        { id: "a", title: "Hosp. Maria Auxiliadora", description: "Aceptado", tone: ReferenciaTono.EXITO },
-        { id: "b", title: "Hosp. Dos de Mayo", description: "Registrado", tone: ReferenciaTono.NEUTRO, disabled: true },
-      ],
-    };
-
-    expect(readOffered({ [SlotKey.CITA_OFFERED]: serializeOffered(offered) })).toEqual(offered);
-  });
-
-  it("rejects a row whose disabled flag or tone is not valid", () => {
-    const withRow = (row: Record<string, unknown>) => ({ [SlotKey.CITA_OFFERED]: JSON.stringify({ text: "x", rows: [row] }) });
-
-    expect(readOffered(withRow({ id: "a", title: "A", disabled: "si" }))).toBeUndefined();
-    expect(readOffered(withRow({ id: "a", title: "A", tone: "rojo" }))).toBeUndefined();
   });
 
   it("returns undefined for a missing or corrupt slot", () => {

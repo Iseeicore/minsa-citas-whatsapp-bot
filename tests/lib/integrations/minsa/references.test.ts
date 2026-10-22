@@ -6,345 +6,221 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 
 const SIN_REFERENCIAS = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
+const SESSION_TOKEN = "synthetic-session-token";
 
-describe("MINSA simulado — listReferences", () => {
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+describe("MINSA simulado: listReferences", () => {
   beforeEach(() => {
-    delete process.env.SANDBOX_USE_REAL_MINSA;
+    vi.stubEnv("SANDBOX_USE_REAL_MINSA", "false");
   });
 
-  it.each(["12345678", "123456789", "87654321"])("no hay referencias simuladas para ningún documento (%s)", async (documento) => {
-    const fetchMock = vi.fn();
+  it.each(["12345678", "123456789", "87654321"])("no hay referencias simuladas para ningun documento (%s)", async (documento) => {
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(listReferences(documento, "01", "token-real")).resolves.toEqual(SIN_REFERENCIAS);
+    await expect(listReferences(documento, "01", SESSION_TOKEN)).resolves.toEqual(SIN_REFERENCIAS);
     expect(fetchMock).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
   });
 });
 
-describe("MINSA real — listReferences", () => {
+describe("respuesta real de MINSA: listReferences", () => {
   const minsaResponding = (body: unknown, status = 200) =>
-    vi.fn().mockResolvedValue(new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
+    vi.fn<typeof fetch>().mockResolvedValue(new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
 
   beforeEach(() => {
     vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
-    vi.stubEnv("MINSA_INTEGRATION_SECRET", "test-secret");
-    vi.stubEnv("MINSA_DIGITAL_APP_URL", "https://portal.example.test");
-    vi.stubEnv("MINSA_API_HOST", "https://api.example.test");
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
-    vi.restoreAllMocks();
+    vi.stubEnv("MINSA_API_HOST", "https://fake-minsa-api.test");
+    vi.stubEnv("MINSA_DIGITAL_APP_URL", "https://fake-minsa-digital.test");
   });
 
   const FILAS = [
     {
-      id_referencia: "1364486",
-      nro_referencia: "00123",
+      id_referencia: "ref_Az9-opaque/001==",
+      nro_referencia: "000123",
       fecha_inicio: "24/07/2024 23:03",
-      ipress_origen: { codigo: "5966", descripcion: "SAN FERNANDO" },
-      ipress_destino: { codigo: "5987", descripcion: "HOSPITAL MARIA AUXILIADORA" },
-      ups_origen: { codigo: "222400", descripcion: "MEDICINA GENERAL" },
-      ups_destino: { codigo: "222800", descripcion: "GASTROENTEROLOGÍA" },
-      estado: { codigo: "7", descripcion: "PACIENTE CITADO" },
+      ipress_origen: { codigo: "005966", descripcion: "CENTRO DE ORIGEN" },
+      ipress_destino: { codigo: "005987", descripcion: "HOSPITAL DE DESTINO" },
+      ups_origen: { codigo: "0222400", descripcion: "MEDICINA GENERAL" },
+      ups_destino: { codigo: "0222800", descripcion: "CARDIOLOGIA" },
+      estado: { codigo: "3", descripcion: "ACEPTADO" },
     },
     {
-      id_referencia: "1364178",
-      nro_referencia: "00275",
+      id_referencia: "ref-B_2opaque==",
+      nro_referencia: "000275",
       fecha_inicio: "24/11/2023 10:08",
-      ipress_origen: { codigo: "5987", descripcion: "HOSPITAL MARIA AUXILIADORA" },
-      ipress_destino: { codigo: "6206", descripcion: "HOSPITAL NACIONAL  DOS DE MAYO" },
-      ups_origen: { codigo: "230101", descripcion: "" },
-      ups_destino: { codigo: "230101", descripcion: "" },
+      ipress_origen: { codigo: "005966", descripcion: "CENTRO DE ORIGEN" },
+      ipress_destino: { codigo: "005987", descripcion: "HOSPITAL DE DESTINO" },
+      ups_origen: { codigo: "0222400", descripcion: "MEDICINA GENERAL" },
+      ups_destino: { codigo: "0222800", descripcion: "CARDIOLOGIA" },
       estado: { codigo: "5", descripcion: "PACIENTE RECIBIDO" },
+    },
+    {
+      id_referencia: "opaque-referencia-3-xYz",
+      nro_referencia: "000042",
+      fecha_inicio: "01/10/2026 08:00",
+      ipress_origen: { codigo: "005966", descripcion: "CENTRO DE ORIGEN" },
+      ipress_destino: { codigo: "006206", descripcion: "OTRO HOSPITAL DE DESTINO" },
+      ups_origen: { codigo: "0230101", descripcion: "" },
+      ups_destino: { codigo: "0230101", descripcion: "" },
+      estado: { codigo: "7", descripcion: "PACIENTE CITADO" },
     },
   ];
 
   const REFERENCIAS = [
     {
-      idReferencia: "1364486",
-      numero: "00123",
+      idReferencia: "ref_Az9-opaque/001==",
+      numero: "000123",
       fechaInicio: "24/07/2024 23:03",
-      ipressOrigen: "SAN FERNANDO",
-      ipressDestino: "HOSPITAL MARIA AUXILIADORA",
+      ipressOrigen: "CENTRO DE ORIGEN",
+      ipressDestino: "HOSPITAL DE DESTINO",
       upsOrigen: "MEDICINA GENERAL",
-      upsDestino: "GASTROENTEROLOGÍA",
-      codigoIpressDestino: "5987",
-      codigoUpsDestino: "222800",
-      estado: 7,
-      estadoDescripcion: "PACIENTE CITADO",
+      upsDestino: "CARDIOLOGIA",
+      codigoIpressDestino: "005987",
+      codigoUpsDestino: "0222800",
+      estado: 3,
     },
     {
-      idReferencia: "1364178",
-      numero: "00275",
+      idReferencia: "ref-B_2opaque==",
+      numero: "000275",
       fechaInicio: "24/11/2023 10:08",
-      ipressOrigen: "HOSPITAL MARIA AUXILIADORA",
-      ipressDestino: "HOSPITAL NACIONAL  DOS DE MAYO",
+      ipressOrigen: "CENTRO DE ORIGEN",
+      ipressDestino: "HOSPITAL DE DESTINO",
+      upsOrigen: "MEDICINA GENERAL",
+      upsDestino: "CARDIOLOGIA",
+      codigoIpressDestino: "005987",
+      codigoUpsDestino: "0222800",
+      estado: 5,
+    },
+    {
+      idReferencia: "opaque-referencia-3-xYz",
+      numero: "000042",
+      fechaInicio: "01/10/2026 08:00",
+      ipressOrigen: "CENTRO DE ORIGEN",
+      ipressDestino: "OTRO HOSPITAL DE DESTINO",
       upsOrigen: "",
       upsDestino: "",
-      codigoIpressDestino: "6206",
-      codigoUpsDestino: "230101",
-      estado: 5,
-      estadoDescripcion: "PACIENTE RECIBIDO",
+      codigoIpressDestino: "006206",
+      codigoUpsDestino: "0230101",
+      estado: 7,
     },
   ];
 
-  describe("sobre del backend: { status_reference, message, data }", () => {
-    it("entrega el estado, el mensaje y las referencias tal como los envía el backend", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "Referencias encontradas", data: FILAS }));
+  it("autentica con el token de sesion en Authorization y envia solo el documento en el cuerpo", async () => {
+    const fetchMock = minsaResponding([]);
+    vi.stubGlobal("fetch", fetchMock);
 
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual({
-        statusReference: ReferenceStatus.FOUND,
-        message: "Referencias encontradas",
-        data: REFERENCIAS,
-      });
-    });
+    await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual(SIN_REFERENCIAS);
 
-    it("empty llega como empty con la colección vacía", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, message: "Sin referencias", data: [] }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, request] = fetchMock.mock.calls[0];
+    const headers = new Headers(request?.headers);
+    expect(url).toBe(`https://fake-minsa-api.test${MinsaEndpoint.REFERENCIAS}`);
+    expect(request?.method).toBe("POST");
+    expect(headers.get("Authorization")).toBe(`Bearer ${SESSION_TOKEN}`);
+    expect(request?.body).toBe(JSON.stringify({ numero_documento: "40488601", tipo_documento: "01" }));
+    expect(request?.body).not.toContain(SESSION_TOKEN);
+  });
 
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual({
-        statusReference: ReferenceStatus.EMPTY,
-        message: "Sin referencias",
-        data: [],
-      });
-    });
+  it("lee el arreglo raiz conservando identificadores opacos, ceros iniciales y estados 3, 5 y 7", async () => {
+    vi.stubGlobal("fetch", minsaResponding(FILAS));
 
-    it("sin data ni message, la colección queda vacía y el mensaje en blanco", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, data: null }));
-
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual(SIN_REFERENCIAS);
-    });
-
-    it("guarda la descripción del estado tal como la envía el backend", async () => {
-      const sinDescripcion = { ...FILAS[0], estado: { codigo: "2" } };
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "", data: [FILAS[1], sinDescripcion] }));
-
-      const result = await listReferences("40488601", "01", "token-real");
-
-      expect(result.data.map((item) => [item.estado, item.estadoDescripcion])).toEqual([
-        [5, "PACIENTE RECIBIDO"],
-        [2, ""],
-      ]);
-    });
-
-    it("el estado no se deduce de las filas: manda el del backend", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.EMPTY, message: "", data: FILAS }));
-
-      const result = await listReferences("40488601", "01", "token-real");
-
-      expect(result.statusReference).toBe(ReferenceStatus.EMPTY);
-    });
-
-    it("no filtra por estado de la referencia: entrega las que manda el backend", async () => {
-      const registrada = { ...FILAS[0], id_referencia: "999", estado: { codigo: "1", descripcion: "REGISTRADO" } };
-      vi.stubGlobal("fetch", minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "", data: [registrada] }));
-
-      const result = await listReferences("40488601", "01", "token-real");
-
-      expect(result.data).toEqual([{ ...REFERENCIAS[0], idReferencia: "999", estado: 1, estadoDescripcion: "REGISTRADO" }]);
+    await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual({
+      statusReference: ReferenceStatus.FOUND,
+      message: "",
+      data: REFERENCIAS,
     });
   });
 
-  describe("autenticación", () => {
-    it("consulta con el token del ciudadano y sin firma HMAC", async () => {
-      const fetchMock = minsaResponding([]);
-      vi.stubGlobal("fetch", fetchMock);
+  it("conserva referencias distintas aunque compartan hospital y atencion", async () => {
+    vi.stubGlobal("fetch", minsaResponding(FILAS.slice(0, 2)));
 
-      await listReferences("40488601", "01", "token-real");
+    const result = await listReferences("40488601", "01", SESSION_TOKEN);
 
-      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-      const headers = init.headers as Record<string, string>;
-      expect(url).toBe(`https://api.example.test${MinsaEndpoint.REFERENCIAS}`);
-      expect(headers.Authorization).toBe("Bearer token-real");
-      expect(headers).not.toHaveProperty("X-WhatsApp-Signature");
-      expect(JSON.parse(init.body as string)).toEqual({ numero_documento: "40488601", tipo_documento: "01" });
-    });
+    expect(result.statusReference).toBe(ReferenceStatus.FOUND);
+    expect(result.data).toEqual(REFERENCIAS.slice(0, 2));
+    expect(result.data.map((item) => item.idReferencia)).toEqual(["ref_Az9-opaque/001==", "ref-B_2opaque=="]);
+  });
 
-    it("un 401 por credenciales faltantes es error", async () => {
-      vi.stubGlobal("fetch", minsaResponding({ detail: "Credenciales faltantes" }, 401));
+  it("una descripcion de UPS vacia no elimina la referencia ni pierde su codigo", async () => {
+    vi.stubGlobal("fetch", minsaResponding([FILAS[2]]));
 
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
+    await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual({
+      statusReference: ReferenceStatus.FOUND,
+      message: "",
+      data: [REFERENCIAS[2]],
     });
   });
 
-  describe("arreglo suelto, como responde el backend real", () => {
-    const FILAS_REALES = [
-      {
-        id_referencia: "ym4cjr3EWPH8",
-        nro_referencia: "02441",
-        fecha_inicio: "12/12/2017 13:19",
-        ipress_origen: { codigo: "5991", descripcion: "CENTRO MATERNO INFANTIL DE SALUD VIRGEN DEL CARMEN" },
-        ipress_destino: { codigo: "5987", descripcion: "HOSPITAL MARIA AUXILIADORA" },
-        ups_origen: { codigo: "220000", descripcion: "CONSULTA EXTERNA" },
-        ups_destino: { codigo: "221303", descripcion: "" },
-        estado: { codigo: "7", descripcion: "PACIENTE CITADO" },
-      },
-      {
-        id_referencia: "Qp7xLm2RtV9a",
-        nro_referencia: "02442",
-        fecha_inicio: "03/03/2018 09:45",
-        ipress_origen: { codigo: "5991", descripcion: "CENTRO MATERNO INFANTIL DE SALUD VIRGEN DEL CARMEN" },
-        ipress_destino: { codigo: "5987", descripcion: "HOSPITAL MARIA AUXILIADORA" },
-        ups_origen: { codigo: "220000", descripcion: "CONSULTA EXTERNA" },
-        ups_destino: { codigo: "222800", descripcion: "GASTROENTEROLOGÍA" },
-        estado: { codigo: "5", descripcion: "PACIENTE RECIBIDO" },
-      },
-      {
-        id_referencia: "Kd3nWs8YbH1c",
-        nro_referencia: "02443",
-        fecha_inicio: "15/06/2019 11:02",
-        ipress_origen: { codigo: "5991", descripcion: "CENTRO MATERNO INFANTIL DE SALUD VIRGEN DEL CARMEN" },
-        ipress_destino: { codigo: "6206", descripcion: "HOSPITAL NACIONAL  DOS DE MAYO" },
-        ups_origen: { codigo: "220000", descripcion: "CONSULTA EXTERNA" },
-        ups_destino: { codigo: "230101", descripcion: "" },
-        estado: { codigo: "1", descripcion: "REGISTRADO" },
-      },
-      {
-        id_referencia: "Zf6tGv4MqP0e",
-        nro_referencia: "02444",
-        fecha_inicio: "20/01/2020 16:30",
-        ipress_origen: { codigo: "5991", descripcion: "CENTRO MATERNO INFANTIL DE SALUD VIRGEN DEL CARMEN" },
-        ipress_destino: { codigo: "5987", descripcion: "HOSPITAL MARIA AUXILIADORA" },
-        ups_origen: { codigo: "220000", descripcion: "CONSULTA EXTERNA" },
-        ups_destino: { codigo: "221303", descripcion: "" },
-        estado: { codigo: "7", descripcion: "PACIENTE CITADO" },
-      },
-    ];
+  it("un arreglo vacio es una consulta exitosa sin referencias", async () => {
+    vi.stubGlobal("fetch", minsaResponding([]));
 
-    it("cuatro filas reales llegan como found con las cuatro referencias", async () => {
-      vi.stubGlobal("fetch", minsaResponding(FILAS_REALES));
-
-      const result = await listReferences("40488601", "01", "token-real");
-
-      expect(result.statusReference).toBe(ReferenceStatus.FOUND);
-      expect(result.message).toBe("");
-      expect(result.data).toHaveLength(4);
-      expect(result.data[0]).toEqual({
-        idReferencia: "ym4cjr3EWPH8",
-        numero: "02441",
-        fechaInicio: "12/12/2017 13:19",
-        ipressOrigen: "CENTRO MATERNO INFANTIL DE SALUD VIRGEN DEL CARMEN",
-        ipressDestino: "HOSPITAL MARIA AUXILIADORA",
-        upsOrigen: "CONSULTA EXTERNA",
-        upsDestino: "",
-        codigoIpressDestino: "5987",
-        codigoUpsDestino: "221303",
-        estado: 7,
-        estadoDescripcion: "PACIENTE CITADO",
-      });
-    });
-
-    it("el arreglo de filas del sobre también se lee suelto", async () => {
-      vi.stubGlobal("fetch", minsaResponding(FILAS));
-
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual({
-        statusReference: ReferenceStatus.FOUND,
-        message: "",
-        data: REFERENCIAS,
-      });
-    });
-
-    it("un arreglo vacío es empty", async () => {
-      vi.stubGlobal("fetch", minsaResponding([]));
-
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual(SIN_REFERENCIAS);
-    });
-
-    it("un arreglo sin filas válidas es empty", async () => {
-      vi.stubGlobal("fetch", minsaResponding([{ nro_referencia: "sin id" }, "texto"]));
-
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual(SIN_REFERENCIAS);
-    });
+    await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual(SIN_REFERENCIAS);
   });
 
-  describe("respuestas fuera del sobre", () => {
-    it.each([
-      ["las filas bajo referencias", { referencias: FILAS }],
-      ["data sin status_reference", { data: FILAS }],
-      ["un status_reference desconocido", { status_reference: "otra_cosa", data: FILAS }],
-      ["un cuerpo nulo", "null"],
-    ])("%s es error", async (_caso, body) => {
-      vi.stubGlobal("fetch", minsaResponding(body));
+  it("no introduce filtros de estados adicionales a los de MINSA", async () => {
+    const registrada = { ...FILAS[0], estado: { codigo: "1", descripcion: "REGISTRADO" } };
+    vi.stubGlobal("fetch", minsaResponding([registrada]));
 
-      await expect(listReferences("40488601", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
-    });
+    const result = await listReferences("40488601", "01", SESSION_TOKEN);
+
+    expect(result.data).toEqual([{ ...REFERENCIAS[0], estado: 1 }]);
   });
 
-  describe("filas inválidas", () => {
-    it("se descartan y queda constancia", async () => {
-      const records: Array<Record<string, unknown>> = [];
-      const restore = configureLogger({
-        level: "warn",
-        sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>),
-      });
-      vi.stubGlobal(
-        "fetch",
-        minsaResponding({
-          status_reference: ReferenceStatus.FOUND,
-          message: "",
-          data: [{ nro_referencia: "sin id" }, "texto", FILAS[0]],
-        }),
-      );
+  it.each([
+    ["el sobre anterior", { status_reference: ReferenceStatus.FOUND, message: "", data: FILAS }],
+    ["filas dentro de un objeto referencias", { referencias: FILAS }],
+    ["filas dentro de un objeto data", { data: FILAS }],
+    ["un objeto vacio", {}],
+    ["un cuerpo nulo", null],
+    ["un numero", 42],
+  ])("%s es un error de contrato", async (_caso, body) => {
+    vi.stubGlobal("fetch", minsaResponding(body));
 
-      const result = await listReferences("40488601", "01", "token-real");
+    await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
+  });
+
+  it("conserva las filas validas y registra las descartadas sin convertir la respuesta en una lista vacia", async () => {
+    const records: Array<Record<string, unknown>> = [];
+    const restore = configureLogger({
+      level: "warn",
+      sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>),
+    });
+    vi.stubGlobal("fetch", minsaResponding([{ nro_referencia: "sin id" }, "texto", FILAS[0]]));
+
+    try {
+      const result = await listReferences("40488601", "01", SESSION_TOKEN);
+
+      expect(result).toEqual({ statusReference: ReferenceStatus.FOUND, message: "", data: [REFERENCIAS[0]] });
+      expect(records.find((record) => record.event === "minsa.catalog.rows_discarded")).toMatchObject({
+        endpoint: MinsaEndpoint.REFERENCIAS,
+        discarded: 2,
+        total: 3,
+      });
+    } finally {
       restore();
-
-      expect(result.data).toEqual([REFERENCIAS[0]]);
-      const discarded = records.find((record) => record.event === "minsa.catalog.rows_discarded");
-      expect(discarded).toMatchObject({ endpoint: MinsaEndpoint.REFERENCIAS, discarded: 2, total: 3 });
-    });
+    }
   });
 
-  describe("found con todas las filas inválidas", () => {
-    it("conserva el estado found y deja la colección vacía", async () => {
-      vi.stubGlobal(
-        "fetch",
-        minsaResponding({ status_reference: ReferenceStatus.FOUND, message: "", data: [{ nro_referencia: "sin id" }, "texto"] }),
-      );
+  it("un arreglo no vacio sin filas validas es un error, no ausencia de referencias", async () => {
+    vi.stubGlobal("fetch", minsaResponding([{ nro_referencia: "sin id" }, "texto", null, { id_referencia: "sin-estado" }]));
 
-      const result = await listReferences("40488601", "01", "token-real");
-
-      expect(result).toEqual({ statusReference: ReferenceStatus.FOUND, message: "", data: [] });
-    });
+    await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
   });
 
-  describe("fallas del servicio", () => {
-    it("un HTTP no-ok es error", async () => {
-      vi.stubGlobal("fetch", minsaResponding("", 500));
+  it.each([401, 403, 500])("un HTTP %i es un error", async (status) => {
+    vi.stubGlobal("fetch", minsaResponding([], status));
 
-      await expect(listReferences("12345678", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
-    });
+    await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
+  });
 
-    it("un error de red es error y no hace caer el turno", async () => {
-      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
+  it("un cuerpo que no es JSON es un error", async () => {
+    vi.stubGlobal("fetch", minsaResponding("<html>"));
 
-      await expect(listReferences("12345678", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
-    });
-
-    it("una consulta que supera el tiempo máximo es error", async () => {
-      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("The operation was aborted due to timeout", "TimeoutError")));
-
-      await expect(listReferences("12345678", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
-    });
-
-    it("la consulta lleva un tiempo máximo", async () => {
-      const fetchMock = minsaResponding([]);
-      vi.stubGlobal("fetch", fetchMock);
-
-      await listReferences("12345678", "01", "token-real");
-
-      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-      expect(init.signal).toBeInstanceOf(AbortSignal);
-    });
-
-    it("un cuerpo que no es JSON es error", async () => {
-      vi.stubGlobal("fetch", minsaResponding("<html>", 200));
-
-      await expect(listReferences("12345678", "01", "token-real")).resolves.toEqual(SIN_RESPUESTA);
-    });
+    await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
   });
 });

@@ -2,11 +2,6 @@ import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ListPicker } from "@/app/components/ui/ListPicker";
-import { ReferenciaTono } from "@/lib/enums/referencia-tono";
-import { ButtonVariant } from "@/lib/enums/button-variant";
-import { ButtonWidth } from "@/lib/enums/button-width";
-import { buttonClassName } from "@/lib/utils/button-class-name";
-import { toneChipClassName } from "@/lib/utils/tone-chip-class-name";
 
 const SEARCH_FIELD = 'type="search"';
 const OPTION = "<button";
@@ -66,32 +61,5 @@ describe("ListPicker", () => {
 
   it("sin elementos avisa que no hay coincidencias", () => {
     expect(render({ items: [] })).toContain("No hay opciones que coincidan con tu búsqueda.");
-  });
-
-  it("una fila deshabilitada no se puede elegir y se marca como tal, las demás siguen activas", () => {
-    const markup = render({
-      items: [
-        { id: "ok", title: "Disponible", tone: ReferenciaTono.EXITO },
-        { id: "no", title: "Bloqueada", tone: ReferenciaTono.NEUTRO, disabled: true },
-      ],
-    });
-
-    expect(count(markup, 'aria-disabled="true"')).toBe(1);
-    expect(count(markup, 'disabled=""')).toBe(1);
-    expect(markup.indexOf('aria-disabled="true"')).toBeGreaterThan(markup.indexOf("Disponible"));
-    expect(markup).toContain(buttonClassName({ variant: ButtonVariant.LIST_OPTION_MUTED, width: ButtonWidth.FULL }));
-  });
-
-  it("cada fila con tono muestra su ícono con el color de ese tono", () => {
-    const markup = render({
-      items: [
-        { id: "a", title: "Aceptada", tone: ReferenciaTono.EXITO },
-        { id: "b", title: "Citada", tone: ReferenciaTono.INFO },
-        { id: "c", title: "Registrada", tone: ReferenciaTono.NEUTRO, disabled: true },
-      ],
-    });
-
-    for (const tono of Object.values(ReferenciaTono)) expect(markup).toContain(toneChipClassName(tono));
-    expect(count(markup, "<svg")).toBeGreaterThanOrEqual(3);
   });
 });

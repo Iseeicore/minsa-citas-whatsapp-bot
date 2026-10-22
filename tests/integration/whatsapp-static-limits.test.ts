@@ -17,7 +17,6 @@ import {
   REFERENCIA_CHOICE_QUESTION_TEXT,
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-  REFERENCIAS_LIST_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { LIST_PAGE_NEXT_BUTTON_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, NARROWED_LIST_TEXT, pageOfText } from "@/lib/constants/textos/comunes";
 import { CITA_REAUTH_BUTTONS, CITA_REAUTH_PROMPT_TEXT } from "@/lib/constants/textos/cita-identidad";
@@ -34,6 +33,7 @@ import {
   APPOINTMENT_DETAILS_TEXT,
   REFERENCIA_CONFIRM_BUTTONS,
   REFERENCIA_CONFIRM_QUESTION_TEXT,
+  REFERENCIAS_LIST_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import {
   ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT,

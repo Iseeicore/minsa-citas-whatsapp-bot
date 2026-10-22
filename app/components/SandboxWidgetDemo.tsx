@@ -109,17 +109,19 @@ export default function SandboxWidgetDemo() {
             PANEL_CLASS_NAME[layoutMode],
           )}
         >
-          <Sandbox
-            key={chatKey}
-            showDebugPanel={false}
-            active={!showingLauncher}
-            windowControls={{
-              mode,
-              onToggleExpand: () => setWidget(toggleExpand),
-              onToggleMinimize: () => setWidget(toggleMinimize),
-              onClose: () => setConfirmingClose(true),
-            }}
-          />
+          {!showingLauncher && (
+            <Sandbox
+              key={chatKey}
+              showDebugPanel={false}
+              active={!showingLauncher}
+              windowControls={{
+                mode,
+                onToggleExpand: () => setWidget(toggleExpand),
+                onToggleMinimize: () => setWidget(toggleMinimize),
+                onClose: () => setConfirmingClose(true),
+              }}
+            />
+          )}
         </div>
       </div>
 

@@ -1,3 +1,37 @@
+import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
+import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+
+export const REFERENCE_PAGE_ANSWERS: Readonly<Record<string, ListPageButtonId | HoraPageButtonId | undefined>> = {
+  ANTERIORES: ListPageButtonId.PREV,
+  "VER MAS OPCIONES": ListPageButtonId.NEXT,
+  "HORARIOS ANTERIORES": HoraPageButtonId.PREV,
+  "VER MAS HORARIOS": HoraPageButtonId.NEXT,
+};
+
+export const CHANGE_REFERENCE_ANSWERS = new Set(["CAMBIAR REFERENCIA"]);
+
+export const CITA_REFERENCIA_MODE_ANSWERS: Readonly<Record<string, CitaReferenciaButtonId | undefined>> = {
+  "1": CitaReferenciaButtonId.NEW,
+  NUEVA: CitaReferenciaButtonId.NEW,
+  "NUEVA CITA": CitaReferenciaButtonId.NEW,
+  "CITA NUEVA": CitaReferenciaButtonId.NEW,
+  "2": CitaReferenciaButtonId.REFERENCE,
+  REFERENCIA: CitaReferenciaButtonId.REFERENCE,
+  "CITA CON REFERENCIA": CitaReferenciaButtonId.REFERENCE,
+  "CON REFERENCIA": CitaReferenciaButtonId.REFERENCE,
+};
+
+export const CITA_REFERENCIA_RETRY_ANSWERS: Readonly<Record<string, CitaReferenciaButtonId | undefined>> = {
+  "1": CitaReferenciaButtonId.RETRY,
+  REINTENTAR: CitaReferenciaButtonId.RETRY,
+  "REINTENTAR CONSULTA": CitaReferenciaButtonId.RETRY,
+  "2": CitaReferenciaButtonId.NEW,
+  NUEVA: CitaReferenciaButtonId.NEW,
+  "NUEVA CITA": CitaReferenciaButtonId.NEW,
+  "CITA NUEVA": CitaReferenciaButtonId.NEW,
+};
+
 export const CITA_KEYWORD = "CITA";
 export const CITAS_KEYWORD = "CITAS";
 export const CONTINUAR_KEYWORD = "CONTINUAR";

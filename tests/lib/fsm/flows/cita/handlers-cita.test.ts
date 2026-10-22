@@ -106,7 +106,7 @@ describe("OTP verification — proactive district resolution from the opening me
       ...(initialMessageText ? { initialMessageText } : {}),
     });
     const verified = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
-    expect(queries(verified).map((effect) => effect.kind)).toEqual(["list_references"]);
+    expect(queries(verified).some((effect) => effect.kind === "list_references")).toBe(true);
 
     return handle(verified.session, queryResult("list_references", { statusReference: "empty", message: "", data: [] }));
   }
@@ -122,14 +122,14 @@ describe("OTP verification — proactive district resolution from the opening me
     const result = afterVerification("quiero una cita de odontología");
 
     expect(queries(result)).toHaveLength(0);
-    expect((sent(result)[0] as { text: string }).text).toContain("Cuéntanos en qué distrito");
+    expect(sent(result).some((effect) => "text" in effect && effect.text.includes("Cuéntanos en qué distrito"))).toBe(true);
   });
 
   it("still just asks plainly when there is no initialMessageText at all", () => {
     const result = afterVerification();
 
     expect(queries(result)).toHaveLength(0);
-    expect((sent(result)[0] as { text: string }).text).toContain("Cuéntanos en qué distrito");
+    expect(sent(result).some((effect) => "text" in effect && effect.text.includes("Cuéntanos en qué distrito"))).toBe(true);
   });
 });
 

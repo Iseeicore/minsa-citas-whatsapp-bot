@@ -11,18 +11,15 @@ import {
   REFERENCIA_ABANDONED_TEXT,
   REFERENCIA_EXIT_QUESTION_TEXT,
 } from "@/lib/constants/textos/cita-salida";
-import { REFERENCIA_CONFIRM_BUTTONS, REFERENCIA_CONFIRM_QUESTION_TEXT } from "@/lib/constants/textos/cita-reserva";
-import {
-  REFERENCIAS_LIST_TEXT,
-  REFERENCIA_CITA_OFFER_BUTTONS,
-  REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-} from "@/lib/constants/textos/referencia";
+import { REFERENCIAS_LIST_TEXT, REFERENCIA_CONFIRM_BUTTONS, REFERENCIA_CONFIRM_QUESTION_TEXT } from "@/lib/constants/textos/cita-reserva";
+import { REFERENCIA_CITA_OFFER_BUTTONS, REFERENCIA_CITA_OFFER_QUESTION_TEXT } from "@/lib/constants/textos/referencia";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CITA_REFERENCIA_CHANGE_BUTTON } from "@/lib/constants/textos/cita-referencia";
 
 const FROM = "sandbox-referencia-exit";
 const INSULT = "cojudos";
@@ -112,7 +109,7 @@ describe("leaving from the referencias steps", () => {
     expect(sent(result).at(-1)).toEqual({
       kind: "send_buttons",
       text: REFERENCIA_CONFIRM_QUESTION_TEXT,
-      buttons: REFERENCIA_CONFIRM_BUTTONS,
+      buttons: [...REFERENCIA_CONFIRM_BUTTONS, CITA_REFERENCIA_CHANGE_BUTTON],
     });
   });
 
@@ -173,7 +170,7 @@ describe("the lexical guard in the referencias steps", () => {
     expect(sent(result).at(-1)).toEqual({
       kind: "send_buttons",
       text: REFERENCIA_CONFIRM_QUESTION_TEXT,
-      buttons: REFERENCIA_CONFIRM_BUTTONS,
+      buttons: [...REFERENCIA_CONFIRM_BUTTONS, CITA_REFERENCIA_CHANGE_BUTTON],
     });
   });
 

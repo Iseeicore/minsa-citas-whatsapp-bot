@@ -22,12 +22,19 @@ import { SessionState } from "@/lib/enums/session-state";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { handleOtherReferenceClose } from "@/lib/fsm/flows/referencia/other-reference";
+import {
+  handleChangeReference,
+  referenceChangeReauthSession,
+  withReferenceChangeAction,
+} from "@/lib/fsm/flows/referencia/change-reference";
 
 export function handle(session: Session, event: HandleEvent, now: number = Date.now()): HandlerResult {
   if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, textoDeLaPersona(event.text))) {
     return emergencyCut(session.state);
   }
-  return handleTurn(session, event, now);
+  const current = event.channel ? { ...session, channel: event.channel } : session;
+  return handleOtherReferenceClose(current, event) ?? withReferenceChangeAction(handleTurn(current, event, now));
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
@@ -44,7 +51,7 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
 
   const expiry = detectSessionExpiry(session, event, now);
   if (expiry) {
-    return withNote(beginSessionReauth(session), {
+    return withNote(beginSessionReauth(referenceChangeReauthSession(session, event)), {
       kind: "session_expired",
       level: "warn",
       detail: {
@@ -70,6 +77,9 @@ function handleTurn(session: Session, event: HandleEvent, now: number): HandlerR
 
   const leaving = offerExitIfRequested(session, event);
   if (leaving) return leaving;
+
+  const changingReference = handleChangeReference(session, event);
+  if (changingReference) return changingReference;
 
   const guarded = applyLexicalGuard(session, event);
   if (guarded) return guarded;

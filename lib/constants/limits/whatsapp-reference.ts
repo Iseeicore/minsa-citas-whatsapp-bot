@@ -1,0 +1,1 @@
+export const WHATSAPP_REFERENCE_LIST_PAGE_SIZE = 7;
