@@ -8,6 +8,10 @@ import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { SendType } from "@/lib/enums/send-type";
+import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 
 const FROM = "sandbox-referencia-expiry";
 const NOW = Date.parse("2026-10-14T15:00:00Z");
@@ -119,5 +123,26 @@ describe("the referencias waiting states are protected like the rest of the auth
     const result = turn(pending, queryResult(QueryKind.LIST_REFERENCES, { statusReference: "empty", message: "", data: [] }));
 
     expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+  });
+
+  it.each([text("no"), { from: FROM, type: InboundEventType.BUTTON, listId: OtherReferenciaButtonId.NO }])(
+    "No en la pregunta de otra referencia cierra sin OTP aunque el JWT haya vencido: %j",
+    (event) => {
+      const session = waiting(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE, { bearer: jwt(Math.floor(NOW / 1000) - 1) });
+      const result = turn(session, event);
+      expect(result.session).toEqual({ state: SessionState.REFERENCIA_CLOSED, slots: {}, counters: {} });
+      expect(result.effects).toEqual([{ kind: SendType.TEXT, text: REFERENCIA_GOODBYE_TEXT }]);
+    },
+  );
+
+  it("Sí con JWT vencido conserva el propósito de releer referencias y no consulta cupos todavía", () => {
+    const session = waiting(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE, { bearer: jwt(Math.floor(NOW / 1000) - 1) });
+    session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = "synthetic-reference";
+    const result = turn(session, { from: FROM, type: InboundEventType.BUTTON, listId: OtherReferenciaButtonId.YES });
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_REAUTH);
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
+    expect(queries(result)).toEqual([]);
   });
 });

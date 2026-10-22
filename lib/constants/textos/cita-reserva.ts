@@ -34,6 +34,35 @@ export const REFERENCIA_ESTADO_LABELS: Record<number, string> = {
 };
 
 export const REFERENCIAS_LIST_TEXT = "Estas son tus referencias:";
+export const REFERENCIA_ESPECIALIDAD_LABEL = "Especialidad / atención";
+export const REFERENCIA_DESTINO_LABEL = "Destino";
+export const REFERENCIA_ORIGEN_LABEL = "Origen";
+export const REFERENCIA_FECHA_LABEL = "Fecha de referencia";
+export const REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT = "Especialidad no informada";
+export const referenciaNumeroText = (numero: string): string => `Referencia N.° ${numero}`;
+export const referenciaSeleccionText = (especialidad: string, numero: string): string =>
+  `${especialidad} · ${referenciaNumeroText(numero)}`;
+export const REFERENCIA_INCOMPLETA_TEXT =
+  "No podemos agendar con esta referencia porque no tiene todos los datos de destino. Puedes elegir otra referencia o continuar con una nueva cita.";
+export const REFERENCIA_NO_DISPONIBLE_TEXT =
+  "La referencia seleccionada ya no está en el listado de esta conversación. Vuelve a elegir cómo deseas agendar tu cita.";
+export const REFERENCIA_SIN_FECHAS_TEXT = "No encontramos cupos disponibles para esta referencia. ¿Deseas seleccionar otra referencia?";
+export const REFERENCIA_DUPLICATE_TEXT =
+  "MINSA informa que ya tienes una cita activa para esta especialidad. La referencia conserva su establecimiento y especialidad de destino. Puedes revisar otra referencia o elegir una nueva cita.";
+export const referenciaListDescriptionText = (destino: string, numero: string, fecha: string, estado: string): string =>
+  `${destino} · N° ${numero} · ${fecha} · ${estado}`;
+export const referenciaReservaResumenText = (
+  numero: string,
+  especialidad: string,
+  destino: string,
+  fecha: string,
+  horario: string,
+): string => `Revisa los datos de tu cita con referencia antes de confirmar:
+Referencia: ${numero}
+Especialidad: ${especialidad}
+Establecimiento: ${destino}
+Fecha: ${fecha}
+Horario: ${horario}`;
 export const searchingFechasForReferenciaText = (destino: string): string =>
   `Perfecto. Buscando fechas disponibles para tu referencia en *${destino}*…`;
 export const REFERENCIA_CONFIRM_QUESTION_TEXT = "¿Es esta tu referencia?";

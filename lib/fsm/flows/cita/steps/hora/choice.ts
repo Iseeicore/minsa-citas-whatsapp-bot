@@ -5,7 +5,7 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
-import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
+import { chooseHora } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { handleAwaitingHoraSelect } from "@/lib/fsm/flows/cita/steps/hora/select";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -35,11 +35,11 @@ export function handleHoraChoice(session: Session, event: InboundEvent): Handler
   const reply = readTappedId(event);
 
   if (reply === HoraChoiceButtonId.A && SLOT_STARTING_WITH_CLOCK_TIME.test(slotA)) {
-    return startBooking(back(), slotA.split("|")[0]);
+    return chooseHora(back(), slotA);
   }
 
   if (reply === HoraChoiceButtonId.B && slotsB.length === 1) {
-    return startBooking(back(), slotsB[0].start);
+    return chooseHora(back(), `${slotsB[0].start}|${slotsB[0].end}`);
   }
 
   if (reply === HoraChoiceButtonId.B && slotsB.length > 1) {

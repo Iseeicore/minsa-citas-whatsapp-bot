@@ -12,6 +12,7 @@ import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isRecord } from "@/lib/utils/type-guards";
 import { readNumber, readString } from "@/lib/utils/record-readers";
 import { HTTP_BAD_REQUEST } from "@/lib/constants/http-status";
+import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
 
 function graphApiUrl(): string {
   return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
@@ -55,7 +56,7 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
             button: LIST_OPEN_BUTTON_TEXT,
             sections: [
               {
-                rows: effect.rows.map((row) => ({
+                rows: whatsappListRows(effect).map((row) => ({
                   id: row.id,
                   title: row.title,
                   ...(row.description ? { description: row.description } : {}),
