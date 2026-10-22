@@ -21,7 +21,6 @@ import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
   REFERENCIA_LOGIN_REQUIRED_TEXT,
-  REFERENCIA_LOOKUP_FAILED_TEXT,
   REFERENCIA_NONE_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -60,8 +59,7 @@ export function handleReferenciaLookupPending(session: Session, event: QueryResu
   }
 
   next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
-  const leadingText = result.statusReference === ReferenceStatus.ERROR ? REFERENCIA_LOOKUP_FAILED_TEXT : REFERENCIA_NONE_TEXT;
-  return withLeadingText(askCitaOffer(next), leadingText);
+  return withLeadingText(askCitaOffer(next), REFERENCIA_NONE_TEXT);
 }
 
 export function handleReferenciaAwaitingCitaOffer(session: Session, event: InboundEvent): HandlerResult {

@@ -6,7 +6,6 @@ import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { isRecord } from "@/lib/utils/type-guards";
 import { readString, readNumber } from "@/lib/utils/record-readers";
-import { logger } from "@/lib/observability/logger";
 
 const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA: ListReferencesResult = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
@@ -64,14 +63,7 @@ export async function listReferences(numeroDocumento: string, tipoDocumento: str
     },
     bearer,
   );
-  if (!response.ok) {
-    const rejection: unknown = await response.json().catch(() => undefined);
-    logger.warn("minsa.references.rejected", {
-      status: response.status,
-      detail: isRecord(rejection) ? readString(rejection, "detail") : undefined,
-    });
-    return SIN_RESPUESTA;
-  }
+  if (!response.ok) return SIN_RESPUESTA;
 
   const body: unknown = await response.json().catch(() => undefined);
   return readReferencesResponse(body);

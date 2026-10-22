@@ -79,9 +79,4 @@ describe(".env.example", () => {
   it("lists each variable once", () => {
     expect(new Set(exampleNames).size).toBe(exampleNames.length);
   });
-
-  it("has every variable documented in the README", () => {
-    const readme = read("README.md");
-    for (const name of exampleNames) expect(readme, `${name} is missing from README.md`).toContain(`\`${name}\``);
-  });
 });

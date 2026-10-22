@@ -224,32 +224,3 @@ describe("respuesta real de MINSA: listReferences", () => {
     await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
   });
 });
-
-describe("rechazo de MINSA: listReferences", () => {
-  beforeEach(() => {
-    vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
-    vi.stubEnv("MINSA_API_HOST", "https://fake-minsa-api.test");
-    vi.stubEnv("MINSA_DIGITAL_APP_URL", "https://fake-minsa-digital.test");
-  });
-
-  it("un 403 queda en el log con su estado y el motivo que devuelve MINSA", async () => {
-    const records: Record<string, unknown>[] = [];
-    const restore = configureLogger({
-      level: "warn",
-      sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>),
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ detail: "Acceso denegado" }), { status: 403 })),
-    );
-
-    try {
-      await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
-      expect(records).toContainEqual(
-        expect.objectContaining({ event: "minsa.references.rejected", status: 403, detail: "Acceso denegado" }),
-      );
-    } finally {
-      restore();
-    }
-  });
-});
