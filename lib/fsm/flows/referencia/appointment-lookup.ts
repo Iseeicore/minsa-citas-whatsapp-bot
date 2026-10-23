@@ -1,10 +1,15 @@
 import { cloneSession, withLeadingText } from "@/lib/fsm/core/handlers-shared";
 import { offerReferenciasList } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
-import { startNewAppointment } from "@/lib/fsm/flows/referencia/appointment-mode";
+import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
+import { tieneReferenciasSeleccionables } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult, ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { CITA_REFERENCIA_LOOKUP_ERROR_TEXT, CITA_REFERENCIA_NONE_TEXT } from "@/lib/constants/textos/cita-referencia";
+import {
+  CITA_REFERENCIA_LOOKUP_ERROR_TEXT,
+  CITA_REFERENCIA_NONE_TEXT,
+  CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT,
+} from "@/lib/constants/textos/cita-referencia";
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -15,6 +20,7 @@ function lookupFailed(session: Session): HandlerResult {
 
 function foundReferences(session: Session, items: ReferenciaItem[]): HandlerResult {
   if (items.length === 0) return lookupFailed(session);
+  if (!tieneReferenciasSeleccionables(items)) return withLeadingText(startNewAppointment(session), CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(items);
   return next.slots[SlotKey.CITA_APPOINTMENT_MODE] === AppointmentMode.REFERENCE ? offerReferenciasList(next) : askAppointmentMode(next);

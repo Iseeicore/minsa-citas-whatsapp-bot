@@ -12,6 +12,8 @@ import { REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-reserva"
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
+import { CITA_REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-referencia";
 
 const WEB_REFERENCIAS: ReferenciaItem[] = [
   { id: "1364486", destino: "5987", ups: "222800", especialidad: "GASTROENTEROLOGÍA" },
@@ -142,7 +144,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     { status: "empty" },
     { status: "found", items: [] },
     { status: "found", items: [{ fechaCupo: "07/10/2099", cantidadCupos: 0 }] },
-  ])("sin disponibilidad (%j) pregunta si desea otra referencia antes de volver al listado", (response) => {
+  ])("sin disponibilidad (%j) pregunta si seguir con las referencias o con una cita médica antes de volver al listado", (response) => {
     const session = webFechaPending();
     session.counters[CounterKey.CITA_BOOKING_FAILURES] = 2;
     const original = structuredClone(session);
@@ -150,11 +152,11 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     const result = handle(session, fechasResult(response));
 
     expect(result.session.state).toBe("referencia_awaiting_other_reference");
-    expect(texts(result)).toContain(REFERENCIA_SIN_FECHAS_TEXT);
+    expect(texts(result)).toContain(CITA_REFERENCIA_SIN_FECHAS_TEXT);
     expect(queries(result)).toHaveLength(0);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
-    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
+    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaCitaButtonId.REFERENCES });
     expect(accepted.session.state).toBe("cita_awaiting_referencia_select");
     expect(accepted.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
     expect(accepted.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBeUndefined();
@@ -173,7 +175,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     const result = handle(session, fechasResult({ status: "found", items: [{ fechaCupo: "07/10/2099", cantidadCupos: 1 }] }));
 
     expect(result.session.state).toBe("referencia_awaiting_other_reference");
-    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
+    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaCitaButtonId.REFERENCES });
     expect(accepted.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBeUndefined();
     expect(queries(result)).toHaveLength(0);
   });
@@ -182,7 +184,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     const result = handle(webFechaPending(), fechasResult({ status: "error" }));
 
     expect(result.session.state).toBe("cita_awaiting_referencia_select");
-    expect(texts(result)).not.toContain(REFERENCIA_SIN_FECHAS_TEXT);
+    expect(texts(result)).not.toContain(CITA_REFERENCIA_SIN_FECHAS_TEXT);
     expect(queries(result)).toHaveLength(0);
     const retried = handle(result.session, { from: FROM, type: "list", listId: "1364486" });
     expect(queries(retried)).toEqual([{ kind: "list_fechas", payload: { codEess: "5987", especialidadId: "222800" } }]);
@@ -193,7 +195,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
-    expect(texts(result)).not.toContain(REFERENCIA_SIN_FECHAS_TEXT);
+    expect(texts(result)).not.toContain(CITA_REFERENCIA_SIN_FECHAS_TEXT);
     expect(queries(result)).toHaveLength(0);
   });
 

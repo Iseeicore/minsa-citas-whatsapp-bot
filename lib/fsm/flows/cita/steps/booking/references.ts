@@ -13,9 +13,20 @@ import {
   readTappedId,
   withLeadingText,
 } from "@/lib/fsm/core/handlers-shared";
-import { clearOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
-import { readReferencias } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
+import { clearOffered, reshowOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
+import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
+import { readReferencias, readReferenciasSinProgramacion } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
+import {
+  esReferenciaSeleccionable,
+  ordenarReferenciasPorSeleccion,
+  referenciaBloqueadaAviso,
+  referenciaEstadoEtiqueta,
+  tieneReferenciasSeleccionables,
+} from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
+import { referenceRowDescription } from "@/lib/utils/reference-row-description";
+import { CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT } from "@/lib/constants/textos/cita-referencia";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
@@ -29,7 +40,6 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import {
-  REFERENCIA_ESTADO_LABELS,
   REFERENCIAS_LIST_TEXT,
   REFERENCIA_CONFIRM_QUESTION_TEXT,
   searchingFechasForReferenciaText,
@@ -38,7 +48,6 @@ import {
   REFERENCIA_INCOMPLETA_TEXT,
   REFERENCIA_NO_DISPONIBLE_TEXT,
   REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT,
-  referenciaListDescriptionText,
 } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
@@ -91,9 +100,9 @@ function clearReferenceAppointment(session: Session): Session {
 
 export function restartReferenceSelection(session: Session): HandlerResult {
   const next = clearReferenceAppointment(session);
-  next.slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.REFERENCE;
-  next.slots[SlotKey.POST_LOGIN_FLOW] = PostLoginFlow.CITA_REFERENCIAS;
-  return readReferencias(next).length > 0 ? offerReferenciasList(next) : askReferenceLookupRetry(next);
+  const appointment = next.slots[SlotKey.CITA_APPOINTMENT_MODE] === AppointmentMode.REFERENCE;
+  next.slots[SlotKey.POST_LOGIN_FLOW] = appointment ? PostLoginFlow.CITA_REFERENCIAS : PostLoginFlow.REFERENCIAS;
+  return readReferencias(next).length > 0 ? offerSelectableReferencias(next) : askReferenceLookupRetry(next);
 }
 
 function formatFechaHora12(fechaHora: string): string {
@@ -102,18 +111,19 @@ function formatFechaHora12(fechaHora: string): string {
   return `${fecha} ${formatHora12(hora)}`;
 }
 
-function referenciaRows(items: ReferenciaItem[], web: boolean): ListRow[] {
-  return items.map((item) => {
+function referenciaRows(items: ReferenciaItem[], web: boolean, sinProgramacion: ReadonlySet<string>): ListRow[] {
+  return ordenarReferenciasPorSeleccion(items, sinProgramacion).map((item) => {
     const especialidad = item.upsDestino.trim() ? item.upsDestino : REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT;
     const fecha = item.fechaInicio.split(" ")[0];
-    const estado = REFERENCIA_ESTADO_LABELS[item.estado] ?? "";
+    const estado = referenciaEstadoEtiqueta(item, sinProgramacion);
     return {
       id: item.idReferencia,
       title: truncateForRow(especialidad, WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(
-        referenciaListDescriptionText(item.ipressDestino, item.numero, fecha, estado),
+      description: referenceRowDescription(
+        { destino: item.ipressDestino, numero: item.numero, fecha, estado },
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
+      ...(esReferenciaSeleccionable(item, sinProgramacion) ? {} : { disabled: true }),
       ...(web
         ? {
             referencia: { especialidad, numero: item.numero, destino: item.ipressDestino, origen: item.ipressOrigen, fecha, estado },
@@ -129,8 +139,18 @@ export function offerReferenciasList(session: Session): HandlerResult {
   next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
   return buildResult(
     next,
-    offerPagedList(next, REFERENCIAS_LIST_TEXT, referenciaRows(readReferencias(next), channelOf(next) === SessionChannel.WEB)),
+    offerPagedList(
+      next,
+      REFERENCIAS_LIST_TEXT,
+      referenciaRows(readReferencias(next), channelOf(next) === SessionChannel.WEB, readReferenciasSinProgramacion(next)),
+    ),
   );
+}
+
+export function offerSelectableReferencias(session: Session): HandlerResult {
+  return tieneReferenciasSeleccionables(readReferencias(session), readReferenciasSinProgramacion(session))
+    ? offerReferenciasList(session)
+    : withLeadingText(startNewAppointment(session), CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
 }
 
 function recoverInvalidReferencia(session: Session, message: string): HandlerResult {
@@ -140,7 +160,14 @@ function recoverInvalidReferencia(session: Session, message: string): HandlerRes
   return withLeadingText(retry, message);
 }
 
+function rejectBlockedReferencia(session: Session, item: ReferenciaItem): HandlerResult {
+  const notice = referenciaBloqueadaAviso(item, readReferenciasSinProgramacion(session));
+  const offered = session.state === SessionState.CITA_AWAITING_REFERENCIA_SELECT ? readOffered(session.slots) : undefined;
+  return offered ? reshowOffered(session, offered, notice) : withLeadingText(offerSelectableReferencias(session), notice);
+}
+
 function continueWithReferencia(session: Session, item: ReferenciaItem | undefined): HandlerResult {
+  if (item && !esReferenciaSeleccionable(item, readReferenciasSinProgramacion(session))) return rejectBlockedReferencia(session, item);
   if (!item?.codigoIpressDestino || !item.codigoUpsDestino) {
     return recoverInvalidReferencia(session, item ? REFERENCIA_INCOMPLETA_TEXT : REFERENCIA_NO_DISPONIBLE_TEXT);
   }
@@ -168,7 +195,7 @@ function askReferenciaConfirmation(session: Session, item: ReferenciaItem | unde
     upsOrigen: item?.upsOrigen ?? "",
     destino: item?.ipressDestino ?? "",
     upsDestino: item?.upsDestino ?? "",
-    estado: REFERENCIA_ESTADO_LABELS[item?.estado ?? 0] ?? "",
+    estado: referenciaEstadoEtiqueta(item, readReferenciasSinProgramacion(session)),
   });
   return buildResult(session, [sendText(detalle), sendButtons(REFERENCIA_CONFIRM_QUESTION_TEXT, REFERENCIA_CONFIRM_BUTTONS)]);
 }
@@ -178,6 +205,7 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
   if ("result" in outcome) return outcome.result;
 
   const item = readReferencias(session).find((r) => r.idReferencia === outcome.replyId);
+  if (item && !esReferenciaSeleccionable(item, readReferenciasSinProgramacion(session))) return rejectBlockedReferencia(session, item);
   const next = clearOffered(session);
   next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = outcome.replyId;
   return continueWithReferencia(next, item);

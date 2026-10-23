@@ -5,8 +5,19 @@ import { askOtherReference, handleOtherReference, handleOtherReferenceClose } fr
 import { AUTHENTICATED_WAITING_STATES, SESSION_IDLE_TIMEOUT_MS } from "@/lib/fsm/session/session-expiry-guard";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { CITA_REFERENCIA_OTHER_BUTTONS } from "@/lib/constants/textos/cita-referencia";
-import { REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-reserva";
+import {
+  CITA_REFERENCIA_OTHER_BUTTONS,
+  CITA_REFERENCIA_SIN_FECHAS_BUTTONS,
+  CITA_REFERENCIA_SIN_FECHAS_TEXT,
+  CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT,
+} from "@/lib/constants/textos/cita-referencia";
+import {
+  REFERENCIA_SIN_FECHAS_TEXT,
+  REFERENCIA_SIN_PROGRAMACION_ETIQUETA,
+  REFERENCIA_SIN_PROGRAMACION_TEXT,
+} from "@/lib/constants/textos/cita-reserva";
+import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
+import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
@@ -28,7 +39,7 @@ import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 
 const FROM = "synthetic-other-reference";
 const NOW = Date.parse("2026-10-21T21:00:00Z");
-const REFERENCES: ReferenciaItem[] = [3, 7].map((estado, index) => ({
+const REFERENCES: ReferenciaItem[] = [3, 5].map((estado, index) => ({
   idReferencia: `synthetic-reference-${index}`,
   numero: `00${index}`,
   fechaInicio: "01/10/2026 10:00",
@@ -51,7 +62,7 @@ const query = (queryKind: QueryKind, result: unknown): HandleEvent => ({
 const turn = (session: Session, event: HandleEvent) => handle(session, event, NOW);
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
-function pending(channel: SessionChannel): Session {
+function pending(channel: SessionChannel, mode?: AppointmentMode): Session {
   return {
     channel,
     state: SessionState.CITA_FECHA_PENDING,
@@ -59,7 +70,7 @@ function pending(channel: SessionChannel): Session {
     slots: {
       [SlotKey.CITA_BEARER]: "synthetic-token",
       [SlotKey.CITA_DNI]: "12345678",
-      [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
+      ...(mode ? { [SlotKey.CITA_APPOINTMENT_MODE]: mode } : {}),
       [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify(REFERENCES),
       [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: REFERENCES[0].idReferencia,
       [SlotKey.CITA_COD_EESS]: "eess-0",
@@ -72,6 +83,167 @@ function pending(channel: SessionChannel): Session {
     counters: { [CounterKey.CITA_BOOKING_FAILURES]: 2, [CounterKey.CITA_HORA_PAGE]: 2 },
   };
 }
+
+const rowsOf = (result: HandlerResult) => {
+  const list = result.effects.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
+  return list?.kind === SendType.INTERACTIVE_LIST ? list.rows : [];
+};
+const sinProgramacion = (session: Session) => session.slots[SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION];
+
+describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("agendar cita con referencia sin cupos en %s", (channel) => {
+  const agendar = () => pending(channel, AppointmentMode.REFERENCE);
+  const question = () => turn(agendar(), query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
+  const expectQuestion = (result: HandlerResult) => {
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
+    expect(result.effects.at(-1)).toEqual({
+      kind: SendType.BUTTONS,
+      text: CITA_REFERENCIA_SIN_FECHAS_TEXT,
+      buttons: CITA_REFERENCIA_SIN_FECHAS_BUTTONS,
+    });
+  };
+
+  it("pregunta si seguir con las referencias o con una cita médica y recuerda la referencia sin programación", () => {
+    const result = question();
+
+    expect(result.effects).toEqual([
+      { kind: SendType.BUTTONS, text: CITA_REFERENCIA_SIN_FECHAS_TEXT, buttons: CITA_REFERENCIA_SIN_FECHAS_BUTTONS },
+    ]);
+    expect(CITA_REFERENCIA_SIN_FECHAS_TEXT).toBe(
+      "No encontramos cupos disponibles para esta referencia. ¿Deseas continuar con tus referencias o con una cita médica?",
+    );
+    expect(CITA_REFERENCIA_SIN_FECHAS_BUTTONS).toEqual([
+      { id: OtherReferenciaCitaButtonId.REFERENCES, title: "Referencias" },
+      { id: OtherReferenciaCitaButtonId.NEW_APPOINTMENT, title: "Cita médica" },
+    ]);
+    expect(CITA_REFERENCIA_SIN_FECHAS_BUTTONS.every((button) => button.title.length <= 20)).toBe(true);
+    expect(JSON.parse(String(sinProgramacion(result.session)))).toEqual([REFERENCES[0].idReferencia]);
+    expect(queries(result)).toEqual([]);
+  });
+
+  it.each([tap(OtherReferenciaCitaButtonId.REFERENCES), text("Referencias"), text("referencia"), text("1")])(
+    "%j vuelve a la lista con la referencia sin cupos bloqueada como Sin programación",
+    (event) => {
+      const result = turn(question().session, event);
+
+      expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+      expect(queries(result)).toEqual([]);
+      const rows = rowsOf(result);
+      expect(rows.map((row) => [row.id, row.disabled])).toEqual([
+        [REFERENCES[1].idReferencia, undefined],
+        [REFERENCES[0].idReferencia, true],
+      ]);
+      const blocked = rows[1];
+      if (channel === SessionChannel.WEB) expect(blocked.referencia?.estado).toBe(REFERENCIA_SIN_PROGRAMACION_ETIQUETA);
+      expect(blocked.description?.endsWith(REFERENCIA_SIN_PROGRAMACION_ETIQUETA)).toBe(true);
+    },
+  );
+
+  it("elegir la referencia sin programación avisa y repite la misma página sin consultar MINSA", () => {
+    const listed = turn(question().session, tap(OtherReferenciaCitaButtonId.REFERENCES)).session;
+
+    for (const event of [tap(REFERENCES[0].idReferencia), text("2")]) {
+      const result = turn(listed, event);
+      expect(result.effects[0]).toEqual({ kind: SendType.TEXT, text: REFERENCIA_SIN_PROGRAMACION_TEXT });
+      expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+      expect(result.session.slots).toEqual(listed.slots);
+      expect(result.session.counters).toEqual(listed.counters);
+      expect(rowsOf(result)).toEqual(readOffered(listed.slots)?.rows);
+      expect(queries(result)).toEqual([]);
+    }
+    const chosen = turn(listed, tap(REFERENCES[1].idReferencia));
+    expect(queries(chosen)).toEqual([{ kind: QueryKind.LIST_FECHAS, payload: { codEess: "eess-1", especialidadId: "ups-1" } }]);
+  });
+
+  it.each([tap(OtherReferenciaCitaButtonId.NEW_APPOINTMENT), text("Cita médica"), text("cita"), text("nueva cita"), text("2")])(
+    "%j sigue con una cita nueva sin pedir OTP ni conservar la referencia",
+    (event) => {
+      const result = turn(question().session, event);
+
+      expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+      expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+      expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("synthetic-token");
+      expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
+      for (const key of [
+        SlotKey.CITA_REFERENCIA_SELECCIONADA_ID,
+        SlotKey.CITA_REFERENCIAS_DATA,
+        SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION,
+        SlotKey.CITA_COD_EESS,
+        SlotKey.CITA_ESPECIALIDAD_ID,
+        SlotKey.CITA_FECHA,
+      ]) {
+        expect(result.session.slots[key]).toBeUndefined();
+      }
+      expect(queries(result)).toEqual([]);
+    },
+  );
+
+  it("si la única seleccionable quedó sin programación, Referencias continúa con una cita nueva", () => {
+    const session = agendar();
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([REFERENCES[0], { ...REFERENCES[1], estado: 1 }]);
+    const asked = turn(session, query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
+
+    const result = turn(asked.session, tap(OtherReferenciaCitaButtonId.REFERENCES));
+
+    expect(result.effects[0]).toEqual({ kind: SendType.TEXT, text: CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT });
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(rowsOf(result)).toEqual([]);
+  });
+
+  it.each([text("no entiendo"), text("no"), tap(OtherReferenciaButtonId.YES), tap(OtherReferenciaButtonId.NO)])(
+    "%j repite la pregunta de este camino sin elegir ni cerrar",
+    (event) => {
+      const result = turn(question().session, event);
+      expectQuestion(result);
+      expect(queries(result)).toEqual([]);
+    },
+  );
+
+  it("salir escrito cierra como hoy y quiero salir pide confirmar y vuelve a la misma pregunta", () => {
+    const closed = turn(question().session, text("salir"));
+    expect(closed.session).toEqual({ state: SessionState.REFERENCIA_CLOSED, slots: {}, counters: {} });
+    expect(closed.effects).toEqual([{ kind: SendType.TEXT, text: REFERENCIA_GOODBYE_TEXT }]);
+
+    const exit = turn(question().session, text("quiero salir"));
+    expect(exit.session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
+    expectQuestion(turn(exit.session, tap(ExitButtonId.NO)));
+  });
+
+  it("al vencer la sesión, Referencias vuelve a verificar y consulta referencias frescas sin la marca anterior", () => {
+    const session = question().session;
+    session.updatedAt = new Date(NOW - SESSION_IDLE_TIMEOUT_MS - 1);
+    const expired = turn(session, tap(OtherReferenciaCitaButtonId.REFERENCES));
+    expect(expired.session.state).toBe(SessionState.CITA_AWAITING_REAUTH);
+    expect(expired.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
+    const accepted = turn(expired.session, tap(ReauthButtonId.YES));
+    const verified = turn(
+      { ...accepted.session, state: SessionState.CITA_VERIFY_PENDING },
+      query(QueryKind.VERIFY_CODE, { status: VerifyCodeStatus.VERIFIED, token: "new-synthetic-token" }),
+    );
+    expect(sinProgramacion(verified.session)).toBeUndefined();
+    const listed = turn(
+      verified.session,
+      query(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, data: REFERENCES, message: "" }),
+    );
+    expect(listed.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    expect(rowsOf(listed).map((row) => row.disabled)).toEqual([undefined, undefined]);
+  });
+
+  it("una respuesta vencida vuelve a verificar y repite la pregunta de este camino", () => {
+    const session = question().session;
+    session.updatedAt = new Date(NOW - SESSION_IDLE_TIMEOUT_MS - 1);
+    const expired = turn(session, text("no entiendo"));
+    expect(expired.session.slots[SlotKey.CITA_RESUME_STATE]).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
+    const accepted = turn(expired.session, tap(ReauthButtonId.YES));
+    const verified = turn(
+      { ...accepted.session, state: SessionState.CITA_VERIFY_PENDING },
+      query(QueryKind.VERIFY_CODE, { status: VerifyCodeStatus.VERIFIED, token: "fresh-synthetic-token" }),
+    );
+    expect(verified.effects).toEqual([
+      { kind: SendType.BUTTONS, text: CITA_REFERENCIA_SIN_FECHAS_TEXT, buttons: CITA_REFERENCIA_SIN_FECHAS_BUTTONS },
+    ]);
+    expect(verified.session.slots[SlotKey.CITA_BEARER]).toBe("fresh-synthetic-token");
+  });
+});
 
 describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cupos en %s", (channel) => {
   it.each([
@@ -158,6 +330,39 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     expect(resumed.effects).toEqual([{ kind: SendType.BUTTONS, text: REFERENCIA_SIN_FECHAS_TEXT, buttons: CITA_REFERENCIA_OTHER_BUTTONS }]);
   });
 
+  it("consultar referencia: Sí vuelve a la lista con la referencia sin cupos marcada Sin programación", () => {
+    const asked = turn(pending(channel), query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
+    const listed = turn(asked.session, tap(OtherReferenciaButtonId.YES));
+    const rows = rowsOf(listed);
+
+    expect(rows.map((row) => [row.id, row.disabled])).toEqual([
+      [REFERENCES[1].idReferencia, undefined],
+      [REFERENCES[0].idReferencia, true],
+    ]);
+    expect(rows[1].description?.endsWith(REFERENCIA_SIN_PROGRAMACION_ETIQUETA)).toBe(true);
+    const chosen = turn(listed.session, tap(REFERENCES[0].idReferencia));
+    expect(chosen.effects[0]).toEqual({ kind: SendType.TEXT, text: REFERENCIA_SIN_PROGRAMACION_TEXT });
+    expect(chosen.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+  });
+
+  it("con referencias bloqueadas el aviso sin cupos no cambia y Sí vuelve a la lista con las seleccionables primero", () => {
+    const blocked: ReferenciaItem = { ...REFERENCES[1], idReferencia: "synthetic-blocked", estado: 1, estadoDescripcion: "PENDIENTE" };
+    const session = pending(channel);
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([blocked, ...REFERENCES]);
+
+    const noDates = turn(session, query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
+    expect(noDates.effects).toEqual([{ kind: SendType.BUTTONS, text: REFERENCIA_SIN_FECHAS_TEXT, buttons: CITA_REFERENCIA_OTHER_BUTTONS }]);
+
+    const listed = turn(noDates.session, tap(OtherReferenciaButtonId.YES));
+    const list = listed.effects.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
+    const rows = list?.kind === SendType.INTERACTIVE_LIST ? list.rows : [];
+    expect(rows.map((row) => [row.id, row.disabled])).toEqual([
+      [REFERENCES[1].idReferencia, undefined],
+      ["synthetic-blocked", true],
+      [REFERENCES[0].idReferencia, true],
+    ]);
+  });
+
   it("no presenta el aviso sin cupos ante error técnico ni falta de horarios de una fecha", () => {
     const technical = turn(pending(channel), query(QueryKind.LIST_FECHAS, { status: CatalogStatus.ERROR }));
     expect(technical.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
@@ -182,7 +387,8 @@ describe("vencimiento de la pregunta para seleccionar otra referencia", () => {
       session.updatedAt = new Date(NOW - SESSION_IDLE_TIMEOUT_MS - 1);
       const expired = turn(session, tap(OtherReferenciaButtonId.YES));
       expect(expired.session.state).toBe(SessionState.CITA_AWAITING_REAUTH);
-      expect(expired.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
+      expect(expired.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
+      expect(expired.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBeUndefined();
       expect(expired.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
       expect(expired.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
       const accepted = turn(expired.session, tap(ReauthButtonId.YES));
