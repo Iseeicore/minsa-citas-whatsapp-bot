@@ -1,12 +1,8 @@
--- Plazos en días hábiles por categoría. Idempotente: se puede volver a ejecutar sobre una base que ya la tiene
--- (por ejemplo, si se aplicó a mano antes de que Prisma la registrara) sin error y sin pisar plazos ya cargados.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT set_config('app.actor', 'sistema:migracion', true);
 
--- Plazo en días hábiles: de lunes a viernes, todavía sin feriados, según la fecha en la zona America/Lima.
--- Se calcula con aritmética (semanas completas más el resto), sin recorrer día por día.
 CREATE OR REPLACE FUNCTION catalogo.sumar_dias_habiles(p_desde timestamptz, p_dias integer)
 RETURNS timestamptz
 LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE AS $$
@@ -25,7 +21,6 @@ BEGIN
     RETURN (v_dia + 1)::timestamp AT TIME ZONE 'America/Lima';
   END IF;
 
-  -- Un sábado o un domingo cuentan como el viernes anterior: en los tres casos el primer día hábil es el lunes.
   v_base := v_dia - greatest(v_dia_semana - 5, 0);
   v_dia_semana := least(v_dia_semana, 5);
   v_resto := p_dias % 5;
@@ -43,7 +38,6 @@ ALTER TABLE catalogo.categoria_incidencia
   ADD COLUMN IF NOT EXISTS plazo_dias_habiles smallint,
   ADD COLUMN IF NOT EXISTS archiva_por_vencimiento boolean NOT NULL DEFAULT true;
 
--- Solo se llenan los plazos que faltan: una segunda ejecución no cambia los valores ya cargados ni sube version_fila.
 UPDATE catalogo.categoria_incidencia SET plazo_dias_habiles = 30, archiva_por_vencimiento = true
  WHERE codigo IN ('RECLAMO', 'QUEJA', 'OTRO') AND plazo_dias_habiles IS NULL;
 UPDATE catalogo.categoria_incidencia SET plazo_dias_habiles = 3, archiva_por_vencimiento = false
@@ -73,7 +67,6 @@ LANGUAGE plpgsql AS $$
 DECLARE
   v_archivadas integer;
 BEGIN
-  -- p_dias se conserva para no romper a quien ya la llama y se ignora: el plazo sale de la categoría del caso.
   IF p_lote IS NULL OR p_lote < 1 THEN
     RAISE EXCEPTION 'archivar_incidencias_vencidas: el lote debe ser al menos 1'
       USING ERRCODE = 'check_violation';
