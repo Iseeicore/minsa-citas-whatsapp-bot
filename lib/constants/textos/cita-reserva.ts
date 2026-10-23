@@ -1,6 +1,7 @@
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { NO_SALIR_BUTTON_TEXT, SI_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
+import { ReferenciaEstadoCodigo } from "@/lib/enums/referencia-estado-codigo";
 
 export const APPOINTMENT_DETAILS_TEXT =
   "Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):";
@@ -27,11 +28,16 @@ export const duplicateActiveText = (especialidad: string): string =>
 export const DUPLICATE_YES_BUTTON_TEXT = "Otra especialidad";
 export const SEARCHING_OTHER_ESPECIALIDADES_TEXT = "Buscando otras especialidades disponibles…";
 
-export const REFERENCIA_ESTADO_LABELS: Record<number, string> = {
-  3: "ACEPTADO",
-  5: "PACIENTE RECIBIDO",
-  7: "PACIENTE CITADO",
+export const REFERENCIA_ESTADO_LABELS: Partial<Record<number, string>> = {
+  [ReferenciaEstadoCodigo.ACEPTADO]: "ACEPTADO",
+  [ReferenciaEstadoCodigo.PACIENTE_RECIBIDO]: "PACIENTE RECIBIDO",
+  [ReferenciaEstadoCodigo.PACIENTE_CITADO]: "PACIENTE CITADO",
 };
+export const referenciaEstadoCodigoText = (codigo: number): string => `Código ${codigo}`;
+export const REFERENCIA_SIN_PROGRAMACION_ETIQUETA = "Sin programación";
+export const REFERENCIA_SIN_PROGRAMACION_TEXT = "Esta referencia no tiene programación de atención disponible. Elige otra.";
+export const referenciaBloqueadaText = (etiqueta: string): string =>
+  `Esta referencia está en estado ${etiqueta} y no permite agendar una cita. Elige otra.`;
 
 export const REFERENCIAS_LIST_TEXT = "Estas son tus referencias:";
 export const REFERENCIA_ESPECIALIDAD_LABEL = "Especialidad / atención";
