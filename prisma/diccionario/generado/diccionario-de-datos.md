@@ -133,6 +133,12 @@ Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupci
 | `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
 | `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
 | `es_sensible` | boolean | No | `false` |  | Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por un área que reciba casos sensibles (OTRANS) y siempre pasa por revisión humana. La base impide derivarla a un establecimiento. |
+| `plazo_dias_habiles` | smallint | No |  |  | Plazo de atención de un caso de esta categoría, en días hábiles (de lunes a viernes, todavía sin feriados, en la zona America/Lima). Se cuenta desde el día siguiente a la llegada del caso, o a su reapertura, y vence al terminar el último día hábil. Mayor que 0. |
+| `archiva_por_vencimiento` | boolean | No | `true` |  | Verdadero si un caso abierto de esta categoría se archiva solo (motivo VENCIDA_SIN_ATENDER) cuando vence su plazo. Falso (hoy, la denuncia por corrupción) significa que el caso no se archiva por vencimiento aunque supere el plazo. |
+
+**Restricciones**
+
+- `ck_categoria_incidencia_plazo`: `CHECK ((plazo_dias_habiles > 0))`.
 
 **Reglas que aplica la base (disparadores)**
 
@@ -727,6 +733,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
 | `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
 | `codigo` | text | No | `''::text` |  | Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada. |
+| `derivacion_descripcion` | text | Sí |  |  | Descripción de la última derivación manual, de 10 a 2000 caracteres sin espacios en los extremos. Nula en registros anteriores o sin derivación descrita; los motivos anteriores se conservan en la auditoría. |
 
 **Llaves foráneas** (qué relaciona y para qué)
 
@@ -752,6 +759,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 - `ck_incidencia_paciente_codigo`: `CHECK ((codigo ~ '^MINSA-[0-9]{4}-[0-9]{6,}$'::text))`.
 - `ck_incidencia_paciente_confianza`: `CHECK (((categoria_confianza IS NULL) OR ((categoria_confianza >= (0)::numeric) AND (categoria_confianza <= (100)::numeric))))`.
 - `ck_incidencia_paciente_derivacion`: `CHECK (((derivado_en IS NULL) = (derivado_por IS NULL)))`.
+- `ck_incidencia_paciente_derivacion_descripcion`: `CHECK (((derivacion_descripcion IS NULL) OR ((derivacion_descripcion = btrim(derivacion_descripcion)) AND ((char_length(derivacion_descripcion) >= 10) AND (char_length(derivacion_descripcion) <= 2000)))))`.
 - `ck_incidencia_paciente_eliminacion`: `CHECK (((activo AND (eliminado_en IS NULL) AND (eliminado_por IS NULL)) OR ((NOT activo) AND (eliminado_en IS NOT NULL) AND (eliminado_por IS NOT NULL))))`.
 - `ck_incidencia_paciente_estado`: `CHECK (((estado_incidencia_id = ANY (ARRAY[1, 4, 5, 7])) OR (categoria_ia_id IS NOT NULL)))`.
 - `ck_incidencia_paciente_motivo_archivo`: `CHECK (((estado_incidencia_id = 7) = (motivo_archivo_id IS NOT NULL)))`.

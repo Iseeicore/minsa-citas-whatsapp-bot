@@ -39,6 +39,13 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
   let okCli: string;
   let failingCli: string;
   let resolveFailingCli: string;
+  let failedMigrationCli: string;
+  let migrationErrorCli: string;
+  let noHistoryCli: string;
+
+  // Fake CLI whose `migrate deploy` prints a real-looking Prisma error to stderr and fails; every other command succeeds.
+  const deployFailsWith = (message: string) =>
+    `if (process.argv.includes("deploy")) { console.error(${JSON.stringify(message)}); process.exit(1); } console.log("MIGRATE_RAN " + process.argv.slice(2).join(" "));`;
 
   beforeAll(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "entrypoint-"));
@@ -50,6 +57,25 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     fs.writeFileSync(
       resolveFailingCli,
       'if (process.argv.includes("resolve")) process.exit(1); console.log("MIGRATE_RAN " + process.argv.slice(2).join(" "));',
+    );
+    failedMigrationCli = path.join(dir, "deploy-p3009.js");
+    fs.writeFileSync(
+      failedMigrationCli,
+      deployFailsWith(
+        "Error: P3009\n\nmigrate found failed migrations in the target database, new migrations will not be applied.\nThe `20261019200000_descripcion_derivacion` migration started at 2026-10-23 10:00:00 UTC failed",
+      ),
+    );
+    migrationErrorCli = path.join(dir, "deploy-p3018.js");
+    fs.writeFileSync(
+      migrationErrorCli,
+      deployFailsWith(
+        'Error: P3018\n\nA migration failed to apply.\n\nMigration name: 20261023120000_plazos_habiles_por_categoria\n\nDatabase error code: 42701\n\nDatabase error:\nERROR: column "plazo_dias_habiles" of relation "categoria_incidencia" already exists',
+      ),
+    );
+    noHistoryCli = path.join(dir, "deploy-p3005.js");
+    fs.writeFileSync(
+      noHistoryCli,
+      deployFailsWith("Error: P3005\n\nThe database schema is not empty. Read more about how to baseline an existing production database"),
     );
   });
 
@@ -93,6 +119,47 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     expect(result.status).toBe(1);
     expect(result.out).toContain("las migraciones fallaron");
     expect(result.out).not.toContain("SERVER_STARTED");
+  });
+
+  it("a failed migration recorded in the history (P3009): names it, points to its logs and never resolves it alone", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" }, failedMigrationCli);
+
+    expect(result.status).toBe(1);
+    expect(result.out).toContain("migrate found failed migrations");
+    expect(result.out).toContain("ERROR P3009: la migración 20261019200000_descripcion_derivacion falló");
+    expect(result.out).toContain("columna logs de _prisma_migrations");
+    expect(result.out).toContain("prisma migrate resolve --rolled-back 20261019200000_descripcion_derivacion");
+    expect(result.out).toContain("prisma migrate resolve --applied 20261019200000_descripcion_derivacion");
+    expect(result.out).not.toContain("MIGRATE_RAN migrate resolve --rolled-back 20261019200000_descripcion_derivacion");
+    expect(result.out).not.toContain("SERVER_STARTED");
+  });
+
+  it("a migration that fails to apply (P3018): names it and gives the same next step", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" }, migrationErrorCli);
+
+    expect(result.status).toBe(1);
+    expect(result.out).toContain("already exists");
+    expect(result.out).toContain("ERROR P3018: la migración 20261023120000_plazos_habiles_por_categoria falló");
+    expect(result.out).toContain("columna logs de _prisma_migrations");
+    expect(result.out).not.toContain("SERVER_STARTED");
+  });
+
+  it("a database with objects but no migration history (P3005): asks for a deliberate baseline", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" }, noHistoryCli);
+
+    expect(result.status).toBe(1);
+    expect(result.out).toContain("The database schema is not empty");
+    expect(result.out).toContain("ERROR P3005: la base tiene objetos pero no tiene historial de migraciones");
+    expect(result.out).toContain("prisma migrate resolve --applied <migración>");
+    expect(result.out).toContain("Nunca se hace automáticamente");
+    expect(result.out).not.toContain("MIGRATE_RAN migrate resolve --applied");
+    expect(result.out).not.toContain("SERVER_STARTED");
+  });
+
+  it("a migration failure without a known Prisma code: only the generic error", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" }, failingCli);
+
+    expect(result.out).not.toContain("Siguiente paso");
   });
 
   it("reset confirmed with the database name: wipes first, then migrates from scratch, then starts", () => {

@@ -256,7 +256,7 @@ SELECT pg_temp.nuevo('t14-lote-abierto', '9142', 2);
 SELECT pg_temp.llevar('t14-lote-abierto', 'EN_GESTION');
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
 UPDATE chatbot.incidencia_paciente SET resuelto_en = now() - interval '4 days' WHERE trace_id = 't14-lote-resuelto';
-UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '5 days' WHERE trace_id = 't14-lote-abierto';
+UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '60 days' WHERE trace_id = 't14-lote-abierto';
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
