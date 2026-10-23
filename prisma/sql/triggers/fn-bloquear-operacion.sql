@@ -1,0 +1,12 @@
+CREATE OR REPLACE TRIGGER trg_etiqueta_bloqueo_borrado BEFORE DELETE ON catalogo.etiqueta FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_archivo_recibido_bloqueo_borrado BEFORE DELETE ON chatbot.archivo_recibido FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_evidencia_bloqueo BEFORE DELETE OR UPDATE ON chatbot.evidencia FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('todo');
+CREATE OR REPLACE TRIGGER trg_incidencia_analisis_bloqueo BEFORE DELETE OR UPDATE ON chatbot.incidencia_analisis FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('todo');
+CREATE OR REPLACE TRIGGER trg_incidencia_etiqueta_bloqueo_borrado BEFORE DELETE ON chatbot.incidencia_etiqueta FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_incidencia_paciente_bloqueo_borrado BEFORE DELETE ON chatbot.incidencia_paciente FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_incidencia_paciente_auditoria_bloqueo BEFORE DELETE OR UPDATE ON chatbot.incidencia_paciente_auditoria FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('todo');
+CREATE OR REPLACE TRIGGER trg_solicitud_carga_bloqueo_borrado BEFORE DELETE ON chatbot.solicitud_carga FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_usuario_bloqueo_borrado BEFORE DELETE ON chatbot.usuario FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_rol_categoria_bloqueo BEFORE DELETE OR UPDATE ON gestion.rol_categoria FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('todo');
+CREATE OR REPLACE TRIGGER trg_sesion_usuario_bloqueo_borrado BEFORE DELETE ON gestion.sesion_usuario FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_usuario_interno_bloqueo_borrado BEFORE DELETE ON gestion.usuario_interno FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');

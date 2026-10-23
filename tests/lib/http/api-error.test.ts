@@ -13,6 +13,7 @@ describe("apiError", () => {
 
   it("maps each code to its HTTP status", () => {
     expect(API_ERRORS.INVALID_BODY.status).toBe(400);
+    expect(API_ERRORS.UNAUTHORIZED.status).toBe(401);
     expect(API_ERRORS.NOT_FOUND.status).toBe(404);
     expect(API_ERRORS.WINDOW_EXPIRED.status).toBe(422);
     expect(API_ERRORS.PERSISTENCE_DISABLED.status).toBe(503);

@@ -43,6 +43,7 @@ export const LOG_EVENTS = [
   "incidencia.listado_unavailable",
   "incidencia.listado_failed",
   "sandbox.cors_invalid_origin",
+  "sandbox.signature_rejected",
   "config.invalid",
 ] as const;
 

@@ -3,6 +3,7 @@ import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
 export const API_ERRORS: Record<ApiErrorCode, { status: number; message: string }> = {
   [ApiErrorCode.INVALID_BODY]: { status: 400, message: "El cuerpo de la petición no es válido." },
+  [ApiErrorCode.UNAUTHORIZED]: { status: 401, message: "La petición no está autorizada." },
   [ApiErrorCode.NOT_FOUND]: { status: 404, message: "El recurso solicitado no existe." },
   [ApiErrorCode.WINDOW_EXPIRED]: {
     status: 422,

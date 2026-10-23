@@ -256,12 +256,12 @@ SELECT pg_temp.nuevo('t14-lote-abierto', '9142', 2);
 SELECT pg_temp.llevar('t14-lote-abierto', 'EN_GESTION');
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
 UPDATE chatbot.incidencia_paciente SET resuelto_en = now() - interval '4 days' WHERE trace_id = 't14-lote-resuelto';
-UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '5 days' WHERE trace_id = 't14-lote-abierto';
+UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '60 days' WHERE trace_id = 't14-lote-abierto';
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
   ASSERT chatbot.archivar_incidencias_resueltas(3, 1000) = 1, 'Z18 se archiva la resuelta hace mas de 3 dias';
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 1, 'Z18 se archiva la abierta que vencio';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 1, 'Z18 se archiva la abierta que vencio';
   ASSERT (SELECT string_agg(i.trace_id || '=' || m.codigo || '/' || i.usuario_modificacion, ',' ORDER BY i.trace_id)
             FROM chatbot.incidencia_paciente i JOIN catalogo.motivo_archivo m ON m.id = i.motivo_archivo_id WHERE i.trace_id LIKE 't14-lote-%')
          = 't14-lote-abierto=VENCIDA_SIN_ATENDER/sistema:vencimiento,t14-lote-resuelto=RESUELTA_VIGENCIA/sistema:archivado',

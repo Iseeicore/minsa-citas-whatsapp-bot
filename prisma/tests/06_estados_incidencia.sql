@@ -85,8 +85,8 @@ END $$;
 
 DO $$
 BEGIN
-  ASSERT chatbot.purgar_sesiones_inactivas() = 0, 'E14 la purga de sesiones no toca incidencias';
-  ASSERT chatbot.archivar_incidencias_resueltas() = 0, 'E14 las recien resueltas no se archivan';
+  ASSERT chatbot.purgar_sesiones_inactivas(1, 1000) = 0, 'E14 la purga de sesiones no toca incidencias';
+  ASSERT chatbot.archivar_incidencias_resueltas(3, 1000) = 0, 'E14 las recien resueltas no se archivan';
 END $$;
 
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER trg_incidencia_paciente_a_reglas;
@@ -106,7 +106,7 @@ BEGIN
   ASSERT EXISTS (SELECT 1 FROM chatbot.incidencia_paciente_auditoria a JOIN chatbot.incidencia_paciente i ON i.id = a.incidencia_paciente_id
                   WHERE i.trace_id = 'trace-estados-A' AND a.actor = 'sistema:archivado' AND a.cambios ? 'estado_incidencia_id'),
     'E17 el historial guarda el archivado con su actor';
-  ASSERT chatbot.archivar_incidencias_resueltas() = 0, 'E18 no hay mas que archivar';
+  ASSERT chatbot.archivar_incidencias_resueltas(3, 1000) = 0, 'E18 no hay mas que archivar';
 END $$;
 
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 4 WHERE trace_id = 'trace-estados-A'$q$, '23514', 'E19 una archivada no vuelve atras');

@@ -22,7 +22,7 @@ BEGIN
   ASSERT (SELECT activo FROM gestion.rol WHERE codigo = 'DIRIS') = false, 'R01 el rol DIRIS nace desactivado';
   ASSERT (SELECT string_agg(codigo, ',' ORDER BY id) FROM gestion.rol WHERE activo)
          = 'ADMINISTRADOR,GESTOR,OTRANS,ESTABLECIMIENTO', 'R02 los roles vigentes son cuatro';
-  ASSERT (SELECT usuario_creacion FROM gestion.rol WHERE codigo = 'DIRIS') = 'sistema:migracion', 'R03 la migracion firma los roles';
+  ASSERT (SELECT usuario_creacion FROM gestion.rol WHERE codigo = 'DIRIS') = 'sistema:semilla', 'R03 la semilla firma los roles';
   ASSERT NOT EXISTS (SELECT 1 FROM gestion.rol WHERE codigo IN ('REVISOR', 'AREA_DENUNCIA_CORRUPCION', 'AREA_QUEJA', 'AREA_RECLAMO')),
     'R03 los roles de revision y de area por categoria no existen';
   ASSERT to_regclass('gestion.modulo') IS NULL AND to_regclass('gestion.rol_modulo') IS NULL, 'R04 las tablas de modulos no existen';

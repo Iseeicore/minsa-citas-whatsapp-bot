@@ -160,11 +160,11 @@ ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 SELECT pg_temp.nuevo('t17-auto', 3);
 SELECT pg_temp.llevar('t17-auto', 'EN_GESTION');
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
-UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '10 days' WHERE trace_id = 't17-auto';
+UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '60 days' WHERE trace_id = 't17-auto';
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 1, 'A21 el vencimiento archiva el caso abierto';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 1, 'A21 el vencimiento archiva el caso abierto';
   ASSERT (SELECT archivo_detalle IS NULL AND estado_incidencia_id = 7 FROM chatbot.incidencia_paciente WHERE trace_id = 't17-auto'), 'A21 un archivado automatico queda sin justificacion';
 END $$;
 
@@ -243,14 +243,14 @@ ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'B25 un caso recien reabierto no vuelve a vencer enseguida, aunque haya llegado hace mas de 3 dias';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 0, 'B25 un caso recien reabierto no vuelve a vencer enseguida, aunque haya llegado hace mas de su plazo';
 END $$;
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
-UPDATE chatbot.incidencia_paciente SET reabierto_en = now() - interval '4 days' WHERE trace_id = 't17-auto';
+UPDATE chatbot.incidencia_paciente SET reabierto_en = now() - interval '60 days' WHERE trace_id = 't17-auto';
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 1, 'B26 pasado el plazo desde la reapertura, el caso vuelve a vencer';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 1, 'B26 pasado el plazo desde la reapertura, el caso vuelve a vencer';
   ASSERT (SELECT estado_incidencia_id = 7 FROM chatbot.incidencia_paciente WHERE trace_id = 't17-auto'), 'B26 queda archivado de nuevo';
 END $$;
 

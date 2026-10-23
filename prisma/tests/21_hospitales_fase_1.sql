@@ -43,8 +43,8 @@ BEGIN
   ASSERT obj_description('catalogo.cargar_hospitales_fase_1()'::regprocedure, 'pg_proc') LIKE '%No se ejecuta sola%'
      AND obj_description('catalogo.retirar_hospitales_fase_1()'::regprocedure, 'pg_proc') LIKE '%No se ejecuta sola%',
     'H02 las dos funciones tienen descripcion y dicen que no se ejecutan solas';
-  ASSERT NOT EXISTS (SELECT 1 FROM catalogo.establecimiento_salud WHERE usuario_creacion = 'sistema:migracion'), 'H03 la migracion no inserto establecimientos';
-  ASSERT NOT EXISTS (SELECT 1 FROM catalogo.area WHERE usuario_creacion = 'sistema:migracion' AND codigo <> 'OTRANS'), 'H03 ni areas fuera de OTRANS';
+  ASSERT NOT EXISTS (SELECT 1 FROM catalogo.establecimiento_salud WHERE usuario_creacion = 'sistema:semilla'), 'H03 la semilla no inserto establecimientos';
+  ASSERT NOT EXISTS (SELECT 1 FROM catalogo.area WHERE usuario_creacion = 'sistema:semilla' AND codigo <> 'OTRANS'), 'H03 ni areas fuera de OTRANS';
 END $$;
 
 TRUNCATE gestion.usuario_interno CASCADE;

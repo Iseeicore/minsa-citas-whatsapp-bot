@@ -68,6 +68,7 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `incidencia.establecimiento_lookup_failed` | error | `by` (`codigo` o `nombre`) y `error`. Falló la búsqueda del establecimiento en el padrón; el flujo trata el resultado como no disponible y pide la ubicación de otra forma |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |
+| `sandbox.signature_rejected` | warn | `reason` (`missing`, `invalid` o `expired`). `POST /api/sandbox` recibió una petición sin firma válida con `SANDBOX_SHARED_SECRET` definido |
 | `config.invalid` | error / warn | `issue` (el código del catálogo), `value`, `message`. Problema de configuración detectado al arrancar el servidor (ver `lib/config/config-errors.ts`); el bot sigue funcionando con su respaldo y `/api/health` responde `degraded` |
 
 ## Qué se oculta

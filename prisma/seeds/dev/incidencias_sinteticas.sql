@@ -4,14 +4,14 @@
 DO $$
 BEGIN
   IF (SELECT count(*) FROM catalogo.establecimiento_salud WHERE codigo_renipress IN ('6206', '5946', '5614')) < 3 THEN
-    RAISE EXCEPTION 'Faltan los establecimientos 6206, 5946 y 5614: corre primero npm run db:seed:eess';
+    RAISE EXCEPTION 'Faltan los establecimientos 6206, 5946 y 5614: carga primero seeds/eess/cargar_establecimientos.sql';
   END IF;
 END $$;
 
 \if :{?hash_clave}
 \else
-  SELECT '$argon2id$v=19$m=65536,t=3,p=4$' || rtrim(encode(sha256(uuidv7()::text::bytea), 'base64'), '=')
-         || '$' || rtrim(encode(sha256(uuidv7()::text::bytea), 'base64'), '=') AS hash_clave \gset
+  SELECT '$argon2id$v=19$m=65536,t=3,p=4$' || rtrim(encode(sha256(gen_random_uuid()::text::bytea), 'base64'), '=')
+         || '$' || rtrim(encode(sha256(gen_random_uuid()::text::bytea), 'base64'), '=') AS hash_clave \gset
 \endif
 
 DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:seed-dev', false); END $$;
