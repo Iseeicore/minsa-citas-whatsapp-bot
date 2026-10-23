@@ -10,6 +10,7 @@ import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 
 export function startReferenciasLookup(session: Session): HandlerResult {
   const next = cloneSession(session);
+  delete next.slots[SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION];
   if (next.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.CITA_REFERENCIAS) {
     delete next.slots[SlotKey.CITA_REFERENCIAS_DATA];
     delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];

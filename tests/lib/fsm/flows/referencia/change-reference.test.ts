@@ -42,7 +42,7 @@ const REFERENCE: ReferenciaItem = {
   upsDestino: "CARDIOLOGÍA",
   codigoIpressDestino: "eess-synthetic",
   codigoUpsDestino: "ups-synthetic",
-  estado: 7,
+  estado: 5,
 };
 
 const WAITING_STATES = [
