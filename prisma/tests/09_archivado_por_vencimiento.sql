@@ -52,8 +52,6 @@ BEGIN
 END;
 $$;
 
--- Los casos clasificados son reclamos: 30 dias habiles, que segun el dia de la semana de llegada vencen entre 41 y 43 dias corridos
--- despues. Con 44 dias ya vencieron siempre y con 40 todavia no, sea cual sea el dia en que corra la prueba (ver tests/22).
 SELECT pg_temp.crear('venc-A', 'REGISTRADO', interval '60 days');
 SELECT pg_temp.crear('venc-B', 'CLASIFICADO', interval '60 days');
 SELECT pg_temp.crear('venc-C', 'DERIVADO', interval '60 days');

@@ -1,5 +1,3 @@
--- Descripción de la última derivación manual. Idempotente: se puede volver a ejecutar sobre una base que ya la tiene
--- (por ejemplo, si se aplicó a mano antes de que Prisma la registrara) sin error ni cambios.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';

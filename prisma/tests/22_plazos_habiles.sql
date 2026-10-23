@@ -16,7 +16,6 @@ BEGIN
 END;
 $$;
 
--- Referencia independiente de la funcion: el n-esimo dia de lunes a viernes despues de la fecha p_dia, contado dia por dia.
 CREATE FUNCTION pg_temp.habil_n(p_dia date, p_n integer) RETURNS date
 LANGUAGE sql AS $$
   SELECT g::date
@@ -99,7 +98,6 @@ BEGIN
 END;
 $$;
 
--- Fechas de Lima calculadas dia por dia (sin la funcion): el ultimo dia cuyo plazo de 30 dias habiles termino antes de hoy, y el siguiente.
 CREATE TEMP TABLE limite AS
 SELECT max(d::date) AS vencido, max(d::date) + 1 AS por_vencer
   FROM generate_series((now() AT TIME ZONE 'America/Lima')::date - 80, (now() AT TIME ZONE 'America/Lima')::date, interval '1 day') d
@@ -115,7 +113,6 @@ SELECT pg_temp.crear('t22-reabierto', 3, 'DERIVADO');
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
 UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '200 days' WHERE trace_id IN ('t22-corrupcion', 't22-sin-categoria');
 UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '60 days' WHERE trace_id IN ('t22-queja-vieja', 't22-reabierto');
--- Llega a las 23:59 de Lima: el plazo igual empieza a contar el dia siguiente.
 UPDATE chatbot.incidencia_paciente SET fecha_creacion = (SELECT (vencido || ' 23:59')::timestamp AT TIME ZONE 'America/Lima' FROM limite) WHERE trace_id = 't22-reclamo-vencido';
 UPDATE chatbot.incidencia_paciente SET fecha_creacion = (SELECT (por_vencer || ' 00:01')::timestamp AT TIME ZONE 'America/Lima' FROM limite) WHERE trace_id = 't22-reclamo-por-vencer';
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;

@@ -43,7 +43,6 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
   let migrationErrorCli: string;
   let noHistoryCli: string;
 
-  // Fake CLI whose `migrate deploy` prints a real-looking Prisma error to stderr and fails; every other command succeeds.
   const deployFailsWith = (message: string) =>
     `if (process.argv.includes("deploy")) { console.error(${JSON.stringify(message)}); process.exit(1); } console.log("MIGRATE_RAN " + process.argv.slice(2).join(" "));`;
 

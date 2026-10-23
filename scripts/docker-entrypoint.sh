@@ -58,7 +58,6 @@ if ! node "$PRISMA_CLI" migrate resolve --rolled-back "$MIGRACION_FALLIDA" --sch
   log "ADVERTENCIA: no se pudo marcar como revertida (si ya está aplicada o no existe, es normal). Se continúa con las migraciones."
 fi
 
-# Solo diagnostica: nunca resuelve una migración por su cuenta. Recibe la salida de migrate deploy.
 diagnosticar_migracion() {
   migracion=$(printf '%s\n' "$1" | sed -n 's/.*\([0-9]\{14\}_[A-Za-z0-9_]*\).*/\1/p' | head -n 1)
   if [ -z "$migracion" ]; then
