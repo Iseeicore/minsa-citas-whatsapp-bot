@@ -41,6 +41,7 @@ export function ChatListPicker({
               <ReferenceOptionButton
                 reference={reference}
                 disabled={disabled}
+                unavailable={item.disabled}
                 onClick={() => onSelect(item.id, referenciaSeleccionText(reference.especialidad, reference.numero))}
               />
             );
