@@ -24,6 +24,15 @@ Todo lo que define la base vive aquí y se versiona con el código.
 6. Cada regla nueva lleva su prueba en `tests/` y se verifica que **falle** cuando la regla se apaga.
 7. **Un rol o un valor de catálogo no se borra: se retira con `activo = false`.** Las filas de `rol_categoria` y `usuario_rol` no se tocan, y las consultas cuentan solo los roles activos (así nace desactivado el rol `DIRIS`; los permisos son por rol, sin tablas de módulos).
 
+### Reglas para escribir una migración nueva
+
+- **Va entre `BEGIN;` y `COMMIT;`.** `prisma migrate deploy` (Prisma 6.19) no envuelve la migración en una transacción: si falla a la mitad, deja la base a medias y la migración marcada como fallida (P3009/P3018). Justo después de `BEGIN;` van `SET LOCAL lock_timeout = '5s';` y `SET LOCAL statement_timeout = '30s';`, para que no se quede esperando un bloqueo con la aplicación andando. `set_config('app.actor', ..., true)` también va dentro.
+- **Se puede ejecutar dos veces sin error.** `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`, `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER`. Las restricciones van dentro de un `DO` que primero consulta `pg_constraint` (`conrelid` + `conname`); las semillas, con `ON CONFLICT DO NOTHING`, y los `UPDATE` de llenado, solo sobre las filas que aún no tienen el valor.
+- **Nada exclusivo de PostgreSQL 17 o 18.** El servidor de MINSA es PostgreSQL 16: no existen `uuidv7()` ni `ADD CONSTRAINT IF NOT EXISTS`. Las pruebas se corren en una base 16.
+- **Nunca se aplica una migración a mano con `psql` en un entorno compartido.** Prisma no la registra, y el siguiente `migrate deploy` la vuelve a ejecutar; si no es idempotente, falla (P3018) y el servicio no arranca.
+- **Nunca se edita una migración ya aplicada** (punto 1): cambia su checksum. Si tiene un error, se corrige con una migración nueva.
+- Si el arranque falla con P3009, P3018 o P3005, `scripts/docker-entrypoint.sh` dice qué migración fue y el siguiente paso; resolverla (`prisma migrate resolve --rolled-back` o `--applied`) lo decide siempre una persona después de leer la columna `logs` de `_prisma_migrations`.
+
 ## Migración puente para bases creadas con el esquema anterior
 
 `20261012000000_puente_esquema_anterior` existe por las excepciones del punto 1: las nueve primeras migraciones se reescribieron dentro de su misma carpeta. Prisma reconoce una migración por el nombre de la carpeta, así que una base creada con el contenido anterior las da por aplicadas: `prisma migrate deploy` termina sin error y la deja sin las tablas, columnas, restricciones, índices, funciones, disparadores y descripciones que se agregaron después. El puente lleva esa base a la forma actual sin perder filas.

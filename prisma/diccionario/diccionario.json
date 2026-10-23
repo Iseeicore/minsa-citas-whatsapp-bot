@@ -26,7 +26,9 @@
     "catalogo.categoria_incidencia": {
       "descripcion": "Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). Marca cuáles son sensibles. Es un catálogo con llave foránea para poder agregar categorías sin cambiar la estructura.",
       "columnas": {
-        "es_sensible": "Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por un área que reciba casos sensibles (OTRANS) y siempre pasa por revisión humana. La base impide derivarla a un establecimiento."
+        "es_sensible": "Verdadero si la categoría es sensible (hoy, la denuncia por corrupción): se atiende solo por un área que reciba casos sensibles (OTRANS) y siempre pasa por revisión humana. La base impide derivarla a un establecimiento.",
+        "plazo_dias_habiles": "Plazo de atención de un caso de esta categoría, en días hábiles (de lunes a viernes, todavía sin feriados, en la zona America/Lima). Se cuenta desde el día siguiente a la llegada del caso, o a su reapertura, y vence al terminar el último día hábil. Mayor que 0.",
+        "archiva_por_vencimiento": "Verdadero si un caso abierto de esta categoría se archiva solo (motivo VENCIDA_SIN_ATENDER) cuando vence su plazo. Falso (hoy, la denuncia por corrupción) significa que el caso no se archiva por vencimiento aunque supere el plazo."
       }
     },
     "catalogo.estado_incidencia": {
@@ -123,7 +125,8 @@
         "archivo_detalle": "Justificación escrita de quien archivó el caso (10 caracteres o más). Obligatoria en los motivos manuales (datos insuficientes y no corresponde); en los automáticos puede quedar vacía. Se limpia al reabrir el caso; el historial queda en la auditoría.",
         "reabierto_en": "Fecha y hora (UTC) en que el caso se reabrió por última vez (de ARCHIVADO a EN_GESTION). La llena la base. Nulo si nunca se reabrió.",
         "reabierto_por": "Quién reabrió el caso la última vez. La llena la base con el actor declarado.",
-        "reabierto_motivo": "Por qué se reabrió el caso (10 caracteres o más). Obligatorio al reabrir. Solo se reabre un caso archivado por datos insuficientes, no corresponde o vencido sin atender, nunca uno archivado por vigencia de la resolución. El historial de reaperturas queda en la auditoría."
+        "reabierto_motivo": "Por qué se reabrió el caso (10 caracteres o más). Obligatorio al reabrir. Solo se reabre un caso archivado por datos insuficientes, no corresponde o vencido sin atender, nunca uno archivado por vigencia de la resolución. El historial de reaperturas queda en la auditoría.",
+        "derivacion_descripcion": "Descripción de la última derivación manual, de 10 a 2000 caracteres sin espacios en los extremos. Nula en registros anteriores o sin derivación descrita; los motivos anteriores se conservan en la auditoría."
       }
     },
     "chatbot.contador_codigo_incidencia": {

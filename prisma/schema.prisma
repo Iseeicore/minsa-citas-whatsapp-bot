@@ -9,17 +9,19 @@ datasource db {
 }
 
 model CategoriaIncidencia {
-  id                  Int      @id(map: "pk_categoria_incidencia") @default(autoincrement()) @db.SmallInt
-  codigo              String   @unique(map: "uq_categoria_incidencia_codigo")
-  nombre              String
-  descripcion         String?
-  esSensible          Boolean  @default(false) @map("es_sensible")
-  activo              Boolean  @default(true)
-  versionFila         Int      @default(1) @map("version_fila")
-  fechaCreacion       DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
-  usuarioCreacion     String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
-  fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
-  usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+  id                    Int      @id(map: "pk_categoria_incidencia") @default(autoincrement()) @db.SmallInt
+  codigo                String   @unique(map: "uq_categoria_incidencia_codigo")
+  nombre                String
+  descripcion           String?
+  esSensible            Boolean  @default(false) @map("es_sensible")
+  plazoDiasHabiles      Int      @map("plazo_dias_habiles") @db.SmallInt
+  archivaPorVencimiento Boolean  @default(true) @map("archiva_por_vencimiento")
+  activo                Boolean  @default(true)
+  versionFila           Int      @default(1) @map("version_fila")
+  fechaCreacion         DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  usuarioCreacion       String   @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
+  fechaModificacion     DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  usuarioModificacion   String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
   roles               RolCategoria[]
   incidencias         IncidenciaPaciente[]     @relation("IncidenciaCategoria")
@@ -392,6 +394,7 @@ model IncidenciaPaciente {
   reabiertoEn            DateTime? @map("reabierto_en") @db.Timestamptz(3)
   reabiertoPor           String?   @map("reabierto_por")
   reabiertoMotivo        String?   @map("reabierto_motivo")
+  derivacionDescripcion  String?   @map("derivacion_descripcion")
 
   canalOrigen         CanalOrigen                   @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
   usuario             Usuario                       @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")

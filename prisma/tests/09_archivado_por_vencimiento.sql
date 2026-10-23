@@ -19,9 +19,9 @@ $$;
 SELECT set_config('app.actor', 'sistema:prueba', false);
 INSERT INTO catalogo.area (codigo, nombre, tipo_area_id) VALUES ('T09-AREA', 'Area de prueba 09', 1);
 
-CREATE TEMP TABLE edades (traza text PRIMARY KEY, horas integer NOT NULL);
+CREATE TEMP TABLE edades (traza text PRIMARY KEY, edad interval NOT NULL);
 
-CREATE FUNCTION pg_temp.crear(p_traza text, p_estado text, p_horas integer) RETURNS void
+CREATE FUNCTION pg_temp.crear(p_traza text, p_estado text, p_edad interval) RETURNS void
 LANGUAGE plpgsql AS $$
 DECLARE
   v_usuario uuid;
@@ -32,7 +32,7 @@ BEGIN
   INSERT INTO chatbot.incidencia_paciente (canal_origen_id, usuario_id, wa_id, es_anonimo, descripcion, trace_id)
   VALUES (1, v_usuario, 'wa-' || p_traza, true, 'Incidencia ' || p_traza, p_traza)
   RETURNING id INTO v_id;
-  INSERT INTO edades VALUES (p_traza, p_horas);
+  INSERT INTO edades VALUES (p_traza, p_edad);
 
   IF p_estado <> 'REGISTRADO' THEN
     PERFORM set_config('app.actor', 'sistema:ia', false);
@@ -52,21 +52,23 @@ BEGIN
 END;
 $$;
 
-SELECT pg_temp.crear('venc-A', 'REGISTRADO', 100);
-SELECT pg_temp.crear('venc-B', 'CLASIFICADO', 100);
-SELECT pg_temp.crear('venc-C', 'DERIVADO', 100);
-SELECT pg_temp.crear('venc-D', 'EN_GESTION', 100);
-SELECT pg_temp.crear('venc-E', 'RESUELTO', 100);
-SELECT pg_temp.crear('venc-F', 'CLASIFICADO', 10);
-SELECT pg_temp.crear('venc-G', 'CLASIFICADO', 100);
-SELECT pg_temp.crear('venc-H', 'CLASIFICADO', 73);
-SELECT pg_temp.crear('venc-I', 'CLASIFICADO', 71);
+-- Los casos clasificados son reclamos: 30 dias habiles, que segun el dia de la semana de llegada vencen entre 41 y 43 dias corridos
+-- despues. Con 44 dias ya vencieron siempre y con 40 todavia no, sea cual sea el dia en que corra la prueba (ver tests/22).
+SELECT pg_temp.crear('venc-A', 'REGISTRADO', interval '60 days');
+SELECT pg_temp.crear('venc-B', 'CLASIFICADO', interval '60 days');
+SELECT pg_temp.crear('venc-C', 'DERIVADO', interval '60 days');
+SELECT pg_temp.crear('venc-D', 'EN_GESTION', interval '60 days');
+SELECT pg_temp.crear('venc-E', 'RESUELTO', interval '60 days');
+SELECT pg_temp.crear('venc-F', 'CLASIFICADO', interval '10 hours');
+SELECT pg_temp.crear('venc-G', 'CLASIFICADO', interval '60 days');
+SELECT pg_temp.crear('venc-H', 'CLASIFICADO', interval '44 days');
+SELECT pg_temp.crear('venc-I', 'CLASIFICADO', interval '40 days');
 
 SELECT set_config('app.actor', 'operador:gestor', false);
 UPDATE chatbot.incidencia_paciente SET activo = false, eliminado_en = now(), eliminado_por = 'operador:gestor' WHERE trace_id = 'venc-G';
 
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
-UPDATE chatbot.incidencia_paciente i SET fecha_creacion = now() - make_interval(hours => e.horas) FROM edades e WHERE i.trace_id = e.traza;
+UPDATE chatbot.incidencia_paciente i SET fecha_creacion = now() - e.edad FROM edades e WHERE i.trace_id = e.traza;
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
 SELECT set_config('app.actor', 'operador:gestor', false);
@@ -76,26 +78,26 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_inc
 SELECT set_config('app.actor', 'sistema:archivado', false);
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7 WHERE trace_id = 'venc-C'$q$, '23514', 'V03 el archivador de resueltas no archiva casos abiertos');
 
-SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(0, 10)$q$, '23514', 'V04 los dias deben ser al menos 1');
 SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(3, 0)$q$, '23514', 'V05 el lote debe ser al menos 1');
-SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(NULL, 10)$q$, '23514', 'V06 los dias son obligatorios');
+SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(3, NULL)$q$, '23514', 'V06 el lote es obligatorio');
 
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(5, 1000) = 0, 'V07 con un plazo mayor no se archiva lo que aun no vencio';
-  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'venc-%' AND estado_incidencia_id = 7) = 0, 'V08 nada quedo archivado';
+  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'venc-%' AND estado_incidencia_id = 7) = 0, 'V08 nada esta archivado todavia';
 
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1) = 1, 'V09 con lote 1 se archiva una sola';
+  ASSERT chatbot.archivar_incidencias_vencidas(0, 1) = 1, 'V04 los dias se ignoran (el plazo sale de la categoria): con 0 ya no falla, y con lote 1 se archiva una sola';
+  ASSERT chatbot.archivar_incidencias_vencidas(NULL, 1) = 1, 'V07 con dias nulos tampoco falla';
 END $$;
 
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 4, 'V10 se archivan las abiertas restantes que vencieron';
-  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id IN ('venc-A', 'venc-B', 'venc-C', 'venc-D', 'venc-H') AND estado_incidencia_id = 7) = 5,
-    'V11 las cinco abiertas vencidas quedan ARCHIVADAS';
+  ASSERT chatbot.archivar_incidencias_vencidas(500, 1000) = 2, 'V10 un valor de dias mayor no cambia nada: se archivan las abiertas restantes que vencieron';
+  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id IN ('venc-B', 'venc-C', 'venc-D', 'venc-H') AND estado_incidencia_id = 7) = 4,
+    'V11 las cuatro abiertas vencidas quedan ARCHIVADAS';
+  ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-A') = 1, 'V11b la registrada (sin categoria) no se archiva por vencimiento';
 
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-F') = 2, 'V12 la de 10 horas sigue CLASIFICADA';
-  ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-I') = 2, 'V13 la de 71 horas sigue CLASIFICADA';
+  ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-I') = 2, 'V13 la de 40 dias corridos (menos de 30 dias habiles) sigue CLASIFICADA';
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-E') = 4, 'V14 la resuelta no se archiva por vencimiento';
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-G') = 2, 'V15 la anulada (inactiva) no se archiva';
 
@@ -103,13 +105,13 @@ BEGIN
 
   ASSERT (SELECT usuario_modificacion FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-B') = 'sistema:vencimiento', 'V17 la base firma el vencimiento';
   ASSERT (SELECT count(DISTINCT a.incidencia_paciente_id) FROM chatbot.incidencia_paciente_auditoria a JOIN chatbot.incidencia_paciente i ON i.id = a.incidencia_paciente_id
-           WHERE i.trace_id LIKE 'venc-%' AND a.actor = 'sistema:vencimiento' AND a.cambios ? 'estado_incidencia_id') = 5,
-    'V18 el historial guarda el archivado por vencimiento de las cinco';
-  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'venc-%' AND estado_incidencia_id = 7 AND medidas_tomadas IS NULL) = 5,
+           WHERE i.trace_id LIKE 'venc-%' AND a.actor = 'sistema:vencimiento' AND a.cambios ? 'estado_incidencia_id') = 4,
+    'V18 el historial guarda el archivado por vencimiento de las cuatro';
+  ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'venc-%' AND estado_incidencia_id = 7 AND medidas_tomadas IS NULL) = 4,
     'V19 un archivado por vencimiento se reconoce porque nunca tuvo resolucion';
 
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente i JOIN catalogo.motivo_archivo m ON m.id = i.motivo_archivo_id
-           WHERE i.trace_id LIKE 'venc-%' AND m.codigo = 'VENCIDA_SIN_ATENDER' AND i.archivado_en IS NOT NULL) = 5,
+           WHERE i.trace_id LIKE 'venc-%' AND m.codigo = 'VENCIDA_SIN_ATENDER' AND i.archivado_en IS NOT NULL) = 4,
     'V19b la base deduce el motivo VENCIDA_SIN_ATENDER y la fecha de archivado';
 
   ASSERT chatbot.archivar_incidencias_resueltas(3, 1000) = 0, 'V20 las resueltas recientes no se archivan';

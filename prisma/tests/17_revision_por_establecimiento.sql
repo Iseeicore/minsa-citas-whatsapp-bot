@@ -160,7 +160,7 @@ ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 SELECT pg_temp.nuevo('t17-auto', 3);
 SELECT pg_temp.llevar('t17-auto', 'EN_GESTION');
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
-UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '10 days' WHERE trace_id = 't17-auto';
+UPDATE chatbot.incidencia_paciente SET fecha_creacion = now() - interval '60 days' WHERE trace_id = 't17-auto';
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
@@ -243,10 +243,10 @@ ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'B25 un caso recien reabierto no vuelve a vencer enseguida, aunque haya llegado hace mas de 3 dias';
+  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'B25 un caso recien reabierto no vuelve a vencer enseguida, aunque haya llegado hace mas de su plazo';
 END $$;
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
-UPDATE chatbot.incidencia_paciente SET reabierto_en = now() - interval '4 days' WHERE trace_id = 't17-auto';
+UPDATE chatbot.incidencia_paciente SET reabierto_en = now() - interval '60 days' WHERE trace_id = 't17-auto';
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
