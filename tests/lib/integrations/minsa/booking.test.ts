@@ -83,8 +83,14 @@ describe("real MINSA — bookAppointment", () => {
     expect(lines.some((line) => JSON.parse(line).event === "minsa.book_appointment.failed")).toBe(false);
   });
 
-  it("a genuine HTTP 500 with no recognizable business message is still a raw 'error'", async () => {
-    vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, message: "Internal Server Error" }), 500));
+  it.each([500, 502, 503])("a genuine HTTP %i with no recognizable business message means the service is unavailable", async (status) => {
+    vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, message: "Internal Server Error" }), status));
+
+    await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("a client error such as HTTP 400 stays a raw 'error' that may be retried", async () => {
+    vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, message: "Bad Request" }), 400));
 
     await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({ status: "error" });
   });

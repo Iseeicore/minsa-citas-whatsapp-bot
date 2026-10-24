@@ -15,6 +15,7 @@ import {
   BOOKING_TECHNICAL_RETRY_TEXT,
   BOOKING_SLOT_TAKEN_RETRY_TEXT,
   BOOKING_REJECTED_TEXT,
+  BOOKING_SERVICE_UNAVAILABLE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import { CITA_BOOKED_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
 import { BookingStatus } from "@/lib/enums/booking-status";
@@ -41,6 +42,15 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
 
   if (result.status === BookingStatus.DUPLICATE) {
     return offerOtherEspecialidad(next);
+  }
+
+  if (result.status === BookingStatus.UNAVAILABLE) {
+    next.state = SessionState.CITA_BOOKING_REJECTED;
+    return withNote(buildResult(next, [sendText(BOOKING_SERVICE_UNAVAILABLE_TEXT)]), {
+      kind: "booking_rejected",
+      level: "warn",
+      detail: { status: result.status, reason: "service_unavailable" },
+    });
   }
 
   const failures = (next.counters[CounterKey.CITA_BOOKING_FAILURES] ?? 0) + 1;

@@ -421,6 +421,23 @@ describe("booking pending — raw HTTP errors are not the same as a real rejecti
     expect(shown).not.toContain("otra persona");
   });
 
+  it("an unavailable service closes the flow at once with the outage message, no list of hours and no retry", () => {
+    const result = handle(bookingState(), queryResult("book_appointment", { status: "unavailable" }));
+
+    expect(result.session.state).toBe("cita_booking_rejected");
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toBe("En este momento el servicio tiene problemas. Por favor, inténtalo más tarde.");
+    expect(result.notes).toEqual([
+      { kind: "booking_rejected", level: "warn", detail: { status: "unavailable", reason: "service_unavailable" } },
+    ]);
+  });
+
+  it("an unavailable service does not wait for the 3rd failure: it closes even on the first", () => {
+    const result = handle(bookingState(), queryResult("book_appointment", { status: "unavailable" }));
+
+    expect(result.session.counters[CounterKey.CITA_BOOKING_FAILURES]).toBeUndefined();
+  });
+
   it("a rejection with no message is still treated as an ambiguous 'may be taken' case", () => {
     const result = handle(bookingState(), queryResult("book_appointment", { status: "rejected" }));
 

@@ -3,5 +3,6 @@ export enum BookingStatus {
   DUPLICATE = "duplicate",
   REJECTED = "rejected",
   ERROR = "error",
+  UNAVAILABLE = "unavailable",
   UNAUTHORIZED = "unauthorized",
 }

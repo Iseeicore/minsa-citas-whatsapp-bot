@@ -106,7 +106,7 @@ describe("los llamantes tratan el corte como un error del MINSA", () => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("la reserva de una cita responde error sin lanzar", async () => {
+  it("la reserva de una cita responde servicio no disponible sin lanzar", async () => {
     const params = {
       codigoRenipress: "6181",
       codigoUps: "222400",
@@ -115,7 +115,7 @@ describe("los llamantes tratan el corte como un error del MINSA", () => {
       numeroDocumentoPaciente: "12345678",
     };
 
-    await expect(bookAppointment(params, "token")).resolves.toEqual({ status: "error" });
+    await expect(bookAppointment(params, "token")).resolves.toEqual({ status: "unavailable" });
     expect(fetch).not.toHaveBeenCalled();
   });
 
