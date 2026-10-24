@@ -51,7 +51,7 @@ BEGIN
   END LOOP;
   ASSERT total = 4, 'P03 en total se borran las 3 viejas que quedaban y la de 90 minutos';
   ASSERT (SELECT count(*) FROM chatbot.sesion_conversacion WHERE wa_id LIKE 'purga-reciente-%') = 2, 'P03 las recientes se conservan';
-  ASSERT chatbot.purgar_sesiones_inactivas() = 0, 'P03 sin vencidas devuelve 0 (valores por defecto)';
+  ASSERT chatbot.purgar_sesiones_inactivas(1, 1000) = 0, 'P03 sin vencidas devuelve 0';
 END $$;
 
 INSERT INTO chatbot.usuario (wa_id) VALUES ('purga-usuario');

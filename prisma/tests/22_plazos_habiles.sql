@@ -123,7 +123,7 @@ BEGIN
          = 't22-corrupcion=1/2,t22-queja-vieja=2/6,t22-reabierto=3/6,t22-reclamo-por-vencer=3/2,t22-reclamo-vencido=3/2,t22-sin-categoria=-/1',
     'H18 los casos de prueba quedan con su categoria y su estado';
 
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 3, 'H19 se archivan solo los tres casos vencidos de categorias que archivan por vencimiento';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 3, 'H19 se archivan solo los tres casos vencidos de categorias que archivan por vencimiento';
   ASSERT (SELECT string_agg(trace_id, ',' ORDER BY trace_id) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 't22-%' AND estado_incidencia_id = 7)
          = 't22-queja-vieja,t22-reabierto,t22-reclamo-vencido',
     'H20 quedan archivados la queja vieja, el reclamo que cumplio 30 dias habiles y el que luego se reabre';
@@ -137,7 +137,7 @@ BEGIN
             FROM chatbot.incidencia_paciente i JOIN catalogo.motivo_archivo m ON m.id = i.motivo_archivo_id
            WHERE i.trace_id LIKE 't22-%' AND i.estado_incidencia_id = 7),
     'H24 se firman como sistema:vencimiento con el motivo VENCIDA_SIN_ATENDER';
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'H25 no hay mas que archivar';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 0, 'H25 no hay mas que archivar';
 END $$;
 
 SELECT set_config('app.actor', 'usuario:est-22', false);
@@ -146,7 +146,7 @@ DO $$
 BEGIN
   ASSERT (SELECT estado_incidencia_id = 3 AND reabierto_en IS NOT NULL AND fecha_creacion < now() - interval '59 days' FROM chatbot.incidencia_paciente WHERE trace_id = 't22-reabierto'),
     'H26 el caso se reabre aunque llego hace 60 dias';
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'H27 un caso reabierto cuenta su plazo desde la reapertura, no desde su llegada';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 0, 'H27 un caso reabierto cuenta su plazo desde la reapertura, no desde su llegada';
 END $$;
 
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
@@ -154,7 +154,7 @@ UPDATE chatbot.incidencia_paciente SET reabierto_en = now() - interval '40 days'
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'H28 reabierto hace 40 dias corridos aun no cumple 30 dias habiles';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 0, 'H28 reabierto hace 40 dias corridos aun no cumple 30 dias habiles';
 END $$;
 
 ALTER TABLE chatbot.incidencia_paciente DISABLE TRIGGER USER;
@@ -162,7 +162,7 @@ UPDATE chatbot.incidencia_paciente SET reabierto_en = now() - interval '44 days'
 ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 1, 'H29 reabierto hace 44 dias corridos ya cumplio 30 dias habiles y vuelve a vencer';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 1, 'H29 reabierto hace 44 dias corridos ya cumplio 30 dias habiles y vuelve a vencer';
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 't22-reabierto') = 7, 'H29 queda archivado de nuevo';
 END $$;
 

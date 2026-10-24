@@ -15,7 +15,7 @@ model CategoriaIncidencia {
   descripcion           String?
   esSensible            Boolean  @default(false) @map("es_sensible")
   plazoDiasHabiles      Int      @map("plazo_dias_habiles") @db.SmallInt
-  archivaPorVencimiento Boolean  @default(true) @map("archiva_por_vencimiento")
+  archivaPorVencimiento Boolean  @default(false) @map("archiva_por_vencimiento")
   activo                Boolean  @default(true)
   versionFila           Int      @default(1) @map("version_fila")
   fechaCreacion         DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)

@@ -1,0 +1,1 @@
+CREATE OR REPLACE TRIGGER trg_usuario_interno_a_reglas_area BEFORE UPDATE OF area_id ON gestion.usuario_interno FOR EACH ROW WHEN ((old.area_id IS DISTINCT FROM new.area_id)) EXECUTE FUNCTION fn_reglas_usuario_interno_area();

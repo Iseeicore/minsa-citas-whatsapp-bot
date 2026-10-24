@@ -51,13 +51,13 @@ jobs:
         run: npx vitest run --config vitest.perf.config.ts
 
   database:
-    name: database (migrations, SQL rules and smoke)
+    name: database (migrations, SQL files, SQL rules and smoke)
     if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:18
+        image: postgres:16
         env:
           POSTGRES_PASSWORD: postgres
         ports:
@@ -80,13 +80,18 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
-      - name: SQL rules on a throwaway database built only from the migrations
+      - name: SQL rules on a throwaway database built from the migrations and the SQL files
         run: npm run db:test
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
       - name: Apply migrations
         run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+      - name: Apply functions, triggers, comments and catalog seeds
+        run: npm run db:aplicar
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 

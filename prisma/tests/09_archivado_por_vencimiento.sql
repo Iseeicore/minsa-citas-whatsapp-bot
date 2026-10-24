@@ -76,20 +76,20 @@ SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_inc
 SELECT set_config('app.actor', 'sistema:archivado', false);
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_paciente SET estado_incidencia_id = 7 WHERE trace_id = 'venc-C'$q$, '23514', 'V03 el archivador de resueltas no archiva casos abiertos');
 
-SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(3, 0)$q$, '23514', 'V05 el lote debe ser al menos 1');
-SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(3, NULL)$q$, '23514', 'V06 el lote es obligatorio');
+SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(0)$q$, '23514', 'V05 el lote debe ser al menos 1');
+SELECT pg_temp.espera_error($q$SELECT chatbot.archivar_incidencias_vencidas(NULL)$q$, '23514', 'V06 el lote es obligatorio');
 
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id LIKE 'venc-%' AND estado_incidencia_id = 7) = 0, 'V08 nada esta archivado todavia';
 
-  ASSERT chatbot.archivar_incidencias_vencidas(0, 1) = 1, 'V04 los dias se ignoran (el plazo sale de la categoria): con 0 ya no falla, y con lote 1 se archiva una sola';
-  ASSERT chatbot.archivar_incidencias_vencidas(NULL, 1) = 1, 'V07 con dias nulos tampoco falla';
+  ASSERT chatbot.archivar_incidencias_vencidas(1) = 1, 'V04 el plazo sale de la categoria: con lote 1 se archiva una sola';
+  ASSERT chatbot.archivar_incidencias_vencidas(1) = 1, 'V07 otra llamada con lote 1 archiva la siguiente';
 END $$;
 
 DO $$
 BEGIN
-  ASSERT chatbot.archivar_incidencias_vencidas(500, 1000) = 2, 'V10 un valor de dias mayor no cambia nada: se archivan las abiertas restantes que vencieron';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 2, 'V10 se archivan las abiertas restantes que vencieron';
   ASSERT (SELECT count(*) FROM chatbot.incidencia_paciente WHERE trace_id IN ('venc-B', 'venc-C', 'venc-D', 'venc-H') AND estado_incidencia_id = 7) = 4,
     'V11 las cuatro abiertas vencidas quedan ARCHIVADAS';
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-A') = 1, 'V11b la registrada (sin categoria) no se archiva por vencimiento';
@@ -99,7 +99,7 @@ BEGIN
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-E') = 4, 'V14 la resuelta no se archiva por vencimiento';
   ASSERT (SELECT estado_incidencia_id FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-G') = 2, 'V15 la anulada (inactiva) no se archiva';
 
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 0, 'V16 no hay mas que archivar';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 0, 'V16 no hay mas que archivar';
 
   ASSERT (SELECT usuario_modificacion FROM chatbot.incidencia_paciente WHERE trace_id = 'venc-B') = 'sistema:vencimiento', 'V17 la base firma el vencimiento';
   ASSERT (SELECT count(DISTINCT a.incidencia_paciente_id) FROM chatbot.incidencia_paciente_auditoria a JOIN chatbot.incidencia_paciente i ON i.id = a.incidencia_paciente_id

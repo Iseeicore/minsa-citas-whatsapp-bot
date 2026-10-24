@@ -1,0 +1,1 @@
+CREATE OR REPLACE TRIGGER trg_incidencia_paciente_e_entrenamiento_archivo AFTER UPDATE ON chatbot.incidencia_paciente FOR EACH ROW WHEN (((old.estado_incidencia_id IS DISTINCT FROM new.estado_incidencia_id) AND ((new.estado_incidencia_id = 7) OR (old.estado_incidencia_id = 7)))) EXECUTE FUNCTION fn_marcar_entrenamiento_archivo();

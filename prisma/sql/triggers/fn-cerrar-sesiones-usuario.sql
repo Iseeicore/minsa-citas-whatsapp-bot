@@ -1,0 +1,2 @@
+CREATE OR REPLACE TRIGGER trg_usuario_interno_c_cerrar_sesiones AFTER UPDATE OF activo ON gestion.usuario_interno FOR EACH ROW WHEN ((old.activo AND (NOT new.activo))) EXECUTE FUNCTION fn_cerrar_sesiones_usuario();
+CREATE OR REPLACE TRIGGER trg_usuario_interno_c_cerrar_sesiones_area AFTER UPDATE OF area_id ON gestion.usuario_interno FOR EACH ROW WHEN ((old.area_id IS DISTINCT FROM new.area_id)) EXECUTE FUNCTION fn_cerrar_sesiones_usuario();

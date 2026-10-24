@@ -47,6 +47,12 @@ try {
   });
   console.log("Migraciones aplicadas.");
 
+  execFileSync(process.execPath, [join(import.meta.dirname, "db-aplicar-sql.mjs")], {
+    env: { ...process.env, DATABASE_URL: targetUrl.href },
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+  console.log("Funciones, disparadores, comentarios y semillas aplicados.");
+
   const carpeta = join(import.meta.dirname, "..", "prisma", "tests");
   const archivos = readdirSync(carpeta)
     .filter((n) => n.endsWith(".sql"))

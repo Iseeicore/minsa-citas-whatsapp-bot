@@ -22,6 +22,9 @@ describe("the Docker image applies the migrations on start", () => {
     const dockerfile = read("Dockerfile");
 
     expect(dockerfile).toContain("prisma/migrations ./prisma/migrations");
+    expect(dockerfile).toContain("prisma/sql ./prisma/sql");
+    expect(dockerfile).toContain("prisma/seeds/catalogos ./prisma/seeds/catalogos");
+    expect(dockerfile).toContain("scripts/db-aplicar-sql.mjs ./scripts/db-aplicar-sql.mjs");
     expect(dockerfile).toContain("prisma/schema.prisma ./prisma/schema.prisma");
     expect(dockerfile).toContain("scripts/docker-entrypoint.sh");
     expect(dockerfile).toContain('ENTRYPOINT ["docker-entrypoint.sh"]');
@@ -42,6 +45,8 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
   let failedMigrationCli: string;
   let migrationErrorCli: string;
   let noHistoryCli: string;
+  let okApply: string;
+  let failingApply: string;
 
   const deployFailsWith = (message: string) =>
     `if (process.argv.includes("deploy")) { console.error(${JSON.stringify(message)}); process.exit(1); } console.log("MIGRATE_RAN " + process.argv.slice(2).join(" "));`;
@@ -71,6 +76,10 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
         'Error: P3018\n\nA migration failed to apply.\n\nMigration name: 20261023120000_plazos_habiles_por_categoria\n\nDatabase error code: 42701\n\nDatabase error:\nERROR: column "plazo_dias_habiles" of relation "categoria_incidencia" already exists',
       ),
     );
+    okApply = path.join(dir, "apply-ok.js");
+    failingApply = path.join(dir, "apply-fail.js");
+    fs.writeFileSync(okApply, 'console.log("APLICAR_RAN dir=" + process.env.PRISMA_DIR + " schema=" + process.env.PRISMA_SCHEMA);');
+    fs.writeFileSync(failingApply, "process.exit(1);");
     noHistoryCli = path.join(dir, "deploy-p3005.js");
     fs.writeFileSync(
       noHistoryCli,
@@ -80,9 +89,9 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
 
   afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-  const run = (env: Record<string, string>, cli = okCli) => {
+  const run = (env: Record<string, string>, cli = okCli, apply = okApply) => {
     const result = spawnSync("sh", [SCRIPT, "echo", "SERVER_STARTED"], {
-      env: { NODE_ENV: "test", PATH: process.env.PATH ?? "", PRISMA_CLI: cli, PRISMA_SCHEMA: "schema.prisma", ...env },
+      env: { NODE_ENV: "test", PATH: process.env.PATH ?? "", PRISMA_CLI: cli, PRISMA_SCHEMA: "schema.prisma", APLICAR_SQL: apply, ...env },
       encoding: "utf8",
     });
     return { status: result.status, out: `${result.stdout}${result.stderr}` };
@@ -94,6 +103,23 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     expect(result.status).toBe(0);
     expect(result.out).toContain("MIGRATE_RAN migrate deploy --schema schema.prisma");
     expect(result.out.indexOf("MIGRATE_RAN")).toBeLessThan(result.out.indexOf("SERVER_STARTED"));
+  });
+
+  it("applies the SQL files after the migrations and before starting the server, pointing at the prisma folder", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" });
+
+    expect(result.status).toBe(0);
+    expect(result.out).toContain("APLICAR_RAN dir=. schema=schema.prisma");
+    expect(result.out.indexOf("migrate deploy")).toBeLessThan(result.out.indexOf("APLICAR_RAN"));
+    expect(result.out.indexOf("APLICAR_RAN")).toBeLessThan(result.out.indexOf("SERVER_STARTED"));
+  });
+
+  it("SQL files that fail to apply: stops with an error and never starts the server", () => {
+    const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" }, okCli, failingApply);
+
+    expect(result.status).toBe(1);
+    expect(result.out).toContain("no se pudieron aplicar las funciones, los disparadores, los comentarios y las semillas");
+    expect(result.out).not.toContain("SERVER_STARTED");
   });
 
   it("an unset flag counts as active, like the application does", () => {
@@ -117,6 +143,7 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
 
     expect(result.status).toBe(1);
     expect(result.out).toContain("las migraciones fallaron");
+    expect(result.out).not.toContain("APLICAR_RAN");
     expect(result.out).not.toContain("SERVER_STARTED");
   });
 
@@ -197,7 +224,7 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     const result = run({ DATABASE_ENABLED: "true", DATABASE_URL: "postgresql://x" });
 
     expect(result.status).toBe(0);
-    expect(result.out).toContain("MIGRATE_RAN migrate resolve --rolled-back 20261004000000_init --schema schema.prisma");
+    expect(result.out).toContain("MIGRATE_RAN migrate resolve --rolled-back 20261024120000_estructura --schema schema.prisma");
     expect(result.out.indexOf("migrate resolve")).toBeLessThan(result.out.indexOf("migrate deploy"));
     expect(result.out.indexOf("migrate deploy")).toBeLessThan(result.out.indexOf("SERVER_STARTED"));
   });
@@ -224,6 +251,7 @@ describe.skipIf(!hasShell)("docker-entrypoint.sh", () => {
     expect(result.out).toContain("no hay base de datos activa");
     expect(result.out).toContain("SERVER_STARTED");
     expect(result.out).not.toContain("MIGRATE_RAN");
+    expect(result.out).not.toContain("APLICAR_RAN");
   });
 
   it("disabled database with a URL: warns about the leftover URL and starts without migrating", () => {
