@@ -40,7 +40,7 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 | Fechas | los tres días siguientes en hora de Lima, mostradas como `AAAAMMDD` (ej. `20260920`). La tercera tiene un único horario (caso 3.17) |
 | Horarios | `08:00 - 08:30`, `09:30 - 10:00`, `13:00 - 13:30` |
 
-En **modo real** (variables `SANDBOX_USE_REAL_*` encendidas) los datos vienen de MINSA/RENIEC/Gemini y cambian cada día. Los casos marcados con ⚙ dependen de que el día tenga ese horario; si no lo tiene, anótalo como **No aplicable**, no como fallo.
+En **modo real** (variables `SANDBOX_USE_REAL_*` encendidas) los datos vienen de MINSA/Gemini y cambian cada día. Los casos marcados con ⚙ dependen de que el día tenga ese horario; si no lo tiene, anótalo como **No aplicable**, no como fallo.
 
 ### 0.3 Cómo saber si se usó IA
 
@@ -136,7 +136,7 @@ Requiere un número **sin sesión** (ver 0.4).
 | 1.4d | **whatsapp-bot:** enviar un **video** o un **documento** como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4e | **Chat-bot:** tras reiniciar, pulsar 📎 y adjuntar una imagen como primer mensaje. | El mismo texto. | Igual. | ☐ ☐ |
 | 1.4f | Tras 1.4a, enviar `Hola`. | Primer contacto normal (bienvenida). | El rechazo no dejó sesión. | ☐ ☐ |
-| 1.4g | Con sesión, en el paso «¿Quieres enviar una imagen o un archivo como evidencia?» de la incidencia, enviar una foto (y en otra prueba un PDF). | `Ok, se registró tu evidencia.` y luego `Enviando tu incidencia…`. | El archivo se reconoce pero no se guarda. Un sticker o un audio en ese paso no genera respuesta. | ☐ ☐ |
+| 1.4g | Con sesión, en el paso «¿Quieres enviar una imagen o un archivo como evidencia?» de la incidencia, enviar una foto (y en otra prueba un PDF). | Foto: `Recibimos tu imagen (1 de 5). Si tienes otra como referencia, envíala; si no, toca Listo (o escribe LISTO) para continuar.` con **[Listo, continuar]**. PDF: `Por ahora solo podemos guardar imágenes (JPG o PNG); ese documento no se guardó.` con **[Omitir]**. | La foto queda en la sesión hasta registrar; el PDF no se guarda y no se da por registrado. Un sticker o un audio en ese paso no genera respuesta. | ☐ ☐ |
 
 ### 1.5 Inundación (rate limiting) — solo whatsapp-bot
 
@@ -313,8 +313,10 @@ Empieza de cero (0.4). Todos los datos son del modo fake (0.2).
 | 3.1q | Registrar 5 incidencias con el mismo teléfono (o `from` del Chat-bot) y una sexta el mismo día. | La sexta: `Hoy ya registraste el máximo de incidencias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.` | Tope provisional de 5 por día (hora de Lima). | ☐ ☐ |
 | 3.1l | Con el flujo de 3.1f y 3.1g, elegir **Prefiero ser anónimo**, escribir un relato de más de 20 caracteres y responder `omitir`. | `¡Gracias! Tu incidencia quedó registrada con el código MINSA-AAAA-NNNNNN. Guárdalo para darle seguimiento.` | La incidencia queda en la base con el establecimiento. El código es el que asigna la base. | ☐ ☐ |
 | 3.1m | Con **sesión nueva** y sin indicar el establecimiento (3.1j), seguir hasta el final. | `Gracias por tu reporte de incidencia, ya se registró.` (sin código). | Se guarda con `establecimiento_id` nulo. | ☐ ☐ |
-| 3.1n | Con **Sí, doy mi nombre**, escribir un número de 9 dígitos. | `Por ahora este canal solo valida el DNI. Escribe tu DNI o continúa de forma anónima.` con **[Continuar anónimo]**. | Por ahora no se acepta el carnet de extranjería. | ☐ ☐ |
-| 3.1g | Tras 3.1f, tocar **Sí, es ese**. | `Perfecto, registraremos tu incidencia en *HOSPITAL NACIONAL DOS DE MAYO*.` y luego `¿Deseas registrar tu nombre, o prefieres que sea anónimo?` con **[Sí, doy mi nombre]** **[Prefiero ser anónimo]**. | El establecimiento queda en la sesión (todavía no se guarda en la incidencia). | ☐ ☐ |
+| 3.1n | Con **Ingresar documento**, escribir un número de 9 dígitos (y en otra prueba uno de 8). | Ambos pasan directo al aviso de privacidad (`¿Autorizas el tratamiento de tus datos?`), **sin** `Verificando tu documento…`, sin saludo con nombre y sin pedir nombre ni alias. | El tipo se infiere por el largo: 8 = DNI, 9 = carnet de extranjería. No se consulta ningún servicio. | ☐ ☐ |
+| 3.1n2 | Con **Ingresar documento**, escribir `1234567`, `abcdefgh` y un número de 13 dígitos. | Cada vez: `Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo.` con **[Continuar anónimo]**. | No avanza ni guarda nada. | ☐ ☐ |
+| 3.1n3 | Llegar al paso de la evidencia y enviar 3 imágenes seguidas tocando **Listo, continuar** después de la tercera. | Tras cada imagen: `Recibimos tu imagen (1 de 5)…`, `(2 de 5)…`, `(3 de 5)…`. Al tocar Listo, el resumen incluye `Imágenes adjuntas: 3`. | Al enviar la quinta pasa solo al resumen con `Recibimos tu imagen 5 de 5: es el máximo por incidencia.` Una imagen repetida o de más de 5 MB no se guarda y el bot dice el motivo. | ☐ ☐ |
+| 3.1g | Tras 3.1f, tocar **Sí, es ese**. | `Perfecto, registraremos tu incidencia en *HOSPITAL NACIONAL DOS DE MAYO*.` y luego `¿Deseas ser anónimo o ingresar tu número de documento de identidad?` con **[Ingresar documento]** **[Prefiero ser anónimo]**. | El establecimiento queda en la sesión (todavía no se guarda en la incidencia). | ☐ ☐ |
 | 3.1h | Con **sesión nueva**, primer mensaje: `Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137`. | Pregunta de confirmación con **C.S.M. COMUNITARIO LINCE**. **No** aparece la advertencia de respeto. | «C.S.M.» no se toma por un insulto: lo precargado por el QR no pasa por el filtro de insultos. | ☐ ☐ |
 | 3.1i | Con **sesión nueva**, primer mensaje: `quiero presentar una incidencia en el hospital`. | Una lista `Encontré estos establecimientos. Elige el correcto:` con los 4 hospitales (filas `IPRESS 6206`, `5946`, `6215`, `33381`) y **Ninguno de estos**. | Solo el tipo: se ofrece la lista corta. Elegir una fila sigue con la pregunta del nombre. | ☐ ☐ |
 | 3.1r | Registrar una incidencia (3.1l) y, con el mismo WhatsApp y **sesión nueva**, escribir `quiero ver mi incidencia MINSA-AAAA-NNNNNN` (el código recibido). | `Incidencia MINSA-AAAA-NNNNNN`, `Estado: Recibida, pendiente de revisión` y `Fecha de registro: dd/mm/aaaa`. **Sin** descripción ni datos de la persona. La sesión termina: un mensaje nuevo vuelve al inicio. | Sin IA. Requiere base de datos y `INCIDENCIAS_ENABLED=true`; apagada, responde el aviso de que solo se agendan citas. En whatsapp-bot se compara el usuario dueño de la incidencia. | ☐ ☐ |
@@ -610,7 +612,7 @@ Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (
 | `turn.note` (`warn`) con `kind: session_expired` | La sesión caducó: `reason` es `IDLE_TIMEOUT` o `JWT_EXPIRED`, y `idleMs` cuánto llevaba inactiva (3.15a). |
 | `turn.note` (`warn`) con `kind: lexical_guard` / `menu_fallback` / `no_coverage` / `booking_retry` / `out_of_scope` (la emergencia OOS-01 sale como aviso; las demás como información) | El filtro léxico actuó, la IA no entendió y volvió al menú, MINSA no tiene cobertura en el distrito, o falló una reserva y se reintentó. |
 | `turn.end` (`warn`) con `friction: menu_loop` | Un texto escrito dejó al ciudadano otra vez en el menú sin ninguna respuesta determinística (1.3d). |
-| `turn.external` | Una consulta a MINSA, RENIEC, Gemini o la base de datos, con `durationMs` y `resultStatus`. |
+| `turn.external` | Una consulta a MINSA, Gemini o la base de datos, con `durationMs` y `resultStatus`. |
 | `external.http` | La llamada HTTP misma: `status` real y `durationMs`. Solo la ruta, nunca la clave ni el cuerpo. |
 | `minsa.book_appointment.failed` (`error`) | MINSA no agendó: `endpoint`, `status`, `minsaMessage`, `response` (300 caracteres) y el payload sin DNI. Es la evidencia del caso 3.15g. |
 | `ai.fallback` (`warn`) | La IA falló y el mensaje volvió al menú; `reason` dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca lleva el texto del ciudadano. |

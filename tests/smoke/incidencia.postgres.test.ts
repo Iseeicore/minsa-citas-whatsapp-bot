@@ -47,18 +47,18 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     expect(historial[0]).toMatchObject({ operacion: "CREACION", actor: `ciudadano:${waId}`, versionFila: 1 });
   });
 
-  it("stores the name the citizen gave, as a non-anonymous incident without DNI", async () => {
+  it.each(["12345678", "123456789"])("stores the document %s of an identified citizen, with no name yet", async (dni) => {
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
 
     await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, nombreCompleto: "Ana Torres", descripcion: "El consultorio estaba cerrado" }, crearAlmacenEvidencias()),
+      registrarIncidencia({ waId, dni, descripcion: "El consultorio estaba cerrado" }, crearAlmacenEvidencias()),
     );
 
     expect(await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } })).toMatchObject({
       esAnonimo: false,
-      nombreReclamante: "Ana Torres",
-      dniReclamante: null,
+      nombreReclamante: null,
+      dniReclamante: dni,
     });
   });
 

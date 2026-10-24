@@ -8,7 +8,6 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 export type DatosIncidencia = {
   waId: string;
   dni: string | null;
-  nombreCompleto: string | null;
   establecimientoId: number | null;
   descripcion: string;
   traceId: string;
@@ -26,9 +25,8 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvid
         canalOrigenId: CanalOrigenId.WHATSAPP,
         usuarioId: usuario.id,
         waId: datos.waId,
-        esAnonimo: datos.dni === null && datos.nombreCompleto === null,
+        esAnonimo: datos.dni === null,
         dniReclamante: datos.dni,
-        nombreReclamante: datos.nombreCompleto,
         descripcion: datos.descripcion,
         establecimientoId: datos.establecimientoId,
         traceId: datos.traceId,

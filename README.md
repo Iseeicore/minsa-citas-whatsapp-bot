@@ -169,13 +169,13 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
 | `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Chat-bot (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: whatsapp-bot (citas) y el Chat-bot conectado al portal de MINSA Digital, sin base de datos |
-| `##### Completo: variables opcionales` | Base de datos, incidencias (RENIEC), páginas del Chat-bot y bandeja web (`SANDBOX_PAGE_ENABLED`), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de incidencia, ajustes finos |
+| `##### Completo: variables opcionales` | Base de datos, incidencias, páginas del Chat-bot y bandeja web (`SANDBOX_PAGE_ENABLED`), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de incidencia, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
 > **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Chat-bot no tiene autenticación).
 
-- **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero sin `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC=true` solo acepta el DNI de prueba, y **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
+- **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
 - **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica** y **Consultar Referencias**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `3` o `4` escritos, ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y consulta referencias, y muestra el menú.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
@@ -201,7 +201,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `RESET_DATABASE_CONFIRM` | **Destructiva, solo Docker.** Si vale lo mismo que el nombre de la base de `DATABASE_URL`, el arranque borra los esquemas y migra desde cero. Úsala una sola vez y quítala después. Ver [Borrar la base y migrar desde cero](#borrar-la-base-y-migrar-desde-cero) |
 | `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
 
-**MINSA y RENIEC** (en `false`, el bot usa datos de prueba fijos)
+**MINSA** (en `false`, el bot usa datos de prueba fijos)
 
 | Variable | Uso |
 |---|---|
@@ -211,11 +211,9 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (documento y OTP) |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
 | `MINSA_DIGITAL_APP_URL` | **Obligatoria en el servidor real.** URL pública del portal de MINSA Digital, sin valor por defecto en el código: de ella salen los botones hacia el portal (**Continuar mi cita**, **Ir a MINSADIGITAL**, **Cita Nivel Global** y **Ver mi cita**) y las cabeceras `Origin` y `Referer` de las llamadas autenticadas al MINSA (se toma el origen: esquema, dominio y puerto). Si cambia el dominio, solo se cambia esta variable. `docker-compose.yml` la exige: el servidor no arranca sin ella, con un mensaje que la nombra. Si aun así falta, la bienvenida de whatsapp-bot muestra el menú, los demás avisos salen como texto sin enlace y `/api/health` responde `degraded` con el código `MINSA_DIGITAL_APP_URL_MISSING` (se registra como `error` con el MINSA real y como `warn` con el simulado). Con el MINSA real, las llamadas autenticadas no salen sin `Origin` ni `Referer`: se cortan con un 503 sin cuerpo, se registra `minsa.request_blocked` y quien llamó lo trata como un error del MINSA |
-| `SANDBOX_USE_REAL_RENIEC` | `true`: RENIEC real. `false`: solo el DNI de prueba `12345678` |
 | `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece **Registrar una incidencia** y **Consultar una incidencia** en el menú (whatsapp-bot y Chat-bot). Apagada por defecto: sin definir, vacía o con cualquier otro valor, solo queda **Agendar una cita médica**. Se lee en cada mensaje: cambiarla no exige recompilar, solo reiniciar el proceso |
-| `RENIEC_LOOKUP_BASE_URL` | Servicio que valida el DNI y devuelve el nombre |
 
-**Imágenes de la incidencia** (el flujo de incidencia **ya no guarda imágenes ni archivos**: si la persona envía una imagen o un PDF, el bot lo reconoce, no lo descarga y sigue; estas variables solo las usa el servicio de registro si algún día se le entrega una imagen)
+**Imágenes de la incidencia** (hasta 5 por incidencia, de 5 MB cada una; la persona toca **Listo** cuando termina. Sin `MEDIA_STORAGE_BASE_URL` las imágenes se guardan en la propia base, en base64, en `chatbot.evidencia.ruta`; con ella se suben al servicio y se guarda su ruta. Los PDF y demás documentos todavía no se guardan: el bot lo dice)
 
 | Variable | Uso |
 |---|---|
@@ -283,7 +281,7 @@ lib/
   whatsapp/                  envío de mensajes y descarga de media (Meta Cloud API)
     webhook/                 pipeline de entrada: mapeo del payload, guardado + candado de turno, respuesta al ciudadano,
                              control de reentregas en memoria (modo sin base de datos)
-  integrations/              clientes HTTP de servicios externos: RENIEC
+  integrations/              clientes HTTP de servicios externos: el MINSA
     minsa/                   cliente del MINSA separado por endpoint: identidad, catálogo, reserva (+ wire, formato, fakes)
   config/                    catálogo de errores de configuración y su revisión al arrancar
   http/                      formato único de error de la API (apiError)
@@ -360,7 +358,7 @@ Las tareas, los prompts y el FSM no cambian.
 
 ### Manejo de errores
 
-El bot es *fail-open*: una falla externa (MINSA, RENIEC, Gemini, WhatsApp) nunca deja al ciudadano sin respuesta; se convierte en un respaldo o en un texto fijo y queda registrada. Cada tipo de error tiene un único catálogo:
+El bot es *fail-open*: una falla externa (MINSA, Gemini, WhatsApp) nunca deja al ciudadano sin respuesta; se convierte en un respaldo o en un texto fijo y queda registrada. Cada tipo de error tiene un único catálogo:
 
 | Qué | Catálogo | Regla |
 |---|---|---|

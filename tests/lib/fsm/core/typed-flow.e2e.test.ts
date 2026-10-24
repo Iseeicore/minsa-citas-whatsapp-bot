@@ -32,7 +32,6 @@ describe("typed Cita flow end to end (fake adapters)", () => {
   beforeEach(() => {
     store.clear();
     delete process.env.SANDBOX_USE_REAL_MINSA;
-    delete process.env.SANDBOX_USE_REAL_RENIEC;
     delete process.env.SANDBOX_USE_REAL_AI;
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-19T05:00:00-05:00"));

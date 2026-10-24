@@ -1,5 +1,4 @@
 export enum QueryKind {
-  RENIEC_LOOKUP = "reniec_lookup",
   INCIDENCIA_REGISTER = "incidencia_register",
   VALIDATE_USER = "validate_user",
   VERIFY_CODE = "verify_code",

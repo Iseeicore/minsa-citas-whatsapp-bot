@@ -30,7 +30,7 @@ import { logger } from "@/lib/observability/logger";
 import type { AlmacenEvidencias, ImagenValidada } from "@/lib/types/almacen-evidencias.types";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 
-const base = { waId: "wa-1", dni: null, nombreCompleto: null, descripcion: "Me cobraron de mas" };
+const base = { waId: "wa-1", dni: null, descripcion: "Me cobraron de mas" };
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const pngDataUri = `data:image/png;base64,${PNG.toString("base64")}`;
 const svgDataUri = `data:image/svg+xml;base64,${Buffer.from("<svg></svg>").toString("base64")}`;
@@ -61,7 +61,6 @@ describe("registering an incident directly in the database", () => {
         waId: "wa-1",
         esAnonimo: true,
         dniReclamante: null,
-        nombreReclamante: null,
         descripcion: "Me cobraron de mas",
         establecimientoId: null,
         traceId: "trace-abc",
@@ -120,21 +119,21 @@ describe("registering an incident directly in the database", () => {
     expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
-  it("is not anonymous when the citizen gave a name, even without a DNI", async () => {
-    await registrarIncidencia({ ...base, nombreCompleto: "Ana Torres" }, crearAlmacenEvidencias());
+  it.each(["12345678", "123456789"])("keeps the document %s when the citizen was identified, and writes no name", async (dni) => {
+    await registrarIncidencia({ ...base, dni }, crearAlmacenEvidencias());
 
     expect(db.incidenciaCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ esAnonimo: false, nombreReclamante: "Ana Torres", dniReclamante: null }),
+      data: expect.objectContaining({ esAnonimo: false, dniReclamante: dni }),
     });
   });
 
-  it("keeps the DNI when the citizen was identified", async () => {
-    await registrarIncidencia({ ...base, dni: "12345678", nombreCompleto: "Ana Torres" }, crearAlmacenEvidencias());
-
-    expect(db.incidenciaCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ esAnonimo: false, dniReclamante: "12345678" }),
-    });
-  });
+  it.each(["1234567", "1234567890123", "abc12345", "123456789012"])(
+    "refuses the document %j: it is neither 8 nor 9 digits",
+    async (dni) => {
+      await expect(registrarIncidencia({ ...base, dni }, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
+      expect(db.incidenciaCreate).not.toHaveBeenCalled();
+    },
+  );
 
   it("treats a repeated trace id as already stored: one incident, answered as accepted", async () => {
     db.incidenciaCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));

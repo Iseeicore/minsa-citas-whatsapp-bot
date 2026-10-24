@@ -78,7 +78,6 @@ describe("masking", () => {
   it("redacts the name of a person but leaves the facility and specialty names readable", () => {
     const clean = sanitizeSlots({
       [SlotKey.NOMBRE]: "Juan Perez",
-      [SlotKey.NOMBRE_COMPLETO]: "Juan Perez Quispe",
       [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: "CENTRO DE SALUD LURIGANCHO",
       [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: "ODONTOLOGIA",
       [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: "HOSPITAL NACIONAL DOS DE MAYO",
@@ -86,7 +85,6 @@ describe("masking", () => {
 
     expect(clean).toEqual({
       [SlotKey.NOMBRE]: "[redacted]",
-      [SlotKey.NOMBRE_COMPLETO]: "[redacted]",
       [SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]: "CENTRO DE SALUD LURIGANCHO",
       [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: "ODONTOLOGIA",
       [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: "HOSPITAL NACIONAL DOS DE MAYO",
@@ -245,7 +243,7 @@ describe("turn trace", () => {
     const trace = createTurnTrace("w-1", { type: "text" }, { state: "s", slots: {} }, { log });
 
     trace.complete({
-      session: { state: "s", slots: { [SlotKey.NOMBRE]: "Juan Perez", [SlotKey.NOMBRE_COMPLETO]: "Juan Perez Quispe" } },
+      session: { state: "s", slots: { [SlotKey.NOMBRE]: "Juan Perez" } },
       sentCount: 1,
     });
     trace.finish();

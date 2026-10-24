@@ -11,7 +11,6 @@ import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import {
-  ASK_NOMBRE_TEXT,
   ASK_BORRADOR_EXTRA_TEXT,
   INCIDENCIA_REAUTH_PROMPT_TEXT,
   INCIDENCIA_REAUTH_BUTTONS,
@@ -46,8 +45,6 @@ function resumeIncidencia(session: Session): HandlerResult {
       return askIdentityChoice(next);
     case SessionState.INCIDENCIA_AWAITING_DNI:
       return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
-    case SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE:
-      return buildResult(next, [sendText(ASK_NOMBRE_TEXT)]);
     case SessionState.INCIDENCIA_CONSENT_CHOICE:
       return resendConsentimiento(next);
     case SessionState.INCIDENCIA_CONFIRM_BORRADOR:

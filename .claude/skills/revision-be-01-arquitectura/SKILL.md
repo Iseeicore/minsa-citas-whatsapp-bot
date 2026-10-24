@@ -10,7 +10,7 @@ description: Filtro 1 de 10 de revision-backend. Controlador delgado, servicios 
 - Los handlers de `app/api/**` y `app/webhook/**` solo reciben, validan lo básico y responden; la lógica está en `lib/`.
 - Nada en `lib/` importa ni recibe `Request`/`Response`/`NextRequest`/`NextResponse` (los DTO planos son la frontera).
 - Prisma solo se toca desde `lib/db/` y los repositorios (`lib/establecimientos/repositorio.ts`, `lib/inbox`, etc.); ningún servicio ni paso del FSM llama al cliente directo.
-- Servicios externos (MINSA, RENIEC, Gemini, Meta) detrás de una interfaz/adaptador en `lib/integrations/` o `lib/fsm/parsing/ai/providers/`.
+- Servicios externos (MINSA, Gemini, Meta) detrás de una interfaz/adaptador en `lib/integrations/` o `lib/fsm/parsing/ai/providers/`.
 
 ## Comandos
 

@@ -90,7 +90,6 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     referencias.result = SIN_REFERENCIAS;
     referencias.calls = 0;
     delete process.env.SANDBOX_USE_REAL_MINSA;
-    delete process.env.SANDBOX_USE_REAL_RENIEC;
     delete process.env.SANDBOX_USE_REAL_AI;
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-19T05:00:00-05:00"));

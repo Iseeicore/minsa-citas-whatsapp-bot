@@ -50,7 +50,7 @@ SANDBOX_ENABLED=true
 SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
 ```
 
-Sin cambios. Los secretos se completan en el servidor. `SANDBOX_USE_REAL_*` no es solo del Chat-bot: activa la IA, MINSA y RENIEC en todo el bot, y en producción debe estar en `true` para lo que se use.
+Sin cambios. Los secretos se completan en el servidor. `SANDBOX_USE_REAL_*` no es solo del Chat-bot: activa la IA y MINSA en todo el bot, y en producción debe estar en `true` para lo que se use.
 
 ### 3.2 Nuevas y obligatorias
 
@@ -183,11 +183,6 @@ ADMIN_PASSWORD=
 
 `ADMIN_PASSWORD` debe tener 12 caracteres o más.
 
-## 8. RENIEC
+## 8. Datos de la persona que se identifica
 
-`RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC` activan la consulta del nombre por DNI en el flujo de incidencias. Ese servicio es de un tercero, no de MINSA.
-
-- **Qué se envía:** el número de DNI, dentro de la URL de la consulta.
-- **Sin RENIEC:** el flujo **no se detiene**. El bot pide un nombre o alias, y la incidencia se guarda con el DNI tal como se escribió, sin verificar. Solo el DNI de prueba `12345678` devuelve un nombre.
-- **Para producción en MINSA:** quitar ambas variables.
-- **Para una demostración:** puede dejarse activa de forma temporal, con la justificación que corresponda a MINSA.
+El bot **ya no consulta el nombre en RENIEC**: la persona que decide identificarse escribe su número de documento (8 dígitos es un DNI; 9, un carnet de extranjería) y el bot solo lo guarda con la incidencia, sin pedir nombre ni alias. El nombre lo resolverá el backend de incidencias (`minsa-incidencias-backend`) con un servicio que todavía no está definido. Por eso `RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC` ya no existen: si siguen en el servidor, se pueden quitar.

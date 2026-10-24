@@ -6,11 +6,15 @@ import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { CONFIRM_REGISTRO_BUTTONS, RESUMEN_DECLARACION_TEXT, RESUMEN_LISTO_TEXT } from "@/lib/constants/textos/incidencia";
+import {
+  CONFIRM_REGISTRO_BUTTONS,
+  RESUMEN_DECLARACION_TEXT,
+  RESUMEN_LISTO_TEXT,
+  resumenDocumentoText,
+} from "@/lib/constants/textos/incidencia";
 
 const DESCRIPCION_MAXIMA = "d".repeat(MAX_DESCRIPCION_LENGTH);
 const ESTABLECIMIENTO_LARGO = `Hospital Nacional ${"e".repeat(100)}`;
-const NOMBRE_LARGO = `Ana ${"n".repeat(76)}`;
 
 const session = (slots: Session["slots"]): Session => ({ state: "incidencia_awaiting_foto", slots, counters: {} });
 
@@ -30,7 +34,7 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
       session({
         [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo.",
         [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: "Hospital Loayza",
-        [SlotKey.NOMBRE_COMPLETO]: "Ana Pérez",
+        [SlotKey.DNI]: "12345678",
       }),
     );
 
@@ -40,7 +44,7 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
         RESUMEN_LISTO_TEXT,
         "Establecimiento: Hospital Loayza",
         "Relato: «Me cobraron sin recibo.»",
-        "A nombre de: Ana Pérez",
+        resumenDocumentoText("5678"),
         "",
         RESUMEN_DECLARACION_TEXT,
       ].join("\n"),
@@ -48,12 +52,12 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     });
   });
 
-  it("con el relato máximo, establecimiento y nombre largos e imágenes, solo se acorta el relato y termina en «…»", () => {
+  it("con el relato máximo, establecimiento largo, documento e imágenes, solo se acorta el relato y termina en «…»", () => {
     const result = askConfirmRegistro(
       session({
         [SlotKey.DESCRIPCION_INCIDENCIA]: DESCRIPCION_MAXIMA,
         [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: ESTABLECIMIENTO_LARGO,
-        [SlotKey.NOMBRE_COMPLETO]: NOMBRE_LARGO,
+        [SlotKey.DNI]: "12345678",
         [SlotKey.INCIDENCIA_IMAGENES]: conImagenes(3),
       }),
     );
@@ -62,7 +66,7 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     expect(findLimitViolations(resumen(result))).toEqual([]);
     expect(body.length).toBe(WHATSAPP_INTERACTIVE_BODY_MAX);
     expect(body).toContain(`Establecimiento: ${ESTABLECIMIENTO_LARGO}\n`);
-    expect(body).toContain(`A nombre de: ${NOMBRE_LARGO}\n`);
+    expect(body).toContain(`${resumenDocumentoText("5678")}\n`);
     expect(body).toContain("Imágenes adjuntas: 3\n");
     expect(body).toMatch(/Relato: «d+…»\n/);
     expect(body.endsWith(RESUMEN_DECLARACION_TEXT)).toBe(true);
@@ -73,7 +77,7 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
       session({
         [SlotKey.DESCRIPCION_INCIDENCIA]: DESCRIPCION_MAXIMA,
         [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: ESTABLECIMIENTO_LARGO,
-        [SlotKey.NOMBRE_COMPLETO]: NOMBRE_LARGO,
+        [SlotKey.DNI]: "12345678",
       }),
     );
 
@@ -86,16 +90,15 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     });
     const [register] = confirmed.effects.filter(isQueryEffect);
 
-    expect(register.payload).toMatchObject({ submission: { descripcion: DESCRIPCION_MAXIMA, nombreCompleto: NOMBRE_LARGO } });
+    expect(register.payload).toMatchObject({ submission: { descripcion: DESCRIPCION_MAXIMA, dni: "12345678" } });
   });
 
-  it("si ni con el relato vacío cabría, también acorta el establecimiento y el nombre", () => {
+  it("si ni con el relato vacío cabría, también acorta el establecimiento", () => {
     const enorme = "x".repeat(3000);
     const result = askConfirmRegistro(
       session({
         [SlotKey.DESCRIPCION_INCIDENCIA]: DESCRIPCION_MAXIMA,
         [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: enorme,
-        [SlotKey.NOMBRE_COMPLETO]: enorme,
       }),
     );
     const body = bodyOf(resumen(result));
@@ -103,7 +106,6 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     expect(findLimitViolations(resumen(result))).toEqual([]);
     expect(body.startsWith(RESUMEN_LISTO_TEXT)).toBe(true);
     expect(body).toContain("Establecimiento: ");
-    expect(body).toContain("A nombre de: ");
     expect(body.endsWith(RESUMEN_DECLARACION_TEXT)).toBe(true);
   });
 });

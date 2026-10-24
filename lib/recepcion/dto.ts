@@ -1,13 +1,13 @@
 import { z } from "zod";
-import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
+import { isValidDocumentoFormat } from "@/lib/fsm/parsing/text/identity-format";
 import type { RegistrationStatus } from "@/lib/enums/registration-status";
 import type { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
+import { DOCUMENTO_MAX_LENGTH } from "@/lib/constants/limits/identity";
 import { MAX_DESCRIPCION_LENGTH, MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
 
 export const registrarIncidenciaSchema = z.object({
   waId: z.string().min(1),
-  dni: z.string().refine(isValidDniFormat, "DNI inválido").nullable().default(null),
-  nombreCompleto: z.string().min(1).nullable().default(null),
+  dni: z.string().max(DOCUMENTO_MAX_LENGTH).refine(isValidDocumentoFormat, "Documento inválido").nullable().default(null),
   establecimientoId: z.number().int().positive().nullable().default(null),
   descripcion: z.string().trim().min(1).max(MAX_DESCRIPCION_LENGTH),
   mediaDataUris: z.array(z.string()).max(MAX_IMAGENES_POR_INCIDENCIA).default([]),

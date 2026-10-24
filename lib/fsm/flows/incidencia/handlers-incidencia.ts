@@ -12,7 +12,7 @@ import {
   handleConfirmUbicacion,
   handleUbicacionPending,
 } from "@/lib/fsm/flows/incidencia/ubicacion";
-import { isValidDniFormat, isValidDocumentoFormat } from "@/lib/fsm/parsing/text/identity-format";
+import { isValidDocumentoFormat } from "@/lib/fsm/parsing/text/identity-format";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { quiereCerrar } from "@/lib/fsm/parsing/text/cerrar-incidencia";
@@ -37,12 +37,8 @@ import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import {
   IDENTITY_QUESTION_TEXT,
-  INCIDENCIA_NOMBRE_BUTTONS,
-  ONLY_DNI_TEXT,
-  ONLY_DNI_BUTTONS,
-  VERIFICANDO_DOCUMENTO_TEXT,
-  RENIEC_FAILED_TEXT,
-  ASK_NOMBRE_TEXT,
+  INCIDENCIA_IDENTIDAD_BUTTONS,
+  CONTINUAR_ANONIMO_BUTTONS,
   UNREADABLE_TEXT_RETRY,
   DOCUMENTO_NO_GUARDADO_TEXT,
   FOTO_BUTTONS,
@@ -61,7 +57,6 @@ import {
   SEGUIMIENTO_ANONIMO_TEXT,
   DAILY_LIMIT_TEXT,
   REGISTRO_FALLIDO_TEXT,
-  graciasNombreText,
   descripcionTooLongText,
   descripcionTooShortText,
   OMITIR_KEYWORD,
@@ -69,11 +64,9 @@ import {
   INCIDENCIA_CANCELADA_TEXT,
   IMAGEN_MUY_PESADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
-import { INVALID_DNI_TEXT } from "@/lib/constants/textos/fallas";
-import { LookupStatus } from "@/lib/enums/lookup-status";
+import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
-import { isNonEmptyString } from "@/lib/utils/type-guards";
 import {
   MAX_DESCRIPCION_LENGTH,
   MAX_IMAGENES_POR_INCIDENCIA,
@@ -106,10 +99,6 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
       return handleIdentityChoice(session, event as InboundEvent);
     case SessionState.INCIDENCIA_AWAITING_DNI:
       return handleAwaitingDni(session, event as InboundEvent);
-    case SessionState.INCIDENCIA_RENIEC_PENDING:
-      return handleReniecPending(session, event as QueryResultEvent);
-    case SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE:
-      return handleAwaitingNombreLibre(session, event as InboundEvent);
     case SessionState.INCIDENCIA_CONSENT_CHECK_PENDING:
       return handleConsentCheckPending(session, event as QueryResultEvent);
     case SessionState.INCIDENCIA_CONSENT_CHOICE:
@@ -139,14 +128,14 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
   const replyId = readTappedId(event);
   const next = cloneSession(session);
 
-  if (replyId === IncidenciaButtonId.CON_NOMBRE) {
+  if (replyId === IncidenciaButtonId.CON_DOCUMENTO) {
     next.state = SessionState.INCIDENCIA_AWAITING_DNI;
     return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
   }
 
   if (replyId === IncidenciaButtonId.ANONIMO) return askConsentimiento(next);
 
-  return withRejectionNotice(buildResult(session, [sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_NOMBRE_BUTTONS)]));
+  return withRejectionNotice(buildResult(session, [sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_IDENTIDAD_BUTTONS)]));
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
@@ -154,42 +143,12 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 
   const documento = readTrimmedText(event);
 
-  if (!isValidDniFormat(documento)) {
-    if (isValidDocumentoFormat(documento)) return buildResult(session, [sendButtons(ONLY_DNI_TEXT, ONLY_DNI_BUTTONS)]);
-    return buildResult(session, [sendText(INVALID_DNI_TEXT)]);
+  if (!isValidDocumentoFormat(documento)) {
+    return buildResult(session, [sendButtons(INVALID_DOCUMENT_TEXT, CONTINUAR_ANONIMO_BUTTONS)]);
   }
 
   const next = cloneSession(session);
   next.slots[SlotKey.DNI] = documento;
-  next.state = SessionState.INCIDENCIA_RENIEC_PENDING;
-  return buildResult(next, [sendText(VERIFICANDO_DOCUMENTO_TEXT), query(QueryKind.RENIEC_LOOKUP, { dni: documento })]);
-}
-
-function handleReniecPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; nombreCompleto?: string };
-  const next = cloneSession(session);
-
-  if (result.status === LookupStatus.FOUND && isNonEmptyString(result.nombreCompleto)) {
-    next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto.trim();
-    return withGreeting(askConsentimiento(next), result.nombreCompleto.trim());
-  }
-
-  next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE;
-  return buildResult(next, [sendText(RENIEC_FAILED_TEXT)]);
-}
-
-function withGreeting(result: HandlerResult, nombre: string): HandlerResult {
-  return { ...result, effects: [sendText(graciasNombreText(nombre)), ...result.effects] };
-}
-
-function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
-  const nombre = readTrimmedText(event);
-
-  if (!nombre) return buildResult(session, [sendText(ASK_NOMBRE_TEXT)]);
-  if (looksLikeNoise(nombre)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
-
-  const next = cloneSession(session);
-  next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
   return askConsentimiento(next);
 }
 

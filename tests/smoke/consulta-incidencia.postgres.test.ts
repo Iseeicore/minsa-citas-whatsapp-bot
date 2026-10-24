@@ -43,12 +43,11 @@ describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la b
     },
   });
 
-  const registrar = async (waId: string, extra: { dni?: string | null; nombreCompleto?: string | null } = {}) => {
+  const registrar = async (waId: string, extra: { dni?: string | null } = {}) => {
     const result = await registrarIncidencia(
       {
         waId,
         dni: null,
-        nombreCompleto: null,
         descripcion: "El consultorio estaba cerrado sin aviso",
         ...extra,
       },
@@ -77,11 +76,14 @@ describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la b
 
   it("consultarIncidencia por la web exige el DNI verificado y deja fuera las anónimas", async () => {
     const dni = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
-    const conNombre = await registrar(`smoke-${randomUUID()}`, { dni, nombreCompleto: "Ana de Prueba" });
+    const identificada = await registrar(`smoke-${randomUUID()}`, { dni });
     const anonima = await registrar(`smoke-${randomUUID()}`);
 
-    await expect(consultarIncidencia(conNombre, { canal: "web", dni })).resolves.toMatchObject({ status: "found", codigo: conNombre });
-    await expect(consultarIncidencia(conNombre, { canal: "web", dni: "00000000" })).resolves.toEqual({ status: "not_found" });
+    await expect(consultarIncidencia(identificada, { canal: "web", dni })).resolves.toMatchObject({
+      status: "found",
+      codigo: identificada,
+    });
+    await expect(consultarIncidencia(identificada, { canal: "web", dni: "00000000" })).resolves.toEqual({ status: "not_found" });
     await expect(consultarIncidencia(anonima, { canal: "web", dni })).resolves.toEqual({ status: "not_found" });
   });
 

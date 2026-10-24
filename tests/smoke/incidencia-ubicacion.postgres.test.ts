@@ -143,21 +143,21 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     expect(saved.establecimientoId).toBeNull();
   });
 
-  it("with a DNI the name comes from RENIEC (the test DNI) and is saved with the document", async () => {
+  it("with a document it goes straight to the consent, with no name lookup, and the document is saved", async () => {
     const p = person();
     await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
     await p.tap("incidencia_ubicacion_si");
-    await p.tap("incidencia_con_nombre");
-    const named = await p.say("12345678");
-    expect(named.session.state).toBe("incidencia_consent_choice");
-    expect(named.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("JUAN CARLOS QUISPE PEREZ");
+    await p.tap("incidencia_con_documento");
+    const identified = await p.say("12345678");
+    expect(identified.session.state).toBe("incidencia_consent_choice");
+    expect(identified.session.slots[SlotKey.DNI]).toBe("12345678");
 
     await p.tap("incidencia_consent_si");
     await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
     await p.say("omitir");
     await p.tap("incidencia_confirmar_registro_si");
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from } });
-    expect(saved).toMatchObject({ esAnonimo: false, dniReclamante: "12345678", nombreReclamante: "JUAN CARLOS QUISPE PEREZ" });
+    expect(saved).toMatchObject({ esAnonimo: false, dniReclamante: "12345678", nombreReclamante: null });
   });
 
   it("«quiero cerrar» in the middle ends the conversation and saves nothing", async () => {

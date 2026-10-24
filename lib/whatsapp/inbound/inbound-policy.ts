@@ -18,7 +18,6 @@ const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
   SessionState.CITA_AWAITING_OTHER_FECHA,
   SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT,
   SessionState.INCIDENCIA_AWAITING_DESCRIPCION,
-  SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE,
 ]);
 
 export function resolveWindowMs(input: { state: string | null; type: string }): number {
