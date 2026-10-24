@@ -261,7 +261,7 @@ ALTER TABLE chatbot.incidencia_paciente ENABLE TRIGGER USER;
 DO $$
 BEGIN
   ASSERT chatbot.archivar_incidencias_resueltas(3, 1000) = 1, 'Z18 se archiva la resuelta hace mas de 3 dias';
-  ASSERT chatbot.archivar_incidencias_vencidas(3, 1000) = 1, 'Z18 se archiva la abierta que vencio';
+  ASSERT chatbot.archivar_incidencias_vencidas(1000) = 1, 'Z18 se archiva la abierta que vencio';
   ASSERT (SELECT string_agg(i.trace_id || '=' || m.codigo || '/' || i.usuario_modificacion, ',' ORDER BY i.trace_id)
             FROM chatbot.incidencia_paciente i JOIN catalogo.motivo_archivo m ON m.id = i.motivo_archivo_id WHERE i.trace_id LIKE 't14-lote-%')
          = 't14-lote-abierto=VENCIDA_SIN_ATENDER/sistema:vencimiento,t14-lote-resuelto=RESUELTA_VIGENCIA/sistema:archivado',

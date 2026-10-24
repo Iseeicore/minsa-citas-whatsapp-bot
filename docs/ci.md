@@ -14,7 +14,7 @@ Un solo job, `types, lint and tests`, en Ubuntu con Node 22:
 6. `npx vitest run`
 7. `npx vitest run --config vitest.perf.config.ts`: las pruebas de rendimiento (latencia P99, crecimiento del heap, ReDoS) corren solas, después de la suite principal. En paralelo con los demás archivos compiten por CPU y sus límites de tiempo fallan sin que haya un problema real.
 
-Un segundo job, `database (migrations, SQL rules and smoke)`, levanta PostgreSQL 18 como servicio y comprueba la base: `npm run db:test` (arma una base desechable **solo con las migraciones** y corre `prisma/tests/*.sql`), después aplica las migraciones y corre las pruebas de humo (`npm run smoke:postgres`). Es un check aparte: **no forma parte del ruleset de `main` hasta que se agregue a mano**.
+Un segundo job, `database (migrations, SQL files, SQL rules and smoke)`, levanta PostgreSQL 16 (la versión del servidor) como servicio y comprueba la base: `npm run db:test` (arma una base desechable con las migraciones y los archivos de `prisma/sql` y `prisma/seeds/catalogos`, y corre `prisma/tests/*.sql`), después aplica migraciones y archivos SQL a la base del servicio y corre las pruebas de humo (`npm run smoke:postgres`). Es un check aparte: **no forma parte del ruleset de `main` hasta que se agregue a mano**.
 
 El primer job no necesita secretos: las pruebas usan almacenes en memoria y adaptadores fake. No corre `next build`: Vercel ya compila cada PR y el build necesita variables de entorno.
 

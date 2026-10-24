@@ -3,7 +3,8 @@ set -eu
 
 PRISMA_CLI="${PRISMA_CLI:-/opt/prisma/node_modules/prisma/build/index.js}"
 PRISMA_SCHEMA="${PRISMA_SCHEMA:-/app/prisma/schema.prisma}"
-MIGRACION_FALLIDA="20261004000000_init"
+MIGRACION_FALLIDA="20261024120000_estructura"
+APLICAR_SQL="${APLICAR_SQL:-/app/scripts/db-aplicar-sql.mjs}"
 
 log() {
   printf '[entrypoint] %s\n' "$1"
@@ -89,5 +90,11 @@ else
   exit 1
 fi
 
-log "Migraciones al día. Iniciando el servicio."
+log "Migraciones al día. Aplicando funciones, disparadores, comentarios y semillas."
+if ! PRISMA_CLI="$PRISMA_CLI" PRISMA_SCHEMA="$PRISMA_SCHEMA" PRISMA_DIR="$(dirname "$PRISMA_SCHEMA")" node "$APLICAR_SQL"; then
+  log "ERROR: no se pudieron aplicar las funciones, los disparadores, los comentarios y las semillas de prisma/sql y prisma/seeds/catalogos; no se cambió nada y el servicio no se inicia."
+  exit 1
+fi
+
+log "Base lista. Iniciando el servicio."
 exec "$@"

@@ -1,109 +1,107 @@
-# Base de datos: esquema, migraciones y pruebas
+# Base de datos: migraciones, SQL y carga inicial
 
-Todo lo que define la base vive aquí y se versiona con el código.
+PostgreSQL 16. Cada cosa vive en un solo sitio:
 
-| Qué | Dónde |
+| Carpeta | Qué lleva |
 |---|---|
-| Tablas, llaves e índices | `schema.prisma` |
-| Historial de cambios de la base | `migrations/` (una carpeta SQL por cambio) |
-| Reglas, funciones, disparadores, semillas | dentro de las migraciones (Prisma no los describe en `schema.prisma`) |
-| Pruebas de comportamiento en SQL | `tests/*.sql` |
-| Diccionario de datos | `diccionario/` |
+| `schema.prisma` | Tablas, columnas, índices y llaves que conoce Prisma |
+| `migrations/` | Solo estructura: tablas, columnas, índices y restricciones |
+| `sql/functions/` | Una función por archivo (`CREATE OR REPLACE FUNCTION`) |
+| `sql/triggers/` | Los disparadores, agrupados por la función que llaman |
+| `sql/comentarios.sql` | Descripción de esquemas, tablas y columnas; lo genera `npm run db:diccionario` |
+| `seeds/catalogos/` | Datos de referencia que el sistema necesita (estados, motivos, categorías con sus plazos, roles) |
+| `seeds/eess/`, `seeds/dev/` | Padrón completo y datos de desarrollo; no van en la imagen |
+| `tests/` | Pruebas SQL |
 
-## Cómo se versiona un cambio
+El diccionario de datos está en `docs/base-de-datos/`.
 
-1. **Nunca se edita una migración ya aplicada** en un entorno compartido (OGTI, pruebas del equipo). Un cambio es siempre una migración **nueva**. *Excepciones (solo mientras nada se haya aplicado en un entorno real):* el 2026-10-04 se reescribió la migración inicial y el 2026-10-07 las migraciones de áreas, establecimientos, motivo de archivo y roles, y el 2026-10-08 las de la revisión por establecimiento (archivado manual, reapertura, resolución en tres campos, exclusión del entrenamiento, gestor por establecimiento y tope de usuarios). La carpeta `20261005060000_ajuste_roles` quedó vacía a propósito: su contenido se integró en las migraciones que crean esos objetos y se conserva solo para no romper la secuencia.
-2. Tablas o columnas: cambiar `schema.prisma` y crear la migración **sin aplicarla**:
+## Instalación
+
+El contenedor ejecuta los pasos 1 y 2 al arrancar, en ese orden. Se pueden repetir sin riesgo.
+
+1. Aplicar las migraciones pendientes:
+
    ```bash
-   npx prisma migrate dev --create-only --name <que_cambia>
+   npx prisma migrate deploy
    ```
-   Después se agrega al mismo archivo el SQL que Prisma no genera: restricciones `CHECK`, índices parciales, funciones, disparadores y semillas.
-3. Funciones: `CREATE OR REPLACE FUNCTION` en la migración nueva. Disparadores: `DROP TRIGGER IF EXISTS` y `CREATE TRIGGER`. El historial de una función es la lista de migraciones que la redefinen.
-4. Catálogos: los valores nuevos van en una migración con `INSERT ... ON CONFLICT (id) DO NOTHING`.
-5. **Toda tabla y columna lleva su descripción** (`COMMENT ON`). Se agrega a `diccionario/diccionario.json`, se corre `npm run db:diccionario` y se copian a la migración los `COMMENT` nuevos de `diccionario/generado/comentarios.sql`. La prueba `tests/04_comentarios.sql` falla si falta alguna.
-6. Cada regla nueva lleva su prueba en `tests/` y se verifica que **falle** cuando la regla se apaga.
-7. **Un rol o un valor de catálogo no se borra: se retira con `activo = false`.** Las filas de `rol_categoria` y `usuario_rol` no se tocan, y las consultas cuentan solo los roles activos (así nace desactivado el rol `DIRIS`; los permisos son por rol, sin tablas de módulos).
 
-### Reglas para escribir una migración nueva
+2. Aplicar las funciones, los disparadores, los comentarios y las semillas de catálogo:
 
-- **Va entre `BEGIN;` y `COMMIT;`.** `prisma migrate deploy` (Prisma 6.19) no envuelve la migración en una transacción: si falla a la mitad, deja la base a medias y la migración marcada como fallida (P3009/P3018). Justo después de `BEGIN;` van `SET LOCAL lock_timeout = '5s';` y `SET LOCAL statement_timeout = '30s';`, para que no se quede esperando un bloqueo con la aplicación andando. `set_config('app.actor', ..., true)` también va dentro.
-- **Se puede ejecutar dos veces sin error.** `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`, `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER`. Las restricciones van dentro de un `DO` que primero consulta `pg_constraint` (`conrelid` + `conname`); las semillas, con `ON CONFLICT DO NOTHING`, y los `UPDATE` de llenado, solo sobre las filas que aún no tienen el valor.
-- **Nada exclusivo de PostgreSQL 17 o 18.** El servidor de MINSA es PostgreSQL 16: no existen `uuidv7()` ni `ADD CONSTRAINT IF NOT EXISTS`. Las pruebas se corren en una base 16.
-- **Nunca se aplica una migración a mano con `psql` en un entorno compartido.** Prisma no la registra, y el siguiente `migrate deploy` la vuelve a ejecutar; si no es idempotente, falla (P3018) y el servicio no arranca.
-- **Nunca se edita una migración ya aplicada** (punto 1): cambia su checksum. Si tiene un error, se corrige con una migración nueva.
-- Si el arranque falla con P3009, P3018 o P3005, `scripts/docker-entrypoint.sh` dice qué migración fue y el siguiente paso; resolverla (`prisma migrate resolve --rolled-back` o `--applied`) lo decide siempre una persona después de leer la columna `logs` de `_prisma_migrations`.
+   ```bash
+   npm run db:aplicar
+   ```
 
-## Migración puente para bases creadas con el esquema anterior
+   Corre en una sola transacción: si algo falla, no cambia nada.
 
-`20261012000000_puente_esquema_anterior` existe por las excepciones del punto 1: las nueve primeras migraciones se reescribieron dentro de su misma carpeta. Prisma reconoce una migración por el nombre de la carpeta, así que una base creada con el contenido anterior las da por aplicadas: `prisma migrate deploy` termina sin error y la deja sin las tablas, columnas, restricciones, índices, funciones, disparadores y descripciones que se agregaron después. El puente lleva esa base a la forma actual sin perder filas.
+3. Si el arranque falla con P3005, P3009 o P3018, `scripts/docker-entrypoint.sh` indica la migración y el siguiente paso. Resolverla (`prisma migrate resolve`) lo decide una persona después de leer la columna `logs` de `_prisma_migrations`.
 
-- **En una base creada con las migraciones de este repositorio no hace nada.** Cada paso comprueba antes si hace falta (`IF NOT EXISTS`, consultas al catálogo de PostgreSQL y condiciones sobre la forma anterior): no modifica ninguna fila ni sube `version_fila`. Solo vuelve a definir funciones y descripciones con el mismo texto. Se puede ejecutar más de una vez.
-- **En una base anterior** crea las tablas `catalogo.tipo_area`, `nivel_atencion`, `motivo_archivo`, `resultado_resolucion`, `area` y `establecimiento_salud` y `chatbot.incidencia_analisis` con sus valores iniciales, agrega las columnas, restricciones, índices y disparadores que faltan, reemplaza las funciones que cambiaron y deja las descripciones como las del diccionario.
-- **Resolución:** el texto de `incidencia_paciente.resolucion` pasa tal cual a `medidas_tomadas` (si tiene menos de 10 caracteres se le antepone «Resolución registrada: »), `fundamento` recibe un texto fijo que indica que no se registró y `resultado_resolucion_id` queda en ATENDIDO; `resuelto_en` y `resuelto_por` no cambian. Después se elimina la columna `resolucion`. Si hay una incidencia en RESUELTO sin texto de resolución, la migración se detiene con un mensaje y no cambia nada.
-- **Archivadas:** reciben `motivo_archivo_id` (`RESUELTA_VIGENCIA` si tenían resolución, `VENCIDA_SIN_ATENDER` si no) y `archivado_en`. Esa fecha, y las de `derivado_*` y `tomado_*`, salen del historial de cambios de cada incidencia.
-- **Área de destino:** las incidencias de categoría sensible quedan en el área OTRANS. Las demás no tienen establecimiento de origen y quedan sin área de destino.
-- **Roles:** los roles que ya no existen (`REVISOR`, `AREA_DENUNCIA_CORRUPCION`, `AREA_QUEJA`, `AREA_RECLAMO`) no se borran: se desactivan y su identificador pasa a ser el anterior más 100 (103 a 106), para que `ADMINISTRADOR`, `GESTOR`, `OTRANS`, `ESTABLECIMIENTO` y `DIRIS` tengan los identificadores 1 a 5 de una base nueva. Sus filas de `usuario_rol` y `rol_categoria` los siguen. Por eso una base migrada tiene 9 roles y 20 permisos de categoría, y una nueva 5 y 13; las consultas cuentan solo los roles activos.
-- **Queda para una persona, después de aplicarla:** dar un área a cada usuario interno (ninguno la tiene, y `GESTOR` exige la de un establecimiento), asignar un rol vigente a quienes solo tenían un rol retirado y cargar el establecimiento de origen de las incidencias anteriores. Todo eso necesita antes el padrón (`npm run db:seed:eess`).
+Una base creada con migraciones anteriores a este esquema no se actualiza: Infraestructura la elimina y crea una nueva y vacía.
 
-Como toda migración aplicada, no se edita.
+## Carga inicial
 
-## Comandos
+La ejecuta un DBA con el usuario dueño de la base, una sola vez, después de que el contenedor arrancó. Ni las migraciones ni el arranque la ejecutan.
+
+1. Cargar los hospitales de la primera etapa:
+
+   ```sql
+   SELECT catalogo.cargar_hospitales_fase_1();
+   ```
+
+2. Verificar que quedaron los 4 hospitales (deben salir 4 filas):
+
+   ```sql
+   SELECT codigo_renipress, nombre FROM catalogo.establecimiento_salud WHERE codigo_renipress IN ('6206', '5946', '6215', '33381');
+   ```
+
+3. Crear el usuario administrador con su correo y la huella Argon2id de su clave. La huella se genera fuera de la base; la clave nunca se envía:
+
+   ```sql
+   SELECT gestion.crear_administrador('<correo>', '<huella Argon2id>', 'Administrador');
+   ```
+
+   Resultado esperado: `1`. Devuelve `0` si el correo ya existía y no cambia nada. Falla si no se hizo el paso 1.
+
+4. Verificar el usuario (debe salir una fila con `activo = true`):
+
+   ```sql
+   SELECT correo, activo FROM gestion.usuario_interno WHERE correo = '<correo>';
+   ```
+
+Los pasos 1 y 3 se pueden repetir sin riesgo.
+
+## ¿Cómo se cambia una regla de negocio de la base?
+
+Nunca se manda la query a mano con `psql` ni se edita una migración ya aplicada (cambia su checksum). Cada cosa se cambia en su archivo y se despliega:
+
+| Qué cambia | Dónde |
+|---|---|
+| El cuerpo de una función | Su archivo en `sql/functions/` |
+| Un tope, un mínimo o un día de una regla | Es un argumento del disparador (`sql/triggers/<función>.sql`) o un parámetro de la función; nunca va escrito dentro del cuerpo |
+| Un valor de catálogo (por ejemplo el plazo de una categoría) | Su archivo en `seeds/catalogos/` |
+| Una tabla, columna, índice o restricción | Una migración nueva: `npx prisma migrate dev --create-only --name <que_cambia>` |
+| La firma de una función, o quitarle un valor por defecto | Una migración nueva con `DROP FUNCTION IF EXISTS <firma anterior>`; después se edita el archivo |
+
+Pasos:
+
+1. Editar el archivo, o crear la migración.
+2. Actualizar la prueba de `tests/` que cubre esa regla y correr `npm run db:test`.
+3. Desplegar. El arranque aplica los cambios.
+4. Confirmar la definición vigente de una función; debe salir la versión nueva:
+
+   ```sql
+   SELECT pg_get_functiondef('catalogo.sumar_dias_habiles(timestamptz, integer)'::regprocedure);
+   ```
+
+## Mantenimiento
+
+- Toda tabla y columna nueva lleva su descripción en `docs/base-de-datos/diccionario.json`; `npm run db:diccionario` regenera `sql/comentarios.sql`.
+- Un rol o un valor de catálogo no se borra: se retira con `activo = false`.
+- La purga de sesiones (`chatbot.purgar_sesiones_inactivas`) la programa Infraestructura (`pg_cron` o el cron del servidor); hoy nadie la llama.
 
 | Comando | Qué hace |
 |---|---|
-| `npm run db:test` | Crea una base desechable, la arma **solo con las migraciones**, corre `tests/*.sql` y la borra |
-| `npm run db:seed:eess` | Carga el padrón real de establecimientos (`seeds/eess/establecimientos.json`: 434 filas) con el cargador `seeds/eess/cargar_establecimientos.sql`, en una sola transacción: las 4 DIRIS de Lima (`DIRIS-LE`, `-LN`, `-LC`, `-LS`), un área por establecimiento (`EESS-<renipress>`, hija de su DIRIS) y el establecimiento (código RENIPRESS **sin ceros a la izquierda**: los quita si vienen; nivel y categoría; la dirección de la fuente no se guarda porque la tabla no tiene esa columna). Es idempotente: repetirlo no toca lo que no cambió y actualiza lo que sí. Misma guardia que `db:seed:dev` (la base debe terminar en `_desechable`, `_dev` o `_local`); para una base real se repite el nombre a mano: `-- --base-real=<nombre de la base>`. Resultado: 434 establecimientos, 439 áreas (434 + 4 DIRIS + OTRANS) |
-| `npm run db:seed:dev` | **Correr después de `db:seed:eess`** (usa los establecimientos 6206, 5946 y 5614). Siembra 6 usuarios internos de ejemplo (administrador sin área, uno de OTRANS, tres de establecimiento en el Hospital Dos de Mayo, el Hospital Hipólito Unanue y el C.S. Bayovar, y un gestor, que pertenece siempre a un establecimiento, en el C.S. Bayovar; el reparto respeta el tope de 3 usuarios activos por establecimiento y solo inserta los que faltan) y 21 incidencias **sintéticas** (de todos los estados y categorías, con evidencias; siete por establecimiento de origen; las derivaciones llevan área de destino, las denuncias por corrupción van a OTRANS conservando su origen; tres resueltas con medidas, fundamento y resultado; seis archivadas con su motivo, dos de ellas a mano por una persona con su justificación; y una reabierta tras archivarse por no corresponder). Los usuarios **no llevan clave en ningún archivo**: sin más, la base les pone una huella al azar que nadie conoce (no se puede iniciar sesión); para poder entrar se pasa una huella Argon2id ya calculada, nunca la clave, en `SEED_DEV_PASSWORD_HASH`. Se niega a correr si el nombre de la base no termina en `_desechable`, `_dev` o `_local`. `-- --reiniciar` borra **todas** las incidencias de esa base (y reinicia el contador de códigos) y vuelve a sembrar; los usuarios de ejemplo se conservan. Los nombres y los DNI son inventados (los DNI empiezan con `0000`) y los archivos de evidencia no existen. Usa las mismas operaciones que la aplicación y solo apaga un momento los disparadores de usuario para dar edad a los casos. No es una migración: nunca va a OGTI |
-| `npm run db:diccionario` | Regenera el diccionario de datos desde una base ya migrada. Falla si en `diccionario.json` falta la descripción de alguna tabla, columna, llave foránea o función de disparador |
-| `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base migrada |
 | `npx prisma migrate deploy` | Aplica las migraciones pendientes |
-
-`db:test`, `db:diccionario` y las semillas necesitan `psql` (o la variable `PSQL_PATH`) y un `DATABASE_URL`. Para `db:test` basta cualquier base del servidor: nunca la toca, crea y borra la suya. Orden para una base de desarrollo: `npx prisma migrate deploy` → `npm run db:seed:eess` → `npm run db:seed:dev`.
-
-## Áreas, establecimientos y roles
-
-- `catalogo.tipo_area` (ESTABLECIMIENTO, OTRANS, DIRIS, INSTITUTO, ORGANISMO) dice qué tipos reciben casos sensibles (`recibe_sensibles`: hoy solo OTRANS). `catalogo.area` es a donde se deriva un caso y a donde pertenece un usuario; la migración siembra el área `OTRANS` (id 1). `catalogo.establecimiento_salud` (padrón RENIPRESS) enlaza 1 a 1 con su área y se carga con `db:seed:eess`, no con la migración.
-- El origen de la incidencia es `establecimiento_id` (no cambia una vez puesto); el destino es `area_destino_id`. Derivar o tomar un caso exige destino; la denuncia por corrupción va siempre a OTRANS y una queja, reclamo u otro queda, al clasificarse, en el área de su establecimiento de origen (si se corrige de sensible a no sensible mientras no se gestiona, vuelve a ella), de modo que el encargado lo toma directo desde CLASIFICADO; DERIVADO queda para re-encaminar a otra área, también si se corrige la categoría después de derivarla; `derivado_*`, `tomado_*` y `archivado_en` los llena la base.
-- Archivar exige un motivo (`catalogo.motivo_archivo`): `RESUELTA_VIGENCIA` (desde RESUELTO) y `VENCIDA_SIN_ATENDER` (caso abierto, `sistema:vencimiento`) los deduce la base; los **manuales**, `DATOS_INSUFICIENTES` y `NO_CORRESPONDE`, los indica quien archiva, desde un caso abierto (REGISTRADO, CLASIFICADO, DERIVADO o EN_GESTION), y llevan una justificación obligatoria en `archivo_detalle` (10 caracteres o más, validada por disparador y por CHECK). Los archiva una persona (`usuario:%`); el filtro del sistema (`sistema:filtro`) solo archiva por datos insuficientes desde REGISTRADO o CLASIFICADO.
-- **Reabrir:** ARCHIVADO pasa a EN_GESTION si el motivo fue `DATOS_INSUFICIENTES`, `NO_CORRESPONDE` o `VENCIDA_SIN_ATENDER` (nunca `RESUELTA_VIGENCIA`), con un `reabierto_motivo` de 10 caracteres o más. La base limpia `archivado_en`, `motivo_archivo_id` y `archivo_detalle` y llena `reabierto_en` y `reabierto_por` con el actor declarado; el historial completo queda en la auditoría. El caso necesita área de destino (uno archivado desde REGISTRADO nunca la tuvo y no se reabre). Un reabierto puede archivarse de nuevo, y su plazo de vencimiento cuenta desde la reapertura.
-- **Resolución:** son tres campos que se registran juntos y una sola vez, `medidas_tomadas` y `fundamento` (10 caracteres o más cada uno) y `resultado_resolucion_id` (`catalogo.resultado_resolucion`: ATENDIDO o CERRADO); con ellos el caso pasa a RESUELTO, y un caso RESUELTO siempre los tiene.
-- **Entrenamiento:** `ia.entrenamiento_categoria.apto_entrenamiento` baja a falso cuando el caso se archiva con un motivo manual y vuelve a verdadero al reabrirlo; la fila nace falsa si el caso ya está archivado a mano. Es lo único que cambia en esa tabla y solo lo cambia la base.
-- Roles finales: `ADMINISTRADOR` (sin tipo de área), `GESTOR` y `ESTABLECIMIENTO` (nombre visible «Responsable de establecimiento»; tipo ESTABLECIMIENTO: pertenecen siempre a un establecimiento y ven queja, reclamo y otro), `OTRANS` (ve corrupción) y `DIRIS` (desactivado). Un rol con tipo de área exige un usuario con un área de ese tipo (un gestor sin área se rechaza, y no se le quita el área); cambiar el área de un usuario cierra sus sesiones.
-- **Tope:** como máximo 3 usuarios **activos** por establecimiento (de cualquier rol), al insertar, reactivar o cambiar de área; el error es `check_violation` con el mensaje `usuario_interno: el establecimiento ya tiene 3 usuarios activos`. OTRANS y las demás áreas no tienen tope.
-- Las pruebas de esto están en `tests/12_*` a `tests/19_*` (`17_*` revisión por establecimiento: archivado manual, reapertura, resolución y entrenamiento; `18_*` tope de usuarios; `19_*` destino al clasificar).
-
-## Etiquetas de incidencia
-
-- `catalogo.etiqueta` es el catálogo de etiquetas que administra la plataforma de gestión (el bot no las usa): `nombre` (2 a 40 caracteres, sin espacios al inicio ni al final, único sin distinguir mayúsculas y **contando las retiradas**: un nombre retirado se reactiva, no se duplica), `descripcion` opcional (hasta 200) y `tono` (`neutral`, `primary`, `success`, `warning` o `danger`). No tiene `codigo` ni ids fijos ni semilla: sus filas las crea el administrador, así que no lleva enum en `lib/enums`. Se retira con `activo = false` y no se borra.
-- `chatbot.incidencia_etiqueta` es la asignación de una etiqueta a una incidencia. Cada fila es un periodo: quién y cuándo la puso (`usuario_creacion`, `fecha_creacion`) y quién y cuándo la quitó (`eliminado_por`, `eliminado_en`, que llena la base al poner `activo = false`). Volver a asignar es **insertar una fila nueva**; una asignación quitada no se modifica ni se reactiva, y la incidencia y la etiqueta de una fila no cambian. Tampoco se borra.
-- **Reglas** (`check_violation`, con mensaje estable): no se asigna una etiqueta retirada (`incidencia_etiqueta: la etiqueta esta retirada y no se puede asignar`), ni a una incidencia eliminada (`incidencia_etiqueta: la incidencia esta eliminada y no admite etiquetas nuevas`), y una incidencia tiene como máximo 10 etiquetas vigentes (`incidencia_etiqueta: la incidencia ya tiene 10 etiquetas`). Repetir una etiqueta vigente en la misma incidencia lo rechaza el índice único `uq_incidencia_etiqueta_activa` (`unique_violation`).
-- Retirar una etiqueta **no** quita las asignaciones que ya tiene: las incidencias la conservan y solo deja de poder asignarse. Asignar o quitar etiquetas no modifica la incidencia ni escribe en `chatbot.incidencia_paciente_auditoria`.
-- Quien vacíe `chatbot.incidencia_paciente` con `TRUNCATE` debe incluir `chatbot.incidencia_etiqueta` en la misma sentencia.
-- Las pruebas están en `tests/20_etiquetas_incidencia.sql`.
-
-## Enums de ids y pruebas de humo
-
-- Los enums de `lib/enums/*-id.ts` espejan los ids fijos de las tablas `catalogo.*` (los fija la migración o la semilla) (incluidos `tipo-area-id`, `nivel-atencion-id`, `motivo-archivo-id` y `resultado-resolucion-id`) y hay que mantenerlos sincronizados: lo comprueba `tests/smoke/catalogos-contrato.postgres.test.ts`. Los enums `conversation-status`, `message-direction`, `message-status` y `message-type` son el contrato de la bandeja web y `lib/inbox/dto.ts` los traduce desde esos ids.
-- Las pruebas de humo (`tests/smoke`) no pueden borrar lo que crean: los usuarios y las incidencias son borrado lógico, y el historial y las tablas de carga son de solo inserción. Sus filas quedan en la base de prueba, con identificadores únicos por corrida.
-
-## Saltos de línea y checksum
-
-Prisma calcula el checksum de cada migración sobre el contenido del archivo: con saltos de línea distintos entre Windows y Linux, una migración ya aplicada se vería como modificada. Por eso `.gitattributes` guarda siempre con LF las migraciones, `migration_lock.toml`, `tests/*.sql` y las semillas.
-
-## Código legible de la incidencia
-
-Cada incidencia lleva un `codigo` con el formato `MINSA-AAAA-NNNNNN` (por ejemplo `MINSA-2026-003241`): `AAAA` es el año de llegada en la zona `America/Lima` y `NNNNNN` el correlativo de ese año, que reinicia cada año y pasado el `999999` sigue creciendo. Lo asigna la base al insertar (lo que envíe quien inserta se descarta) y no se puede modificar; el contador vive en `chatbot.contador_codigo_incidencia` y se incrementa dentro de la transacción del `INSERT`, así que una transacción revertida no gasta número y dos simultáneas esperan su turno (el costo: las inserciones de incidencias se serializan, lo cual es aceptable con el volumen esperado). El `trace_id` sigue siendo el id del turno del chat; el código legible es el que se muestra en pantalla y se dice por teléfono.
-
-`tests/11_codigo_incidencia.sql` prueba la concurrencia con dos conexiones `dblink`: necesita un usuario que pueda crear la extensión (el de `db:test` y el del CI lo son) y que el servidor acepte conexiones locales por socket sin clave, como la imagen oficial de PostgreSQL.
-
-## Lo que Prisma no vigila
-
-El control de desvío de Prisma (`migrate diff`) compara tablas, pero **no ve funciones ni disparadores**: un cambio hecho a mano en la base no se detecta. La red de seguridad son las pruebas de `tests/`, que corren en el CI sobre una base armada solo con las migraciones.
-
-## Hospitales de la primera etapa: funciones que ejecuta una persona
-
-`20261016120000_funciones_hospitales_fase_1` **solo crea funciones**; no inserta ninguna fila y nada las llama (el despliegue en MINSA no ejecuta semillas). `catalogo.cargar_hospitales_fase_1()` deja cargados los 4 hospitales (6206, 5946, 6215 y 33381) con sus áreas DIRIS y `EESS-<renipress>` y su fila de `establecimiento_salud`, con los mismos datos y la misma lógica de `seeds/eess` (idempotente, sin ruido de auditoría); devuelve cuántos creó o corrigió. `catalogo.retirar_hospitales_fase_1()` los quita y se niega con `restrict_violation` si alguno tiene incidencias, derivaciones o usuarios. Las ejecuta un DBA con `SELECT`; la sentencia y la verificación están en [`docs/despliegue-minsa.md`](../docs/despliegue-minsa.md#7-carga-de-los-hospitales-de-la-primera-etapa). Pruebas: `tests/21_hospitales_fase_1.sql`. Las funciones no están en el diccionario de datos (solo describe tablas, columnas y disparadores); su descripción vive en `COMMENT ON FUNCTION`.
-
-## Tareas programadas (por ejemplo, la purga de sesiones)
-
-Prisma no programa tareas. La **función** (por ejemplo `chatbot.purgar_sesiones_inactivas`) va en una migración y se versiona; **quién la ejecuta** y cada cuánto (`pg_cron` o el cron del servidor) es infraestructura y la define OGTI. Mientras tanto la función existe y está probada, pero nadie la llama.
+| `npm run db:aplicar` | Aplica `sql/` y `seeds/catalogos/` |
+| `npm run db:test` | Arma una base desechable con todo lo anterior y corre `tests/` (necesita `psql`) |
+| `npm run db:diccionario` | Regenera el diccionario y `sql/comentarios.sql` (necesita `psql` y `DATABASE_URL`) |
+| `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base armada |

@@ -22,7 +22,7 @@ Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Do
 - **`uuidv7()`:** PostgreSQL 16 no la trae. La migración inicial la crea en `public` solo si el servidor no la tiene. Con PostgreSQL 18 se usa la nativa.
 - Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL.
 - **Recomendado:** `ALTER DATABASE <base> SET jit = off;`. La base la comparte el backend de incidencias; en sus consultas de la bandeja, con JIT apagado una pasó de 926 ms a 255 ms. No se midió con las consultas del bot.
-- Probado: las 9 migraciones se aplican enteras en PostgreSQL 16.15 con un usuario que no es superusuario.
+- Probado: las 2 migraciones y los archivos de `prisma/sql` y `prisma/seeds/catalogos` se aplican enteros en PostgreSQL 16.
 
 ## 3. Variables
 
@@ -123,7 +123,7 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 1. Crear la base según la sección 2.
 2. Preparar el `.env` con las variables de la sección 3, junto a `docker-compose.yml`.
 3. Construir y levantar la imagen (`npm run docker:up`, o el procedimiento propio de infraestructura sobre el mismo `Dockerfile`).
-4. El contenedor aplica las migraciones al arrancar. En el log aparecen mensajes `[entrypoint]`; el último, si todo salió bien, es `Migraciones al día. Iniciando el servicio.` Si fallan, el contenedor se detiene con un mensaje que indica qué revisar. En el log pueden aparecer `Error: Invariant violation` (primer arranque) o `Error: P3012` (reinicios): vienen del paso que intenta marcar como revertida la migración inicial, son **inofensivos** y el arranque continúa.
+4. El contenedor aplica las migraciones al arrancar. En el log aparecen mensajes `[entrypoint]`; el último, si todo salió bien, es `Base lista. Iniciando el servicio.` (antes aplica las migraciones y después los archivos de `prisma/sql` y las semillas de `prisma/seeds/catalogos`) Si fallan, el contenedor se detiene con un mensaje que indica qué revisar. En el log pueden aparecer `Error: Invariant violation` (primer arranque) o `Error: P3012` (reinicios): vienen del paso que intenta marcar como revertida la migración inicial, son **inofensivos** y el arranque continúa.
 
 ## 6. Comprobaciones posteriores
 
@@ -136,11 +136,11 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 | Tabla `public._prisma_migrations` | 13 filas con `finished_at` |
 | `POST /api/sandbox` desde el origen del portal | Responde, con la cabecera CORS del origen permitido |
 
-## 7. Carga de los hospitales de la primera etapa
+## 7. Carga inicial: hospitales y administrador
 
-El despliegue **no carga datos**: la imagen no trae `psql` ni el padrón, `prisma migrate deploy` solo aplica migraciones y nada ejecuta semillas. Por eso, después de desplegar, la base no tiene ningún hospital hasta que un DBA ejecute la sentencia de abajo.
+El arranque carga solo las funciones, los disparadores, los comentarios y las semillas de catálogo (`prisma/sql` y `prisma/seeds/catalogos`). **No carga hospitales ni usuarios**: la imagen no trae `psql` ni el padrón. Los hospitales y el administrador los carga un DBA, una sola vez, con los pasos de abajo.
 
-**Qué hace la migración `20261016120000_funciones_hospitales_fase_1`:** solo **crea dos funciones** en el esquema `catalogo`. No ejecuta ninguna ni inserta filas. Cada función tiene su descripción en la base (`\df+ catalogo.*_hospitales_fase_1`).
+Las funciones `catalogo.cargar_hospitales_fase_1`, `catalogo.retirar_hospitales_fase_1` y `gestion.crear_administrador` las crea el arranque desde `prisma/sql/functions/`; no se ejecutan solas. Cada una tiene su descripción en la base (`\df+ catalogo.*_hospitales_fase_1`).
 
 **Los 4 hospitales** (código RENIPRESS tal como los guarda el bot, sin ceros a la izquierda):
 
@@ -151,21 +151,37 @@ El despliegue **no carga datos**: la imagen no trae `psql` ni el padrón, `prism
 | `6215` | HOSPITAL NACIONAL DOCENTE MADRE NIÑO SAN BARTOLOME | DIRIS Lima Centro |
 | `33381` | Hospital de Lima Este - Vitarte (III-E) | DIRIS Lima Este |
 
-**Carga.** Quien la ejecuta es un DBA, con el usuario dueño de la base, una sola vez después de que el contenedor aplicó las migraciones:
+**Carga.** La ejecuta un DBA, con el usuario dueño de la base, una sola vez después de que el contenedor arrancó. Los pasos 1 y 3 se pueden repetir sin riesgo.
 
-```sql
-SELECT catalogo.cargar_hospitales_fase_1();
-```
+1. Cargar los hospitales:
 
-- Crea o corrige las áreas `DIRIS-LC` y `DIRIS-LE`, el área `EESS-<código>` de cada hospital (hija de su DIRIS) y su fila en `catalogo.establecimiento_salud` con nivel de atención III. Todo ocurre en una sola transacción: o queda completo o no cambia nada.
-- Devuelve cuántos hospitales **creó o corrigió**: `4` la primera vez y `0` si ya estaban iguales. Se puede ejecutar más de una vez sin duplicar filas ni dejar registros de auditoría.
-- Si el padrón completo se carga después con `npm run db:seed:eess`, no cambia estos 4 hospitales.
+   ```sql
+   SELECT catalogo.cargar_hospitales_fase_1();
+   ```
 
-**Verificación.** Debe devolver 4 filas:
+   - Crea o corrige las áreas `DIRIS-LC` y `DIRIS-LE`, el área `EESS-<código>` de cada hospital (hija de su DIRIS) y su fila en `catalogo.establecimiento_salud` con nivel de atención III. Todo ocurre en una sola transacción: o queda completo o no cambia nada.
+   - Devuelve cuántos hospitales **creó o corrigió**: `4` la primera vez y `0` si ya estaban iguales. Se puede ejecutar más de una vez sin duplicar filas ni dejar registros de auditoría.
+   - Si el padrón completo se carga después con `npm run db:seed:eess`, no cambia estos 4 hospitales.
 
-```sql
-SELECT codigo_renipress, nombre FROM catalogo.establecimiento_salud ORDER BY 1;
-```
+2. Verificar que quedaron los 4 hospitales (deben salir 4 filas):
+
+   ```sql
+   SELECT codigo_renipress, nombre FROM catalogo.establecimiento_salud WHERE codigo_renipress IN ('6206', '5946', '6215', '33381');
+   ```
+
+3. Crear el usuario administrador con su correo y la huella Argon2id de su clave. La huella se genera fuera de la base, porque PostgreSQL no calcula Argon2, y la clave nunca se envía:
+
+   ```sql
+   SELECT gestion.crear_administrador('<correo>', '<huella Argon2id>', 'Administrador');
+   ```
+
+   Resultado esperado: `1`. Devuelve `0` si el correo ya existía y no cambia nada. Falla si no se hizo el paso 1.
+
+4. Verificar el usuario (debe salir una fila con `activo = true`):
+
+   ```sql
+   SELECT correo, activo FROM gestion.usuario_interno WHERE correo = '<correo>';
+   ```
 
 **Retiro.** Solo para deshacer la carga mientras los hospitales no se usen:
 
@@ -176,15 +192,7 @@ SELECT catalogo.retirar_hospitales_fase_1();
 - Borra únicamente estos 4 hospitales y sus áreas `EESS-<código>`, y las áreas `DIRIS-LC` y `DIRIS-LE` solo si quedaron sin áreas hijas, usuarios ni incidencias. Devuelve cuántos hospitales retiró (`0` si no estaban cargados).
 - **Se niega** (error `restrict_violation`, código `23001`, sin borrar nada) si alguno de los 4 ya tiene incidencias, derivaciones o usuarios; el mensaje nombra cada código y cuántos tiene. Nunca borra incidencias ni usuarios.
 
-**El administrador del backend se crea aparte**, con el script `crear-admin` del backend de incidencias, que lee estas variables (los valores los define quien lo ejecuta; no se guardan en el repositorio):
-
-```bash
-ADMIN_NOMBRE=
-ADMIN_CORREO=
-ADMIN_PASSWORD=
-```
-
-`ADMIN_PASSWORD` debe tener 12 caracteres o más.
+El backend de incidencias también trae su script `crear-admin`, que lee `ADMIN_NOMBRE`, `ADMIN_CORREO` y `ADMIN_PASSWORD` (12 caracteres o más). Esos valores los define quien lo ejecuta y no se guardan en el repositorio.
 
 ## 8. Datos de la persona que se identifica
 

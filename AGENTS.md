@@ -67,8 +67,9 @@ npx vitest run -t "nombre"  # una prueba por nombre
 npm run test:perf           # rendimiento y ReDoS; corre solo, en paralelo con la suite falla sin motivo real
 npm run test:gaps           # modo estricto para brechas conocidas (tests/support/known-gap.ts)
 npm run smoke:postgres      # requiere PostgreSQL real: DATABASE_URL + DATABASE_ENABLED=true
+npm run db:aplicar          # funciones, disparadores, comentarios y semillas de prisma/ en la base de DATABASE_URL
 npm run db:test             # base desechable + prisma/tests/*.sql (requiere psql)
-npm run build               # prisma migrate deploy + next build --webpack
+npm run build               # prisma migrate deploy + db:aplicar + next build --webpack
 npm run build:no-db         # build sin migraciones (imagen Docker)
 npm run docker:up           # construye y espera el healthcheck
 ```
@@ -91,7 +92,7 @@ npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npm run form
 
 **Integraciones (`lib/integrations/`).** Cliente del MINSA separado por endpoint (identidad, catálogo, reserva) con fakes. `SANDBOX_USE_REAL_MINSA` alterna fake y real; el webhook real también lee la del MINSA. `MINSA_DIGITAL_APP_URL` no tiene valor por defecto en el código (de ella salen los botones al portal y las cabeceras `Origin`/`Referer`); una prueba prohíbe escribir esa URL a mano.
 
-**Base de datos (`prisma/`).** Cuatro esquemas (`catalogo`, `chatbot`, `gestion`, `ia`). Reglas, disparadores, funciones y semillas viven en el SQL de las migraciones, no en `schema.prisma`. Nunca se edita una migración aplicada: se crea una nueva (`prisma migrate dev --create-only`). Toda tabla y columna lleva `COMMENT ON` (agregar a `prisma/diccionario/diccionario.json` y correr `npm run db:diccionario`); cada regla nueva lleva su prueba SQL en `prisma/tests/`. Roles y valores de catálogo se retiran con `activo = false`, no se borran. Detalle: `prisma/README.md`.
+**Base de datos (`prisma/`).** Cuatro esquemas (`catalogo`, `chatbot`, `gestion`, `ia`). Las migraciones (`prisma/migrations`) son solo estructura: tablas, columnas, índices y restricciones. Funciones y disparadores viven en `prisma/sql/` (un archivo por función, `CREATE OR REPLACE`), las semillas de catálogo en `prisma/seeds/catalogos/` y todo se aplica después de migrar con `npm run db:aplicar`; los números de negocio (topes, mínimos, días) llegan por parámetro o como argumento del disparador, no escritos en el cuerpo. Nunca se edita una migración aplicada: se crea una nueva (`prisma migrate dev --create-only`). Toda tabla y columna lleva `COMMENT ON` (agregar a `docs/base-de-datos/diccionario.json` y correr `npm run db:diccionario`, que escribe `prisma/sql/comentarios.sql`); cada regla nueva lleva su prueba SQL en `prisma/tests/`. Roles y valores de catálogo se retiran con `activo = false`, no se borran. Detalle: `prisma/README.md`.
 
 # Convenciones que hacen cumplir ESLint y las pruebas
 

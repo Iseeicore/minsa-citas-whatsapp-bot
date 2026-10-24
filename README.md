@@ -55,7 +55,7 @@ Detalles de la imagen:
 - **Salud:** el `HEALTHCHECK` consulta `GET /api/health`, que no toca la base de datos. Responde `200` con `status: "ok"`, o `status: "degraded"` y los códigos en `config` si hay una variable mal configurada (ver [Manejo de errores](#manejo-de-errores)); el contenedor no se reinicia por eso.
 - **Puerto:** 3000 dentro del contenedor; `HOST_PORT` cambia el puerto publicado en el servidor (por defecto 3000).
 - **Variables:** `docker-compose.yml` pasa al contenedor **todas** las variables del `.env` (`env_file`). Solo fija tres, que ganan sobre `env_file`: `NODE_ENV=production`, `PORT=3000` y `HOSTNAME=0.0.0.0`, para que un valor olvidado en el `.env` no saque al servidor del puerto que usan el mapeo y el healthcheck. Son obligatorias las 4 credenciales de Meta y `MINSA_DIGITAL_APP_URL`.
-- **Base de datos:** `DATABASE_ENABLED` vale `false` si no se define. La imagen se compila sin base, pero **al arrancar el contenedor aplica solo las migraciones pendientes** (ver [Arranque con base de datos](#arranque-con-base-de-datos)): no hay un paso aparte para infraestructura.
+- **Base de datos:** `DATABASE_ENABLED` vale `false` si no se define. La imagen se compila sin base, pero **al arrancar el contenedor aplica solo las migraciones pendientes y, después, las funciones, los disparadores, los comentarios y las semillas de catálogo** (ver [Arranque con base de datos](#arranque-con-base-de-datos)): no hay un paso aparte para infraestructura.
 - **Tiempo de arranque:** el `start_period` del healthcheck es de 60 s para dar tiempo a la primera migración. El compose no define un servicio de base de datos: con `DATABASE_ENABLED=true`, Prisma usa el PostgreSQL de `DATABASE_URL`.
 - **Webhook de Meta:** configura la URL de callback como `https://<servidor>/webhook/whatsapp`. El HTTPS lo termina el proxy inverso del servidor, no el contenedor.
 
@@ -65,7 +65,7 @@ El contenedor arranca con `scripts/docker-entrypoint.sh`, que decide según `DAT
 
 | `DATABASE_ENABLED` | `DATABASE_URL` | Qué pasa |
 |---|---|---|
-| distinta de `false` (por ejemplo `true`) | con valor | Ejecuta `prisma migrate deploy` y, si termina bien, inicia el servicio. Si las migraciones fallan, el contenedor se detiene con un mensaje |
+| distinta de `false` (por ejemplo `true`) | con valor | Ejecuta `prisma migrate deploy`, aplica `prisma/sql` y `prisma/seeds/catalogos` y, si todo termina bien, inicia el servicio. Si algo falla, el contenedor se detiene con un mensaje |
 | distinta de `false` | vacía | **Se detiene** con un error: la base está activa pero no hay a dónde conectarse |
 | `false` | vacía | Inicia **sin base** y deja una advertencia en el log |
 | `false` | con valor | Inicia **sin base**, no migra y deja una advertencia en el log (un `DATABASE_URL` sobrante no apaga el servicio, pero queda a la vista) |
@@ -125,13 +125,14 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    ```
 
 2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de PostgreSQL y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía** si no tienes base: el `true` del bloque mínimo es para el servidor en Docker, que sí la usa.
-3. Aplica el esquema a tu base de datos de desarrollo (requiere PostgreSQL 18, que aporta `uuidv7()`; con PostgreSQL 17 hay que cambiar ese valor por defecto por `gen_random_uuid()`):
+3. Aplica el esquema a tu base de datos de desarrollo (PostgreSQL 16 o superior; la migración define `uuidv7()` si el motor no la trae):
 
    ```bash
    npx prisma migrate deploy
+   npm run db:aplicar
    ```
 
-   La migración inicial crea cuatro esquemas (`catalogo`, `chatbot`, `gestion` e `ia`), las reglas y disparadores de auditoría, las semillas de los catálogos y la descripción de cada tabla y columna. Las reglas para versionar cambios de la base (migraciones nuevas, pruebas SQL y diccionario) están en [`prisma/README.md`](prisma/README.md).
+   Las migraciones crean solo la estructura: cuatro esquemas (`catalogo`, `chatbot`, `gestion` e `ia`), tablas, columnas, índices y restricciones. `npm run db:aplicar` carga después las funciones, los disparadores, los comentarios y las semillas de catálogo (`prisma/sql` y `prisma/seeds/catalogos`). Cómo se cambia una regla de la base y la carga inicial están en [`prisma/README.md`](prisma/README.md).
 
 4. (Opcional) Carga datos de arranque. Solo corren contra una base cuyo nombre termine en `_desechable`, `_dev` o `_local`, y necesitan `psql` y `DATABASE_URL`:
 
@@ -159,7 +160,7 @@ El bot corre de dos formas: **con base de datos** (Vercel + PostgreSQL, con band
 | Incidencias | Tabla `chatbot.incidencia_paciente`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
 | Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible solo con `SANDBOX_PAGE_ENABLED=true`; sin ella responde `404` | Con `SANDBOX_PAGE_ENABLED=true` responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}`; sin ella, `404` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
-| Build | `npm run build` (aplica migraciones) | `npm run build:no-db` (sin migraciones) |
+| Build | `npm run build` (aplica migraciones y SQL) | `npm run build:no-db` (sin migraciones) |
 
 Escalar el modo sin base de datos a varias instancias requiere un almacén compartido externo, con expiración, detrás de `lib/fsm/session/session-store.ts` y `lib/whatsapp/webhook/inbound-dedupe.ts`. Hoy el proyecto no usa ninguno.
 
@@ -198,7 +199,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `DATABASE_ENABLED` | `false` = sin base de datos (servidor MINSA). Vacía = con base de datos (Vercel). Ver [Modos de persistencia](#modos-de-persistencia) |
-| `DATABASE_URL` | Cadena de conexión a PostgreSQL. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy`. No hace falta con `DATABASE_ENABLED=false` |
+| `DATABASE_URL` | Cadena de conexión a PostgreSQL. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy` y `npm run db:aplicar`. No hace falta con `DATABASE_ENABLED=false` |
 | `RESET_DATABASE_CONFIRM` | **Destructiva, solo Docker.** Si vale lo mismo que el nombre de la base de `DATABASE_URL`, el arranque borra los esquemas y migra desde cero. Úsala una sola vez y quítala después. Ver [Borrar la base y migrar desde cero](#borrar-la-base-y-migrar-desde-cero) |
 | `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
 
@@ -323,7 +324,7 @@ tests/
   lib/                       espejo exacto de lib/: cada x.ts de lib/ tiene su x.test.ts en la misma ruta bajo tests/lib/
   security/, stress/, integration/, smoke/ (PostgreSQL real), support/   suites transversales, no colocalizadas
 data/                        datos estáticos (distritos del Perú)
-prisma/                      esquema y migraciones
+prisma/                      esquema, migraciones (solo estructura), sql (funciones y disparadores) y semillas
 scripts/  docs/              herramientas y documentación del proyecto
 ```
 
@@ -392,8 +393,9 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 | `npm run test:perf` | Pruebas de rendimiento (latencia P99, heap, ReDoS). Corren solas, porque en paralelo con la suite sus límites de tiempo fallan sin motivo real |
 | `npm run test:gaps` | La suite en modo estricto para las brechas conocidas (`tests/support/known-gap.ts`) |
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
-| `npm run db:test` | Arma una base desechable solo con las migraciones y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
-| `npm run db:diccionario` | Regenera el diccionario de datos de la base desde una base ya migrada |
+| `npm run db:aplicar` | Aplica `prisma/sql` y `prisma/seeds/catalogos` a la base de `DATABASE_URL` (se puede repetir) |
+| `npm run db:test` | Arma una base desechable con las migraciones y los archivos SQL y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
+| `npm run db:diccionario` | Regenera `docs/base-de-datos/diccionario-de-datos.md` y `prisma/sql/comentarios.sql` desde una base ya armada |
 | `npm run format` | Aplica el formato de Prettier al código |
 | `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
@@ -401,10 +403,10 @@ El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en
 
 ## Despliegue en Vercel (con base de datos)
 
-En Vercel se necesitan `DATABASE_URL` y las variables de Meta. El script `build` ejecuta `prisma migrate deploy` antes de `next build`, así que las migraciones pendientes se aplican en cada despliegue:
+En Vercel se necesitan `DATABASE_URL` y las variables de Meta. El script `build` ejecuta `prisma migrate deploy` y `node scripts/db-aplicar-sql.mjs` antes de `next build`, así que las migraciones pendientes y los archivos SQL se aplican en cada despliegue:
 
 ```json
-"build": "prisma migrate deploy && next build --webpack"
+"build": "prisma migrate deploy && node scripts/db-aplicar-sql.mjs && next build --webpack"
 ```
 
 - `--webpack` fuerza el compilador clásico en lugar de Turbopack, cuyo build de producción fallaba al prerenderizar `_global-error` en esta versión de Next.js.

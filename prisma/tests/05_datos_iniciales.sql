@@ -69,7 +69,7 @@ BEGIN
            WHERE rc.categoria_incidencia_id = 1) = 'ADMINISTRADOR,OTRANS',
     'D19 la denuncia por corrupcion la ven solo el administrador y OTRANS';
   ASSERT (SELECT count(*) FROM gestion.rol_categoria) = 13, 'D19 en total hay 13 permisos de categoria';
-  ASSERT (SELECT usuario_creacion FROM gestion.rol_categoria LIMIT 1) = 'sistema:migracion', 'D20 la migracion firma lo que carga';
+  ASSERT (SELECT usuario_creacion FROM gestion.rol_categoria LIMIT 1) = 'sistema:semilla', 'D20 la semilla firma lo que carga';
 END $$;
 
 SELECT set_config('app.actor', 'sistema:migracion', false);
