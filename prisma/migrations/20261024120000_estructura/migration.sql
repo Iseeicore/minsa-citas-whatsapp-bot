@@ -5,20 +5,6 @@ SET LOCAL statement_timeout = '60s';
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
-DO $$
-BEGIN
-  IF to_regprocedure('uuidv7()') IS NULL THEN
-    CREATE FUNCTION public.uuidv7() RETURNS uuid
-    LANGUAGE sql VOLATILE PARALLEL SAFE AS $f$
-      SELECT encode(
-        set_bit(set_bit(
-          overlay(uuid_send(gen_random_uuid()) PLACING substring(int8send((extract(epoch FROM clock_timestamp()) * 1000)::bigint) FROM 3) FROM 1 FOR 6),
-        52, 1), 53, 1),
-      'hex')::uuid
-    $f$;
-  END IF;
-END $$;
-
 CREATE OR REPLACE FUNCTION public.f_unaccent(text) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
   SELECT lower(public.unaccent('public.unaccent', $1))
@@ -255,7 +241,7 @@ CREATE TABLE "catalogo"."establecimiento_salud" (
 );
 
 CREATE TABLE "chatbot"."usuario" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "wa_id" TEXT NOT NULL,
     "profile_name" TEXT,
     "phone_number" TEXT,
@@ -277,7 +263,7 @@ CREATE TABLE "chatbot"."usuario" (
 );
 
 CREATE TABLE "chatbot"."mensaje" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "usuario_id" UUID NOT NULL,
     "direccion_mensaje_id" SMALLINT NOT NULL,
     "tipo_mensaje_id" SMALLINT NOT NULL,
@@ -297,7 +283,7 @@ CREATE TABLE "chatbot"."mensaje" (
 );
 
 CREATE TABLE "chatbot"."incidencia_paciente" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "canal_origen_id" SMALLINT NOT NULL,
     "usuario_id" UUID NOT NULL,
     "mensaje_id" UUID,
@@ -375,7 +361,7 @@ CREATE TABLE "chatbot"."incidencia_analisis" (
 );
 
 CREATE TABLE "chatbot"."evidencia" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "incidencia_paciente_id" UUID NOT NULL,
     "mensaje_id" UUID,
     "media_id" TEXT,
@@ -393,7 +379,7 @@ CREATE TABLE "chatbot"."evidencia" (
 );
 
 CREATE TABLE "chatbot"."sesion_conversacion" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "wa_id" TEXT NOT NULL,
     "estado" TEXT NOT NULL,
     "slots" JSONB NOT NULL,
@@ -414,7 +400,7 @@ CREATE TABLE "chatbot"."contador_codigo_incidencia" (
 );
 
 CREATE TABLE "ia"."entrenamiento_categoria" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "incidencia_paciente_id" UUID NOT NULL,
     "texto_entrenamiento" TEXT NOT NULL,
     "categoria_ia_id" SMALLINT NOT NULL,
@@ -432,7 +418,7 @@ CREATE TABLE "ia"."entrenamiento_categoria" (
 );
 
 CREATE TABLE "gestion"."usuario_interno" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "nombre_completo" TEXT NOT NULL,
     "correo" TEXT NOT NULL,
     "password_hash" TEXT NOT NULL,
@@ -466,7 +452,7 @@ CREATE TABLE "gestion"."rol" (
 );
 
 CREATE TABLE "gestion"."sesion_usuario" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "usuario_interno_id" UUID NOT NULL,
     "ultima_actividad_en" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "vence_en" TIMESTAMPTZ(3) NOT NULL,
@@ -505,7 +491,7 @@ CREATE TABLE "catalogo"."estado_archivo" (
 );
 
 CREATE TABLE "chatbot"."solicitud_carga" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "incidencia_paciente_id" UUID,
     "sesion_id" UUID,
     "usuario_id" UUID NOT NULL,
@@ -524,7 +510,7 @@ CREATE TABLE "chatbot"."solicitud_carga" (
 );
 
 CREATE TABLE "chatbot"."archivo_recibido" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "solicitud_carga_id" UUID NOT NULL,
     "nombre_original" TEXT,
     "mime_declarado" TEXT NOT NULL,
@@ -570,7 +556,7 @@ CREATE TABLE "catalogo"."etiqueta" (
 );
 
 CREATE TABLE "chatbot"."incidencia_etiqueta" (
-    "id" UUID NOT NULL DEFAULT uuidv7(),
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "incidencia_paciente_id" UUID NOT NULL,
     "etiqueta_id" INTEGER NOT NULL,
     "activo" BOOLEAN NOT NULL DEFAULT true,

@@ -10,8 +10,8 @@ END $$;
 
 \if :{?hash_clave}
 \else
-  SELECT '$argon2id$v=19$m=65536,t=3,p=4$' || rtrim(encode(sha256(uuidv7()::text::bytea), 'base64'), '=')
-         || '$' || rtrim(encode(sha256(uuidv7()::text::bytea), 'base64'), '=') AS hash_clave \gset
+  SELECT '$argon2id$v=19$m=65536,t=3,p=4$' || rtrim(encode(sha256(gen_random_uuid()::text::bytea), 'base64'), '=')
+         || '$' || rtrim(encode(sha256(gen_random_uuid()::text::bytea), 'base64'), '=') AS hash_clave \gset
 \endif
 
 DO $$ BEGIN PERFORM set_config('app.actor', 'sistema:seed-dev', false); END $$;

@@ -19,7 +19,7 @@ Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Do
   SELECT name FROM pg_available_extensions WHERE name IN ('pg_trgm','unaccent');
   ```
 
-- **`uuidv7()`:** PostgreSQL 16 no la trae. La migración inicial la crea en `public` solo si el servidor no la tiene. Con PostgreSQL 18 se usa la nativa.
+- **Identificadores `uuid`:** los genera la base con `gen_random_uuid()`, que ya trae PostgreSQL 16; no hace falta ninguna función propia.
 - Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL.
 - **Recomendado:** `ALTER DATABASE <base> SET jit = off;`. La base la comparte el backend de incidencias; en sus consultas de la bandeja, con JIT apagado una pasó de 926 ms a 255 ms. No se midió con las consultas del bot.
 - Probado: las 2 migraciones y los archivos de `prisma/sql` y `prisma/seeds/catalogos` se aplican enteros en PostgreSQL 16.
