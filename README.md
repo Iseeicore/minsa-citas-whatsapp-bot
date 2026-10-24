@@ -107,7 +107,8 @@ SANDBOX_ENABLED=true
 SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
 ```
 
-- **Sin `SANDBOX_ENABLED=true`** la ruta responde 404, aunque el origen esté permitido.
+- **Sin `SANDBOX_ENABLED=true`** la ruta responde 404, aunque el origen esté permitido. Lo mismo vale para el `OPTIONS` previo: con el sandbox apagado también responde 404, así que no delata que la ruta existe.
+- **Con `SANDBOX_SHARED_SECRET`** solo el servidor del portal puede llamar a la ruta: firma cada petición y el navegador nunca ve el secreto. Quien llame con `curl` sin firma recibe 401.
 - **Cada entrada se reduce a su origen** (esquema + dominio + puerto): `https://dminsadigital.minsa.gob.pe/` también funciona. Varias entradas se separan con comas.
 - **Una entrada que no es una URL** (un dominio sin `https://`, un `*`) se ignora y se registra una sola vez en el log `sandbox.cors_invalid_origin`. Nunca se acepta un comodín.
 
@@ -236,6 +237,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 |---|---|
 | `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
 | `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Chat-bot (`/sandbox` y `/configuracion-visor-sandbox`), deja que `/` redirija a `/sandbox` y **abre la bandeja web** (`/api/conversations*` y `/api/messages/send`). Sin definir o con cualquier otro valor: las tres páginas redirigen a `/api/health` y esas cuatro rutas responden `404`, aunque la base esté activa. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). La bandeja web **no tiene autenticación**: lista todas las conversaciones con su teléfono y permite escribir desde el número oficial. En Production déjala sin definir |
+| `SANDBOX_SHARED_SECRET` | Secreto compartido con el servidor del portal. Si está definido, `POST /api/sandbox` exige los headers `x-sandbox-timestamp` y `x-sandbox-signature` (`sha256=` + HMAC-SHA256 de `timestamp.cuerpo`) y responde `401` sin firma válida o con marca de tiempo de más de 5 minutos. Sin definir no se exige firma. Debe ser distinto de `META_APP_SECRET` y de `MINSA_INTEGRATION_SECRET`. Las páginas del visor no firman: no las actives en un despliegue con este secreto |
 | `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el Chat-bot en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-chat-bot) |
 
 **Logs** (ver [docs/observabilidad.md](docs/observabilidad.md))

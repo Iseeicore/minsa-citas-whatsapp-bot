@@ -72,6 +72,7 @@ Sin definir, el valor por defecto es el correcto.
 
 ```bash
 SANDBOX_PAGE_ENABLED=
+SANDBOX_SHARED_SECRET=
 INCIDENCIAS_ENABLED=false
 MEDIA_STORAGE_BASE_URL=
 MEDIA_STORAGE_TOKEN=
@@ -82,6 +83,7 @@ LOG_TO_FILE=false
 
 | Variable | Para qué sirve | Sin definir |
 |---|---|---|
+| `SANDBOX_SHARED_SECRET` | Valor aleatorio largo (32 bytes) compartido con el servidor del portal, que firma cada llamada a `POST /api/sandbox`. Con él definido, sin firma válida responde 401 | Sin firma: cualquiera que conozca la URL puede llamar a la ruta con `curl`. Debe ser distinto de los demás secretos |
 | `SANDBOX_PAGE_ENABLED` | `true` muestra `/sandbox` y `/configuracion-visor-sandbox` y **abre la bandeja web** (`/api/conversations*`, `/api/messages/send`), que no tiene autenticación | Las páginas redirigen a `/api/health` y las rutas de la bandeja responden 404. **En producción, déjenla sin definir** |
 | `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece en el menú **Registrar una incidencia** y **Consultar una incidencia** (whatsapp-bot y Chat-bot) | Apagada: solo queda **Agendar una cita médica**; vacía o con cualquier otro valor equivale a sin definir. Las incidencias no se ofrecen ni se pueden alcanzar escribiendo `2`, `3`, `incidencia` o un código `MINSA-AAAA-NNNNNN`. **Para usar incidencias, pónganla en `true`** |
 | `MEDIA_STORAGE_BASE_URL` | Servicio donde se guarda la foto de evidencia de una incidencia | La foto se recibe pero no se guarda, y queda un aviso en el log |
@@ -113,7 +115,8 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 | IA del bot | `SANDBOX_USE_REAL_AI=true` y `GOOGLE_CLIENT_API` | Respuestas fijas; no entiende texto libre ni distritos mal escritos |
 | Consultar referencia | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` y que el backend de MINSA publique `/whatsapp/api/v1/references`. No lleva bandera ni variable nueva | Siempre responde «No cuentas con referencias registradas.» y ofrece agendar una cita. Los DNI de demostración `10308523` y `47391441` son la excepción, solo en este servicio |
 | Incidencias | `INCIDENCIAS_ENABLED=true`, `DATABASE_ENABLED=true` y `DATABASE_URL` | Sin la primera, no aparecen en el menú; sin las otras dos, no se guardan |
-| Portal de MINSA Digital | `SANDBOX_ENABLED=true` y `SANDBOX_ALLOWED_ORIGINS` | `POST /api/sandbox` responde 404 |
+| Portal de MINSA Digital | `SANDBOX_ENABLED=true` y `SANDBOX_ALLOWED_ORIGINS` | `POST /api/sandbox` y su `OPTIONS` responden 404 |
+| Firma del portal | `SANDBOX_SHARED_SECRET`, el mismo valor aleatorio en el bot y en el servidor del portal | Sin definir, `POST /api/sandbox` no exige firma |
 
 ## 5. Despliegue
 
