@@ -198,7 +198,7 @@ COMMENT ON COLUMN catalogo.tipo_mensaje.usuario_creacion IS 'Quién creó la fil
 COMMENT ON COLUMN catalogo.tipo_mensaje.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.tipo_mensaje.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON TABLE catalogo.tipo_mensaje IS 'Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla).';
-COMMENT ON COLUMN chatbot.archivo_recibido.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.archivo_recibido.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.archivo_recibido.solicitud_carga_id IS 'Solicitud de carga con la que se subió el archivo.';
 COMMENT ON COLUMN chatbot.archivo_recibido.nombre_original IS 'Nombre que tenía el archivo en el dispositivo del ciudadano. Es un dato informativo y puede venir vacío.';
 COMMENT ON COLUMN chatbot.archivo_recibido.mime_declarado IS 'Tipo de archivo que declaró el navegador al subirlo. No es de fiar: se contrasta con el tipo detectado.';
@@ -226,7 +226,7 @@ COMMENT ON COLUMN chatbot.contador_codigo_incidencia.ultimo IS 'Último correlat
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_creacion IS 'Fecha y hora (UTC) en que se creó la fila del año, es decir, cuando llegó la primera incidencia de ese año.';
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_modificacion IS 'Fecha y hora (UTC) del último código entregado ese año. La llena un disparador.';
 COMMENT ON TABLE chatbot.contador_codigo_incidencia IS 'Último correlativo usado en cada año para el código de las incidencias. Una fila por año, que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.';
-COMMENT ON COLUMN chatbot.evidencia.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.evidencia.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.evidencia.incidencia_paciente_id IS 'Reporte al que pertenece la evidencia.';
 COMMENT ON COLUMN chatbot.evidencia.mensaje_id IS 'Mensaje de WhatsApp del que vino el archivo. Opcional.';
 COMMENT ON COLUMN chatbot.evidencia.media_id IS 'Id del archivo en Meta (dato de Meta).';
@@ -259,7 +259,7 @@ COMMENT ON TABLE chatbot.incidencia_analisis IS 'Análisis automático de una in
 Relaciones:
 - area_mencionada_id → catalogo.area: Garantiza que el área mencionada sea una del catálogo. Sirve para ubicar el área señalada.
 - incidencia_paciente_id → chatbot.incidencia_paciente: Cada análisis pertenece a una incidencia. Sirve para unir el análisis con el caso.';
-COMMENT ON COLUMN chatbot.incidencia_etiqueta.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.incidencia_etiqueta.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.incidencia_etiqueta.incidencia_paciente_id IS 'Incidencia que lleva la etiqueta. No cambia. Debe estar activa (no eliminada) al asignar.';
 COMMENT ON COLUMN chatbot.incidencia_etiqueta.etiqueta_id IS 'Etiqueta asignada. No cambia. Debe estar activa (no retirada) al asignar.';
 COMMENT ON COLUMN chatbot.incidencia_etiqueta.activo IS 'Indica si la asignación está vigente. Falso significa que la etiqueta se quitó de la incidencia; una asignación quitada no se reactiva ni se modifica.';
@@ -275,7 +275,7 @@ COMMENT ON TABLE chatbot.incidencia_etiqueta IS 'Asignación de una etiqueta a u
 Relaciones:
 - etiqueta_id → catalogo.etiqueta: Garantiza que la etiqueta sea una del catálogo. Sirve para listar y contar las incidencias que llevan una etiqueta.
 - incidencia_paciente_id → chatbot.incidencia_paciente: Cada asignación pertenece a una incidencia. Sirve para listar las etiquetas de un caso.';
-COMMENT ON COLUMN chatbot.incidencia_paciente.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.incidencia_paciente.canal_origen_id IS 'Canal por el que llegó (WhatsApp o web).';
 COMMENT ON COLUMN chatbot.incidencia_paciente.usuario_id IS 'Usuario que presentó el reporte.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.mensaje_id IS 'Mensaje del chat del que nació el reporte. Opcional.';
@@ -346,7 +346,7 @@ COMMENT ON TABLE chatbot.incidencia_paciente_auditoria IS 'Historial de cambios 
 
 Relaciones:
 - incidencia_paciente_id → chatbot.incidencia_paciente: Cada evento del historial pertenece a una incidencia. Sirve para reconstruir la vida completa de un reporte.';
-COMMENT ON COLUMN chatbot.mensaje.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.mensaje.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.mensaje.usuario_id IS 'Usuario dueño de la conversación a la que pertenece el mensaje.';
 COMMENT ON COLUMN chatbot.mensaje.direccion_mensaje_id IS 'Sentido del mensaje (entrante o saliente).';
 COMMENT ON COLUMN chatbot.mensaje.tipo_mensaje_id IS 'Tipo de contenido del mensaje.';
@@ -368,7 +368,7 @@ Relaciones:
 - estado_mensaje_id → catalogo.estado_mensaje: Garantiza que el estado de entrega sea uno del catálogo. Sirve para reintentar o reportar mensajes fallidos.
 - tipo_mensaje_id → catalogo.tipo_mensaje: Garantiza que el tipo de contenido sea uno conocido. Sirve para decidir cómo mostrar o procesar el mensaje.
 - usuario_id → chatbot.usuario: Cada mensaje pertenece a un usuario. Sirve para armar la conversación de un usuario en orden.';
-COMMENT ON COLUMN chatbot.sesion_conversacion.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.sesion_conversacion.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.sesion_conversacion.wa_id IS 'Id del chat. Único: hay una sesión por usuario. No tiene llave foránea hacia usuario porque la sesión puede existir antes que el usuario.';
 COMMENT ON COLUMN chatbot.sesion_conversacion.estado IS 'Estado actual del flujo conversacional (por ejemplo cita_awaiting_dni). Es texto y no catálogo porque lo define el código del bot y tiene más de 60 valores.';
 COMMENT ON COLUMN chatbot.sesion_conversacion.slots IS 'Datos recolectados durante el flujo, en JSON. La forma la garantiza el código del bot.';
@@ -376,7 +376,7 @@ COMMENT ON COLUMN chatbot.sesion_conversacion.contadores IS 'Contadores internos
 COMMENT ON COLUMN chatbot.sesion_conversacion.fecha_creacion IS 'Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.';
 COMMENT ON COLUMN chatbot.sesion_conversacion.fecha_modificacion IS 'Fecha y hora (UTC) de la última actividad. Sirve para purgar sesiones inactivas. La llena un disparador.';
 COMMENT ON TABLE chatbot.sesion_conversacion IS 'Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). Es efímera: se reescribe en cada turno y se purga cuando queda inactiva. No guarda imágenes.';
-COMMENT ON COLUMN chatbot.solicitud_carga.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.solicitud_carga.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.solicitud_carga.incidencia_paciente_id IS 'Incidencia a la que se le agregarán los archivos. Nulo mientras el ciudadano aún está armando el reporte en el chat; se enlaza una sola vez cuando la incidencia se crea.';
 COMMENT ON COLUMN chatbot.solicitud_carga.sesion_id IS 'Sesión de conversación (borrador del reporte) para la que se emitió el enlace antes de que existiera la incidencia. Sin llave foránea a propósito: la purga de sesiones inactivas borra la sesión. Obligatoria mientras no haya incidencia.';
 COMMENT ON COLUMN chatbot.solicitud_carga.usuario_id IS 'Usuario (ciudadano) al que se le emitió el enlace.';
@@ -395,7 +395,7 @@ COMMENT ON TABLE chatbot.solicitud_carga IS 'Permiso temporal para que el ciudad
 Relaciones:
 - incidencia_paciente_id → chatbot.incidencia_paciente: Cada solicitud de carga termina perteneciendo a una incidencia (hasta entonces queda nula y se identifica por la sesión). Sirve para saber qué archivos corresponden a qué reclamo.
 - usuario_id → chatbot.usuario: Cada solicitud se emite a un usuario. Sirve para vincular el enlace con el ciudadano que escribió al bot.';
-COMMENT ON COLUMN chatbot.usuario.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN chatbot.usuario.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.usuario.wa_id IS 'Id del chat de WhatsApp (dato de Meta; es un identificador opaco, no un teléfono). Es la clave de negocio del usuario.';
 COMMENT ON COLUMN chatbot.usuario.profile_name IS 'Nombre de perfil de WhatsApp (dato de Meta). Opcional.';
 COMMENT ON COLUMN chatbot.usuario.phone_number IS 'Teléfono (dato de Meta). Casi siempre vacío porque la cuenta usa identificadores BSUID. Nunca se usa como clave.';
@@ -440,7 +440,7 @@ COMMENT ON TABLE gestion.rol_categoria IS 'Qué categorías de incidencia puede 
 Relaciones:
 - categoria_incidencia_id → catalogo.categoria_incidencia: Garantiza que la categoría sea una del catálogo. Sirve para saber qué roles ven una categoría.
 - rol_id → gestion.rol: Cada permiso pertenece a un rol. Sirve para saber qué categorías ve un rol.';
-COMMENT ON COLUMN gestion.sesion_usuario.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN gestion.sesion_usuario.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN gestion.sesion_usuario.usuario_interno_id IS 'Usuario interno dueño de la sesión. No cambia.';
 COMMENT ON COLUMN gestion.sesion_usuario.ultima_actividad_en IS 'Fecha y hora (UTC) de la última petición con esta sesión. La aplicación la actualiza para calcular el vencimiento por inactividad; no puede retroceder.';
 COMMENT ON COLUMN gestion.sesion_usuario.vence_en IS 'Fecha y hora (UTC) en que la sesión vence de forma absoluta, aunque haya actividad. Se fija al crearla y no cambia.';
@@ -454,7 +454,7 @@ COMMENT ON TABLE gestion.sesion_usuario IS 'Sesión abierta por un usuario inter
 
 Relaciones:
 - usuario_interno_id → gestion.usuario_interno: Cada sesión pertenece a un usuario interno. Sirve para listar o cerrar todas las sesiones de una persona.';
-COMMENT ON COLUMN gestion.usuario_interno.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN gestion.usuario_interno.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN gestion.usuario_interno.nombre_completo IS 'Nombre completo de la persona.';
 COMMENT ON COLUMN gestion.usuario_interno.correo IS 'Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.';
 COMMENT ON COLUMN gestion.usuario_interno.password_hash IS 'Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato.';
@@ -480,7 +480,7 @@ COMMENT ON TABLE gestion.usuario_rol IS 'Relación entre usuarios internos y rol
 Relaciones:
 - rol_id → gestion.rol: Enlaza la asignación con el rol. Sirve para saber qué personas tienen un rol.
 - usuario_interno_id → gestion.usuario_interno: Enlaza la asignación con el usuario interno. Sirve para saber qué roles tiene una persona.';
-COMMENT ON COLUMN ia.entrenamiento_categoria.id IS 'Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.';
+COMMENT ON COLUMN ia.entrenamiento_categoria.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN ia.entrenamiento_categoria.incidencia_paciente_id IS 'Incidencia cuya categoría se revisó.';
 COMMENT ON COLUMN ia.entrenamiento_categoria.texto_entrenamiento IS 'Copia del relato del paciente en el momento de la revisión. En la primera etapa va sin depurar; ver la lista de la segunda etapa.';
 COMMENT ON COLUMN ia.entrenamiento_categoria.categoria_ia_id IS 'Categoría que había asignado la IA.';

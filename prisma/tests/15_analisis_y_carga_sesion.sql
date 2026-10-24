@@ -39,7 +39,7 @@ END $$;
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje, senales) SELECT id, 'reglas-v2', 10, '{}' FROM chatbot.incidencia_paciente WHERE trace_id = 't15-a'$q$, '23505', 'N05 hay un solo analisis por incidencia');
 SELECT pg_temp.espera_error($q$UPDATE chatbot.incidencia_analisis SET puntaje = 1$q$, '23001', 'N06 el analisis no se modifica');
 SELECT pg_temp.espera_error($q$DELETE FROM chatbot.incidencia_analisis$q$, '23001', 'N07 el analisis no se borra');
-SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje, senales) VALUES (uuidv7(), 'reglas-v1', 1, '{}')$q$, '23503', 'N08 el analisis exige una incidencia que exista');
+SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje, senales) VALUES (gen_random_uuid(), 'reglas-v1', 1, '{}')$q$, '23503', 'N08 el analisis exige una incidencia que exista');
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje, senales, area_mencionada_id) SELECT id, 'reglas-v1', 1, '{}', 99999 FROM chatbot.incidencia_paciente WHERE trace_id = 't15-b'$q$, '23503', 'N09 el area mencionada debe existir');
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_analisis (incidencia_paciente_id, version_reglas, puntaje) SELECT id, 'reglas-v1', 1 FROM chatbot.incidencia_paciente WHERE trace_id = 't15-b'$q$, '23502', 'N10 las senales son obligatorias');
 
@@ -58,7 +58,7 @@ BEGIN
 END $$;
 
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.solicitud_carga (usuario_id, hash_token, vence_en, max_archivos, max_bytes_archivo) SELECT id, 'hash-t15-sin-destino', now() + interval '1 hour', 5, 10 FROM chatbot.usuario WHERE wa_id = 'wa-t15'$q$, '23514', 'S02 una solicitud necesita incidencia o sesion');
-SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET sesion_id = uuidv7() WHERE hash_token = 'hash-t15-sesion'$q$, '23514', 'S03 la sesion de la solicitud no cambia');
+SELECT pg_temp.espera_error($q$UPDATE chatbot.solicitud_carga SET sesion_id = gen_random_uuid() WHERE hash_token = 'hash-t15-sesion'$q$, '23514', 'S03 la sesion de la solicitud no cambia');
 
 UPDATE chatbot.solicitud_carga SET incidencia_paciente_id = (SELECT id FROM chatbot.incidencia_paciente WHERE trace_id = 't15-a') WHERE hash_token = 'hash-t15-sesion';
 DO $$
@@ -82,7 +82,7 @@ BEGIN
   PERFORM set_config('app.actor', 'ciudadano:wa-t15', false);
   INSERT INTO chatbot.solicitud_carga (incidencia_paciente_id, sesion_id, usuario_id, hash_token, vence_en, max_archivos, max_bytes_archivo)
   SELECT CASE WHEN p_con_incidencia THEN (SELECT id FROM chatbot.incidencia_paciente WHERE trace_id = 't15-b') END,
-         CASE WHEN p_con_incidencia THEN NULL ELSE uuidv7() END,
+         CASE WHEN p_con_incidencia THEN NULL ELSE gen_random_uuid() END,
          u.id, p_hash, now() + interval '20 minutes', 5, 100
     FROM chatbot.usuario u WHERE u.wa_id = 'wa-t15';
   IF p_cerrada THEN

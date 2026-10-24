@@ -119,7 +119,7 @@ describe("the SQL files of prisma/", () => {
       expect(sql, dir).not.toMatch(/CREATE (OR REPLACE )?TRIGGER|^INSERT INTO|^UPDATE |COMMENT ON/m);
       const functionsDefined = [...sql.matchAll(/CREATE (?:OR REPLACE )?FUNCTION\s+([\w.]+)/g)].map((m) => m[1]);
       expect(
-        functionsDefined.filter((f) => !["public.uuidv7", "public.f_unaccent"].includes(f)),
+        functionsDefined.filter((f) => !["public.f_unaccent"].includes(f)),
         dir,
       ).toEqual([]);
     }

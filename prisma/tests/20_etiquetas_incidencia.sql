@@ -132,7 +132,7 @@ END $$;
 
 SELECT pg_temp.espera_error($q$SELECT pg_temp.asignar('t20-A', 'Urgente')$q$, '23505', 'Q11 una incidencia no lleva dos veces la misma etiqueta vigente');
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id) VALUES (pg_temp.incidencia('t20-A'), 2147483647)$q$, '23503', 'Q12a la etiqueta debe existir');
-SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id) VALUES (uuidv7(), pg_temp.etiqueta('Urgente'))$q$, '23503', 'Q12b la incidencia debe existir');
+SELECT pg_temp.espera_error($q$INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id) VALUES (gen_random_uuid(), pg_temp.etiqueta('Urgente'))$q$, '23503', 'Q12b la incidencia debe existir');
 SELECT pg_temp.espera_regla($q$INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id, activo) VALUES (pg_temp.incidencia('t20-A'), pg_temp.etiqueta('AB'), false)$q$,
   'incidencia_etiqueta: una asignacion nace vigente', 'Q13a no se inserta una asignacion ya quitada');
 SELECT pg_temp.espera_regla($q$INSERT INTO chatbot.incidencia_etiqueta (incidencia_paciente_id, etiqueta_id, eliminado_en, eliminado_por) VALUES (pg_temp.incidencia('t20-A'), pg_temp.etiqueta('AB'), now(), 'x')$q$,

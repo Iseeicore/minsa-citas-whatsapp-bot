@@ -125,7 +125,7 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    ```
 
 2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de PostgreSQL y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía** si no tienes base: el `true` del bloque mínimo es para el servidor en Docker, que sí la usa.
-3. Aplica el esquema a tu base de datos de desarrollo (PostgreSQL 16 o superior; la migración define `uuidv7()` si el motor no la trae):
+3. Aplica el esquema a tu base de datos de desarrollo (PostgreSQL 16 o superior):
 
    ```bash
    npx prisma migrate deploy

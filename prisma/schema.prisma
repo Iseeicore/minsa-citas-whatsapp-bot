@@ -288,7 +288,7 @@ model EstablecimientoSalud {
 }
 
 model Usuario {
-  id                       String    @id(map: "pk_usuario") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                       String    @id(map: "pk_usuario") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   waId                     String    @unique(map: "uq_usuario_wa_id") @map("wa_id")
   profileName              String?   @map("profile_name")
   phoneNumber              String?   @map("phone_number")
@@ -318,7 +318,7 @@ model Usuario {
 }
 
 model Mensaje {
-  id                  String    @id(map: "pk_mensaje") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                  String    @id(map: "pk_mensaje") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   usuarioId           String    @map("usuario_id") @db.Uuid
   direccionMensajeId  Int       @map("direccion_mensaje_id") @db.SmallInt
   tipoMensajeId       Int       @map("tipo_mensaje_id") @db.SmallInt
@@ -348,7 +348,7 @@ model Mensaje {
 }
 
 model IncidenciaPaciente {
-  id                     String    @id(map: "pk_incidencia_paciente") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                     String    @id(map: "pk_incidencia_paciente") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   canalOrigenId          Int       @map("canal_origen_id") @db.SmallInt
   usuarioId              String    @map("usuario_id") @db.Uuid
   mensajeId              String?   @map("mensaje_id") @db.Uuid
@@ -456,7 +456,7 @@ model IncidenciaAnalisis {
 }
 
 model Evidencia {
-  id                   String   @id(map: "pk_evidencia") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                   String   @id(map: "pk_evidencia") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
   mensajeId            String?  @map("mensaje_id") @db.Uuid
   mediaId              String?  @map("media_id")
@@ -481,7 +481,7 @@ model Evidencia {
 }
 
 model SesionConversacion {
-  id                String   @id(map: "pk_sesion_conversacion") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                String   @id(map: "pk_sesion_conversacion") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   waId              String   @unique(map: "uq_sesion_conversacion_wa_id") @map("wa_id")
   estado            String
   slots             Json
@@ -505,7 +505,7 @@ model ContadorCodigoIncidencia {
 }
 
 model EntrenamientoCategoria {
-  id                   String   @id(map: "pk_entrenamiento_categoria") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                   String   @id(map: "pk_entrenamiento_categoria") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   incidenciaPacienteId String   @map("incidencia_paciente_id") @db.Uuid
   textoEntrenamiento   String   @map("texto_entrenamiento")
   categoriaIaId        Int      @map("categoria_ia_id") @db.SmallInt
@@ -530,7 +530,7 @@ model EntrenamientoCategoria {
 }
 
 model UsuarioInterno {
-  id                  String    @id(map: "pk_usuario_interno") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                  String    @id(map: "pk_usuario_interno") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombreCompleto      String    @map("nombre_completo")
   correo              String    @unique(map: "uq_usuario_interno_correo")
   passwordHash        String    @map("password_hash")
@@ -575,7 +575,7 @@ model Rol {
 }
 
 model SesionUsuario {
-  id                  String    @id(map: "pk_sesion_usuario") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                  String    @id(map: "pk_sesion_usuario") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   usuarioInternoId    String    @map("usuario_interno_id") @db.Uuid
   ultimaActividadEn   DateTime  @default(now()) @map("ultima_actividad_en") @db.Timestamptz(3)
   venceEn             DateTime  @map("vence_en") @db.Timestamptz(3)
@@ -626,7 +626,7 @@ model EstadoArchivo {
 }
 
 model SolicitudCarga {
-  id                   String    @id(map: "pk_solicitud_carga") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                   String    @id(map: "pk_solicitud_carga") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   incidenciaPacienteId String?   @map("incidencia_paciente_id") @db.Uuid
   sesionId             String?   @map("sesion_id") @db.Uuid
   usuarioId            String    @map("usuario_id") @db.Uuid
@@ -651,7 +651,7 @@ model SolicitudCarga {
 }
 
 model ArchivoRecibido {
-  id                  String    @id(map: "pk_archivo_recibido") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                  String    @id(map: "pk_archivo_recibido") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   solicitudCargaId    String    @map("solicitud_carga_id") @db.Uuid
   nombreOriginal      String?   @map("nombre_original")
   mimeDeclarado       String    @map("mime_declarado")
@@ -711,7 +711,7 @@ model Etiqueta {
 }
 
 model IncidenciaEtiqueta {
-  id                   String    @id(map: "pk_incidencia_etiqueta") @default(dbgenerated("uuidv7()")) @db.Uuid
+  id                   String    @id(map: "pk_incidencia_etiqueta") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   incidenciaPacienteId String    @map("incidencia_paciente_id") @db.Uuid
   etiquetaId           Int       @map("etiqueta_id")
   activo               Boolean   @default(true)

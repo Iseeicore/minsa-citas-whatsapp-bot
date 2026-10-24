@@ -495,7 +495,7 @@ Cada archivo que el ciudadano sube a través de una solicitud de carga, con su e
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `solicitud_carga_id` | uuid | No |  | FK | Solicitud de carga con la que se subió el archivo. |
 | `nombre_original` | text | Sí |  |  | Nombre que tenía el archivo en el dispositivo del ciudadano. Es un dato informativo y puede venir vacío. |
 | `mime_declarado` | text | No |  |  | Tipo de archivo que declaró el navegador al subirlo. No es de fiar: se contrasta con el tipo detectado. |
@@ -571,7 +571,7 @@ Archivo que el paciente adjunta a su reporte (imagen, video, documento o audio).
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `incidencia_paciente_id` | uuid | No |  | FK | Reporte al que pertenece la evidencia. |
 | `mensaje_id` | uuid | Sí |  | FK | Mensaje de WhatsApp del que vino el archivo. Opcional. |
 | `media_id` | text | Sí |  |  | Id del archivo en Meta (dato de Meta). |
@@ -644,7 +644,7 @@ Asignación de una etiqueta a una incidencia. Cada fila es un periodo en que la 
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `incidencia_paciente_id` | uuid | No |  | FK | Incidencia que lleva la etiqueta. No cambia. Debe estar activa (no eliminada) al asignar. |
 | `etiqueta_id` | integer | No |  | FK | Etiqueta asignada. No cambia. Debe estar activa (no retirada) al asignar. |
 | `activo` | boolean | No | `true` |  | Indica si la asignación está vigente. Falso significa que la etiqueta se quitó de la incidencia; una asignación quitada no se reactiva ni se modifica. |
@@ -687,7 +687,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `canal_origen_id` | smallint | No |  | FK | Canal por el que llegó (WhatsApp o web). |
 | `usuario_id` | uuid | No |  | FK | Usuario que presentó el reporte. |
 | `mensaje_id` | uuid | Sí |  | FK | Mensaje del chat del que nació el reporte. Opcional. |
@@ -836,7 +836,7 @@ Mensaje de la conversación, entrante o saliente. Es la tabla de mayor volumen: 
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `usuario_id` | uuid | No |  | FK | Usuario dueño de la conversación a la que pertenece el mensaje. |
 | `direccion_mensaje_id` | smallint | No |  | FK | Sentido del mensaje (entrante o saliente). |
 | `tipo_mensaje_id` | smallint | No |  | FK | Tipo de contenido del mensaje. |
@@ -880,7 +880,7 @@ Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `wa_id` | text | No |  |  | Id del chat. Único: hay una sesión por usuario. No tiene llave foránea hacia usuario porque la sesión puede existir antes que el usuario. |
 | `estado` | text | No |  |  | Estado actual del flujo conversacional (por ejemplo cita_awaiting_dni). Es texto y no catálogo porque lo define el código del bot y tiene más de 60 valores. |
 | `slots` | jsonb | No |  |  | Datos recolectados durante el flujo, en JSON. La forma la garantiza el código del bot. |
@@ -904,7 +904,7 @@ Permiso temporal para que el ciudadano suba archivos de una incidencia desde la 
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `incidencia_paciente_id` | uuid | Sí |  | FK | Incidencia a la que se le agregarán los archivos. Nulo mientras el ciudadano aún está armando el reporte en el chat; se enlaza una sola vez cuando la incidencia se crea. |
 | `sesion_id` | uuid | Sí |  |  | Sesión de conversación (borrador del reporte) para la que se emitió el enlace antes de que existiera la incidencia. Sin llave foránea a propósito: la purga de sesiones inactivas borra la sesión. Obligatoria mientras no haya incidencia. |
 | `usuario_id` | uuid | No |  | FK | Usuario (ciudadano) al que se le emitió el enlace. |
@@ -953,7 +953,7 @@ Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. R
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `wa_id` | text | No |  |  | Id del chat de WhatsApp (dato de Meta; es un identificador opaco, no un teléfono). Es la clave de negocio del usuario. |
 | `profile_name` | text | Sí |  |  | Nombre de perfil de WhatsApp (dato de Meta). Opcional. |
 | `phone_number` | text | Sí |  |  | Teléfono (dato de Meta). Casi siempre vacío porque la cuenta usa identificadores BSUID. Nunca se usa como clave. |
@@ -1057,7 +1057,7 @@ Sesión abierta por un usuario interno. Su id es lo único que viaja en la cooki
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `usuario_interno_id` | uuid | No |  | FK | Usuario interno dueño de la sesión. No cambia. |
 | `ultima_actividad_en` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última petición con esta sesión. La aplicación la actualiza para calcular el vencimiento por inactividad; no puede retroceder. |
 | `vence_en` | timestamp(3) with time zone | No |  |  | Fecha y hora (UTC) en que la sesión vence de forma absoluta, aunque haya actividad. Se fija al crearla y no cambia. |
@@ -1094,7 +1094,7 @@ Persona de la institución que gestiona los casos. Es distinta del usuario de Wh
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `nombre_completo` | text | No |  |  | Nombre completo de la persona. |
 | `correo` | text | No |  |  | Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión. |
 | `password_hash` | text | No |  |  | Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato. |
@@ -1168,7 +1168,7 @@ Copia de cada categoría que una persona revisó (corrigiéndola o confirmándol
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `id` | uuid | No | `uuidv7()` | PK | Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación. |
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
 | `incidencia_paciente_id` | uuid | No |  | FK | Incidencia cuya categoría se revisó. |
 | `texto_entrenamiento` | text | No |  |  | Copia del relato del paciente en el momento de la revisión. En la primera etapa va sin depurar; ver la lista de la segunda etapa. |
 | `categoria_ia_id` | smallint | No |  | FK | Categoría que había asignado la IA. |

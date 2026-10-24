@@ -6,7 +6,7 @@
     "ia": "Plataforma 3: aprendizaje de la IA. Recibe una copia de cada categoría que una persona revisó, ya sea corrigiéndola o confirmándola."
   },
   "comunes": {
-    "id": "Identificador único de la fila: UUID versión 7, generado por la base y ordenable por fecha de creación.",
+    "id": "Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().",
     "fecha_creacion": "Fecha y hora (UTC) en que se insertó la fila. La llena un disparador con el reloj de la base.",
     "usuario_creacion": "Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.",
     "fecha_modificacion": "Fecha y hora (UTC) de la última modificación. La llena un disparador.",
