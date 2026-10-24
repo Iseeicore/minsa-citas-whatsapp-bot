@@ -107,7 +107,8 @@ SANDBOX_ENABLED=true
 SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
 ```
 
-- **Sin `SANDBOX_ENABLED=true`** la ruta responde 404, aunque el origen esté permitido.
+- **Sin `SANDBOX_ENABLED=true`** la ruta responde 404, aunque el origen esté permitido. Lo mismo vale para el `OPTIONS` previo: con el sandbox apagado también responde 404, así que no delata que la ruta existe.
+- **Con `SANDBOX_SHARED_SECRET`** solo el servidor del portal puede llamar a la ruta: firma cada petición y el navegador nunca ve el secreto. Quien llame con `curl` sin firma recibe 401.
 - **Cada entrada se reduce a su origen** (esquema + dominio + puerto): `https://dminsadigital.minsa.gob.pe/` también funciona. Varias entradas se separan con comas.
 - **Una entrada que no es una URL** (un dominio sin `https://`, un `*`) se ignora y se registra una sola vez en el log `sandbox.cors_invalid_origin`. Nunca se acepta un comodín.
 
@@ -123,7 +124,7 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
    npm install
    ```
 
-2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de PostgreSQL y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía:** el `false` del bloque mínimo es para el servidor en Docker.
+2. Copia `.env.example` a `.env` y completa los valores reales (un `DATABASE_URL` de PostgreSQL y las credenciales de WhatsApp Cloud API). **Deja `DATABASE_ENABLED` vacía** si no tienes base: el `true` del bloque mínimo es para el servidor en Docker, que sí la usa.
 3. Aplica el esquema a tu base de datos de desarrollo (requiere PostgreSQL 18, que aporta `uuidv7()`; con PostgreSQL 17 hay que cambiar ese valor por defecto por `gen_random_uuid()`):
 
    ```bash
@@ -168,14 +169,14 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
-| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (6, incluye `MINSA_DIGITAL_APP_URL` y `CITA_ALLOWED_DEPARTAMENTOS=LIMA`), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Chat-bot (`SANDBOX_ENABLED=true`, `SANDBOX_ALLOWED_ORIGINS`) y `DATABASE_ENABLED=false` | El servidor del MINSA en Docker: whatsapp-bot (citas) y el Chat-bot conectado al portal de MINSA Digital, sin base de datos |
-| `##### Completo: variables opcionales` | Base de datos, incidencias, páginas del Chat-bot y bandeja web (`SANDBOX_PAGE_ENABLED`), logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, el flujo de incidencia, ajustes finos |
+| `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (los dos secretos, `SANDBOX_USE_REAL_MINSA`, `CITA_ALLOWED_DEPARTAMENTOS=LIMA` y las tres direcciones del portal), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Chat-bot (`SANDBOX_ENABLED`, `SANDBOX_PAGE_ENABLED`, `SANDBOX_SHARED_SECRET`), `DATABASE_ENABLED`, `DATABASE_URL` e `INCIDENCIAS_ENABLED` | El servidor del MINSA en Docker: whatsapp-bot (citas) y el Chat-bot conectado al portal de MINSA Digital |
+| `##### Completo: variables opcionales` | Almacén de evidencias, logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
-> **El bloque mínimo está pensado para Docker sin base.** Para Docker con base de datos pon `DATABASE_ENABLED=true` y `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Si copias el archivo para **Vercel o desarrollo local**, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production (el Chat-bot no tiene autenticación).
+> **El bloque mínimo está pensado para el servidor en Docker con base de datos:** trae `DATABASE_ENABLED=true`, así que completa también `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Deja `SANDBOX_PAGE_ENABLED` sin definir en producción: abre la bandeja web sin autenticación. Si copias el archivo para **Vercel o desarrollo local** sin base, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production.
 
-- **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero **sin base de datos (`DATABASE_ENABLED=false`) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
+- **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero **sin base de datos (`DATABASE_ENABLED` apagada) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
 - **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica** y **Consultar Referencias**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `3` o `4` escritos, ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y consulta referencias, y muestra el menú.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
 - **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
@@ -236,6 +237,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 |---|---|
 | `SANDBOX_ENABLED` | `true` habilita `POST /api/sandbox`, que **no tiene autenticación** (404 si no). Con las variables `SANDBOX_USE_REAL_*` en `true` llama a servicios reales: úsalo solo en local y Preview, nunca en Production |
 | `SANDBOX_PAGE_ENABLED` | `true` muestra las páginas del Chat-bot (`/sandbox` y `/configuracion-visor-sandbox`), deja que `/` redirija a `/sandbox` y **abre la bandeja web** (`/api/conversations*` y `/api/messages/send`). Sin definir o con cualquier otro valor: las tres páginas redirigen a `/api/health` y esas cuatro rutas responden `404`, aunque la base esté activa. **No afecta a `POST /api/sandbox`**, que sigue gobernada por `SANDBOX_ENABLED` (el portal de MINSA Digital la usa). La bandeja web **no tiene autenticación**: lista todas las conversaciones con su teléfono y permite escribir desde el número oficial. En Production déjala sin definir |
+| `SANDBOX_SHARED_SECRET` | Secreto compartido con el servidor del portal. Si está definido, `POST /api/sandbox` exige los headers `x-sandbox-timestamp` y `x-sandbox-signature` (`sha256=` + HMAC-SHA256 de `timestamp.cuerpo`) y responde `401` sin firma válida o con marca de tiempo de más de 5 minutos. Sin definir no se exige firma. Debe ser distinto de `META_APP_SECRET` y de `MINSA_INTEGRATION_SECRET`. Las páginas del visor no firman: no las actives en un despliegue con este secreto |
 | `SANDBOX_ALLOWED_ORIGINS` | Orígenes permitidos (CORS, separados por comas) para el Chat-bot en otro frontend. Una barra final se ignora. Ver [Conectar un frontend externo](#conectar-un-frontend-externo-chat-bot) |
 
 **Logs** (ver [docs/observabilidad.md](docs/observabilidad.md))

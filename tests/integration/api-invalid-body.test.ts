@@ -30,6 +30,7 @@ describe("a body that is not JSON gets the shared 400 INVALID_BODY, not a 500", 
 
   it("on the Sandbox", async () => {
     vi.stubEnv("SANDBOX_ENABLED", "true");
+    vi.stubEnv("SANDBOX_SHARED_SECRET", "");
 
     const response = await sandboxPost(
       new NextRequest("http://localhost/api/sandbox", {

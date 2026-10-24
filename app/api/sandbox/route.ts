@@ -23,6 +23,11 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
 import { trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
 import { randomUuid } from "@/lib/utils/random-uuid";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { verifySandboxSignature } from "@/lib/security/sandbox-signature";
+import { SANDBOX_SIGNATURE_HEADER, SANDBOX_TIMESTAMP_HEADER } from "@/lib/constants/sandbox-signature";
+import { SANDBOX_DISABLED_TEXT, SANDBOX_UNSIGNED_TEXT } from "@/lib/constants/textos/sandbox";
+import { SandboxSignatureResult } from "@/lib/enums/sandbox-signature-result";
 
 const SANDBOX_TURN_HOOKS: TurnHooks = {
   onSend: async () => randomUuid(),
@@ -51,7 +56,27 @@ function corsHeaders(request: NextRequest): HeadersInit {
   };
 }
 
+function isSandboxEnabled(): boolean {
+  return process.env.SANDBOX_ENABLED === "true";
+}
+
+function rejectedSignature(request: NextRequest, rawBody: string): SandboxSignatureResult | undefined {
+  const secret = process.env.SANDBOX_SHARED_SECRET;
+  if (!secret) return undefined;
+
+  const result = verifySandboxSignature({
+    secret,
+    timestamp: request.headers.get(SANDBOX_TIMESTAMP_HEADER),
+    signature: request.headers.get(SANDBOX_SIGNATURE_HEADER),
+    body: rawBody,
+    nowSeconds: Math.floor(Date.now() / 1000),
+  });
+  return result === SandboxSignatureResult.VALID ? undefined : result;
+}
+
 export async function OPTIONS(request: NextRequest) {
+  if (!isSandboxEnabled()) return apiError(ApiErrorCode.NOT_FOUND, { message: SANDBOX_DISABLED_TEXT });
+
   const origin = request.headers.get("origin");
   if (!origin || !allowedOrigins().includes(origin)) {
     return new NextResponse(null, { status: 204 });
@@ -84,11 +109,18 @@ const sandboxEventSchema = z.object({
 export async function POST(request: NextRequest) {
   const cors = corsHeaders(request);
 
-  if (process.env.SANDBOX_ENABLED !== "true") {
-    return apiError(ApiErrorCode.NOT_FOUND, { message: "El Sandbox no está habilitado en este despliegue.", headers: cors });
+  if (!isSandboxEnabled()) {
+    return apiError(ApiErrorCode.NOT_FOUND, { message: SANDBOX_DISABLED_TEXT, headers: cors });
   }
 
-  const body = await request.json().catch(() => undefined);
+  const rawBody = await request.text();
+  const rejection = rejectedSignature(request, rawBody);
+  if (rejection) {
+    logger.warn("sandbox.signature_rejected", { reason: rejection });
+    return apiError(ApiErrorCode.UNAUTHORIZED, { message: SANDBOX_UNSIGNED_TEXT, headers: cors });
+  }
+
+  const body = rawBody ? parseJsonOr(rawBody, undefined) : undefined;
   if (body === undefined) return apiError(ApiErrorCode.INVALID_BODY, { headers: cors });
   const parsed = sandboxEventSchema.safeParse(body);
 
