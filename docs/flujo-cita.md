@@ -64,8 +64,12 @@ Hora 📋              (1 horario ─► 🔘 "Solo hay un horario… ¿Lo confi
    └─ hora escrita ("8 y 45") ─────► 🔘 "¿Confirmas el horario…?" ─► reserva
 
 Reserva 💬 "Agendando tu cita…"
-└─ éxito ─► 💬 constancia + 🔗 "Ver mi cita" + 💬 despedida ⛔
+├─ éxito ─► 💬 constancia + 🔗 "Ver mi cita" + 💬 despedida ⛔
+├─ servicio caído (HTTP 5xx) ─► 💬 "En este momento el servicio tiene problemas…" ⛔ (sin volver a los horarios)
+└─ error 4xx o cupo tomado ─► 💬 aviso + horarios de la misma fecha (hasta 3 veces)
 ```
+
+Un error 5xx de MINSA al reservar significa que el servicio no está respondiendo, así que reintentar no sirve: el bot cierra con el aviso y no vuelve a mostrar los horarios. Un 4xx o un cupo tomado sí reintenta, porque otra hora puede funcionar. Un duplicado se reconoce por el mensaje de MINSA aunque llegue como 500.
 
 ### Elección de cita nueva o con referencia en ambos canales
 
