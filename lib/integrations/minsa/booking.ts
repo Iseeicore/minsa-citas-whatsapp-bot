@@ -6,7 +6,7 @@ import { ACTIVE_CITA_MESSAGE } from "@/lib/constants/regex/integrations";
 import { BookingStatus } from "@/lib/enums/booking-status";
 import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
 import { parseJsonOr } from "@/lib/utils/safe-json";
-import { BOOKING_LOG_BODY_LIMIT } from "@/lib/constants/limits/minsa";
+import { BOOKING_LOG_BODY_LIMIT, HTTP_SERVER_ERROR_MIN_STATUS } from "@/lib/constants/limits/minsa";
 
 function minsaMessageOf(body: string): string | undefined {
   const parsed = parseJsonOr(body, null) as { message?: unknown } | null;
@@ -50,6 +50,11 @@ export async function bookAppointment(params: BookAppointmentParams, bearer: str
     const duplicateMessage = minsaMessageOf(rawBody);
     if (duplicateMessage && ACTIVE_CITA_MESSAGE.test(duplicateMessage)) {
       return { status: BookingStatus.DUPLICATE, message: duplicateMessage };
+    }
+
+    if (response.status >= HTTP_SERVER_ERROR_MIN_STATUS) {
+      logBookingFailure(params, response.status, rawBody);
+      return { status: BookingStatus.UNAVAILABLE };
     }
 
     if (!response.ok) {

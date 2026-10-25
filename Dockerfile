@@ -36,6 +36,9 @@ COPY --from=build --chown=node:node /app/public ./public
 COPY --from=prisma-cli --chown=node:node /opt/prisma/node_modules /opt/prisma/node_modules
 COPY --chown=node:node prisma/schema.prisma ./prisma/schema.prisma
 COPY --chown=node:node prisma/migrations ./prisma/migrations
+COPY --chown=node:node prisma/sql ./prisma/sql
+COPY --chown=node:node prisma/seeds/catalogos ./prisma/seeds/catalogos
+COPY --chown=node:node scripts/db-aplicar-sql.mjs ./scripts/db-aplicar-sql.mjs
 COPY --chmod=0755 scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN mkdir -p /app/logs && chown node:node /app/logs
 

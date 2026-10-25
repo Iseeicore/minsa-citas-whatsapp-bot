@@ -84,6 +84,7 @@ export type BookAppointmentResult =
   | { status: BookingStatus.DUPLICATE; message: string }
   | { status: BookingStatus.REJECTED; message: string }
   | { status: BookingStatus.ERROR }
+  | { status: BookingStatus.UNAVAILABLE }
   | { status: BookingStatus.UNAUTHORIZED };
 
 export type ReferenciaItem = {

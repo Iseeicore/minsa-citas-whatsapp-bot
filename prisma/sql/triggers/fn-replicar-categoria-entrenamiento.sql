@@ -1,0 +1,1 @@
+CREATE OR REPLACE TRIGGER trg_incidencia_paciente_d_entrenamiento AFTER UPDATE ON chatbot.incidencia_paciente FOR EACH ROW WHEN ((((old.categoria_corregida_en IS NULL) AND (new.categoria_corregida_en IS NOT NULL)) OR ((old.categoria_confirmada_en IS NULL) AND (new.categoria_confirmada_en IS NOT NULL)))) EXECUTE FUNCTION fn_replicar_categoria_entrenamiento();

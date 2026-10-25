@@ -20,6 +20,7 @@ export const BOOKING_TECHNICAL_RETRY_TEXT =
   "Tuvimos un problema técnico al intentar reservar tu cita. Vamos a intentarlo de nuevo — estos son los horarios disponibles de la misma fecha:";
 export const BOOKING_SLOT_TAKEN_RETRY_TEXT =
   "No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:";
+export const BOOKING_SERVICE_UNAVAILABLE_TEXT = "En este momento el servicio tiene problemas. Por favor, inténtalo más tarde.";
 export const BOOKING_REJECTED_TEXT = "No pudimos agendar tu cita. Intenta de nuevo más tarde.";
 export const BOOKING_IN_PROGRESS_TEXT = "Agendando tu cita…";
 export const DUPLICATE_QUESTION_TEXT = "El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?";
