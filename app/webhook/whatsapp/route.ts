@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import crypto from "crypto";
 import type { WhatsAppWebhookPayload } from "@/lib/whatsapp/webhook/payload";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 import { logger } from "@/lib/observability/logger";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { parseJsonOr } from "@/lib/utils/safe-json";
+import { isValidMetaSignature } from "@/lib/security/meta-signature";
+import { META_SIGNATURE_HEADER } from "@/lib/constants/meta-signature";
 
 export const runtime = "nodejs";
 
@@ -24,29 +25,10 @@ export async function GET(request: NextRequest) {
   return new NextResponse("Forbidden", { status: 403 });
 }
 
-function isValidSignature(rawBody: string, signatureHeader: string | null): boolean {
-  if (!signatureHeader) return false;
-
-  const expected =
-    "sha256=" +
-    crypto
-      .createHmac("sha256", process.env.META_APP_SECRET ?? "")
-      .update(rawBody)
-      .digest("hex");
-
-  const expectedBuffer = Buffer.from(expected);
-  const receivedBuffer = Buffer.from(signatureHeader);
-
-  if (expectedBuffer.length !== receivedBuffer.length) return false;
-
-  return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
-}
-
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
-  const signatureHeader = request.headers.get("x-hub-signature-256");
-  if (!isValidSignature(rawBody, signatureHeader)) {
+  if (!isValidMetaSignature(rawBody, request.headers.get(META_SIGNATURE_HEADER))) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
