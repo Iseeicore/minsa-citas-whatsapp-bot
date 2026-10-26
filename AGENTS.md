@@ -77,7 +77,7 @@ npm run docker:up           # construye y espera el healthcheck
 Chequeo equivalente al CI (`docs/ci.md`):
 
 ```bash
-npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npm run format:check && npx vitest run && npm run test:perf
+npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npm run format:check && npx vitest run && npm run test:perf
 ```
 
 `npx next typegen` es necesario en un checkout limpio antes de `tsc`. Vitest fija `DATABASE_URL=""`, `DATABASE_ENABLED=true`, `INCIDENCIAS_ENABLED=true` (`vitest.config.ts`); nunca correr la suite principal con un `DATABASE_URL` real.
