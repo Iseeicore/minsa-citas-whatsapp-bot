@@ -2,6 +2,7 @@ import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 
 export const REFERENCE_PAGE_ANSWERS: Readonly<Record<string, ListPageButtonId | HoraPageButtonId | undefined>> = {
   ANTERIORES: ListPageButtonId.PREV,
@@ -11,6 +12,10 @@ export const REFERENCE_PAGE_ANSWERS: Readonly<Record<string, ListPageButtonId | 
 };
 
 export const CHANGE_REFERENCE_ANSWERS = new Set(["CAMBIAR REFERENCIA"]);
+
+export const CONSULTA_REFERENCIAS_ACTION_ANSWERS: Readonly<Record<string, ReferenciaActionButtonId | undefined>> = {
+  "CITA SIN REFERENCIA": ReferenciaActionButtonId.NEW_APPOINTMENT,
+};
 
 export const CITA_REFERENCIA_MODE_ANSWERS: Readonly<Record<string, CitaReferenciaButtonId | undefined>> = {
   "1": CitaReferenciaButtonId.NEW,

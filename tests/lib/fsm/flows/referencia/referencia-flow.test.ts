@@ -4,8 +4,9 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { ANALYZING_CUENTA_TEXT, VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
-import { REFERENCIAS_LIST_TEXT } from "@/lib/constants/textos/cita-reserva";
-import { CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT } from "@/lib/constants/textos/cita-referencia";
+import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { referenciasBloqueadasAviso } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import {
@@ -135,7 +136,7 @@ describe("the lookup", () => {
 
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
-    expect(list).toMatchObject({ text: REFERENCIAS_LIST_TEXT });
+    expect(list).toMatchObject({ text: consultaReferenciasListText(["ACEPTADO", "PACIENTE RECIBIDO"]) });
     expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["1364486"]);
     expect(list?.kind === "send_interactive_list" && list.rows[0]).toEqual({
       id: "1364486",
@@ -171,6 +172,13 @@ describe("the lookup", () => {
       sent(result).flatMap((effect) => (effect.kind === "send_interactive_list" ? effect.rows.map((row) => row.id) : []));
     const aviso = referenciasBloqueadasAviso([citada]);
 
+    const list = (result: HandlerResult) => sent(result).find((effect) => effect.kind === "send_interactive_list");
+    const actionIds = (result: HandlerResult) => {
+      const found = list(result);
+      return found?.kind === "send_interactive_list" ? (found.actions ?? []).map((action) => action.id) : [];
+    };
+    const CONSULTA_ACTIONS = [ReferenciaActionButtonId.NEW_APPOINTMENT, ReferenciaActionButtonId.EXIT];
+
     it("WhatsApp lists only the bookable ones and names the others in one text before the list", () => {
       const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
 
@@ -181,19 +189,84 @@ describe("the lookup", () => {
       expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     });
 
-    it("WhatsApp with none bookable sends that text and continues as when nothing is selectable, with no list", () => {
-      const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada]));
+    it("the list explains which states can be booked and closes with Cita sin referencia and Salir", () => {
+      const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
 
-      expect(texts(result).slice(0, 2)).toEqual([aviso, CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT]);
-      expect(rowIds(result)).toEqual([]);
-      expect(result.session.state).not.toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+      expect(list(result)).toMatchObject({
+        text: "Estas son tus referencias. Para agendar una cita con una referencia, elígela de la lista: solo se pueden agendar las que están en estado ACEPTADO o PACIENTE RECIBIDO. Si prefieres una cita sin referencia, elige «Cita sin referencia».",
+      });
+      expect(CONSULTA_REFERENCIAS_ACTIONS).toEqual([
+        { id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" },
+        { id: ReferenciaActionButtonId.EXIT, title: "Salir" },
+      ]);
+      expect(actionIds(result)).toEqual(CONSULTA_ACTIONS);
     });
 
-    it("the web chat keeps every reference as a card, with no extra text", () => {
+    it("WhatsApp shows 6 references per page so both options fit next to the page controls on every page", () => {
+      const many = Array.from({ length: 13 }, (_, index) => ({ ...REFERENCIA, idReferencia: `ref-${index}`, numero: `n-${index}` }));
+      const first = handle(lookupOn(SessionChannel.WHATSAPP), found(many));
+      const second = handle(first.session, tap(ListPageButtonId.NEXT));
+
+      expect(rowIds(first)).toEqual(many.slice(0, 6).map((item) => item.idReferencia));
+      expect(actionIds(first)).toEqual([ListPageButtonId.NEXT, ...CONSULTA_ACTIONS]);
+      expect(rowIds(second)).toEqual(many.slice(6, 12).map((item) => item.idReferencia));
+      expect(actionIds(second)).toEqual([ListPageButtonId.PREV, ListPageButtonId.NEXT, ...CONSULTA_ACTIONS]);
+      expect(rowIds(second).length + actionIds(second).length).toBeLessThanOrEqual(10);
+      expect(handle(second.session, text("1")).session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("ref-6");
+    });
+
+    it.each([tap(ReferenciaActionButtonId.NEW_APPOINTMENT), text("cita sin referencia")])(
+      "%j continues with a new appointment on the verified session, with no new code",
+      (event) => {
+        const listed = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
+        const result = handle(listed.session, event);
+
+        expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+        expect(texts(result)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
+        expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
+        expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
+        expect(queries(result)).toEqual([]);
+      },
+    );
+
+    it("Salir closes with the usual farewell and a typed salir keeps the existing exit confirmation", () => {
+      const listed = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
+      const result = handle(listed.session, tap(ReferenciaActionButtonId.EXIT));
+
+      expect(result.session.state).toBe(SessionState.REFERENCIA_CLOSED);
+      expect(texts(result)).toEqual([REFERENCIA_GOODBYE_TEXT]);
+      expect(handle(listed.session, text("salir")).session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
+    });
+
+    it("WhatsApp with none bookable sends that text and asks whether to book a cita, with no list", () => {
+      const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada]));
+
+      expect(texts(result)).toEqual([aviso]);
+      expect(rowIds(result)).toEqual([]);
+      expect(buttons(result)).toEqual({
+        kind: "send_buttons",
+        text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+        buttons: REFERENCIA_CITA_OFFER_BUTTONS,
+      });
+      expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+
+      const yes = handle(result.session, tap(ReferenciaCitaOfferButtonId.YES));
+      expect(yes.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+      expect(texts(yes)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
+      expect(yes.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
+      expect(queries(yes)).toEqual([]);
+
+      const no = handle(result.session, tap(ReferenciaCitaOfferButtonId.NO));
+      expect(no.session.state).toBe(SessionState.REFERENCIA_CLOSED);
+      expect(texts(no)).toEqual([REFERENCIA_GOODBYE_TEXT]);
+    });
+
+    it("the web chat keeps every reference as a card, with no extra text, and offers the same two options", () => {
       const result = handle(lookupOn(SessionChannel.WEB), found([citada, REFERENCIA]));
 
       expect(texts(result)).toEqual([]);
       expect(rowIds(result)).toEqual([REFERENCIA.idReferencia, citada.idReferencia]);
+      expect(actionIds(result)).toEqual(CONSULTA_ACTIONS);
     });
   });
 

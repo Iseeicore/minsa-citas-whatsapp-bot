@@ -9,11 +9,19 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
-import { REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT, referenciaBloqueadaText } from "@/lib/constants/textos/cita-reserva";
+import {
+  REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT,
+  REFERENCIAS_LIST_TEXT,
+  referenciaBloqueadaText,
+} from "@/lib/constants/textos/cita-reserva";
 import { CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT } from "@/lib/constants/textos/cita-referencia";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
-import { offerReferenciasList, restartReferenceSelection } from "@/lib/fsm/flows/cita/steps/booking/references";
+import {
+  offerReferenciasList,
+  restartReferenceSelection,
+  withConsultaReferenciasActions,
+} from "@/lib/fsm/flows/cita/steps/booking/references";
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 
@@ -526,12 +534,15 @@ describe("referencias en todos los estados", () => {
     session.slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.REFERENCE;
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(MINSA_ORDER);
 
-    const rows = readOffered(offerReferenciasList(session).session.slots)?.rows;
+    const result = offerReferenciasList(session);
+    const rows = readOffered(result.session.slots)?.rows;
 
     expect(rows?.map((row) => [row.id, row.disabled])).toEqual([
       ["aceptada", undefined],
       ["recibida", undefined],
     ]);
+    expect(withConsultaReferenciasActions(result)).toEqual(result);
+    expect(readOffered(result.session.slots)?.text).toBe(REFERENCIAS_LIST_TEXT);
   });
 
   it("web conserva la etiqueta del estado en la tarjeta y la marca como no seleccionable", () => {

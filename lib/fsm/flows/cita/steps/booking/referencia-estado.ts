@@ -43,6 +43,10 @@ export function ordenarReferenciasPorSeleccion(items: ReferenciaItem[], sinProgr
   return [...items.filter(seleccionable), ...items.filter((item) => !seleccionable(item))];
 }
 
+export function etiquetasSeleccionables(): string[] {
+  return [...REFERENCIA_ESTADOS_SELECCIONABLES].map((codigo) => REFERENCIA_ESTADO_LABELS[codigo] ?? referenciaEstadoCodigoText(codigo));
+}
+
 export function referenciaEspecialidad(item: ReferenciaItem): string {
   return item.upsDestino.trim() ? item.upsDestino : REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT;
 }

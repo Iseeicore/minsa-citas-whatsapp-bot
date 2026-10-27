@@ -144,6 +144,24 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(otp.texts[avisoIndex]).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
     const list = otp.sent.find((effect) => effect.kind === "send_interactive_list");
     expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual([seleccionable.idReferencia]);
+    expect(list?.kind === "send_interactive_list" && list.text).toContain("ACEPTADO o PACIENTE RECIBIDO");
+    expect(list?.kind === "send_interactive_list" && list.actions?.map((action) => action.title)).toEqual(["Cita sin referencia", "Salir"]);
+
+    const nueva = await say(tap("consulta_referencia_cita_sin_referencia"));
+    expect(nueva.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(referencias.calls).toBe(1);
+  });
+
+  it("en WhatsApp, sin ninguna que permita agendar, nombra las bloqueadas y pregunta si desea agendar una cita", async () => {
+    const [seleccionable] = UNA_REFERENCIA.data;
+    referencias.result = { ...UNA_REFERENCIA, data: [{ ...seleccionable, estado: 7 }] };
+
+    const otp = await loginForReferencias();
+
+    expect(otp.session.state).toBe("referencia_awaiting_cita_offer");
+    expect(otp.texts.slice(-2)).toEqual([expect.stringContaining("PACIENTE CITADO"), "[buttons] ¿Deseas agendar una cita?"]);
+    const si = await say(text("sí"));
+    expect(si.session.state).toBe("cita_awaiting_distrito_ai");
   });
 
   it("sin referencias, acepta una cita: sigue sin pedir documento ni código y se agenda sin referenciaId", async () => {
