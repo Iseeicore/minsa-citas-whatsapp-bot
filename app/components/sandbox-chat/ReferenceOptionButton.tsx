@@ -4,8 +4,6 @@ import { Button } from "@/app/components/ui/Button";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
 import type { ReferenciaListaDetalle } from "@/lib/types/referencia-lista-detalle";
-import { cn } from "@/lib/utils/cn";
-import { referenceOptionClassNames, type ReferenceOptionClassNames } from "@/lib/utils/reference-option-class-name";
 import {
   REFERENCIA_ESPECIALIDAD_LABEL,
   REFERENCIA_DESTINO_LABEL,
@@ -23,29 +21,21 @@ function ReferenceField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ReferenceHeading({
-  reference,
-  classes,
-  unavailable,
-}: {
-  reference: ReferenciaListaDetalle;
-  classes: ReferenceOptionClassNames;
-  unavailable: boolean;
-}) {
+function ReferenceHeading({ reference }: { reference: ReferenciaListaDetalle }) {
   return (
     <>
       <span className="flex items-start gap-2">
         <span className="min-w-0 flex-1">
           <span className="block text-xs font-medium text-slate-500">{REFERENCIA_ESPECIALIDAD_LABEL}</span>
-          <span className={cn("block whitespace-normal wrap-anywhere text-sm font-semibold leading-snug", classes.title)}>
+          <span className="block whitespace-normal wrap-anywhere text-sm font-semibold leading-snug text-sb-navy">
             {reference.especialidad}
           </span>
         </span>
-        {!unavailable && <ChevronRightIcon className="mt-1 h-4 w-4 shrink-0 text-slate-400" />}
+        <ChevronRightIcon className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
       </span>
       <span className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className={cn("min-w-0 wrap-anywhere text-xs font-semibold", classes.title)}>{referenciaNumeroText(reference.numero)}</span>
-        {reference.estado && <Badge className={cn("max-w-full wrap-anywhere", classes.badge)}>{reference.estado}</Badge>}
+        <span className="min-w-0 wrap-anywhere text-xs font-semibold text-sb-navy">{referenciaNumeroText(reference.numero)}</span>
+        {reference.estado && <Badge className="max-w-full wrap-anywhere bg-sb-panel text-sb-navy">{reference.estado}</Badge>}
       </span>
     </>
   );
@@ -54,28 +44,21 @@ function ReferenceHeading({
 export function ReferenceOptionButton({
   reference,
   disabled = false,
-  unavailable = false,
   onClick,
 }: {
   reference: ReferenciaListaDetalle;
   disabled?: boolean;
-  unavailable?: boolean;
   onClick: () => void;
 }) {
-  const classes = referenceOptionClassNames(unavailable);
   return (
     <Button
       variant={ButtonVariant.OUTLINE}
       width={ButtonWidth.FULL}
       disabled={disabled}
-      aria-disabled={unavailable || undefined}
-      onClick={unavailable ? undefined : onClick}
-      className={cn(
-        "block min-w-0 p-3 text-left font-normal shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-navy",
-        classes.card,
-      )}
+      onClick={onClick}
+      className="block min-w-0 border-sb-bubble-border p-3 text-left font-normal shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-navy"
     >
-      <ReferenceHeading reference={reference} classes={classes} unavailable={unavailable} />
+      <ReferenceHeading reference={reference} />
       <span className="mt-2 block space-y-1 border-t border-sb-bubble-border pt-2">
         <ReferenceField label={REFERENCIA_DESTINO_LABEL} value={reference.destino} />
         <ReferenceField label={REFERENCIA_ORIGEN_LABEL} value={reference.origen} />

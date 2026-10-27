@@ -26,7 +26,6 @@ import { readReferencias, readReferenciasSinProgramacion } from "@/lib/fsm/flows
 import {
   esReferenciaSeleccionable,
   etiquetasSeleccionables,
-  ordenarReferenciasPorSeleccion,
   referenciaBloqueadaAviso,
   referenciaEspecialidad,
   referenciaEstadoEtiqueta,
@@ -125,7 +124,7 @@ function formatFechaHora12(fechaHora: string): string {
 }
 
 function referenciaRows(items: ReferenciaItem[], web: boolean, sinProgramacion: ReadonlySet<string>): ListRow[] {
-  return ordenarReferenciasPorSeleccion(items, sinProgramacion).map((item) => {
+  return items.map((item) => {
     const especialidad = referenciaEspecialidad(item);
     const fecha = item.fechaInicio.split(" ")[0];
     const estado = referenciaEstadoEtiqueta(item, sinProgramacion);
@@ -136,7 +135,6 @@ function referenciaRows(items: ReferenciaItem[], web: boolean, sinProgramacion: 
         { destino: item.ipressDestino, numero: item.numero, fecha, estado },
         WHATSAPP_ROW_DESCRIPTION_MAX,
       ),
-      ...(esReferenciaSeleccionable(item, sinProgramacion) ? {} : { disabled: true }),
       ...(web
         ? {
             referencia: { especialidad, numero: item.numero, destino: item.ipressDestino, origen: item.ipressOrigen, fecha, estado },
@@ -152,9 +150,8 @@ export function offerReferenciasList(session: Session): HandlerResult {
   next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
   const web = channelOf(next) === SessionChannel.WEB;
   const sinProgramacion = readReferenciasSinProgramacion(next);
-  const consulta = isConsultaReferenciasList(next);
-  const text = consulta ? consultaReferenciasListText(etiquetasSeleccionables()) : REFERENCIAS_LIST_TEXT;
-  const items = readReferencias(next).filter((item) => (web && consulta) || esReferenciaSeleccionable(item, sinProgramacion));
+  const text = isConsultaReferenciasList(next) ? consultaReferenciasListText(etiquetasSeleccionables()) : REFERENCIAS_LIST_TEXT;
+  const items = readReferencias(next).filter((item) => esReferenciaSeleccionable(item, sinProgramacion));
   return buildResult(next, offerPagedList(next, text, referenciaRows(items, web, sinProgramacion)));
 }
 
@@ -186,7 +183,6 @@ export function offerSelectableReferencias(session: Session): HandlerResult {
 }
 
 export function offerConsultaReferencias(session: Session): HandlerResult {
-  if (channelOf(session) === SessionChannel.WEB) return offerReferenciasList(session);
   const aviso = referenciasBloqueadasAviso(readReferencias(session), readReferenciasSinProgramacion(session));
   const result = offerReferenciasList(session);
   return aviso ? withLeadingText(result, aviso) : result;

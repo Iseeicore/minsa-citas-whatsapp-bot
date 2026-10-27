@@ -150,7 +150,7 @@ describe("handleAwaitingReferenciaConfirm", () => {
 describe("referencias para agendar en el chat web", () => {
   const web = (session: Session): Session => ({ ...session, channel: SessionChannel.WEB });
 
-  it("distingue por especialidad las referencias del mismo hospital y conserva los tres estados entregados por MINSA", () => {
+  it("distingue por especialidad las referencias del mismo hospital y muestra solo las que permiten agendar", () => {
     const session = web(referenciaConfirmPending());
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(
       [3, 5, 7].map((estado, index) => ({
@@ -165,13 +165,12 @@ describe("referencias para agendar en el chat web", () => {
     const result = offerReferenciasList(session);
     const rows = listRows(result);
 
-    expect(rows?.map((row) => row.title)).toEqual(["CARDIOLOGÍA", "TRAUMATOLOGÍA", "GASTROENTEROLOGÍA"]);
-    expect(rows?.map((row) => row.id)).toEqual(["0", "1", "2"]);
+    expect(rows?.map((row) => row.title)).toEqual(["CARDIOLOGÍA", "TRAUMATOLOGÍA"]);
+    expect(rows?.map((row) => row.id)).toEqual(["0", "1"]);
     expect(rows?.[0].description).toContain("HOSPITAL MARIA AUXILIADORA");
     expect(rows?.[0].description).toContain("N° 000");
     expect(rows?.[0].description).toContain("24/07/2024");
     expect(rows?.[0].description).toContain("ACEPTADO");
-    expect(rows?.map((row) => row.disabled)).toEqual([undefined, undefined, true]);
     expect(rows?.every((row) => row.title.length <= 24 && (row.description?.length ?? 0) <= 72)).toBe(true);
   });
 
@@ -504,26 +503,21 @@ describe("referencias en todos los estados", () => {
     return offerReferenciasList(session).session;
   };
 
-  const expectRejectedOnSamePage = (before: Session, result: HandlerResult, etiqueta: string) => {
-    expect(texts(result)[0]).toBe(referenciaBloqueadaText(etiqueta));
-    expect(result.session).toEqual(before);
+  const expectNotSelected = (before: Session, result: HandlerResult) => {
+    expect(result.session.state).toBe(before.state);
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(result.effects.some(isQueryEffect)).toBe(false);
-    const page = before.counters[CounterKey.CITA_LIST_PAGE] ?? 0;
-    const size = before.channel === SessionChannel.WHATSAPP ? 7 : 10;
-    const expected = readOffered(before.slots)?.rows.slice(page * size, (page + 1) * size);
-    expect(listRows(result)).toEqual(expected);
   };
 
-  it("WhatsApp muestra solo las referencias que permiten agendar, sin filas bloqueadas", () => {
+  it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("%s muestra solo las referencias que permiten agendar", (channel) => {
     const session = referenciaConfirmPending();
-    session.channel = SessionChannel.WHATSAPP;
+    session.channel = channel;
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(MINSA_ORDER);
 
     const result = offerReferenciasList(session);
     const rows = listRows(result);
 
     expect(rows?.map((row) => row.id)).toEqual(["aceptada", "recibida"]);
-    expect(rows?.map((row) => row.disabled)).toEqual([undefined, undefined]);
     expect(rows?.map((row) => row.description?.split(" · ").at(-1))).toEqual(["ACEPTADO", "PACIENTE RECIBIDO"]);
     expect(readOffered(result.session.slots)?.rows).toEqual(rows);
   });
@@ -537,30 +531,25 @@ describe("referencias en todos los estados", () => {
     const result = offerReferenciasList(session);
     const rows = readOffered(result.session.slots)?.rows;
 
-    expect(rows?.map((row) => [row.id, row.disabled])).toEqual([
-      ["aceptada", undefined],
-      ["recibida", undefined],
-    ]);
+    expect(rows?.map((row) => row.id)).toEqual(["aceptada", "recibida"]);
     expect(withConsultaReferenciasActions(result)).toEqual(result);
     expect(readOffered(result.session.slots)?.text).toBe(REFERENCIAS_LIST_TEXT);
   });
 
-  it("web conserva la etiqueta del estado en la tarjeta y la marca como no seleccionable", () => {
+  it("web muestra en la tarjeta la etiqueta del estado de las que permiten agendar", () => {
     const rows = readOffered(listed(SessionChannel.WEB).slots)?.rows;
 
-    expect(rows?.map((row) => [row.id, row.referencia?.estado, row.disabled])).toEqual([
-      ["aceptada", "ACEPTADO", undefined],
-      ["recibida", "PACIENTE RECIBIDO", undefined],
-      ["pendiente", "PENDIENTE", true],
-      ["sin-descripcion", "Código 9", true],
+    expect(rows?.map((row) => [row.id, row.referencia?.estado])).toEqual([
+      ["aceptada", "ACEPTADO"],
+      ["recibida", "PACIENTE RECIBIDO"],
     ]);
   });
 
-  it("web rechaza el toque de una referencia bloqueada y repite la misma página", () => {
-    const before = listed(SessionChannel.WEB);
+  it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("%s no acepta el toque de una referencia que no se mostró", (channel) => {
+    const before = listed(channel);
 
-    expectRejectedOnSamePage(before, handle(before, tap(PENDIENTE.idReferencia)), "PENDIENTE");
-    expectRejectedOnSamePage(before, handle(before, tap(SIN_DESCRIPCION.idReferencia)), "Código 9");
+    expectNotSelected(before, handle(before, tap(PENDIENTE.idReferencia)));
+    expectNotSelected(before, handle(before, tap(SIN_DESCRIPCION.idReferencia)));
   });
 
   it("WhatsApp numera solo las referencias que permiten agendar", () => {
@@ -582,12 +571,12 @@ describe("referencias en todos los estados", () => {
     ]);
   });
 
-  it("web resuelve nombres y ordinales contra las filas ordenadas y rechaza las bloqueadas", () => {
+  it("web resuelve nombres y ordinales solo contra las que permiten agendar", () => {
     const before = listed(SessionChannel.WEB);
 
-    expectRejectedOnSamePage(before, handle(before, text("neurologia")), "PENDIENTE");
-    expectRejectedOnSamePage(before, handle(before, text("la tercera")), "PENDIENTE");
-    expectRejectedOnSamePage(before, handle(before, text("la ultima")), "Código 9");
+    expectNotSelected(before, handle(before, text("neurologia")));
+    expectNotSelected(before, handle(before, text("la tercera")));
+    expect(handle(before, text("la ultima")).session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe(RECIBIDA.idReferencia);
 
     const chosen = handle(before, text("la primera"));
     expect(chosen.session.state).toBe("cita_fecha_pending");
@@ -640,22 +629,14 @@ describe("referencias en todos los estados", () => {
     expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
   });
 
-  it("PACIENTE CITADO (7) no aparece en WhatsApp y en la web se muestra bloqueada y rechazada por toque y nombre", () => {
+  it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("PACIENTE CITADO (7) no aparece en %s ni se puede elegir", (channel) => {
     const citada = conEstado("citada-7", 7, { upsDestino: "OFTALMOLOGÍA" });
     const recibida = conEstado("recibida-5", 5, { upsDestino: "PEDIATRÍA" });
-    const items = [citada, ACEPTADA, recibida];
 
-    const whatsapp = listed(SessionChannel.WHATSAPP, items);
-    expect(readOffered(whatsapp.slots)?.rows.map((row) => [row.id, row.disabled])).toEqual([
-      ["aceptada", undefined],
-      ["recibida-5", undefined],
-    ]);
-    expect(handle(whatsapp, tap("citada-7")).effects.some(isQueryEffect)).toBe(false);
-
-    const web = listed(SessionChannel.WEB, items);
-    expect(readOffered(web.slots)?.rows[2]).toMatchObject({ disabled: true, referencia: { estado: "PACIENTE CITADO" } });
-    expectRejectedOnSamePage(web, handle(web, text("oftalmologia")), "PACIENTE CITADO");
-    expectRejectedOnSamePage(web, handle(web, tap("citada-7")), "PACIENTE CITADO");
+    const before = listed(channel, [citada, ACEPTADA, recibida]);
+    expect(readOffered(before.slots)?.rows.map((row) => row.id)).toEqual(["aceptada", "recibida-5"]);
+    expectNotSelected(before, handle(before, tap("citada-7")));
+    expectNotSelected(before, handle(before, text("oftalmologia")));
   });
 
   it("el segundo control impide agendar con una referencia bloqueada aunque llegue confirmada", () => {

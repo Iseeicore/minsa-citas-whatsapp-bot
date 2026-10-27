@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   esReferenciaSeleccionable,
-  ordenarReferenciasPorSeleccion,
   referenciaBloqueadaAviso,
   referenciaEstadoEtiqueta,
   referenciasBloqueadasAviso,
@@ -94,12 +93,7 @@ describe("referencias sin programación", () => {
     expect(referenciaEstadoEtiqueta(aceptada)).toBe("ACEPTADO");
   });
 
-  it("se ordena con las bloqueadas conservando el orden de MINSA y cuenta como no seleccionable", () => {
-    expect(ordenarReferenciasPorSeleccion([aceptada, pendiente, recibida], sinProgramacion).map((item) => item.idReferencia)).toEqual([
-      "con-cupos",
-      "sin-cupos",
-      "pendiente",
-    ]);
+  it("cuenta como no seleccionable", () => {
     expect(tieneReferenciasSeleccionables([aceptada, pendiente], sinProgramacion)).toBe(false);
     expect(tieneReferenciasSeleccionables([aceptada, pendiente])).toBe(true);
   });
@@ -108,18 +102,6 @@ describe("referencias sin programación", () => {
     expect(REFERENCIA_SIN_PROGRAMACION_TEXT).toBe("Esta referencia no tiene programación de atención disponible. Elige otra.");
     expect(referenciaBloqueadaAviso(aceptada, sinProgramacion)).toBe(REFERENCIA_SIN_PROGRAMACION_TEXT);
     expect(referenciaBloqueadaAviso(pendiente, sinProgramacion)).toBe(referenciaBloqueadaText("PENDIENTE"));
-  });
-});
-
-describe("ordenarReferenciasPorSeleccion", () => {
-  it("pone primero las seleccionables y conserva el orden de MINSA dentro de cada grupo", () => {
-    const items = [1, 3, 4, 7, 2, 5].map((estado, index) => conEstado(estado, { idReferencia: String(index) }));
-    const original = structuredClone(items);
-
-    const ordered = ordenarReferenciasPorSeleccion(items);
-
-    expect(ordered.map((item) => item.estado)).toEqual([3, 5, 1, 4, 7, 2]);
-    expect(items).toEqual(original);
   });
 });
 

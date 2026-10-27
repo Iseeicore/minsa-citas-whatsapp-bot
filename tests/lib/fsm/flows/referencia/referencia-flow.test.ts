@@ -179,15 +179,18 @@ describe("the lookup", () => {
     };
     const CONSULTA_ACTIONS = [ReferenciaActionButtonId.NEW_APPOINTMENT, ReferenciaActionButtonId.EXIT];
 
-    it("WhatsApp lists only the bookable ones and names the others in one text before the list", () => {
-      const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
+    it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
+      "%s lists only the bookable ones and names the others in one text before the list",
+      (channel) => {
+        const result = handle(lookupOn(channel), found([citada, REFERENCIA]));
 
-      expect(aviso).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
-      expect(texts(result)).toEqual([aviso]);
-      expect(sent(result)[0]).toEqual({ kind: "send_text", text: aviso });
-      expect(rowIds(result)).toEqual([REFERENCIA.idReferencia]);
-      expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
-    });
+        expect(aviso).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
+        expect(texts(result)).toEqual([aviso]);
+        expect(sent(result)[0]).toEqual({ kind: "send_text", text: aviso });
+        expect(rowIds(result)).toEqual([REFERENCIA.idReferencia]);
+        expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+      },
+    );
 
     it("the list explains which states can be booked and closes with Cita sin referencia and Salir", () => {
       const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
@@ -238,34 +241,38 @@ describe("the lookup", () => {
       expect(handle(listed.session, text("salir")).session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
     });
 
-    it("WhatsApp with none bookable sends that text and asks whether to book a cita, with no list", () => {
-      const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada]));
+    it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
+      "%s with none bookable sends that text and asks whether to book a cita, with no list",
+      (channel) => {
+        const result = handle(lookupOn(channel), found([citada]));
+
+        expect(texts(result)).toEqual([aviso]);
+        expect(rowIds(result)).toEqual([]);
+        expect(buttons(result)).toEqual({
+          kind: "send_buttons",
+          text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+          buttons: REFERENCIA_CITA_OFFER_BUTTONS,
+        });
+        expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+
+        const yes = handle(result.session, tap(ReferenciaCitaOfferButtonId.YES));
+        expect(yes.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+        expect(texts(yes)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
+        expect(yes.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
+        expect(queries(yes)).toEqual([]);
+
+        const no = handle(result.session, tap(ReferenciaCitaOfferButtonId.NO));
+        expect(no.session.state).toBe(SessionState.REFERENCIA_CLOSED);
+        expect(texts(no)).toEqual([REFERENCIA_GOODBYE_TEXT]);
+      },
+    );
+
+    it("the web chat keeps its page of 10 cards and offers the same two options", () => {
+      const many = Array.from({ length: 13 }, (_, index) => ({ ...REFERENCIA, idReferencia: `ref-${index}`, numero: `n-${index}` }));
+      const result = handle(lookupOn(SessionChannel.WEB), found([citada, ...many]));
 
       expect(texts(result)).toEqual([aviso]);
-      expect(rowIds(result)).toEqual([]);
-      expect(buttons(result)).toEqual({
-        kind: "send_buttons",
-        text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-        buttons: REFERENCIA_CITA_OFFER_BUTTONS,
-      });
-      expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
-
-      const yes = handle(result.session, tap(ReferenciaCitaOfferButtonId.YES));
-      expect(yes.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
-      expect(texts(yes)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
-      expect(yes.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
-      expect(queries(yes)).toEqual([]);
-
-      const no = handle(result.session, tap(ReferenciaCitaOfferButtonId.NO));
-      expect(no.session.state).toBe(SessionState.REFERENCIA_CLOSED);
-      expect(texts(no)).toEqual([REFERENCIA_GOODBYE_TEXT]);
-    });
-
-    it("the web chat keeps every reference as a card, with no extra text, and offers the same two options", () => {
-      const result = handle(lookupOn(SessionChannel.WEB), found([citada, REFERENCIA]));
-
-      expect(texts(result)).toEqual([]);
-      expect(rowIds(result)).toEqual([REFERENCIA.idReferencia, citada.idReferencia]);
+      expect(rowIds(result)).toEqual(many.slice(0, 10).map((item) => item.idReferencia));
       expect(actionIds(result)).toEqual(CONSULTA_ACTIONS);
     });
   });

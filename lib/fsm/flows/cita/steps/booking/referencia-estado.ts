@@ -38,11 +38,6 @@ export function referenciaBloqueadaAviso(item: ReferenciaItem, sinProgramacion: 
     : referenciaBloqueadaText(referenciaEstadoEtiqueta(item));
 }
 
-export function ordenarReferenciasPorSeleccion(items: ReferenciaItem[], sinProgramacion: ReadonlySet<string> = NINGUNA): ReferenciaItem[] {
-  const seleccionable = (item: ReferenciaItem): boolean => esReferenciaSeleccionable(item, sinProgramacion);
-  return [...items.filter(seleccionable), ...items.filter((item) => !seleccionable(item))];
-}
-
 export function etiquetasSeleccionables(): string[] {
   return [...REFERENCIA_ESTADOS_SELECCIONABLES].map((codigo) => REFERENCIA_ESTADO_LABELS[codigo] ?? referenciaEstadoCodigoText(codigo));
 }

@@ -15,7 +15,7 @@ const referencia = (especialidad: string, estado: string) => ({
 
 const rows: ListRow[] = [
   { id: "aceptada", title: "CARDIOLOGIA", referencia: referencia("CARDIOLOGIA", "ACEPTADO") },
-  { id: "pendiente", title: "NEUROLOGIA", referencia: referencia("NEUROLOGIA", "PENDIENTE"), disabled: true },
+  { id: "recibida", title: "NEUROLOGIA", referencia: referencia("NEUROLOGIA", "PACIENTE RECIBIDO") },
 ];
 
 const render = (disabled = false): string =>
@@ -24,14 +24,6 @@ const render = (disabled = false): string =>
 const count = (markup: string, fragment: string) => markup.split(fragment).length - 1;
 
 describe("ChatListPicker con referencias", () => {
-  it("muestra las referencias bloqueadas atenuadas y no disponibles sin tratarlas como mensaje antiguo", () => {
-    const markup = render();
-
-    expect(markup).toContain("PENDIENTE");
-    expect(count(markup, 'aria-disabled="true"')).toBe(1);
-    expect(markup).not.toContain('disabled=""');
-  });
-
   it("un mensaje antiguo deshabilita todas las tarjetas como antes", () => {
     expect(count(render(true), 'disabled=""')).toBe(2);
   });
