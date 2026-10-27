@@ -27,6 +27,8 @@ const VARIANT_CLASS_NAME: Record<ButtonVariant, string> = {
   [ButtonVariant.ICON_SOLID_WHATSAPP]: cn(ICON_SOLID_SHAPE, "bg-wa-accent"),
   [ButtonVariant.SWITCH_TRACK]: "h-10 rounded-full bg-gray-200 p-1 transition-colors",
   [ButtonVariant.UNSTYLED]: "",
+  [ButtonVariant.COVER]:
+    "absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-navy disabled:cursor-not-allowed",
 };
 
 const VARIANT_LAYOUT_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
@@ -39,6 +41,7 @@ const VARIANT_LAYOUT_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
   [ButtonVariant.ICON_SOLID_WHATSAPP]: "flex flex-shrink-0 items-center justify-center",
   [ButtonVariant.SWITCH_TRACK]: "relative flex items-center",
   [ButtonVariant.UNSTYLED]: "",
+  [ButtonVariant.COVER]: "",
 };
 
 const SELECTED_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
@@ -86,6 +89,7 @@ const DEFAULT_SIZE: Record<ButtonVariant, ButtonSize> = {
   [ButtonVariant.ICON_SOLID_WHATSAPP]: ButtonSize.ICON_MD,
   [ButtonVariant.SWITCH_TRACK]: ButtonSize.NONE,
   [ButtonVariant.UNSTYLED]: ButtonSize.NONE,
+  [ButtonVariant.COVER]: ButtonSize.NONE,
 };
 
 export function defaultButtonSize(variant: ButtonVariant): ButtonSize {
