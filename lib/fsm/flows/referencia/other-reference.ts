@@ -6,7 +6,7 @@ import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment"
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { detectExitIntent } from "@/lib/fsm/parsing/selection/exit-intent";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
+import type { HandleEvent, HandlerAttempt, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import {
   CITA_REFERENCIA_OTHER_BUTTONS,
   CITA_REFERENCIA_SIN_FECHAS_BUTTONS,
@@ -84,7 +84,7 @@ export function isOtherReferenceAcceptance(session: Session, event: HandleEvent)
     : referenceAnswer(event) === Confirmation.YES;
 }
 
-export function handleOtherReferenceClose(session: Session, event: HandleEvent): HandlerResult | undefined {
+export function handleOtherReferenceClose(session: Session, event: HandleEvent): HandlerAttempt {
   if (session.state !== SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE || event.type === InternalEventType.QUERY_RESULT) return undefined;
   const closes = isAppointmentPath(session) ? isTypedExit(event) : referenceAnswer(event) === Confirmation.NO;
   return closes ? closeReferencia() : undefined;

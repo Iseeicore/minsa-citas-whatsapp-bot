@@ -13,6 +13,7 @@ import type {
   SendEffect,
   SendInteractiveListEffect,
   Session,
+  UnhandledTurn,
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
@@ -66,6 +67,8 @@ export function cloneSession(session: Session): Session {
     ...(session.channel ? { channel: session.channel } : {}),
   };
 }
+
+export const NOT_HANDLED: UnhandledTurn = undefined;
 
 export function sendText(text: string): SendEffect {
   return { kind: SendType.TEXT, text };

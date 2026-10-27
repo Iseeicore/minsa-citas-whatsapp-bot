@@ -21,7 +21,9 @@ import {
   offerReferenciasList,
   restartReferenceSelection,
   withConsultaReferenciasActions,
+  handleConsultaReferenciasClose,
 } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { NOT_HANDLED } from "@/lib/fsm/core/handlers-shared";
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 
@@ -656,5 +658,16 @@ describe("referencias en todos los estados", () => {
     expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(listRows(result)?.map((row) => row.id)).toEqual(["aceptada", "recibida"]);
+  });
+});
+
+describe("handleConsultaReferenciasClose", () => {
+  it("devuelve NOT_HANDLED cuando no aplica, para que resuelva el siguiente paso de handle()", () => {
+    const session = referenciaConfirmPending();
+
+    expect(NOT_HANDLED).toBeUndefined();
+    expect(handleConsultaReferenciasClose(session, text("salir"))).toBe(NOT_HANDLED);
+    expect(handleConsultaReferenciasClose(offerReferenciasList(session).session, text("hola"))).toBe(NOT_HANDLED);
+    expect(handleConsultaReferenciasClose(offerReferenciasList(session).session, text("salir"))?.session.state).toBe("referencia_closed");
   });
 });

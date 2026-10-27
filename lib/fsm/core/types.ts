@@ -194,3 +194,6 @@ export type HandlerResult = {
   outcome: HandlerOutcome;
   notes?: TurnNote[];
 };
+
+export type UnhandledTurn = undefined;
+export type HandlerAttempt = HandlerResult | UnhandledTurn;

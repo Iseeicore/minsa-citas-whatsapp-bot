@@ -13,6 +13,7 @@ import {
   readTappedId,
   readTypedText,
   isConsultaReferenciasList,
+  NOT_HANDLED,
   withLeadingText,
 } from "@/lib/fsm/core/handlers-shared";
 import { closeReferencia } from "@/lib/fsm/flows/referencia/close-reference";
@@ -40,7 +41,7 @@ import {
   CONSULTA_REFERENCIAS_ACTIONS,
   consultaReferenciasListText,
 } from "@/lib/constants/textos/cita-referencia";
-import type { HandleEvent, HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
+import type { HandleEvent, HandlerAttempt, HandlerResult, InboundEvent, ListRow, Session, UnhandledTurn } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -171,17 +172,17 @@ const CONSULTA_ACTION_HANDLERS = new Map<string, (session: Session) => HandlerRe
   [ReferenciaActionButtonId.EXIT, closeReferencia],
 ]);
 
-function consultaActionHandler(session: Session, event: InboundEvent): ((session: Session) => HandlerResult) | undefined {
-  if (!isConsultaReferenciasList(session)) return undefined;
+function findConsultaAction(session: Session, event: InboundEvent): ((session: Session) => HandlerResult) | UnhandledTurn {
+  if (!isConsultaReferenciasList(session)) return NOT_HANDLED;
   const answer = readTappedId(event) ?? CONSULTA_REFERENCIAS_ACTION_ANSWERS.get(normalizeText(readTypedText(event)));
-  return answer ? CONSULTA_ACTION_HANDLERS.get(answer) : undefined;
+  return answer ? CONSULTA_ACTION_HANDLERS.get(answer) : NOT_HANDLED;
 }
 
-export function handleConsultaReferenciasClose(session: Session, event: HandleEvent): HandlerResult | undefined {
-  if (event.type !== InboundEventType.TEXT || !isConsultaReferenciasList(session)) return undefined;
+export function handleConsultaReferenciasClose(session: Session, event: HandleEvent): HandlerAttempt {
+  if (event.type !== InboundEventType.TEXT || !isConsultaReferenciasList(session)) return NOT_HANDLED;
   return CONSULTA_REFERENCIAS_ACTION_ANSWERS.get(normalizeText(readTypedText(event))) === ReferenciaActionButtonId.EXIT
     ? closeReferencia()
-    : undefined;
+    : NOT_HANDLED;
 }
 
 function askConsultaCitaOffer(session: Session): HandlerResult {
@@ -254,7 +255,7 @@ function askReferenciaConfirmation(session: Session, item: ReferenciaItem | unde
 }
 
 export function handleAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {
-  const action = consultaActionHandler(session, event);
+  const action = findConsultaAction(session, event);
   if (action) return action(session);
   const outcome = resolveSelection(session, event, { includeDescription: channelOf(session) === SessionChannel.WEB });
   if ("result" in outcome) return outcome.result;
