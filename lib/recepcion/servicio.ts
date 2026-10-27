@@ -52,7 +52,7 @@ export async function registrarIncidencia(input: unknown, almacen: AlmacenEviden
     logger.error("incidencia.invalid_submission", { fields: parsed.error.issues.map((issue) => issue.path.join(".")) });
     return { status: RegistrationStatus.ERROR };
   }
-  const { waId, dni, nombreCompleto, establecimientoId, descripcion, mediaDataUris } = parsed.data;
+  const { waId, dni, nombreCompleto, establecimientoId, descripcion, mediaDataUris, canal } = parsed.data;
 
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.not_persisted", { reason: "DATABASE_ENABLED=false" });
@@ -79,7 +79,7 @@ export async function registrarIncidencia(input: unknown, almacen: AlmacenEviden
 
   try {
     const incidencia = await insertarIncidencia(
-      { waId, dni, nombreCompleto, establecimientoId, descripcion, traceId },
+      { waId, dni, nombreCompleto, establecimientoId, descripcion, traceId, canal },
       evidencias,
       actorCiudadano(waId),
     );

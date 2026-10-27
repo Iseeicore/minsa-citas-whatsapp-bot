@@ -10,6 +10,7 @@ import { traceTurn } from "@/lib/observability/tracer";
 import { findSession, saveSession } from "@/lib/fsm/session/session-store";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp/whatsapp-send";
+import { graphNetworkError } from "@/lib/whatsapp/graph-client";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
@@ -139,11 +140,8 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
 }
 
 export async function sendFixedReply(waId: string, text: string): Promise<void> {
-  try {
-    await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text });
-  } catch (error) {
-    logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
-  }
+  const error = await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text }).then(graphNetworkError, (thrown: unknown) => thrown);
+  if (error) logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
 }
 
 export async function answerFailure(waId: string, error: unknown): Promise<void> {

@@ -22,6 +22,7 @@ import {
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
 import { slotText } from "@/lib/fsm/core/slot-readers";
+import { channelOf } from "@/lib/fsm/core/channel";
 import { readImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 import { renderWithinLength } from "@/lib/utils/fit-text";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
@@ -45,6 +46,7 @@ export function submitIncidencia(session: Session, from: string): HandlerResult 
     descripcion: next.slots[SlotKey.DESCRIPCION_INCIDENCIA],
     establecimientoId: next.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] ?? null,
     mediaDataUris: readImagenes(next.slots),
+    canal: channelOf(next),
   };
 
   return buildResult(next, [sendText(ENVIANDO_INCIDENCIA_TEXT), query(QueryKind.INCIDENCIA_REGISTER, { submission })]);

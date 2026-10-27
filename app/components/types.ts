@@ -24,3 +24,10 @@ export type Message = {
   timestamp: string;
   createdAt: string;
 };
+
+export type ConversationMessages = {
+  messages: Message[];
+  windowOpen: boolean;
+  windowExpiresAt: string | null;
+  status: ConversationStatus;
+};

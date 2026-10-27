@@ -13,6 +13,7 @@ import type {
   SendEffect,
   SendInteractiveListEffect,
   Session,
+  UnhandledTurn,
 } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
@@ -24,7 +25,8 @@ import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 import { uniqueBy } from "@/lib/utils/array-values";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { SessionChannel } from "@/lib/enums/session-channel";
-import { WHATSAPP_REFERENCE_LIST_PAGE_SIZE } from "@/lib/constants/limits/whatsapp-reference";
+import { WHATSAPP_CONSULTA_REFERENCIAS_PAGE_SIZE, WHATSAPP_REFERENCE_LIST_PAGE_SIZE } from "@/lib/constants/limits/whatsapp-reference";
+import { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
@@ -65,6 +67,8 @@ export function cloneSession(session: Session): Session {
     ...(session.channel ? { channel: session.channel } : {}),
   };
 }
+
+export const NOT_HANDLED: UnhandledTurn = undefined;
 
 export function sendText(text: string): SendEffect {
   return { kind: SendType.TEXT, text };
@@ -134,12 +138,18 @@ export function offerList(next: Session, text: string, rows: ListRow[]): SendEff
   return sendList(text, offered);
 }
 
+export function isConsultaReferenciasList(session: Session): boolean {
+  return (
+    session.state === SessionState.CITA_AWAITING_REFERENCIA_SELECT &&
+    session.slots[SlotKey.CITA_APPOINTMENT_MODE] !== AppointmentMode.REFERENCE
+  );
+}
+
 export function listPageSize(session?: Session): number {
   const reference =
     session?.state === SessionState.CITA_AWAITING_REFERENCIA_SELECT || !!session?.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
-  return session && channelOf(session) === SessionChannel.WHATSAPP && reference
-    ? WHATSAPP_REFERENCE_LIST_PAGE_SIZE
-    : WHATSAPP_LIST_MAX_ROWS;
+  if (!session || channelOf(session) !== SessionChannel.WHATSAPP || !reference) return WHATSAPP_LIST_MAX_ROWS;
+  return isConsultaReferenciasList(session) ? WHATSAPP_CONSULTA_REFERENCIAS_PAGE_SIZE : WHATSAPP_REFERENCE_LIST_PAGE_SIZE;
 }
 
 export function pageCount(rowCount: number, session?: Session): number {

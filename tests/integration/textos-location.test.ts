@@ -77,8 +77,7 @@ function sourceFiles(folder: string): string[] {
     .sort();
 }
 
-function parse(file: string): ts.SourceFile {
-  const content = fs.readFileSync(path.join(ROOT, file), "utf8");
+function parse(file: string, content = fs.readFileSync(path.join(ROOT, file), "utf8")): ts.SourceFile {
   return ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
 }
 
@@ -144,10 +143,15 @@ function literalsHandedToTheCitizen(file: string): string[] {
     .map((node) => `${file}: ${staticText(node).slice(0, SNIPPET_LENGTH)}`);
 }
 
-function textDeclarations(file: string): string[] {
-  const source = parse(file);
+function isExported(statement: ts.VariableStatement): boolean {
+  return statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+}
+
+function exportedTextDeclarations(file: string, content?: string): string[] {
+  const source = parse(file, content);
   return source.statements
     .filter(ts.isVariableStatement)
+    .filter(isExported)
     .flatMap((statement) => statement.declarationList.declarations.map((declaration) => declaration.name.getText(source)))
     .filter((name) => TEXT_DECLARATION_SUFFIXES.some((suffix) => name.endsWith(suffix)))
     .map((name) => `${file}: ${name}`);
@@ -175,8 +179,15 @@ describe("ubicación de los textos al ciudadano y de los prompts", () => {
     expect(sourceFiles(FSM_FOLDER).flatMap(literalsHandedToTheCitizen)).toEqual([]);
   });
 
-  it("ningún módulo de lib/fsm declara textos, botones ni prompts", () => {
-    expect(sourceFiles(FSM_FOLDER).flatMap(textDeclarations)).toEqual([]);
+  it("ningún módulo de lib/fsm exporta textos, botones ni prompts", () => {
+    expect(sourceFiles(FSM_FOLDER).flatMap((file) => exportedTextDeclarations(file))).toEqual([]);
+  });
+
+  it("un texto de un solo archivo de lib/fsm vive ahí sin exportarse; exportado vuelve a fallar", () => {
+    const file = "lib/fsm/flows/ejemplo.ts";
+
+    expect(exportedTextDeclarations(file, 'const AVISO_TEXT = "Solo lo usa este archivo.";')).toEqual([]);
+    expect(exportedTextDeclarations(file, 'export const AVISO_TEXT = "Lo usan varios archivos.";')).toEqual([`${file}: AVISO_TEXT`]);
   });
 
   it("las carpetas de textos y de prompts no tienen archivo índice", () => {

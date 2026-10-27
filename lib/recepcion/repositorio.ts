@@ -12,6 +12,12 @@ export type DatosIncidencia = {
   establecimientoId: number | null;
   descripcion: string;
   traceId: string;
+  canal: SessionChannel;
+};
+
+const CANAL_ORIGEN: Readonly<Record<SessionChannel, CanalOrigenId>> = {
+  [SessionChannel.WHATSAPP]: CanalOrigenId.WHATSAPP,
+  [SessionChannel.WEB]: CanalOrigenId.WEB,
 };
 
 export type DatosEvidencia = { mimeType: string; tamano: number; ruta: string };
@@ -23,7 +29,7 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvid
 
     const incidencia = await tx.incidenciaPaciente.create({
       data: {
-        canalOrigenId: CanalOrigenId.WHATSAPP,
+        canalOrigenId: CANAL_ORIGEN[datos.canal],
         usuarioId: usuario.id,
         waId: datos.waId,
         esAnonimo: datos.dni === null && datos.nombreCompleto === null,

@@ -31,13 +31,13 @@ const RETRY_HANDLERS = new Map<string, (session: Session) => HandlerResult>(
 );
 
 export function handleAppointmentMode(session: Session, event: InboundEvent): HandlerResult {
-  const answer = readTappedId(event) ?? CITA_REFERENCIA_MODE_ANSWERS[normalizeText(readTypedText(event))];
+  const answer = readTappedId(event) ?? CITA_REFERENCIA_MODE_ANSWERS.get(normalizeText(readTypedText(event)));
   const handler = answer ? MODE_HANDLERS.get(answer) : undefined;
   return handler ? handler(session) : withRejectionNotice(askAppointmentMode(session));
 }
 
 export function handleReferenceLookupRetry(session: Session, event: InboundEvent): HandlerResult {
-  const answer = readTappedId(event) ?? CITA_REFERENCIA_RETRY_ANSWERS[normalizeText(readTypedText(event))];
+  const answer = readTappedId(event) ?? CITA_REFERENCIA_RETRY_ANSWERS.get(normalizeText(readTypedText(event)));
   const handler = answer ? RETRY_HANDLERS.get(answer) : undefined;
   return handler ? handler(session) : withRejectionNotice(askReferenceLookupRetry(session));
 }

@@ -13,4 +13,5 @@ export enum ButtonVariant {
   ICON_SOLID_WHATSAPP = "icon_solid_whatsapp",
   SWITCH_TRACK = "switch_track",
   UNSTYLED = "unstyled",
+  COVER = "cover",
 }

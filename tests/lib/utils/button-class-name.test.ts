@@ -95,6 +95,14 @@ describe("buttonClassName reproduce las clases que cada botón tenía escritas a
     );
   });
 
+  it("la cubierta es un botón transparente sobre toda la tarjeta, con contorno visible al enfocarlo", () => {
+    expect(classSet(buttonClassName({ variant: ButtonVariant.COVER }))).toEqual(
+      classSet(
+        "absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sb-navy disabled:cursor-not-allowed",
+      ),
+    );
+  });
+
   it("sin estilo no agrega ninguna clase propia y conserva la que pone el contenedor", () => {
     expect(buttonClassName({ variant: ButtonVariant.UNSTYLED, size: ButtonSize.NONE })).toBe("");
     expect(buttonClassName({ variant: ButtonVariant.UNSTYLED, size: ButtonSize.NONE, className: "fixed right-4" })).toBe("fixed right-4");
@@ -131,5 +139,6 @@ describe("defaultButtonSize", () => {
     expect(defaultButtonSize(ButtonVariant.ICON_CONTROL)).toBe(ButtonSize.NONE);
     expect(defaultButtonSize(ButtonVariant.SWITCH_TRACK)).toBe(ButtonSize.NONE);
     expect(defaultButtonSize(ButtonVariant.UNSTYLED)).toBe(ButtonSize.NONE);
+    expect(defaultButtonSize(ButtonVariant.COVER)).toBe(ButtonSize.NONE);
   });
 });

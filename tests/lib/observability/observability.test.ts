@@ -30,6 +30,20 @@ describe("masking", () => {
     expect(redactString("a las 13:45 el 31/12/2099")).toBe("a las 13:45 el 31/12/2099");
   });
 
+  it("still hides a DNI and a phone but keeps trace ids, UUIDs and message ids readable for correlation", () => {
+    const traceId = "t-1730000000444a5f1";
+    const uuid = "550e8400-e29b-41d4-a716-446655440000";
+    const wamid = "wamid.HBgLNTE5ODc2NTQzMjEVAgASGBQzQTAwMDAwMDAwMDAwMDAwMDAwMAA=";
+
+    expect(redactString(`dni ${DNI}, tel +51987654321`)).toBe("dni ****5678, tel +****4321");
+    expect(redactString(`traza ${traceId} id ${uuid} msg ${wamid}`)).toBe(`traza ${traceId} id ${uuid} msg ${wamid}`);
+    expect(sanitizeSlots({ traceId, interactiveMessageId: uuid, from: "51987654321" })).toEqual({
+      traceId,
+      interactiveMessageId: uuid,
+      from: "****4321",
+    });
+  });
+
   it("hides the query string of any URL inside a text, where secrets travel", () => {
     expect(redactString("Failed to parse URL from https://api.example.com/v1/x:run?key=SECRET-123&alt=json")).toBe(
       "Failed to parse URL from https://api.example.com/v1/x:run?[redacted]",

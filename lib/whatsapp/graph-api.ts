@@ -8,6 +8,10 @@ export function graphApiBaseUrl(): string {
   return `https://graph.facebook.com/${graphApiVersion()}`;
 }
 
+export function graphMessagesPath(): string {
+  return `/${process.env.META_PHONE_NUMBER_ID}/messages`;
+}
+
 export function graphAuthHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}` };
 }
