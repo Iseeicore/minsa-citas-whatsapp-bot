@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   esReferenciaSeleccionable,
-  ordenarReferenciasPorSeleccion,
   referenciaBloqueadaAviso,
   referenciaEstadoEtiqueta,
+  referenciasBloqueadasAviso,
   tieneReferenciasSeleccionables,
 } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
@@ -15,6 +15,8 @@ import {
   referenciaBloqueadaText,
   referenciaEstadoCodigoText,
 } from "@/lib/constants/textos/cita-reserva";
+import { WHATSAPP_REFERENCIAS_BLOQUEADAS_MAX } from "@/lib/constants/limits/whatsapp-reference";
+import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 
 const BASE: ReferenciaItem = {
   idReferencia: "synthetic-0",
@@ -91,12 +93,7 @@ describe("referencias sin programación", () => {
     expect(referenciaEstadoEtiqueta(aceptada)).toBe("ACEPTADO");
   });
 
-  it("se ordena con las bloqueadas conservando el orden de MINSA y cuenta como no seleccionable", () => {
-    expect(ordenarReferenciasPorSeleccion([aceptada, pendiente, recibida], sinProgramacion).map((item) => item.idReferencia)).toEqual([
-      "con-cupos",
-      "sin-cupos",
-      "pendiente",
-    ]);
+  it("cuenta como no seleccionable", () => {
     expect(tieneReferenciasSeleccionables([aceptada, pendiente], sinProgramacion)).toBe(false);
     expect(tieneReferenciasSeleccionables([aceptada, pendiente])).toBe(true);
   });
@@ -108,14 +105,36 @@ describe("referencias sin programación", () => {
   });
 });
 
-describe("ordenarReferenciasPorSeleccion", () => {
-  it("pone primero las seleccionables y conserva el orden de MINSA dentro de cada grupo", () => {
-    const items = [1, 3, 4, 7, 2, 5].map((estado, index) => conEstado(estado, { idReferencia: String(index) }));
-    const original = structuredClone(items);
+describe("referenciasBloqueadasAviso", () => {
+  it("no arma aviso cuando todas permiten agendar", () => {
+    expect(referenciasBloqueadasAviso([conEstado(3), conEstado(5)])).toBeUndefined();
+  });
 
-    const ordered = ordenarReferenciasPorSeleccion(items);
+  it("lista una línea por referencia bloqueada con especialidad, destino, número y estado", () => {
+    const citada = conEstado(7, { numero: "077", upsDestino: "OFTALMOLOGIA" });
+    const sinCupos = conEstado(3, { idReferencia: "sin-cupos", upsDestino: " " });
 
-    expect(ordered.map((item) => item.estado)).toEqual([3, 5, 1, 4, 7, 2]);
-    expect(items).toEqual(original);
+    expect(referenciasBloqueadasAviso([conEstado(5), citada, sinCupos], new Set(["sin-cupos"]))).toBe(
+      [
+        "Estas referencias no permiten agendar una cita:",
+        "• OFTALMOLOGIA · HOSPITAL SINTETICO · N° 077 · PACIENTE CITADO",
+        "• Especialidad no informada · HOSPITAL SINTETICO · N° 000 · Sin programación",
+      ].join("\n"),
+    );
+  });
+
+  it("muestra solo las primeras y resume el resto sin pasar el límite de texto de WhatsApp", () => {
+    const extra = 3;
+    const largo = "X".repeat(WHATSAPP_TEXT_BODY_MAX);
+    const items = Array.from({ length: WHATSAPP_REFERENCIAS_BLOQUEADAS_MAX + extra }, (_, index) =>
+      conEstado(1, { idReferencia: String(index), upsDestino: largo, ipressDestino: largo }),
+    );
+
+    const aviso = referenciasBloqueadasAviso(items) ?? "";
+    const lineas = aviso.split("\n");
+
+    expect(lineas).toHaveLength(WHATSAPP_REFERENCIAS_BLOQUEADAS_MAX + 2);
+    expect(lineas.at(-1)).toBe(`y ${extra} más`);
+    expect(aviso.length).toBeLessThanOrEqual(WHATSAPP_TEXT_BODY_MAX);
   });
 });

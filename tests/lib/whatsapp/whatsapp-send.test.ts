@@ -73,26 +73,6 @@ describe("WhatsApp send failures reach the masked logger", () => {
     expect(sent.interactive.action.button).toBe(LIST_OPEN_BUTTON_TEXT);
   });
 
-  it("never sends the internal disabled flag of a row to Meta", async () => {
-    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => new Response("{}", { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await sendAndRecordEffect(null, "51987654321", {
-      kind: SendType.INTERACTIVE_LIST,
-      text: "Elige",
-      rows: [
-        { id: "1", title: "Uno", description: "Disponible" },
-        { id: "2", title: "Dos", description: "Bloqueada", disabled: true },
-      ],
-    });
-
-    const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body));
-    expect(sent.interactive.action.sections[0].rows).toEqual([
-      { id: "1", title: "Uno", description: "Disponible" },
-      { id: "2", title: "Dos", description: "Bloqueada" },
-    ]);
-  });
-
   it("logs a failed typing indicator as a warning and never throws", async () => {
     vi.stubGlobal(
       "fetch",

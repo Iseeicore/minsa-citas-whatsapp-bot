@@ -1,4 +1,4 @@
-import { graphApiVersion } from "@/lib/whatsapp/graph-api";
+import { graphAuthHeaders, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ACTOR_OPERADOR_BANDEJA } from "@/lib/db/actor";
@@ -47,25 +47,17 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.WINDOW_EXPIRED);
   }
 
-  const version = graphApiVersion();
-
-  const graphResponse = await fetch(
-    `https://graph.facebook.com/${version}/${process.env.META_PHONE_NUMBER_ID}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        recipient: usuario.waId,
-        type: "text",
-        text: { body: text },
-      }),
-    },
-  );
+  const graphResponse = await fetch(graphMessagesUrl(), {
+    method: "POST",
+    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      recipient: usuario.waId,
+      type: "text",
+      text: { body: text },
+    }),
+  });
 
   const graphBody = await graphResponse.json();
 

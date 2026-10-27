@@ -21,8 +21,6 @@
   --sb-navy-dark: #0a1c38;
   --sb-navy-light: #1b3b6f;
   --sb-bubble-border: #d2dce8;
-  --sb-muted: #eef1f5;
-  --sb-muted-text: #64748b;
 
   --brand-blue: #1e88e5;
   --brand-blue-light: #4fa8e8;
@@ -53,8 +51,6 @@
   --color-sb-navy-dark: var(--sb-navy-dark);
   --color-sb-navy-light: var(--sb-navy-light);
   --color-sb-bubble-border: var(--sb-bubble-border);
-  --color-sb-muted: var(--sb-muted);
-  --color-sb-muted-text: var(--sb-muted-text);
 
   --color-brand-blue: var(--brand-blue);
   --color-brand-blue-light: var(--brand-blue-light);

@@ -2,11 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { CITA_REFERENCIA_LOOKUP_ERROR_TEXT, CITA_REFERENCIA_NONE_TEXT } from "@/lib/constants/textos/cita-referencia";
-import {
-  REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT,
-  REFERENCIA_SIN_PROGRAMACION_ETIQUETA,
-  REFERENCIA_SIN_PROGRAMACION_TEXT,
-} from "@/lib/constants/textos/cita-reserva";
+import { REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT } from "@/lib/constants/textos/cita-reserva";
 import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -479,10 +475,8 @@ describe("referencias: contrato HTTP real a traves del chat, la FSM y los adapta
       }
       expect(reply.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       const rows = listEffect(reply).rows;
-      expect(rows.map((row) => row.id)).toEqual([...REFERENCE_ROWS.slice(1), REFERENCE_ROWS[0]].map((row) => row.id_referencia));
-      expect(rows.at(-1)).toMatchObject({ disabled: true, referencia: { estado: REFERENCIA_SIN_PROGRAMACION_ETIQUETA } });
+      expect(rows.map((row) => row.id)).toEqual(REFERENCE_ROWS.slice(1).map((row) => row.id_referencia));
       const blocked = await tap(reply, REFERENCE_ROWS[0].id_referencia);
-      expect(textOf(blocked)).toContain(REFERENCIA_SIN_PROGRAMACION_TEXT);
       expect(blocked.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       expect(fetchMock).toHaveBeenCalledTimes(requestsBefore);
       expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_BEARER]).toBe(TOKEN);

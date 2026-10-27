@@ -129,7 +129,6 @@ export type ListRow = {
   id: string;
   title: string;
   description?: string;
-  disabled?: boolean;
   referencia?: ReferenciaListaDetalle;
 };
 
