@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { askConfirmRegistro, handleConfirmRegistro } from "@/lib/fsm/flows/incidencia/pasos-comunes";
+import { askConfirmRegistro, handleConfirmRegistro, submitIncidencia } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 import {
@@ -27,6 +28,19 @@ const bodyOf = (effect: SendEffect): string => ("text" in effect ? effect.text :
 
 const conImagenes = (cantidad: number): string =>
   JSON.stringify(Array.from({ length: cantidad }, (_, i) => `data:image/png;base64,AAAA${i}`));
+
+describe("el registro lleva el canal de la conversación", () => {
+  it.each([
+    [undefined, SessionChannel.WHATSAPP],
+    [SessionChannel.WHATSAPP, SessionChannel.WHATSAPP],
+    [SessionChannel.WEB, SessionChannel.WEB],
+  ])("una sesión con canal %s envía el canal %s", (channel, canal) => {
+    const pending = { ...session({ [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo." }), channel };
+    const [register] = submitIncidencia(pending, "wa-1").effects.filter(isQueryEffect);
+
+    expect(register.payload).toMatchObject({ submission: { canal } });
+  });
+});
 
 describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo de Meta", () => {
   it("un resumen corto sale completo, sin recortar nada", () => {

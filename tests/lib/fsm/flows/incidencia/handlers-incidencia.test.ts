@@ -192,6 +192,7 @@ describe("el registro final: con la persona o anónimo", () => {
       descripcion: "El consultorio estaba cerrado.",
       establecimientoId: null,
       mediaDataUris: [],
+      canal: "whatsapp",
     });
   });
 
@@ -218,6 +219,7 @@ describe("el registro final: con la persona o anónimo", () => {
       descripcion: "El consultorio estaba cerrado.",
       establecimientoId: null,
       mediaDataUris: [],
+      canal: "whatsapp",
     });
   });
 });

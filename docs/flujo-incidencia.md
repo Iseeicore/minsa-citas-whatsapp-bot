@@ -37,5 +37,5 @@ entrada ─► ubicación ─► documento o anónimo ─► relato ─► foto 
 
 ## Lo que todavía no hace
 
-- El canal de origen se guarda siempre como WhatsApp, también cuando la conversación viene del Chat-bot.
+- El canal de origen se guarda como WhatsApp si la conversación viene de whatsapp-bot y como web si viene del Chat-bot.
 - La IA no entra todavía como entrada: el texto ambiguo de reclamo sigue yendo a «no claro».

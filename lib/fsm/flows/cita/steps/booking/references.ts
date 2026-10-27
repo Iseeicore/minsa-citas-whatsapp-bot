@@ -40,7 +40,7 @@ import {
   CONSULTA_REFERENCIAS_ACTIONS,
   consultaReferenciasListText,
 } from "@/lib/constants/textos/cita-referencia";
-import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
+import type { HandleEvent, HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -62,6 +62,7 @@ import {
   REFERENCIA_NO_DISPONIBLE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
+import { REFERENCIA_CITA_OFFER_BUTTONS, REFERENCIA_CITA_OFFER_QUESTION_TEXT } from "@/lib/constants/textos/referencia";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 const REFERENCE_APPOINTMENT_CLEANUP_SLOTS = [
@@ -176,10 +177,27 @@ function consultaActionHandler(session: Session, event: InboundEvent): ((session
   return answer ? CONSULTA_ACTION_HANDLERS.get(answer) : undefined;
 }
 
+export function handleConsultaReferenciasClose(session: Session, event: HandleEvent): HandlerResult | undefined {
+  if (event.type !== InboundEventType.TEXT || !isConsultaReferenciasList(session)) return undefined;
+  return CONSULTA_REFERENCIAS_ACTION_ANSWERS[normalizeText(readTypedText(event))] === ReferenciaActionButtonId.EXIT
+    ? closeReferencia()
+    : undefined;
+}
+
+function askConsultaCitaOffer(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
+  const question = buildResult(next, [sendButtons(REFERENCIA_CITA_OFFER_QUESTION_TEXT, REFERENCIA_CITA_OFFER_BUTTONS)]);
+  const aviso = referenciasBloqueadasAviso(readReferencias(next), readReferenciasSinProgramacion(next));
+  return aviso ? withLeadingText(question, aviso) : question;
+}
+
 export function offerSelectableReferencias(session: Session): HandlerResult {
-  return tieneReferenciasSeleccionables(readReferencias(session), readReferenciasSinProgramacion(session))
-    ? offerReferenciasList(session)
-    : withLeadingText(startNewAppointment(session), CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
+  if (tieneReferenciasSeleccionables(readReferencias(session), readReferenciasSinProgramacion(session)))
+    return offerReferenciasList(session);
+  return session.slots[SlotKey.CITA_APPOINTMENT_MODE] === AppointmentMode.REFERENCE
+    ? withLeadingText(startNewAppointment(session), CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT)
+    : askConsultaCitaOffer(session);
 }
 
 export function offerConsultaReferencias(session: Session): HandlerResult {

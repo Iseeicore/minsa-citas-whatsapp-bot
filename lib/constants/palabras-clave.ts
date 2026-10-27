@@ -15,6 +15,7 @@ export const CHANGE_REFERENCE_ANSWERS = new Set(["CAMBIAR REFERENCIA"]);
 
 export const CONSULTA_REFERENCIAS_ACTION_ANSWERS: Readonly<Record<string, ReferenciaActionButtonId | undefined>> = {
   "CITA SIN REFERENCIA": ReferenciaActionButtonId.NEW_APPOINTMENT,
+  SALIR: ReferenciaActionButtonId.EXIT,
 };
 
 export const CITA_REFERENCIA_MODE_ANSWERS: Readonly<Record<string, CitaReferenciaButtonId | undefined>> = {

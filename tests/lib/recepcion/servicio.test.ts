@@ -69,6 +69,15 @@ describe("registering an incident directly in the database", () => {
     expect(db.evidenciaCreate).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["whatsapp", 1],
+    ["web", 2],
+  ])("stores the origin channel %s as canal_origen %i", async (canal, canalOrigenId) => {
+    await registrarIncidencia({ ...base, canal }, crearAlmacenEvidencias());
+
+    expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ canalOrigenId }) });
+  });
+
   it("a phone that already sent the daily maximum is refused before anything is saved, and the turn is logged", async () => {
     db.queryRaw.mockResolvedValueOnce([{ total: BigInt(5) }]);
 

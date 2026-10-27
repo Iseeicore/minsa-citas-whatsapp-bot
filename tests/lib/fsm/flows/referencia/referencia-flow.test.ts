@@ -27,6 +27,7 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 const FROM = "sandbox-referencia-flow";
 const DNI = "12345678";
@@ -232,13 +233,22 @@ describe("the lookup", () => {
       },
     );
 
-    it("Salir closes with the usual farewell and a typed salir keeps the existing exit confirmation", () => {
+    it.each([tap(ReferenciaActionButtonId.EXIT), text("salir"), text("Salir")])("%j closes at once with the usual farewell", (event) => {
       const listed = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
-      const result = handle(listed.session, tap(ReferenciaActionButtonId.EXIT));
+      const result = handle(listed.session, event);
 
       expect(result.session.state).toBe(SessionState.REFERENCIA_CLOSED);
       expect(texts(result)).toEqual([REFERENCIA_GOODBYE_TEXT]);
-      expect(handle(listed.session, text("salir")).session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
+    });
+
+    it("in the Cita con referencia list a typed salir still asks for confirmation", () => {
+      const listed = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
+      const citaConReferencia = {
+        ...listed.session,
+        slots: { ...listed.session.slots, [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE },
+      };
+
+      expect(handle(citaConReferencia, text("salir")).session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
     });
 
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(

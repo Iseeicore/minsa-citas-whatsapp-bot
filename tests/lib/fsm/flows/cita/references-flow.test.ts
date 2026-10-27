@@ -615,19 +615,23 @@ describe("referencias en todos los estados", () => {
       "elegir Cita con referencia",
       (session: Session) => handle({ ...session, state: "referencia_awaiting_appointment_mode" }, tap(CitaReferenciaButtonId.REFERENCE)),
     ],
-  ])("al %s sin ninguna que permita agendar continúa con una cita nueva en vez de una lista sin salida", (_caso, act) => {
-    const session = referenciaConfirmPending();
-    session.channel = SessionChannel.WHATSAPP;
-    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([PENDIENTE, SIN_DESCRIPCION]);
+  ])(
+    "en Cita con referencia, al %s sin ninguna que permita agendar continúa con una cita nueva en vez de una lista sin salida",
+    (_caso, act) => {
+      const session = referenciaConfirmPending();
+      session.channel = SessionChannel.WHATSAPP;
+      session.slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.REFERENCE;
+      session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([PENDIENTE, SIN_DESCRIPCION]);
 
-    const result = act(session);
+      const result = act(session);
 
-    expect(texts(result)[0]).toBe(CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
-    expect(listRows(result)).toBeUndefined();
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
-    expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
-  });
+      expect(texts(result)[0]).toBe(CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
+      expect(listRows(result)).toBeUndefined();
+      expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+      expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+      expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
+    },
+  );
 
   it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("PACIENTE CITADO (7) no aparece en %s ni se puede elegir", (channel) => {
     const citada = conEstado("citada-7", 7, { upsDestino: "OFTALMOLOGÍA" });
