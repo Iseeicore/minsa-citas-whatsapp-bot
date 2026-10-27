@@ -130,7 +130,6 @@ export type ListRow = {
   id: string;
   title: string;
   description?: string;
-  disabled?: boolean;
   referencia?: ReferenciaListaDetalle;
 };
 
@@ -197,3 +196,6 @@ export type HandlerResult = {
   outcome: HandlerOutcome;
   notes?: TurnNote[];
 };
+
+export type UnhandledTurn = undefined;
+export type HandlerAttempt = HandlerResult | UnhandledTurn;

@@ -153,14 +153,24 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
     db.usuarioFindUnique.mockResolvedValueOnce(usuario());
     db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date() }));
     db.mensajeCreate.mockResolvedValueOnce(mensaje({ direccionMensajeId: 2, waMessageId: "wamid.out" }));
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 })),
-    );
+    vi.stubEnv("META_GRAPH_API_VERSION", "v22.0");
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
 
     const response = await sendMessage(post({ conversationId: "u-1", text: "hola" }));
 
     expect(response.status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledWith("https://graph.facebook.com/v22.0/123/messages", {
+      method: "POST",
+      headers: { Authorization: "Bearer token", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        recipient: usuario().waId,
+        type: "text",
+        text: { body: "hola" },
+      }),
+    });
     expect(db.mensajeCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         usuarioId: "u-1",
@@ -173,6 +183,22 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
     });
     expect(db.executeRaw.mock.calls.map((call) => call[1])).toEqual(["operador:bandeja"]);
     expect(await response.json()).toMatchObject({ conversationId: "u-1", direction: "OUTBOUND", type: "TEXT", status: "SENT" });
+  });
+
+  it("passes a Graph error through with its status and body, and records nothing", async () => {
+    db.usuarioFindUnique.mockResolvedValueOnce(usuario());
+    db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date() }));
+    const graphError = { error: { message: "Invalid parameter", code: 100 } };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(graphError), { status: 400 })),
+    );
+
+    const response = await sendMessage(post({ conversationId: "u-1", text: "hola" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(graphError);
+    expect(db.mensajeCreate).not.toHaveBeenCalled();
   });
 
   it("refuses to send when the 24 h window expired", async () => {

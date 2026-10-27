@@ -3,11 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { Session } from "@/lib/fsm/core/types";
 import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
-import {
-  REFERENCIA_SIN_PROGRAMACION_ETIQUETA,
-  REFERENCIA_SIN_PROGRAMACION_TEXT,
-  referenciaBloqueadaText,
-} from "@/lib/constants/textos/cita-reserva";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
@@ -187,7 +182,7 @@ afterEach(() => {
 });
 
 describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servicios simulados", () => {
-  it("muestra las referencias bloqueadas al final sin enviar marcas internas a Meta y rechaza su selección", async () => {
+  it("no muestra las referencias bloqueadas, no envía marcas internas a Meta y rechaza su selección", async () => {
     const blocked = {
       ...WHATSAPP_REFERENCE_ROWS[0],
       id_referencia: "synthetic-blocked-reference",
@@ -197,14 +192,12 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
     await references();
 
     const rows = upstream.rows();
-    expect(rows.map((row) => row.id)).toEqual([...WHATSAPP_REFERENCE_ROWS.map((row) => row.id_referencia), blocked.id_referencia]);
+    expect(rows.map((row) => row.id)).toEqual(WHATSAPP_REFERENCE_ROWS.map((row) => row.id_referencia));
     expect(rows.every((row) => Object.keys(row).every((key) => ["id", "title", "description"].includes(key)))).toBe(true);
-    expect(rows.at(-1)?.description?.endsWith("PENDIENTE")).toBe(true);
 
     await send(undefined, blocked.id_referencia);
     expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     expect(upstream.requestsFor(MinsaEndpoint.FECHAS)).toHaveLength(0);
-    expect(upstream.messages.some((message) => message.text?.body === referenciaBloqueadaText("PENDIENTE"))).toBe(true);
     expect(upstream.rows().map((row) => row.id)).toEqual(rows.map((row) => row.id));
 
     await send(undefined, WHATSAPP_REFERENCE_ROWS[0].id_referencia);
@@ -459,14 +452,10 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
       }
       expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       const rows = upstream.rows();
-      expect(rows.map((row) => row.id)).toEqual(
-        [WHATSAPP_REFERENCE_ROWS[1], WHATSAPP_REFERENCE_ROWS[2], WHATSAPP_REFERENCE_ROWS[0]].map((row) => row.id_referencia),
-      );
-      expect(rows.at(-1)?.description?.endsWith(REFERENCIA_SIN_PROGRAMACION_ETIQUETA)).toBe(true);
+      expect(rows.map((row) => row.id)).toEqual([WHATSAPP_REFERENCE_ROWS[1], WHATSAPP_REFERENCE_ROWS[2]].map((row) => row.id_referencia));
       expect(rows.every((row) => Object.keys(row).every((key) => ["id", "title", "description"].includes(key)))).toBe(true);
       await send(undefined, WHATSAPP_REFERENCE_ROWS[0].id_referencia);
       expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
-      expect(upstream.messages.some((message) => message.text?.body === REFERENCIA_SIN_PROGRAMACION_TEXT)).toBe(true);
       expect(upstream.requests).toHaveLength(requestsBefore);
       expect(session().slots[SlotKey.CITA_BEARER]).toBe(WHATSAPP_REFERENCE_TOKEN);
       upstream.responses.set(MinsaEndpoint.FECHAS, { data: { fechas: WHATSAPP_REFERENCE_DATES } });

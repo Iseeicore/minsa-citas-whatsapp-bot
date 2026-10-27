@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ReferenceOptionButton } from "@/app/components/sandbox-chat/ReferenceOptionButton";
@@ -13,8 +13,18 @@ const reference: ReferenciaListaDetalle = {
   estado: "PACIENTE RECIBIDO",
 };
 
-const render = (disabled = false, value = reference, unavailable = false): string =>
-  renderToStaticMarkup(createElement(ReferenceOptionButton, { reference: value, disabled, unavailable, onClick: () => {} }));
+const render = (disabled = false, value = reference): string =>
+  renderToStaticMarkup(createElement(ReferenceOptionButton, { reference: value, disabled, onClick: () => {} }));
+
+const buttonTag = (markup: string): string => markup.match(/<button[^>]*>[\s\S]*?<\/button>/)?.[0] ?? "";
+
+function findClickHandler(node: ReactNode): (() => void) | undefined {
+  if (!isValidElement(node)) return undefined;
+  const props = node.props as { onClick?: () => void; children?: ReactNode };
+  if (props.onClick) return props.onClick;
+  const children = Array.isArray(props.children) ? props.children : [props.children];
+  return children.map(findClickHandler).find(Boolean);
+}
 
 describe("ReferenceOptionButton", () => {
   it("presenta la especialidad y todos los datos completos de la referencia sin recortarlos", () => {
@@ -37,37 +47,26 @@ describe("ReferenceOptionButton", () => {
     expect(markup).not.toContain("<script>");
   });
 
-  it("una referencia que no permite agendar se ve atenuada, se anuncia como no disponible y no dispara la selección", () => {
-    const onClick = vi.fn();
-    const element = ReferenceOptionButton({ reference, unavailable: true, onClick });
-    const props = element.props as { onClick?: unknown; "aria-disabled"?: unknown };
-    const markup = render(false, reference, true);
+  it("la tarjeta es un div con bloques div y un solo botón que la cubre, sin div dentro del botón", () => {
+    const markup = render();
+    const button = buttonTag(markup);
 
-    expect(props.onClick).toBeUndefined();
-    expect(props["aria-disabled"]).toBe(true);
-    expect(markup).toContain('aria-disabled="true"');
-    expect(markup).toContain("bg-sb-muted");
-    expect(markup).not.toContain('disabled=""');
-    expect(markup).toContain(reference.estado);
-    expect(onClick).not.toHaveBeenCalled();
+    expect(markup.startsWith("<div")).toBe(true);
+    expect(markup.match(/<button/g)).toHaveLength(1);
+    expect(button).not.toContain("<div");
+    expect(button).toContain("absolute inset-0");
   });
 
-  it("una referencia seleccionable conserva su acción y no se anuncia como bloqueada", () => {
-    const onClick = vi.fn();
-    const element = ReferenceOptionButton({ reference, onClick });
-    const props = element.props as { onClick?: () => void; "aria-disabled"?: unknown };
+  it("el botón se anuncia con la especialidad, el número y el estado de la referencia", () => {
+    expect(buttonTag(render())).toContain(
+      'aria-label="Atencion especializada integral de enfermedades cardiovasculares avanzadas, Referencia N.° 0000000427, PACIENTE RECIBIDO"',
+    );
+  });
 
-    props.onClick?.();
+  it("una referencia conserva su acción al elegirla", () => {
+    const onClick = vi.fn();
+
+    findClickHandler(ReferenceOptionButton({ reference, onClick }))?.();
     expect(onClick).toHaveBeenCalledTimes(1);
-    expect(props["aria-disabled"]).toBeUndefined();
-    expect(render()).not.toContain("aria-disabled");
-    expect(render()).not.toContain("bg-sb-muted");
-  });
-
-  it("el estado de mensaje antiguo sigue siendo independiente del bloqueo por estado", () => {
-    expect(render(true)).toContain('disabled=""');
-    expect(render(true)).not.toContain("aria-disabled");
-    expect(render(true, reference, true)).toContain('disabled=""');
-    expect(render(true, reference, true)).toContain('aria-disabled="true"');
   });
 });

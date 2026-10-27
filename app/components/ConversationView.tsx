@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Message } from "@/app/components/types";
+import type { ConversationMessages, Message } from "@/app/components/types";
+import { useApi } from "@/app/hooks/use-api";
 import {
   BackArrowIcon,
   CameraIcon,
@@ -26,6 +27,8 @@ import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
 import { MessageDirection } from "@/lib/enums/message-direction";
 import { TextInputVariant } from "@/lib/enums/text-input-variant";
+import { ApiRequestStatus } from "@/lib/enums/api-request-status";
+import { BANDEJA_CLOSE_ERROR_TEXT, BANDEJA_LOAD_ERROR_TEXT, BANDEJA_SEND_ERROR_TEXT } from "@/lib/constants/textos/bandeja";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -45,33 +48,26 @@ export default function ConversationView({
   const [windowExpiresAt, setWindowExpiresAt] = useState<string | null>(null);
   const [status, setStatus] = useState<ConversationStatus>(ConversationStatus.OPEN);
   const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [closing, setClosing] = useState(false);
-  const [closeError, setCloseError] = useState<string | null>(null);
+  const messagesApi = useApi<ConversationMessages>(BANDEJA_LOAD_ERROR_TEXT);
+  const sendApi = useApi<Message>(BANDEJA_SEND_ERROR_TEXT);
+  const closeApi = useApi<unknown>(BANDEJA_CLOSE_ERROR_TEXT);
+  const sending = sendApi.state.status === ApiRequestStatus.LOADING;
+  const sendError = sendApi.state.status === ApiRequestStatus.ERROR ? sendApi.state.message : null;
+  const closing = closeApi.state.status === ApiRequestStatus.LOADING;
+  const closeError = closeApi.state.status === ApiRequestStatus.ERROR ? closeApi.state.message : null;
+  const loadMessages = messagesApi.get;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      try {
-        const res = await fetch(`/api/conversations/${conversationId}/messages`);
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          messages: Message[];
-          windowOpen: boolean;
-          windowExpiresAt: string | null;
-          status: ConversationStatus;
-        };
-        if (!cancelled) {
-          setMessages(data.messages);
-          setWindowOpen(data.windowOpen);
-          setWindowExpiresAt(data.windowExpiresAt);
-          setStatus(data.status);
-        }
-      } catch {
-      }
+      const result = await loadMessages(`/api/conversations/${conversationId}/messages`);
+      if (cancelled || result.status !== ApiRequestStatus.DATA) return;
+      setMessages(result.data.messages);
+      setWindowOpen(result.data.windowOpen);
+      setWindowExpiresAt(result.data.windowExpiresAt);
+      setStatus(result.data.status);
     }
 
     load();
@@ -80,7 +76,7 @@ export default function ConversationView({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [conversationId]);
+  }, [conversationId, loadMessages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,51 +84,15 @@ export default function ConversationView({
 
   async function handleSend() {
     if (!text.trim()) return;
-    setSending(true);
-    setSendError(null);
-
-    try {
-      const res = await fetch("/api/messages/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId, text }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setSendError(data.message ?? "No se pudo enviar el mensaje.");
-        return;
-      }
-
-      const created = (await res.json()) as Message;
-      setMessages((prev) => [...prev, created]);
-      setText("");
-    } catch {
-      setSendError("No se pudo enviar el mensaje.");
-    } finally {
-      setSending(false);
-    }
+    const result = await sendApi.post("/api/messages/send", { conversationId, text });
+    if (result.status !== ApiRequestStatus.DATA) return;
+    setMessages((prev) => [...prev, result.data]);
+    setText("");
   }
 
   async function handleClose() {
-    setClosing(true);
-    setCloseError(null);
-
-    try {
-      const res = await fetch(`/api/conversations/${conversationId}/close`, { method: "POST" });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setCloseError(data.message ?? "No se pudo cerrar la conversación.");
-        return;
-      }
-
-      setStatus(ConversationStatus.CLOSED);
-    } catch {
-      setCloseError("No se pudo cerrar la conversación.");
-    } finally {
-      setClosing(false);
-    }
+    const result = await closeApi.post(`/api/conversations/${conversationId}/close`);
+    if (result.status === ApiRequestStatus.DATA) setStatus(ConversationStatus.CLOSED);
   }
 
   const displayName = profileName ?? waId ?? "Contacto";

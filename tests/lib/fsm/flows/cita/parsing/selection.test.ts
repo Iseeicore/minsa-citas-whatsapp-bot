@@ -9,6 +9,7 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 const rows = Array.from({ length: 21 }, (_, index) => ({ id: `row-${index}`, title: `Opción ${index + 1}` }));
 const text = (value: string): InboundEvent => ({ from: "synthetic-wa", type: InboundEventType.TEXT, text: value });
@@ -20,6 +21,7 @@ function offered(page = 0, state: Session["state"] = SessionState.CITA_AWAITING_
     state,
     slots: {
       [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: "synthetic-reference",
+      [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
       [SlotKey.CITA_OFFERED]: serializeOffered({ text: "Elige", rows }),
     },
     counters: { [CounterKey.CITA_LIST_PAGE]: page },

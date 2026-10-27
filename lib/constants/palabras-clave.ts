@@ -2,50 +2,64 @@ import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 
-export const REFERENCE_PAGE_ANSWERS: Readonly<Record<string, ListPageButtonId | HoraPageButtonId | undefined>> = {
-  ANTERIORES: ListPageButtonId.PREV,
-  "VER MAS OPCIONES": ListPageButtonId.NEXT,
-  "HORARIOS ANTERIORES": HoraPageButtonId.PREV,
-  "VER MAS HORARIOS": HoraPageButtonId.NEXT,
-};
+export const REFERENCE_PAGE_ANSWERS: ReadonlyMap<string, ListPageButtonId | HoraPageButtonId> = new Map<
+  string,
+  ListPageButtonId | HoraPageButtonId
+>([
+  ["ANTERIORES", ListPageButtonId.PREV],
+  ["VER MAS OPCIONES", ListPageButtonId.NEXT],
+  ["HORARIOS ANTERIORES", HoraPageButtonId.PREV],
+  ["VER MAS HORARIOS", HoraPageButtonId.NEXT],
+]);
 
 export const CHANGE_REFERENCE_ANSWERS = new Set(["CAMBIAR REFERENCIA"]);
 
-export const CITA_REFERENCIA_MODE_ANSWERS: Readonly<Record<string, CitaReferenciaButtonId | undefined>> = {
-  "1": CitaReferenciaButtonId.NEW,
-  NUEVA: CitaReferenciaButtonId.NEW,
-  "NUEVA CITA": CitaReferenciaButtonId.NEW,
-  "CITA NUEVA": CitaReferenciaButtonId.NEW,
-  "2": CitaReferenciaButtonId.REFERENCE,
-  REFERENCIA: CitaReferenciaButtonId.REFERENCE,
-  "CITA CON REFERENCIA": CitaReferenciaButtonId.REFERENCE,
-  "CON REFERENCIA": CitaReferenciaButtonId.REFERENCE,
-};
+export const CONSULTA_REFERENCIAS_ACTION_ANSWERS: ReadonlyMap<string, ReferenciaActionButtonId> = new Map<string, ReferenciaActionButtonId>(
+  [
+    ["CITA SIN REFERENCIA", ReferenciaActionButtonId.NEW_APPOINTMENT],
+    ["SALIR", ReferenciaActionButtonId.EXIT],
+  ],
+);
 
-export const CITA_REFERENCIA_RETRY_ANSWERS: Readonly<Record<string, CitaReferenciaButtonId | undefined>> = {
-  "1": CitaReferenciaButtonId.RETRY,
-  REINTENTAR: CitaReferenciaButtonId.RETRY,
-  "REINTENTAR CONSULTA": CitaReferenciaButtonId.RETRY,
-  "2": CitaReferenciaButtonId.NEW,
-  NUEVA: CitaReferenciaButtonId.NEW,
-  "NUEVA CITA": CitaReferenciaButtonId.NEW,
-  "CITA NUEVA": CitaReferenciaButtonId.NEW,
-};
+export const CITA_REFERENCIA_MODE_ANSWERS: ReadonlyMap<string, CitaReferenciaButtonId> = new Map<string, CitaReferenciaButtonId>([
+  ["1", CitaReferenciaButtonId.NEW],
+  ["NUEVA", CitaReferenciaButtonId.NEW],
+  ["NUEVA CITA", CitaReferenciaButtonId.NEW],
+  ["CITA NUEVA", CitaReferenciaButtonId.NEW],
+  ["2", CitaReferenciaButtonId.REFERENCE],
+  ["REFERENCIA", CitaReferenciaButtonId.REFERENCE],
+  ["CITA CON REFERENCIA", CitaReferenciaButtonId.REFERENCE],
+  ["CON REFERENCIA", CitaReferenciaButtonId.REFERENCE],
+]);
 
-export const CITA_REFERENCIA_SIN_FECHAS_ANSWERS: Readonly<Record<string, OtherReferenciaCitaButtonId | undefined>> = {
-  "1": OtherReferenciaCitaButtonId.REFERENCES,
-  REFERENCIAS: OtherReferenciaCitaButtonId.REFERENCES,
-  REFERENCIA: OtherReferenciaCitaButtonId.REFERENCES,
-  "MIS REFERENCIAS": OtherReferenciaCitaButtonId.REFERENCES,
-  "OTRA REFERENCIA": OtherReferenciaCitaButtonId.REFERENCES,
-  "2": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
-  CITA: OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
-  "CITA MEDICA": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
-  "NUEVA CITA": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
-  "CITA NUEVA": OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
-  NUEVA: OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
-};
+export const CITA_REFERENCIA_RETRY_ANSWERS: ReadonlyMap<string, CitaReferenciaButtonId> = new Map<string, CitaReferenciaButtonId>([
+  ["1", CitaReferenciaButtonId.RETRY],
+  ["REINTENTAR", CitaReferenciaButtonId.RETRY],
+  ["REINTENTAR CONSULTA", CitaReferenciaButtonId.RETRY],
+  ["2", CitaReferenciaButtonId.NEW],
+  ["NUEVA", CitaReferenciaButtonId.NEW],
+  ["NUEVA CITA", CitaReferenciaButtonId.NEW],
+  ["CITA NUEVA", CitaReferenciaButtonId.NEW],
+]);
+
+export const CITA_REFERENCIA_SIN_FECHAS_ANSWERS: ReadonlyMap<string, OtherReferenciaCitaButtonId> = new Map<
+  string,
+  OtherReferenciaCitaButtonId
+>([
+  ["1", OtherReferenciaCitaButtonId.REFERENCES],
+  ["REFERENCIAS", OtherReferenciaCitaButtonId.REFERENCES],
+  ["REFERENCIA", OtherReferenciaCitaButtonId.REFERENCES],
+  ["MIS REFERENCIAS", OtherReferenciaCitaButtonId.REFERENCES],
+  ["OTRA REFERENCIA", OtherReferenciaCitaButtonId.REFERENCES],
+  ["2", OtherReferenciaCitaButtonId.NEW_APPOINTMENT],
+  ["CITA", OtherReferenciaCitaButtonId.NEW_APPOINTMENT],
+  ["CITA MEDICA", OtherReferenciaCitaButtonId.NEW_APPOINTMENT],
+  ["NUEVA CITA", OtherReferenciaCitaButtonId.NEW_APPOINTMENT],
+  ["CITA NUEVA", OtherReferenciaCitaButtonId.NEW_APPOINTMENT],
+  ["NUEVA", OtherReferenciaCitaButtonId.NEW_APPOINTMENT],
+]);
 
 export const CITA_KEYWORD = "CITA";
 export const CITAS_KEYWORD = "CITAS";

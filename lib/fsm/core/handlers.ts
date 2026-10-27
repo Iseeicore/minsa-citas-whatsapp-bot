@@ -23,6 +23,7 @@ import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { handleOtherReferenceClose } from "@/lib/fsm/flows/referencia/other-reference";
+import { handleConsultaReferenciasClose, withConsultaReferenciasActions } from "@/lib/fsm/flows/cita/steps/booking/references";
 import {
   handleChangeReference,
   referenceChangeReauthSession,
@@ -34,7 +35,11 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
     return emergencyCut(session.state);
   }
   const current = event.channel ? { ...session, channel: event.channel } : session;
-  return handleOtherReferenceClose(current, event) ?? withReferenceChangeAction(handleTurn(current, event, now));
+  return (
+    handleOtherReferenceClose(current, event) ??
+    handleConsultaReferenciasClose(current, event) ??
+    withConsultaReferenciasActions(withReferenceChangeAction(handleTurn(current, event, now)))
+  );
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {

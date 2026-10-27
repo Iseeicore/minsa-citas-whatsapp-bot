@@ -10,7 +10,8 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/continuation";
-import { offerReferenciasList } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { offerConsultaReferencias } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { referenciasBloqueadasAviso, tieneReferenciasSeleccionables } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { handleAppointmentReferenceLookup } from "@/lib/fsm/flows/referencia/appointment-lookup";
 import { handleAppointmentMode, handleReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode";
 import { handleOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
@@ -53,13 +54,16 @@ export function handleReferenciaLookupPending(session: Session, event: QueryResu
   }
   const next = cloneSession(session);
 
-  if (result.statusReference === ReferenceStatus.FOUND && result.data.length > 0) {
-    next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.data);
-    return offerReferenciasList(next);
+  if (result.statusReference !== ReferenceStatus.FOUND || result.data.length === 0) {
+    next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
+    return withLeadingText(askCitaOffer(next), REFERENCIA_NONE_TEXT);
   }
-
-  next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
-  return withLeadingText(askCitaOffer(next), REFERENCIA_NONE_TEXT);
+  if (!tieneReferenciasSeleccionables(result.data)) {
+    next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
+    return withLeadingText(askCitaOffer(next), referenciasBloqueadasAviso(result.data) ?? REFERENCIA_NONE_TEXT);
+  }
+  next.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(result.data);
+  return offerConsultaReferencias(next);
 }
 
 export function handleReferenciaAwaitingCitaOffer(session: Session, event: InboundEvent): HandlerResult {
