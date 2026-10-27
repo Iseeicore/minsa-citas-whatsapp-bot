@@ -129,6 +129,23 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     });
   });
 
+  it("en WhatsApp lista solo las que permiten agendar y antes nombra las bloqueadas en un texto", async () => {
+    const [seleccionable] = UNA_REFERENCIA.data;
+    const citada = { ...seleccionable, idReferencia: "7777777", numero: "00777", upsDestino: "OFTALMOLOGÍA", estado: 7 };
+    referencias.result = { ...UNA_REFERENCIA, data: [citada, seleccionable] };
+
+    const otp = await loginForReferencias();
+
+    expect(otp.session.state).toBe("cita_awaiting_referencia_select");
+    const avisoIndex = otp.texts.findIndex((line) => line.startsWith("Estas referencias no permiten agendar una cita:"));
+    const listIndex = otp.texts.findIndex((line) => line.startsWith("[list]"));
+    expect(avisoIndex).toBeGreaterThanOrEqual(0);
+    expect(avisoIndex).toBeLessThan(listIndex);
+    expect(otp.texts[avisoIndex]).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
+    const list = otp.sent.find((effect) => effect.kind === "send_interactive_list");
+    expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual([seleccionable.idReferencia]);
+  });
+
   it("sin referencias, acepta una cita: sigue sin pedir documento ni código y se agenda sin referenciaId", async () => {
     const otp = await loginForReferencias();
     expect(otp.session.state).toBe("referencia_awaiting_cita_offer");

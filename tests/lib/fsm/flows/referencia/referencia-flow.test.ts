@@ -5,6 +5,9 @@ import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { ANALYZING_CUENTA_TEXT, VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { REFERENCIAS_LIST_TEXT } from "@/lib/constants/textos/cita-reserva";
+import { CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT } from "@/lib/constants/textos/cita-referencia";
+import { referenciasBloqueadasAviso } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
@@ -158,6 +161,41 @@ describe("the lookup", () => {
       expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
     },
   );
+
+  describe("with references that do not allow booking", () => {
+    const citada: ReferenciaItem = { ...REFERENCIA, idReferencia: "citada", numero: "00777", upsDestino: "OFTALMOLOGÍA", estado: 7 };
+    const found = (data: ReferenciaItem[]) =>
+      queryResult(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, message: "", data });
+    const lookupOn = (channel: SessionChannel): Session => ({ ...lookupPending(), channel });
+    const rowIds = (result: HandlerResult) =>
+      sent(result).flatMap((effect) => (effect.kind === "send_interactive_list" ? effect.rows.map((row) => row.id) : []));
+    const aviso = referenciasBloqueadasAviso([citada]);
+
+    it("WhatsApp lists only the bookable ones and names the others in one text before the list", () => {
+      const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
+
+      expect(aviso).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
+      expect(texts(result)).toEqual([aviso]);
+      expect(sent(result)[0]).toEqual({ kind: "send_text", text: aviso });
+      expect(rowIds(result)).toEqual([REFERENCIA.idReferencia]);
+      expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    });
+
+    it("WhatsApp with none bookable sends that text and continues as when nothing is selectable, with no list", () => {
+      const result = handle(lookupOn(SessionChannel.WHATSAPP), found([citada]));
+
+      expect(texts(result).slice(0, 2)).toEqual([aviso, CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT]);
+      expect(rowIds(result)).toEqual([]);
+      expect(result.session.state).not.toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    });
+
+    it("the web chat keeps every reference as a card, with no extra text", () => {
+      const result = handle(lookupOn(SessionChannel.WEB), found([citada, REFERENCIA]));
+
+      expect(texts(result)).toEqual([]);
+      expect(rowIds(result)).toEqual([REFERENCIA.idReferencia, citada.idReferencia]);
+    });
+  });
 
   it("found with no referencias left is treated as no referencias, never an empty list", () => {
     const result = handle(

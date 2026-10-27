@@ -20,7 +20,9 @@ import {
   esReferenciaSeleccionable,
   ordenarReferenciasPorSeleccion,
   referenciaBloqueadaAviso,
+  referenciaEspecialidad,
   referenciaEstadoEtiqueta,
+  referenciasBloqueadasAviso,
   tieneReferenciasSeleccionables,
 } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
@@ -47,7 +49,6 @@ import {
   REFERENCIA_CONFIRM_BUTTONS,
   REFERENCIA_INCOMPLETA_TEXT,
   REFERENCIA_NO_DISPONIBLE_TEXT,
-  REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
@@ -113,7 +114,7 @@ function formatFechaHora12(fechaHora: string): string {
 
 function referenciaRows(items: ReferenciaItem[], web: boolean, sinProgramacion: ReadonlySet<string>): ListRow[] {
   return ordenarReferenciasPorSeleccion(items, sinProgramacion).map((item) => {
-    const especialidad = item.upsDestino.trim() ? item.upsDestino : REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT;
+    const especialidad = referenciaEspecialidad(item);
     const fecha = item.fechaInicio.split(" ")[0];
     const estado = referenciaEstadoEtiqueta(item, sinProgramacion);
     return {
@@ -137,20 +138,24 @@ export function offerReferenciasList(session: Session): HandlerResult {
   const next = cloneSession(session);
   delete next.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
   next.state = SessionState.CITA_AWAITING_REFERENCIA_SELECT;
-  return buildResult(
-    next,
-    offerPagedList(
-      next,
-      REFERENCIAS_LIST_TEXT,
-      referenciaRows(readReferencias(next), channelOf(next) === SessionChannel.WEB, readReferenciasSinProgramacion(next)),
-    ),
-  );
+  const web = channelOf(next) === SessionChannel.WEB;
+  const sinProgramacion = readReferenciasSinProgramacion(next);
+  const todas = web && next.slots[SlotKey.CITA_APPOINTMENT_MODE] !== AppointmentMode.REFERENCE;
+  const items = readReferencias(next).filter((item) => todas || esReferenciaSeleccionable(item, sinProgramacion));
+  return buildResult(next, offerPagedList(next, REFERENCIAS_LIST_TEXT, referenciaRows(items, web, sinProgramacion)));
 }
 
 export function offerSelectableReferencias(session: Session): HandlerResult {
   return tieneReferenciasSeleccionables(readReferencias(session), readReferenciasSinProgramacion(session))
     ? offerReferenciasList(session)
     : withLeadingText(startNewAppointment(session), CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
+}
+
+export function offerConsultaReferencias(session: Session): HandlerResult {
+  if (channelOf(session) === SessionChannel.WEB) return offerReferenciasList(session);
+  const aviso = referenciasBloqueadasAviso(readReferencias(session), readReferenciasSinProgramacion(session));
+  const result = offerSelectableReferencias(session);
+  return aviso ? withLeadingText(result, aviso) : result;
 }
 
 function recoverInvalidReferencia(session: Session, message: string): HandlerResult {

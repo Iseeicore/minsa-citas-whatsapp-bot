@@ -121,29 +121,21 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("agendar cita con r
   });
 
   it.each([tap(OtherReferenciaCitaButtonId.REFERENCES), text("Referencias"), text("referencia"), text("1")])(
-    "%j vuelve a la lista con la referencia sin cupos bloqueada como Sin programación",
+    "%j vuelve a la lista sin la referencia que quedó sin programación",
     (event) => {
       const result = turn(question().session, event);
 
       expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       expect(queries(result)).toEqual([]);
-      const rows = rowsOf(result);
-      expect(rows.map((row) => [row.id, row.disabled])).toEqual([
-        [REFERENCES[1].idReferencia, undefined],
-        [REFERENCES[0].idReferencia, true],
-      ]);
-      const blocked = rows[1];
-      if (channel === SessionChannel.WEB) expect(blocked.referencia?.estado).toBe(REFERENCIA_SIN_PROGRAMACION_ETIQUETA);
-      expect(blocked.description?.endsWith(REFERENCIA_SIN_PROGRAMACION_ETIQUETA)).toBe(true);
+      expect(rowsOf(result).map((row) => [row.id, row.disabled])).toEqual([[REFERENCES[1].idReferencia, undefined]]);
     },
   );
 
-  it("elegir la referencia sin programación avisa y repite la misma página sin consultar MINSA", () => {
+  it("la referencia sin programación ya no se puede elegir y repite la misma página sin consultar MINSA", () => {
     const listed = turn(question().session, tap(OtherReferenciaCitaButtonId.REFERENCES)).session;
 
     for (const event of [tap(REFERENCES[0].idReferencia), text("2")]) {
       const result = turn(listed, event);
-      expect(result.effects[0]).toEqual({ kind: SendType.TEXT, text: REFERENCIA_SIN_PROGRAMACION_TEXT });
       expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       expect(result.session.slots).toEqual(listed.slots);
       expect(result.session.counters).toEqual(listed.counters);
@@ -330,11 +322,15 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     expect(resumed.effects).toEqual([{ kind: SendType.BUTTONS, text: REFERENCIA_SIN_FECHAS_TEXT, buttons: CITA_REFERENCIA_OTHER_BUTTONS }]);
   });
 
-  it("consultar referencia: Sí vuelve a la lista con la referencia sin cupos marcada Sin programación", () => {
+  it("consultar referencia: Sí vuelve a la lista; WhatsApp omite la referencia sin cupos y la web la marca Sin programación", () => {
     const asked = turn(pending(channel), query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
     const listed = turn(asked.session, tap(OtherReferenciaButtonId.YES));
     const rows = rowsOf(listed);
 
+    if (channel === SessionChannel.WHATSAPP) {
+      expect(rows.map((row) => [row.id, row.disabled])).toEqual([[REFERENCES[1].idReferencia, undefined]]);
+      return;
+    }
     expect(rows.map((row) => [row.id, row.disabled])).toEqual([
       [REFERENCES[1].idReferencia, undefined],
       [REFERENCES[0].idReferencia, true],
@@ -356,11 +352,12 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     const listed = turn(noDates.session, tap(OtherReferenciaButtonId.YES));
     const list = listed.effects.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
     const rows = list?.kind === SendType.INTERACTIVE_LIST ? list.rows : [];
-    expect(rows.map((row) => [row.id, row.disabled])).toEqual([
+    const web: [string, boolean | undefined][] = [
       [REFERENCES[1].idReferencia, undefined],
       ["synthetic-blocked", true],
       [REFERENCES[0].idReferencia, true],
-    ]);
+    ];
+    expect(rows.map((row) => [row.id, row.disabled])).toEqual(channel === SessionChannel.WEB ? web : web.slice(0, 1));
   });
 
   it("no presenta el aviso sin cupos ante error técnico ni falta de horarios de una fecha", () => {
