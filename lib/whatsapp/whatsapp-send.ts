@@ -1,4 +1,4 @@
-import { graphApiBaseUrl, graphAuthHeaders } from "@/lib/whatsapp/graph-api";
+import { graphAuthHeaders, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
 import { ACTOR_SISTEMA_BOT } from "@/lib/db/actor";
 import { recordOutboundMessage } from "@/lib/inbox/repository";
 import type { SendEffect } from "@/lib/fsm/core/types";
@@ -13,10 +13,6 @@ import { isRecord } from "@/lib/utils/type-guards";
 import { readNumber, readString } from "@/lib/utils/record-readers";
 import { HTTP_BAD_REQUEST } from "@/lib/constants/http-status";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
-
-function graphApiUrl(): string {
-  return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
-}
 
 function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknown> {
   const base = {
@@ -91,7 +87,7 @@ function withinLimits(waId: string, effect: SendEffect): SendEffect {
 }
 
 function postEffect(waId: string, effect: SendEffect): Promise<Response> {
-  return fetch(graphApiUrl(), {
+  return fetch(graphMessagesUrl(), {
     method: "POST",
     headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(buildGraphBody(waId, effect)),
@@ -131,7 +127,7 @@ async function recordDelivered(conversationId: string | null, text: string, resp
 }
 
 export async function sendCtaUrlMessage(waId: string, params: { bodyText: string; buttonText: string; url: string }): Promise<Response> {
-  return fetch(graphApiUrl(), {
+  return fetch(graphMessagesUrl(), {
     method: "POST",
     headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -153,7 +149,7 @@ export async function sendCtaUrlMessage(waId: string, params: { bodyText: string
 
 export async function sendTypingIndicator(inboundMessageId: string): Promise<void> {
   try {
-    await fetch(graphApiUrl(), {
+    await fetch(graphMessagesUrl(), {
       method: "POST",
       headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
