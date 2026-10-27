@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { graphApiVersion, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
+import { graphApiBaseUrl, graphApiVersion, graphMessagesPath } from "@/lib/whatsapp/graph-api";
 
 describe("graphApiVersion", () => {
   afterEach(() => {
@@ -23,7 +23,7 @@ describe("graphApiVersion", () => {
   });
 });
 
-describe("graphMessagesUrl", () => {
+describe("graphMessagesPath", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -31,6 +31,6 @@ describe("graphMessagesUrl", () => {
   it("points to the messages endpoint of the configured phone number and Graph version", () => {
     vi.stubEnv("META_GRAPH_API_VERSION", "v22.0");
     vi.stubEnv("META_PHONE_NUMBER_ID", "synthetic-phone");
-    expect(graphMessagesUrl()).toBe("https://graph.facebook.com/v22.0/synthetic-phone/messages");
+    expect(`${graphApiBaseUrl()}${graphMessagesPath()}`).toBe("https://graph.facebook.com/v22.0/synthetic-phone/messages");
   });
 });

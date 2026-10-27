@@ -12,13 +12,17 @@ async function request<T>(path: string, init: RequestInit): Promise<GraphResult<
       ...init,
       headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
     });
-  } catch {
-    return failed(HTTP_BAD_GATEWAY);
+  } catch (error: unknown) {
+    return failed(HTTP_BAD_GATEWAY, error);
   }
 
   const body: unknown = await response.json().catch(() => undefined);
   if (body === undefined) return failed(response.ok ? HTTP_BAD_GATEWAY : response.status);
   return response.ok ? { status: GraphResultStatus.DATA, data: body as T } : failed(response.status, body);
+}
+
+export function graphNetworkError(result: GraphResult<unknown>): Error | undefined {
+  return result.status === GraphResultStatus.ERROR && result.error instanceof Error ? result.error : undefined;
 }
 
 export const graphClient = {

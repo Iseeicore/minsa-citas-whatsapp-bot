@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { configureLogger } from "@/lib/observability/logger";
 import { sendAndRecordCtaUrl, sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp/whatsapp-send";
 import { SendType } from "@/lib/enums/send-type";
+import { GraphResultStatus } from "@/lib/enums/graph-result-status";
 import { LIST_OPEN_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 import type { SendButtonsEffect } from "@/lib/fsm/core/types";
@@ -71,6 +72,36 @@ describe("WhatsApp send failures reach the masked logger", () => {
 
     const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body));
     expect(sent.interactive.action.button).toBe(LIST_OPEN_BUTTON_TEXT);
+  });
+
+  it("a network failure on the direct send resolves as a Graph error instead of throwing", async () => {
+    const failure = new TypeError("fetch failed");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw failure;
+      }),
+    );
+
+    await expect(sendWhatsAppEffect("51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      status: GraphResultStatus.ERROR,
+      httpStatus: 502,
+      error: failure,
+    });
+  });
+
+  it("a network failure while sending an effect is logged as a send failure and not as a rejection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+
+    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toBeNull();
+
+    expect(lines.find((line) => line.event === "whatsapp.send_failed")).toMatchObject({ operation: "send_effect" });
+    expect(lines.some((line) => line.event === "outbound.rejected")).toBe(false);
   });
 
   it("logs a failed typing indicator as a warning and never throws", async () => {

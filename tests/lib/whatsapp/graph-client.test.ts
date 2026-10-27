@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { graphClient } from "@/lib/whatsapp/graph-client";
+import { graphClient, graphNetworkError } from "@/lib/whatsapp/graph-client";
 import { GraphResultStatus } from "@/lib/enums/graph-result-status";
 
 const URL_BASE = "https://graph.facebook.com/v22.0";
@@ -55,18 +55,24 @@ describe("graphClient", () => {
     await expect(graphClient.get("/x")).resolves.toEqual({ status: GraphResultStatus.ERROR, httpStatus: 503, error: null });
   });
 
-  it("a network failure is an error with a defined status, never thrown", async () => {
+  it("a network failure is an error with a defined status that keeps the failure, never thrown", async () => {
+    const failure = new TypeError("fetch failed");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        throw new TypeError("fetch failed");
+        throw failure;
       }),
     );
 
-    await expect(graphClient.post("/phone/messages", {})).resolves.toEqual({
-      status: GraphResultStatus.ERROR,
-      httpStatus: 502,
-      error: null,
-    });
+    const result = await graphClient.post("/phone/messages", {});
+
+    expect(result).toEqual({ status: GraphResultStatus.ERROR, httpStatus: 502, error: failure });
+    expect(graphNetworkError(result)).toBe(failure);
+  });
+
+  it("graphNetworkError only reports a network failure, never an answer from Graph", () => {
+    expect(graphNetworkError({ status: GraphResultStatus.DATA, data: {} })).toBeUndefined();
+    expect(graphNetworkError({ status: GraphResultStatus.ERROR, httpStatus: 400, error: { error: { code: 100 } } })).toBeUndefined();
+    expect(graphNetworkError({ status: GraphResultStatus.ERROR, httpStatus: 502, error: null })).toBeUndefined();
   });
 });
