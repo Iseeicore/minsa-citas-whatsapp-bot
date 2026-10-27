@@ -185,6 +185,22 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
     expect(await response.json()).toMatchObject({ conversationId: "u-1", direction: "OUTBOUND", type: "TEXT", status: "SENT" });
   });
 
+  it("passes a Graph error through with its status and body, and records nothing", async () => {
+    db.usuarioFindUnique.mockResolvedValueOnce(usuario());
+    db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date() }));
+    const graphError = { error: { message: "Invalid parameter", code: 100 } };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(graphError), { status: 400 })),
+    );
+
+    const response = await sendMessage(post({ conversationId: "u-1", text: "hola" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(graphError);
+    expect(db.mensajeCreate).not.toHaveBeenCalled();
+  });
+
   it("refuses to send when the 24 h window expired", async () => {
     db.usuarioFindUnique.mockResolvedValueOnce(usuario());
     db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date(Date.now() - 25 * 60 * 60 * 1000) }));

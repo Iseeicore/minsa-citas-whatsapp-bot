@@ -8,8 +8,12 @@ export function graphApiBaseUrl(): string {
   return `https://graph.facebook.com/${graphApiVersion()}`;
 }
 
+export function graphMessagesPath(): string {
+  return `/${process.env.META_PHONE_NUMBER_ID}/messages`;
+}
+
 export function graphMessagesUrl(): string {
-  return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
+  return `${graphApiBaseUrl()}${graphMessagesPath()}`;
 }
 
 export function graphAuthHeaders(): Record<string, string> {

@@ -1,4 +1,8 @@
-import { graphAuthHeaders, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
+import { graphMessagesPath } from "@/lib/whatsapp/graph-api";
+import { graphClient } from "@/lib/whatsapp/graph-client";
+import { toGraphTextMessage } from "@/lib/utils/graph-text-message";
+import { GraphResultStatus } from "@/lib/enums/graph-result-status";
+import type { GraphSendMessageResponse } from "@/lib/types/graph-api.types";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ACTOR_OPERADOR_BANDEJA } from "@/lib/db/actor";
@@ -47,26 +51,14 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.WINDOW_EXPIRED);
   }
 
-  const graphResponse = await fetch(graphMessagesUrl(), {
-    method: "POST",
-    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      recipient: usuario.waId,
-      type: "text",
-      text: { body: text },
-    }),
-  });
+  const graph = await graphClient.post<GraphSendMessageResponse>(graphMessagesPath(), toGraphTextMessage(usuario.waId, text));
 
-  const graphBody = await graphResponse.json();
-
-  if (!graphResponse.ok) {
-    return NextResponse.json(graphBody, { status: graphResponse.status });
+  if (graph.status === GraphResultStatus.ERROR) {
+    return NextResponse.json(graph.error, { status: graph.httpStatus });
   }
 
-  const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
-  const message = await recordOutboundMessage(usuario.id, text, waMessageId ?? null, ACTOR_OPERADOR_BANDEJA);
+  const waMessageId = graph.data.messages?.[0]?.id ?? null;
+  const message = await recordOutboundMessage(usuario.id, text, waMessageId, ACTOR_OPERADOR_BANDEJA);
 
   return NextResponse.json(toMessageDto(message), { status: 201 });
 }
