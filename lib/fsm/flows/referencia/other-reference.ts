@@ -43,7 +43,7 @@ function referenceAnswer(event: InboundEvent): Confirmation {
 function appointmentAnswer(event: InboundEvent): OtherReferenciaCitaButtonId | undefined {
   const tapped = readTappedId(event);
   if (tapped) return APPOINTMENT_BUTTON_IDS.has(tapped) ? (tapped as OtherReferenciaCitaButtonId) : undefined;
-  return CITA_REFERENCIA_SIN_FECHAS_ANSWERS[normalizeText(readTypedText(event))];
+  return CITA_REFERENCIA_SIN_FECHAS_ANSWERS.get(normalizeText(readTypedText(event)));
 }
 
 function isTypedExit(event: InboundEvent): boolean {

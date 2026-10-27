@@ -173,13 +173,13 @@ const CONSULTA_ACTION_HANDLERS = new Map<string, (session: Session) => HandlerRe
 
 function consultaActionHandler(session: Session, event: InboundEvent): ((session: Session) => HandlerResult) | undefined {
   if (!isConsultaReferenciasList(session)) return undefined;
-  const answer = readTappedId(event) ?? CONSULTA_REFERENCIAS_ACTION_ANSWERS[normalizeText(readTypedText(event))];
+  const answer = readTappedId(event) ?? CONSULTA_REFERENCIAS_ACTION_ANSWERS.get(normalizeText(readTypedText(event)));
   return answer ? CONSULTA_ACTION_HANDLERS.get(answer) : undefined;
 }
 
 export function handleConsultaReferenciasClose(session: Session, event: HandleEvent): HandlerResult | undefined {
   if (event.type !== InboundEventType.TEXT || !isConsultaReferenciasList(session)) return undefined;
-  return CONSULTA_REFERENCIAS_ACTION_ANSWERS[normalizeText(readTypedText(event))] === ReferenciaActionButtonId.EXIT
+  return CONSULTA_REFERENCIAS_ACTION_ANSWERS.get(normalizeText(readTypedText(event))) === ReferenciaActionButtonId.EXIT
     ? closeReferencia()
     : undefined;
 }

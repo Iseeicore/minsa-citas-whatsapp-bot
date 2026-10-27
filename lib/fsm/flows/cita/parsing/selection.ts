@@ -99,7 +99,7 @@ function referenceTextSelection(
 ): SelectionOutcome | undefined {
   const size = listPageSize(session);
   if (size === WHATSAPP_LIST_MAX_ROWS) return undefined;
-  const pageId = REFERENCE_PAGE_ANSWERS[normalizeText(typed)];
+  const pageId = REFERENCE_PAGE_ANSWERS.get(normalizeText(typed));
   if (pageId) return referencePageSelection(session, offered, pageId, passthroughIds);
   const signedNumber = (typed.startsWith("-") || typed.startsWith("+")) && DIGITS_ONLY.test(typed.slice(1));
   if (!DIGITS_ONLY.test(typed) && !signedNumber) return undefined;
