@@ -99,7 +99,7 @@ npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noE
 - Imports siempre con el alias `@/`; los relativos se rechazan. Sin ciclos de imports (`import/no-cycle`).
 - Tests en espejo: `lib/<ruta>/x.ts` → `tests/lib/<misma ruta>/x.test.ts`. Las suites transversales viven en `tests/{security,stress,integration,smoke}`.
 - Sin comentarios ni docstrings en código, migraciones ni SQL de pruebas (solo directivas de herramienta como `eslint-disable`); la intención va en los nombres y en `docs/`.
-- Textos al ciudadano → `lib/constants/textos/` (un archivo por flujo); prompts de IA → `lib/constants/prompts/`; regex → `lib/constants/regex/` como constantes con nombre; palabras clave → `lib/constants/palabras-clave.ts`. Sin archivos índice. Las pruebas `*-location` fallan si no se cumple.
+- Textos al ciudadano → `lib/constants/textos/` (un archivo por flujo) cuando los usa más de un archivo; un texto o valor de un solo archivo queda ahí como constante no exportada; prompts de IA → `lib/constants/prompts/`; regex → `lib/constants/regex/` como constantes con nombre; palabras clave → `lib/constants/palabras-clave.ts`. Sin archivos índice. Las pruebas `*-location` fallan si no se cumple.
 - Lógica pura sin hooks de React → `lib/utils/` con su prueba.
 - UI (`app/components`): sin valores arbitrarios de Tailwind (`bg-[#hex]`, `text-[10px]`), tokens en `@theme` de `app/globals.css`; sin emojis en las vistas (íconos de `app/components/icons/`); bloques de clases repetidos pasan a `app/components/ui/`. Lo hace cumplir `ui-design-rules.test.ts`.
 - Prettier: 140 columnas, comillas dobles, punto y coma, coma final. Cubre `lib/`, `tests/`, `scripts/` y la configuración de la raíz; `app/` aún no se formatea (`.prettierignore`).

@@ -35,10 +35,9 @@ export const CITA_REFERENCIA_CHANGE_BUTTON = {
 };
 
 export const CITA_SIN_REFERENCIA_BUTTON_TEXT = "Cita sin referencia";
-export const SALIR_BUTTON_TEXT = "Salir";
 export const CONSULTA_REFERENCIAS_ACTIONS = [
   { id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: CITA_SIN_REFERENCIA_BUTTON_TEXT },
-  { id: ReferenciaActionButtonId.EXIT, title: SALIR_BUTTON_TEXT },
+  { id: ReferenciaActionButtonId.EXIT, title: "Salir" },
 ];
 export const consultaReferenciasListText = (estados: readonly string[]): string =>
   `Estas son tus referencias. Para agendar una cita con una referencia, elígela de la lista: solo se pueden agendar las que están en estado ${estados.join(" o ")}. Si prefieres una cita sin referencia, elige «${CITA_SIN_REFERENCIA_BUTTON_TEXT}».`;

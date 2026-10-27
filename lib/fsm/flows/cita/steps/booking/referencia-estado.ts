@@ -7,13 +7,13 @@ import {
   REFERENCIA_ESTADO_LABELS,
   REFERENCIA_SIN_PROGRAMACION_ETIQUETA,
   REFERENCIA_SIN_PROGRAMACION_TEXT,
-  REFERENCIAS_BLOQUEADAS_TITULO_TEXT,
   referenciaBloqueadaLineaText,
   referenciaBloqueadaText,
   referenciasBloqueadasRestantesText,
   referenciaEstadoCodigoText,
 } from "@/lib/constants/textos/cita-reserva";
 
+const REFERENCIAS_BLOQUEADAS_TITULO_TEXT = "Estas referencias no permiten agendar una cita:";
 const NINGUNA: ReadonlySet<string> = new Set<string>();
 
 export function esReferenciaSeleccionable(item: ReferenciaItem, sinProgramacion: ReadonlySet<string> = NINGUNA): boolean {
