@@ -23,6 +23,7 @@ import {
   handleAwaitingEspecialidadSelect,
   handleEstablecimientoPending,
   handleAwaitingEstablecimientoSelect,
+  handleAwaitingEstablecimientoConfirm,
   handleSelectionHintsPending,
 } from "@/lib/fsm/flows/cita/steps/catalog/catalog";
 import { handleFechaPending, handleAwaitingFechaSelect, handleFechaAiPending } from "@/lib/fsm/flows/cita/steps/fecha/fecha";
@@ -81,6 +82,8 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleEstablecimientoPending(session, event as QueryResultEvent);
     case SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT:
       return handleAwaitingEstablecimientoSelect(session, event as InboundEvent);
+    case SessionState.CITA_AWAITING_ESTABLECIMIENTO_CONFIRM:
+      return handleAwaitingEstablecimientoConfirm(session, event as InboundEvent);
     case SessionState.CITA_SELECTION_HINTS_PENDING:
       return handleSelectionHintsPending(session, event as QueryResultEvent);
     case SessionState.CITA_FECHA_PENDING:

@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof TurnLockTimeoutError) {
       return apiError(ApiErrorCode.BUSY, { headers: cors });
     }
-    throw error;
+    return apiError(ApiErrorCode.INTERNAL, { headers: cors });
   }
   marks.mark("turn");
   marks.finish("sandbox.latency", { waId: from, channel: "web" });

@@ -1,6 +1,6 @@
 import { cloneSession, withLeadingText } from "@/lib/fsm/core/handlers-shared";
-import { offerReferenciasList } from "@/lib/fsm/flows/cita/steps/booking/references";
-import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { askAppointmentMode, offerReferenciasList } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
 import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
 import { tieneReferenciasSeleccionables } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";

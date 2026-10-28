@@ -27,7 +27,7 @@ import {
   OTP_LOCKED_TEXT,
   REGISTRATION_BUTTONS,
 } from "@/lib/constants/textos/cita-identidad";
-import { VALIDANDO_DOCUMENTO_TEXT, ASK_OTP_TEXT, VERIFICANDO_CODIGO_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
+import { ASK_OTP_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
@@ -50,7 +50,7 @@ export function handleAwaitingDni(session: Session, event: InboundEvent): Handle
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_DNI_PENDING] = documento;
   next.state = SessionState.CITA_VALIDATE_PENDING;
-  return buildResult(next, [sendText(VALIDANDO_DOCUMENTO_TEXT), validateUserQuery(documento)]);
+  return buildResult(next, [validateUserQuery(documento)]);
 }
 
 export function handleValidatePending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -118,10 +118,7 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_VERIFY_PENDING;
-  return buildResult(next, [
-    sendText(VERIFICANDO_CODIGO_TEXT),
-    query(QueryKind.VERIFY_CODE, { twofaId: slotText(next.slots, SlotKey.CITA_TWOFA_ID), code }),
-  ]);
+  return buildResult(next, [query(QueryKind.VERIFY_CODE, { twofaId: slotText(next.slots, SlotKey.CITA_TWOFA_ID), code })]);
 }
 
 export { continueCitaAfterVerification };

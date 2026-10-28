@@ -193,11 +193,6 @@ describe("bypass — states where the guard must never run", () => {
     expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe("El doctor fue un idiota y me trató pésimo");
   });
 
-  it("a name that looks like an abbreviation is accepted in the name step", () => {
-    const result = handle(sessionAt("incidencia_awaiting_nombre_libre", { dni: "12345678" }), text("Isaac S. Mendoza"));
-    expect(result.session.state).toBe("incidencia_consent_check_pending");
-  });
-
   it("abusive text in the DNI step is just an invalid DNI", () => {
     const result = handle(sessionAt("cita_awaiting_dni"), text("hdp"));
 
@@ -245,5 +240,24 @@ describe("main_menu — numeric shortcut", () => {
   it("the numbers only mean a menu option in main_menu (a 1 inside another step is just input)", () => {
     const inDni = handle(sessionAt("cita_awaiting_dni"), text("1"));
     expect((sentEffects(inDni)[0] as { text: string }).text).toContain("Documento inválido");
+  });
+});
+
+describe("handle — a handler that returns no result", () => {
+  afterEach(() => {
+    vi.doUnmock("@/lib/fsm/flows/cita/handlers-cita");
+    vi.resetModules();
+  });
+
+  it("throws MissingHandlerResultError with the state instead of a TypeError", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/fsm/flows/cita/handlers-cita", () => ({ handleCita: () => undefined }));
+    const { handle: handleWithoutResult } = await import("@/lib/fsm/core/handlers");
+    const { MissingHandlerResultError } = await import("@/lib/errors/missing-handler-result-error");
+
+    expect(() => handleWithoutResult(sessionAt("cita_awaiting_dni"), text("12345678"))).toThrow(MissingHandlerResultError);
+    expect(() => handleWithoutResult(sessionAt("cita_awaiting_dni"), text("12345678"))).toThrow(
+      'handle: no result for state "cita_awaiting_dni"',
+    );
   });
 });

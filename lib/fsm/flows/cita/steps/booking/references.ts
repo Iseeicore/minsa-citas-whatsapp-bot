@@ -33,11 +33,12 @@ import {
   referenciasBloqueadasAviso,
   tieneReferenciasSeleccionables,
 } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
-import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
 import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
 import { referenceRowDescription } from "@/lib/utils/reference-row-description";
 import {
   CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT,
+  CITA_REFERENCIAS_ACTIONS,
   CONSULTA_REFERENCIAS_ACTIONS,
   consultaReferenciasListText,
 } from "@/lib/constants/textos/cita-referencia";
@@ -56,7 +57,6 @@ import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import {
   REFERENCIAS_LIST_TEXT,
   REFERENCIA_CONFIRM_QUESTION_TEXT,
-  searchingFechasForReferenciaText,
   referenciaDetalleText,
   REFERENCIA_CONFIRM_BUTTONS,
   REFERENCIA_INCOMPLETA_TEXT,
@@ -158,11 +158,10 @@ export function offerReferenciasList(session: Session): HandlerResult {
 }
 
 export function withConsultaReferenciasActions(result: HandlerResult): HandlerResult {
-  if (!isConsultaReferenciasList(result.session)) return result;
+  if (result.session.state !== SessionState.CITA_AWAITING_REFERENCIA_SELECT) return result;
+  const actions = isConsultaReferenciasList(result.session) ? CONSULTA_REFERENCIAS_ACTIONS : CITA_REFERENCIAS_ACTIONS;
   const effects = result.effects.map((effect) =>
-    effect.kind === SendType.INTERACTIVE_LIST
-      ? { ...effect, actions: [...(effect.actions ?? []), ...CONSULTA_REFERENCIAS_ACTIONS] }
-      : effect,
+    effect.kind === SendType.INTERACTIVE_LIST ? { ...effect, actions: [...(effect.actions ?? []), ...actions] } : effect,
   );
   return { ...result, effects };
 }
@@ -172,10 +171,14 @@ const CONSULTA_ACTION_HANDLERS = new Map<string, (session: Session) => HandlerRe
   [ReferenciaActionButtonId.EXIT, closeReferencia],
 ]);
 
+const CITA_ACTION_HANDLERS = new Map<string, (session: Session) => HandlerResult>([
+  [ReferenciaActionButtonId.NEW_APPOINTMENT, startNewAppointment],
+]);
+
 function findConsultaAction(session: Session, event: InboundEvent): ((session: Session) => HandlerResult) | UnhandledTurn {
-  if (!isConsultaReferenciasList(session)) return NOT_HANDLED;
+  const handlers = isConsultaReferenciasList(session) ? CONSULTA_ACTION_HANDLERS : CITA_ACTION_HANDLERS;
   const answer = readTappedId(event) ?? CONSULTA_REFERENCIAS_ACTION_ANSWERS.get(normalizeText(readTypedText(event)));
-  return answer ? CONSULTA_ACTION_HANDLERS.get(answer) : NOT_HANDLED;
+  return answer ? handlers.get(answer) : NOT_HANDLED;
 }
 
 export function handleConsultaReferenciasClose(session: Session, event: HandleEvent): HandlerAttempt {
@@ -199,6 +202,16 @@ export function offerSelectableReferencias(session: Session): HandlerResult {
   return session.slots[SlotKey.CITA_APPOINTMENT_MODE] === AppointmentMode.REFERENCE
     ? withLeadingText(startNewAppointment(session), CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT)
     : askConsultaCitaOffer(session);
+}
+
+export function askAppointmentMode(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  const { slots } = next;
+
+  slots[SlotKey.POST_LOGIN_FLOW] = PostLoginFlow.CITA_REFERENCIAS;
+  slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.REFERENCE;
+
+  return offerReferenciasList(next);
 }
 
 export function offerConsultaReferencias(session: Session): HandlerResult {
@@ -234,10 +247,7 @@ function continueWithReferencia(session: Session, item: ReferenciaItem | undefin
   next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = item.ipressDestino;
   if (item.upsDestino) next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = item.upsDestino;
   next.state = SessionState.CITA_FECHA_PENDING;
-  return buildResult(next, [
-    sendText(searchingFechasForReferenciaText(item.ipressDestino)),
-    query(QueryKind.LIST_FECHAS, { codEess: item.codigoIpressDestino, especialidadId: item.codigoUpsDestino }),
-  ]);
+  return buildResult(next, [query(QueryKind.LIST_FECHAS, { codEess: item.codigoIpressDestino, especialidadId: item.codigoUpsDestino })]);
 }
 
 function askReferenciaConfirmation(session: Session, item: ReferenciaItem | undefined): HandlerResult {

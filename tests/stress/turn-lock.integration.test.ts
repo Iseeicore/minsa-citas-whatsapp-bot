@@ -117,7 +117,7 @@ describe("5 simultaneous runTurn calls for one waId", () => {
     expect(final.state).toBe(expected.state);
     expect(final.slots).toEqual(expected.slots);
     expect(final.counters).toEqual(expected.counters);
-    expect(final.state).toBe("cita_awaiting_fecha_select");
+    expect(final.state).toBe("cita_awaiting_establecimiento_confirm");
   }, 60_000);
 
   it("holds over 15 repetitions (no flaky interleaving)", async () => {

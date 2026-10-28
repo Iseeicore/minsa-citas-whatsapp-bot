@@ -25,7 +25,6 @@ import {
   OTHER_FECHA_ONLY_DECLINED_INTRO_TEXT,
   OTHER_FECHA_NO_HORARIOS_INTRO_TEXT,
   OTHER_FECHA_QUESTION_TEXT,
-  SEARCHING_OTHER_FECHAS_TEXT,
   OTHER_FECHA_BUTTONS,
 } from "@/lib/constants/textos/cita-fecha-hora";
 import { CHANGE_DATE_ANSWERS } from "@/lib/constants/palabras-clave";
@@ -102,7 +101,6 @@ export function handleOtherFecha(session: Session, event: InboundEvent): Handler
     const next = cloneSession(session);
     next.state = SessionState.CITA_FECHA_PENDING;
     return buildResult(next, [
-      sendText(SEARCHING_OTHER_FECHAS_TEXT),
       query(QueryKind.LIST_FECHAS, {
         codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
         especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),

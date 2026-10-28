@@ -40,9 +40,6 @@ import {
   INCIDENCIA_NOMBRE_BUTTONS,
   ONLY_DNI_TEXT,
   ONLY_DNI_BUTTONS,
-  VERIFICANDO_DOCUMENTO_TEXT,
-  RENIEC_FAILED_TEXT,
-  ASK_NOMBRE_TEXT,
   UNREADABLE_TEXT_RETRY,
   DOCUMENTO_NO_GUARDADO_TEXT,
   FOTO_BUTTONS,
@@ -61,7 +58,6 @@ import {
   SEGUIMIENTO_ANONIMO_TEXT,
   DAILY_LIMIT_TEXT,
   REGISTRO_FALLIDO_TEXT,
-  graciasNombreText,
   descripcionTooLongText,
   descripcionTooShortText,
   OMITIR_KEYWORD,
@@ -70,10 +66,8 @@ import {
   IMAGEN_MUY_PESADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
 import { INVALID_DNI_TEXT } from "@/lib/constants/textos/fallas";
-import { LookupStatus } from "@/lib/enums/lookup-status";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
-import { isNonEmptyString } from "@/lib/utils/type-guards";
 import {
   MAX_DESCRIPCION_LENGTH,
   MAX_IMAGENES_POR_INCIDENCIA,
@@ -106,10 +100,6 @@ export function handleIncidencia(session: Session, event: HandleEvent): HandlerR
       return handleIdentityChoice(session, event as InboundEvent);
     case SessionState.INCIDENCIA_AWAITING_DNI:
       return handleAwaitingDni(session, event as InboundEvent);
-    case SessionState.INCIDENCIA_RENIEC_PENDING:
-      return handleReniecPending(session, event as QueryResultEvent);
-    case SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE:
-      return handleAwaitingNombreLibre(session, event as InboundEvent);
     case SessionState.INCIDENCIA_CONSENT_CHECK_PENDING:
       return handleConsentCheckPending(session, event as QueryResultEvent);
     case SessionState.INCIDENCIA_CONSENT_CHOICE:
@@ -161,35 +151,6 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 
   const next = cloneSession(session);
   next.slots[SlotKey.DNI] = documento;
-  next.state = SessionState.INCIDENCIA_RENIEC_PENDING;
-  return buildResult(next, [sendText(VERIFICANDO_DOCUMENTO_TEXT), query(QueryKind.RENIEC_LOOKUP, { dni: documento })]);
-}
-
-function handleReniecPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; nombreCompleto?: string };
-  const next = cloneSession(session);
-
-  if (result.status === LookupStatus.FOUND && isNonEmptyString(result.nombreCompleto)) {
-    next.slots[SlotKey.NOMBRE_COMPLETO] = result.nombreCompleto.trim();
-    return withGreeting(askConsentimiento(next), result.nombreCompleto.trim());
-  }
-
-  next.state = SessionState.INCIDENCIA_AWAITING_NOMBRE_LIBRE;
-  return buildResult(next, [sendText(RENIEC_FAILED_TEXT)]);
-}
-
-function withGreeting(result: HandlerResult, nombre: string): HandlerResult {
-  return { ...result, effects: [sendText(graciasNombreText(nombre)), ...result.effects] };
-}
-
-function handleAwaitingNombreLibre(session: Session, event: InboundEvent): HandlerResult {
-  const nombre = readTrimmedText(event);
-
-  if (!nombre) return buildResult(session, [sendText(ASK_NOMBRE_TEXT)]);
-  if (looksLikeNoise(nombre)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
-
-  const next = cloneSession(session);
-  next.slots[SlotKey.NOMBRE_COMPLETO] = nombre;
   return askConsentimiento(next);
 }
 

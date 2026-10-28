@@ -103,8 +103,6 @@ async function identify(): Promise<void> {
 
 async function references(): Promise<void> {
   await identify();
-  expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
-  await send(undefined, CitaReferenciaButtonId.REFERENCE, true);
   expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
 }
 
@@ -160,7 +158,6 @@ beforeEach(() => {
   vi.stubEnv("DATABASE_ENABLED", "false");
   vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
   vi.stubEnv("SANDBOX_USE_REAL_AI", "false");
-  vi.stubEnv("SANDBOX_USE_REAL_RENIEC", "false");
   vi.stubEnv("MINSA_API_HOST", WHATSAPP_REFERENCE_API);
   vi.stubEnv("MINSA_INTEGRATION_SECRET", "synthetic-integration-secret");
   vi.stubEnv("MINSA_DIGITAL_APP_URL", "https://synthetic-minsa-digital.test");
@@ -192,7 +189,10 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
     await references();
 
     const rows = upstream.rows();
-    expect(rows.map((row) => row.id)).toEqual(WHATSAPP_REFERENCE_ROWS.map((row) => row.id_referencia));
+    expect(rows.map((row) => row.id)).toEqual([
+      ...WHATSAPP_REFERENCE_ROWS.map((row) => row.id_referencia),
+      ReferenciaActionButtonId.NEW_APPOINTMENT,
+    ]);
     expect(rows.every((row) => Object.keys(row).every((key) => ["id", "title", "description"].includes(key)))).toBe(true);
 
     await send(undefined, blocked.id_referencia);
@@ -328,7 +328,6 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
   it("el texto alternativo permite paginar referencias, fechas y horarios y elegir 1 en la tercera página", async () => {
     numberedFallback();
     await identify();
-    await send("2");
     expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     await send("Ver más opciones");
     await send("Ver más opciones");
@@ -358,11 +357,13 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
     if (result === "empty") upstream.responses.set(MinsaEndpoint.REFERENCIAS, []);
     if (result === "error") upstream.statuses.set(MinsaEndpoint.REFERENCIAS, 503);
     await identify();
-    if (result !== "empty") {
-      expect(session().state).toBe(
-        result === "error" ? SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY : SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE,
-      );
+    if (result === "error") {
+      expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY);
       await send(undefined, CitaReferenciaButtonId.NEW, true);
+    }
+    if (result === "found") {
+      expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+      await send(undefined, ReferenciaActionButtonId.NEW_APPOINTMENT);
     }
     expect(session().state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
     expect(session().slots[SlotKey.CITA_DNI]).toBe(WHATSAPP_REFERENCE_DOCUMENT);
@@ -452,7 +453,10 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
       }
       expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       const rows = upstream.rows();
-      expect(rows.map((row) => row.id)).toEqual([WHATSAPP_REFERENCE_ROWS[1], WHATSAPP_REFERENCE_ROWS[2]].map((row) => row.id_referencia));
+      expect(rows.map((row) => row.id)).toEqual([
+        ...[WHATSAPP_REFERENCE_ROWS[1], WHATSAPP_REFERENCE_ROWS[2]].map((row) => row.id_referencia),
+        ReferenciaActionButtonId.NEW_APPOINTMENT,
+      ]);
       expect(rows.every((row) => Object.keys(row).every((key) => ["id", "title", "description"].includes(key)))).toBe(true);
       await send(undefined, WHATSAPP_REFERENCE_ROWS[0].id_referencia);
       expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
@@ -478,7 +482,6 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
     numberedFallback();
     upstream.responses.set(MinsaEndpoint.FECHAS, { data: { fechas: [] } });
     await identify();
-    await send("2");
     await send("1");
     expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
     const question = upstream.messages.at(-1)?.text?.body ?? "";

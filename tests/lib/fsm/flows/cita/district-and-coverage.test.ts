@@ -42,22 +42,44 @@ function searchingUbigeo(slots: Session["slots"] = {}): Session {
   };
 }
 
-const ACK = "Entendido. Buscando especialidades y citas disponibles en *San Juan de Lurigancho*…";
+const ESPECIALIDADES_BODY = "Entendido. Estas son las especialidades disponibles en *San Juan de Lurigancho*. Selecciona una:";
+const ESPECIALIDADES = { status: "found", items: [{ codigoEspecialidad: "01", nombreEspecialidad: "MEDICINA GENERAL", cantidadCupos: 5 }] };
 
-describe("the district is acknowledged before the catalog is queried", () => {
-  it("a single ubigeo says which district it is searching in", () => {
+describe("the district is named in the especialidades list, not in a message of its own", () => {
+  it("a single ubigeo queries the catalog in silence and the list names the district", () => {
     const step = handle(searchingUbigeo(), result("search_ubigeo", { status: "found", items: [SJL] }));
 
-    expect(firstText(step)).toBe(ACK);
+    expect(sent(step)).toEqual([]);
     expect(queries(step)).toEqual([{ kind: "list_especialidades", payload: { ubigeo: "150132" } }]);
     expect(step.session.slots[SlotKey.CITA_UBIGEO]).toBe("150132");
+    expect(step.session.slots[SlotKey.CITA_DISTRITO]).toBe("SAN JUAN DE LURIGANCHO");
+
+    const listed = handle(step.session, result("list_especialidades", ESPECIALIDADES));
+
+    expect(sent(listed)).toHaveLength(1);
+    expect(firstText(listed)).toBe(ESPECIALIDADES_BODY);
+  });
+
+  it("the settled ubigeo names the district, not what the citizen typed", () => {
+    const step = handle(
+      searchingUbigeo({ [SlotKey.CITA_DISTRITO]: "san juan de lurigancho" }),
+      result("search_ubigeo", { status: "found", items: [SJL] }),
+    );
+
+    expect(step.session.slots[SlotKey.CITA_DISTRITO]).toBe("SAN JUAN DE LURIGANCHO");
+  });
+
+  it("without a district the list keeps the plain question", () => {
+    const session: Session = { state: "cita_especialidad_pending", slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} };
+
+    expect(firstText(handle(session, result("list_especialidades", ESPECIALIDADES)))).toBe("Selecciona la especialidad:");
   });
 
   it("does not ask «Selecciona tu ubigeo» when the district is already known and one result is exactly it", () => {
     const step = handle(searchingUbigeo(), result("search_ubigeo", { status: "found", items: FUZZY_RESULT }));
 
     expect(step.session.state).toBe("cita_especialidad_pending");
-    expect(firstText(step)).toBe(ACK);
+    expect(sent(step)).toEqual([]);
     expect(queries(step)).toEqual([{ kind: "list_especialidades", payload: { ubigeo: "150132" } }]);
     expect(JSON.stringify(step.effects)).not.toContain("Selecciona tu ubigeo");
   });
@@ -99,17 +121,19 @@ describe("the district is acknowledged before the catalog is queried", () => {
       counters: {},
     });
 
-    it("taps a row: names the district", () => {
+    it("taps a row: keeps the chosen district for the especialidades list", () => {
       const step = handle(listed(), tap("150132"));
 
-      expect(firstText(step)).toBe(ACK);
+      expect(sent(step)).toEqual([]);
+      expect(step.session.slots[SlotKey.CITA_DISTRITO]).toBe("San Juan de Lurigancho");
       expect(queries(step)).toEqual([{ kind: "list_especialidades", payload: { ubigeo: "150132" } }]);
     });
 
-    it("types a sentence that names it (the field case): names the district instead of searching in silence", () => {
+    it("types a sentence that names it (the field case): keeps the chosen district for the especialidades list", () => {
       const step = handle(listed(), text("que ? pero si te pedi San juan de lurigancho"));
 
-      expect(firstText(step)).toBe(ACK);
+      expect(sent(step)).toEqual([]);
+      expect(step.session.slots[SlotKey.CITA_DISTRITO]).toBe("San Juan de Lurigancho");
       expect(queries(step)).toEqual([{ kind: "list_especialidades", payload: { ubigeo: "150132" } }]);
     });
   });
@@ -281,7 +305,7 @@ describe("no specialties in the district", () => {
 });
 
 describe("no establishments for the specialty in the district", () => {
-  it("offers another district too", () => {
+  it("offers another district or another especialidad", () => {
     const session: Session = {
       state: "cita_establecimiento_pending",
       slots: { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_DISTRITO]: "MIRAFLORES", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" },
@@ -291,6 +315,8 @@ describe("no establishments for the specialty in the district", () => {
     const step = handle(session, result("list_establecimientos", { status: "empty" }));
 
     expect(step.session.state).toBe("cita_awaiting_other_distrito");
-    expect(firstText(step)).toContain("No encontramos establecimientos para esa especialidad disponibles en *Miraflores*");
+    expect(firstText(step)).toBe(
+      "No encontramos establecimientos con cupos para esa especialidad en *Miraflores*. ¿Deseas buscar en otro distrito o elegir otra especialidad?",
+    );
   });
 });

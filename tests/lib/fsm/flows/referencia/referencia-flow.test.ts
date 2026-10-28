@@ -3,7 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
-import { ANALYZING_CUENTA_TEXT, VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
+import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
@@ -92,7 +92,7 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe(DNI);
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
-    expect(texts(result)).toEqual([ANALYZING_CUENTA_TEXT]);
+    expect(texts(result)).toEqual([]);
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
     expect(result.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
   });
@@ -101,7 +101,7 @@ describe("after the OTP: the purpose decides what comes next", () => {
     const result = handle(verifyPending(DNI), verified);
 
     expect(result.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
-    expect(texts(result)).toEqual([ANALYZING_CUENTA_TEXT]);
+    expect(texts(result)).toEqual([]);
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
   });
@@ -382,13 +382,13 @@ describe("with referencias: the existing selection and confirmation", () => {
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_FECHAS, payload: { codEess: "5987", especialidadId: "222800" } }]);
   });
 
-  it("a referencia without destination codes returns to appointment modes without silently choosing a new destination", () => {
+  it("a referencia without destination codes returns to the references list without silently choosing a new destination", () => {
     const session = confirmPending();
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([{ ...REFERENCIA, codigoIpressDestino: "", codigoUpsDestino: "" }]);
 
     const result = handle(session, text("si"));
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(queries(result)).toEqual([]);
   });

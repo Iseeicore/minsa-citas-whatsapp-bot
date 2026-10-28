@@ -159,16 +159,15 @@ function expectChangeWithCurrentList(reply: Reply): void {
 }
 
 async function offerReferences(): Promise<Reply> {
-  const mode = await send({ type: InboundEventType.TEXT, text: "123456" });
-  expect(mode.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
-  return tap(mode, CitaReferenciaButtonId.REFERENCE);
+  const list = await send({ type: InboundEventType.TEXT, text: "123456" });
+  expect(list.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+  return list;
 }
 
 beforeEach(() => {
   vi.stubEnv("SANDBOX_ENABLED", "true");
   vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
   vi.stubEnv("SANDBOX_USE_REAL_AI", "false");
-  vi.stubEnv("SANDBOX_USE_REAL_RENIEC", "false");
   vi.stubEnv("MINSA_API_HOST", API_ORIGIN);
   vi.stubEnv("MINSA_DIGITAL_APP_URL", "https://synthetic-minsa-digital.test");
   vi.stubEnv("MINSA_INTEGRATION_SECRET", "synthetic-reference-contract-signing-secret");
@@ -211,8 +210,8 @@ afterEach(() => {
 
 describe("referencias: contrato HTTP real a traves del chat, la FSM y los adaptadores", () => {
   it("consulta fechas y horarios del destino elegido directamente y reserva solo tras la confirmacion final", async () => {
-    const mode = await send({ type: InboundEventType.TEXT, text: "123456" });
-    expect(mode.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    const list = await send({ type: InboundEventType.TEXT, text: "123456" });
+    expect(list.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     expect(requestedPaths()).toEqual([MinsaEndpoint.VERIFICAR_CODIGO, MinsaEndpoint.REFERENCIAS]);
     const referenceRequest = fetchMock.mock.calls.find(([input]) => new URL(String(input)).pathname === MinsaEndpoint.REFERENCIAS)?.[1];
     expect(referenceRequest?.method).toBe("POST");
@@ -220,8 +219,6 @@ describe("referencias: contrato HTTP real a traves del chat, la FSM y los adapta
     expect(referenceRequest?.body).toBe(JSON.stringify({ numero_documento: DOCUMENTO, tipo_documento: "01" }));
     expect(referenceRequest?.body).not.toContain(TOKEN);
 
-    const list = await tap(mode, CitaReferenciaButtonId.REFERENCE);
-    expect(list.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     const effect = list.sent.find((item) => item.kind === SendType.INTERACTIVE_LIST);
     expect(effect?.kind === SendType.INTERACTIVE_LIST && effect.rows.map((row) => row.id)).toEqual(
       REFERENCE_ROWS.map((row) => row.id_referencia),

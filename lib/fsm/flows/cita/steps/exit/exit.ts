@@ -8,9 +8,10 @@ import { buildResult, cloneSession, sendText, withNote, readTappedId, readTypedT
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import { abandonedText, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
-import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { askAppointmentMode, reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { reshowEstablecimientoConfirm } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
-import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
 import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
@@ -45,6 +46,7 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_UBIGEO_SELECT,
   SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT,
   SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT,
+  SessionState.CITA_AWAITING_ESTABLECIMIENTO_CONFIRM,
   SessionState.CITA_AWAITING_FECHA_SELECT,
   SessionState.CITA_AWAITING_HORA_SELECT,
   SessionState.CITA_AWAITING_REFERENCIA_SELECT,
@@ -57,6 +59,7 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
 
 const BUTTON_REPROMPTS: Readonly<Record<string, ((session: Session) => HandlerResult) | undefined>> = {
   [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
+  [SessionState.CITA_AWAITING_ESTABLECIMIENTO_CONFIRM]: reshowEstablecimientoConfirm,
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
   [SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE]: askAppointmentMode,
   [SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY]: askReferenceLookupRetry,

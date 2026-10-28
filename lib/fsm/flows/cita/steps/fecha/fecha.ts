@@ -30,11 +30,9 @@ import { restartReferenceSelection } from "@/lib/fsm/flows/cita/steps/booking/re
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { TEMPORAL_PHRASE } from "@/lib/constants/regex/date-time";
-import { REVIEWING_ANSWER_TEXT } from "@/lib/constants/textos/comunes";
 import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { searchFailureText } from "@/lib/constants/textos/fallas";
 import {
-  SEARCHING_HORARIOS_TEXT,
   fechaFoundText,
   FECHA_NOT_IDENTIFIED_TEXT,
   cuposDisponiblesText,
@@ -121,7 +119,6 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
   const next = cloneSession(session);
   next.state = SessionState.CITA_FECHA_AI_PENDING;
   return buildResult(next, [
-    sendText(REVIEWING_ANSWER_TEXT),
     query(QueryKind.RESOLVE_FECHA_AI, {
       text: typed,
       today: `${today.year}-${pad(today.month)}-${pad(today.day)}`,
@@ -165,7 +162,6 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
   next.slots[SlotKey.CITA_FECHA] = replyId;
   next.state = SessionState.CITA_HORA_PENDING;
   return buildResult(next, [
-    sendText(SEARCHING_HORARIOS_TEXT),
     query(QueryKind.LIST_HORAS, {
       codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
       especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),

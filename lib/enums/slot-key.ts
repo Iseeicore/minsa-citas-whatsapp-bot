@@ -46,6 +46,7 @@ export enum SlotKey {
   CITA_ESTABLECIMIENTO_SIN_FECHAS = "citaEstablecimientoSinFechas",
   CITA_ESTABLECIMIENTO_PROPUESTO = "citaEstablecimientoPropuesto",
   CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE = "citaEstablecimientoPropuestoNombre",
+  CITA_NO_COVERAGE_SUBJECT = "citaNoCoverageSubject",
   INCIDENCIA_ORIGEN = "incidenciaOrigen",
   INCIDENCIA_BORRADOR = "incidenciaBorrador",
   INCIDENCIA_UBICACION_TEXTO = "incidenciaUbicacionTexto",

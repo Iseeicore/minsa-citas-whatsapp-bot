@@ -12,7 +12,6 @@ import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/form
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { listReferences } from "@/lib/integrations/minsa/references";
-import { reniecLookup } from "@/lib/integrations/reniec";
 import { traceTurn } from "@/lib/observability/tracer";
 import type { ExternalService } from "@/lib/observability/types";
 import { getSession, saveSession } from "@/lib/fsm/session/session-store";
@@ -123,8 +122,6 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
 
 function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   switch (kind) {
-    case QueryKind.RENIEC_LOOKUP:
-      return "reniec";
     case QueryKind.INCIDENCIA_REGISTER:
     case QueryKind.CONSULTAR_INCIDENCIA:
     case QueryKind.LISTAR_INCIDENCIAS:
@@ -150,9 +147,6 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
   if (owner && !owner.isEnabled()) throw new DisabledServiceQueryError(effect.kind, owner.id);
 
   switch (effect.kind) {
-    case QueryKind.RENIEC_LOOKUP:
-      return reniecLookup(payloadText(effect.payload, "dni"));
-
     case QueryKind.INCIDENCIA_REGISTER: {
       const [{ registrarIncidencia }, { crearAlmacenEvidencias }] = await Promise.all([
         import("@/lib/recepcion/servicio"),

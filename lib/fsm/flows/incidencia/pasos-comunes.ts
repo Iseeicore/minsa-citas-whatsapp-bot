@@ -18,6 +18,7 @@ import {
   resumenEstablecimientoText,
   resumenRelatoText,
   resumenNombreText,
+  resumenDniText,
   resumenImagenesText,
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
@@ -25,6 +26,7 @@ import { slotText } from "@/lib/fsm/core/slot-readers";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { readImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 import { renderWithinLength } from "@/lib/utils/fit-text";
+import { maskDni } from "@/lib/observability/mask";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 
 export function askFoto() {
@@ -62,14 +64,19 @@ function resumenRegistro(session: Session): string {
   const descripcion = slotText(session.slots, SlotKey.DESCRIPCION_INCIDENCIA);
   const establecimiento = slotText(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE);
   const nombre = slotText(session.slots, SlotKey.NOMBRE_COMPLETO);
+  const dni = slotText(session.slots, SlotKey.DNI);
   const imagenes = readImagenes(session.slots).length;
+  const identidad = (nombreMostrado: string): string => {
+    if (nombre) return resumenNombreText(nombreMostrado);
+    return dni ? resumenDniText(maskDni(dni)) : RESUMEN_ANONIMO_TEXT;
+  };
 
   const render = ([relatoMostrado, establecimientoMostrado, nombreMostrado]: string[]): string =>
     [
       RESUMEN_LISTO_TEXT,
       establecimiento ? resumenEstablecimientoText(establecimientoMostrado) : undefined,
       resumenRelatoText(relatoMostrado),
-      nombre ? resumenNombreText(nombreMostrado) : RESUMEN_ANONIMO_TEXT,
+      identidad(nombreMostrado),
       imagenes > 0 ? resumenImagenesText(imagenes) : undefined,
       "",
       RESUMEN_DECLARACION_TEXT,

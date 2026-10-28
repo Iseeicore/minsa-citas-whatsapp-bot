@@ -131,7 +131,7 @@ describe("«sí, cambiar de fecha»: the dates are listed again, with no new ver
     expect(queries(result)).toEqual([{ kind: "list_fechas", payload: { codEess: "0000123", especialidadId: "02" } }]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(result.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBe(DAY_1);
-    expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
+    expect(sent(result)).toEqual([]);
   });
 });
 
@@ -146,8 +146,9 @@ describe("the dates that come back leave out the ones already declined", () => {
     const result = handle(pendingWith(DAY_1), fechasResult([DAY_1, DAY_2, DAY_3]));
 
     expect(result.session.state).toBe("cita_awaiting_fecha_select");
-    const list = sent(result)[0] as { rows: Array<{ id: string }> };
+    const list = sent(result)[0] as { text: string; rows: Array<{ id: string }> };
     expect(list.rows.map((row) => row.id)).toEqual([DAY_2, DAY_3]);
+    expect(list.text).toBe("Selecciona alguna de estas fechas:");
   });
 
   it("one date left: it is taken and its horarios are searched, as with any single date", () => {

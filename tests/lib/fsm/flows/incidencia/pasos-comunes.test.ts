@@ -62,6 +62,21 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     });
   });
 
+  it("con DNI y sin nombre muestra el DNI enmascarado, no «De forma anónima»", () => {
+    const result = askConfirmRegistro(session({ [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo.", [SlotKey.DNI]: "75969078" }));
+
+    const body = bodyOf(resumen(result));
+    expect(body).toContain("Con tu DNI ****9078");
+    expect(body).not.toContain("75969078");
+    expect(body).not.toContain("De forma anónima");
+  });
+
+  it("sin DNI ni nombre sigue diciendo «De forma anónima»", () => {
+    const result = askConfirmRegistro(session({ [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo." }));
+
+    expect(bodyOf(resumen(result))).toContain("De forma anónima");
+  });
+
   it("con el relato máximo, establecimiento y nombre largos e imágenes, solo se acorta el relato y termina en «…»", () => {
     const result = askConfirmRegistro(
       session({

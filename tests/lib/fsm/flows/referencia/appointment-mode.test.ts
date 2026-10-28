@@ -7,7 +7,6 @@ import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Sessio
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import {
   CITA_REFERENCIA_LOOKUP_ERROR_TEXT,
-  CITA_REFERENCIA_MODE_BUTTONS,
   CITA_REFERENCIA_NONE_TEXT,
   CITA_REFERENCIA_RETRY_BUTTONS,
 } from "@/lib/constants/textos/cita-referencia";
@@ -21,6 +20,7 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { QueryKind } from "@/lib/enums/query-kind";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
@@ -58,6 +58,18 @@ const verified = queryResult(QueryKind.VERIFY_CODE, { status: VerifyCodeStatus.V
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const texts = (result: HandlerResult) => result.effects.flatMap((effect) => (effect.kind === SendType.TEXT ? [effect.text] : []));
 const buttons = (result: HandlerResult) => result.effects.find((effect) => effect.kind === SendType.BUTTONS);
+const list = (result: HandlerResult) => result.effects.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
+const CITA_SIN_REFERENCIA_ACTION = { id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" };
+const REFERENCES_LIST_BODY =
+  "Encontramos referencias aprobadas, elige con la que deseas pedir cita o si necesitas una *Cita sin referencia*.";
+
+function expectReferencesList(result: HandlerResult): void {
+  expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+  expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.REFERENCE);
+  expect(list(result)).toMatchObject({ text: REFERENCES_LIST_BODY, actions: [CITA_SIN_REFERENCIA_ACTION] });
+  expect(buttons(result)).toBeUndefined();
+  expect(queries(result)).toEqual([]);
+}
 const turn = (session: Session, event: HandleEvent) => handle(session, event, NOW);
 
 function verifyPending(slots: Session["slots"] = {}): Session {
@@ -130,14 +142,13 @@ describe("appointment references are consulted after identity verification on bo
   });
 });
 
-describe("MINSA references determine whether an appointment mode is offered", () => {
-  it("offers both modes and retains all MINSA statuses without filtering", () => {
+describe("MINSA references determine whether the references list is shown", () => {
+  it("shows the references list directly, with «Cita sin referencia», and retains all MINSA statuses without filtering", () => {
     const references = [3, 5, 7].map((estado) => ({ ...REFERENCE, estado, idReferencia: `reference-${estado}` }));
     const result = turn(waiting(SessionState.REFERENCIA_LOOKUP_PENDING), lookupResult(ReferenceStatus.FOUND, references));
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
-    expect(buttons(result)).toMatchObject({ buttons: CITA_REFERENCIA_MODE_BUTTONS });
+    expectReferencesList(result);
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
     expect(JSON.parse(String(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]))).toEqual(references);
-    expect(queries(result)).toEqual([]);
   });
 
   it("continues a new appointment directly when MINSA confirms no references", () => {
@@ -168,7 +179,31 @@ describe("MINSA references determine whether an appointment mode is offered", ()
   });
 });
 
-describe("choosing an appointment mode", () => {
+describe("«Cita sin referencia» in the references list", () => {
+  const listed = () => turn(waiting(SessionState.REFERENCIA_LOOKUP_PENDING), lookupResult(ReferenceStatus.FOUND, [REFERENCE])).session;
+
+  it.each([tap(ReferenciaActionButtonId.NEW_APPOINTMENT), text("cita sin referencia")])(
+    "continues with a new appointment without another OTP for %j",
+    (event) => {
+      const result = turn(listed(), event);
+      expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+      expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
+      expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("private-token");
+      expect(result.session.slots[SlotKey.CITA_DNI]).toBe(DNI);
+      expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
+      expect(queries(result)).toEqual([]);
+    },
+  );
+
+  it("does not offer «Salir» as an action of the appointment list", () => {
+    const result = turn(listed(), tap(ReferenciaActionButtonId.EXIT));
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    expect(list(result)).toMatchObject({ actions: [CITA_SIN_REFERENCIA_ACTION] });
+    expect(queries(result)).toEqual([]);
+  });
+});
+
+describe("sessions saved while waiting for the old appointment mode question", () => {
   it.each([tap(CitaReferenciaButtonId.REFERENCE), text("2"), text("cita con referencia")])("reuses reference selection for %j", (event) => {
     const result = turn(waiting(), event);
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
@@ -214,12 +249,12 @@ describe("choosing an appointment mode", () => {
     expect(session).toEqual(before);
   });
 
-  it.each([text("quizás"), tap(CitaReferenciaButtonId.RETRY), tap("old-unrelated-button")])("rejects unrelated answers for %j", (event) => {
-    const result = turn(waiting(), event);
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
-    expect(buttons(result)).toMatchObject({ buttons: CITA_REFERENCIA_MODE_BUTTONS });
-    expect(queries(result)).toEqual([]);
-  });
+  it.each([text("quizás"), tap(CitaReferenciaButtonId.RETRY), tap("old-unrelated-button")])(
+    "answers an unrelated reply with the references list for %j",
+    (event) => {
+      expectReferencesList(turn(waiting(), event));
+    },
+  );
 });
 
 describe("manual retries after a failed reference lookup", () => {
@@ -292,21 +327,33 @@ describe("the new appointment states retain authentication and exit protections"
     expect(queries(result)).toEqual([]);
   });
 
-  it.each(newStates)("returns to %s after declining to exit", (state) => {
-    const result = turn(waiting(state), text("quiero salir"));
+  it("returns to the lookup retry after declining to exit", () => {
+    const result = turn(waiting(SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY), text("quiero salir"));
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
     const continued = turn(result.session, tap(ExitButtonId.NO));
-    expect(continued.session.state).toBe(state);
-    expect(buttons(continued)).toMatchObject({
-      buttons: state === SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE ? CITA_REFERENCIA_MODE_BUTTONS : CITA_REFERENCIA_RETRY_BUTTONS,
-    });
+    expect(continued.session.state).toBe(SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY);
+    expect(buttons(continued)).toMatchObject({ buttons: CITA_REFERENCIA_RETRY_BUTTONS });
   });
 
-  it.each(newStates)("retains %s after an abusive message and repeats its choices", (state) => {
-    const result = turn(waiting(state), text("eres un imbécil"));
-    expect(result.session.state).toBe(state);
+  it("an old session waiting for the mode returns to the references list after declining to exit", () => {
+    const result = turn(waiting(), text("quiero salir"));
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
+    expectReferencesList(turn(result.session, tap(ExitButtonId.NO)));
+  });
+
+  it("retains the lookup retry after an abusive message and repeats its choices", () => {
+    const result = turn(waiting(SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY), text("eres un imbécil"));
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY);
     expect(texts(result)).toContain(RESPECT_REMINDER_TEXT);
     expect(buttons(result)).toBeDefined();
+    expect(queries(result)).toEqual([]);
+  });
+
+  it("an old session waiting for the mode is shown the references list after an abusive message", () => {
+    const result = turn(waiting(), text("eres un imbécil"));
+    expect(texts(result)).toContain(RESPECT_REMINDER_TEXT);
+    expect(list(result)).toMatchObject({ text: REFERENCES_LIST_BODY });
+    expect(buttons(result)).toBeUndefined();
     expect(queries(result)).toEqual([]);
   });
 });

@@ -15,14 +15,12 @@ export const SEARCHING_UBIGEO_TEXT = "Buscando tu ubigeo…";
 export const UBIGEO_ERROR_TEXT = "Ocurrió un error al buscar tu ubigeo. Indícanos nuevamente el departamento.";
 export const UBIGEO_NOT_FOUND_TEXT = "No encontramos ese ubigeo. Indícanos nuevamente el departamento.";
 export const SEARCHING_ESPECIALIDADES_TEXT = "Buscando especialidades disponibles…";
-export const searchingCatalogInText = (lugar: string): string => `Entendido. Buscando especialidades y citas disponibles en *${lugar}*…`;
 export const SELECT_UBIGEO_TEXT = "Selecciona tu ubigeo:";
 export const DISTRITO_MANUAL_FALLBACK_TEXT =
   "No pudimos identificar tu distrito en este momento. Vamos por partes: indícanos el departamento donde buscas atención.";
 export const DISTRITO_TOO_MANY_MATCHES_TEXT =
   "Encontramos demasiadas coincidencias para mostrarlas en una lista, vamos a pedirlo por partes. Indícanos el departamento donde buscas atención.";
 export const DISTRITO_DISAMBIGUATION_TEXT = "Encontramos varias opciones. ¿Cuál es tu distrito?";
-export const searchingDistritoText = (distrito: string): string => `Buscando tu distrito: "${distrito}"…`;
 export const UNRECOGNIZED_DISTRITO_TEXT = "No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:";
 export const NATIONAL_REDIRECT_BUTTON_TEXT = "Cita Nivel Global";
 
@@ -40,7 +38,9 @@ export const OTHER_DISTRITO_YES_BUTTON_TEXT = "Sí, otro distrito";
 export const noCoverageInPlaceText = (lugar: string): string => `en *${lugar}*`;
 export const NO_COVERAGE_IN_YOUR_AREA_TEXT = "en tu zona";
 export const NO_COVERAGE_ESPECIALIDADES_TEXT = "especialidades";
-export const NO_COVERAGE_ESTABLECIMIENTOS_TEXT = "establecimientos para esa especialidad";
+export const NO_ESTABLECIMIENTOS_QUESTION_TEXT = "¿Deseas buscar en otro distrito o elegir otra especialidad?";
+export const noEstablecimientosText = (especialidad: string, where: string): string =>
+  `No encontramos establecimientos con cupos para ${especialidad} ${where}. ${NO_ESTABLECIMIENTOS_QUESTION_TEXT}`;
 export const ASK_OTHER_DISTRITO_TEXT = 'Perfecto. Cuéntanos en qué otro distrito buscas atención (ej. "Miraflores").';
 
 export const OTHER_DISTRITO_BUTTONS = [

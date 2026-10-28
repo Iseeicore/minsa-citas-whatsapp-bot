@@ -3,9 +3,14 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { buildResult, offerPagedList, query, sendText } from "@/lib/fsm/core/handlers-shared";
 import { catalogRowDescription, formatEspecialidadName, rememberFullNames } from "@/lib/fsm/flows/cita/data/catalog-names";
-import { normalizeText } from "@/lib/fsm/parsing/text/text";
+import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
-import { especialidadNotAvailableText, especialidadDetectedText, SELECT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
+import {
+  especialidadNotAvailableText,
+  especialidadDetectedText,
+  especialidadesInDistritoText,
+  SELECT_ESPECIALIDAD_TEXT,
+} from "@/lib/constants/textos/cita-catalogo";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export type EspecialidadResultItem = {
@@ -56,5 +61,7 @@ export function offerEspecialidades(next: Session, items: EspecialidadResultItem
     const { name } = names[index];
     return { id: item.codigoEspecialidad, title: name.title, description: catalogRowDescription(name, item.cantidadCupos) };
   });
-  return buildResult(next, offerPagedList(next, SELECT_ESPECIALIDAD_TEXT, rows));
+  const distrito = slotText(next.slots, SlotKey.CITA_DISTRITO);
+  const text = distrito ? especialidadesInDistritoText(toDisplayPlace(distrito)) : SELECT_ESPECIALIDAD_TEXT;
+  return buildResult(next, offerPagedList(next, text, rows));
 }

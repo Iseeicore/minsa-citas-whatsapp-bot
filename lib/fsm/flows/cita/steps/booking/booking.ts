@@ -8,7 +8,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { SLOT_TAKEN_MESSAGE } from "@/lib/constants/regex/integrations";
 import {
-  APPOINTMENT_DETAILS_TEXT,
+  APPOINTMENT_CTA_TEXT,
   APPOINTMENT_BUTTON_TEXT,
   constanciaCitaText,
   BOOKING_DEFAULT_MESSAGE_TEXT,
@@ -35,8 +35,7 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
     const constanciaText = constanciaCitaText(result.message ?? BOOKING_DEFAULT_MESSAGE_TEXT);
     return buildResult(next, [
       sendText(constanciaText),
-      result.url ? sendCtaUrl(APPOINTMENT_DETAILS_TEXT, APPOINTMENT_BUTTON_TEXT, result.url) : sendText(APPOINTMENT_DETAILS_TEXT),
-      sendText(CITA_BOOKED_FAREWELL_TEXT),
+      result.url ? sendCtaUrl(APPOINTMENT_CTA_TEXT, APPOINTMENT_BUTTON_TEXT, result.url) : sendText(CITA_BOOKED_FAREWELL_TEXT),
     ]);
   }
 

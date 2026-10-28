@@ -32,7 +32,6 @@ describe("typed Cita flow end to end (fake adapters)", () => {
   beforeEach(() => {
     store.clear();
     delete process.env.SANDBOX_USE_REAL_MINSA;
-    delete process.env.SANDBOX_USE_REAL_RENIEC;
     delete process.env.SANDBOX_USE_REAL_AI;
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-19T05:00:00-05:00"));
@@ -57,8 +56,12 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
 
     const distrito = await say("en Lurigancho");
-    expect(distrito.session.state).toBe("cita_awaiting_fecha_select");
+    expect(distrito.session.state).toBe("cita_awaiting_establecimiento_confirm");
     expect(distrito.texts.some((line) => line.includes("Especialidad detectada"))).toBe(true);
+    expect(distrito.texts.some((line) => line.includes("Encontramos este establecimiento"))).toBe(true);
+
+    const establecimiento = await say("sí");
+    expect(establecimiento.session.state).toBe("cita_awaiting_fecha_select");
 
     const fecha = await say("la segunda");
     expect(fecha.session.state).toBe("cita_awaiting_hora_select");
@@ -78,6 +81,7 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     await say("12345678");
     await say("1234");
     await say("en Lurigancho");
+    await say("confirmar");
 
     const junk = await say("asdf");
     expect(junk.session.state).toBe("cita_awaiting_fecha_select");
@@ -88,7 +92,7 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(insult.texts[0]).toContain("política de respeto");
   });
 
-  it("an insulting request that names specialty and district reaches the date list in the same OTP turn", async () => {
+  it("an insulting request that names specialty and district reaches the establecimiento confirmation in the same OTP turn", async () => {
     const warning = await say("Apúrense cojudos quiero cita de odontología en Lurigancho");
     expect(warning.session.state).toBe("cita_awaiting_dni");
     expect(warning.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Odontología");
@@ -97,9 +101,9 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     await say("12345678");
     const otp = await say("1234");
 
-    expect(otp.session.state).toBe("cita_awaiting_fecha_select");
+    expect(otp.session.state).toBe("cita_awaiting_establecimiento_confirm");
     expect(otp.texts.some((line) => line.includes("Especialidad detectada"))).toBe(true);
-    expect(otp.texts.some((line) => line.includes("Establecimiento encontrado"))).toBe(true);
+    expect(otp.texts.some((line) => line.includes("Encontramos este establecimiento"))).toBe(true);
   });
 
   it("routes an angry complaint straight to the incidencia flow with no AI step", async () => {

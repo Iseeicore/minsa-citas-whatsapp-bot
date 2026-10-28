@@ -20,6 +20,7 @@ import { beginSessionReauth, handleAwaitingReauth } from "@/lib/fsm/session/sess
 import { offerExitIfRequested } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import { SessionState } from "@/lib/enums/session-state";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
+import { MissingHandlerResultError } from "@/lib/errors/missing-handler-result-error";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { handleOtherReferenceClose } from "@/lib/fsm/flows/referencia/other-reference";
@@ -35,11 +36,13 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
     return emergencyCut(session.state);
   }
   const current = event.channel ? { ...session, channel: event.channel } : session;
-  return (
-    handleOtherReferenceClose(current, event) ??
-    handleConsultaReferenciasClose(current, event) ??
-    withConsultaReferenciasActions(withReferenceChangeAction(handleTurn(current, event, now)))
-  );
+  const closed = handleOtherReferenceClose(current, event) ?? handleConsultaReferenciasClose(current, event);
+  if (closed) return closed;
+
+  const result: HandlerResult | undefined = handleTurn(current, event, now);
+  if (!result?.session) throw new MissingHandlerResultError(current.state);
+
+  return withConsultaReferenciasActions(withReferenceChangeAction(result));
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {

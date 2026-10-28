@@ -12,12 +12,6 @@ const FROM = "51999999999";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
 const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
 const file = (type: "image" | "document"): InboundEvent => ({ from: FROM, type, text: type === "image" ? "foto del cobro" : undefined });
-const reniecResult = (result: unknown): QueryResultEvent => ({
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind: "reniec_lookup",
-  result,
-});
 const fotoIntentResult = (quiereOmitir: boolean): QueryResultEvent => ({
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
@@ -83,15 +77,17 @@ describe("incidencia_identity_choice: nombre o anónimo", () => {
 describe("incidencia_awaiting_dni: el largo decide el documento", () => {
   const awaitingDni = (): Session => ({ state: "incidencia_awaiting_dni", slots: {}, counters: {} });
 
-  it("un DNI de 8 dígitos se valida en RENIEC", () => {
+  it("un DNI válido se guarda y pasa al consentimiento sin consultar nada ni avisar que se verifica", () => {
     const result = handleIncidencia(awaitingDni(), text(" 12345678 "));
 
-    expect(result.session.state).toBe("incidencia_reniec_pending");
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
     expect(result.session.slots[SlotKey.DNI]).toBe("12345678");
-    expect(queries(result)).toEqual([{ kind: "reniec_lookup", payload: { dni: "12345678" } }]);
+    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBeUndefined();
+    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
+    expect(texts(result)).toEqual([]);
   });
 
-  it("un carnet de extranjería de 9 dígitos no se acepta por ahora: se ofrece escribir un DNI o seguir anónimo, sin consultar RENIEC", () => {
+  it("un carnet de extranjería de 9 dígitos no se acepta por ahora: se ofrece escribir un DNI o seguir anónimo, sin consultar nada", () => {
     const result = handleIncidencia(awaitingDni(), text("123456789"));
 
     expect(result.session.state).toBe("incidencia_awaiting_dni");
@@ -119,70 +115,19 @@ describe("incidencia_awaiting_dni: el largo decide el documento", () => {
   });
 });
 
-describe("incidencia_reniec_pending: el nombre sale de RENIEC", () => {
-  const pending = (): Session => ({ state: "incidencia_reniec_pending", slots: { [SlotKey.DNI]: "12345678" }, counters: {} });
-
-  it("encontrado: guarda el nombre de RENIEC, lo saluda y pasa a verificar el consentimiento", () => {
-    const result = handleIncidencia(pending(), reniecResult({ status: "found", nombreCompleto: "JUAN CARLOS QUISPE PEREZ" }));
-
-    expect(result.session.state).toBe("incidencia_consent_check_pending");
-    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("JUAN CARLOS QUISPE PEREZ");
-    expect(texts(result)).toEqual(["Gracias, JUAN CARLOS QUISPE PEREZ."]);
-    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
-  });
-
-  it.each([
-    ["no lo encuentra", { status: "not_found" }],
-    ["no responde", { status: "error" }],
-    ["trae un nombre vacío", { status: "found", nombreCompleto: "  " }],
-  ])("RENIEC %s: se disculpa y pide un nombre o alias, sin detener a la persona", (_label, result) => {
-    const step = handleIncidencia(pending(), reniecResult(result));
-
-    expect(step.session.state).toBe("incidencia_awaiting_nombre_libre");
-    expect(texts(step)).toEqual(["Disculpa, nuestro servicio no responde. Disculpa las molestias. Escríbenos tu nombre o un alias."]);
-    expect(step.session.slots[SlotKey.DNI]).toBe("12345678");
-  });
-
-  it("con un borrador ya escrito, lo ofrece usar después de saludar y de que autorice el tratamiento de datos", () => {
+describe("incidencia_awaiting_dni con un borrador ya escrito", () => {
+  it("tras el DNI y la autorización del tratamiento de datos, ofrece usar el borrador", () => {
     const session: Session = {
-      ...pending(),
-      slots: { ...pending().slots, [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." },
+      state: "incidencia_awaiting_dni",
+      slots: { [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." },
+      counters: {},
     };
-    let result = handleIncidencia(session, reniecResult({ status: "found", nombreCompleto: "ANA RIOS" }));
+    let result = handleIncidencia(session, text("12345678"));
 
     expect(result.session.state).toBe("incidencia_consent_check_pending");
-    expect(texts(result)[0]).toBe("Gracias, ANA RIOS.");
 
     result = throughConsent(result);
     expect(result.session.state).toBe("incidencia_confirm_borrador");
-  });
-});
-
-describe("incidencia_awaiting_nombre_libre: nombre o alias tal cual", () => {
-  const awaitingNombre = (): Session => ({ state: "incidencia_awaiting_nombre_libre", slots: { [SlotKey.DNI]: "12345678" }, counters: {} });
-
-  it("guarda el nombre, conserva el documento y pasa a verificar el consentimiento", () => {
-    const result = handleIncidencia(awaitingNombre(), text("Juan Pérez"));
-
-    expect(result.session.state).toBe("incidencia_consent_check_pending");
-    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBe("Juan Pérez");
-    expect(result.session.slots[SlotKey.DNI]).toBe("12345678");
-    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
-  });
-
-  it("nombre vacío, vuelve a pedirlo", () => {
-    const result = handleIncidencia(awaitingNombre(), text("   "));
-
-    expect(result.session.state).toBe("incidencia_awaiting_nombre_libre");
-    expect(texts(result)).toEqual(["Por favor, ingresa tu nombre."]);
-  });
-
-  it("puro ruido (sin letras reales) no se guarda como nombre, pide reintentar", () => {
-    const result = handleIncidencia(awaitingNombre(), text("🔥🔥💀💀#!@"));
-
-    expect(result.session.state).toBe("incidencia_awaiting_nombre_libre");
-    expect(result.session.slots[SlotKey.NOMBRE_COMPLETO]).toBeUndefined();
-    expect(texts(result)).toEqual(["No pudimos leer eso — ¿podrías escribirlo de nuevo?"]);
   });
 });
 
@@ -235,10 +180,9 @@ describe("el registro final: con la persona o anónimo", () => {
     queries(step)[0].payload.submission as { dni: string | null; nombreCompleto: string | null; mediaDataUri?: string };
   const confirmar = (step: HandlerResult) => handleIncidencia(step.session, tap("incidencia_confirmar_registro_si"));
 
-  it("con DNI: lleva el documento y el nombre de RENIEC", () => {
+  it("con DNI: lleva el documento y ningún nombre", () => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
     step = handleIncidencia(step.session, text("12345678"));
-    step = handleIncidencia(step.session, reniecResult({ status: "found", nombreCompleto: "JUAN CARLOS QUISPE PEREZ" }));
     step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
@@ -248,25 +192,12 @@ describe("el registro final: con la persona o anónimo", () => {
     expect(submission(step)).toEqual({
       waId: FROM,
       dni: "12345678",
-      nombreCompleto: "JUAN CARLOS QUISPE PEREZ",
+      nombreCompleto: null,
       descripcion: "El consultorio estaba cerrado.",
       establecimientoId: null,
       mediaDataUris: [],
       canal: "whatsapp",
     });
-  });
-
-  it("con RENIEC caído: lleva el documento y el alias que escribió", () => {
-    let step = handleIncidencia(identityChoice(), tap("incidencia_con_nombre"));
-    step = handleIncidencia(step.session, text("12345678"));
-    step = handleIncidencia(step.session, reniecResult({ status: "error" }));
-    step = handleIncidencia(step.session, text("Juan"));
-    step = throughConsent(step);
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
-
-    expect(submission(step)).toMatchObject({ dni: "12345678", nombreCompleto: "Juan" });
   });
 
   it("con el establecimiento confirmado: el registro lleva su id", () => {
@@ -522,7 +453,6 @@ describe("«quiero cerrar» cancela desde cualquier paso", () => {
     ["omitir ubicación", { state: "incidencia_confirm_omitir", slots: {}, counters: {} }],
     ["nombre o anónimo", identityChoice()],
     ["documento", { state: "incidencia_awaiting_dni", slots: {}, counters: {} }],
-    ["nombre libre", { state: "incidencia_awaiting_nombre_libre", slots: { [SlotKey.DNI]: "12345678" }, counters: {} }],
     ["relato", { state: "incidencia_awaiting_descripcion", slots: { [SlotKey.NOMBRE_COMPLETO]: "Ana" }, counters: {} }],
     [
       "borrador",

@@ -18,7 +18,7 @@ import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
 } from "@/lib/constants/textos/referencia";
-import { LIST_PAGE_NEXT_BUTTON_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, NARROWED_LIST_TEXT, pageOfText } from "@/lib/constants/textos/comunes";
+import { LIST_PAGE_NEXT_BUTTON_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, NARROWED_LIST_TEXT } from "@/lib/constants/textos/comunes";
 import { CITA_REAUTH_BUTTONS, CITA_REAUTH_PROMPT_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { EXIT_BUTTONS, EXIT_QUESTION_TEXT, REFERENCIA_EXIT_QUESTION_TEXT } from "@/lib/constants/textos/cita-salida";
 import {
@@ -30,7 +30,7 @@ import {
 import { DISTRITO_DISAMBIGUATION_TEXT, SELECT_UBIGEO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 import {
   APPOINTMENT_BUTTON_TEXT,
-  APPOINTMENT_DETAILS_TEXT,
+  APPOINTMENT_CTA_TEXT,
   REFERENCIA_CONFIRM_BUTTONS,
   REFERENCIA_CONFIRM_QUESTION_TEXT,
   REFERENCIAS_LIST_TEXT,
@@ -84,7 +84,6 @@ const BUTTONS_SUFFIX = "_BUTTONS";
 const BUTTON_TEXT_SUFFIX = "_BUTTON_TEXT";
 const RUNTIME_BODY = "Cuerpo armado al enviar";
 const RUNTIME_ROW: ListRow = { id: "fila", title: "Fila armada al enviar" };
-const PAGE_TOTAL_WORST_CASE = 99;
 const URL = "https://example.org";
 
 const PAIRED_DEFINITIONS: StaticDefinition[] = [
@@ -145,16 +144,8 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
   {
     origin: "SELECT_ESTABLECIMIENTO_TEXT + filas de paginación de establecimientos",
     effect: sendList(SELECT_ESTABLECIMIENTO_TEXT, [
-      {
-        id: EstablecimientoPageRowId.PREV,
-        title: ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT,
-        description: pageOfText(PAGE_TOTAL_WORST_CASE, PAGE_TOTAL_WORST_CASE),
-      },
-      {
-        id: EstablecimientoPageRowId.NEXT,
-        title: ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT,
-        description: pageOfText(PAGE_TOTAL_WORST_CASE, PAGE_TOTAL_WORST_CASE),
-      },
+      { id: EstablecimientoPageRowId.PREV, title: ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT },
+      { id: EstablecimientoPageRowId.NEXT, title: ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT },
     ]),
   },
   ...[
@@ -171,8 +162,8 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
   ].map((text) => ({ origin: `cuerpo de lista «${text}»`, effect: sendList(text, [RUNTIME_ROW]) })),
   { origin: "WELCOME_MESSAGE_TEXT + WELCOME_CTA_BUTTON_TEXT", effect: sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, URL) },
   {
-    origin: "APPOINTMENT_DETAILS_TEXT + APPOINTMENT_BUTTON_TEXT",
-    effect: sendCtaUrl(APPOINTMENT_DETAILS_TEXT, APPOINTMENT_BUTTON_TEXT, URL),
+    origin: "APPOINTMENT_CTA_TEXT + APPOINTMENT_BUTTON_TEXT",
+    effect: sendCtaUrl(APPOINTMENT_CTA_TEXT, APPOINTMENT_BUTTON_TEXT, URL),
   },
 ];
 
