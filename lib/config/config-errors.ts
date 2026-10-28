@@ -20,7 +20,7 @@ export const CONFIG_ERRORS = {
     severity: "warn",
     severityWithRealMinsa: "error",
     message:
-      "MINSA_DIGITAL_APP_URL no está configurada: la bienvenida de WhatsApp muestra el menú principal, los avisos que llevaban botón hacia MINSA Digital salen como texto sin enlace y, con el MINSA real, las llamadas autenticadas se cortan con un 503 porque no se puede armar Origin ni Referer.",
+      "MINSA_DIGITAL_APP_URL no está configurada: la bienvenida de WhatsApp muestra el menú principal, los avisos que llevaban botón hacia MINSA Responde salen como texto sin enlace y, con el MINSA real, las llamadas autenticadas se cortan con un 503 porque no se puede armar Origin ni Referer.",
   },
 } as const satisfies Record<ConfigErrorCode, ConfigErrorEntry>;
 

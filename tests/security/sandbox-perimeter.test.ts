@@ -74,7 +74,7 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     const { json } = await send({ type: "text", text: "Hola" });
 
     expect(json.sent.map((effect) => effect.kind)).toEqual(["send_text", "send_interactive_list"]);
-    expect(json.sent[0].text).toContain("asistente virtual de MINSA Digital");
+    expect(json.sent[0].text).toContain("asistente virtual de MINSA Responde");
     expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });

@@ -64,9 +64,9 @@ describe("buildWelcomeEffect", () => {
     expect(effect.kind).toBe("send_text");
     expect(effect).not.toHaveProperty("buttonText");
     expect(effect).not.toHaveProperty("url");
-    expect(effect.kind === "send_text" && effect.text).toContain("asistente virtual de MINSA Digital");
+    expect(effect.kind === "send_text" && effect.text).toContain("asistente virtual de MINSA Responde");
     expect(effect.kind === "send_text" && effect.text).toContain("106");
-    expect(effect.kind === "send_text" && effect.text).not.toContain("abre *MINSA Digital*");
+    expect(effect.kind === "send_text" && effect.text).not.toContain("abre *MINSA Responde*");
   });
 });
 

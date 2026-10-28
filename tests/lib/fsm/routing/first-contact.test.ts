@@ -209,7 +209,7 @@ describe("first contact: the web (sandbox/widget) channel", () => {
     expect(sent(result)).toHaveLength(2);
     const [welcome, menu] = sent(result);
     expect(welcome.kind).toBe("send_text");
-    expect(welcome.kind === "send_text" && welcome.text).toContain("asistente virtual de MINSA Digital");
+    expect(welcome.kind === "send_text" && welcome.text).toContain("asistente virtual de MINSA Responde");
     expect(menu.kind).toBe("send_interactive_list");
   });
 });
