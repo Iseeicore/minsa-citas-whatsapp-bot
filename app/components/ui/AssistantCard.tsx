@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils/cn";
 const FLUID_BUBBLE_SPACING = "mb-2 ml-2 py-3 pl-4 pr-3 @md:mb-3 @md:ml-3 @md:py-4 @md:pl-6 @xl:mb-4 @xl:ml-4 @xl:py-5 @xl:pl-7 @xl:pr-4";
 
 const FLUID_BUBBLE_TAIL =
-  "before:absolute before:right-full before:top-3 before:border-y-8 before:border-r-12 before:border-y-transparent before:border-r-sb-navy @md:before:top-4 @xl:before:top-6";
+  "before:absolute before:right-full before:top-3 before:border-y-8 before:border-r-12 before:border-y-transparent before:border-r-white @md:before:top-4 @xl:before:top-6";
 
 const SIZE_CLASSES = {
   fixed: {
@@ -34,16 +34,16 @@ export function AssistantCard({
     <span className={cn("block text-left", fluid && "@container", className)}>
       <span className={cn("flex items-end", !fluid && "whitespace-nowrap")}>
         <Image
-          src="/promotora-minsa.png"
-          alt="Asistente virtual MINS IA"
-          width={325}
-          height={480}
+          src="/landing/asistente.webp"
+          alt="Asistente virtual"
+          width={300}
+          height={345}
           className={cn("relative z-10 w-auto shrink-0", sizes.image)}
           priority
         />
-        <span className={cn("rounded-2xl bg-sb-navy text-white shadow-sm", !fluid && "shrink-0", sizes.panel)}>
-          <span className={cn("block font-extrabold", sizes.title, "leading-tight")}>Soy MINS IA</span>
-          <span className={cn("block text-white/80", sizes.subtitle)}>Soy la asistente virtual del MINSA</span>
+        <span className={cn("rounded-3xl bg-white shadow-lg", !fluid && "shrink-0", sizes.panel)}>
+          <span className={cn("block font-extrabold text-brand-navy", sizes.title, "leading-tight")}>Soy tu asistente</span>
+          <span className={cn("block text-gray-500", sizes.subtitle)}>¿En qué podemos ayudarte?</span>
         </span>
       </span>
     </span>
