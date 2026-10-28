@@ -32,6 +32,6 @@ describe("the sandbox page description", () => {
   it("keeps the title in both modes", () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
 
-    expect(generateMetadata().title).toBe("MINSA Digital");
+    expect(generateMetadata().title).toBe("MINSA Responde");
   });
 });

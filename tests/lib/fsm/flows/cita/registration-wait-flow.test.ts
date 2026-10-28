@@ -35,14 +35,14 @@ function validatePending(checks = 0): Session {
   };
 }
 
-describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
+describe("ciclo de 3 intentos de registro en MINSA Responde", () => {
   it("intento 1: mensaje de siempre, con los 2 botones (reintentar / no continuar)", () => {
     const result = handle(validatePending(0), notValid());
 
     expect(result.session.state).toBe("cita_registration_wait");
     expect(result.session.counters[CounterKey.CITA_REGISTRATION_CHECKS]).toBe(1);
     expect(texts(result).join(" ")).toContain(
-      "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.",
+      "No encontramos tu documento en MINSA Responde. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.",
     );
     expect(buttonIds(result)).toEqual(["cita_registration_retry", "cita_registration_cancel"]);
   });
@@ -54,7 +54,7 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
     expect(result.session.counters[CounterKey.CITA_REGISTRATION_CHECKS]).toBe(2);
     const message = texts(result).join(" ");
     expect(message).not.toContain(
-      "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.",
+      "No encontramos tu documento en MINSA Responde. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.",
     );
     expect(message.toLowerCase()).toContain("segunda vez");
     expect(buttonIds(result)).toEqual(["cita_registration_retry", "cita_registration_cancel"]);
@@ -65,7 +65,7 @@ describe("ciclo de 3 intentos de registro en MINSADIGITAL", () => {
 
     expect(result.session.state).toBe("cita_registration_rejected");
     expect(texts(result)).toEqual([
-      "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSADIGITAL.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.",
+      "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSA Responde.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.",
     ]);
     expect(sent(result).some((e) => e.kind === "send_buttons")).toBe(false);
   });

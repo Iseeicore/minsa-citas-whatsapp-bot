@@ -26,6 +26,9 @@
   --brand-blue-light: #4fa8e8;
   --brand-green: #00b894;
   --brand-tint: #eaf3fb;
+  --brand-teal: #2fb4b9;
+  --brand-navy: #0d4aa3;
+  --brand-sky: #f0f9fe;
 }
 
 @theme inline {
@@ -56,6 +59,13 @@
   --color-brand-blue-light: var(--brand-blue-light);
   --color-brand-green: var(--brand-green);
   --color-brand-tint: var(--brand-tint);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-sky: var(--brand-sky);
+
+  --font-gotham: var(--ff-gotham);
+  --font-montserrat: var(--ff-montserrat);
+  --font-poppins: var(--ff-poppins);
 }
 
 body {

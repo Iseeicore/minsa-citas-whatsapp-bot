@@ -96,7 +96,7 @@ function SandboxListRow({ onSelect }: { onSelect: () => void }) {
             <Avatar className="bg-gradient-to-r from-sb-header-from to-sb-header-to font-bold">MD</Avatar>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-gray-900">
-                Asistente MINSA Digital
+                Asistente MINSA Responde
               </span>
               <span className="block truncate text-xs text-gray-500">
                 Toca para iniciar una conversación de prueba
