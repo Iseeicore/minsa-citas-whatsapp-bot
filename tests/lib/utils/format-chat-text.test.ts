@@ -26,8 +26,8 @@ describe("tokenizeChatText", () => {
   });
 
   it("reemplaza la bandera del Perú por el icono, en lugar de dejar las letras PE", () => {
-    expect(tokenizeChatText("MINSA Digital 🇵🇪.")).toEqual([
-      { kind: ChatTokenKind.TEXT, value: "MINSA Digital " },
+    expect(tokenizeChatText("MINSA Responde 🇵🇪.")).toEqual([
+      { kind: ChatTokenKind.TEXT, value: "MINSA Responde " },
       { kind: ChatTokenKind.ICON, icon: ChatIconName.PERU_FLAG },
       { kind: ChatTokenKind.TEXT, value: "." },
     ]);

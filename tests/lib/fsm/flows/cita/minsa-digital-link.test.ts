@@ -58,7 +58,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
 
     const result = handle(firstAttempt, notValid);
 
-    expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", buttonText: "Ir a MINSADIGITAL", url: `${PORTAL}/login` });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", buttonText: "Ir a MINSA RESPONDE", url: `${PORTAL}/login` });
     expect(kinds(result)).toEqual(["send_cta_url", "send_buttons"]);
   });
 
@@ -68,7 +68,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
     const result = handle(firstAttempt, notValid);
 
     expect(kinds(result)).toEqual(["send_text", "send_buttons"]);
-    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No encontramos tu documento en MINSADIGITAL") });
+    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No encontramos tu documento en MINSA Responde") });
     expect(sent(result)[0]).not.toHaveProperty("url");
   });
 });

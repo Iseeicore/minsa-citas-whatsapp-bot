@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Landing from "@/app/components/Landing";
 import SandboxWidgetDemo from "@/app/components/SandboxWidgetDemo";
 import { HEALTH_PATH, isSandboxPageEnabled } from "@/lib/config/sandbox-page";
 import {
@@ -7,6 +8,7 @@ import {
   SANDBOX_PAGE_TITLE_TEXT,
 } from "@/lib/constants/textos/menu";
 import { MenuChoice } from "@/lib/enums/menu-choice";
+import { loginUrl } from "@/lib/integrations/minsa/wire";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 
 export const dynamic = "force-dynamic";
@@ -23,5 +25,9 @@ export function generateMetadata() {
 export default function SandboxPage() {
   if (!isSandboxPageEnabled()) redirect(HEALTH_PATH);
 
-  return <SandboxWidgetDemo />;
+  return (
+    <SandboxWidgetDemo>
+      <Landing loginUrl={loginUrl()} />
+    </SandboxWidgetDemo>
+  );
 }

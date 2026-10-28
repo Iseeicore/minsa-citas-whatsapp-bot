@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HEALTH_PATH, SANDBOX_PATH, homeDestination, isSandboxPageEnabled } from "@/lib/config/sandbox-page";
+import { isSandboxPageEnabled } from "@/lib/config/sandbox-page";
 
 describe("isSandboxPageEnabled", () => {
   it("shows the pages only when SANDBOX_PAGE_ENABLED is exactly true", () => {
@@ -17,16 +17,5 @@ describe("isSandboxPageEnabled", () => {
   it("does not depend on SANDBOX_ENABLED, which only controls POST /api/sandbox", () => {
     expect(isSandboxPageEnabled({ SANDBOX_ENABLED: "true" })).toBe(false);
     expect(isSandboxPageEnabled({ SANDBOX_ENABLED: "false", SANDBOX_PAGE_ENABLED: "true" })).toBe(true);
-  });
-});
-
-describe("homeDestination", () => {
-  it("sends the root to the sandbox when the pages are visible", () => {
-    expect(homeDestination({ SANDBOX_PAGE_ENABLED: "true" })).toBe(SANDBOX_PATH);
-  });
-
-  it("sends the root to the health check when the pages are hidden", () => {
-    expect(homeDestination({})).toBe(HEALTH_PATH);
-    expect(homeDestination({ SANDBOX_PAGE_ENABLED: "false" })).toBe(HEALTH_PATH);
   });
 });

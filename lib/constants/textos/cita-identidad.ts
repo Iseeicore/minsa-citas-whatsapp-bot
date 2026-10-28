@@ -2,15 +2,15 @@ import { ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
 import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
 
-export const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSADIGITAL";
+export const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSA RESPONDE";
 export const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
 export const REGISTRATION_CANCEL_BUTTON_TEXT = "No quiero continuar";
 export const REGISTRATION_REJECTED_TEXT =
-  "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSADIGITAL.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.";
+  "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSA Responde.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.";
 export const REGISTRATION_FIRST_MISS_TEXT =
-  "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.";
+  "No encontramos tu documento en MINSA Responde. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.";
 export const REGISTRATION_SECOND_MISS_TEXT =
-  "Qué raro, seguimos sin encontrar tu registro — esta ya es la segunda vez. Si aún no te registraste, hazlo en MINSADIGITAL; este será tu último intento antes de cerrar el proceso.";
+  "Qué raro, seguimos sin encontrar tu registro — esta ya es la segunda vez. Si aún no te registraste, hazlo en MINSA Responde; este será tu último intento antes de cerrar el proceso.";
 export const REGISTRATION_WAIT_TEXT =
   "Cuando termines, toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo.";
 export const REGISTRATION_RETRY_PROMPT_TEXT = "Toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo.";
