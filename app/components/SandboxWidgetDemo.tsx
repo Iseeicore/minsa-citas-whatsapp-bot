@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import Sandbox from "@/app/components/Sandbox";
 import { clearStoredChat } from "@/app/components/sandbox-chat/storage";
 import { AssistantCard } from "@/app/components/ui/AssistantCard";
@@ -82,8 +82,15 @@ export default function SandboxWidgetDemo({ children }: { children: ReactNode })
     setWidget(openWidget);
   }
 
+  function openChatFromLink(event: MouseEvent<HTMLDivElement>) {
+    if (!(event.target instanceof Element) || !event.target.closest("[data-open-chat]")) return;
+    event.preventDefault();
+    openChat();
+  }
+
   return (
     <div
+      onClick={openChatFromLink}
       className={cn(
         "relative w-full bg-gray-100 sm:overflow-auto",
         showingChat && "max-sm:overflow-hidden",
