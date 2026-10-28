@@ -8,13 +8,8 @@ Encuentra citas para Medicina General, Odontología, Pediatría y más especiali
 
 ¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.`;
 
-export const WEB_WELCOME_MESSAGE_TEXT = `¡Hola! Soy el asistente virtual de MINSA Responde 🇵🇪. Puedo ayudarte a agendar tu cita médica, elegir tu establecimiento de salud y obtener tu ticket de atención, todo desde este mismo chat.
-
-Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.
-
-⚠️ En caso de emergencia médica, llama al *106* (SAMU).
-
-Escríbeme lo que necesitas y te ayudo.`;
+export const WEB_WELCOME_MESSAGE_TEXT =
+  "¡Hola! Soy tu asistente virtual. En caso de emergencia médica, llama al *106* (SAMU).\n¿En qué puedo ayudarte?";
 
 export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
 export const MENU_PROMPT_TEXT = "¿En qué podemos ayudarte hoy?";
@@ -31,7 +26,6 @@ export const firstContactCitaRequestText = (what: string, where: string): string
   `¡Hola! Te ayudaremos a agendar tu cita${what}${where}. Para comenzar, por favor indícanos tu número de documento:`;
 
 export const FIRST_CONTACT_CITA_TEXT = "¡Hola! Vamos a agendar tu cita. Para comenzar, por favor indícanos tu número de documento:";
-export const REVIEWING_MESSAGE_TEXT = "Un momento, estamos revisando tu mensaje…";
 export const OUT_OF_SCOPE_REQUEST_TEXT =
   "Solo puedo ayudarte a agendar una cita médica, a consultar una referencia o a registrar una denuncia anticorrupción. Elige una opción:";
 export const OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT =

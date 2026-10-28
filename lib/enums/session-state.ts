@@ -8,6 +8,7 @@ export enum SessionState {
   CITA_AWAITING_DNI = "cita_awaiting_dni",
   CITA_AWAITING_DUPLICATE_CHOICE = "cita_awaiting_duplicate_choice",
   CITA_AWAITING_ESPECIALIDAD_SELECT = "cita_awaiting_especialidad_select",
+  CITA_AWAITING_ESTABLECIMIENTO_CONFIRM = "cita_awaiting_establecimiento_confirm",
   CITA_AWAITING_ESTABLECIMIENTO_SELECT = "cita_awaiting_establecimiento_select",
   CITA_AWAITING_EXIT_CONFIRM = "cita_awaiting_exit_confirm",
   CITA_AWAITING_FECHA_SELECT = "cita_awaiting_fecha_select",

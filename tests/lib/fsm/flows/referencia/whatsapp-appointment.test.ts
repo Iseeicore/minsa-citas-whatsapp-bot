@@ -5,7 +5,6 @@ import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import {
   CITA_REFERENCIA_CHANGE_BUTTON,
-  CITA_REFERENCIA_MODE_BUTTONS,
   CITA_REFERENCIA_RETRY_BUTTONS,
   CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT,
 } from "@/lib/constants/textos/cita-referencia";
@@ -50,6 +49,7 @@ const turn = (session: Session, event: HandleEvent) => handle(session, event, NO
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const buttons = (result: HandlerResult) => result.effects.find((effect) => effect.kind === SendType.BUTTONS);
 const list = (result: HandlerResult) => result.effects.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
+const CITA_SIN_REFERENCIA_ROW = { id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" };
 
 function verified(): HandlerResult {
   return turn(
@@ -71,8 +71,7 @@ function mode(): HandlerResult {
 }
 
 function selected(index = 0): HandlerResult {
-  const offered = turn(mode().session, tap(CitaReferenciaButtonId.REFERENCE));
-  return turn(offered.session, tap(REFERENCES[index].idReferencia));
+  return turn(mode().session, tap(REFERENCES[index].idReferencia));
 }
 
 function dates(): HandlerResult {
@@ -105,13 +104,15 @@ function hours(): HandlerResult {
 }
 
 describe("WhatsApp agenda con referencias mediante el mismo recorrido que el chat web", () => {
-  it("tras OTP consulta primero las referencias y ofrece ambas modalidades conservando las referencias de MINSA", () => {
+  it("tras OTP consulta primero las referencias y muestra su lista con «Cita sin referencia» conservando las referencias de MINSA", () => {
     expect(queries(verified())).toEqual([
       { kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: "12345678", tipoDocumento: "01" } },
     ]);
     const result = mode();
     expect(result.session.channel).toBe(SessionChannel.WHATSAPP);
-    expect(buttons(result)?.buttons).toEqual(CITA_REFERENCIA_MODE_BUTTONS);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    expect(list(result)).toMatchObject({ actions: [CITA_SIN_REFERENCIA_ROW] });
+    expect(buttons(result)).toBeUndefined();
     expect(JSON.parse(String(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]))).toEqual(REFERENCES);
   });
 
@@ -143,15 +144,16 @@ describe("WhatsApp agenda con referencias mediante el mismo recorrido que el cha
     expect(buttons(result)).toBeUndefined();
   });
 
-  it("con al menos una referencia que permite agendar pregunta la modalidad como siempre", () => {
+  it("con al menos una referencia que permite agendar muestra la lista con «Cita sin referencia»", () => {
     const mixed = [{ ...REFERENCES[0], estado: 1 }, REFERENCES[1]];
     const result = turn(
       verified().session,
       query(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, data: mixed, message: "" }),
     );
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
-    expect(buttons(result)?.buttons).toEqual(CITA_REFERENCIA_MODE_BUTTONS);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    expect(list(result)).toMatchObject({ actions: [CITA_SIN_REFERENCIA_ROW] });
+    expect(buttons(result)).toBeUndefined();
   });
 
   it("sin referencias inicia cita nueva y ante error permite reintentar sin afirmar que no existen", () => {

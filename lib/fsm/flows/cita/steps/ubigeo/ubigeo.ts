@@ -19,7 +19,6 @@ import {
   isOfferableUbigeoList,
   offerUbigeos,
   pickSettledUbigeo,
-  searchingCatalogText,
   type UbigeoResultItem,
 } from "@/lib/fsm/flows/cita/steps/ubigeo/ubigeo-offer";
 import { QueryKind } from "@/lib/enums/query-kind";
@@ -37,10 +36,8 @@ import {
   UNREADABLE_DEPARTAMENTO_TEXT,
   UNREADABLE_PROVINCIA_TEXT,
   UNREADABLE_DISTRITO_TEXT,
-  SEARCHING_UBIGEO_TEXT,
   UBIGEO_ERROR_TEXT,
   UBIGEO_NOT_FOUND_TEXT,
-  SEARCHING_ESPECIALIDADES_TEXT,
   DISTRITO_MANUAL_FALLBACK_TEXT,
   UNRECOGNIZED_DISTRITO_TEXT,
 } from "@/lib/constants/textos/cita-ubicacion";
@@ -113,7 +110,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
   next.slots[SlotKey.CITA_PROVINCIA] = provincia;
   next.slots[SlotKey.CITA_DISTRITO] = distrito;
   next.state = SessionState.CITA_UBIGEO_PENDING;
-  return buildResult(next, [sendText(SEARCHING_UBIGEO_TEXT), query(QueryKind.SEARCH_UBIGEO, { departamento, provincia, distrito })]);
+  return buildResult(next, [query(QueryKind.SEARCH_UBIGEO, { departamento, provincia, distrito })]);
 }
 
 export function handleAwaitingDepartamento(session: Session, event: InboundEvent): HandlerResult {
@@ -166,7 +163,6 @@ export function handleAwaitingDistrito(session: Session, event: InboundEvent): H
   next.slots[SlotKey.CITA_DISTRITO] = distrito;
   next.state = SessionState.CITA_UBIGEO_PENDING;
   return buildResult(next, [
-    sendText(SEARCHING_UBIGEO_TEXT),
     query(QueryKind.SEARCH_UBIGEO, {
       departamento: slotText(next.slots, SlotKey.CITA_DEPARTAMENTO),
       provincia: slotText(next.slots, SlotKey.CITA_PROVINCIA),
@@ -210,9 +206,7 @@ export function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
   const next = clearOffered(session);
   next.slots[SlotKey.CITA_UBIGEO] = replyId;
+  if (chosen) next.slots[SlotKey.CITA_DISTRITO] = chosen.title;
   next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
-  return buildResult(next, [
-    sendText(chosen ? searchingCatalogText(chosen.title) : SEARCHING_ESPECIALIDADES_TEXT),
-    query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: replyId }),
-  ]);
+  return buildResult(next, [query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: replyId })]);
 }

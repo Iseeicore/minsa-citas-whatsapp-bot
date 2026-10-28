@@ -70,7 +70,7 @@ describe("especialidad rows are readable", () => {
       queryResult("list_especialidades", especialidades),
     );
 
-    expect(sent(result)[0]).toEqual({ kind: "send_text", text: "Especialidad detectada: Odontología General. Buscando establecimientos…" });
+    expect(sent(result)[0]).toEqual({ kind: "send_text", text: "Especialidad detectada: *Odontología General*." });
     expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("Odontología General");
   });
 
@@ -125,15 +125,15 @@ describe("establecimiento rows are readable", () => {
     expect(result.session.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]).toBe("Centro de Salud San Fernando");
   });
 
-  it("a single establecimiento is announced with its clean name", () => {
+  it("a single establecimiento is proposed with its clean name", () => {
     const result = handle(
       pending("cita_establecimiento_pending", { [SlotKey.CITA_ESPECIALIDAD_ID]: "222400" }),
       queryResult("list_establecimientos", { status: "found", items: [establecimientos.items[1]] }),
     );
 
-    expect(sent(result)[0]).toEqual({
-      kind: "send_text",
-      text: "Establecimiento encontrado: Centro de Salud San Fernando. Buscando fechas disponibles…",
+    expect(sent(result)[0]).toMatchObject({
+      kind: "send_buttons",
+      text: "Encontramos este establecimiento: *Centro de Salud San Fernando*.\n\n*¿Deseas agendar tu cita en este establecimiento?*",
     });
   });
 });

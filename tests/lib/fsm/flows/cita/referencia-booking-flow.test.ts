@@ -418,12 +418,12 @@ describe("referencia médica: confirmación final en el chat web", () => {
       result: { status: "duplicate" },
     });
 
-    expect(result.session.state).toBe("referencia_awaiting_appointment_mode");
+    expect(result.session.state).toBe("cita_awaiting_referencia_select");
     expect(queries(result)).toHaveLength(0);
     expect(texts(result)).toContain("ya tienes una cita activa");
     expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("5987");
     expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("222800");
-    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("1364486");
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
   });
 
   it("una cita duplicada del canal web conserva el destino aunque la sesión persistida no tenga canal", () => {
@@ -439,7 +439,7 @@ describe("referencia médica: confirmación final en el chat web", () => {
       result: { status: "duplicate" },
     });
 
-    expect(result.session.state).toBe("referencia_awaiting_appointment_mode");
+    expect(result.session.state).toBe("cita_awaiting_referencia_select");
     expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("5987");
     expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("222800");
     expect(queries(result)).toHaveLength(0);

@@ -58,27 +58,12 @@ describe("buildWelcomeEffect", () => {
     expect(effect.kind).toBe("send_interactive_list");
   });
 
-  it("web: plain text, no button, with the widget-specific copy", () => {
+  it("web: one list with the short welcome and the menu rows, no button", () => {
     const effect = buildWelcomeEffect("web");
 
-    expect(effect.kind).toBe("send_text");
-    expect(effect).not.toHaveProperty("buttonText");
-    expect(effect).not.toHaveProperty("url");
-    expect(effect.kind === "send_text" && effect.text).toContain("asistente virtual de MINSA Responde");
-    expect(effect.kind === "send_text" && effect.text).toContain("106");
-    expect(effect.kind === "send_text" && effect.text).not.toContain("abre *MINSA Responde*");
-  });
-});
-
-describe("buildWelcomeEffects", () => {
-  it("web: el mensaje de bienvenida seguido de las alternativas del menú principal", () => {
-    const effects = buildWelcomeEffects("web");
-
-    expect(effects).toHaveLength(2);
-    expect(effects[0]).toMatchObject({ kind: "send_text" });
-    expect(effects[1]).toEqual({
+    expect(effect).toEqual({
       kind: "send_interactive_list",
-      text: "¿En qué podemos ayudarte hoy?",
+      text: "¡Hola! Soy tu asistente virtual. En caso de emergencia médica, llama al *106* (SAMU).\n¿En qué puedo ayudarte?",
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
         { id: "consultar_referencia", title: "Consultar Referencias" },
@@ -86,6 +71,15 @@ describe("buildWelcomeEffects", () => {
         { id: "consultar_incidencia", title: "Consultar mi denuncia" },
       ],
     });
+  });
+});
+
+describe("buildWelcomeEffects", () => {
+  it("web: un solo mensaje, la bienvenida con las alternativas del menú principal", () => {
+    const effects = buildWelcomeEffects("web");
+
+    expect(effects).toEqual([buildWelcomeEffect("web")]);
+    expect(JSON.stringify(effects)).not.toContain("¿En qué podemos ayudarte hoy?");
   });
 
   it("whatsapp: sigue siendo un solo efecto, el de siempre", () => {

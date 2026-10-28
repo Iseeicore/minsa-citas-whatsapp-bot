@@ -1,11 +1,11 @@
 import { cloneSession, readTappedId, readTypedText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
-import { offerSelectableReferencias } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { askAppointmentMode, offerSelectableReferencias } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
 import { startReferenciasLookup } from "@/lib/fsm/flows/referencia/lookup";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { CITA_REFERENCIA_MODE_ANSWERS, CITA_REFERENCIA_RETRY_ANSWERS } from "@/lib/constants/palabras-clave";
-import { askAppointmentMode, askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
 import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";

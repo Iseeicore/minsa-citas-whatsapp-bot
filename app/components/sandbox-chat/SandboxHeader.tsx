@@ -53,7 +53,7 @@ export function SandboxHeader({
     <header className="shrink-0">
       <div className="flex h-10 items-center justify-between bg-sb-navy px-4 text-white">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-black uppercase tracking-widest">Minsa</span>
+          <span className="text-sm font-black tracking-widest">Minsa</span>
           <span className="text-xs text-white/70">| Perú</span>
           <Badge className="bg-white/15 text-white">Digital</Badge>
         </div>

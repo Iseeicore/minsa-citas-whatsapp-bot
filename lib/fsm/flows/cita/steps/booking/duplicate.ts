@@ -12,7 +12,7 @@ import {
   withLeadingText,
 } from "@/lib/fsm/core/handlers-shared";
 import { isReferenceAppointment } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
-import { askAppointmentMode } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { askAppointmentMode } from "@/lib/fsm/flows/cita/steps/booking/references";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -52,18 +52,34 @@ export function discardedEspecialidades(slots: Session["slots"]): string[] {
   return slotText(slots, SlotKey.CITA_ESPECIALIDADES_DESCARTADAS).split(",").filter(Boolean);
 }
 
+export function withDiscardedEspecialidad(slots: Session["slots"]): Session["slots"] {
+  const especialidadId = slotText(slots, SlotKey.CITA_ESPECIALIDAD_ID);
+  const descartadas = new Set(discardedEspecialidades(slots));
+
+  if (especialidadId) {
+    descartadas.add(especialidadId);
+  }
+
+  if (descartadas.size === 0) {
+    return slots;
+  }
+
+  return {
+    ...slots,
+    [SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]: [...descartadas].join(","),
+  };
+}
+
 export function offerOtherEspecialidad(session: Session): HandlerResult {
   if (isReferenceAppointment(session)) {
     return withLeadingText(askAppointmentMode(session), REFERENCIA_DUPLICATE_TEXT);
   }
   const next = cloneSession(session);
-  const taken = slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID);
   const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]
     ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*`
     : THAT_ESPECIALIDAD_TEXT;
 
-  const discarded = taken ? [...new Set([...discardedEspecialidades(next.slots), taken])] : discardedEspecialidades(next.slots);
-  if (discarded.length > 0) next.slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS] = discarded.join(",");
+  next.slots = withDiscardedEspecialidad(next.slots);
   for (const slot of BOOKING_BOUND_SLOTS) delete next.slots[slot];
   delete next.counters[CounterKey.CITA_HORA_PAGE];
   delete next.counters[CounterKey.CITA_BOOKING_FAILURES];

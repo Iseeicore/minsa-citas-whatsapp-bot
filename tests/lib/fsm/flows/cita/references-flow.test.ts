@@ -9,6 +9,8 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
 import {
   REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT,
   REFERENCIAS_LIST_TEXT,
@@ -109,14 +111,15 @@ describe("handleAwaitingReferenciaConfirm", () => {
     expect(fechas).toEqual({ kind: "list_fechas", payload: { codEess: "5987", especialidadId: "222800" } });
   });
 
-  it("sí, pero sin códigos de destino: permite elegir modalidad sin inventar otro destino", () => {
+  it("sí, pero sin códigos de destino: vuelve a la lista con «Cita sin referencia» sin inventar otro destino", () => {
     const sinCodigos: ReferenciaItem = { ...REFERENCIA, codigoIpressDestino: "", codigoUpsDestino: "" };
     const session = referenciaConfirmPending();
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([sinCodigos]);
 
     const result = handle(session, text("si"));
 
-    expect(result.session.state).toBe("referencia_awaiting_appointment_mode");
+    expect(result.session.state).toBe("cita_awaiting_referencia_select");
+    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.REFERENCE);
     expect(result.effects.filter(isQueryEffect)).toEqual([]);
   });
 
@@ -310,7 +313,8 @@ describe("referencias para agendar en el chat web", () => {
 
       const result = handle(offerReferenciasList(session).session, tap(REFERENCIA.idReferencia));
 
-      expect(result.session.state).toBe("referencia_awaiting_appointment_mode");
+      expect(result.session.state).toBe("cita_awaiting_referencia_select");
+      expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.REFERENCE);
       expect(result.effects.some(isQueryEffect)).toBe(false);
       expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
       expect(texts(result).join(" ")).toContain("no tiene todos los datos de destino");
@@ -395,8 +399,8 @@ describe("referencias para agendar en el chat web", () => {
       queryKind: "book_appointment",
       result: { status: "duplicate" },
     });
-    const listed = handle(duplicate.session, tap(CitaReferenciaButtonId.REFERENCE));
-    const selected = handle(listed.session, tap("222"));
+    expect(duplicate.session.state).toBe("cita_awaiting_referencia_select");
+    const selected = handle(duplicate.session, tap("222"));
 
     expect(selected.session.counters[CounterKey.CITA_BOOKING_FAILURES]).toBeUndefined();
     expect(selected.session.counters[CounterKey.CITA_HORA_PAGE]).toBeUndefined();
@@ -532,8 +536,32 @@ describe("referencias en todos los estados", () => {
     const rows = readOffered(result.session.slots)?.rows;
 
     expect(rows?.map((row) => row.id)).toEqual(["aceptada", "recibida"]);
-    expect(withConsultaReferenciasActions(result)).toEqual(result);
+    expect(withConsultaReferenciasActions(result).effects).toEqual([
+      expect.objectContaining({
+        kind: "send_interactive_list",
+        text: "Encontramos referencias aprobadas, elige con la que deseas pedir cita o si necesitas una *Cita sin referencia*.",
+        actions: [{ id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" }],
+      }),
+    ]);
     expect(readOffered(result.session.slots)?.text).toBe(REFERENCIAS_LIST_TEXT);
+  });
+
+  it("WhatsApp en Cita con referencia agrega «Cita sin referencia» como fila sin pasar de diez", () => {
+    const items = Array.from({ length: 9 }, (_, index) => conEstado(`aceptada-${index}`, 3));
+    const session = referenciaConfirmPending();
+    session.channel = SessionChannel.WHATSAPP;
+    session.slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.REFERENCE;
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(items);
+
+    const result = withConsultaReferenciasActions(offerReferenciasList(session));
+    const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
+    if (list?.kind !== "send_interactive_list") throw new Error("no list sent");
+    const rows = whatsappListRows(list);
+
+    expect(list.rows).toHaveLength(7);
+    expect(rows).toHaveLength(9);
+    expect(rows.length).toBeLessThanOrEqual(10);
+    expect(rows.at(-1)).toEqual({ id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" });
   });
 
   it("web muestra en la tarjeta la etiqueta del estado de las que permiten agendar", () => {

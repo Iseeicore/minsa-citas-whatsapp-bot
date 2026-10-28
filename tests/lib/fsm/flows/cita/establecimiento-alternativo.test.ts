@@ -87,7 +87,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
 
     expect(result.session.state).toBe("cita_fecha_pending");
     expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("0000456");
-    expect(sent(result)).toEqual([{ kind: "send_text", text: "Buscando fechas disponibles…" }]);
+    expect(sent(result)).toEqual([]);
     expect(queries(result)).toEqual([{ kind: "list_fechas", payload: { codEess: "0000456", especialidadId: "02" } }]);
   });
 

@@ -274,7 +274,7 @@ describe("consulta_query_pending: el resultado", () => {
 
     const web = handle(done, text("hola", "web"));
     expect(web.session.state).toBe("main_menu");
-    expect(sent(web).length).toBe(2);
+    expect(sent(web).length).toBe(1);
   });
 });
 

@@ -175,7 +175,9 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(accepted.texts.join(" ")).not.toContain("documento");
 
     await say(text("en Lurigancho"));
-    await say(text("odontología"));
+    const establecimiento = await say(text("odontología"));
+    expect(establecimiento.session.state).toBe("cita_awaiting_establecimiento_confirm");
+    await say(text("confirmar"));
     await say(text("la segunda"));
     await say(text("a las 9 y media"));
     const booked = await say(text("sí"));
@@ -206,12 +208,12 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(referencias.calls).toBe(1);
   });
 
-  it("la cita con referencias disponibles ofrece ambas modalidades antes de continuar", async () => {
+  it("la cita con referencias disponibles muestra la lista con «Cita sin referencia» antes de continuar", async () => {
     referencias.result = UNA_REFERENCIA;
 
     const otp = await login();
 
-    expect(otp.session.state).toBe("referencia_awaiting_appointment_mode");
+    expect(otp.session.state).toBe("cita_awaiting_referencia_select");
     expect(referencias.calls).toBe(1);
   });
 });

@@ -30,7 +30,6 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import {
-  REVIEWING_MESSAGE_TEXT,
   OUT_OF_SCOPE_REQUEST_TEXT,
   OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT,
   CITA_INTENT_DETECTED_TEXT,
@@ -200,7 +199,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
         slots: { ...preservedSlots, [SlotKey.INCIDENCIA_BORRADOR]: event.text },
         counters: {},
       };
-      return buildResult(next, [sendText(REVIEWING_MESSAGE_TEXT), query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text })]);
+      return buildResult(next, [query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text })]);
     }
 
     return enterMainMenu(channel, preservedSlots);

@@ -20,12 +20,14 @@ import { BookingStatus } from "@/lib/enums/booking-status";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { DistritoAiOutcome } from "@/lib/enums/distrito-ai-outcome";
+import { EstablecimientoConfirmButtonId } from "@/lib/enums/establecimiento-confirm-button-id";
 import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
+import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
@@ -161,7 +163,6 @@ beforeEach(() => {
   process.env.SANDBOX_ENABLED = "true";
   process.env.SANDBOX_USE_REAL_MINSA = "false";
   process.env.SANDBOX_USE_REAL_AI = "false";
-  process.env.SANDBOX_USE_REAL_RENIEC = "false";
   process.env.DATABASE_URL = "";
   process.env.DATABASE_ENABLED = "false";
   mocks.sessions.clear();
@@ -206,8 +207,8 @@ beforeEach(() => {
   });
 });
 
-describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
-  it("consulta las referencias despues del OTP y espera la eleccion antes de procesar pistas de ubicacion", async () => {
+describe("POST /api/sandbox: elegir una referencia o «Cita sin referencia»", () => {
+  it("consulta las referencias despues del OTP y muestra su lista antes de procesar pistas de ubicacion", async () => {
     const session = otpSession();
     session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT] = "Lurigancho";
     mocks.sessions.set(FROM, session);
@@ -216,19 +217,18 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
 
     expect(mocks.verifyCode).toHaveBeenCalledWith("synthetic-twofa", "123456");
     expect(mocks.listReferences).toHaveBeenCalledExactlyOnceWith(DOCUMENTO, "01", TOKEN);
-    expect(reply.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
-    const buttons = reply.sent.find((effect) => effect.kind === SendType.BUTTONS);
-    expect(buttons?.kind === SendType.BUTTONS && buttons.buttons.map((button) => button.id)).toEqual([
-      CitaReferenciaButtonId.NEW,
-      CitaReferenciaButtonId.REFERENCE,
+    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    const list = reply.sent.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
+    expect(list?.kind === SendType.INTERACTIVE_LIST && list.actions?.map((action) => action.id)).toEqual([
+      ReferenciaActionButtonId.NEW_APPOINTMENT,
     ]);
+    expect(reply.sent.some((effect) => effect.kind === SendType.BUTTONS)).toBe(false);
     expect(texts(reply)).not.toContain("distrito");
     expectNoCatalogSearch();
   });
 
   it("permite elegir entre especialidades y reserva el destino de la referencia solo despues de confirmar, sin duplicar por botones antiguos", async () => {
-    const mode = await verify();
-    const references = await tap(mode, CitaReferenciaButtonId.REFERENCE);
+    const references = await verify();
     const list = references.sent.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
     expect(list?.kind === SendType.INTERACTIVE_LIST && list.rows.map((row) => row.id)).toEqual(
       REFERENCIAS.map((item) => item.idReferencia),
@@ -273,25 +273,23 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     expect(mocks.bookAppointment).toHaveBeenCalledTimes(1);
   });
 
-  it("Nueva cita recorre el catalogo normal y reserva sin reutilizar referencia ni destino previos", async () => {
+  it("«Cita sin referencia» recorre el catalogo normal y reserva sin reutilizar referencia ni destino previos", async () => {
     const session = otpSession();
     session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = REFERENCIAS[0].idReferencia;
     session.slots[SlotKey.CITA_COD_EESS] = REFERENCIAS[0].codigoIpressDestino;
     session.slots[SlotKey.CITA_ESPECIALIDAD_ID] = REFERENCIAS[0].codigoUpsDestino;
     mocks.sessions.set(FROM, session);
 
-    const mode = await verify();
-    const nueva = await tap(mode, CitaReferenciaButtonId.NEW);
+    const references = await verify();
+    const nueva = await tap(references, ReferenciaActionButtonId.NEW_APPOINTMENT);
     expect(nueva.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
     expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
     expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
 
     const especialidades = await send({ type: InboundEventType.TEXT, text: "Lurigancho" });
     const establecimientos = await tap(especialidades, "ups-nueva");
-    const fechas =
-      establecimientos.session.state === SessionState.CITA_AWAITING_FECHA_SELECT
-        ? establecimientos
-        : await tap(establecimientos, "eess-nueva");
+    expect(establecimientos.session.state).toBe(SessionState.CITA_AWAITING_ESTABLECIMIENTO_CONFIRM);
+    const fechas = await tap(establecimientos, EstablecimientoConfirmButtonId.CONFIRM);
     const horas = await tap(fechas, FECHA);
     const confirm = await send({ type: InboundEventType.TEXT, text: "09:00" });
     expect(confirm.session.state).toBe(SessionState.CITA_AWAITING_HORA_CONFIRM);
@@ -308,17 +306,17 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
   it("una reserva duplicada conserva el proposito de referencia despues de expirar el acceso y verificar otro OTP", async () => {
     mocks.bookAppointment.mockResolvedValueOnce({ status: BookingStatus.DUPLICATE, message: "Cita activa de prueba" });
     let reply = await verify();
-    for (const id of [CitaReferenciaButtonId.REFERENCE, REFERENCIAS[0].idReferencia, FECHA, HORA, HoraConfirmButtonId.YES]) {
+    for (const id of [REFERENCIAS[0].idReferencia, FECHA, HORA, HoraConfirmButtonId.YES]) {
       reply = await tap(reply, id);
     }
-    expect(reply.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     const persisted = mocks.sessions.get(FROM);
     expect(persisted).toBeDefined();
     if (!persisted) return;
     expect(persisted.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
     persisted.slots[SlotKey.CITA_BEARER] = `synthetic.${Buffer.from(JSON.stringify({ exp: 1 })).toString("base64url")}.signature`;
 
-    const expired = await tap(reply, CitaReferenciaButtonId.REFERENCE);
+    const expired = await tap(reply, REFERENCIAS[1].idReferencia);
     expect(expired.session.state).toBe(SessionState.CITA_AWAITING_REAUTH);
     const otp = await tap(expired, ReauthButtonId.YES);
     expect(otp.session.state).toBe(SessionState.CITA_AWAITING_OTP);
@@ -370,7 +368,7 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     expectNoCatalogSearch();
   });
 
-  it("con una sola referencia que permite agendar entre bloqueadas sigue preguntando la modalidad", async () => {
+  it("con una sola referencia que permite agendar entre bloqueadas muestra la lista de referencias", async () => {
     mocks.listReferences.mockResolvedValue({
       statusReference: ReferenceStatus.FOUND,
       message: "",
@@ -378,7 +376,7 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     });
     const reply = await verify();
 
-    expect(reply.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
   });
 
   it("una consulta exitosa sin referencias continua directamente con una nueva cita", async () => {
@@ -395,11 +393,10 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
   it("una referencia incompleta no cambia silenciosamente a una cita nueva", async () => {
     const incomplete = { ...REFERENCIAS[0], codigoIpressDestino: "", codigoUpsDestino: "" };
     mocks.listReferences.mockResolvedValue({ statusReference: ReferenceStatus.FOUND, message: "", data: [incomplete] });
-    const mode = await verify();
-    const references = await tap(mode, CitaReferenciaButtonId.REFERENCE);
+    const references = await verify();
     const unavailable = await tap(references, incomplete.idReferencia);
 
-    expect(unavailable.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(unavailable.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expectNoCatalogSearch();
   });
@@ -412,7 +409,7 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     expect(texts(failed)).not.toContain("No cuentas con referencias");
     expectNoCatalogSearch();
     const retried = await tap(failed, CitaReferenciaButtonId.RETRY);
-    expect(retried.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(retried.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     expect(mocks.listReferences).toHaveBeenCalledTimes(2);
     expect(mocks.listReferences).toHaveBeenNthCalledWith(1, DOCUMENTO, "01", TOKEN);
     expect(mocks.listReferences).toHaveBeenNthCalledWith(2, DOCUMENTO, "01", TOKEN);
@@ -431,16 +428,16 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     expectNoCatalogSearch();
   });
 
-  it("un boton antiguo no cambia la modalidad ni consulta disponibilidad", async () => {
-    const mode = await verify();
-    const stale = await send({ type: InboundEventType.BUTTON, listId: CitaReferenciaButtonId.REFERENCE, replyTo: "mensaje-anterior" });
+  it("un boton antiguo no elige referencia ni consulta disponibilidad", async () => {
+    const references = await verify();
+    const stale = await send({ type: InboundEventType.BUTTON, listId: REFERENCIAS[0].idReferencia, replyTo: "mensaje-anterior" });
 
     expect(stale.sent).toEqual([]);
-    expect(stale.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
-    expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBeUndefined();
+    expect(stale.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expectNoCatalogSearch();
-    const current = await tap(mode, CitaReferenciaButtonId.REFERENCE);
-    expect(current.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    const current = await tap(references, REFERENCIAS[0].idReferencia);
+    expect(current.session.state).toBe(SessionState.CITA_AWAITING_FECHA_SELECT);
   });
 
   it("WhatsApp sin referencias que permitan agendar continua con una nueva cita como el chat web", async () => {
@@ -457,11 +454,11 @@ describe("POST /api/sandbox: elegir nueva cita o cita con referencia", () => {
     expectNoCatalogSearch();
   });
 
-  it("WhatsApp consulta referencias despues del OTP y ofrece las mismas modalidades que el chat web", async () => {
+  it("WhatsApp consulta referencias despues del OTP y muestra la misma lista que el chat web", async () => {
     mocks.sessions.set(FROM, otpSession(SessionChannel.WHATSAPP));
     const result = await runTurn(FROM, { from: FROM, type: InboundEventType.TEXT, text: "123456", channel: SessionChannel.WHATSAPP });
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     expect(mocks.verifyCode).toHaveBeenCalledTimes(1);
     expect(mocks.listReferences).toHaveBeenCalledExactlyOnceWith(DOCUMENTO, "01", TOKEN);
     expectNoCatalogSearch();

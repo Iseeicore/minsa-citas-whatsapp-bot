@@ -58,6 +58,7 @@ export type SlotTypes = {
   [SlotKey.CITA_ESTABLECIMIENTO_SIN_FECHAS]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO]: string;
   [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE]: string;
+  [SlotKey.CITA_NO_COVERAGE_SUBJECT]: string;
   [SlotKey.INCIDENCIA_ORIGEN]: string;
   [SlotKey.INCIDENCIA_BORRADOR]: string;
   [SlotKey.INCIDENCIA_UBICACION_TEXTO]: string;

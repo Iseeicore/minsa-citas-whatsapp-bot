@@ -3,6 +3,7 @@ import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-b
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
 
 export const REFERENCE_PAGE_ANSWERS: Readonly<Record<string, ListPageButtonId | HoraPageButtonId | undefined>> = {
   ANTERIORES: ListPageButtonId.PREV,
@@ -204,6 +205,16 @@ export const OTHER_ESPECIALIDAD_ANSWERS = new Set([
 ]);
 export const DUPLICATE_EXIT_ANSWERS = new Set(["SALIR", "NO SALIR"]);
 export const CHANGE_DISTRICT_ANSWERS = new Set(["CAMBIAR", "CAMBIAR DE DISTRITO", "OTRO DISTRITO", "OTRO", "BUSCAR OTRO DISTRITO"]);
+export const OTHER_SEDE_ANSWERS = new Set(["OTRA SEDE", "OTRA", "NO"]);
+
+export const NO_ESTABLECIMIENTOS_ANSWERS: ReadonlyMap<string, OtherDistritoButtonId> = new Map<string, OtherDistritoButtonId>([
+  ["1", OtherDistritoButtonId.YES],
+  ["2", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
+  ["OTRA", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
+  ["OTRA ESPECIALIDAD", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
+  ["ELEGIR OTRA ESPECIALIDAD", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
+  ["3", OtherDistritoButtonId.NO],
+]);
 
 export const CHANGE_DATE_ANSWERS = new Set([
   "CAMBIAR",
