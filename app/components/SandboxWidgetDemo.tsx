@@ -127,7 +127,7 @@ export default function SandboxWidgetDemo({ children }: { children: ReactNode })
       <Button
         variant={ButtonVariant.UNSTYLED}
         onClick={openChat}
-        aria-label="Abrir el asistente virtual MINS IA"
+        aria-label="Abrir el asistente virtual"
         className={cn(
           "fixed right-24 z-20 transition md:right-32 duration-200 hover:scale-105",
           showingLauncher ? "opacity-100" : "pointer-events-none opacity-0",

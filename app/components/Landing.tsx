@@ -1,6 +1,4 @@
 import Image from "next/image";
-import { Button } from "@/app/components/ui/Button";
-import { ButtonVariant } from "@/lib/enums/button-variant";
 import Link from "next/link";
 
 const NAV_LINK = "text-sm font-semibold uppercase text-gray-600 hover:text-brand-navy";
