@@ -8,6 +8,10 @@ describe("extractCodigoIncidencia", () => {
     ["  MINSA-2026-000003  ", "MINSA-2026-000003"],
     ["quiero revisar mi incidencia MINSA-2026-000003.", "MINSA-2026-000003"],
     ["Hola, mi código es Minsa-2027-123456 gracias", "MINSA-2027-123456"],
+    ["MINSA-2026-A-000012", "MINSA-2026-A-000012"],
+    ["mi denuncia anónima es minsa-2026-a-000012.", "MINSA-2026-A-000012"],
+    ["MINSA-2026-1000000", "MINSA-2026-1000000"],
+    ["el código MINSA-2026-A-1000000 por favor", "MINSA-2026-A-1000000"],
   ])("reconoce el código completo en %j", (text, expected) => {
     expect(extractCodigoIncidencia(text)).toBe(expected);
   });
@@ -17,7 +21,11 @@ describe("extractCodigoIncidencia", () => {
     "-0000",
     "MINSA-2026-0003",
     "MINSA-26-000003",
-    "MINSA-2026-0000030",
+    "MINSA-2026-A-00012",
+    "MINSA-2026-B-000012",
+    "MINSA-2026-A000012",
+    "MINSA-2026-AA-000012",
+    "MINSA-2026-A-",
     "XMINSA-2026-000003",
     "MINSA-2026-000003X",
     "MINSA 2026 000003",
@@ -30,6 +38,15 @@ describe("extractCodigoIncidencia", () => {
 describe("parseCodigoIncidencia", () => {
   it("acepta solo un código y tolera espacios alrededor", () => {
     expect(parseCodigoIncidencia("  minsa-2026-000003 ")).toBe("MINSA-2026-000003");
+  });
+
+  it("acepta el código anónimo y el de más de seis dígitos", () => {
+    expect(parseCodigoIncidencia(" minsa-2026-a-000012 ")).toBe("MINSA-2026-A-000012");
+    expect(parseCodigoIncidencia("MINSA-2026-1000000")).toBe("MINSA-2026-1000000");
+  });
+
+  it("rechaza una serie distinta de la anónima", () => {
+    expect(parseCodigoIncidencia("MINSA-2026-B-000012")).toBeNull();
   });
 
   it("rechaza una frase que lo contiene", () => {

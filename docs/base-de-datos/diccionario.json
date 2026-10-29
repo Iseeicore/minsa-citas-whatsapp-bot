@@ -93,7 +93,7 @@
         "usuario_id": "Usuario que presentó el reporte.",
         "mensaje_id": "Mensaje del chat del que nació el reporte. Opcional.",
         "wa_id": "Id del chat (dato de Meta). Copia del usuario para filtrar sin unir tablas y para enlazar el reporte con el chat.",
-        "es_anonimo": "Verdadero si el paciente eligió no dar su DNI ni su nombre. El id del chat se guarda igual.",
+        "es_anonimo": "Verdadero si el paciente eligió no dar su DNI ni su nombre. El id del chat se guarda igual. No cambia después de registrar el caso y decide la serie de su código (A si es anónima).",
         "dni_reclamante": "DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo.",
         "nombre_reclamante": "Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo.",
         "descripcion": "Relato del paciente. Es el texto que analiza la IA. No se puede modificar.",
@@ -113,7 +113,7 @@
         "resultado_resolucion_id": "Resultado de la resolución: ATENDIDO o CERRADO. Se registra junto con las medidas y el fundamento.",
         "resuelto_en": "Fecha y hora (UTC) en que se registró la resolución (medidas, fundamento y resultado). La llena la base.",
         "resuelto_por": "Quién registró la resolución. La llena la base.",
-        "codigo": "Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada.",
+        "codigo": "Código legible del caso, con el formato MINSA-AAAA-NNNNNN si la incidencia es identificada y MINSA-AAAA-A-NNNNNN si es anónima: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año en su serie, de 6 dígitos o más, que reinicia cada año. Las dos series llevan contadores separados. La serie A solo la lleva una incidencia anónima; las anónimas anteriores a la serie conservan su código sin la A. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada.",
         "establecimiento_id": "Establecimiento de salud donde ocurrió el hecho (dato de origen). Opcional. Una vez asignado no se puede cambiar; solo la carga de datos de la migración puede completarlo cuando estaba vacío.",
         "area_destino_id": "Área a la que se derivó o se asignó el caso. La base la asigna sola: la de OTRANS cuando la categoría es sensible y existe una única área que las recibe, y la del establecimiento de origen cuando un caso no sensible (queja, reclamo u otro) se clasifica sin destino o se corrige de sensible a no sensible mientras no se gestiona. Solo se reasigna mientras el caso está CLASIFICADO o DERIVADO, y un caso sensible solo puede estar en un área que reciba casos sensibles.",
         "derivado_en": "Fecha y hora (UTC) en que el caso pasó a DERIVADO (o se reasignó su área). La llena la base.",
@@ -130,12 +130,13 @@
       }
     },
     "chatbot.contador_codigo_incidencia": {
-      "descripcion": "Último correlativo usado en cada año para el código de las incidencias. Una fila por año, que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.",
+      "descripcion": "Último correlativo usado en cada año y cada serie para el código de las incidencias. Una fila por año y serie (N para las identificadas, A para las anónimas), que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.",
       "columnas": {
-        "anio": "Año del código (zona America/Lima), de cuatro dígitos. Es la clave: hay una fila por año.",
-        "ultimo": "Último correlativo entregado ese año. El próximo código usa este valor más uno. Solo puede subir.",
-        "fecha_creacion": "Fecha y hora (UTC) en que se creó la fila del año, es decir, cuando llegó la primera incidencia de ese año.",
-        "fecha_modificacion": "Fecha y hora (UTC) del último código entregado ese año. La llena un disparador."
+        "anio": "Año del código (zona America/Lima), de cuatro dígitos. Junto con la serie es la clave: hay una fila por año y serie.",
+        "serie": "Serie del código: N para las incidencias identificadas (MINSA-AAAA-NNNNNN) y A para las anónimas (MINSA-AAAA-A-NNNNNN). Cada serie lleva su propio correlativo. No cambia.",
+        "ultimo": "Último correlativo entregado ese año en esa serie. El próximo código usa este valor más uno. Solo puede subir.",
+        "fecha_creacion": "Fecha y hora (UTC) en que se creó la fila del año y la serie, es decir, cuando llegó la primera incidencia de esa serie ese año.",
+        "fecha_modificacion": "Fecha y hora (UTC) del último código entregado ese año en esa serie. La llena un disparador."
       }
     },
     "chatbot.incidencia_paciente_auditoria": {
@@ -205,7 +206,8 @@
         "nombre_completo": "Nombre completo de la persona.",
         "correo": "Correo institucional, siempre en minúscula. Es único y es lo que la persona escribe para iniciar sesión.",
         "password_hash": "Huella Argon2id de la clave, en formato PHC (empieza con $argon2id$). Nunca se guarda la clave; la base rechaza cualquier valor que no tenga ese formato.",
-        "area_id": "Área a la que pertenece el usuario. Obligatoria para los roles con tipo de área (gestor, establecimiento y OTRANS); opcional para el administrador. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área. Un establecimiento admite como máximo 3 usuarios activos."
+        "area_id": "Área a la que pertenece el usuario. Obligatoria para los roles con tipo de área (gestor, establecimiento y OTRANS); opcional para el administrador. Cambiarla cierra las sesiones abiertas del usuario, y su tipo debe coincidir con el de sus roles que tengan tipo de área. Un establecimiento admite como máximo 3 usuarios activos.",
+        "clave_cambiada_en": "Fecha y hora (UTC) en que el usuario cambió su clave por última vez. Nula mientras no la haya cambiado: el usuario nace sin cambiarla (también el administrador creado con gestion.crear_administrador) y debe cambiarla al iniciar sesión."
       }
     },
     "gestion.rol": {
@@ -402,8 +404,8 @@
     "fn_reglas_sesion_usuario": "Hace cumplir las reglas de la sesión: nace vigente, sin revocar y para un usuario activo; el usuario y el vencimiento no cambian; la actividad no retrocede; la revocación se registra una sola vez con la fecha de la base y una sesión revocada no se modifica.",
     "fn_cerrar_sesiones_usuario": "Al desactivar un usuario interno o cambiarle el área, revoca todas sus sesiones abiertas.",
     "fn_reglas_usuario_rol": "Impide asignar un rol desactivado a un usuario interno y un rol con tipo de área a un usuario sin área o con un área de otro tipo.",
-    "fn_asignar_codigo_incidencia": "Al insertar una incidencia le pone su código y descarta el que haya enviado quien inserta.",
-    "fn_reglas_contador_codigo": "Impide borrar filas del contador de códigos, cambiar su año o bajar el último correlativo.",
+    "fn_asignar_codigo_incidencia": "Al insertar una incidencia le pone su código, en la serie anónima si la incidencia es anónima, y descarta el que haya enviado quien inserta.",
+    "fn_reglas_contador_codigo": "Impide borrar filas del contador de códigos, cambiar su año o su serie, o bajar el último correlativo.",
     "fn_reglas_incidencia_ins": "Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma, archivado o reapertura.",
     "fn_reglas_rol_categoria": "Impide dar una categoría sensible a un rol de establecimiento o de DIRIS.",
     "fn_reglas_usuario_interno_area": "Impide darle a un usuario interno un área cuyo tipo no coincide con el de sus roles que tienen tipo de área, y quitarle el área si tiene alguno de esos roles.",

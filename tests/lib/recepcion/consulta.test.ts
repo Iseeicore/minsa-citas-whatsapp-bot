@@ -59,6 +59,17 @@ describe("consultarIncidencia", () => {
     expect(db.findFirst).not.toHaveBeenCalled();
   });
 
+  it.each(["MINSA-2026-A-000012", "MINSA-2026-1000000", "MINSA-2026-A-1000000"])("el código %s llega a la base", async (codigo) => {
+    await consultarIncidencia(codigo, { canal: "whatsapp", waId: "x" });
+
+    expect(db.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ codigo }) }));
+  });
+
+  it.each(["MINSA-2026-B-000012", "MINSA-2026-A-00012", "minsa-2026-a-000012"])("el código %s no llega a la base", async (codigo) => {
+    await expect(consultarIncidencia(codigo, { canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "not_found" });
+    expect(db.findFirst).not.toHaveBeenCalled();
+  });
+
   it("base apagada: error (se avisa «inténtalo más tarde») y no consulta", async () => {
     db.enabled = false;
 
