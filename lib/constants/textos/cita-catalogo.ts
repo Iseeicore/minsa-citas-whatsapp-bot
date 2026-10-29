@@ -1,4 +1,5 @@
 import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
+import { EstablecimientoConfirmButtonId } from "@/lib/enums/establecimiento-confirm-button-id";
 import { NO_SALIR_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 
 export const SEARCHING_ESTABLECIMIENTOS_TEXT = "Buscando establecimientos…";
@@ -35,3 +36,10 @@ export const OTHER_ESTABLECIMIENTO_BUTTONS = [
 ];
 
 export const MEDICINA_GENERAL_ESPECIALIDAD_TEXT = "Medicina General";
+
+export const CONFIRMAR_BUTTON_TEXT = "Confirmar";
+export const OTRA_SEDE_BUTTON_TEXT = "Otra sede";
+export const ESTABLECIMIENTO_CONFIRM_BUTTONS = [
+  { id: EstablecimientoConfirmButtonId.CONFIRM, title: CONFIRMAR_BUTTON_TEXT },
+  { id: EstablecimientoConfirmButtonId.OTHER_SEDE, title: OTRA_SEDE_BUTTON_TEXT },
+];

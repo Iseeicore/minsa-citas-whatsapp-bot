@@ -1,5 +1,6 @@
 import { noPudimosLeerText, NO_SALIR_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
+import { SALIR_BUTTON_TEXT } from "@/lib/constants/textos/cita-referencia";
 
 export const ASK_DISTRITO_TEXT = 'Cuéntanos en qué distrito buscas atención (ej. "Miraflores").';
 export const ASK_DISTRITO_NOMBRE_TEXT = "Cuéntanos el nombre del distrito.";
@@ -46,4 +47,12 @@ export const ASK_OTHER_DISTRITO_TEXT = 'Perfecto. Cuéntanos en qué otro distri
 export const OTHER_DISTRITO_BUTTONS = [
   { id: OtherDistritoButtonId.YES, title: OTHER_DISTRITO_YES_BUTTON_TEXT },
   { id: OtherDistritoButtonId.NO, title: NO_SALIR_BUTTON_TEXT },
+];
+
+export const OTRO_DISTRITO_BUTTON_TEXT = "Otro distrito";
+export const OTRA_ESPECIALIDAD_BUTTON_TEXT = "Otra especialidad";
+export const NO_ESTABLECIMIENTOS_BUTTONS = [
+  { id: OtherDistritoButtonId.YES, title: OTRO_DISTRITO_BUTTON_TEXT },
+  { id: OtherDistritoButtonId.OTHER_ESPECIALIDAD, title: OTRA_ESPECIALIDAD_BUTTON_TEXT },
+  { id: OtherDistritoButtonId.NO, title: SALIR_BUTTON_TEXT },
 ];

@@ -4,11 +4,11 @@ import { SessionState } from "@/lib/enums/session-state";
 import { buildResult, offerPagedList, query, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
-import { EstablecimientoConfirmButtonId } from "@/lib/enums/establecimiento-confirm-button-id";
 import { catalogRowDescription, formatEstablecimientoName } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { matchAllTokens } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import {
+  ESTABLECIMIENTO_CONFIRM_BUTTONS,
   ESTABLECIMIENTO_DETECTED_LABEL_TEXT,
   ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT,
   ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT,
@@ -18,14 +18,6 @@ import {
   SELECT_ESTABLECIMIENTO_TEXT,
 } from "@/lib/constants/textos/cita-catalogo";
 import { slotText } from "@/lib/fsm/core/slot-readers";
-
-const CONFIRMAR_BUTTON_TEXT = "Confirmar";
-const OTRA_SEDE_BUTTON_TEXT = "Otra sede";
-
-const ESTABLECIMIENTO_CONFIRM_BUTTONS = [
-  { id: EstablecimientoConfirmButtonId.CONFIRM, title: CONFIRMAR_BUTTON_TEXT },
-  { id: EstablecimientoConfirmButtonId.OTHER_SEDE, title: OTRA_SEDE_BUTTON_TEXT },
-];
 
 export type EstablecimientoResultItem = {
   renipressCode: string;

@@ -35,20 +35,11 @@ import {
   NO_ESTABLECIMIENTOS_QUESTION_TEXT,
   noEstablecimientosText,
   OTHER_DISTRITO_BUTTONS,
+  NO_ESTABLECIMIENTOS_BUTTONS,
 } from "@/lib/constants/textos/cita-ubicacion";
 import { CHANGE_DISTRICT_ANSWERS, NO_ESTABLECIMIENTOS_ANSWERS } from "@/lib/constants/palabras-clave";
 import { stringOr } from "@/lib/utils/text-values";
 import { slotText } from "@/lib/fsm/core/slot-readers";
-
-const OTRO_DISTRITO_BUTTON_TEXT = "Otro distrito";
-const OTRA_ESPECIALIDAD_BUTTON_TEXT = "Otra especialidad";
-const SALIR_BUTTON_TEXT = "Salir";
-
-const NO_ESTABLECIMIENTOS_BUTTONS = [
-  { id: OtherDistritoButtonId.YES, title: OTRO_DISTRITO_BUTTON_TEXT },
-  { id: OtherDistritoButtonId.OTHER_ESPECIALIDAD, title: OTRA_ESPECIALIDAD_BUTTON_TEXT },
-  { id: OtherDistritoButtonId.NO, title: SALIR_BUTTON_TEXT },
-];
 
 const DISTRICT_BOUND_SLOTS = [
   SlotKey.CITA_DISTRITO,
