@@ -12,6 +12,7 @@ import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
   REFERENCIA_GOODBYE_TEXT,
+  REFERENCIA_SIN_AGENDABLES_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
@@ -203,7 +204,7 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     expect(rows.map((row) => row.id)).toEqual([REFERENCES[1].idReferencia]);
   });
 
-  it("consultar referencia: si la única seleccionable quedó sin programación, Sí nombra las bloqueadas y pregunta si desea agendar una cita", () => {
+  it("consultar referencia: si la única seleccionable quedó sin programación, Sí avisa que no hay referencias para agendar y pregunta si desea agendar una cita", () => {
     const session = pending(channel);
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([REFERENCES[0], { ...REFERENCES[1], estado: 1 }]);
     const asked = turn(session, query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
@@ -213,7 +214,7 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
     expect(result.effects[0]).toMatchObject({
       kind: SendType.TEXT,
-      text: expect.stringContaining("Estas referencias no permiten agendar una cita:"),
+      text: REFERENCIA_SIN_AGENDABLES_TEXT,
     });
     expect(result.effects.at(-1)).toEqual({
       kind: SendType.BUTTONS,

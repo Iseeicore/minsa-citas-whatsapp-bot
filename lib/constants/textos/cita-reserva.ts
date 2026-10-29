@@ -38,9 +38,6 @@ export const REFERENCIA_SIN_PROGRAMACION_ETIQUETA = "Sin programación";
 export const REFERENCIA_SIN_PROGRAMACION_TEXT = "Esta referencia no tiene programación de atención disponible. Elige otra.";
 export const referenciaBloqueadaText = (etiqueta: string): string =>
   `Esta referencia está en estado ${etiqueta} y no permite agendar una cita. Elige otra.`;
-export const referenciaBloqueadaLineaText = (especialidad: string, destino: string, numero: string, estado: string): string =>
-  `• ${especialidad} · ${destino} · N° ${numero} · ${estado}`;
-export const referenciasBloqueadasRestantesText = (restantes: number): string => `y ${restantes} más`;
 
 export const REFERENCIA_ESPECIALIDAD_LABEL = "Especialidad / atención";
 export const REFERENCIA_DESTINO_LABEL = "Destino";
