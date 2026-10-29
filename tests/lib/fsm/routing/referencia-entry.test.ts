@@ -52,6 +52,8 @@ describe("isReferenciaKeyword", () => {
     "mi referencia médica",
     "necesito revisar mis referencias",
     "¿quiero ver mis referencias?",
+    "Cita con referencia",
+    "cita con mis referencias",
   ])("%j is a request to consult the referencias", (message) => {
     expect(isReferenciaKeyword(message)).toBe(true);
   });
@@ -77,7 +79,7 @@ describe("main menu: entering Consultar referencia", () => {
   });
 
   it.each([Channel.WEB, Channel.WHATSAPP])("writing the keyword asks to log in first, with the same logic (%s)", (channel) => {
-    for (const message of ["referencia", "quiero consultar mi referencia", "Mis referencias"]) {
+    for (const message of ["referencia", "quiero consultar mi referencia", "Mis referencias", "Cita con referencia"]) {
       expectLoginForReferencias(handle(mainMenu(), typed(message, channel)));
     }
   });

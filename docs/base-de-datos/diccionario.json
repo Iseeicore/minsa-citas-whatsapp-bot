@@ -165,6 +165,15 @@
         "fecha_recepcion": "Fecha y hora (UTC) en que se recibió el archivo."
       }
     },
+    "chatbot.aceptacion_terminos": {
+      "descripcion": "Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. Guarda el chat, el canal, la versión del texto aceptado y el momento. Es de solo inserción: no se modifica ni se borra.",
+      "columnas": {
+        "wa_id": "Id del chat que aceptó: el número de WhatsApp o el identificador de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque la aceptación puede ocurrir antes de que exista el usuario.",
+        "canal_origen_id": "Canal por el que se aceptó (WhatsApp o web).",
+        "version": "Versión del texto de los términos y condiciones que se mostró y se aceptó, por ejemplo 2026-10-29.",
+        "aceptado_en": "Fecha y hora (UTC) en que la persona aceptó los términos y condiciones."
+      }
+    },
     "chatbot.sesion_conversacion": {
       "descripcion": "Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). Es efímera: se reescribe en cada turno y se purga cuando queda inactiva. No guarda imágenes.",
       "columnas": {
@@ -341,6 +350,7 @@
     "fk_mensaje_direccion_mensaje": "Garantiza que el sentido sea entrante o saliente. Sirve para distinguir lo que dijo el ciudadano de lo que respondió el bot.",
     "fk_mensaje_tipo_mensaje": "Garantiza que el tipo de contenido sea uno conocido. Sirve para decidir cómo mostrar o procesar el mensaje.",
     "fk_mensaje_estado_mensaje": "Garantiza que el estado de entrega sea uno del catálogo. Sirve para reintentar o reportar mensajes fallidos.",
+    "fk_aceptacion_terminos_canal_origen": "Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se aceptaron los términos.",
     "fk_incidencia_paciente_canal_origen": "Garantiza que el canal sea uno del catálogo. Sirve para unificar reportes de varios canales.",
     "fk_incidencia_paciente_usuario": "Cada reporte lo presenta un usuario. Sirve para ver todo lo que reportó una persona.",
     "fk_incidencia_paciente_mensaje": "Enlaza el reporte con el mensaje del chat del que nació. Sirve para reconstruir el contexto de la conversación.",

@@ -77,7 +77,7 @@ describe("a duplicate booking means one active cita per especialidad", () => {
     const result = handle(duplicate().session, answer);
 
     expect(result.session.state).toBe("cita_especialidad_pending");
-    expect(sent(result)).toEqual([{ kind: "send_text", text: "Buscando otras especialidades disponibles…" }]);
+    expect(sent(result)).toEqual([]);
     expect(queries(result)).toEqual([{ kind: "list_especialidades", payload: { ubigeo: "150132" } }]);
   });
 

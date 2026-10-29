@@ -138,7 +138,7 @@ describe("the Sandbox answers a referencia that is not a plain request with the 
     expect(buttons?.text).toBe(
       "Gestión de Referencias Médicas:\n\nPara una cita en hospital o instituto, tu centro de origen debe emitir la Hoja de Referencia (REFCON).\n\n¿Qué deseas hacer?",
     );
-    expect(buttons?.buttons?.map((button) => button.title)).toEqual(["Consultar referencia", "Agendar cita"]);
+    expect(buttons?.buttons?.map((button) => button.title)).toEqual(["Cita con referencia", "Agendar cita"]);
     expect(shown.session.state).toBe(SessionState.MAIN_MENU_REFERENCIA_CHOICE);
 
     const old = await send({ type: "button", listId: ReferenciaChoiceButtonId.AGENDAR_CITA, replyTo: "web-anterior" });

@@ -3,10 +3,10 @@ import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import { askReferenciaChoice, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
-import { askAppointmentMode, reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { askReferenciaChoice, beginCita, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
-import { askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
 import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { serviceCatalog } from "@/lib/services/service-catalog";
@@ -53,9 +53,8 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
 const BUTTON_STATE_REPROMPTS: Record<string, (session: Session) => HandlerResult> = {
   [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
-  [SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE]: askAppointmentMode,
-  [SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY]: askReferenceLookupRetry,
   [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: askOtherReference,
+  [SessionState.CITA_AWAITING_TERMINOS]: reshowTerminos,
   [SessionState.MAIN_MENU_REFERENCIA_CHOICE]: askReferenciaChoice,
 };
 
@@ -72,16 +71,8 @@ export function routeLexicalAction(session: Session, action: Exclude<LexicalActi
         sendButtons(institutionalWarningText(), CONTINUE_BUTTONS),
       ]);
 
-    case "CITA_WITH_WARNING": {
-      const hints = message ? extractCitaHints(message) : {};
-      const withHints = {
-        ...slots,
-        ...(hints.especialidad ? { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: hints.especialidad } : {}),
-        ...(hints.distrito ? { [SlotKey.CITA_DISTRITO_HINT_TEXT]: hints.distrito } : {}),
-      };
-
-      return buildResult({ state: SessionState.CITA_AWAITING_DNI, slots: withHints, counters: {} }, [sendText(CITA_WITH_WARNING_TEXT)]);
-    }
+    case "CITA_WITH_WARNING":
+      return beginCita(slots, message ? extractCitaHints(message) : {}, CITA_WITH_WARNING_TEXT);
 
     case "FORCE_INCIDENCIA": {
       const incidencia = serviceCatalog.byId(MenuChoice.REGISTRAR_INCIDENCIA);

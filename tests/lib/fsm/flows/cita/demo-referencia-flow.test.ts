@@ -80,14 +80,12 @@ describe("verificación con los DNI demo (10308523 y 47391441)", () => {
   });
 
   it.each([DEMO_REFERENCIA_DNI, DEMO_PEDIATRIA_DNI])(
-    "%s solo llega al demo por el servicio de referencias: en la cita consulta las referencias reales",
+    "%s solo llega al demo por el servicio de referencias: en la cita sigue al distrito",
     (dni) => {
       const result = handleVerifyPending(verifyPending(dni, {}, {}), verifyResult({ status: "verified", token: "token-demo" }));
 
-      expect(result.session.state).toBe("referencia_lookup_pending");
-      expect(result.effects.filter(isQueryEffect)).toEqual([
-        { kind: "list_references", payload: { numeroDocumento: dni, tipoDocumento: "01" } },
-      ]);
+      expect(result.session.state).toBe("cita_awaiting_distrito_ai");
+      expect(result.effects.filter(isQueryEffect)).toEqual([]);
       expect(listRows(result)).toBeUndefined();
     },
   );

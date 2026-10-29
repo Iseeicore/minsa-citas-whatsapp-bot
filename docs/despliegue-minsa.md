@@ -8,7 +8,8 @@ Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Do
 - **Las migraciones se reescribieron.** Una base creada con la versión anterior no se actualiza: hay que usar una base **nueva y vacía**.
 - **Las páginas del Chat-bot quedan ocultas y la bandeja web, cerrada**, salvo que se defina `SANDBOX_PAGE_ENABLED=true`. `POST /api/sandbox`, que usa el portal de MINSA Digital, no cambia.
 - **La imagen sigue sin credenciales dentro.** Todo entra por variables de entorno.
-- **Aparece el servicio «Consultar referencia», sin variable nueva.** Está siempre encendido y depende del endpoint de referencias de MINSA (`/whatsapp/api/v1/references`) y de `SANDBOX_USE_REAL_MINSA=true`; el detalle, en [flujo-referencias.md](flujo-referencias.md). La cita dejó de consultar referencias por su cuenta después del OTP.
+- **El servicio de referencias se llama ahora «Cita con referencia», sin variable nueva.** Está siempre encendido y depende del endpoint de referencias de MINSA (`/whatsapp/api/v1/references`) y de `SANDBOX_USE_REAL_MINSA=true`; el detalle, en [flujo-referencias.md](flujo-referencias.md). «Agendar una cita médica» ya no consulta referencias después del OTP.
+- **Términos y condiciones antes de la cita, apagados por defecto.** `TERMINOS_ENABLED=true` los muestra antes de agendar una cita médica y `TERMINOS_URL` (sin valor por defecto) es la página que enlaza WhatsApp, por ejemplo `https://<host-del-bot>/terminos`. Cada aceptación se guarda en la tabla nueva `chatbot.aceptacion_terminos`, que crea la migración `20261029130000_aceptacion_terminos`.
 
 ## 2. Requisitos de la base (PostgreSQL 16)
 
@@ -73,6 +74,8 @@ Sin definir, el valor por defecto es el correcto.
 ```bash
 SANDBOX_PAGE_ENABLED=
 INCIDENCIAS_ENABLED=false
+TERMINOS_ENABLED=false
+TERMINOS_URL=
 MEDIA_STORAGE_BASE_URL=
 MEDIA_STORAGE_TOKEN=
 MEDIA_STORAGE_TIMEOUT_MS=
@@ -84,6 +87,8 @@ LOG_TO_FILE=false
 |---|---|---|
 | `SANDBOX_PAGE_ENABLED` | `true` muestra `/sandbox` y `/configuracion-visor-sandbox` y **abre la bandeja web** (`/api/conversations*`, `/api/messages/send`), que no tiene autenticación | Las páginas redirigen a `/api/health` y las rutas de la bandeja responden 404. **En producción, déjenla sin definir** |
 | `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece en el menú **Registrar una incidencia** y **Consultar una incidencia** (whatsapp-bot y Chat-bot) | Apagada: solo queda **Agendar una cita médica**; vacía o con cualquier otro valor equivale a sin definir. Las incidencias no se ofrecen ni se pueden alcanzar escribiendo `2`, `3`, `incidencia` o un código `MINSA-AAAA-NNNNNN`. **Para usar incidencias, pónganla en `true`** |
+| `TERMINOS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) muestra los términos y condiciones antes de agendar una cita médica, en whatsapp-bot y en el Chat-bot | Apagada: la cita empieza como antes, sin términos. Se lee en cada mensaje: cambiarla exige reiniciar el proceso, no recompilar |
+| `TERMINOS_URL` | Página de los términos que enlaza el botón **Ver términos** de whatsapp-bot; el bot la publica en `/terminos` | Sin enlace: whatsapp-bot muestra solo **Acepto** y **No acepto**, y queda el aviso `terminos.url_missing` en el log |
 | `MEDIA_STORAGE_BASE_URL` | Servicio donde se guarda la foto de evidencia de una incidencia | La foto se recibe pero no se guarda, y queda un aviso en el log |
 | `MEDIA_STORAGE_TOKEN` | Credencial de ese servicio, si la pide | Sin credencial |
 | `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de espera de ese servicio | 10 000 ms |
@@ -111,8 +116,9 @@ Hay otras opcionales (`INBOUND_RATE_LIMIT`, `TURN_DB_LOCK`, `TURN_LOCK_TIMEOUT_M
 | WhatsApp | las 4 `META_*` | El compose se detiene y nombra la que falta |
 | Citas con datos reales | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` | Datos simulados |
 | IA del bot | `SANDBOX_USE_REAL_AI=true` y `GOOGLE_CLIENT_API` | Respuestas fijas; no entiende texto libre ni distritos mal escritos |
-| Consultar referencia | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` y que el backend de MINSA publique `/whatsapp/api/v1/references`. No lleva bandera ni variable nueva | Siempre responde «No cuentas con referencias registradas.» y ofrece agendar una cita. Los DNI de demostración `10308523` y `47391441` son la excepción, solo en este servicio |
+| Cita con referencia | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` y que el backend de MINSA publique `/whatsapp/api/v1/references`. No lleva bandera ni variable nueva | Siempre responde «No cuentas con referencias registradas.» y ofrece agendar una cita. Los DNI de demostración `10308523` y `47391441` son la excepción, solo en este servicio |
 | Incidencias | `INCIDENCIAS_ENABLED=true`, `DATABASE_ENABLED=true` y `DATABASE_URL` | Sin la primera, no aparecen en el menú; sin las otras dos, no se guardan |
+| Términos antes de la cita | `TERMINOS_ENABLED=true`; para el enlace de WhatsApp, `TERMINOS_URL` | Sin la primera, la cita no los muestra; sin base de datos, la aceptación solo queda en la memoria del proceso |
 | Portal de MINSA Digital | `SANDBOX_ENABLED=true` y `SANDBOX_ALLOWED_ORIGINS` | `POST /api/sandbox` responde 404 |
 
 ## 5. Despliegue
@@ -193,7 +199,7 @@ El backend de incidencias también trae su script `crear-admin`, que lee `ADMIN_
 
 ## 8. RENIEC
 
-`RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC` activan la consulta del nombre por DNI en el flujo de incidencias. Ese servicio es de un tercero, no de MINSA.
+`RENIEC_LOOKUP_BASE_URL` y `SANDBOX_USE_REAL_RENIEC` ya no se leen en este código y salieron de `.env.example`: pueden quitarse del ambiente. Lo que sigue describe la consulta del nombre por DNI que hacían, un servicio de un tercero, no de MINSA.
 
 - **Qué se envía:** el número de DNI, dentro de la URL de la consulta.
 - **Sin RENIEC:** el flujo **no se detiene**. El bot pide un nombre o alias, y la incidencia se guarda con el DNI tal como se escribió, sin verificar. Solo el DNI de prueba `12345678` devuelve un nombre.

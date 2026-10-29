@@ -1,4 +1,5 @@
 CREATE OR REPLACE TRIGGER trg_etiqueta_bloqueo_borrado BEFORE DELETE ON catalogo.etiqueta FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
+CREATE OR REPLACE TRIGGER trg_aceptacion_terminos_bloqueo BEFORE DELETE OR UPDATE ON chatbot.aceptacion_terminos FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('todo');
 CREATE OR REPLACE TRIGGER trg_archivo_recibido_bloqueo_borrado BEFORE DELETE ON chatbot.archivo_recibido FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('borrado');
 CREATE OR REPLACE TRIGGER trg_evidencia_bloqueo BEFORE DELETE OR UPDATE ON chatbot.evidencia FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('todo');
 CREATE OR REPLACE TRIGGER trg_incidencia_analisis_bloqueo BEFORE DELETE OR UPDATE ON chatbot.incidencia_analisis FOR EACH ROW EXECUTE FUNCTION fn_bloquear_operacion('todo');

@@ -44,9 +44,17 @@ SANDBOX_ALLOWED_ORIGINS=
 
 # Banderas
 INCIDENCIAS_ENABLED=false
+TERMINOS_ENABLED=false
+
+# Términos y condiciones
+TERMINOS_URL=
 ```
 
 Llena los valores vacíos según el ambiente donde se despliegue.
+
+El menú ofrece **Agendar una cita médica** y **Cita con referencia** en whatsapp-bot y en el Chat-bot; con `INCIDENCIAS_ENABLED=true` suma las incidencias. **Cita con referencia** pide el documento y el código, muestra las referencias que permiten agendar y reserva con la referencia elegida. **Agendar una cita médica** ya no consulta referencias.
+
+`TERMINOS_ENABLED=true` (sin distinguir mayúsculas ni espacios) muestra los términos y condiciones antes de agendar una cita médica; cualquier otro valor la deja apagada. En el Chat-bot salen en una ventana con la casilla «Acepto los términos y condiciones»; en WhatsApp, con los botones **Acepto** y **No acepto** y, si `TERMINOS_URL` tiene valor, un enlace **Ver términos** a esa página (por ejemplo `https://<host-del-bot>/terminos`). `TERMINOS_URL` no tiene valor por defecto: sin ella WhatsApp muestra solo los botones. Cada aceptación se guarda en `chatbot.aceptacion_terminos`.
 
 Para usar la base de datos se necesitan `DATABASE_ENABLED=true` y `DATABASE_URL`. Con `DATABASE_ENABLED=false` el servicio arranca sin base de datos y sin aplicar migraciones: la conversación vive en memoria y las incidencias no se guardan.
 

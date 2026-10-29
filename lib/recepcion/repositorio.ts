@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { declararActorEn } from "@/lib/db/actor";
-import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
+import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
 import { SessionChannel } from "@/lib/enums/session-channel";
@@ -15,11 +15,6 @@ export type DatosIncidencia = {
   canal: SessionChannel;
 };
 
-const CANAL_ORIGEN: Readonly<Record<SessionChannel, CanalOrigenId>> = {
-  [SessionChannel.WHATSAPP]: CanalOrigenId.WHATSAPP,
-  [SessionChannel.WEB]: CanalOrigenId.WEB,
-};
-
 export type DatosEvidencia = { mimeType: string; tamano: number; ruta: string };
 
 export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvidencia[], actor: string) {
@@ -29,7 +24,7 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvid
 
     const incidencia = await tx.incidenciaPaciente.create({
       data: {
-        canalOrigenId: CANAL_ORIGEN[datos.canal],
+        canalOrigenId: CANAL_ORIGEN_POR_CANAL[datos.canal],
         usuarioId: usuario.id,
         waId: datos.waId,
         esAnonimo: datos.dni === null && datos.nombreCompleto === null,

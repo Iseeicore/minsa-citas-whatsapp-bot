@@ -8,12 +8,12 @@ import { buildResult, cloneSession, sendText, withNote, readTappedId, readTypedT
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import { abandonedText, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
-import { askAppointmentMode, reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { reshowEstablecimientoConfirm } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
-import { askReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
 import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
+import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -52,18 +52,16 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_REFERENCIA_SELECT,
   SessionState.CITA_AWAITING_REFERENCIA_CONFIRM,
   SessionState.REFERENCIA_AWAITING_CITA_OFFER,
-  SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE,
-  SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY,
   SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE,
+  SessionState.CITA_AWAITING_TERMINOS,
 ]);
 
 const BUTTON_REPROMPTS: Readonly<Record<string, ((session: Session) => HandlerResult) | undefined>> = {
   [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
   [SessionState.CITA_AWAITING_ESTABLECIMIENTO_CONFIRM]: reshowEstablecimientoConfirm,
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
-  [SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE]: askAppointmentMode,
-  [SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY]: askReferenceLookupRetry,
   [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: askOtherReference,
+  [SessionState.CITA_AWAITING_TERMINOS]: reshowTerminos,
 };
 
 const CHANGE_DISTRITO_STATES: ReadonlySet<string> = new Set<Session["state"]>([

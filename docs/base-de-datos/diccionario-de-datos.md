@@ -32,6 +32,7 @@
 | `catalogo.tipo_area` | Tipo de área a la que se puede derivar una incidencia: establecimiento, OTRANS, DIRIS, instituto o sede central. |
 | `catalogo.tipo_evidencia` | Tipo de archivo adjunto como evidencia (imagen, video, documento, audio). |
 | `catalogo.tipo_mensaje` | Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla). |
+| `chatbot.aceptacion_terminos` | Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. |
 | `chatbot.archivo_recibido` | Cada archivo que el ciudadano sube a través de una solicitud de carga, con su estado de verificación. |
 | `chatbot.contador_codigo_incidencia` | Último correlativo usado en cada año para el código de las incidencias. |
 | `chatbot.evidencia` | Archivo que el paciente adjunta a su reporte (imagen, video, documento o audio). |
@@ -486,6 +487,39 @@ Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, pl
 
 - `trg_tipo_mensaje_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_tipo_mensaje_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
+
+### `chatbot.aceptacion_terminos`
+
+Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. Guarda el chat, el canal, la versión del texto aceptado y el momento. Es de solo inserción: no se modifica ni se borra.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
+| `wa_id` | text | No |  |  | Id del chat que aceptó: el número de WhatsApp o el identificador de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque la aceptación puede ocurrir antes de que exista el usuario. |
+| `canal_origen_id` | smallint | No |  | FK | Canal por el que se aceptó (WhatsApp o web). |
+| `version` | text | No |  |  | Versión del texto de los términos y condiciones que se mostró y se aceptó, por ejemplo 2026-10-29. |
+| `aceptado_en` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que la persona aceptó los términos y condiciones. |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_aceptacion_terminos_canal_origen` | `canal_origen_id` | `catalogo.canal_origen` | Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se aceptaron los términos. |
+
+**Restricciones**
+
+- `ck_aceptacion_terminos_version`: `CHECK ((char_length(btrim(version)) > 0))`.
+- `ck_aceptacion_terminos_wa_id`: `CHECK ((char_length(btrim(wa_id)) > 0))`.
+
+**Índices**
+
+- `ix_aceptacion_terminos_wa_id`: `USING btree (wa_id)`.
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_aceptacion_terminos_bloqueo` (Antes de borrar o modificar): Tabla de solo inserción: bloquea modificar y borrar.
 
 ### `chatbot.archivo_recibido`
 

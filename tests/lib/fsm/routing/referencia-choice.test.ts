@@ -23,7 +23,7 @@ const CHOICE = {
   kind: "send_buttons",
   text: "Gestión de Referencias Médicas:\n\nPara una cita en hospital o instituto, tu centro de origen debe emitir la Hoja de Referencia (REFCON).\n\n¿Qué deseas hacer?",
   buttons: [
-    { id: ReferenciaChoiceButtonId.CONSULTAR_REFERENCIA, title: "Consultar referencia" },
+    { id: ReferenciaChoiceButtonId.CONSULTAR_REFERENCIA, title: "Cita con referencia" },
     { id: ReferenciaChoiceButtonId.AGENDAR_CITA, title: "Agendar cita" },
   ],
 };
@@ -130,7 +130,7 @@ describe("answering the choice", () => {
   it.each([
     "1",
     "uno",
-    "Consultar referencia",
+    "Cita con referencia",
     "consultar referencia",
     "¡CONSULTAR  Referencia!",
     "referencia",

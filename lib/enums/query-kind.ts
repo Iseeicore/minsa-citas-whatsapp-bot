@@ -19,4 +19,5 @@ export enum QueryKind {
   LISTAR_INCIDENCIAS = "listar_incidencias",
   VERIFICAR_CONSENTIMIENTO = "verificar_consentimiento",
   REGISTRAR_CONSENTIMIENTO = "registrar_consentimiento",
+  REGISTRAR_ACEPTACION_TERMINOS = "registrar_aceptacion_terminos",
 }

@@ -1,12 +1,19 @@
 import { buildResult, cloneSession, sendText } from "@/lib/fsm/core/handlers-shared";
 import { mentionsPlacePreposition } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
+import { askTerminos, needsTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { TerminosResume } from "@/lib/enums/terminos-resume";
 
 export function continueCitaAfterVerification(session: Session): HandlerResult {
+  if (needsTerminos(session)) return askTerminos(session, TerminosResume.CONTINUE_VERIFIED);
+  return resumeCitaAfterVerification(session);
+}
+
+export function resumeCitaAfterVerification(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.CITA_AWAITING_DISTRITO_AI;
 

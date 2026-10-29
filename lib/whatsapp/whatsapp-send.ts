@@ -4,7 +4,7 @@ import { GraphResultStatus } from "@/lib/enums/graph-result-status";
 import type { GraphResult, GraphSendMessageResponse } from "@/lib/types/graph-api.types";
 import { ACTOR_SISTEMA_BOT } from "@/lib/db/actor";
 import { recordOutboundMessage } from "@/lib/inbox/repository";
-import type { SendEffect } from "@/lib/fsm/core/types";
+import type { ChannelSendEffect, SendEffect } from "@/lib/fsm/core/types";
 import { SendType } from "@/lib/enums/send-type";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
@@ -15,8 +15,9 @@ import { isRecord } from "@/lib/utils/type-guards";
 import { readNumber, readString } from "@/lib/utils/record-readers";
 import { HTTP_BAD_REQUEST } from "@/lib/constants/http-status";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
+import { toWhatsAppEffects } from "@/lib/whatsapp/terminos-effects";
 
-function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknown> {
+function buildGraphBody(waId: string, effect: ChannelSendEffect): Record<string, unknown> {
   const base = {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -81,7 +82,7 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
   }
 }
 
-function withinLimits(waId: string, effect: SendEffect): SendEffect {
+function withinLimits(waId: string, effect: ChannelSendEffect): ChannelSendEffect {
   const violations = findLimitViolations(effect);
   if (violations.length === 0) return effect;
   logger.warn("outbound.limit_violation", { waId: tail(waId), kind: effect.kind, violations });
@@ -91,15 +92,15 @@ function withinLimits(waId: string, effect: SendEffect): SendEffect {
 type GraphSendResult = GraphResult<GraphSendMessageResponse>;
 type GraphSendFailure = Extract<GraphSendResult, { status: GraphResultStatus.ERROR }>;
 
-function postEffect(waId: string, effect: SendEffect): Promise<GraphSendResult> {
+function postEffect(waId: string, effect: ChannelSendEffect): Promise<GraphSendResult> {
   return graphClient.post<GraphSendMessageResponse>(graphMessagesPath(), buildGraphBody(waId, effect));
 }
 
-export async function sendWhatsAppEffect(waId: string, effect: SendEffect): Promise<GraphSendResult> {
+export async function sendWhatsAppEffect(waId: string, effect: ChannelSendEffect): Promise<GraphSendResult> {
   return postEffect(waId, withinLimits(waId, effect));
 }
 
-function logFailure(waId: string, effect: SendEffect, failure: GraphSendFailure): void {
+function logFailure(waId: string, effect: ChannelSendEffect, failure: GraphSendFailure): void {
   const networkError = graphNetworkError(failure);
   if (networkError) {
     logger.error("whatsapp.send_failed", { operation: "send_effect", waId: tail(waId), error: networkError });
@@ -152,7 +153,7 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   if (error) logger.warn("whatsapp.typing_failed", { error });
 }
 
-export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<string | null> {
+async function sendAndRecordMessage(conversationId: string | null, waId: string, effect: ChannelSendEffect): Promise<string | null> {
   const outbound = withinLimits(waId, effect);
   const result = await postEffect(waId, outbound);
   if (result.status === GraphResultStatus.DATA) return recordDelivered(conversationId, outbound.text, result.data);
@@ -165,6 +166,12 @@ export async function sendAndRecordEffect(conversationId: string | null, waId: s
   if (retry.status === GraphResultStatus.DATA) return recordDelivered(conversationId, fallback.text, retry.data);
   logFailure(waId, fallback, retry);
   return null;
+}
+
+export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<string | null> {
+  let sentId: string | null = null;
+  for (const message of toWhatsAppEffects(effect)) sentId = await sendAndRecordMessage(conversationId, waId, message);
+  return sentId;
 }
 
 export async function sendAndRecordCtaUrl(

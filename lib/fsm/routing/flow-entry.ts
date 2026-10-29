@@ -1,4 +1,5 @@
 import { buildResult, sendButtons, sendList, sendText, withNote } from "@/lib/fsm/core/handlers-shared";
+import { startCitaIdentity } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, Session, SessionChannel } from "@/lib/fsm/core/types";
 import type { BotService } from "@/lib/services/bot-service";
@@ -29,7 +30,7 @@ export function beginCita(slots: Session["slots"], hints: CitaHints, intro: stri
     },
     counters: {},
   };
-  return buildResult(next, [sendText(intro)]);
+  return startCitaIdentity(next, intro);
 }
 
 export function askReferenciaChoice(session: Session): HandlerResult {

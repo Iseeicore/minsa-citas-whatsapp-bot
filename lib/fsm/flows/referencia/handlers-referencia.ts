@@ -12,8 +12,6 @@ import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-pa
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/continuation";
 import { offerConsultaReferencias } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { referenciasBloqueadasAviso, tieneReferenciasSeleccionables } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
-import { handleAppointmentReferenceLookup } from "@/lib/fsm/flows/referencia/appointment-lookup";
-import { handleAppointmentMode, handleReferenceLookupRetry } from "@/lib/fsm/flows/referencia/appointment-mode";
 import { handleOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { closeReferencia } from "@/lib/fsm/flows/referencia/close-reference";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
@@ -49,9 +47,6 @@ export function askCitaOffer(session: Session): HandlerResult {
 
 export function handleReferenciaLookupPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as ListReferencesResult;
-  if (session.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.CITA_REFERENCIAS) {
-    return handleAppointmentReferenceLookup(session, result);
-  }
   const next = cloneSession(session);
 
   if (result.statusReference !== ReferenceStatus.FOUND || result.data.length === 0) {
@@ -88,10 +83,6 @@ const REFERENCIA_HANDLERS: Readonly<Record<ActiveReferenciaState, (session: Sess
     event.type === InternalEventType.QUERY_RESULT ? handleReferenciaLookupPending(session, event) : buildResult(session, []),
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: (session, event) =>
     event.type !== InternalEventType.QUERY_RESULT ? handleReferenciaAwaitingCitaOffer(session, event) : buildResult(session, []),
-  [SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE]: (session, event) =>
-    event.type !== InternalEventType.QUERY_RESULT ? handleAppointmentMode(session, event) : buildResult(session, []),
-  [SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY]: (session, event) =>
-    event.type !== InternalEventType.QUERY_RESULT ? handleReferenceLookupRetry(session, event) : buildResult(session, []),
   [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: (session, event) =>
     event.type !== InternalEventType.QUERY_RESULT ? handleOtherReference(session, event) : buildResult(session, []),
 };

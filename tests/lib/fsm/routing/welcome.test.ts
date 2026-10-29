@@ -43,7 +43,7 @@ describe("buildWelcomeEffect", () => {
       text: "¿En qué podemos ayudarte hoy?",
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
-        { id: "consultar_referencia", title: "Consultar Referencias" },
+        { id: "consultar_referencia", title: "Cita con referencia" },
         { id: "registrar_incidencia", title: "Denuncia anticorrupción" },
         { id: "consultar_incidencia", title: "Consultar mi denuncia" },
       ],
@@ -66,7 +66,7 @@ describe("buildWelcomeEffect", () => {
       text: "¡Hola! Soy tu asistente virtual. En caso de emergencia médica, llama al *106* (SAMU).\n¿En qué puedo ayudarte?",
       rows: [
         { id: "agendar_cita", title: "Agendar una cita médica" },
-        { id: "consultar_referencia", title: "Consultar Referencias" },
+        { id: "consultar_referencia", title: "Cita con referencia" },
         { id: "registrar_incidencia", title: "Denuncia anticorrupción" },
         { id: "consultar_incidencia", title: "Consultar mi denuncia" },
       ],

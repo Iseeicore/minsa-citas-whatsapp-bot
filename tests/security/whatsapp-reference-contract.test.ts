@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { Session } from "@/lib/fsm/core/types";
 import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
-import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
-import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
+import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -94,7 +94,7 @@ function session(): Session {
 }
 
 async function identify(): Promise<void> {
-  await send("cita");
+  await send("referencia");
   expect(session().state).toBe(SessionState.CITA_AWAITING_DNI);
   await send(WHATSAPP_REFERENCE_DOCUMENT);
   expect(session().state).toBe(SessionState.CITA_AWAITING_OTP);
@@ -192,6 +192,7 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
     expect(rows.map((row) => row.id)).toEqual([
       ...WHATSAPP_REFERENCE_ROWS.map((row) => row.id_referencia),
       ReferenciaActionButtonId.NEW_APPOINTMENT,
+      ReferenciaActionButtonId.EXIT,
     ]);
     expect(rows.every((row) => Object.keys(row).every((key) => ["id", "title", "description"].includes(key)))).toBe(true);
 
@@ -332,11 +333,11 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
     await send("Ver más opciones");
     await send("Ver más opciones");
     await send("1");
-    authenticated(MinsaEndpoint.FECHAS, { cod_eess: "006001", especialidad_id: "0222800" });
+    authenticated(MinsaEndpoint.FECHAS, { cod_eess: "005999", especialidad_id: "0222800" });
     await send("Ver más opciones");
     await send("Ver más opciones");
     await send("1");
-    authenticated(MinsaEndpoint.HORAS, { cod_eess: "006001", especialidad_id: "0222800", fecha: "20990215" });
+    authenticated(MinsaEndpoint.HORAS, { cod_eess: "005999", especialidad_id: "0222800", fecha: "20990215" });
     await send("Ver más horarios");
     await send("Ver más horarios");
     await send("1");
@@ -357,9 +358,9 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
     if (result === "empty") upstream.responses.set(MinsaEndpoint.REFERENCIAS, []);
     if (result === "error") upstream.statuses.set(MinsaEndpoint.REFERENCIAS, 503);
     await identify();
-    if (result === "error") {
-      expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_LOOKUP_RETRY);
-      await send(undefined, CitaReferenciaButtonId.NEW, true);
+    if (result !== "found") {
+      expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+      await send(undefined, ReferenciaCitaOfferButtonId.YES, true);
     }
     if (result === "found") {
       expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
@@ -399,101 +400,85 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
   });
 
   it.each([
-    ["empty", "button", OtherReferenciaCitaButtonId.REFERENCES, "lista"],
-    ["zero", "text", "referencias", "lista"],
+    ["empty", "button", OtherReferenciaButtonId.YES, "lista"],
+    ["zero", "text", "sí", "lista"],
     ["empty", "text", "1", "lista"],
-    ["zero", "button", OtherReferenciaCitaButtonId.NEW_APPOINTMENT, "cita"],
-    ["empty", "text", "cita médica", "cita"],
+    ["zero", "button", OtherReferenciaButtonId.NO, "salir"],
     ["zero", "text", "salir", "salir"],
-  ] as const)(
-    "agendar sin fechas %s espera decidir mediante %s/%s entre referencias y cita médica",
-    async (quota, type, answer, outcome) => {
-      upstream.responses.set(MinsaEndpoint.FECHAS, {
-        data: { fechas: quota === "empty" ? [] : WHATSAPP_REFERENCE_DATES.map((row) => ({ ...row, cantidad_cupos: 0 })) },
-      });
-      await references();
-      const beforeMessages = upstream.messages.length;
-      await send(undefined, WHATSAPP_REFERENCE_ROWS[0].id_referencia);
-      expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
-      expect(upstream.messages.slice(beforeMessages).some((message) => message.interactive?.type === "list")).toBe(false);
-      const question = upstream.latestInteractive().interactive;
-      expect(question?.type).toBe("button");
-      expect(question?.action.buttons?.map((button) => button.reply.id)).toEqual([
-        OtherReferenciaCitaButtonId.REFERENCES,
-        OtherReferenciaCitaButtonId.NEW_APPOINTMENT,
-      ]);
-      expect(question?.action.buttons?.map((button) => button.reply.title)).toEqual(["Referencias", "Cita médica"]);
-      expect(question?.body.text).toContain("¿Deseas continuar con tus referencias o con una cita médica?");
-      const requestsBefore = upstream.requests.length;
-      await send("no entiendo");
-      expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
+  ] as const)("sin fechas %s espera decidir mediante %s/%s si elegir otra referencia", async (quota, type, answer, outcome) => {
+    upstream.responses.set(MinsaEndpoint.FECHAS, {
+      data: { fechas: quota === "empty" ? [] : WHATSAPP_REFERENCE_DATES.map((row) => ({ ...row, cantidad_cupos: 0 })) },
+    });
+    await references();
+    const beforeMessages = upstream.messages.length;
+    await send(undefined, WHATSAPP_REFERENCE_ROWS[0].id_referencia);
+    expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
+    expect(upstream.messages.slice(beforeMessages).some((message) => message.interactive?.type === "list")).toBe(false);
+    const question = upstream.latestInteractive().interactive;
+    expect(question?.type).toBe("button");
+    expect(question?.action.buttons?.map((button) => button.reply.id)).toEqual([OtherReferenciaButtonId.YES, OtherReferenciaButtonId.NO]);
+    expect(question?.body.text).toContain("¿Deseas seleccionar otra referencia?");
+    const requestsBefore = upstream.requests.length;
+    await send("no entiendo");
+    expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
+    expect(upstream.requests).toHaveLength(requestsBefore);
+    expect(upstream.requestsFor(MinsaEndpoint.HORAS)).toHaveLength(0);
+    expect(upstream.requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
+    if (type === "button") await send(undefined, answer, true);
+    else await send(answer);
+    expect(upstream.requests).toHaveLength(requestsBefore);
+    if (outcome === "salir") {
+      expect(session().state).toBe(SessionState.REFERENCIA_CLOSED);
+      expect(Object.keys(session().slots).sort()).toEqual([SlotKey.INTERACTIVE_MESSAGE_ID, SlotKey.INTERACTIVE_MESSAGE_CONSUMED].sort());
+      expect(upstream.messages.at(-1)?.text?.body).toBe(REFERENCIA_GOODBYE_TEXT);
+      const beforeStale = upstream.messages.length;
+      await send(undefined, OtherReferenciaButtonId.YES, true, String(session().slots[SlotKey.INTERACTIVE_MESSAGE_ID]));
+      expect(session().state).toBe(SessionState.REFERENCIA_CLOSED);
+      expect(upstream.messages).toHaveLength(beforeStale);
       expect(upstream.requests).toHaveLength(requestsBefore);
-      expect(upstream.requestsFor(MinsaEndpoint.HORAS)).toHaveLength(0);
-      expect(upstream.requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
-      if (type === "button") await send(undefined, answer, true);
-      else await send(answer);
-      expect(upstream.requests).toHaveLength(requestsBefore);
-      if (outcome === "salir") {
-        expect(session().state).toBe(SessionState.REFERENCIA_CLOSED);
-        expect(Object.keys(session().slots).sort()).toEqual([SlotKey.INTERACTIVE_MESSAGE_ID, SlotKey.INTERACTIVE_MESSAGE_CONSUMED].sort());
-        expect(upstream.messages.at(-1)?.text?.body).toBe(REFERENCIA_GOODBYE_TEXT);
-        const beforeStale = upstream.messages.length;
-        await send(undefined, OtherReferenciaCitaButtonId.REFERENCES, true, String(session().slots[SlotKey.INTERACTIVE_MESSAGE_ID]));
-        expect(session().state).toBe(SessionState.REFERENCIA_CLOSED);
-        expect(upstream.messages).toHaveLength(beforeStale);
-        expect(upstream.requests).toHaveLength(requestsBefore);
-        return;
-      }
-      if (outcome === "cita") {
-        expect(session().state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
-        expect(session().slots[SlotKey.CITA_BEARER]).toBe(WHATSAPP_REFERENCE_TOKEN);
-        expect(session().slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
-        expect(session().slots[SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION]).toBeUndefined();
-        return;
-      }
-      expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
-      const rows = upstream.rows();
-      expect(rows.map((row) => row.id)).toEqual([
-        ...[WHATSAPP_REFERENCE_ROWS[1], WHATSAPP_REFERENCE_ROWS[2]].map((row) => row.id_referencia),
-        ReferenciaActionButtonId.NEW_APPOINTMENT,
-      ]);
-      expect(rows.every((row) => Object.keys(row).every((key) => ["id", "title", "description"].includes(key)))).toBe(true);
-      await send(undefined, WHATSAPP_REFERENCE_ROWS[0].id_referencia);
-      expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
-      expect(upstream.requests).toHaveLength(requestsBefore);
-      expect(session().slots[SlotKey.CITA_BEARER]).toBe(WHATSAPP_REFERENCE_TOKEN);
-      upstream.responses.set(MinsaEndpoint.FECHAS, { data: { fechas: WHATSAPP_REFERENCE_DATES } });
-      await send(undefined, WHATSAPP_REFERENCE_ROWS[2].id_referencia);
-      authenticated(MinsaEndpoint.FECHAS, { cod_eess: "009999", especialidad_id: "0223300" });
-      await send(undefined, WHATSAPP_REFERENCE_DATES[0].fecha_cupo);
-      expect(session().state).toBe(SessionState.CITA_AWAITING_HORA_SELECT);
-      authenticated(MinsaEndpoint.HORAS, { cod_eess: "009999", especialidad_id: "0223300", fecha: "20990101" });
-      expect(upstream.requestsFor(MinsaEndpoint.REFERENCIAS)).toHaveLength(1);
-      expect(upstream.requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
-    },
-  );
+      return;
+    }
+    expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    const rows = upstream.rows();
+    expect(rows.map((row) => row.id)).toEqual([
+      ...[WHATSAPP_REFERENCE_ROWS[1], WHATSAPP_REFERENCE_ROWS[2]].map((row) => row.id_referencia),
+      ReferenciaActionButtonId.NEW_APPOINTMENT,
+      ReferenciaActionButtonId.EXIT,
+    ]);
+    expect(rows.every((row) => Object.keys(row).every((key) => ["id", "title", "description"].includes(key)))).toBe(true);
+    await send(undefined, WHATSAPP_REFERENCE_ROWS[0].id_referencia);
+    expect(session().state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    expect(upstream.requests).toHaveLength(requestsBefore);
+    expect(session().slots[SlotKey.CITA_BEARER]).toBe(WHATSAPP_REFERENCE_TOKEN);
+    upstream.responses.set(MinsaEndpoint.FECHAS, { data: { fechas: WHATSAPP_REFERENCE_DATES } });
+    await send(undefined, WHATSAPP_REFERENCE_ROWS[2].id_referencia);
+    authenticated(MinsaEndpoint.FECHAS, { cod_eess: "009999", especialidad_id: "0223300" });
+    await send(undefined, WHATSAPP_REFERENCE_DATES[0].fecha_cupo);
+    expect(session().state).toBe(SessionState.CITA_AWAITING_HORA_SELECT);
+    authenticated(MinsaEndpoint.HORAS, { cod_eess: "009999", especialidad_id: "0223300", fecha: "20990101" });
+    expect(upstream.requestsFor(MinsaEndpoint.REFERENCIAS)).toHaveLength(1);
+    expect(upstream.requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
+  });
 
   it.each([
-    ["referencias", SessionState.CITA_AWAITING_REFERENCIA_SELECT],
+    ["sí", SessionState.CITA_AWAITING_REFERENCIA_SELECT],
     ["1", SessionState.CITA_AWAITING_REFERENCIA_SELECT],
-    ["cita médica", SessionState.CITA_AWAITING_DISTRITO_AI],
-    ["2", SessionState.CITA_AWAITING_DISTRITO_AI],
-  ] as const)("la pregunta sin cupos de agendar acepta %s cuando Meta exige texto alternativo", async (answer, state) => {
+    ["2", SessionState.REFERENCIA_CLOSED],
+  ] as const)("la pregunta sin cupos acepta %s cuando Meta exige texto alternativo", async (answer, state) => {
     numberedFallback();
     upstream.responses.set(MinsaEndpoint.FECHAS, { data: { fechas: [] } });
     await identify();
     await send("1");
     expect(session().state).toBe(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE);
     const question = upstream.messages.at(-1)?.text?.body ?? "";
-    expect(question).toContain("¿Deseas continuar con tus referencias o con una cita médica?");
-    expect(question).toContain("1. Referencias");
-    expect(question).toContain("2. Cita médica");
+    expect(question).toContain("¿Deseas seleccionar otra referencia?");
+    expect(question).toContain("1. Sí");
+    expect(question).toContain("2. No, salir");
     const requestsBefore = upstream.requests.length;
     await send(answer);
     expect(upstream.requests).toHaveLength(requestsBefore);
     expect(session().state).toBe(state);
     expect(upstream.requestsFor(MinsaEndpoint.HORAS)).toHaveLength(0);
     expect(upstream.requestsFor(MinsaEndpoint.CITAS)).toHaveLength(0);
-    expect(session().slots[SlotKey.CITA_BEARER]).toBe(WHATSAPP_REFERENCE_TOKEN);
   });
 });

@@ -9,7 +9,15 @@ import {
   withInteractiveTracking,
 } from "@/lib/fsm/core/interactive-reply";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
-import type { InboundEvent, SendButtonsEffect, SendEffect, SendInteractiveListEffect, Session } from "@/lib/fsm/core/types";
+import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import type {
+  InboundEvent,
+  SendButtonsEffect,
+  SendEffect,
+  SendInteractiveListEffect,
+  SendTerminosEffect,
+  Session,
+} from "@/lib/fsm/core/types";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
@@ -37,17 +45,19 @@ const TEXT: SendEffect = { kind: SendType.TEXT, text: "hola" };
 const CTA: SendEffect = { kind: SendType.CTA_URL, text: "Entra", buttonText: "Abrir", url: "https://example.test" };
 
 describe("isInteractiveEffect", () => {
-  it("solo los botones y las listas esperan un toque de vuelta", () => {
+  it("solo los botones, las listas y los términos esperan un toque de vuelta", () => {
     expect(isInteractiveEffect(BUTTONS)).toBe(true);
     expect(isInteractiveEffect(LIST)).toBe(true);
+    expect(isInteractiveEffect(buildTerminosEffect())).toBe(true);
     expect(isInteractiveEffect(TEXT)).toBe(false);
     expect(isInteractiveEffect(CTA)).toBe(false);
   });
 
-  it("estrecha el tipo a botones o lista para quien filtra con ella", () => {
-    const interactive = [BUTTONS, TEXT, LIST, CTA].filter(isInteractiveEffect);
+  it("estrecha el tipo a botones, lista o términos para quien filtra con ella", () => {
+    const effects: SendEffect[] = [BUTTONS, TEXT, LIST, CTA];
+    const interactive = effects.filter(isInteractiveEffect);
 
-    expectTypeOf(interactive).toEqualTypeOf<(SendButtonsEffect | SendInteractiveListEffect)[]>();
+    expectTypeOf(interactive).toEqualTypeOf<(SendButtonsEffect | SendInteractiveListEffect | SendTerminosEffect)[]>();
     expect(interactive.map((effect) => effect.kind)).toEqual([SendType.BUTTONS, SendType.INTERACTIVE_LIST]);
   });
 });

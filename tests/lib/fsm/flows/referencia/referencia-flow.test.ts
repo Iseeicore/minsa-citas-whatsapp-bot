@@ -27,7 +27,6 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 const FROM = "sandbox-referencia-flow";
 const DNI = "12345678";
@@ -97,12 +96,12 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(result.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
   });
 
-  it("cita (no purpose): checks references before deciding whether to request a district", () => {
+  it("cita (no purpose): asks for the district without consulting references", () => {
     const result = handle(verifyPending(DNI), verified);
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
-    expect(texts(result)).toEqual([]);
-    expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(texts(result)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
+    expect(queries(result)).toEqual([]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
   });
 
@@ -113,8 +112,8 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(queries(demo)).toEqual([]);
 
     const cita = handle(verifyPending(dni), verified);
-    expect(cita.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
-    expect(queries(cita)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: dni, tipoDocumento: "01" } }]);
+    expect(cita.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(queries(cita)).toEqual([]);
   });
 
   it("a wrong code keeps the purpose for the next try", () => {
@@ -239,16 +238,6 @@ describe("the lookup", () => {
 
       expect(result.session.state).toBe(SessionState.REFERENCIA_CLOSED);
       expect(texts(result)).toEqual([REFERENCIA_GOODBYE_TEXT]);
-    });
-
-    it("in the Cita con referencia list a typed salir still asks for confirmation", () => {
-      const listed = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
-      const citaConReferencia = {
-        ...listed.session,
-        slots: { ...listed.session.slots, [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE },
-      };
-
-      expect(handle(citaConReferencia, text("salir")).session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
     });
 
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(

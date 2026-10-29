@@ -29,7 +29,6 @@ export enum SlotKey {
   CITA_HORA_CHOICE_B = "citaHoraChoiceB",
   MENU_CHOICE = "menuChoice",
   POST_LOGIN_FLOW = "postLoginFlow",
-  CITA_APPOINTMENT_MODE = "citaAppointmentMode",
   DNI = "dni",
   CITA_TWOFA_ID = "citaTwofaId",
   CITA_OFFERED = "citaOffered",
@@ -64,4 +63,7 @@ export enum SlotKey {
   CONSULTA_LISTADO_DATA = "consultaListadoData",
   INTERACTIVE_MESSAGE_ID = "interactiveMessageId",
   INTERACTIVE_MESSAGE_CONSUMED = "interactiveMessageConsumed",
+  TERMINOS_ACEPTADOS = "terminosAceptados",
+  TERMINOS_RESUME = "terminosResume",
+  TERMINOS_INTRO_TEXT = "terminosIntroText",
 }

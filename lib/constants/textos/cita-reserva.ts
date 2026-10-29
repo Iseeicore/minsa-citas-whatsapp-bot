@@ -2,7 +2,6 @@ import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { NO_SALIR_BUTTON_TEXT, SI_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { ReferenciaEstadoCodigo } from "@/lib/enums/referencia-estado-codigo";
-import { CITA_SIN_REFERENCIA_BUTTON_TEXT } from "@/lib/constants/textos/cita-referencia";
 
 export const APPOINTMENT_BUTTON_TEXT = "Ver mi cita";
 export const APPOINTMENT_CTA_TEXT = `Si desea ver el PDF de su cita, dé clic en *${APPOINTMENT_BUTTON_TEXT}*.
@@ -28,7 +27,6 @@ export const DUPLICATE_QUESTION_TEXT = "El MINSA permite una sola cita activa po
 export const duplicateActiveText = (especialidad: string): string =>
   `Ya tienes una cita activa para ${especialidad}. ${DUPLICATE_QUESTION_TEXT}`;
 export const DUPLICATE_YES_BUTTON_TEXT = "Otra especialidad";
-export const SEARCHING_OTHER_ESPECIALIDADES_TEXT = "Buscando otras especialidades disponibles…";
 
 export const REFERENCIA_ESTADO_LABELS: Partial<Record<number, string>> = {
   [ReferenciaEstadoCodigo.ACEPTADO]: "ACEPTADO",
@@ -44,7 +42,6 @@ export const referenciaBloqueadaLineaText = (especialidad: string, destino: stri
   `• ${especialidad} · ${destino} · N° ${numero} · ${estado}`;
 export const referenciasBloqueadasRestantesText = (restantes: number): string => `y ${restantes} más`;
 
-export const REFERENCIAS_LIST_TEXT = `Encontramos referencias aprobadas, elige con la que deseas pedir cita o si necesitas una *${CITA_SIN_REFERENCIA_BUTTON_TEXT}*.`;
 export const REFERENCIA_ESPECIALIDAD_LABEL = "Especialidad / atención";
 export const REFERENCIA_DESTINO_LABEL = "Destino";
 export const REFERENCIA_ORIGEN_LABEL = "Origen";
@@ -59,7 +56,7 @@ export const REFERENCIA_NO_DISPONIBLE_TEXT =
   "La referencia seleccionada ya no está en el listado de esta conversación. Vuelve a elegir cómo deseas agendar tu cita.";
 export const REFERENCIA_SIN_FECHAS_TEXT = "No encontramos cupos disponibles para esta referencia. ¿Deseas seleccionar otra referencia?";
 export const REFERENCIA_DUPLICATE_TEXT =
-  "MINSA informa que ya tienes una cita activa para esta especialidad. La referencia conserva su establecimiento y especialidad de destino. Puedes revisar otra referencia o elegir una nueva cita.";
+  "MINSA informa que ya tienes una cita activa para esta especialidad. Continuemos con una cita sin referencia.";
 export const referenciaListDescriptionText = (destino: string, numero: string, fecha: string, estado: string): string =>
   `${destino} · N° ${numero} · ${fecha} · ${estado}`;
 export const referenciaReservaResumenText = (

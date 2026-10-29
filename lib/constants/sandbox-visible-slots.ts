@@ -44,10 +44,11 @@ export const SANDBOX_VISIBLE_SLOT_KEYS = [
   SlotKey.INCIDENCIA_RESUME_STATE,
   SlotKey.MENU_CHOICE,
   SlotKey.POST_LOGIN_FLOW,
+  SlotKey.TERMINOS_ACEPTADOS,
+  SlotKey.TERMINOS_RESUME,
 ] as const satisfies readonly SlotKey[];
 
 export const SANDBOX_WITHHELD_SLOT_KEYS = [
-  SlotKey.CITA_APPOINTMENT_MODE,
   SlotKey.CITA_BEARER,
   SlotKey.CITA_TWOFA_ID,
   SlotKey.CONSULTA_TWOFA_ID,
@@ -69,4 +70,5 @@ export const SANDBOX_WITHHELD_SLOT_KEYS = [
   SlotKey.CONSULTA_LISTADO_DATA,
   SlotKey.INTERACTIVE_MESSAGE_ID,
   SlotKey.INTERACTIVE_MESSAGE_CONSUMED,
+  SlotKey.TERMINOS_INTRO_TEXT,
 ] as const satisfies readonly SlotKey[];

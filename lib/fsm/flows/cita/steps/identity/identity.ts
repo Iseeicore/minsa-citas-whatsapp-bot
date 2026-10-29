@@ -23,7 +23,6 @@ import {
   REGISTRATION_SECOND_MISS_TEXT,
   REGISTRATION_WAIT_TEXT,
   REGISTRATION_RETRY_PROMPT_TEXT,
-  VALIDATING_AGAIN_TEXT,
   OTP_LOCKED_TEXT,
   REGISTRATION_BUTTONS,
 } from "@/lib/constants/textos/cita-identidad";
@@ -92,7 +91,7 @@ export function handleRegistrationWait(session: Session, event: InboundEvent): H
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_VALIDATE_PENDING;
-  return buildResult(next, [sendText(VALIDATING_AGAIN_TEXT), validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING))]);
+  return buildResult(next, [validateUserQuery(slotText(next.slots, SlotKey.CITA_DNI_PENDING))]);
 }
 
 function failOtpAttempt(session: Session): HandlerResult {
@@ -157,12 +156,6 @@ function continueVerifiedFlow(session: Session): HandlerResult {
   if (resumeState) {
     delete next.slots[SlotKey.CITA_RESUME_STATE];
     return resumeAfterReverification(next, resumeState);
-  }
-
-  const needsAppointmentMode = !next.slots[SlotKey.CITA_APPOINTMENT_MODE];
-  if (next.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.CITA_REFERENCIAS || needsAppointmentMode) {
-    next.slots[SlotKey.POST_LOGIN_FLOW] = PostLoginFlow.CITA_REFERENCIAS;
-    return startReferenciasLookup(next);
   }
 
   return continueCitaAfterVerification(next);

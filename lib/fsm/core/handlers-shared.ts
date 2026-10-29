@@ -10,8 +10,11 @@ import type {
   ListRow,
   QueryEffect,
   QueryEffectKind,
+  SendButtonsEffect,
+  SendCtaUrlEffect,
   SendEffect,
   SendInteractiveListEffect,
+  SendTextEffect,
   Session,
   UnhandledTurn,
 } from "@/lib/fsm/core/types";
@@ -26,7 +29,6 @@ import { uniqueBy } from "@/lib/utils/array-values";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { WHATSAPP_CONSULTA_REFERENCIAS_PAGE_SIZE, WHATSAPP_REFERENCE_LIST_PAGE_SIZE } from "@/lib/constants/limits/whatsapp-reference";
-import { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.INCIDENCIA_CONFIRMED,
@@ -44,6 +46,7 @@ export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_NO_COVERAGE_CLOSED,
   SessionState.CITA_DECLINED_CLOSED,
   SessionState.CITA_ABANDONED,
+  SessionState.CITA_TERMINOS_DECLINED,
   SessionState.EMERGENCY_CLOSED,
 ]);
 
@@ -70,7 +73,7 @@ export function cloneSession(session: Session): Session {
 
 export const NOT_HANDLED: UnhandledTurn = undefined;
 
-export function sendText(text: string): SendEffect {
+export function sendText(text: string): SendTextEffect {
   return { kind: SendType.TEXT, text };
 }
 
@@ -86,11 +89,11 @@ export function sendList(text: string, rows: ListRow[]): SendInteractiveListEffe
   return { kind: SendType.INTERACTIVE_LIST, text, rows };
 }
 
-export function sendButtons(text: string, buttons: ButtonOption[]): SendEffect {
+export function sendButtons(text: string, buttons: ButtonOption[]): SendButtonsEffect {
   return { kind: SendType.BUTTONS, text, buttons };
 }
 
-export function sendCtaUrl(text: string, buttonText: string, url: string): SendEffect {
+export function sendCtaUrl(text: string, buttonText: string, url: string): SendCtaUrlEffect {
   return { kind: SendType.CTA_URL, text, buttonText, url };
 }
 
@@ -139,10 +142,7 @@ export function offerList(next: Session, text: string, rows: ListRow[]): SendEff
 }
 
 export function isConsultaReferenciasList(session: Session): boolean {
-  return (
-    session.state === SessionState.CITA_AWAITING_REFERENCIA_SELECT &&
-    session.slots[SlotKey.CITA_APPOINTMENT_MODE] !== AppointmentMode.REFERENCE
-  );
+  return session.state === SessionState.CITA_AWAITING_REFERENCIA_SELECT;
 }
 
 export function listPageSize(session?: Session): number {
