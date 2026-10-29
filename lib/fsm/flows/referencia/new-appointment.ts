@@ -1,7 +1,6 @@
 import { cloneSession } from "@/lib/fsm/core/handlers-shared";
 import { continueCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/continuation";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
-import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
 
@@ -45,6 +44,5 @@ export function startNewAppointment(session: Session): HandlerResult {
   delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES];
   delete next.counters[CounterKey.CITA_BOOKING_FAILURES];
   delete next.counters[CounterKey.DISTRITO_NOT_FOUND];
-  next.slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.NEW;
   return continueCitaAfterVerification(next);
 }

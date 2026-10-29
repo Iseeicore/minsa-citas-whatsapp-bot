@@ -12,7 +12,6 @@ import type { HandleEvent, HandlerResult, InboundEvent, SendInteractiveListEffec
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { CITA_REFERENCIA_CHANGE_BUTTON, CITA_REFERENCIA_CHANGE_PROMPT_TEXT } from "@/lib/constants/textos/cita-referencia";
 import { HORA_CONFIRM_BUTTONS } from "@/lib/constants/textos/cita-fecha-hora";
-import { AppointmentMode } from "@/lib/enums/appointment-mode";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -67,7 +66,6 @@ function waiting(state: Session["state"] = SessionState.CITA_AWAITING_FECHA_SELE
     slots: {
       [SlotKey.CITA_DNI]: "23456789",
       [SlotKey.CITA_BEARER]: "synthetic-token",
-      [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
       [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCE]),
       [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: REFERENCE.idReferencia,
       [SlotKey.CITA_COD_EESS]: REFERENCE.codigoIpressDestino,
@@ -175,8 +173,7 @@ describe("cambiar referencia reutiliza el reinicio canónico sin perder la ident
       expect(actual?.session.slots).toMatchObject({
         [SlotKey.CITA_DNI]: "23456789",
         [SlotKey.CITA_BEARER]: "synthetic-token",
-        [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
-        [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.CITA_REFERENCIAS,
+        [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS,
         [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCE]),
       });
       for (const slot of [
@@ -234,7 +231,7 @@ describe("cambiar referencia respeta la prioridad de autenticación y emergencia
     const reauth = turn(session, tap(ReferenciaActionButtonId.CHANGE));
     expect(reauth.session.state).toBe(SessionState.CITA_AWAITING_REAUTH);
     expect(reauth.session.slots[SlotKey.CITA_RESUME_STATE]).toBeUndefined();
-    expect(reauth.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
+    expect(reauth.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
     expect(reauth.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(queries(reauth)).toEqual([]);
     expect(session).toEqual(before);

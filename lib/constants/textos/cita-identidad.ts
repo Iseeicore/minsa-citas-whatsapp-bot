@@ -14,7 +14,6 @@ export const REGISTRATION_SECOND_MISS_TEXT =
 export const REGISTRATION_WAIT_TEXT =
   "Cuando termines, toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo.";
 export const REGISTRATION_RETRY_PROMPT_TEXT = "Toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo.";
-export const VALIDATING_AGAIN_TEXT = "Validando de nuevo…";
 export const ANALYZING_CUENTA_TEXT = "Un momento, estamos analizando tu cuenta…";
 export const OTP_LOCKED_TEXT = "Superaste el número de intentos permitidos. Por favor, inicia el proceso nuevamente más tarde.";
 export const REVERIFICATION_PROMPT_TEXT =

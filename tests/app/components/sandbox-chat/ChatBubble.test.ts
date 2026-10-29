@@ -6,6 +6,7 @@ import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 
 const BUTTON_TAG = /<button\b[^>]*>/g;
 
@@ -57,5 +58,23 @@ describe("ChatBubble", () => {
       expect(tags.length).toBeGreaterThan(0);
       expect(tags.some((tag) => tag.includes('disabled=""'))).toBe(false);
     }
+  });
+
+  it("opens the terms as a modal while they wait for an answer", () => {
+    const entry: ChatEntry = { id: "e3", from: ChatEntryAuthor.BOT, effect: buildTerminosEffect() };
+
+    const markup = renderToStaticMarkup(createElement(ChatBubble, { entry, onOptionClick: () => {} }));
+
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain(buildTerminosEffect().text);
+  });
+
+  it("does not open the terms again once they were answered", () => {
+    const entry: ChatEntry = { id: "e4", from: ChatEntryAuthor.BOT, effect: buildTerminosEffect() };
+
+    const markup = renderToStaticMarkup(createElement(ChatBubble, { entry, disabled: true, onOptionClick: () => {} }));
+
+    expect(markup).not.toContain('role="dialog"');
+    expect((markup.match(BUTTON_TAG) ?? []).every((tag) => tag.includes('disabled=""'))).toBe(true);
   });
 });

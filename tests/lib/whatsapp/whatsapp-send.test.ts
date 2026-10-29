@@ -5,6 +5,8 @@ import { SendType } from "@/lib/enums/send-type";
 import { LIST_OPEN_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 import type { SendButtonsEffect } from "@/lib/fsm/core/types";
+import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { TERMINOS_BUTTONS } from "@/lib/constants/textos/terminos";
 
 type Line = { level: string; event: string } & Record<string, unknown>;
 
@@ -232,5 +234,43 @@ describe("safety net: the person always receives something Meta accepts", () => 
 
     expect(sentBodies()[0].text.body.length).toBeLessThanOrEqual(WHATSAPP_TEXT_BODY_MAX);
     expect(events("outbound.limit_violation")).toHaveLength(1);
+  });
+});
+
+describe("the terms message on WhatsApp", () => {
+  beforeEach(() => {
+    vi.stubEnv("META_PHONE_NUMBER_ID", "123");
+    vi.stubEnv("META_ACCESS_TOKEN", "token");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("sends the link and then the buttons, and remembers the buttons as the message to answer", async () => {
+    vi.stubEnv("TERMINOS_URL", "https://bot.minsa.test/terminos");
+    let sequence = 0;
+    const fetchMock = vi.fn(async () => Response.json({ messages: [{ id: `wamid.terminos-${++sequence}` }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const sentId = await sendAndRecordEffect(null, "51987654321", buildTerminosEffect());
+
+    const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
+    expect(bodies.map((body) => body.interactive.type)).toEqual(["cta_url", "button"]);
+    expect(bodies[1].interactive.action.buttons.map((button: { reply: { id: string } }) => button.reply.id)).toEqual(
+      TERMINOS_BUTTONS.map((button) => button.id),
+    );
+    expect(sentId).toBe("wamid.terminos-2");
+  });
+
+  it("without TERMINOS_URL sends only the buttons", async () => {
+    vi.stubEnv("TERMINOS_URL", "");
+    const fetchMock = vi.fn(async () => Response.json({ messages: [{ id: "wamid.terminos" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendAndRecordEffect(null, "51987654321", buildTerminosEffect());
+
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

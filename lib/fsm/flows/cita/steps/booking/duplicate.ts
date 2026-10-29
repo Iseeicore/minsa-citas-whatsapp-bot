@@ -12,7 +12,7 @@ import {
   withLeadingText,
 } from "@/lib/fsm/core/handlers-shared";
 import { isReferenceAppointment } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
-import { askAppointmentMode } from "@/lib/fsm/flows/cita/steps/booking/references";
+import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -26,7 +26,6 @@ import { THAT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
 import {
   DUPLICATE_QUESTION_TEXT,
   duplicateActiveText,
-  SEARCHING_OTHER_ESPECIALIDADES_TEXT,
   DUPLICATE_BUTTONS,
   REFERENCIA_DUPLICATE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
@@ -72,7 +71,7 @@ export function withDiscardedEspecialidad(slots: Session["slots"]): Session["slo
 
 export function offerOtherEspecialidad(session: Session): HandlerResult {
   if (isReferenceAppointment(session)) {
-    return withLeadingText(askAppointmentMode(session), REFERENCIA_DUPLICATE_TEXT);
+    return withLeadingText(startNewAppointment(session), REFERENCIA_DUPLICATE_TEXT);
   }
   const next = cloneSession(session);
   const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]
@@ -103,10 +102,7 @@ export function handleDuplicateChoice(session: Session, event: InboundEvent): Ha
   if (tapped === DuplicateButtonId.OTHER_ESPECIALIDAD || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
-    return buildResult(next, [
-      sendText(SEARCHING_OTHER_ESPECIALIDADES_TEXT),
-      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) }),
-    ]);
+    return buildResult(next, [query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) })]);
   }
 
   if (tapped === DuplicateButtonId.EXIT || answer === Confirmation.NO) {

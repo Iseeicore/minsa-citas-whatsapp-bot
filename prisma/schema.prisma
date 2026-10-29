@@ -63,7 +63,8 @@ model CanalOrigen {
   fechaModificacion   DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String   @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
 
-  incidencias IncidenciaPaciente[]
+  incidencias          IncidenciaPaciente[]
+  aceptacionesTerminos AceptacionTerminos[]
 
   @@map("canal_origen")
   @@schema("catalogo")
@@ -491,6 +492,19 @@ model SesionConversacion {
 
   @@index([fechaModificacion], map: "ix_sesion_conversacion_fecha_modificacion")
   @@map("sesion_conversacion")
+  @@schema("chatbot")
+}
+
+model AceptacionTerminos {
+  id            String      @id(map: "pk_aceptacion_terminos") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  waId          String      @map("wa_id")
+  canalOrigenId Int         @map("canal_origen_id") @db.SmallInt
+  version       String
+  aceptadoEn    DateTime    @default(now()) @map("aceptado_en") @db.Timestamptz(3)
+  canalOrigen   CanalOrigen @relation(fields: [canalOrigenId], references: [id], map: "fk_aceptacion_terminos_canal_origen")
+
+  @@index([waId], map: "ix_aceptacion_terminos_wa_id")
+  @@map("aceptacion_terminos")
   @@schema("chatbot")
 }
 

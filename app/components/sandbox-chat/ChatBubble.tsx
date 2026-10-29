@@ -9,6 +9,7 @@ import { PagerBar } from "@/app/components/ui/PagerBar";
 import { BotMessageRow } from "@/app/components/sandbox-chat/BotMessageRow";
 import { ChatText } from "@/app/components/sandbox-chat/ChatText";
 import { ChatListPicker } from "@/app/components/sandbox-chat/ChatListPicker";
+import { TerminosMessage } from "@/app/components/sandbox-chat/TerminosMessage";
 import { isPagerButtonSet, pagerDirection } from "@/lib/utils/list-rows";
 
 export function ChatBubble({
@@ -50,6 +51,10 @@ export function ChatBubble({
         )}
 
         {effect.kind === SendType.CTA_URL && <CtaLink href={effect.url} label={effect.buttonText} />}
+
+        {effect.kind === SendType.TERMINOS && (
+          <TerminosMessage effect={effect} disabled={disabled} onSelect={(id, title) => onOptionClick("buttons", id, title)} />
+        )}
 
         {effect.kind === SendType.BUTTONS &&
           (isPagerButtonSet(effect.buttons) ? (

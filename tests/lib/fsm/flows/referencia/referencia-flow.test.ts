@@ -96,12 +96,12 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(result.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
   });
 
-  it("cita (no purpose): checks references before deciding whether to request a district", () => {
+  it("cita (no purpose): asks for the district without consulting references", () => {
     const result = handle(verifyPending(DNI), verified);
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
-    expect(texts(result)).toEqual([]);
-    expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(texts(result)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
+    expect(queries(result)).toEqual([]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
   });
 
@@ -112,8 +112,8 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(queries(demo)).toEqual([]);
 
     const cita = handle(verifyPending(dni), verified);
-    expect(cita.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
-    expect(queries(cita)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: dni, tipoDocumento: "01" } }]);
+    expect(cita.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(queries(cita)).toEqual([]);
   });
 
   it("a wrong code keeps the purpose for the next try", () => {
@@ -232,13 +232,12 @@ describe("the lookup", () => {
       },
     );
 
-    it("Salir closes with the usual farewell and a typed salir keeps the existing exit confirmation", () => {
+    it.each([tap(ReferenciaActionButtonId.EXIT), text("salir"), text("Salir")])("%j closes at once with the usual farewell", (event) => {
       const listed = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
-      const result = handle(listed.session, tap(ReferenciaActionButtonId.EXIT));
+      const result = handle(listed.session, event);
 
       expect(result.session.state).toBe(SessionState.REFERENCIA_CLOSED);
       expect(texts(result)).toEqual([REFERENCIA_GOODBYE_TEXT]);
-      expect(handle(listed.session, text("salir")).session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
     });
 
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(

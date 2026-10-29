@@ -194,26 +194,19 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(declined.session.state).toBe("referencia_closed");
     expect(declined.session.slots).toEqual({});
     expect(declined.texts).toEqual([
-      "Entendido. Cuando necesites consultar una referencia o agendar una cita, escríbenos. ¡Que tengas un buen día!",
+      "Entendido. Cuando necesites agendar una cita, con o sin referencia, escríbenos. ¡Que tengas un buen día!",
     ]);
 
     const next = await say(text("hola"));
     expect(next.session.state).toBe("main_menu");
   });
 
-  it("la cita normal consulta referencias y avanza directamente cuando no hay ninguna", async () => {
-    const otp = await login();
-
-    expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(referencias.calls).toBe(1);
-  });
-
-  it("la cita con referencias disponibles muestra la lista con «Cita sin referencia» antes de continuar", async () => {
+  it("la cita normal sigue al distrito sin consultar referencias aunque la persona tenga alguna", async () => {
     referencias.result = UNA_REFERENCIA;
 
     const otp = await login();
 
-    expect(otp.session.state).toBe("cita_awaiting_referencia_select");
-    expect(referencias.calls).toBe(1);
+    expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(referencias.calls).toBe(0);
   });
 });

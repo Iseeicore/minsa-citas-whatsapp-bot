@@ -6,7 +6,6 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import type { SessionState } from "@/lib/enums/session-state";
 import type { InternalEventType } from "@/lib/enums/internal-event-type";
 import type { MediaFailure } from "@/lib/enums/media-failure";
-import type { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -41,7 +40,6 @@ export type SlotTypes = {
   [SlotKey.CITA_HORA_CHOICE_B]: string;
   [SlotKey.MENU_CHOICE]: string;
   [SlotKey.POST_LOGIN_FLOW]: string;
-  [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode;
   [SlotKey.DNI]: string;
   [SlotKey.CITA_TWOFA_ID]: string;
   [SlotKey.CITA_OFFERED]: string;
@@ -75,6 +73,9 @@ export type SlotTypes = {
   [SlotKey.CONSULTA_LISTADO_DATA]: string;
   [SlotKey.INTERACTIVE_MESSAGE_ID]: string;
   [SlotKey.INTERACTIVE_MESSAGE_CONSUMED]: boolean;
+  [SlotKey.TERMINOS_ACEPTADOS]: boolean;
+  [SlotKey.TERMINOS_RESUME]: string;
+  [SlotKey.TERMINOS_INTRO_TEXT]: string;
 };
 
 export type Slots = { [K in SlotKey]?: SlotTypes[K] };
@@ -158,7 +159,17 @@ export type SendCtaUrlEffect = {
   url: string;
 };
 
-export type SendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect | SendCtaUrlEffect;
+export type SendTerminosEffect = {
+  kind: SendType.TERMINOS;
+  title: string;
+  text: string;
+  content: string;
+  buttons: ButtonOption[];
+};
+
+export type ChannelSendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect | SendCtaUrlEffect;
+
+export type SendEffect = ChannelSendEffect | SendTerminosEffect;
 
 export type QueryEffectKind =
   | "incidencia_register"
@@ -180,7 +191,8 @@ export type QueryEffectKind =
   | "consultar_incidencia"
   | "listar_incidencias"
   | "verificar_consentimiento"
-  | "registrar_consentimiento";
+  | "registrar_consentimiento"
+  | "registrar_aceptacion_terminos";
 
 export type QueryEffect = {
   kind: QueryEffectKind;

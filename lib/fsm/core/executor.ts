@@ -128,6 +128,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case QueryKind.BUSCAR_ESTABLECIMIENTO:
     case QueryKind.VERIFICAR_CONSENTIMIENTO:
     case QueryKind.REGISTRAR_CONSENTIMIENTO:
+    case QueryKind.REGISTRAR_ACEPTACION_TERMINOS:
       return "database";
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
     case QueryKind.RESOLVE_DISTRITO_AI:
@@ -184,6 +185,15 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       const { marcarConsentimientoAceptado } = await import("@/lib/recepcion/repositorio");
       await marcarConsentimientoAceptado(from);
       return { ok: true };
+    }
+
+    case QueryKind.REGISTRAR_ACEPTACION_TERMINOS: {
+      const { saveAceptacionTerminos } = await import("@/lib/terminos/aceptacion-terminos");
+      return saveAceptacionTerminos({
+        waId: from,
+        canal: effect.payload.canal === SessionChannel.WEB ? SessionChannel.WEB : SessionChannel.WHATSAPP,
+        version: payloadText(effect.payload, "version"),
+      });
     }
 
     case QueryKind.VALIDATE_USER:

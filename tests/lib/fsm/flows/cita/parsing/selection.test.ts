@@ -9,7 +9,6 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { AppointmentMode } from "@/lib/enums/appointment-mode";
 
 const rows = Array.from({ length: 21 }, (_, index) => ({ id: `row-${index}`, title: `Opción ${index + 1}` }));
 const text = (value: string): InboundEvent => ({ from: "synthetic-wa", type: InboundEventType.TEXT, text: value });
@@ -21,7 +20,6 @@ function offered(page = 0, state: Session["state"] = SessionState.CITA_AWAITING_
     state,
     slots: {
       [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: "synthetic-reference",
-      [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
       [SlotKey.CITA_OFFERED]: serializeOffered({ text: "Elige", rows }),
     },
     counters: { [CounterKey.CITA_LIST_PAGE]: page },
@@ -43,18 +41,19 @@ function hours(page = 0): Session {
 }
 
 describe("respuestas escritas para listas de referencia de WhatsApp", () => {
-  it.each([SessionState.CITA_AWAITING_REFERENCIA_SELECT, SessionState.CITA_AWAITING_FECHA_SELECT])(
-    "interpreta 1 y 7 sobre las opciones visibles de las páginas segunda y tercera en %s",
-    (state) => {
-      for (const page of [1, 2]) {
-        const session = offered(page, state);
-        const before = structuredClone(session);
-        expect(resolveSelection(session, text("1"))).toEqual({ replyId: rows[page * 7].id, typed: "1" });
-        expect(resolveSelection(session, text("7"))).toEqual({ replyId: rows[page * 7 + 6].id, typed: "7" });
-        expect(session).toEqual(before);
-      }
-    },
-  );
+  it.each([
+    [SessionState.CITA_AWAITING_REFERENCIA_SELECT, 6],
+    [SessionState.CITA_AWAITING_FECHA_SELECT, 7],
+  ] as const)("interpreta el primero y el último sobre las opciones visibles de las páginas segunda y tercera en %s", (state, size) => {
+    for (const page of [1, 2]) {
+      const session = offered(page, state);
+      const before = structuredClone(session);
+      const last = String(size);
+      expect(resolveSelection(session, text("1"))).toEqual({ replyId: rows[page * size].id, typed: "1" });
+      expect(resolveSelection(session, text(last))).toEqual({ replyId: rows[page * size + size - 1].id, typed: last });
+      expect(session).toEqual(before);
+    }
+  });
 
   it.each([1, 2])("en la página %s de horarios los números se refieren a sus siete filas ya recortadas", (page) => {
     const customMatch = vi.fn();

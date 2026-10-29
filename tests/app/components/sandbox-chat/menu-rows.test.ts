@@ -39,6 +39,6 @@ describe("rowPresentation", () => {
     for (const row of serviceCatalog.menuRows(channel)) {
       expect(row.title.length).toBeLessThanOrEqual(WHATSAPP_ROW_TITLE_MAX);
     }
-    expect(MENU_ROW_CONSULTAR_REFERENCIA_TITLE).toBe("Consultar Referencias");
+    expect(MENU_ROW_CONSULTAR_REFERENCIA_TITLE).toBe("Cita con referencia");
   });
 });

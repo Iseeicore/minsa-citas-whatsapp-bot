@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import { sendButtons, sendCtaUrl, sendList } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
+import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import type { ButtonOption, ListRow, SendEffect } from "@/lib/fsm/core/types";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
@@ -33,8 +34,9 @@ import {
   APPOINTMENT_CTA_TEXT,
   REFERENCIA_CONFIRM_BUTTONS,
   REFERENCIA_CONFIRM_QUESTION_TEXT,
-  REFERENCIAS_LIST_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
+import { consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
+import { etiquetasSeleccionables } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import {
   ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT,
   ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT,
@@ -159,7 +161,7 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
     SELECT_HORA_TEXT,
     NARROWED_LIST_TEXT,
     INCIDENCIAS_LIST_TEXT,
-    REFERENCIAS_LIST_TEXT,
+    consultaReferenciasListText(etiquetasSeleccionables()),
     DEMO_ANALYZING_TEXT,
     DEMO_HORAS_LIST_TEXT,
   ].map((text) => ({ origin: `cuerpo de lista «${text}»`, effect: sendList(text, [RUNTIME_ROW]) })),
@@ -168,6 +170,7 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
     origin: "APPOINTMENT_CTA_TEXT + APPOINTMENT_BUTTON_TEXT",
     effect: sendCtaUrl(APPOINTMENT_CTA_TEXT, APPOINTMENT_BUTTON_TEXT, URL),
   },
+  { origin: "términos y condiciones en whatsapp-bot", effect: buildTerminosEffect() },
 ];
 
 function textosModuleNames(): string[] {

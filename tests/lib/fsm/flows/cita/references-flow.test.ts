@@ -5,26 +5,20 @@ import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionChannel } from "@/lib/enums/session-channel";
-import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { CitaReferenciaButtonId } from "@/lib/enums/cita-referencia-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
-import {
-  REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT,
-  REFERENCIAS_LIST_TEXT,
-  referenciaBloqueadaText,
-} from "@/lib/constants/textos/cita-reserva";
-import { CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT } from "@/lib/constants/textos/cita-referencia";
+import { REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT, referenciaBloqueadaText } from "@/lib/constants/textos/cita-reserva";
+import { REFERENCIA_CITA_OFFER_QUESTION_TEXT } from "@/lib/constants/textos/referencia";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import {
   offerReferenciasList,
   restartReferenceSelection,
   withConsultaReferenciasActions,
+  handleConsultaReferenciasClose,
 } from "@/lib/fsm/flows/cita/steps/booking/references";
-import { AppointmentMode } from "@/lib/enums/appointment-mode";
+import { NOT_HANDLED } from "@/lib/fsm/core/handlers-shared";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 
 const FROM = "sandbox-references";
@@ -119,7 +113,6 @@ describe("handleAwaitingReferenciaConfirm", () => {
     const result = handle(session, text("si"));
 
     expect(result.session.state).toBe("cita_awaiting_referencia_select");
-    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.REFERENCE);
     expect(result.effects.filter(isQueryEffect)).toEqual([]);
   });
 
@@ -314,7 +307,6 @@ describe("referencias para agendar en el chat web", () => {
       const result = handle(offerReferenciasList(session).session, tap(REFERENCIA.idReferencia));
 
       expect(result.session.state).toBe("cita_awaiting_referencia_select");
-      expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.REFERENCE);
       expect(result.effects.some(isQueryEffect)).toBe(false);
       expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
       expect(texts(result).join(" ")).toContain("no tiene todos los datos de destino");
@@ -322,33 +314,15 @@ describe("referencias para agendar en el chat web", () => {
     },
   );
 
-  it("si la selección ya no existe, informa el problema y permite consultar de nuevo", () => {
+  it("si la selección ya no existe, informa el problema y vuelve a consultar las referencias", () => {
     const session = web(referenciaConfirmPending());
     delete session.slots[SlotKey.CITA_REFERENCIAS_DATA];
 
     const result = handle(session, text("si"));
 
-    expect(result.session.state).toBe("referencia_awaiting_lookup_retry");
-    expect(result.effects.some(isQueryEffect)).toBe(false);
+    expect(result.session.state).toBe("referencia_lookup_pending");
+    expect(result.effects.filter(isQueryEffect).map((effect) => effect.kind)).toEqual(["list_references"]);
     expect(texts(result).join(" ")).toContain("ya no está en el listado");
-  });
-
-  it("un error al volver a consultar una referencia desaparecida conserva la opción de reintentar", () => {
-    const session = web(referenciaConfirmPending());
-    delete session.slots[SlotKey.CITA_REFERENCIAS_DATA];
-    const missing = handle(session, text("si"));
-    const retry = handle(missing.session, { from: FROM, type: "button", listId: CitaReferenciaButtonId.RETRY });
-    expect(retry.session.state).toBe("referencia_lookup_pending");
-
-    const result = handle(retry.session, {
-      from: FROM,
-      type: InternalEventType.QUERY_RESULT,
-      queryKind: "list_references",
-      result: { statusReference: "error", data: [], message: "" },
-    });
-
-    expect(result.session.state).toBe("referencia_awaiting_lookup_retry");
-    expect(texts(result).join(" ")).not.toContain("No cuentas con referencias");
   });
 
   it("rechaza una fila cuyo identificador ya no está en los datos de referencias", () => {
@@ -357,8 +331,8 @@ describe("referencias para agendar en el chat web", () => {
 
     const result = handle(session, tap(REFERENCIA.idReferencia));
 
-    expect(result.session.state).toBe("referencia_awaiting_lookup_retry");
-    expect(result.effects.some(isQueryEffect)).toBe(false);
+    expect(result.session.state).toBe("referencia_lookup_pending");
+    expect(result.effects.filter(isQueryEffect).map((effect) => effect.kind)).toEqual(["list_references"]);
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
   });
 
@@ -384,49 +358,6 @@ describe("referencias para agendar en el chat web", () => {
     expect(session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("Surco");
   });
 
-  it("al elegir otra referencia después de una cita duplicada reinicia los intentos y permite reintentar su primer error", () => {
-    const session = web(referenciaConfirmPending());
-    session.state = "cita_booking_pending";
-    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([
-      REFERENCIA,
-      { ...REFERENCIA, idReferencia: "222", codigoIpressDestino: "777", codigoUpsDestino: "070", upsDestino: "CARDIOLOGÍA" },
-    ]);
-    session.counters = { [CounterKey.CITA_BOOKING_FAILURES]: 2, [CounterKey.CITA_HORA_PAGE]: 4, [CounterKey.CITA_LIST_PAGE]: 2 };
-    const original = structuredClone(session);
-    const duplicate = handle(session, {
-      from: FROM,
-      type: InternalEventType.QUERY_RESULT,
-      queryKind: "book_appointment",
-      result: { status: "duplicate" },
-    });
-    expect(duplicate.session.state).toBe("cita_awaiting_referencia_select");
-    const selected = handle(duplicate.session, tap("222"));
-
-    expect(selected.session.counters[CounterKey.CITA_BOOKING_FAILURES]).toBeUndefined();
-    expect(selected.session.counters[CounterKey.CITA_HORA_PAGE]).toBeUndefined();
-    expect(selected.session.counters[CounterKey.CITA_LIST_PAGE]).toBeUndefined();
-
-    const booking = startBooking(
-      { ...selected.session, slots: { ...selected.session.slots, [SlotKey.CITA_FECHA]: "07/10/2099" } },
-      "18:00",
-    );
-    const failed = handle(booking.session, {
-      from: FROM,
-      type: InternalEventType.QUERY_RESULT,
-      queryKind: "book_appointment",
-      result: { status: "error" },
-    });
-
-    expect(failed.session.state).toBe("cita_hora_pending");
-    expect(failed.session.counters[CounterKey.CITA_BOOKING_FAILURES]).toBe(1);
-    expect(failed.effects.find((effect) => isQueryEffect(effect) && effect.kind === "list_horas")).toEqual({
-      kind: "list_horas",
-      payload: { codEess: "777", especialidadId: "070", fecha: "07/10/2099" },
-    });
-    expect(failed.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("222");
-    expect(session).toEqual(original);
-  });
-
   it("volver a elegir referencia limpia toda la reserva anterior y conserva la identidad validada sin mutar la entrada", () => {
     const session = web(referenciaConfirmPending());
     session.state = "cita_awaiting_hora_confirm";
@@ -447,7 +378,6 @@ describe("referencias para agendar en el chat web", () => {
       [SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]: "otra",
       [SlotKey.CITA_RESUME_STATE]: "cita_hora_pending",
       [SlotKey.CITA_EXIT_RESUME_STATE]: "cita_awaiting_hora_confirm",
-      [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
     };
     session.counters = { [CounterKey.CITA_BOOKING_FAILURES]: 2, [CounterKey.CITA_HORA_PAGE]: 4, [CounterKey.CITA_LIST_PAGE]: 3 };
     const original = structuredClone(session);
@@ -461,25 +391,25 @@ describe("referencias para agendar en el chat web", () => {
       [SlotKey.CITA_BEARER]: "token",
       [SlotKey.CITA_DNI]: "12345678",
       [SlotKey.CITA_REFERENCIAS_DATA]: session.slots[SlotKey.CITA_REFERENCIAS_DATA],
-      [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
-      [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.CITA_REFERENCIAS,
+      [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS,
     });
     expect(result.session.counters).toEqual({});
     expect(listRows(result)?.[0].id).toBe(REFERENCIA.idReferencia);
     expect(session).toEqual(original);
   });
 
-  it("si desapareció la lista al cambiar de referencia permite reconsultarla con la identidad validada", () => {
+  it("si desapareció la lista al cambiar de referencia la vuelve a consultar con la identidad validada", () => {
     const session = web(referenciaConfirmPending());
     delete session.slots[SlotKey.CITA_REFERENCIAS_DATA];
 
     const result = restartReferenceSelection(session);
 
-    expect(result.session.state).toBe("referencia_awaiting_lookup_retry");
+    expect(result.session.state).toBe("referencia_lookup_pending");
+    expect(result.effects.filter(isQueryEffect).map((effect) => effect.kind)).toEqual(["list_references"]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
-    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
   });
 });
 
@@ -526,31 +456,10 @@ describe("referencias en todos los estados", () => {
     expect(readOffered(result.session.slots)?.rows).toEqual(rows);
   });
 
-  it("web en Cita con referencia muestra solo las que permiten agendar", () => {
-    const session = referenciaConfirmPending();
-    session.channel = SessionChannel.WEB;
-    session.slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.REFERENCE;
-    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(MINSA_ORDER);
-
-    const result = offerReferenciasList(session);
-    const rows = readOffered(result.session.slots)?.rows;
-
-    expect(rows?.map((row) => row.id)).toEqual(["aceptada", "recibida"]);
-    expect(withConsultaReferenciasActions(result).effects).toEqual([
-      expect.objectContaining({
-        kind: "send_interactive_list",
-        text: "Encontramos referencias aprobadas, elige con la que deseas pedir cita o si necesitas una *Cita sin referencia*.",
-        actions: [{ id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" }],
-      }),
-    ]);
-    expect(readOffered(result.session.slots)?.text).toBe(REFERENCIAS_LIST_TEXT);
-  });
-
-  it("WhatsApp en Cita con referencia agrega «Cita sin referencia» como fila sin pasar de diez", () => {
+  it("WhatsApp agrega «Cita sin referencia» y «Salir» como filas sin pasar de diez", () => {
     const items = Array.from({ length: 9 }, (_, index) => conEstado(`aceptada-${index}`, 3));
     const session = referenciaConfirmPending();
     session.channel = SessionChannel.WHATSAPP;
-    session.slots[SlotKey.CITA_APPOINTMENT_MODE] = AppointmentMode.REFERENCE;
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify(items);
 
     const result = withConsultaReferenciasActions(offerReferenciasList(session));
@@ -558,10 +467,12 @@ describe("referencias en todos los estados", () => {
     if (list?.kind !== "send_interactive_list") throw new Error("no list sent");
     const rows = whatsappListRows(list);
 
-    expect(list.rows).toHaveLength(7);
-    expect(rows).toHaveLength(9);
+    expect(list.rows).toHaveLength(6);
     expect(rows.length).toBeLessThanOrEqual(10);
-    expect(rows.at(-1)).toEqual({ id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" });
+    expect(rows.slice(-2)).toEqual([
+      { id: ReferenciaActionButtonId.NEW_APPOINTMENT, title: "Cita sin referencia" },
+      { id: ReferenciaActionButtonId.EXIT, title: "Salir" },
+    ]);
   });
 
   it("web muestra en la tarjeta la etiqueta del estado de las que permiten agendar", () => {
@@ -637,24 +548,16 @@ describe("referencias en todos los estados", () => {
     expect(row?.description?.endsWith("… · N° 02441 · 12/12/2017 · PACIENTE RECIBIDO")).toBe(true);
   });
 
-  it.each([
-    ["volver a elegir referencia", (session: Session) => restartReferenceSelection(session)],
-    [
-      "elegir Cita con referencia",
-      (session: Session) => handle({ ...session, state: "referencia_awaiting_appointment_mode" }, tap(CitaReferenciaButtonId.REFERENCE)),
-    ],
-  ])("al %s sin ninguna que permita agendar continúa con una cita nueva en vez de una lista sin salida", (_caso, act) => {
+  it("al volver a elegir referencia sin ninguna que permita agendar ofrece la cita en vez de una lista sin salida", () => {
     const session = referenciaConfirmPending();
     session.channel = SessionChannel.WHATSAPP;
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([PENDIENTE, SIN_DESCRIPCION]);
 
-    const result = act(session);
+    const result = restartReferenceSelection(session);
 
-    expect(texts(result)[0]).toBe(CITA_REFERENCIA_SIN_SELECCIONABLES_TEXT);
     expect(listRows(result)).toBeUndefined();
-    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(result.session.slots[SlotKey.CITA_APPOINTMENT_MODE]).toBe(AppointmentMode.NEW);
-    expect(result.session.slots[SlotKey.CITA_REFERENCIAS_DATA]).toBeUndefined();
+    expect(result.session.state).toBe("referencia_awaiting_cita_offer");
+    expect(sent(result).at(-1)).toEqual(expect.objectContaining({ kind: "send_buttons", text: REFERENCIA_CITA_OFFER_QUESTION_TEXT }));
   });
 
   it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("PACIENTE CITADO (7) no aparece en %s ni se puede elegir", (channel) => {
@@ -680,5 +583,16 @@ describe("referencias en todos los estados", () => {
     expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(listRows(result)?.map((row) => row.id)).toEqual(["aceptada", "recibida"]);
+  });
+});
+
+describe("handleConsultaReferenciasClose", () => {
+  it("devuelve NOT_HANDLED cuando no aplica, para que resuelva el siguiente paso de handle()", () => {
+    const session = referenciaConfirmPending();
+
+    expect(NOT_HANDLED).toBeUndefined();
+    expect(handleConsultaReferenciasClose(session, text("salir"))).toBe(NOT_HANDLED);
+    expect(handleConsultaReferenciasClose(offerReferenciasList(session).session, text("hola"))).toBe(NOT_HANDLED);
+    expect(handleConsultaReferenciasClose(offerReferenciasList(session).session, text("salir"))?.session.state).toBe("referencia_closed");
   });
 });
