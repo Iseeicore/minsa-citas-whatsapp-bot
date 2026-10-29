@@ -7,13 +7,13 @@ import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identida
 import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
-import { referenciasBloqueadasAviso } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
   REFERENCIA_GOODBYE_TEXT,
   REFERENCIA_NONE_TEXT,
+  REFERENCIA_SIN_AGENDABLES_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
 import { DEMO_PEDIATRIA_DNI, DEMO_REFERENCIA_DNI } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
@@ -170,7 +170,6 @@ describe("the lookup", () => {
     const lookupOn = (channel: SessionChannel): Session => ({ ...lookupPending(), channel });
     const rowIds = (result: HandlerResult) =>
       sent(result).flatMap((effect) => (effect.kind === "send_interactive_list" ? effect.rows.map((row) => row.id) : []));
-    const aviso = referenciasBloqueadasAviso([citada]);
 
     const list = (result: HandlerResult) => sent(result).find((effect) => effect.kind === "send_interactive_list");
     const actionIds = (result: HandlerResult) => {
@@ -180,13 +179,12 @@ describe("the lookup", () => {
     const CONSULTA_ACTIONS = [ReferenciaActionButtonId.NEW_APPOINTMENT, ReferenciaActionButtonId.EXIT];
 
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
-      "%s lists only the bookable ones and names the others in one text before the list",
+      "%s lists only the bookable ones and says nothing about the others",
       (channel) => {
         const result = handle(lookupOn(channel), found([citada, REFERENCIA]));
 
-        expect(aviso).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
-        expect(texts(result)).toEqual([aviso]);
-        expect(sent(result)[0]).toEqual({ kind: "send_text", text: aviso });
+        expect(texts(result)).toEqual([]);
+        expect(sent(result)[0]?.kind).toBe("send_interactive_list");
         expect(rowIds(result)).toEqual([REFERENCIA.idReferencia]);
         expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       },
@@ -241,11 +239,11 @@ describe("the lookup", () => {
     });
 
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
-      "%s with none bookable sends that text and asks whether to book a cita, with no list",
+      "%s with none bookable says so without naming them and asks whether to book a cita, with no list",
       (channel) => {
         const result = handle(lookupOn(channel), found([citada]));
 
-        expect(texts(result)).toEqual([aviso]);
+        expect(texts(result)).toEqual([REFERENCIA_SIN_AGENDABLES_TEXT]);
         expect(rowIds(result)).toEqual([]);
         expect(buttons(result)).toEqual({
           kind: "send_buttons",
@@ -270,7 +268,7 @@ describe("the lookup", () => {
       const many = Array.from({ length: 13 }, (_, index) => ({ ...REFERENCIA, idReferencia: `ref-${index}`, numero: `n-${index}` }));
       const result = handle(lookupOn(SessionChannel.WEB), found([citada, ...many]));
 
-      expect(texts(result)).toEqual([aviso]);
+      expect(texts(result)).toEqual([]);
       expect(rowIds(result)).toEqual(many.slice(0, 10).map((item) => item.idReferencia));
       expect(actionIds(result)).toEqual(CONSULTA_ACTIONS);
     });

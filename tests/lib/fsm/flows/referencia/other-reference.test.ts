@@ -8,7 +8,13 @@ import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { CITA_REFERENCIA_OTHER_BUTTONS } from "@/lib/constants/textos/cita-referencia";
 import { REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-reserva";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
+import {
+  REFERENCIA_CITA_OFFER_BUTTONS,
+  REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+  REFERENCIA_GOODBYE_TEXT,
+  REFERENCIA_SIN_AGENDABLES_TEXT,
+} from "@/lib/constants/textos/referencia";
+import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { CounterKey } from "@/lib/enums/counter-key";
@@ -196,6 +202,33 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     const list = listed.effects.find((effect) => effect.kind === SendType.INTERACTIVE_LIST);
     const rows = list?.kind === SendType.INTERACTIVE_LIST ? list.rows : [];
     expect(rows.map((row) => row.id)).toEqual([REFERENCES[1].idReferencia]);
+  });
+
+  it("consultar referencia: si la única seleccionable quedó sin programación, Sí avisa que no hay referencias para agendar y pregunta si desea agendar una cita", () => {
+    const session = pending(channel);
+    session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([REFERENCES[0], { ...REFERENCES[1], estado: 1 }]);
+    const asked = turn(session, query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
+
+    const result = turn(asked.session, tap(OtherReferenciaButtonId.YES));
+
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+    expect(result.effects[0]).toMatchObject({
+      kind: SendType.TEXT,
+      text: REFERENCIA_SIN_AGENDABLES_TEXT,
+    });
+    expect(result.effects.at(-1)).toEqual({
+      kind: SendType.BUTTONS,
+      text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+      buttons: REFERENCIA_CITA_OFFER_BUTTONS,
+    });
+    expect(rowsOf(result)).toEqual([]);
+    expect(queries(result)).toEqual([]);
+
+    const yes = turn(result.session, tap(ReferenciaCitaOfferButtonId.YES));
+    expect(yes.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(yes.session.slots[SlotKey.CITA_BEARER]).toBe("synthetic-token");
+    expect(queries(yes)).toEqual([]);
+    expect(turn(result.session, tap(ReferenciaCitaOfferButtonId.NO)).session.state).toBe(SessionState.REFERENCIA_CLOSED);
   });
 
   it("no presenta el aviso sin cupos ante error técnico ni falta de horarios de una fecha", () => {

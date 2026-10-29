@@ -3,7 +3,6 @@ import {
   esReferenciaSeleccionable,
   referenciaBloqueadaAviso,
   referenciaEstadoEtiqueta,
-  referenciasBloqueadasAviso,
   tieneReferenciasSeleccionables,
 } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
@@ -15,8 +14,6 @@ import {
   referenciaBloqueadaText,
   referenciaEstadoCodigoText,
 } from "@/lib/constants/textos/cita-reserva";
-import { WHATSAPP_REFERENCIAS_BLOQUEADAS_MAX } from "@/lib/constants/limits/whatsapp-reference";
-import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 
 const BASE: ReferenciaItem = {
   idReferencia: "synthetic-0",
@@ -102,39 +99,5 @@ describe("referencias sin programación", () => {
     expect(REFERENCIA_SIN_PROGRAMACION_TEXT).toBe("Esta referencia no tiene programación de atención disponible. Elige otra.");
     expect(referenciaBloqueadaAviso(aceptada, sinProgramacion)).toBe(REFERENCIA_SIN_PROGRAMACION_TEXT);
     expect(referenciaBloqueadaAviso(pendiente, sinProgramacion)).toBe(referenciaBloqueadaText("PENDIENTE"));
-  });
-});
-
-describe("referenciasBloqueadasAviso", () => {
-  it("no arma aviso cuando todas permiten agendar", () => {
-    expect(referenciasBloqueadasAviso([conEstado(3), conEstado(5)])).toBeUndefined();
-  });
-
-  it("lista una línea por referencia bloqueada con especialidad, destino, número y estado", () => {
-    const citada = conEstado(7, { numero: "077", upsDestino: "OFTALMOLOGIA" });
-    const sinCupos = conEstado(3, { idReferencia: "sin-cupos", upsDestino: " " });
-
-    expect(referenciasBloqueadasAviso([conEstado(5), citada, sinCupos], new Set(["sin-cupos"]))).toBe(
-      [
-        "Estas referencias no permiten agendar una cita:",
-        "• OFTALMOLOGIA · HOSPITAL SINTETICO · N° 077 · PACIENTE CITADO",
-        "• Especialidad no informada · HOSPITAL SINTETICO · N° 000 · Sin programación",
-      ].join("\n"),
-    );
-  });
-
-  it("muestra solo las primeras y resume el resto sin pasar el límite de texto de WhatsApp", () => {
-    const extra = 3;
-    const largo = "X".repeat(WHATSAPP_TEXT_BODY_MAX);
-    const items = Array.from({ length: WHATSAPP_REFERENCIAS_BLOQUEADAS_MAX + extra }, (_, index) =>
-      conEstado(1, { idReferencia: String(index), upsDestino: largo, ipressDestino: largo }),
-    );
-
-    const aviso = referenciasBloqueadasAviso(items) ?? "";
-    const lineas = aviso.split("\n");
-
-    expect(lineas).toHaveLength(WHATSAPP_REFERENCIAS_BLOQUEADAS_MAX + 2);
-    expect(lineas.at(-1)).toBe(`y ${extra} más`);
-    expect(aviso.length).toBeLessThanOrEqual(WHATSAPP_TEXT_BODY_MAX);
   });
 });

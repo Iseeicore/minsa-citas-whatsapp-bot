@@ -30,7 +30,6 @@ import {
   referenciaBloqueadaAviso,
   referenciaEspecialidad,
   referenciaEstadoEtiqueta,
-  referenciasBloqueadasAviso,
   tieneReferenciasSeleccionables,
 } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { startReferenciasLookup } from "@/lib/fsm/flows/referencia/lookup";
@@ -56,7 +55,11 @@ import {
   REFERENCIA_NO_DISPONIBLE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
-import { REFERENCIA_CITA_OFFER_BUTTONS, REFERENCIA_CITA_OFFER_QUESTION_TEXT } from "@/lib/constants/textos/referencia";
+import {
+  REFERENCIA_CITA_OFFER_BUTTONS,
+  REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+  REFERENCIA_SIN_AGENDABLES_TEXT,
+} from "@/lib/constants/textos/referencia";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 const REFERENCE_APPOINTMENT_CLEANUP_SLOTS = [
@@ -180,20 +183,13 @@ function askConsultaCitaOffer(session: Session): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
   const question = buildResult(next, [sendButtons(REFERENCIA_CITA_OFFER_QUESTION_TEXT, REFERENCIA_CITA_OFFER_BUTTONS)]);
-  const aviso = referenciasBloqueadasAviso(readReferencias(next), readReferenciasSinProgramacion(next));
-  return aviso ? withLeadingText(question, aviso) : question;
+  return withLeadingText(question, REFERENCIA_SIN_AGENDABLES_TEXT);
 }
 
 export function offerSelectableReferencias(session: Session): HandlerResult {
   if (tieneReferenciasSeleccionables(readReferencias(session), readReferenciasSinProgramacion(session)))
     return offerReferenciasList(session);
   return askConsultaCitaOffer(session);
-}
-
-export function offerConsultaReferencias(session: Session): HandlerResult {
-  const aviso = referenciasBloqueadasAviso(readReferencias(session), readReferenciasSinProgramacion(session));
-  const result = offerReferenciasList(session);
-  return aviso ? withLeadingText(result, aviso) : result;
 }
 
 function recoverInvalidReferencia(session: Session, message: string): HandlerResult {
