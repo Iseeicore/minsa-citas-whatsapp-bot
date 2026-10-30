@@ -11,7 +11,7 @@ function sessionIn(state: string): Session {
 }
 
 function thrownBy(state: string): unknown {
-  const event: InboundEvent = { from: "wa-1", type: InboundEventType.TEXT, text: "hola" };
+  const event: InboundEvent = { channel: "whatsapp", from: "wa-1", type: InboundEventType.TEXT, text: "hola" };
   try {
     handle(sessionIn(state), event, NOW);
   } catch (error) {

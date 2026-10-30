@@ -47,3 +47,14 @@ describe("the home page", () => {
     expect(markup).toContain(`href="${getLoginUrl()}"`);
   });
 });
+
+describe("the landing without MINSA_DIGITAL_APP_URL", () => {
+  it("renders no fake '#' link to the MINSA Digital login", () => {
+    vi.stubEnv("MINSA_DIGITAL_APP_URL", "");
+
+    const markup = renderToStaticMarkup(Home());
+
+    expect(markup).toContain(LANDING_SERVICE_TEXT);
+    expect(markup).not.toMatch(/<a href="#"[^>]*>(Ingresar|Citas en línea|Servicios)/);
+  });
+});

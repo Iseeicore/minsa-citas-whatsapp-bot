@@ -1,3 +1,4 @@
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import {
   buildResult,
   cloneSession,
@@ -49,13 +50,10 @@ import { LookupStatus } from "@/lib/enums/lookup-status";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
-import { parseJsonOr } from "@/lib/utils/safe-json";
-import { arrayOr } from "@/lib/utils/array-values";
+import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { z } from "zod";
 import { MAX_INTENTOS_CODIGO, MAX_INTENTOS_OTP } from "@/lib/constants/limits/consulta";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
-
-const canalDe = (channel: SessionChannel | undefined): string =>
-  channel === SessionChannelEnum.WEB ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP;
 
 function closed(state: SessionState.CONSULTA_COMPLETED | SessionState.CONSULTA_FAILED, text: string): HandlerResult {
   return buildResult({ state, slots: {}, counters: {} }, [sendText(text)]);
@@ -69,7 +67,7 @@ function startSearch(session: Session): HandlerResult {
     sendText(BUSCANDO_INCIDENCIA_TEXT),
     query(QueryKind.CONSULTAR_INCIDENCIA, {
       codigo: slotText(next.slots, SlotKey.CONSULTA_CODIGO),
-      canal: web ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP,
+      canal: slotText(next.slots, SlotKey.CONSULTA_CANAL),
       ...(web ? { dni: slotText(next.slots, SlotKey.CONSULTA_DNI) } : {}),
     }),
   ]);
@@ -103,7 +101,7 @@ function startListado(session: Session): HandlerResult {
   return buildResult(next, [
     sendText(BUSCANDO_INCIDENCIAS_TEXT),
     query(QueryKind.LISTAR_INCIDENCIAS, {
-      canal: web ? SessionChannelEnum.WEB : SessionChannelEnum.WHATSAPP,
+      canal: slotText(next.slots, SlotKey.CONSULTA_CANAL),
       ...(web ? { dni: slotText(next.slots, SlotKey.CONSULTA_DNI) } : {}),
     }),
   ]);
@@ -113,10 +111,10 @@ function askCodigoOrListar(session: Session): HandlerResult {
   return buildResult(session, [sendText(ASK_CODIGO_TEXT), sendButtons(ASK_CODIGO_O_LISTAR_TEXT, LISTAR_BUTTONS)]);
 }
 
-export function beginConsulta(channel: SessionChannel | undefined, codigo?: string): HandlerResult {
+export function beginConsulta(channel: SessionChannel, codigo?: string): HandlerResult {
   const session: Session = {
     state: SessionState.CONSULTA_AWAITING_CODIGO,
-    slots: { [SlotKey.CONSULTA_CANAL]: canalDe(channel), ...(codigo ? { [SlotKey.CONSULTA_CODIGO]: codigo } : {}) },
+    slots: { [SlotKey.CONSULTA_CANAL]: channel, ...(codigo ? { [SlotKey.CONSULTA_CODIGO]: codigo } : {}) },
     counters: {},
   };
   return codigo ? afterCodigo(session) : askCodigoOrListar(session);
@@ -126,7 +124,7 @@ function handleAwaitingCodigo(session: Session, event: InboundEvent): HandlerRes
   const reply = readTappedId(event);
   if (reply === ConsultaCodigoButtonId.LISTAR) return afterListarChoice(session);
 
-  const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
+  const codigo = event.text ? extractCodigoIncidencia(event.text) : undefined;
   if (codigo) {
     const next = cloneSession(session);
     next.slots[SlotKey.CONSULTA_CODIGO] = codigo;
@@ -223,10 +221,10 @@ function handleQueryPending(event: QueryResultEvent): HandlerResult {
 
 type IncidenciaListada = { codigo: string; estado: string; fechaRegistro: string };
 
+const LISTADO_SCHEMA = z.array(z.object({ codigo: z.string(), estado: z.string(), fechaRegistro: z.string() }));
+
 function readListado(session: Session): IncidenciaListada[] {
-  const raw = session.slots[SlotKey.CONSULTA_LISTADO_DATA];
-  if (!isString(raw)) return [];
-  return arrayOr<IncidenciaListada>(parseJsonOr(raw, []));
+  return slotJsonOr(readSlotJson(session.slots, SlotKey.CONSULTA_LISTADO_DATA, LISTADO_SCHEMA), []);
 }
 
 function listadoRows(items: IncidenciaListada[]): ListRow[] {
@@ -242,14 +240,14 @@ function handleListarPending(event: QueryResultEvent): HandlerResult {
   if (result?.status === ReferenceStatus.EMPTY) return closed(SessionState.CONSULTA_COMPLETED, SIN_INCIDENCIAS_TEXT);
   if (result?.status !== ReferenceStatus.FOUND) return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 
-  const next: Session = { state: SessionState.CONSULTA_AWAITING_LISTADO, slots: {}, counters: {} };
+  const next: Session = { state: SessionState.CONSULTA_AWAITING_LISTADO, slots: {}, counters: {}, channel: event.channel };
   next.slots[SlotKey.CONSULTA_LISTADO_DATA] = JSON.stringify(result.items);
   return buildResult(next, offerPagedList(next, INCIDENCIAS_LIST_TEXT, listadoRows(result.items)));
 }
 
 function handleAwaitingListado(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event);
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
 
   const item = readListado(session).find((i) => i.codigo === outcome.replyId);
   if (!item) return closed(SessionState.CONSULTA_COMPLETED, NO_UBICADA_TEXT);

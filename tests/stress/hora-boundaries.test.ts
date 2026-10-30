@@ -35,7 +35,8 @@ function horaSession(day: HoraSlot[], visible: HoraSlot[] = day.slice(0, 10)): S
   };
 }
 
-const say = (session: Session, value: string): HandlerResult => handle(session, { from: FROM, type: "text", text: value });
+const say = (session: Session, value: string): HandlerResult =>
+  handle(session, { channel: "whatsapp", from: FROM, type: "text", text: value });
 
 const sent = (r: HandlerResult) => r.effects.filter((e): e is SendEffect => !isQueryEffect(e));
 const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
@@ -163,7 +164,7 @@ describe("C.2 formats on a fuller day", () => {
 
   it("the value that reaches MINSA is the offered 24h slot, never the typed text", () => {
     const asked = say(session(), "1:30 pm");
-    const confirmed = handle(asked.session, { from: FROM, type: "button", listId: "hora_confirm_si" });
+    const confirmed = handle(asked.session, { channel: "whatsapp", from: FROM, type: "button", listId: "hora_confirm_si" });
 
     const [booking] = queries(confirmed);
     expect(booking.kind).toBe("book_appointment");

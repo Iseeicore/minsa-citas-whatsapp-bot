@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import type { HandlerResult, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { MissingChannelError } from "@/lib/errors/missing-channel-error";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 import {
@@ -16,7 +17,7 @@ import {
 const DESCRIPCION_MAXIMA = "d".repeat(MAX_DESCRIPCION_LENGTH);
 const ESTABLECIMIENTO_LARGO = `Hospital Nacional ${"e".repeat(100)}`;
 
-const session = (slots: Session["slots"]): Session => ({ state: "incidencia_awaiting_foto", slots, counters: {} });
+const session = (slots: Session["slots"]): Session => ({ state: "incidencia_awaiting_foto", slots, counters: {}, channel: "whatsapp" });
 
 const resumen = (result: HandlerResult): SendEffect => {
   const [effect] = result.effects.filter((item): item is SendEffect => !isQueryEffect(item));
@@ -84,6 +85,7 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     expect(shown.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(DESCRIPCION_MAXIMA);
 
     const confirmed = handleConfirmRegistro(shown.session, {
+      channel: "whatsapp",
       from: "51999999999",
       type: "button",
       listId: "incidencia_confirmar_registro_si",
@@ -94,7 +96,6 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
   });
 
   it.each([
-    [undefined, "whatsapp"],
     ["whatsapp", "whatsapp"],
     ["web", "web"],
   ] as const)("registrar emite solo la consulta, sin «Enviando…», y la consulta lleva el canal de la sesión (%s)", (channel, canal) => {
@@ -105,7 +106,12 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
       ...(channel ? { channel } : {}),
     };
 
-    const result = handleConfirmRegistro(confirming, { from: "51999999999", type: "button", listId: "incidencia_confirmar_registro_si" });
+    const result = handleConfirmRegistro(confirming, {
+      channel: "whatsapp",
+      from: "51999999999",
+      type: "button",
+      listId: "incidencia_confirmar_registro_si",
+    });
 
     expect(result.session.state).toBe("incidencia_submit_pending");
     expect(result.effects).toHaveLength(1);
@@ -126,5 +132,24 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     expect(body.startsWith(RESUMEN_LISTO_TEXT)).toBe(true);
     expect(body).toContain("Establecimiento: ");
     expect(body.endsWith(RESUMEN_DECLARACION_TEXT)).toBe(true);
+  });
+});
+
+describe("handleConfirmRegistro sin canal", () => {
+  it("no registra la denuncia como WhatsApp: el turno falla", () => {
+    const confirming: Session = {
+      state: "incidencia_confirm_registro",
+      slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo." },
+      counters: {},
+    };
+
+    expect(() =>
+      handleConfirmRegistro(confirming, {
+        channel: "whatsapp",
+        from: "51999999999",
+        type: "button",
+        listId: "incidencia_confirmar_registro_si",
+      }),
+    ).toThrow(MissingChannelError);
   });
 });

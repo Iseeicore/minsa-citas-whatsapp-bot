@@ -5,12 +5,15 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
+import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 
 const FROM = "sandbox-registration";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const notValid = (): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "validate_user",
@@ -113,5 +116,33 @@ describe("botón 'No quiero continuar' en cita_registration_wait", () => {
     expect(result.session.state).toBe("cita_validate_pending");
     expect(result.effects.every(isQueryEffect)).toBe(true);
     expect(result.effects.filter(isQueryEffect).map((e) => e.kind)).toEqual(["validate_user"]);
+  });
+});
+
+describe("una falla del MINSA al validar el documento no es un documento no registrado", () => {
+  const validateError = (): QueryResultEvent => ({
+    channel: "whatsapp",
+    from: FROM,
+    type: InternalEventType.QUERY_RESULT,
+    queryKind: "validate_user",
+    result: { status: ValidateUserStatus.ERROR },
+  });
+
+  it.each([0, 1, 2])("con %i intentos previos avisa la falla, no cuenta el intento ni ofrece registrarse", (checks) => {
+    const result = handle(validatePending(checks), validateError());
+
+    expect(texts(result)).toEqual([TURN_FAILURE_TEXT]);
+    expect(buttonIds(result)).toBeUndefined();
+    expect(result.session.counters[CounterKey.CITA_REGISTRATION_CHECKS]).toBe(checks);
+    expect(result.session.state).toBe("cita_awaiting_dni");
+  });
+
+  it("después de la falla, el documento escrito otra vez se vuelve a validar", () => {
+    const failed = handle(validatePending(0), validateError());
+
+    const retried = handle(failed.session, text("12345678"));
+
+    expect(retried.session.state).toBe("cita_validate_pending");
+    expect(retried.effects.filter(isQueryEffect).map((effect) => effect.kind)).toEqual(["validate_user"]);
   });
 });

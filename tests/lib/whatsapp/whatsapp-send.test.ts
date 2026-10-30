@@ -41,7 +41,7 @@ describe("WhatsApp send failures reach the masked logger", () => {
       vi.fn(async () => new Response(body, { status: 400 })),
     );
 
-    await sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" });
+    await sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" });
 
     const failure = lines.find((line) => line.event === "outbound.rejected");
     expect(failure).toMatchObject({ level: "error", kind: SendType.TEXT, status: 400, errorCodeNumber: 131026 });
@@ -59,7 +59,7 @@ describe("WhatsApp send failures reach the masked logger", () => {
       }),
     );
 
-    await sendAndRecordCtaUrl(null, "51987654321", { bodyText: "Regístrate", buttonText: "Ir", url: "https://example.org" });
+    await sendAndRecordCtaUrl(undefined, "51987654321", { bodyText: "Regístrate", buttonText: "Ir", url: "https://example.org" });
 
     expect(lines.find((line) => line.event === "whatsapp.send_failed")).toMatchObject({
       level: "error",
@@ -72,7 +72,7 @@ describe("WhatsApp send failures reach the masked logger", () => {
     const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await sendAndRecordEffect(null, "51987654321", {
+    await sendAndRecordEffect(undefined, "51987654321", {
       kind: SendType.INTERACTIVE_LIST,
       text: "Elige",
       rows: [{ id: "1", title: "Uno" }],
@@ -123,7 +123,7 @@ describe("WhatsApp send failures reach the masked logger", () => {
       vi.fn(async () => unreadable),
     );
 
-    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+    await expect(sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
       kind: SendOutcomeKind.REJECTED,
       status: 502,
     });
@@ -147,7 +147,7 @@ describe("WhatsApp send failures reach the masked logger", () => {
       vi.fn(async () => unreadable),
     );
 
-    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+    await expect(sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
       kind: SendOutcomeKind.SENT_NO_ID,
     });
     expect(lines.find((line) => line.event === "whatsapp.sent_without_id")).toMatchObject({ level: "warn", reason: "unreadable_body" });
@@ -187,7 +187,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   });
 
   it("sends an interactive message that breaks Meta limits as one plain text with numbered options", async () => {
-    await sendAndRecordEffect(null, WA_ID, {
+    await sendAndRecordEffect(undefined, WA_ID, {
       kind: SendType.BUTTONS,
       text: "Elige una opción",
       buttons: [
@@ -203,7 +203,10 @@ describe("safety net: the person always receives something Meta accepts", () => 
   });
 
   it("warns outbound.limit_violation with the broken limits, but not the text nor the phone", async () => {
-    await sendAndRecordEffect(null, WA_ID, { ...confirmButtons, buttons: [{ id: "si", title: "Sí, quiero confirmar esta cita ahora" }] });
+    await sendAndRecordEffect(undefined, WA_ID, {
+      ...confirmButtons,
+      buttons: [{ id: "si", title: "Sí, quiero confirmar esta cita ahora" }],
+    });
 
     const [warning] = events("outbound.limit_violation");
     expect(warning).toMatchObject({
@@ -217,7 +220,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   });
 
   it("sends a message within limits untouched and without warnings", async () => {
-    await sendAndRecordEffect(null, WA_ID, confirmButtons);
+    await sendAndRecordEffect(undefined, WA_ID, confirmButtons);
 
     expect(sentBodies()).toHaveLength(1);
     expect(sentBodies()[0]).toMatchObject({ type: "interactive" });
@@ -227,7 +230,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   it("when Meta rejects an interactive message, sends ONE plain-text fallback with the numbered options", async () => {
     fetchMock.mockImplementationOnce(async () => graphRejected());
 
-    await sendAndRecordEffect(null, WA_ID, confirmButtons);
+    await sendAndRecordEffect(undefined, WA_ID, confirmButtons);
 
     expect(sentBodies()).toHaveLength(2);
     expect(sentBodies()[1]).toMatchObject({
@@ -244,7 +247,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   it("if the fallback is rejected too, it only logs and never sends a third time", async () => {
     fetchMock.mockImplementation(async () => graphRejected());
 
-    await sendAndRecordEffect(null, WA_ID, confirmButtons);
+    await sendAndRecordEffect(undefined, WA_ID, confirmButtons);
 
     expect(sentBodies()).toHaveLength(2);
     expect(events("outbound.rejected").map((line) => line.kind)).toEqual([SendType.BUTTONS, SendType.TEXT]);
@@ -253,7 +256,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   it("a rejected plain text is logged and not retried", async () => {
     fetchMock.mockImplementation(async () => graphRejected());
 
-    await sendAndRecordEffect(null, WA_ID, { kind: SendType.TEXT, text: "hola" });
+    await sendAndRecordEffect(undefined, WA_ID, { kind: SendType.TEXT, text: "hola" });
 
     expect(sentBodies()).toHaveLength(1);
     expect(events("outbound.rejected")).toHaveLength(1);
@@ -266,7 +269,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
         throw new TypeError("fetch failed");
       });
 
-    await sendAndRecordEffect(null, WA_ID, confirmButtons);
+    await sendAndRecordEffect(undefined, WA_ID, confirmButtons);
 
     expect(sentBodies()).toHaveLength(2);
     expect(events("whatsapp.send_failed")).toHaveLength(1);
@@ -275,7 +278,10 @@ describe("safety net: the person always receives something Meta accepts", () => 
   it("sends the plain-text fallback exactly once when Meta rejects the format with 400", async () => {
     fetchMock.mockImplementationOnce(async () => graphRejected());
 
-    await expect(sendAndRecordEffect(null, WA_ID, confirmButtons)).resolves.toEqual({ kind: SendOutcomeKind.SENT, messageId: "wamid.ok" });
+    await expect(sendAndRecordEffect(undefined, WA_ID, confirmButtons)).resolves.toEqual({
+      kind: SendOutcomeKind.SENT,
+      messageId: "wamid.ok",
+    });
 
     expect(sentBodies()).toHaveLength(2);
     expect(sentBodies()[1]).toMatchObject({ type: "text" });
@@ -284,7 +290,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   it.each([401, 403, 404, 429, 500])("when Meta answers %i it only logs the rejection and sends no fallback", async (status) => {
     fetchMock.mockImplementationOnce(async () => new Response(META_REJECTION, { status }));
 
-    await expect(sendAndRecordEffect(null, WA_ID, confirmButtons)).resolves.toEqual({ kind: SendOutcomeKind.REJECTED, status });
+    await expect(sendAndRecordEffect(undefined, WA_ID, confirmButtons)).resolves.toEqual({ kind: SendOutcomeKind.REJECTED, status });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(events("outbound.rejected")).toEqual([expect.objectContaining({ kind: SendType.BUTTONS, status })]);
@@ -305,7 +311,7 @@ describe("the terms message on WhatsApp", () => {
     const fetchMock = vi.fn(async () => Response.json({ messages: [{ id: `wamid.terminos-${++sequence}` }] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const outcome = await sendAndRecordEffect(null, "51987654321", buildTerminosEffect());
+    const outcome = await sendAndRecordEffect(undefined, "51987654321", buildTerminosEffect());
 
     const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
     expect(bodies.map((body) => body.interactive.type)).toEqual(["cta_url", "button"]);

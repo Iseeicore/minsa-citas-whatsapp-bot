@@ -3,7 +3,7 @@ import { bookAppointment } from "@/lib/integrations/minsa/booking";
 import { fetchCatalogItems } from "@/lib/integrations/minsa/catalog-pipeline";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { configureLogger } from "@/lib/observability/logger";
-import { minsaDigitalAppUrl, minsaDigitalOrigin, minsaDigitalUrl, postWithBearer } from "@/lib/integrations/minsa/wire";
+import { getLoginUrl, minsaDigitalAppUrl, minsaDigitalOrigin, minsaDigitalUrl, postWithBearer } from "@/lib/integrations/minsa/wire";
 
 const PORTAL = "https://portal-prueba.example.test";
 
@@ -172,5 +172,17 @@ describe("postWithBearer arma Origin y Referer desde la variable", () => {
     expect(headers).not.toHaveProperty("Referer");
     expect(headers.Authorization).toBe("Bearer token-prueba");
     expect(headers["Content-Type"]).toBe("application/json");
+  });
+});
+
+describe("getLoginUrl", () => {
+  it("arma el enlace de inicio de sesión con la URL del portal", () => {
+    vi.stubEnv("MINSA_DIGITAL_APP_URL", PORTAL);
+    expect(getLoginUrl()).toMatch(new RegExp(`^${PORTAL}/`));
+  });
+
+  it("sin la URL del portal no inventa un enlace: no hay enlace", () => {
+    vi.stubEnv("MINSA_DIGITAL_APP_URL", "");
+    expect(getLoginUrl()).toBeUndefined();
   });
 });

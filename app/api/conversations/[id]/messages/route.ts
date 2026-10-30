@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { consoleDisabledResponse } from "@/lib/inbox/console-access";
-import { ConversationStatus } from "@/lib/enums/conversation-status";
+import { apiError } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { toConversationStatus, toMessageDto } from "@/lib/inbox/dto";
 import { findLastInbound, findUserState, listMessages } from "@/lib/inbox/repository";
 
@@ -19,6 +20,8 @@ export async function GET(
   const { id } = await params;
 
   const usuario = await findUserState(id);
+  if (!usuario) return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
+
   const mensajes = await listMessages(id);
   const lastInbound = await findLastInbound(id);
 
@@ -34,6 +37,6 @@ export async function GET(
     messages: mensajes.map(toMessageDto),
     windowOpen,
     windowExpiresAt,
-    status: usuario ? toConversationStatus(usuario.estadoConversacionId) : ConversationStatus.OPEN,
+    status: toConversationStatus(usuario.estadoConversacionId),
   });
 }

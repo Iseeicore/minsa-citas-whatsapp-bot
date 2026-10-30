@@ -656,7 +656,7 @@ Los logs son **una línea de JSON por evento** (NDJSON). Salen por stdout: en lo
 | `turn.external` | Una consulta a MINSA, Gemini o la base de datos, con `durationMs` y `resultStatus`. |
 | `external.http` | La llamada HTTP misma: `status` real y `durationMs`. Solo la ruta, nunca la clave ni el cuerpo. |
 | `minsa.book_appointment.failed` (`error`) | MINSA no agendó: `endpoint`, `status`, `minsaMessage`, `response` (300 caracteres) y el payload sin DNI. Es la evidencia del caso 3.15g. |
-| `ai.fallback` (`warn`) | La IA falló y el mensaje volvió al menú; `reason` dice por qué (HTTP, tiempo agotado, respuesta vacía o JSON inválido). Nunca lleva el texto del ciudadano. |
+| `ai.fallback` (`warn`) | La IA falló; `operation` dice qué tarea y `fellBackTo` adónde volvió el turno (menú, lista otra vez o pedir la evidencia). `reason` dice por qué (HTTP, tiempo agotado, respuesta vacía, JSON inválido o proveedor no registrado). Nunca lleva el texto del ciudadano. |
 | `perimeter.dropped` / `perimeter.muted` / `perimeter.rejected` / `perimeter.banned` | El perímetro descartó, rechazó (`too_long`, `link`, `media`) o sancionó a un número (sección 1). |
 | `turn_lock.waited` con `layer: "process"`, `waitedMs: 312` | Un turno esperó a otro del mismo ciudadano. **Es la prueba visible de que el candado serializó.** Solo aparece si la espera fue de 150 ms o más. |
 | `turn_lock.waited` con `layer: "database"`, `waitedMs: 340` | Adquirir el candado de Postgres tardó 200 ms o más. Con base de datos lejana es normal (≈2 viajes de red). |

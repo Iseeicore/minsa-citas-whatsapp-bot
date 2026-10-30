@@ -38,7 +38,7 @@ const snapshot = (waId: string, replies: number): Outcome => {
   return { state: session.state, slots: session.slots, counters: session.counters, replies };
 };
 
-const text = (waId: string, value: string) => ({ from: waId, type: "text" as const, text: value });
+const text = (waId: string, value: string) => ({ from: waId, type: "text" as const, text: value, channel: "whatsapp" as const });
 
 async function sequential(waId: string, messages: string[]): Promise<Outcome> {
   db.sessions.delete(waId);

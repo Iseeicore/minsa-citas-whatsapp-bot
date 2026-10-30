@@ -1,3 +1,4 @@
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import {
   enterManualDistritoFlow,
   looksLikePlaceName,
@@ -97,7 +98,7 @@ export function handleAwaitingDistritoDisambiguation(session: Session, event: In
       return resolveDistritoText(clearOffered(session), typed, session.slots[SlotKey.INITIAL_MESSAGE_TEXT]);
     },
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
 
   const parts = outcome.replyId.split("|");
   if (parts.length !== 3) {
@@ -200,7 +201,7 @@ export function handleUbigeoPending(session: Session, event: QueryResultEvent): 
 
 export function handleAwaitingUbigeoSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event, { includeDescription: true });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);

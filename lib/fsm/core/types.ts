@@ -110,7 +110,7 @@ export type InboundEvent = {
   media?: InboundMedia[];
   messageId?: string;
   replyTo?: string;
-  channel?: SessionChannel;
+  channel: SessionChannel;
 };
 
 export type InteractiveTracking = {
@@ -123,7 +123,7 @@ export type QueryResultEvent = {
   type: InternalEventType.QUERY_RESULT;
   queryKind: QueryEffectKind;
   result: unknown;
-  channel?: SessionChannel;
+  channel: SessionChannel;
 };
 
 export type HandleEvent = InboundEvent | QueryResultEvent;

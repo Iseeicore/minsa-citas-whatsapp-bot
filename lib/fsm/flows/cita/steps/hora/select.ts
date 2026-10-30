@@ -1,4 +1,5 @@
 import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { matchHoraTyped } from "@/lib/fsm/flows/cita/steps/hora/typed-hora";
@@ -16,7 +17,7 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
     passthroughIds: [HoraPageButtonId.NEXT, HoraPageButtonId.PREV],
     customMatch: (typed, rows) => matchHoraTyped(session, typed, rows),
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   if (replyId === HoraPageButtonId.NEXT || replyId === HoraPageButtonId.PREV) {

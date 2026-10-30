@@ -11,6 +11,10 @@ import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
+import { BannerTone } from "@/lib/enums/banner-tone";
+import { Banner } from "@/app/components/ui/Banner";
+import { fetchJson } from "@/lib/utils/fetch-json";
+import { FetchJsonStatus } from "@/lib/enums/fetch-json-status";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -22,18 +26,23 @@ export default function ConversationList({
   onSelect: (conversation: Conversation) => void;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      try {
-        const res = await fetch("/api/conversations");
-        if (!res.ok) return;
-        const data = (await res.json()) as Conversation[];
-        if (!cancelled) setConversations(data);
-      } catch {
+      const result = await fetchJson<Conversation[]>(
+        "/api/conversations",
+        "No se pudieron cargar las conversaciones. La lista puede no estar al día.",
+      );
+      if (cancelled) return;
+      if (result.status === FetchJsonStatus.FAILED) {
+        setLoadError(result.message);
+        return;
       }
+      setLoadError(null);
+      setConversations(result.data);
     }
 
     load();
@@ -49,7 +58,8 @@ export default function ConversationList({
       <h2 className="border-b border-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
         Conversaciones
       </h2>
-      {conversations.length === 0 && (
+      {loadError && <Banner tone={BannerTone.ERROR}>{loadError}</Banner>}
+      {!loadError && conversations.length === 0 && (
         <p className="px-4 py-6 text-center text-sm text-gray-400">Aún no hay conversaciones.</p>
       )}
       <ul>

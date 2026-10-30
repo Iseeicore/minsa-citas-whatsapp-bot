@@ -33,7 +33,7 @@ import type { AlmacenEvidencias, ImagenValidada } from "@/lib/types/almacen-evid
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 
-const base = { waId: "wa-1", dni: null, descripcion: "Me cobraron de mas" };
+const base = { waId: "wa-1", dni: null, descripcion: "Me cobraron de mas", canal: "whatsapp" };
 const ACEPTADA = { status: "accepted", codigo: "MINSA-2026-A-000001" };
 const violacionUnica = (target: unknown) => Object.assign(new Error("unique"), { code: "P2002", meta: { target } });
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -77,17 +77,19 @@ describe("registering an incident directly in the database", () => {
   it.each([
     ["the Chat-bot is stored as web", { ...base, canal: "web" }, CanalOrigenId.WEB],
     ["whatsapp-bot is stored as WhatsApp", { ...base, canal: "whatsapp" }, CanalOrigenId.WHATSAPP],
-    ["a submission without a channel is stored as WhatsApp", base, CanalOrigenId.WHATSAPP],
   ])("stores the real channel of origin: %s", async (_case, submission, canalOrigenId) => {
     await registrarIncidencia(submission, crearAlmacenEvidencias());
 
     expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ canalOrigenId }) });
   });
 
-  it.each(["telegram", "WEB", 2, null])("refuses the unknown channel %j before the database", async (canal) => {
-    await expect(registrarIncidencia({ ...base, canal }, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
-    expect(db.incidenciaCreate).not.toHaveBeenCalled();
-  });
+  it.each(["telegram", "WEB", 2, null, undefined])(
+    "refuses the unknown or missing channel %j before the database, never assuming WhatsApp",
+    async (canal) => {
+      await expect(registrarIncidencia({ ...base, canal }, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
+      expect(db.incidenciaCreate).not.toHaveBeenCalled();
+    },
+  );
 
   it("a phone that already sent the daily maximum is refused before anything is saved, and the turn is logged", async () => {
     db.queryRaw.mockResolvedValueOnce([{ total: BigInt(5) }]);

@@ -9,7 +9,7 @@ import { FIRST_MESSAGE_REJECTION_TEXT } from "@/lib/constants/textos/seguridad";
 
 const WA_ID = "51999000111";
 const menu = (): Session => ({ state: "main_menu", slots: {}, counters: {} });
-const text = (body: string) => ({ from: WA_ID, type: "text" as const, text: body });
+const text = (body: string) => ({ from: WA_ID, type: "text" as const, text: body, channel: "whatsapp" as const });
 const asksTheAi = (result: HandlerResult) =>
   result.effects.filter(isQueryEffect).some((effect) => effect.kind === "analyze_main_menu_intent");
 

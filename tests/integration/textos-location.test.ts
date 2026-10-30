@@ -27,23 +27,28 @@ const TEXT_DECLARATION_SUFFIXES = ["_TEXT", "_BUTTONS", "_PROMPT"];
 
 const ALLOWED_INSIDE_FSM: ReadonlyArray<{ file: string; snippet: string; reason: string }> = [
   {
-    file: "lib/fsm/parsing/ai/main-menu-intent.ts",
+    file: "lib/fsm/parsing/ai/ai-fallback.ts",
     snippet: "request failed ()",
     reason: "motivo que va al log ai.fallback, no al ciudadano",
   },
   {
-    file: "lib/fsm/parsing/ai/main-menu-intent.ts",
+    file: "lib/fsm/parsing/ai/ai-fallback.ts",
     snippet: "HTTP  from model ",
     reason: "motivo que va al log ai.fallback, no al ciudadano",
   },
   {
-    file: "lib/fsm/parsing/ai/main-menu-intent.ts",
+    file: "lib/fsm/parsing/ai/ai-fallback.ts",
     snippet: "no text in the response",
     reason: "motivo que va al log ai.fallback, no al ciudadano",
   },
   {
-    file: "lib/fsm/parsing/ai/main-menu-intent.ts",
+    file: "lib/fsm/parsing/ai/ai-fallback.ts",
     snippet: "response was not valid JSON",
+    reason: "motivo que va al log ai.fallback, no al ciudadano",
+  },
+  {
+    file: "lib/fsm/parsing/ai/ai-fallback.ts",
+    snippet: "provider  is not registered",
     reason: "motivo que va al log ai.fallback, no al ciudadano",
   },
   {

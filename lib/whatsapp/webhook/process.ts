@@ -82,7 +82,7 @@ async function stageInboundMessage(
     return () =>
       withTurnLock(message.from_user_id, () => {
         marks.mark("lock");
-        return answerMessage(message, null, marks);
+        return answerMessage(message, undefined, marks);
       });
   }
 

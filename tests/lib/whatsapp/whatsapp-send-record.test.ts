@@ -62,7 +62,7 @@ describe("recording what the bot sends", () => {
   });
 
   it("records nothing when there is no stored user (database disabled)", async () => {
-    await sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" });
+    await sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" });
 
     expect(db.mensajeCreate).not.toHaveBeenCalled();
   });
@@ -110,7 +110,7 @@ describe("recording what the bot sends", () => {
       kind: SendOutcomeKind.SENT,
       messageId: "wamid.out-1",
     });
-    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+    await expect(sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
       kind: SendOutcomeKind.SENT,
       messageId: "wamid.out-1",
     });
@@ -121,7 +121,7 @@ describe("recording what the bot sends", () => {
       "fetch",
       vi.fn(async () => new Response("{}", { status: 200 })),
     );
-    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+    await expect(sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
       kind: SendOutcomeKind.SENT_NO_ID,
     });
   });
@@ -133,7 +133,7 @@ describe("recording what the bot sends", () => {
         throw new TypeError("fetch failed");
       }),
     );
-    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+    await expect(sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
       kind: SendOutcomeKind.FAILED,
     });
   });
@@ -146,7 +146,7 @@ describe("recording what the bot sends", () => {
         .fn(async () => graphOk())
         .mockImplementationOnce(async () => new Response(JSON.stringify({ error: { code: 131009 } }), { status: 400 })),
     );
-    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toEqual({
+    await expect(sendAndRecordEffect(undefined, "51987654321", buttons)).resolves.toEqual({
       kind: SendOutcomeKind.SENT,
       messageId: "wamid.out-1",
     });
@@ -155,6 +155,6 @@ describe("recording what the bot sends", () => {
       "fetch",
       vi.fn(async () => new Response("{}", { status: 400 })),
     );
-    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toEqual({ kind: SendOutcomeKind.REJECTED, status: 400 });
+    await expect(sendAndRecordEffect(undefined, "51987654321", buttons)).resolves.toEqual({ kind: SendOutcomeKind.REJECTED, status: 400 });
   });
 });

@@ -3,9 +3,9 @@ import type { ListRow, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
 import { MatchKind } from "@/lib/enums/match-kind";
-import { isString } from "@/lib/utils/type-guards";
 import { stripAccents } from "@/lib/utils/text-values";
-import { parseJsonOr } from "@/lib/utils/safe-json";
+import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { z } from "zod";
 import { MIN_PREFIX_MATCH_LENGTH, MIN_TOKEN_LENGTH } from "@/lib/constants/limits/selection";
 
 export type OfferedRow = ListRow;
@@ -15,19 +15,29 @@ export function serializeOffered(list: OfferedList): string {
   return JSON.stringify(list);
 }
 
-function isOfferedRow(value: unknown): value is OfferedRow {
-  const row = value as Partial<OfferedRow> | null;
-  return isString(row?.id) && isString(row?.title) && (row.description === undefined || isString(row.description));
-}
+const OFFERED_SCHEMA = z.object({
+  text: z.string(),
+  rows: z.array(
+    z.looseObject({
+      id: z.string(),
+      title: z.string(),
+      description: z.string().optional(),
+      referencia: z
+        .object({
+          especialidad: z.string(),
+          numero: z.string(),
+          destino: z.string(),
+          origen: z.string(),
+          fecha: z.string(),
+          estado: z.string(),
+        })
+        .optional(),
+    }),
+  ),
+});
 
 export function readOffered(slots: Session["slots"]): OfferedList | undefined {
-  const raw = slots[SlotKey.CITA_OFFERED];
-  if (!isString(raw)) return undefined;
-
-  const parsed = parseJsonOr(raw, null) as Partial<OfferedList> | null;
-  if (!isString(parsed?.text) || !Array.isArray(parsed.rows)) return undefined;
-  if (!parsed.rows.every(isOfferedRow)) return undefined;
-  return { text: parsed.text, rows: parsed.rows };
+  return slotJsonOr<OfferedList | undefined>(readSlotJson(slots, SlotKey.CITA_OFFERED, OFFERED_SCHEMA), undefined);
 }
 
 export type SelectionMatch =

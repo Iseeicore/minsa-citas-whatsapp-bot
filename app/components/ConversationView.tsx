@@ -20,6 +20,8 @@ import { TextInput } from "@/app/components/ui/TextInput";
 import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
+import { fetchJson } from "@/lib/utils/fetch-json";
+import { FetchJsonStatus } from "@/lib/enums/fetch-json-status";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonSize } from "@/lib/enums/button-size";
 import { ButtonVariant } from "@/lib/enums/button-variant";
@@ -28,6 +30,13 @@ import { MessageDirection } from "@/lib/enums/message-direction";
 import { TextInputVariant } from "@/lib/enums/text-input-variant";
 
 const POLL_INTERVAL_MS = 4000;
+
+type ConversationMessages = {
+  messages: Message[];
+  windowOpen: boolean;
+  windowExpiresAt: string | null;
+  status: ConversationStatus;
+};
 
 export default function ConversationView({
   conversationId,
@@ -49,29 +58,27 @@ export default function ConversationView({
   const [sendError, setSendError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      try {
-        const res = await fetch(`/api/conversations/${conversationId}/messages`);
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          messages: Message[];
-          windowOpen: boolean;
-          windowExpiresAt: string | null;
-          status: ConversationStatus;
-        };
-        if (!cancelled) {
-          setMessages(data.messages);
-          setWindowOpen(data.windowOpen);
-          setWindowExpiresAt(data.windowExpiresAt);
-          setStatus(data.status);
-        }
-      } catch {
+      const result = await fetchJson<ConversationMessages>(
+        `/api/conversations/${conversationId}/messages`,
+        "No se pudo actualizar la conversación. Los mensajes pueden no estar al día.",
+      );
+      if (cancelled) return;
+      if (result.status === FetchJsonStatus.FAILED) {
+        setLoadError(result.message);
+        return;
       }
+      setLoadError(null);
+      setMessages(result.data.messages);
+      setWindowOpen(result.data.windowOpen);
+      setWindowExpiresAt(result.data.windowExpiresAt);
+      setStatus(result.data.status);
     }
 
     load();
@@ -138,7 +145,7 @@ export default function ConversationView({
   const displayName = profileName ?? waId ?? "Contacto";
 
   const countdown =
-    windowOpen && windowExpiresAt ? formatWindowCountdown(windowExpiresAt) : null;
+    windowOpen && windowExpiresAt ? formatWindowCountdown(windowExpiresAt) : undefined;
 
   return (
     <div className="flex h-full flex-col">
@@ -217,6 +224,7 @@ export default function ConversationView({
         </Banner>
       )}
 
+      {loadError && <Banner tone={BannerTone.ERROR}>{loadError}</Banner>}
       {sendError && <Banner tone={BannerTone.ERROR}>{sendError}</Banner>}
 
       {closeError && <Banner tone={BannerTone.ERROR}>{closeError}</Banner>}

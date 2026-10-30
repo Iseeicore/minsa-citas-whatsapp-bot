@@ -1,4 +1,5 @@
 import { SearchSubject } from "@/lib/enums/search-subject";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { askOtherDistrito, offerChangeDistrito, offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
@@ -50,6 +51,8 @@ import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { SelectionStep } from "@/lib/enums/selection-step";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
+import type { SelectionHintsResult } from "@/lib/fsm/parsing/ai/selection-hints";
 import { listAvailableEstablecimientos, findPageAfterEmpty } from "@/lib/utils/catalog";
 import { HINT_MAX_LENGTH } from "@/lib/constants/limits/cita";
 import { ESTABLECIMIENTOS_MAX_EMPTY_PAGE_SKIPS } from "@/lib/constants/limits/minsa";
@@ -84,12 +87,7 @@ function askSelectionHints(session: Session, step: SelectionStep, typed: string)
 }
 
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as {
-    especialidad?: unknown;
-    establecimiento?: unknown;
-    quiereSalir?: boolean;
-    quiereCambiarDistrito?: boolean;
-  };
+  const result = event.result as SelectionHintsResult;
   const step =
     session.slots[SlotKey.CITA_SELECTION_STEP] === SelectionStep.ESTABLECIMIENTO
       ? SelectionStep.ESTABLECIMIENTO
@@ -103,6 +101,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
       ? SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT
       : SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
 
+  if (result.status === AiTaskStatus.UNAVAILABLE) return reshowOffered(restored, offered, OPTION_NOT_IDENTIFIED_TEXT);
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
   if (result.quiereCambiarDistrito === true) return offerChangeDistrito(restored, "ai");
 
@@ -118,7 +117,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
     if (hint) restored.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT] = hint;
   }
 
-  const tap: InboundEvent = { from: event.from, type: InboundEventType.LIST, listId: matched.id };
+  const tap: InboundEvent = { from: event.from, type: InboundEventType.LIST, listId: matched.id, channel: event.channel };
   return step === SelectionStep.ESTABLECIMIENTO
     ? handleAwaitingEstablecimientoSelect(restored, tap)
     : handleAwaitingEspecialidadSelect(restored, tap);
@@ -129,7 +128,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
     includeDescription: true,
     onNoMatchText: (typed) => askSelectionHints(session, SelectionStep.ESPECIALIDAD, typed),
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
@@ -236,7 +235,7 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
     includeDescription: true,
     onNoMatchText: (typed) => askSelectionHints(session, SelectionStep.ESTABLECIMIENTO, typed),
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   if (replyId === EstablecimientoPageRowId.NEXT || replyId === EstablecimientoPageRowId.PREV) {

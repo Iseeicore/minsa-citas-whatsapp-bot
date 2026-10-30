@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { beginIncidencia, readInicio, writeInicio } from "@/lib/fsm/flows/incidencia/inicio";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { Session } from "@/lib/fsm/core/types";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { logger } from "@/lib/observability/logger";
 
 describe("beginIncidencia: the consent is the first step of every way in", () => {
   it("asks only whether the consent was already given, and sends nothing yet", () => {
@@ -58,5 +59,18 @@ describe("the start kept in the session", () => {
   it("an empty or broken slot reads as an empty start", () => {
     expect(readInicio({})).toEqual({});
     expect(readInicio({ [SlotKey.INCIDENCIA_INICIO]: "{no es json" })).toEqual({});
+  });
+});
+
+describe("readInicio con un slot dañado", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("registra el slot dañado y sigue sin datos de inicio", () => {
+    const warn = vi.spyOn(logger, "warn");
+
+    expect(readInicio({ [SlotKey.INCIDENCIA_INICIO]: "{roto" })).toEqual({});
+    expect(warn).toHaveBeenCalledWith("session.slot_corrupt", { slot: SlotKey.INCIDENCIA_INICIO });
   });
 });

@@ -9,9 +9,10 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-single-horario";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const horasResult = (items: Array<{ horaInicio: string; horaFin: string }>): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "list_horas",
@@ -105,7 +106,7 @@ describe("a day with ONE horario asks before booking", () => {
   it("a booking retry that leaves one horario also asks instead of booking again", () => {
     const rejected = handle(
       { state: "cita_booking_pending", slots: { ...BASE_SLOTS }, counters: {} },
-      { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "book_appointment", result: { status: "error" } },
+      { channel: "whatsapp", from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "book_appointment", result: { status: "error" } },
     );
     expect(rejected.session.state).toBe("cita_hora_pending");
 
@@ -178,7 +179,7 @@ describe("yes: the button or any way of taking that hour", () => {
   );
 
   it("a photo or a sticker asks again, it never books", () => {
-    const result = handle(confirmingLone(), { from: FROM, type: "image", mediaId: "m1" });
+    const result = handle(confirmingLone(), { channel: "whatsapp", from: FROM, type: "image", mediaId: "m1" });
 
     expect(queries(result)).toHaveLength(0);
     expect(result.session.state).toBe("cita_awaiting_hora_confirm");

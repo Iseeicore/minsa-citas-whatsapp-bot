@@ -31,6 +31,7 @@ const WEB_REFERENCIAS: ReferenciaItem[] = [
 const FROM = "sandbox-referencia-booking";
 
 const fechasResult = (result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "list_fechas",
@@ -67,7 +68,7 @@ describe("referencia médica: no hay fechas con cupo en el destino", () => {
     expect(mensaje).toContain(REFERENCIA_SIN_FECHAS_TEXT);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(queries(result)).toHaveLength(0);
-    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
+    const accepted = handle(result.session, { channel: "whatsapp", from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
     expect(accepted.session.state).toBe("referencia_lookup_pending");
     expect(queries(accepted).map((effect) => effect.kind)).toEqual(["list_references"]);
   });
@@ -153,13 +154,13 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     expect(queries(result)).toHaveLength(0);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
-    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
+    const accepted = handle(result.session, { channel: "whatsapp", from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
     expect(accepted.session.state).toBe("cita_awaiting_referencia_select");
     expect(accepted.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
     expect(accepted.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBeUndefined();
     expect(accepted.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(accepted.session.counters[CounterKey.CITA_BOOKING_FAILURES]).toBeUndefined();
-    const retried = handle(accepted.session, { from: FROM, type: "list", listId: "222" });
+    const retried = handle(accepted.session, { channel: "whatsapp", from: FROM, type: "list", listId: "222" });
     expect(queries(retried)).toEqual([{ kind: "list_fechas", payload: { codEess: "777", especialidadId: "070" } }]);
     expect(retried.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("222");
     expect(session).toEqual(original);
@@ -172,7 +173,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     const result = handle(session, fechasResult({ status: "found", items: [{ fechaCupo: "07/10/2099", cantidadCupos: 1 }] }));
 
     expect(result.session.state).toBe("referencia_awaiting_other_reference");
-    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
+    const accepted = handle(result.session, { channel: "whatsapp", from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
     expect(accepted.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBeUndefined();
     expect(queries(result)).toHaveLength(0);
   });
@@ -183,7 +184,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     expect(result.session.state).toBe("cita_awaiting_referencia_select");
     expect(texts(result)).not.toContain(REFERENCIA_SIN_FECHAS_TEXT);
     expect(queries(result)).toHaveLength(0);
-    const retried = handle(result.session, { from: FROM, type: "list", listId: "1364486" });
+    const retried = handle(result.session, { channel: "whatsapp", from: FROM, type: "list", listId: "1364486" });
     expect(queries(retried)).toEqual([{ kind: "list_fechas", payload: { codEess: "5987", especialidadId: "222800" } }]);
   });
 
@@ -205,6 +206,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
       const original = structuredClone(session);
 
       const result = handle(session, {
+        channel: "whatsapp",
         from: FROM,
         type: InternalEventType.QUERY_RESULT,
         queryKind: "list_horas",
@@ -236,7 +238,13 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     session.state = "cita_hora_pending";
     session.slots[SlotKey.CITA_FECHA] = "07/10/2099";
 
-    const result = handle(session, { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "list_horas", result: response });
+    const result = handle(session, {
+      channel: "whatsapp",
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "list_horas",
+      result: response,
+    });
 
     expect(result.session.state).toBe("cita_awaiting_other_fecha");
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("1364486");
@@ -253,6 +261,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
       session.slots[SlotKey.CITA_FECHA] = "07/10/2099";
 
       const result = handle(session, {
+        channel: "whatsapp",
         from: FROM,
         type: InternalEventType.QUERY_RESULT,
         queryKind: "list_horas",
@@ -264,7 +273,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
       expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
       expect(result.session.slots[SlotKey.CITA_FECHA]).toBeUndefined();
       expect(queries(result)).toHaveLength(0);
-      const retried = handle(result.session, { from: FROM, type: "list", listId: "222" });
+      const retried = handle(result.session, { channel: "whatsapp", from: FROM, type: "list", listId: "222" });
       expect(queries(retried)).toEqual([{ kind: "list_fechas", payload: { codEess: "777", especialidadId: "070" } }]);
     },
   );
@@ -275,6 +284,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     session.state = "cita_hora_pending";
     session.slots[SlotKey.CITA_FECHA] = "07/10/2099";
     const event: QueryResultEvent = {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "list_horas",
@@ -310,7 +320,7 @@ describe("referencia médica: confirmación final en el chat web", () => {
       [SlotKey.CITA_OFFERED]: JSON.stringify({ text: "Selecciona el horario:", rows: [{ id: "18:00|18:30", title: "6:00 PM - 6:30 PM" }] }),
     },
   });
-  const tap = (listId: string) => ({ from: FROM, type: "button" as const, listId });
+  const tap = (listId: string) => ({ from: FROM, type: "button" as const, listId, channel: "whatsapp" as const });
 
   it.each(["07/10/2099", "20991007"])("tocar un horario muestra la fecha %s legible y no reserva hasta confirmar", (fecha) => {
     const session = horaSession();
@@ -409,6 +419,7 @@ describe("referencia médica: confirmación final en el chat web", () => {
     session.state = "cita_booking_pending";
 
     const result = handle(session, {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "book_appointment",

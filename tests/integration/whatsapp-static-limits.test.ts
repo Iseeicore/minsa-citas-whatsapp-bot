@@ -287,7 +287,7 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
         },
         counters: {},
       });
-      const lote = (media: InboundMedia[]): InboundEvent => ({ from: "51999999999", type: "image", media });
+      const lote = (media: InboundMedia[]): InboundEvent => ({ channel: "whatsapp", from: "51999999999", type: "image", media });
 
       const bajoElTope = handleIncidencia(session(1), lote([...rechazadas, { kind: InboundMediaKind.DATA, dataUri: png(20) }]));
       const enElTope = handleIncidencia(

@@ -1,6 +1,7 @@
 import { logger } from "@/lib/observability/logger";
-import type { LlmClient, LlmProvider } from "@/lib/fsm/parsing/ai/llm";
+import type { LlmClient, LlmClientLookup, LlmProvider } from "@/lib/fsm/parsing/ai/llm";
 import { createGeminiClient } from "@/lib/fsm/parsing/ai/providers/gemini";
+import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 
 const DEFAULT_PROVIDER: LlmProvider = "gemini";
 
@@ -21,16 +22,16 @@ export function configuredLlmProvider(): LlmProvider {
   return PROVIDERS.has(requested) ? (requested as LlmProvider) : DEFAULT_PROVIDER;
 }
 
-export function getLlmClient(): LlmClient | null {
-  if (process.env.SANDBOX_USE_REAL_AI !== "true") return null;
+export function lookupLlmClient(): LlmClientLookup {
+  if (process.env.SANDBOX_USE_REAL_AI !== "true") return { status: LlmClientStatus.DISABLED };
 
   const requested = requestedProvider();
   const create = PROVIDERS.get(requested);
-  if (create) return create();
+  if (create) return { status: LlmClientStatus.AVAILABLE, client: create() };
 
   if (!warnedUnknownProviders.has(requested)) {
     warnedUnknownProviders.add(requested);
     logger.warn("ai.provider_unknown", { provider: requested });
   }
-  return null;
+  return { status: LlmClientStatus.MISCONFIGURED, provider: requested };
 }

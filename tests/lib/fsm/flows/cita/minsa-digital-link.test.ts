@@ -47,6 +47,7 @@ describe("salto a MINSA Digital desde el alcance del piloto", () => {
 
 describe("registro en MINSA Digital cuando el documento no se encuentra", () => {
   const notValid: QueryResultEvent = {
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind: "validate_user",
@@ -77,6 +78,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
 describe("constancia de la cita reservada", () => {
   const booking: Session = { state: "cita_booking_pending", slots: { [SlotKey.CITA_BEARER]: "token" }, counters: {} };
   const booked = (url: string): QueryResultEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind: "book_appointment",

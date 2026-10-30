@@ -8,6 +8,9 @@ import { toMessageDto } from "@/lib/inbox/dto";
 import { findLastInbound, findUser, recordOutboundMessage } from "@/lib/inbox/repository";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { logger } from "@/lib/observability/logger";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { graphFailureErrorCode, type GraphSendBody } from "@/lib/inbox/graph-failure";
 
 const sendMessageSchema = z.object({
   conversationId: z.string().min(1),
@@ -47,25 +50,38 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.WINDOW_EXPIRED);
   }
 
-  const graphResponse = await fetch(graphMessagesUrl(), {
-    method: "POST",
-    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      recipient: usuario.waId,
-      type: "text",
-      text: { body: text },
-    }),
-  });
-
-  const graphBody = await graphResponse.json();
-
-  if (!graphResponse.ok) {
-    return NextResponse.json(graphBody, { status: graphResponse.status });
+  let graphResponse: Response;
+  try {
+    graphResponse = await fetch(graphMessagesUrl(), {
+      method: "POST",
+      headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        recipient: usuario.waId,
+        type: "text",
+        text: { body: text },
+      }),
+    });
+  } catch (error) {
+    logger.error("inbox.send_failed", { conversationId, reason: "request_failed", error });
+    return apiError(ApiErrorCode.WHATSAPP_UNAVAILABLE);
   }
 
-  const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
+  const graphBody = parseJsonOr(await graphResponse.text(), undefined) as GraphSendBody | undefined;
+
+  if (!graphResponse.ok) {
+    const errorCode = graphFailureErrorCode(graphResponse.status);
+    logger.error("inbox.send_failed", {
+      conversationId,
+      reason: "graph_error",
+      status: graphResponse.status,
+      metaErrorCode: graphBody?.error?.code,
+    });
+    return apiError(errorCode);
+  }
+
+  const waMessageId = graphBody?.messages?.[0]?.id;
   const message = await recordOutboundMessage(usuario.id, text, waMessageId ?? null, ACTOR_OPERADOR_BANDEJA);
 
   return NextResponse.json(toMessageDto(message), { status: 201 });

@@ -28,7 +28,7 @@ vi.mock("@/lib/recepcion/repositorio", () => ({
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 
 const FROM = "51999000222";
-const event = { from: FROM, type: "text" as const, text: "hola" };
+const event = { from: FROM, type: "text" as const, text: "hola", channel: "whatsapp" as const };
 
 const startWith = (kind: QueryKind, payload: Record<string, unknown> = {}): HandlerResult => ({
   session: { state: "main_menu", slots: {}, counters: {} },

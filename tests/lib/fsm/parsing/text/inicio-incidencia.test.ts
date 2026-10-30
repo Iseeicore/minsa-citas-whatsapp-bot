@@ -204,6 +204,6 @@ describe("parseInicioIncidencia: only the name, without the code", () => {
     "HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206",
     "tengo algo que reportar",
   ])("%j does not start an incidencia by this parser", (text) => {
-    expect(parseInicioIncidencia(text)).toBeNull();
+    expect(parseInicioIncidencia(text)).toBeUndefined();
   });
 });

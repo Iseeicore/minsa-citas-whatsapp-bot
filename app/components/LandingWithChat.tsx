@@ -1,7 +1,7 @@
 import Landing from "@/app/components/Landing";
 import SandboxWidgetDemo from "@/app/components/SandboxWidgetDemo";
 
-type LandingWithChatProps = { loginUrl: string; imageMaxBytes: number; chatEnabled: boolean };
+type LandingWithChatProps = { loginUrl: string | undefined; imageMaxBytes: number; chatEnabled: boolean };
 
 export default function LandingWithChat({ loginUrl, imageMaxBytes, chatEnabled }: LandingWithChatProps) {
   const landing = <Landing loginUrl={loginUrl} chatEnabled={chatEnabled} />;

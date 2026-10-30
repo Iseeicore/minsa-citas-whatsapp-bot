@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import {
@@ -12,13 +12,16 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { JwtExpiryStatus } from "@/lib/enums/jwt-expiry-status";
+import { logger } from "@/lib/observability/logger";
+import { FAKE_BEARER } from "@/lib/integrations/minsa/fake-data";
 
 const FROM = "sandbox-expiry";
 const NOW = Date.parse("2026-09-19T15:00:00Z");
 const minutes = (count: number) => count * 60_000;
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 
 function jwt(expSeconds: number | undefined): string {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -50,18 +53,27 @@ const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
 describe("decodeJwtExp", () => {
   it("reads the exp claim of a JWT", () => {
-    expect(decodeJwtExp(jwt(1_800_000_000))).toBe(1_800_000_000);
+    expect(decodeJwtExp(jwt(1_800_000_000))).toEqual({ status: JwtExpiryStatus.FOUND, exp: 1_800_000_000 });
   });
 
   it.each(["", "opaque-token", "a.b.c", "a.b", `${"x".repeat(10)}.${Buffer.from("not json").toString("base64url")}.sig`])(
-    "returns null for something that is not a JWT with an exp: %j",
+    "reports a token that cannot be read as malformed, not as a token without expiry: %j",
     (token) => {
-      expect(decodeJwtExp(token)).toBeNull();
+      expect(decodeJwtExp(token)).toEqual({ status: JwtExpiryStatus.MALFORMED });
     },
   );
 
-  it("returns null when the payload has no numeric exp", () => {
-    expect(decodeJwtExp(jwt(undefined))).toBeNull();
+  it("reports a readable JWT without exp as absent", () => {
+    expect(decodeJwtExp(jwt(undefined))).toEqual({ status: JwtExpiryStatus.ABSENT });
+  });
+
+  it("reads the demo token of the fake MINSA as a JWT without expiry, so demo turns log nothing", () => {
+    expect(decodeJwtExp(FAKE_BEARER)).toEqual({ status: JwtExpiryStatus.ABSENT });
+  });
+
+  it("reports an exp that is not a number as malformed", () => {
+    const payload = Buffer.from(JSON.stringify({ exp: "mañana" })).toString("base64url");
+    expect(decodeJwtExp(`h.${payload}.s`)).toEqual({ status: JwtExpiryStatus.MALFORMED });
   });
 });
 
@@ -94,8 +106,32 @@ describe("detectSessionExpiry", () => {
     expect(detectSessionExpiry(session, text("x"), NOW)).toBeNull();
   });
 
+  it("logs an unreadable token instead of treating it silently as a token without expiry, and lets MINSA decide", () => {
+    const warn = vi.spyOn(logger, "warn");
+    const session = authenticated("cita_awaiting_hora_select", { bearer: "opaque-token" });
+
+    expect(detectSessionExpiry(session, text("x"), NOW)).toBeNull();
+    expect(warn).toHaveBeenCalledWith("session.token_unreadable", { state: "cita_awaiting_hora_select" });
+    warn.mockRestore();
+  });
+
+  it("does not log a readable JWT without exp", () => {
+    const warn = vi.spyOn(logger, "warn");
+    const session = authenticated("cita_awaiting_hora_select", { bearer: jwt(undefined) });
+
+    expect(detectSessionExpiry(session, text("x"), NOW)).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("never fires on synthetic query results, mid-turn", () => {
-    const result: QueryResultEvent = { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "list_horas", result: {} };
+    const result: QueryResultEvent = {
+      channel: "whatsapp",
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "list_horas",
+      result: {},
+    };
     const session = authenticated("cita_hora_pending", { idleMs: minutes(60) });
     expect(detectSessionExpiry(session, result, NOW)).toBeNull();
   });
@@ -237,6 +273,7 @@ describe("cita_awaiting_reauth", () => {
 
 describe("after the citizen agrees to verify again", () => {
   const result = (queryKind: QueryResultEvent["queryKind"], body: unknown): QueryResultEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind,

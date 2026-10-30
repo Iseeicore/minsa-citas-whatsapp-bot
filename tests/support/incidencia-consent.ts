@@ -9,6 +9,7 @@ import { SessionState } from "@/lib/enums/session-state";
 const FROM = "sandbox-incidencia-consent";
 
 export const consentChecked = (aceptado: boolean, from: string = FROM): QueryResultEvent => ({
+  channel: "whatsapp",
   from,
   type: InternalEventType.QUERY_RESULT,
   queryKind: QueryKind.VERIFICAR_CONSENTIMIENTO,
@@ -16,6 +17,7 @@ export const consentChecked = (aceptado: boolean, from: string = FROM): QueryRes
 });
 
 export const consentRegistered = (from: string = FROM): QueryResultEvent => ({
+  channel: "whatsapp",
   from,
   type: InternalEventType.QUERY_RESULT,
   queryKind: QueryKind.REGISTRAR_CONSENTIMIENTO,
@@ -29,6 +31,11 @@ export function answerConsent(
   if (begun.session.state !== SessionState.INCIDENCIA_CONSENT_CHECK_PENDING) return begun;
   const checked = handle(begun.session, consentChecked(aceptado, from));
   if (aceptado) return checked;
-  const tapped = handle(checked.session, { from, type: InboundEventType.BUTTON, listId: IncidenciaButtonId.CONSENT_SI });
+  const tapped = handle(checked.session, {
+    channel: "whatsapp",
+    from,
+    type: InboundEventType.BUTTON,
+    listId: IncidenciaButtonId.CONSENT_SI,
+  });
   return handle(tapped.session, consentRegistered(from));
 }

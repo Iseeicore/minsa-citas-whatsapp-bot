@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LLM_DISABLED, llmAvailable } from "@/tests/support/llm-lookup";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
@@ -9,15 +10,16 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { answerConsent } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-intencion";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 const menu = (slots: Session["slots"] = {}): Session => ({ state: "main_menu", slots, counters: {} });
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
-const modelSays = (json: unknown): LlmClient => ({
-  provider: "gemini",
-  generateJson: async () => ({ ok: true, json }),
-});
+const modelSays = (json: unknown) =>
+  llmAvailable({
+    provider: "gemini",
+    generateJson: async () => ({ ok: true, json }),
+  } satisfies LlmClient);
 
 const STORY = "El doctor me trató mal y además me cobraron sin recibo en la ventanilla";
 
@@ -54,20 +56,21 @@ describe("without the AI, the words of an incidencia are read inside a longer se
     "el encargado quiso un soborno para darme la medicina",
     "quiero hacer una denuncia anticorrupción",
   ])("%j is an incidencia", async (message) => {
-    await expect(analyzeMainMenuIntent(message, null)).resolves.toEqual({ intent: "incidencia" });
+    await expect(analyzeMainMenuIntent(message, LLM_DISABLED)).resolves.toEqual({ intent: "incidencia" });
   });
 
   it("a cita request is still a cita", async () => {
-    await expect(analyzeMainMenuIntent("quiero una cita de odontología", null)).resolves.toMatchObject({ intent: "cita" });
+    await expect(analyzeMainMenuIntent("quiero una cita de odontología", LLM_DISABLED)).resolves.toMatchObject({ intent: "cita" });
   });
 
   it("a message with no words of either is unclear", async () => {
-    await expect(analyzeMainMenuIntent("hola que tal", null)).resolves.toEqual({ intent: "unclear" });
+    await expect(analyzeMainMenuIntent("hola que tal", LLM_DISABLED)).resolves.toEqual({ intent: "unclear" });
   });
 });
 
 describe("what the menu does with that answer", () => {
   const answer = (result: unknown): QueryResultEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind: "analyze_main_menu_intent",
@@ -100,7 +103,7 @@ describe("what the menu does with that answer", () => {
     const located = answerConsent(handle(asked.session, answer({ intent: "incidencia" })), { from: FROM });
     const identity = { ...located.session, state: "incidencia_identity_choice" as const };
 
-    const result = handle(identity, { from: FROM, type: "button", listId: "incidencia_anonimo" });
+    const result = handle(identity, { channel: "whatsapp", from: FROM, type: "button", listId: "incidencia_anonimo" });
     expect(result.session.state).toBe("incidencia_confirm_borrador");
     expect((sent(result)[0] as { text: string }).text).toContain(STORY);
   });

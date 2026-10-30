@@ -1,14 +1,23 @@
-import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
-import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
+import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import { ANSWER_NOT_OBJECT_REASON, describeLlmFailure, logAiFallback, misconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
 import { SELECTION_HINTS_SYSTEM_PROMPT } from "@/lib/constants/prompts/selection-hints";
 import { stringOrUndefined } from "@/lib/utils/text-values";
+import { isRecord } from "@/lib/utils/type-guards";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
+import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 
-export type SelectionHintsResult = {
-  especialidad?: string;
-  establecimiento?: string;
-  quiereSalir?: true;
-  quiereCambiarDistrito?: true;
-};
+export type SelectionHintsResult =
+  | {
+      status: AiTaskStatus.ANSWERED;
+      especialidad?: string;
+      establecimiento?: string;
+      quiereSalir?: true;
+      quiereCambiarDistrito?: true;
+    }
+  | { status: AiTaskStatus.UNAVAILABLE };
+
+const OPERATION = "extract_selection_hints";
 
 export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
@@ -22,39 +31,35 @@ export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
   required: ["detalle", "quiere_salir"],
 };
 
+function unavailable(reason: string): SelectionHintsResult {
+  logAiFallback(OPERATION, "reprompt", reason);
+  return { status: AiTaskStatus.UNAVAILABLE };
+}
+
 export async function extractSelectionHints(
   _step: string,
   text: string,
-  llm: LlmClient | null = getLlmClient(),
+  lookup: LlmClientLookup = lookupLlmClient(),
 ): Promise<SelectionHintsResult> {
-  if (!text.trim()) return {};
+  if (!text.trim()) return { status: AiTaskStatus.ANSWERED };
+  if (lookup.status === LlmClientStatus.DISABLED) return { status: AiTaskStatus.ANSWERED };
+  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unavailable(misconfiguredProviderReason(lookup.provider));
 
-  if (llm) {
-    const outcome = await llm.generateJson({
-      operation: "extract_selection_hints",
-      systemPrompt: SELECTION_HINTS_SYSTEM_PROMPT,
-      userText: text,
-      schema: SELECTION_HINTS_RESPONSE_SCHEMA,
-    });
-    if (!outcome.ok) return {};
+  const outcome = await lookup.client.generateJson({
+    operation: OPERATION,
+    systemPrompt: SELECTION_HINTS_SYSTEM_PROMPT,
+    userText: text,
+    schema: SELECTION_HINTS_RESPONSE_SCHEMA,
+  });
+  if (!outcome.ok) return unavailable(describeLlmFailure(outcome));
+  if (!isRecord(outcome.json)) return unavailable(ANSWER_NOT_OBJECT_REASON);
 
-    try {
-      const parsed = outcome.json as {
-        especialidad?: unknown;
-        establecimiento?: unknown;
-        quiere_salir?: unknown;
-        quiere_cambiar_distrito?: unknown;
-      };
-      const hints: SelectionHintsResult = {
-        especialidad: stringOrUndefined(parsed.especialidad),
-        establecimiento: stringOrUndefined(parsed.establecimiento),
-      };
-      if (parsed.quiere_salir === true) return { ...hints, quiereSalir: true };
-      return parsed.quiere_cambiar_distrito === true ? { ...hints, quiereCambiarDistrito: true } : hints;
-    } catch {
-      return {};
-    }
-  }
-
-  return {};
+  const parsed = outcome.json;
+  const hints: SelectionHintsResult = {
+    status: AiTaskStatus.ANSWERED,
+    especialidad: stringOrUndefined(parsed.especialidad),
+    establecimiento: stringOrUndefined(parsed.establecimiento),
+  };
+  if (parsed.quiere_salir === true) return { ...hints, quiereSalir: true };
+  return parsed.quiere_cambiar_distrito === true ? { ...hints, quiereCambiarDistrito: true } : hints;
 }

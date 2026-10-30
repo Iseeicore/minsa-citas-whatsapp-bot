@@ -34,6 +34,7 @@ const pick = (id: string, channel: InboundEvent["channel"] = "whatsapp"): Inboun
   channel,
 });
 const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   leftoverHint,
   matchAllTokens,
@@ -9,6 +9,7 @@ import {
   type OfferedRow,
 } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { logger } from "@/lib/observability/logger";
 
 const ubigeoRows: OfferedRow[] = [
   { id: "150101", title: "San Juan de Lurigancho", description: "Lima — Lima" },
@@ -157,5 +158,25 @@ describe("matchExactOption", () => {
     for (const text of ["agendar", "consultar", "no quiero cita", "consultar cita mañana", "quiero agendar una cita", ""]) {
       expect(chosen(text), text).toBeUndefined();
     }
+  });
+});
+
+describe("readOffered con un slot dañado", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("registra el slot dañado y no ofrece ninguna lista", () => {
+    const warn = vi.spyOn(logger, "warn");
+
+    expect(readOffered({ [SlotKey.CITA_OFFERED]: '{"text":' })).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith("session.slot_corrupt", { slot: SlotKey.CITA_OFFERED });
+  });
+
+  it("conserva los datos extra de cada fila, como el detalle de la referencia", () => {
+    const referencia = { especialidad: "Cardiología", numero: "1", destino: "H", origen: "C", fecha: "01/01/2026", estado: "Aprobada" };
+    const offered = { text: "Elige", rows: [{ id: "r1", title: "Referencia 1", referencia }] };
+
+    expect(readOffered({ [SlotKey.CITA_OFFERED]: serializeOffered(offered) })).toEqual(offered);
   });
 });

@@ -12,7 +12,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-main-menu";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 const menu = (slots: Session["slots"] = {}): Session => ({ state: "main_menu", slots, counters: {} });
 
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
@@ -65,6 +65,7 @@ describe("an explicit cita request typed in the main menu", () => {
 
 describe("when the AI is used and answers cita", () => {
   const aiAnswer = (result: unknown): QueryResultEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind: "analyze_main_menu_intent",
@@ -103,6 +104,7 @@ describe("noise-looking text: silenced before ever asking the AI", () => {
   it("unclear from the AI (real ambiguous text, not noise) keeps today's behavior: shows the menu", () => {
     const pending: Session = { state: "main_menu_intent_pending", slots: {}, counters: {} };
     const result = handle(pending, {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "analyze_main_menu_intent",
@@ -195,7 +197,7 @@ describe("«Continuar» after the institutional warning", () => {
   );
 
   it("still works with the button", () => {
-    const result = handle(warned(), { from: FROM, type: "button", listId: "continuar_menu" });
+    const result = handle(warned(), { channel: "whatsapp", from: FROM, type: "button", listId: "continuar_menu" });
 
     expect(sent(result)[0].kind).toBe("send_interactive_list");
   });
@@ -243,6 +245,7 @@ describe("a flow that ended in an error", () => {
 
   it("does not keep MINSA's token once it is closed", () => {
     const closed = handle(rejected(), {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "book_appointment",
@@ -255,6 +258,7 @@ describe("a flow that ended in an error", () => {
 
   it("starts the next message from a clean main_menu", () => {
     const closed = handle(rejected(), {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "book_appointment",

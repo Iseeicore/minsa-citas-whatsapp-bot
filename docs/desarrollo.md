@@ -60,7 +60,7 @@ El bot corre de dos formas: **con base de datos** (PostgreSQL, con bandeja web d
 | Usuarios, historial de mensajes y estados de entrega | Tablas `chatbot.usuario` y `chatbot.mensaje` | No se guarda nada |
 | Autorización de datos de la denuncia | Columna `chatbot.usuario.consentimiento_aceptado_en` | En la memoria del proceso: se vuelve a pedir tras un reinicio |
 | Incidencias | Tabla `chatbot.incidencia_paciente`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
-| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible solo con `SANDBOX_PAGE_ENABLED=true`; sin ella responde `404` | Con `SANDBOX_PAGE_ENABLED=true` responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}`; sin ella, `404` |
+| Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible solo con `SANDBOX_PAGE_ENABLED=true`; sin ella responde `404`. Una conversación que no existe responde `404` `NOT_FOUND` (también al pedir sus mensajes). Si WhatsApp rechaza el envío responde `502` `WHATSAPP_REJECTED`; si no está disponible, limita el número o no se pudo llamar, `503` `WHATSAPP_UNAVAILABLE`; en ambos casos no se guarda el mensaje y queda `inbox.send_failed`. La lista y la conversación muestran un aviso cuando no se pueden actualizar, en vez de quedarse con datos viejos sin decirlo | Con `SANDBOX_PAGE_ENABLED=true` responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}`; sin ella, `404` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
 | Imágenes de la denuncia que llegan juntas | Se agrupan (ventana de 3 s) y reciben **una** respuesta | Sin agrupador: una respuesta por imagen |
 | Build | `npm run build` (aplica migraciones y SQL) | `npm run build:no-db` (sin migraciones) |
@@ -158,7 +158,7 @@ Convenciones (ESLint y las pruebas las hacen cumplir donde se indica):
 
 ## Cambiar de proveedor de IA
 
-Las tareas de IA no conocen al proveedor: piden un JSON a un `LlmClient` (`lib/fsm/parsing/ai/llm.ts`) con un JSON Schema estándar, y `getLlmClient()` (`llm-registry.ts`) decide cuál se usa según `AI_PROVIDER`.
+Las tareas de IA no conocen al proveedor: piden un JSON a un `LlmClient` (`lib/fsm/parsing/ai/llm.ts`) con un JSON Schema estándar, y `lookupLlmClient()` (`llm-registry.ts`) decide cuál se usa según `AI_PROVIDER`. Devuelve una unión: `AVAILABLE` con el cliente, `DISABLED` si `SANDBOX_USE_REAL_AI` no es `true` (se usan los respaldos fijos) o `MISCONFIGURED` si el proveedor no está registrado (la tarea responde como no disponible).
 
 | Paso | Qué hacer |
 |---|---|

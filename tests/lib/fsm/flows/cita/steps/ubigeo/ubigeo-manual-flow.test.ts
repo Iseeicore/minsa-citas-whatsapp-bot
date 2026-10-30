@@ -5,7 +5,7 @@ import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm
 import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "51999999999";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);

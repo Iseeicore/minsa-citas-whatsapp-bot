@@ -11,9 +11,11 @@ const pending: Session = {
   state: "cita_hora_pending",
   slots: { [SlotKey.CITA_FECHA]: "31/12/2099", [SlotKey.CITA_COD_EESS]: "0000123", [SlotKey.CITA_ESPECIALIDAD_ID]: "02" },
   counters: {},
+  channel: "whatsapp",
 };
 
 const horas = (items: HoraResultItem[]): QueryResultEvent => ({
+  channel: "whatsapp",
   from: "51999999999",
   type: InternalEventType.QUERY_RESULT,
   queryKind: "list_horas",

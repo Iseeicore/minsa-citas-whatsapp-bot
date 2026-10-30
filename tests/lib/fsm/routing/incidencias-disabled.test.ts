@@ -19,8 +19,8 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 const FROM = "sandbox-incidencias-off";
 const NOW = Date.parse("2026-10-11T15:00:00Z");
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "list", listId: id });
 const menu = (slots: Session["slots"] = {}): Session => ({ state: "main_menu", slots, counters: {} });
 const sessionAt = (state: string, slots: Session["slots"] = {}, idleMs = 0): Session => ({
   state: state as Session["state"],
@@ -159,6 +159,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
 
   describe("the AI", () => {
     const aiSays = (intent: string): QueryResultEvent => ({
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "analyze_main_menu_intent",
@@ -237,6 +238,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
 
     it("also for a query result that arrives after the flag was turned off", () => {
       const result = handle(sessionAt("incidencia_submit_pending"), {
+        channel: "whatsapp",
         from: FROM,
         type: InternalEventType.QUERY_RESULT,
         queryKind: "incidencia_register",
@@ -264,6 +266,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
     it("the out-of-scope request names only the citas and the referencias", () => {
       const [reply] = sent(
         handleMainMenuIntentPending(sessionAt("main_menu_intent_pending"), {
+          channel: "whatsapp",
           from: FROM,
           type: InternalEventType.QUERY_RESULT,
           queryKind: "analyze_main_menu_intent",
@@ -330,6 +333,7 @@ describe("with INCIDENCIAS_ENABLED on, nothing changes", () => {
 
   it("the out-of-scope request from the AI names the three services", () => {
     const result = handleMainMenuIntentPending(sessionAt("main_menu_intent_pending"), {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "analyze_main_menu_intent",

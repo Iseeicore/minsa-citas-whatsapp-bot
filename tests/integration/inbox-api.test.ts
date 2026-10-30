@@ -27,6 +27,8 @@ import { GET as listConversations } from "@/app/api/conversations/route";
 import { GET as listMessages } from "@/app/api/conversations/[id]/messages/route";
 import { POST as closeConversation } from "@/app/api/conversations/[id]/close/route";
 import { POST as sendMessage } from "@/app/api/messages/send/route";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { captureLogs } from "@/tests/support/capture-logs";
 
 const FECHA = new Date("2026-10-04T10:00:00.000Z");
 const usuario = (extra: Record<string, unknown> = {}) => ({
@@ -124,11 +126,19 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
   });
 
   it("reports the window closed when the citizen never wrote", async () => {
-    db.usuarioFindUnique.mockResolvedValueOnce(null);
+    db.usuarioFindUnique.mockResolvedValueOnce({ estadoConversacionId: 1 });
 
     const body = await (await listMessages(new NextRequest("http://localhost/api"), params("u-1"))).json();
 
     expect(body).toMatchObject({ windowOpen: false, windowExpiresAt: null, status: "OPEN" });
+  });
+
+  it("answers 404 for a conversation that does not exist, never an empty list", async () => {
+    const response = await listMessages(new NextRequest("http://localhost/api"), params("nope"));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: ApiErrorCode.NOT_FOUND });
+    expect(db.mensajeFindMany).not.toHaveBeenCalled();
   });
 
   it("closes a conversation as the inbox operator", async () => {
@@ -196,5 +206,29 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(db.mensajeCreate).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, () => Promise<Response>, ApiErrorCode, number]>([
+    [
+      "WhatsApp rejects the message",
+      async () => new Response(JSON.stringify({ error: { code: 131047, message: "Re-engagement message" } }), { status: 400 }),
+      ApiErrorCode.WHATSAPP_REJECTED,
+      502,
+    ],
+    ["WhatsApp is down", async () => new Response("busy", { status: 503 }), ApiErrorCode.WHATSAPP_UNAVAILABLE, 503],
+    ["WhatsApp throttles the number", async () => new Response("{}", { status: 429 }), ApiErrorCode.WHATSAPP_UNAVAILABLE, 503],
+    ["the request never reaches WhatsApp", () => Promise.reject(new Error("network down")), ApiErrorCode.WHATSAPP_UNAVAILABLE, 503],
+  ])("answers with the standard error format when %s, records nothing and logs the failure", async (_label, respond, errorCode, status) => {
+    db.usuarioFindUnique.mockResolvedValueOnce(usuario());
+    db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date() }));
+    vi.stubGlobal("fetch", vi.fn(respond));
+    const logs = captureLogs();
+
+    const response = await sendMessage(post({ conversationId: "u-1", text: "hola" }));
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ error: errorCode });
+    expect(db.mensajeCreate).not.toHaveBeenCalled();
+    expect(logs.map((line) => line.event)).toContain("inbox.send_failed");
   });
 });

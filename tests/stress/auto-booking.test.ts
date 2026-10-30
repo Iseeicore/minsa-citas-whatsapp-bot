@@ -9,6 +9,7 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 const FROM = "sandbox-auto-booking";
 
 const horasResult = (items: Array<{ horaInicio: string; horaFin: string }>): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "list_horas",

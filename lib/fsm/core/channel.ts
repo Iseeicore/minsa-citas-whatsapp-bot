@@ -1,6 +1,8 @@
 import type { Session, SessionChannel } from "@/lib/fsm/core/types";
-import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
+import { MissingChannelError } from "@/lib/errors/missing-channel-error";
 
-export function channelOf(session: Session, event?: { channel?: SessionChannel }): SessionChannel {
-  return event?.channel ?? session.channel ?? SessionChannelEnum.WHATSAPP;
+export function channelOf(session: Session, event?: { channel: SessionChannel }): SessionChannel {
+  const channel = event?.channel ?? session.channel;
+  if (!channel) throw new MissingChannelError(session.state);
+  return channel;
 }

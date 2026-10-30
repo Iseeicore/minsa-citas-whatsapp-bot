@@ -28,7 +28,7 @@ const SERVICES = [
   },
 ];
 
-export function LandingServices({ loginUrl, chatEnabled }: { loginUrl: string; chatEnabled: boolean }) {
+export function LandingServices({ loginUrl, chatEnabled }: { loginUrl: string | undefined; chatEnabled: boolean }) {
   return (
     <>
       <h2 className="mt-4 font-gotham text-xl font-bold md:mt-5 md:text-4xl">{TITULO_TEXT}</h2>

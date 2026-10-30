@@ -25,8 +25,8 @@ const FROM = "sandbox-referencia-exit";
 const INSULT = "cojudos";
 const EXIT_WORD = "quiero salir";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const REFERENCIA: ReferenciaItem = {

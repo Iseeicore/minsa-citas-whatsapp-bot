@@ -8,9 +8,10 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-paged";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,
@@ -32,7 +33,7 @@ const buttonIds = (effects: SendEffect[]): string[] => {
   return buttons ? buttons.buttons.map((button) => button.id) : [];
 };
 
-const blank = (): Session => ({ state: "cita_awaiting_especialidad_select", slots: {}, counters: {} });
+const blank = (): Session => ({ state: "cita_awaiting_especialidad_select", slots: {}, counters: {}, channel: "whatsapp" });
 
 describe("a list longer than WhatsApp's 10 rows is paged", () => {
   it("10 rows or fewer go out as a single list, exactly as before", () => {

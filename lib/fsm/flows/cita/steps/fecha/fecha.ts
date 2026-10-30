@@ -1,4 +1,5 @@
 import { SearchSubject } from "@/lib/enums/search-subject";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { closeWithApology, discardedDates } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
@@ -43,6 +44,8 @@ import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { MatchKind } from "@/lib/enums/match-kind";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
+import type { FechaAiResult } from "@/lib/fsm/parsing/ai/fecha";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 type FechaResultItem = {
@@ -128,16 +131,22 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
 }
 
 export function handleFechaAiPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { id?: unknown; quiereSalir?: boolean };
+  const result = event.result as FechaAiResult;
   const offered = readOffered(session.slots);
 
   const restored = cloneSession(session);
   restored.state = SessionState.CITA_AWAITING_FECHA_SELECT;
 
+  if (result.status === AiTaskStatus.UNAVAILABLE) return reshowOffered(restored, offered, FECHA_NOT_IDENTIFIED_TEXT);
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
   if (isString(result.id) && offered?.rows.some((row) => row.id === result.id)) {
-    return handleAwaitingFechaSelect(restored, { from: event.from, type: InboundEventType.LIST, listId: result.id });
+    return handleAwaitingFechaSelect(restored, {
+      from: event.from,
+      type: InboundEventType.LIST,
+      listId: result.id,
+      channel: event.channel,
+    });
   }
 
   return reshowOffered(restored, offered, FECHA_NOT_IDENTIFIED_TEXT);
@@ -155,7 +164,7 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
     },
     onNoMatchText: (typed) => askFechaAi(session, typed),
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   const next = clearOffered(session);

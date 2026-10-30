@@ -9,23 +9,24 @@ export function listUsers() {
   return prisma.usuario.findMany({ where: { activo: true }, orderBy: { ultimoMensajeEn: "desc" } });
 }
 
-export function findUser(id: string) {
-  return prisma.usuario.findUnique({ where: { id } });
+export async function findUser(id: string) {
+  return (await prisma.usuario.findUnique({ where: { id } })) ?? undefined;
 }
 
-export function findUserState(id: string) {
-  return prisma.usuario.findUnique({ where: { id }, select: { estadoConversacionId: true } });
+export async function findUserState(id: string) {
+  return (await prisma.usuario.findUnique({ where: { id }, select: { estadoConversacionId: true } })) ?? undefined;
 }
 
 export function listMessages(usuarioId: string) {
   return prisma.mensaje.findMany({ where: { usuarioId }, orderBy: { fechaHora: "asc" } });
 }
 
-export function findLastInbound(usuarioId: string) {
-  return prisma.mensaje.findFirst({
+export async function findLastInbound(usuarioId: string) {
+  const mensaje = await prisma.mensaje.findFirst({
     where: { usuarioId, direccionMensajeId: DireccionMensajeId.ENTRANTE },
     orderBy: { fechaHora: "desc" },
   });
+  return mensaje ?? undefined;
 }
 
 export async function closeUser(id: string, actor: string) {

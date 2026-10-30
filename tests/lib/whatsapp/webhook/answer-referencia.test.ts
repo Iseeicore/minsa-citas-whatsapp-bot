@@ -49,7 +49,7 @@ afterEach(() => {
 
 describe("the REFERENCIA keyword through the WhatsApp entry", () => {
   it("a first contact that writes the keyword asks to log in under the referencias purpose", async () => {
-    await answerMessage(message("referencia"), null);
+    await answerMessage(message("referencia"), undefined);
 
     const [, saved] = mocks.saveSession.mock.calls[0] as [string, Session];
     expect(saved.state).toBe(SessionState.CITA_AWAITING_DNI);
@@ -61,7 +61,7 @@ describe("the REFERENCIA keyword through the WhatsApp entry", () => {
     vi.useFakeTimers();
     store.session = { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
 
-    const answered = answerMessage(message("referencia"), null);
+    const answered = answerMessage(message("referencia"), undefined);
     await vi.runAllTimersAsync();
     await answered;
 

@@ -37,7 +37,7 @@ import { createPrismaAdvisoryLock, type AdvisoryLockClient } from "@/lib/fsm/ses
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 
-const text = (waId: string, value: string) => ({ from: waId, type: "text" as const, text: value });
+const text = (waId: string, value: string) => ({ from: waId, type: "text" as const, text: value, channel: "whatsapp" as const });
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function createFakePostgres(): AdvisoryLockClient {

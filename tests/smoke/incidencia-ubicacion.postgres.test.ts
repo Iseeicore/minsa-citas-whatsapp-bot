@@ -15,7 +15,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
   const person = () => {
     const from = `sandbox-${randomUUID()}`;
     created.push(from);
-    const event = (partial: Partial<InboundEvent>): InboundEvent => ({ from, type: "text", ...partial });
+    const event = (partial: Partial<InboundEvent>): InboundEvent => ({ channel: "whatsapp", from, type: "text", ...partial });
     return {
       from,
       start: (text: string) => runTurnUnlocked(from, event({ text }), undefined, handleFirstContact(text, "web")),

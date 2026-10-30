@@ -1,12 +1,12 @@
-import { logger } from "@/lib/observability/logger";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
-import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
+import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import { describeLlmFailure, logAiFallback, misconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { mainMenuIntentSystemPrompt } from "@/lib/constants/prompts/main-menu-intent";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 import { MenuChoice } from "@/lib/enums/menu-choice";
-import { LlmFailure } from "@/lib/enums/llm-failure";
+import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
 
 export type MainMenuIntentResult = {
@@ -61,32 +61,23 @@ const FAKE_REFERENCIA_STEMS = ["REFERENCI", "DERIVACI"];
 const FAKE_CITA_WORD = "CITA";
 
 function unclearIntent(reason: string): MainMenuIntentResult {
-  logger.warn("ai.fallback", { operation: "analyze_main_menu_intent", fellBackTo: "menu", reason });
+  logAiFallback("analyze_main_menu_intent", "menu", reason);
   return { intent: MainMenuIntent.UNCLEAR };
 }
 
-export async function analyzeMainMenuIntent(text: string, llm: LlmClient | null = getLlmClient()): Promise<MainMenuIntentResult> {
+export async function analyzeMainMenuIntent(text: string, lookup: LlmClientLookup = lookupLlmClient()): Promise<MainMenuIntentResult> {
   const incidencias = serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA);
 
-  if (llm) {
-    const outcome = await llm.generateJson({
+  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unclearIntent(misconfiguredProviderReason(lookup.provider));
+
+  if (lookup.status === LlmClientStatus.AVAILABLE) {
+    const outcome = await lookup.client.generateJson({
       operation: "analyze_main_menu_intent",
       systemPrompt: mainMenuIntentSystemPrompt(incidencias),
       userText: text,
       schema: incidencias ? MAIN_MENU_INTENT_RESPONSE_SCHEMA : WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA,
     });
-    if (!outcome.ok) {
-      switch (outcome.failure) {
-        case LlmFailure.REQUEST_FAILED:
-          return unclearIntent(`request failed (${outcome.errorName})`);
-        case LlmFailure.HTTP_ERROR:
-          return unclearIntent(`HTTP ${outcome.status} from model ${outcome.model}`);
-        case LlmFailure.NO_TEXT:
-          return unclearIntent("no text in the response");
-        case LlmFailure.INVALID_JSON:
-          return unclearIntent("response was not valid JSON");
-      }
-    }
+    if (!outcome.ok) return unclearIntent(describeLlmFailure(outcome));
 
     try {
       const parsed = outcome.json as MainMenuIntentJsonShape;

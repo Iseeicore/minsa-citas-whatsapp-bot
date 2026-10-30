@@ -18,11 +18,12 @@ export async function GET(request: NextRequest) {
   const verifyToken = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && verifyToken === process.env.META_WEBHOOK_VERIFY_TOKEN) {
+  const expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  if (mode === "subscribe" && expectedToken && verifyToken === expectedToken) {
     return new NextResponse(challenge ?? "", { status: 200 });
   }
 
-  return new NextResponse("Forbidden", { status: 403 });
+  return apiError(ApiErrorCode.FORBIDDEN);
 }
 
 export async function POST(request: NextRequest) {

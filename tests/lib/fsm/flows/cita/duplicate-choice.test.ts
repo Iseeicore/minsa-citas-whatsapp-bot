@@ -7,9 +7,10 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-duplicate";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,
@@ -152,7 +153,7 @@ describe("the chosen especialidad keeps its name for later messages", () => {
       counters: {},
     };
 
-    const result = handle(session, { from: FROM, type: "list", listId: "E2" });
+    const result = handle(session, { channel: "whatsapp", from: FROM, type: "list", listId: "E2" });
 
     expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]).toBe("Cardiología");
   });

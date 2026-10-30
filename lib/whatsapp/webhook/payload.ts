@@ -7,6 +7,7 @@ import { MediaFailure } from "@/lib/enums/media-failure";
 import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { WhatsAppMessageType } from "@/lib/enums/whatsapp-message-type";
 import { SessionState } from "@/lib/enums/session-state";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 export type WhatsAppContact = {
   user_id: string;
@@ -85,7 +86,7 @@ export function mapMessageType(type: string): TipoMensajeId {
   }
 }
 
-export function mapStatus(status: string): EstadoMensajeId | null {
+export function mapStatus(status: string): EstadoMensajeId | undefined {
   switch (status) {
     case "sent":
       return EstadoMensajeId.ENVIADO;
@@ -96,7 +97,7 @@ export function mapStatus(status: string): EstadoMensajeId | null {
     case "failed":
       return EstadoMensajeId.FALLIDO;
     default:
-      return null;
+      return undefined;
   }
 }
 
@@ -138,30 +139,30 @@ export async function toInboundEvent(
   mediaIds?: string[],
 ): Promise<InboundEvent | undefined> {
   if (message.type === "text") {
-    return { from: waId, type: "text", text: message.text?.body };
+    return { from: waId, type: "text", text: message.text?.body, channel: SessionChannel.WHATSAPP };
   }
 
   if (message.type === "interactive") {
     const replyTo = tapReplyTo(message);
     const context = replyTo ? { replyTo } : {};
     if (message.interactive?.button_reply) {
-      return { from: waId, type: "button", listId: message.interactive.button_reply.id, ...context };
+      return { from: waId, type: "button", listId: message.interactive.button_reply.id, ...context, channel: SessionChannel.WHATSAPP };
     }
     if (message.interactive?.list_reply) {
-      return { from: waId, type: "list", listId: message.interactive.list_reply.id, ...context };
+      return { from: waId, type: "list", listId: message.interactive.list_reply.id, ...context, channel: SessionChannel.WHATSAPP };
     }
   }
 
   if (sessionState === SessionState.INCIDENCIA_AWAITING_FOTO) {
     if (message.type === WhatsAppMessageType.IMAGE && mediaIds && mediaIds.length > 1) {
-      return { from: waId, type: "image", media: await downloadEvidence(mediaIds) };
+      return { from: waId, type: "image", media: await downloadEvidence(mediaIds), channel: SessionChannel.WHATSAPP };
     }
     if (message.type === WhatsAppMessageType.IMAGE && message.image?.id) {
       const download = await downloadWhatsAppMediaAsDataUri(message.image.id);
       const media = download.kind === InboundMediaKind.DATA ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };
-      return { from: waId, type: "image", text: message.image.caption, ...media };
+      return { from: waId, type: "image", text: message.image.caption, ...media, channel: SessionChannel.WHATSAPP };
     }
-    if (message.type === "document" && message.document?.id) return { from: waId, type: "document" };
+    if (message.type === "document" && message.document?.id) return { from: waId, type: "document", channel: SessionChannel.WHATSAPP };
   }
 
   return undefined;

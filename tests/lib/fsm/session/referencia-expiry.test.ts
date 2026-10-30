@@ -17,8 +17,9 @@ const FROM = "sandbox-referencia-expiry";
 const NOW = Date.parse("2026-10-14T15:00:00Z");
 const DNI = "12345678";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 const queryResult = (queryKind: QueryKind, result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,
@@ -125,7 +126,7 @@ describe("the referencias waiting states are protected like the rest of the auth
     expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
   });
 
-  it.each([text("no"), { from: FROM, type: InboundEventType.BUTTON, listId: OtherReferenciaButtonId.NO }])(
+  it.each([text("no"), { from: FROM, type: InboundEventType.BUTTON, listId: OtherReferenciaButtonId.NO, channel: "whatsapp" as const }])(
     "No en la pregunta de otra referencia cierra sin OTP aunque el JWT haya vencido: %j",
     (event) => {
       const session = waiting(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE, { bearer: jwt(Math.floor(NOW / 1000) - 1) });
@@ -138,7 +139,7 @@ describe("the referencias waiting states are protected like the rest of the auth
   it("Sí con JWT vencido conserva el propósito de releer referencias y no consulta cupos todavía", () => {
     const session = waiting(SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE, { bearer: jwt(Math.floor(NOW / 1000) - 1) });
     session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = "synthetic-reference";
-    const result = turn(session, { from: FROM, type: InboundEventType.BUTTON, listId: OtherReferenciaButtonId.YES });
+    const result = turn(session, { channel: "whatsapp", from: FROM, type: InboundEventType.BUTTON, listId: OtherReferenciaButtonId.YES });
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_REAUTH);
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();

@@ -47,15 +47,15 @@ function plausibleNombre(value: string | undefined): string | undefined {
   return value;
 }
 
-function fromQr(text: string, labelIndex: number, labelLength: number): InicioIncidencia | null {
+function fromQr(text: string, labelIndex: number, labelLength: number): InicioIncidencia | undefined {
   const before = text.slice(0, labelIndex);
   const word = INCIDENCIA_WORD.exec(fold(before));
-  if (!word) return null;
+  if (!word) return undefined;
 
   const after = text.slice(labelIndex + labelLength);
   const numeric = LEADING_NUMERIC_TOKEN.exec(after);
   const token = numeric ? numeric[1] : (LEADING_TOKEN.exec(after)?.[0] ?? "");
-  if (!token) return null;
+  if (!token) return undefined;
 
   const result: InicioIncidencia = { origen: IncidenciaOrigen.QR };
   const codigoRenipress = numeric ? normalizeCodigo(numeric[1]) : undefined;
@@ -76,15 +76,15 @@ function fromSentence(text: string, sentenceLength: number): InicioIncidencia {
   return result;
 }
 
-export function parseInicioIncidencia(text: string): InicioIncidencia | null {
+export function parseInicioIncidencia(text: string): InicioIncidencia | undefined {
   const folded = fold(text);
   const label = CODIGO_IPRESS_LABEL.exec(folded);
-  const qr = label ? fromQr(text, label.index, label[0].length) : null;
+  const qr = label ? fromQr(text, label.index, label[0].length) : undefined;
   if (qr) return qr;
 
   const sentence = INICIO_SENTENCE.exec(folded);
   if (sentence) return fromSentence(text, sentence[0].length);
-  return null;
+  return undefined;
 }
 
 export function parseCodigoSuelto(text: string): string | undefined {

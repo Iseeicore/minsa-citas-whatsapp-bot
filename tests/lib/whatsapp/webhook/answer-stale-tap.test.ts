@@ -64,7 +64,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 async function answer(message: Parameters<typeof answerMessage>[0]) {
-  const answered = answerMessage(message, null);
+  const answered = answerMessage(message, undefined);
   await vi.runAllTimersAsync();
   await answered;
 }

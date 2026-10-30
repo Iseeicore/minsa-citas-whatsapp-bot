@@ -27,6 +27,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 const FROM = "51999000333";
 
 const tap = (fields: Partial<InboundEvent> = {}): InboundEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InboundEventType.BUTTON,
   listId: "registrar",
@@ -82,7 +83,13 @@ describe("isStaleTap", () => {
   });
 
   it("un texto nunca es un toque viejo, aunque traiga un identificador de respuesta", () => {
-    const typed: InboundEvent = { from: FROM, type: InboundEventType.TEXT, text: "registrar", replyTo: "wamid.anterior" };
+    const typed: InboundEvent = {
+      channel: "whatsapp",
+      from: FROM,
+      type: InboundEventType.TEXT,
+      text: "registrar",
+      replyTo: "wamid.anterior",
+    };
 
     expect(isStaleTap(session(remembered("wamid.actual")), typed)).toBe(false);
   });
@@ -96,7 +103,7 @@ describe("el seguimiento del último mensaje interactivo", () => {
   });
 
   it("un texto no consume el mensaje recordado", () => {
-    const typed: InboundEvent = { from: FROM, type: InboundEventType.TEXT, text: "hola" };
+    const typed: InboundEvent = { channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: "hola" };
 
     expect(acceptTap(readInteractiveTracking(remembered("wamid.actual")), typed)).toEqual({ messageId: "wamid.actual", consumed: false });
   });

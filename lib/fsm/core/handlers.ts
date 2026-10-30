@@ -35,7 +35,7 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
   if (event.type === InboundEventType.TEXT && event.text && isEmergencyTurn(session.state, textoDeLaPersona(event.text))) {
     return emergencyCut(session.state);
   }
-  const current = event.channel ? { ...session, channel: event.channel } : session;
+  const current: Session = { ...session, channel: event.channel };
   const closed = handleOtherReferenceClose(current, event) ?? handleConsultaReferenciasClose(current, event);
   if (closed) return closed;
 

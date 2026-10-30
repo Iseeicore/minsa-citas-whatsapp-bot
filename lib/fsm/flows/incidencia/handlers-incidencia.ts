@@ -63,6 +63,8 @@ import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
 import type { RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
+import type { FotoIntentResult } from "@/lib/fsm/parsing/ai/incidencia-foto-intent";
 import {
   MAX_DESCRIPCION_LENGTH,
   MAX_IMAGENES_POR_INCIDENCIA,
@@ -256,10 +258,11 @@ function handleImagen(session: Session, event: InboundEvent): HandlerResult {
 }
 
 function handleFotoIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { quiereOmitir?: boolean };
+  const result = event.result as FotoIntentResult;
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_AWAITING_FOTO;
 
+  if (result.status === AiTaskStatus.UNAVAILABLE) return buildResult(next, [askFoto()]);
   if (result.quiereOmitir === true) return askConfirmRegistro(next);
 
   return buildResult(next, [askFoto()]);

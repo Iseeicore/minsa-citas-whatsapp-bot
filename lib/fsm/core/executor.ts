@@ -32,7 +32,8 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
-import { slotText, payloadText } from "@/lib/fsm/core/slot-readers";
+import { payloadText, requirePayloadChannel, requirePayloadText, requireSlotText } from "@/lib/fsm/core/slot-readers";
+import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
 import { MAX_PASSES } from "@/lib/constants/limits/engine";
 import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-error";
 import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
@@ -156,8 +157,15 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   }
 }
 
+function identidadConsulta(effect: QueryEffect, from: string): IdentidadConsulta {
+  return requirePayloadChannel(effect.payload, effect.kind) === SessionChannel.WEB
+    ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
+    : { canal: SessionChannel.WHATSAPP, waId: from };
+}
+
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
-  const bearer = slotText(session.slots, SlotKey.CITA_BEARER);
+  const bearer = () => requireSlotText(session.slots, SlotKey.CITA_BEARER, effect.kind);
+  const required = (key: string) => requirePayloadText(effect.payload, key, effect.kind);
 
   const owner = serviceCatalog.forQuery(effect.kind);
   if (owner && !owner.isEnabled()) throw new DisabledServiceQueryError(effect.kind, owner.id);
@@ -174,21 +182,12 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     case QueryKind.CONSULTAR_INCIDENCIA: {
       const { consultarIncidencia } = await import("@/lib/recepcion/consulta");
       const codigo = payloadText(effect.payload, "codigo");
-      return consultarIncidencia(
-        codigo,
-        effect.payload.canal === SessionChannel.WEB
-          ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
-          : { canal: SessionChannel.WHATSAPP, waId: from },
-      );
+      return consultarIncidencia(codigo, identidadConsulta(effect, from));
     }
 
     case QueryKind.LISTAR_INCIDENCIAS: {
       const { listarIncidencias } = await import("@/lib/recepcion/consulta");
-      return listarIncidencias(
-        effect.payload.canal === SessionChannel.WEB
-          ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
-          : { canal: SessionChannel.WHATSAPP, waId: from },
-      );
+      return listarIncidencias(identidadConsulta(effect, from));
     }
 
     case QueryKind.VERIFICAR_CONSENTIMIENTO: {
@@ -216,7 +215,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return saveAceptacionTerminos(
         {
           waId: from,
-          canal: effect.payload.canal === SessionChannel.WEB ? SessionChannel.WEB : SessionChannel.WHATSAPP,
+          canal: requirePayloadChannel(effect.payload, effect.kind),
           version: payloadText(effect.payload, "version"),
         },
         getAceptacionTerminosStore(),
@@ -224,10 +223,10 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     }
 
     case QueryKind.VALIDATE_USER:
-      return validateUser(payloadText(effect.payload, "numeroDocumento"), effect.payload.tipoDocumento as TipoDocumento);
+      return validateUser(required("numeroDocumento"), effect.payload.tipoDocumento as TipoDocumento);
 
     case QueryKind.VERIFY_CODE:
-      return verifyCode(payloadText(effect.payload, "twofaId"), payloadText(effect.payload, "code"));
+      return verifyCode(required("twofaId"), required("code"));
 
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
       return analyzeMainMenuIntent(payloadText(effect.payload, "text"));
@@ -246,50 +245,35 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return extractSelectionHints(payloadText(effect.payload, "step"), payloadText(effect.payload, "text"));
 
     case QueryKind.SEARCH_UBIGEO:
-      return searchUbigeo(
-        payloadText(effect.payload, "departamento"),
-        payloadText(effect.payload, "provincia"),
-        payloadText(effect.payload, "distrito"),
-        bearer,
-      );
+      return searchUbigeo(required("departamento"), required("provincia"), required("distrito"), bearer());
 
     case QueryKind.LIST_ESPECIALIDADES:
-      return listEspecialidades(payloadText(effect.payload, "ubigeo"), bearer);
+      return listEspecialidades(required("ubigeo"), bearer());
 
     case QueryKind.LIST_ESTABLECIMIENTOS:
-      return listEstablecimientos(
-        payloadText(effect.payload, "especialidadId"),
-        payloadText(effect.payload, "ubigeo"),
-        bearer,
-        Number(effect.payload.page ?? 1),
-      );
+      return listEstablecimientos(required("especialidadId"), required("ubigeo"), bearer(), Number(effect.payload.page ?? 1));
 
     case QueryKind.LIST_FECHAS:
-      return listFechas(payloadText(effect.payload, "codEess"), payloadText(effect.payload, "especialidadId"), bearer);
+      return listFechas(required("codEess"), required("especialidadId"), bearer());
 
     case QueryKind.LIST_HORAS:
-      return listHoras(
-        payloadText(effect.payload, "codEess"),
-        payloadText(effect.payload, "especialidadId"),
-        formatFechaForApi(payloadText(effect.payload, "fecha")),
-        bearer,
-      );
+      return listHoras(required("codEess"), required("especialidadId"), formatFechaForApi(required("fecha")), bearer());
 
     case QueryKind.BOOK_APPOINTMENT:
       return bookAppointment(
         {
-          codigoRenipress: payloadText(effect.payload, "codigoRenipress"),
-          codigoUps: payloadText(effect.payload, "codigoUps"),
-          fechaCita: formatFechaForApi(payloadText(effect.payload, "fechaCita")),
-          horaCita: formatHoraCita(payloadText(effect.payload, "horaInicio")),
-          numeroDocumentoPaciente: payloadText(effect.payload, "numeroDocumentoPaciente"),
+          codigoRenipress: required("codigoRenipress"),
+          codigoUps: required("codigoUps"),
+          fechaCita: formatFechaForApi(required("fechaCita")),
+          horaCita: formatHoraCita(required("horaInicio")),
+          numeroDocumentoPaciente: required("numeroDocumentoPaciente"),
           ...(effect.payload.referenciaId ? { referenciaId: String(effect.payload.referenciaId) } : {}),
         },
-        bearer,
+        bearer(),
       );
 
     case QueryKind.LIST_REFERENCES:
-      return listReferences(payloadText(effect.payload, "numeroDocumento"), payloadText(effect.payload, "tipoDocumento"), bearer);
+      return listReferences(required("numeroDocumento"), required("tipoDocumento"), bearer());
 
     case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
       return analyzeFotoIntent(payloadText(effect.payload, "text"));

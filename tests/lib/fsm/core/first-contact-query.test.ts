@@ -39,7 +39,7 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
     store.buscar.mockResolvedValueOnce({ by: "codigo", status: "found", establecimiento: DOS_DE_MAYO });
     const first = handleFirstContact(QR, "whatsapp");
 
-    const turn = await runTurnUnlocked(FROM, { from: FROM, type: "text", text: QR }, undefined, first);
+    const turn = await runTurnUnlocked(FROM, { channel: "whatsapp", from: FROM, type: "text", text: QR }, undefined, first);
 
     expect(store.consentimiento).toHaveBeenCalledWith(FROM, expect.anything());
     expect(store.buscar).toHaveBeenCalledWith({ codigo: "6206" });
@@ -53,7 +53,12 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
 
   it("when the lookup cannot be done, the person is offered to go on without the establecimiento and the session is saved", async () => {
     store.buscar.mockResolvedValueOnce({ by: "codigo", status: "unavailable" });
-    const turn = await runTurnUnlocked(FROM, { from: FROM, type: "text", text: QR }, undefined, handleFirstContact(QR, "whatsapp"));
+    const turn = await runTurnUnlocked(
+      FROM,
+      { channel: "whatsapp", from: FROM, type: "text", text: QR },
+      undefined,
+      handleFirstContact(QR, "whatsapp"),
+    );
 
     expect(turn.session.state).toBe("incidencia_confirm_omitir");
     expect(store.sessions.get(FROM)?.state).toBe("incidencia_confirm_omitir");
@@ -61,7 +66,12 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
 
   it("without a consent given, the turn stops at the authorization and the lookup waits for it", async () => {
     store.consentimiento.mockResolvedValueOnce(false);
-    const turn = await runTurnUnlocked(FROM, { from: FROM, type: "text", text: QR }, undefined, handleFirstContact(QR, "whatsapp"));
+    const turn = await runTurnUnlocked(
+      FROM,
+      { channel: "whatsapp", from: FROM, type: "text", text: QR },
+      undefined,
+      handleFirstContact(QR, "whatsapp"),
+    );
 
     expect(turn.session.state).toBe("incidencia_consent_choice");
     expect(store.buscar).not.toHaveBeenCalled();

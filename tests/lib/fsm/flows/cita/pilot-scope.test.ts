@@ -25,6 +25,7 @@ const arequipa = { departamento: "AREQUIPA", provincia: "AREQUIPA", distrito: "M
 const lima = { departamento: "LIMA", provincia: "LIMA", distrito: "MIRAFLORES" };
 
 const ubigeoFound = (items: Array<typeof arequipa & { ubigeoInei: string }>): QueryResultEvent => ({
+  channel: "whatsapp",
   from: "wa-1",
   type: InternalEventType.QUERY_RESULT,
   queryKind: "search_ubigeo",
@@ -121,7 +122,7 @@ describe("the manual mode (departamento → provincia → distrito) also honors 
 });
 
 describe("el departamento escrito a mano también honra el alcance", () => {
-  const typedDepartamento = (value: string): InboundEvent => ({ from: "wa-1", type: "text", text: value });
+  const typedDepartamento = (value: string): InboundEvent => ({ channel: "whatsapp", from: "wa-1", type: "text", text: value });
   const awaitingDepartamento = (): Session => session("cita_awaiting_departamento");
 
   it("con LIMA, escribir «Cusco» avisa de la etapa inicial y redirige sin consultar a MINSA", () => {

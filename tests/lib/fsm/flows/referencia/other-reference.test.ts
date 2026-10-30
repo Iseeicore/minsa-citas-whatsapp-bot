@@ -46,9 +46,10 @@ const REFERENCES: ReferenciaItem[] = [3, 5].map((estado, index) => ({
   codigoUpsDestino: `ups-${index}`,
   estado,
 }));
-const text = (value: string): InboundEvent => ({ from: FROM, type: InboundEventType.TEXT, text: value });
-const tap = (listId: string): InboundEvent => ({ from: FROM, type: InboundEventType.BUTTON, listId });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: value });
+const tap = (listId: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: InboundEventType.BUTTON, listId });
 const query = (queryKind: QueryKind, result: unknown): HandleEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,

@@ -58,7 +58,7 @@ describe("isGibberishPlaceText: real places, typos and sentences are NOT rejecte
 });
 
 const FROM = "sandbox-gibberish";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value, channel: "whatsapp" as const });
 const sent = (r: HandlerResult) => r.effects.filter((e): e is SendEffect => !isQueryEffect(e));
 const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
 const texts = (r: HandlerResult) => sent(r).map((e) => (e as { text: string }).text);

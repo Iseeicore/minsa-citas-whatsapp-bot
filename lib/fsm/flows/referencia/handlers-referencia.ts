@@ -24,6 +24,7 @@ import {
   REFERENCIA_CONSULTA_FALLIDA_TEXT,
   REFERENCIA_LOGIN_REQUIRED_TEXT,
   REFERENCIA_NONE_TEXT,
+  REFERENCIA_REVERIFICATION_PROMPT_TEXT,
   REFERENCIA_SIN_AGENDABLES_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -54,7 +55,7 @@ export function handleReferenciaLookupPending(session: Session, event: QueryResu
   const next = cloneSession(session);
 
   if (result.statusReference === ReferenceStatus.UNAUTHORIZED) {
-    return beginReverification(next, SessionState.REFERENCIA_LOOKUP_PENDING);
+    return beginReverification(next, SessionState.REFERENCIA_LOOKUP_PENDING, REFERENCIA_REVERIFICATION_PROMPT_TEXT);
   }
   if (result.statusReference !== ReferenceStatus.FOUND || result.data.length === 0) {
     next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
