@@ -59,6 +59,17 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     expect(historial[0]).toMatchObject({ operacion: "CREACION", actor: `ciudadano:${waId}`, versionFila: 1 });
   });
 
+  it("stores a denuncia from the Chat-bot with the web channel of origin", async () => {
+    const waId = `smoke-${randomUUID()}`;
+    const traceId = `trace-${randomUUID()}`;
+
+    await runWithTrace(traceId, {}, () =>
+      registrarIncidencia({ waId, descripcion: "Me cobraron por una atencion gratuita", canal: "web" }, crearAlmacenEvidencias()),
+    );
+
+    expect(await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } })).toMatchObject({ canalOrigenId: CanalOrigenId.WEB });
+  });
+
   it.each(["12345678", "123456789"])("stores the document %s of an identified citizen, with no name yet", async (dni) => {
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;

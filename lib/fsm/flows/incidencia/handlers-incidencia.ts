@@ -1,6 +1,14 @@
 import { enterDescripcion, handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
 import { handleConsentCheckPending, handleConsentimiento, handleConsentRegisterPending } from "@/lib/fsm/flows/incidencia/consentimiento";
-import { afterDescripcion, askConfirmRegistro, askFoto, handleConfirmRegistro } from "@/lib/fsm/flows/incidencia/pasos-comunes";
+import {
+  afterDescripcion,
+  askConfirmRegistro,
+  askDescripcion,
+  askFoto,
+  handleConfirmRegistro,
+  MAX_IMAGEN_LEGIBLE,
+} from "@/lib/fsm/flows/incidencia/pasos-comunes";
+import { slotText } from "@/lib/fsm/core/slot-readers";
 import {
   handleAwaitingUbicacion,
   handleConfirmOmitir,
@@ -35,11 +43,11 @@ import {
   INCIDENCIA_IDENTIDAD_BUTTONS,
   CONTINUAR_ANONIMO_BUTTONS,
   UNREADABLE_TEXT_RETRY,
-  DOCUMENTO_NO_GUARDADO_TEXT,
+  documentoNoGuardadoText,
   FOTO_BUTTONS,
   FOTO_LISTO_BUTTONS,
   IMAGEN_NO_DESCARGADA_TEXT,
-  IMAGEN_NO_VALIDA_TEXT,
+  imagenNoValidaText,
   IMAGEN_REPETIDA_TEXT,
   LISTO_KEYWORD,
   SEGUIR_CON_IMAGENES_TEXT,
@@ -48,8 +56,6 @@ import {
   imagenRecibidaText,
   imagenesCompletasText,
   INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT,
-  SEGUIMIENTO_IDENTIFICADO_TEXT,
-  SEGUIMIENTO_ANONIMO_TEXT,
   DAILY_LIMIT_TEXT,
   REGISTRO_FALLIDO_TEXT,
   descripcionTooLongText,
@@ -57,7 +63,7 @@ import {
   OMITIR_KEYWORD,
   incidenciaRegistradaText,
   INCIDENCIA_CANCELADA_TEXT,
-  IMAGEN_MUY_PESADA_TEXT,
+  imagenMuyPesadaText,
 } from "@/lib/constants/textos/incidencia";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
@@ -68,7 +74,6 @@ import {
   MIN_DESCRIPCION_LENGTH,
   FOTO_INTENT_MAX_LENGTH,
 } from "@/lib/constants/limits/incidencia";
-import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
 import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/validacion";
 import { MediaFailure } from "@/lib/enums/media-failure";
 import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
@@ -150,8 +155,10 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 function handleAwaitingDescripcion(session: Session, event: InboundEvent): HandlerResult {
   const descripcion = readTrimmedText(event);
 
-  if (!descripcion || descripcion.length > MAX_DESCRIPCION_LENGTH) {
-    return buildResult(session, [sendText(descripcionTooLongText(MAX_DESCRIPCION_LENGTH))]);
+  if (!descripcion) return buildResult(session, [sendText(askDescripcion(session))]);
+
+  if (descripcion.length > MAX_DESCRIPCION_LENGTH) {
+    return buildResult(session, [sendText(descripcionTooLongText(descripcion.length, MAX_DESCRIPCION_LENGTH))]);
   }
 
   if (looksLikeNoise(descripcion)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
@@ -171,7 +178,7 @@ function isFile(event: InboundEvent): boolean {
 
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
   if (event.type === InboundEventType.IMAGE) return handleImagen(session, event);
-  if (isFile(event)) return rechazoDeImagen(session, DOCUMENTO_NO_GUARDADO_TEXT);
+  if (isFile(event)) return rechazoDeImagen(session, documentoNoGuardadoText(MAX_IMAGEN_LEGIBLE));
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR || event.listId === IncidenciaButtonId.FOTO_LISTO) {
     return askConfirmRegistro(session);
   }
@@ -199,10 +206,8 @@ function rechazoDeImagen(session: Session, motivo: string): HandlerResult {
   return buildResult(session, [sendButtons(`${motivo} ${seguir}`, hasImagenes ? FOTO_LISTO_BUTTONS : FOTO_BUTTONS)]);
 }
 
-const MAX_IMAGE_MB = MAX_IMAGE_BYTES / (1024 * 1024);
-
 const motivoDeImagenRechazada = (failure: ImageValidationFailure): string =>
-  failure === ImageValidationFailure.TOO_LARGE ? imagenNoGuardadaMuyPesadaText(MAX_IMAGE_MB) : IMAGEN_NO_VALIDA_TEXT;
+  failure === ImageValidationFailure.TOO_LARGE ? imagenNoGuardadaMuyPesadaText(MAX_IMAGEN_LEGIBLE) : imagenNoValidaText(MAX_IMAGEN_LEGIBLE);
 
 function handleImagen(session: Session, event: InboundEvent): HandlerResult {
   const imagenes = readImagenes(session.slots);
@@ -213,7 +218,7 @@ function handleImagen(session: Session, event: InboundEvent): HandlerResult {
   }
 
   if (event.mediaFailure === MediaFailure.TOO_LARGE) {
-    return rechazoDeImagen(session, imagenNoGuardadaMuyPesadaText(MAX_IMAGE_MB));
+    return rechazoDeImagen(session, imagenNoGuardadaMuyPesadaText(MAX_IMAGEN_LEGIBLE));
   }
   if (!event.mediaDataUri) return rechazoDeImagen(session, IMAGEN_NO_DESCARGADA_TEXT);
 
@@ -244,19 +249,15 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
 }
 
 function confirmationText(session: Session, codigo: string | undefined): string {
-  const hasEstablecimiento = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] !== undefined;
-  const identificado = session.slots[SlotKey.DNI] !== undefined;
+  if (!codigo) return INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT;
 
-  if (!(hasEstablecimiento && codigo)) return INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT;
-
-  const base = incidenciaRegistradaText(codigo);
-  const adicional = identificado ? SEGUIMIENTO_IDENTIFICADO_TEXT : SEGUIMIENTO_ANONIMO_TEXT;
-  return `${base} ${adicional}`;
+  const establecimiento = slotText(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE);
+  return incidenciaRegistradaText(codigo, establecimiento, session.slots[SlotKey.DNI] !== undefined);
 }
 
 function failureText(reason: string | undefined): string {
   if (reason === RegistrationRejectReason.DAILY_LIMIT) return DAILY_LIMIT_TEXT;
-  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return IMAGEN_MUY_PESADA_TEXT;
+  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return imagenMuyPesadaText(MAX_IMAGEN_LEGIBLE);
   return REGISTRO_FALLIDO_TEXT;
 }
 

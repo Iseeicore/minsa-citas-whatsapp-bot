@@ -29,6 +29,7 @@ import { registrarIncidencia } from "@/lib/recepcion/servicio";
 import { logger } from "@/lib/observability/logger";
 import type { AlmacenEvidencias, ImagenValidada } from "@/lib/types/almacen-evidencias.types";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
+import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 
 const base = { waId: "wa-1", dni: null, descripcion: "Me cobraron de mas" };
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -67,6 +68,29 @@ describe("registering an incident directly in the database", () => {
       },
     });
     expect(db.evidenciaCreate).not.toHaveBeenCalled();
+  });
+
+  it("stores the real channel of origin: the Chat-bot as web and whatsapp-bot as WhatsApp", async () => {
+    await registrarIncidencia({ ...base, canal: "web" }, crearAlmacenEvidencias());
+    await registrarIncidencia({ ...base, canal: "whatsapp" }, crearAlmacenEvidencias());
+
+    expect(db.incidenciaCreate.mock.calls.map(([args]) => (args as { data: { canalOrigenId: number } }).data.canalOrigenId)).toEqual([
+      CanalOrigenId.WEB,
+      CanalOrigenId.WHATSAPP,
+    ]);
+  });
+
+  it("a submission without a channel is stored as WhatsApp", async () => {
+    await registrarIncidencia(base, crearAlmacenEvidencias());
+
+    expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ canalOrigenId: CanalOrigenId.WHATSAPP }) });
+  });
+
+  it("refuses an unknown channel before the database", async () => {
+    for (const canal of ["telegram", "WEB", 2, null]) {
+      await expect(registrarIncidencia({ ...base, canal }, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
+    }
+    expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
   it("a phone that already sent the daily maximum is refused before anything is saved, and the turn is logged", async () => {

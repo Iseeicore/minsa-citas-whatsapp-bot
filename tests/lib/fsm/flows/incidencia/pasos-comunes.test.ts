@@ -93,6 +93,29 @@ describe("askConfirmRegistro: el resumen siempre cabe en el cuerpo interactivo d
     expect(register.payload).toMatchObject({ submission: { descripcion: DESCRIPCION_MAXIMA, dni: "12345678" } });
   });
 
+  it("registrar emite solo la consulta, sin «Enviando…», y la consulta lleva el canal de la sesión", () => {
+    const confirming = (channel?: Session["channel"]): Session => ({
+      state: "incidencia_confirm_registro",
+      slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo." },
+      counters: {},
+      ...(channel ? { channel } : {}),
+    });
+    const registrar = (session: Session) =>
+      handleConfirmRegistro(session, { from: "51999999999", type: "button", listId: "incidencia_confirmar_registro_si" });
+
+    for (const [channel, canal] of [
+      [undefined, "whatsapp"],
+      ["whatsapp", "whatsapp"],
+      ["web", "web"],
+    ] as const) {
+      const result = registrar(confirming(channel));
+
+      expect(result.session.state).toBe("incidencia_submit_pending");
+      expect(result.effects).toHaveLength(1);
+      expect(result.effects[0]).toMatchObject({ kind: "incidencia_register", payload: { submission: { canal } } });
+    }
+  });
+
   it("si ni con el relato vacío cabría, también acorta el establecimiento", () => {
     const enorme = "x".repeat(3000);
     const result = askConfirmRegistro(

@@ -2,6 +2,7 @@ import { noPudimosLeerText } from "@/lib/constants/textos/comunes";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 import { CHANNELS } from "@/lib/constants/textos/canales-oficiales";
+import { MENU_ROW_CONSULTAR_INCIDENCIA_TITLE } from "@/lib/constants/textos/menu";
 import type { ConsentButtons } from "@/lib/fsm/core/types";
 
 export const AVISO_EMERGENCIA_DENUNCIA_TEXT = `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS
@@ -73,8 +74,13 @@ export const CONSENT_BUTTONS: ConsentButtons = [
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
 ];
 
-export const ASK_DESCRIPCION_TEXT = `Cuéntanos tu denuncia (hasta ${MAX_DESCRIPCION_LENGTH} caracteres).`;
-export const descripcionTooLongText = (maximo: number): string => `Escribe tu denuncia en hasta ${maximo} caracteres.`;
+const HASTA_MAXIMO_TEXT = `(*hasta ${MAX_DESCRIPCION_LENGTH} caracteres*)`;
+export const ASK_DESCRIPCION_ANONIMO_TEXT = `Entendemos tu preferencia por el anonimato. Cuéntame tu denuncia ${HASTA_MAXIMO_TEXT}.`;
+export const askDescripcionConDocumentoText = (documentoEnmascarado: string): string =>
+  `Cuéntame tu denuncia, documento ${documentoEnmascarado} ${HASTA_MAXIMO_TEXT}.`;
+
+export const descripcionTooLongText = (actual: number, maximo: number): string =>
+  `Tu mensaje tiene ${actual} caracteres; el máximo es ${maximo}. Resúmelo y envíalo de nuevo.`;
 
 export const descripcionTooShortText = (minimo: number): string =>
   `Cuéntanos un poco más: escribe al menos ${minimo} caracteres para poder entender lo que pasó.`;
@@ -89,13 +95,13 @@ export const BORRADOR_BUTTONS = [
 export const borradorConfirmText = (borrador: string): string =>
   `Esto es lo que escribiste:\n\n«${borrador}»\n\n¿Lo usamos tal cual o quieres agregar más?`;
 
-export const borradorTooLongText = (maximo: number): string =>
-  `Con lo que ya escribiste, el texto no puede pasar de ${maximo} caracteres. Escribe algo más corto.`;
+export const borradorTooLongText = (actual: number, maximo: number): string =>
+  `Con lo que agregaste, tu denuncia tendría ${actual} caracteres; el máximo es ${maximo}. Resúmelo y envíalo de nuevo.`;
 
 export const ASK_BORRADOR_EXTRA_TEXT = "Escribe lo que quieras agregar.";
 export const BORRADOR_QUESTION_TEXT = "¿Usamos tu texto tal cual o quieres agregar más?";
-export const FOTO_REQUEST_TEXT =
-  "¿Quieres enviar una imagen o un archivo como evidencia? Es opcional: envíalo ahora, o toca Omitir (o escribe OMITIR) para continuar sin él.";
+export const fotoRequestText = (maximo: string): string =>
+  `¿Quieres enviar una *imagen (JPG o PNG, hasta ${maximo})* como evidencia? Es *opcional*: envíala ahora, o toca *Omitir* (o escribe OMITIR) para continuar sin ella.`;
 export const FOTO_BUTTONS = [{ id: IncidenciaButtonId.FOTO_OMITIR, title: "Omitir" }];
 export const FOTO_LISTO_BUTTONS = [{ id: IncidenciaButtonId.FOTO_LISTO, title: "Listo, continuar" }];
 export const OMITIR_KEYWORD = "OMITIR";
@@ -113,29 +119,38 @@ export const CONFIRM_REGISTRO_BUTTONS = [
   { id: IncidenciaButtonId.CONFIRM_REGISTRO_NO, title: "Cancelar" },
 ];
 
-export const ENVIANDO_INCIDENCIA_TEXT = "Enviando tu denuncia…";
-export const INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT = "Gracias por tu denuncia, ya se registró.";
-
-export const incidenciaRegistradaText = (codigo: string): string =>
-  `¡Gracias! Tu denuncia quedó registrada con el código ${codigo}. Guárdalo para darle seguimiento.`;
-
+export const DESPEDIDA_DENUNCIA_TEXT = "¡Hasta pronto!";
+export const INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT = `Gracias por tu denuncia, ya se registró. ${DESPEDIDA_DENUNCIA_TEXT}`;
 export const SEGUIMIENTO_IDENTIFICADO_TEXT = "Si el área responsable necesita información adicional, se comunicará contigo.";
-export const SEGUIMIENTO_ANONIMO_TEXT = "Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta denuncia.";
+
+export const incidenciaRegistradaText = (codigo: string, establecimiento: string | undefined, identificado: boolean): string =>
+  [
+    `¡Gracias! Tu denuncia quedó registrada con el código *${codigo}*${establecimiento ? ` en *${establecimiento}*` : ""}.`,
+    `Guárdalo: para ver su estado, elige *${MENU_ROW_CONSULTAR_INCIDENCIA_TITLE}* en el menú o escribe tu código.`,
+    identificado ? SEGUIMIENTO_IDENTIFICADO_TEXT : undefined,
+    DESPEDIDA_DENUNCIA_TEXT,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
 export const DAILY_LIMIT_TEXT =
   "Hoy ya registraste el máximo de denuncias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
-export const IMAGEN_MUY_PESADA_TEXT = "No se pudo registrar tu denuncia porque una de las imágenes pesa más de 5 MB.";
+export const imagenMuyPesadaText = (maximo: string): string =>
+  `No pudimos registrar tu denuncia porque una de las imágenes pesa más de ${maximo}.`;
 export const imagenRecibidaText = (cantidad: number, maximo: number): string =>
   `Recibimos tu imagen (${cantidad} de ${maximo}). Si tienes otra como referencia, envíala; si no, toca Listo (o escribe LISTO) para continuar.`;
 export const imagenesCompletasText = (maximo: number): string => `Recibimos tu imagen ${maximo} de ${maximo}: es el máximo por denuncia.`;
-export const imagenNoGuardadaMuyPesadaText = (maximoMb: number): string => `Esa imagen pesa más de ${maximoMb} MB y no se guardó.`;
+export const imagenNoGuardadaMuyPesadaText = (maximo: string): string => `Esa imagen pesa más de ${maximo} y no se guardó.`;
 export const IMAGEN_NO_DESCARGADA_TEXT = "No pudimos descargar esa imagen desde WhatsApp, por eso no se guardó.";
-export const IMAGEN_NO_VALIDA_TEXT = "Ese archivo no es una imagen válida (JPG o PNG), por eso no se guardó.";
+const soloImagenesText = (maximo: string): string => `Solo aceptamos imágenes JPG o PNG de hasta ${maximo}`;
+export const imagenNoValidaText = (maximo: string): string => `${soloImagenesText(maximo)}; esa imagen no se guardó.`;
 export const IMAGEN_REPETIDA_TEXT = "Esa imagen ya la habías enviado, no se guardó otra vez.";
-export const DOCUMENTO_NO_GUARDADO_TEXT = "Por ahora solo podemos guardar imágenes (JPG o PNG); ese documento no se guardó.";
+export const documentoNoGuardadoText = (maximo: string): string => `${soloImagenesText(maximo)}; ese archivo no se guardó.`;
 export const SEGUIR_CON_IMAGENES_TEXT = "Puedes enviar otra imagen o tocar Listo (o escribir LISTO) para continuar.";
 export const SEGUIR_SIN_IMAGENES_TEXT = "Puedes enviar otra imagen o tocar Omitir (o escribir OMITIR) para continuar sin ella.";
 export const resumenImagenesText = (cantidad: number): string => `Imágenes adjuntas: ${cantidad}`;
-export const REGISTRO_FALLIDO_TEXT = "No pudimos registrar tu denuncia en este momento. Por favor, intenta de nuevo más tarde.";
+export const REGISTRO_FALLIDO_TEXT =
+  "Lo sentimos, no pudimos registrar tu denuncia en este momento. Por favor, inténtalo de nuevo más tarde.";
 export const INCIDENCIA_REAUTH_PROMPT_TEXT =
   "⏳ Tu denuncia quedó inactiva por un tiempo. ¿Deseas continuar donde la dejaste?\n\n[1] Sí, continuar\n[2] Cancelar";
 

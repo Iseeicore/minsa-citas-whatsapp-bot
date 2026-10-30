@@ -6,6 +6,7 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import {
+  ASK_DESCRIPCION_ANONIMO_TEXT,
   ASK_UBICACION_DENUNCIA_TEXT,
   AVISO_EMERGENCIA_DENUNCIA_TEXT,
   AVISO_PRIVACIDAD_TEXT,
@@ -70,6 +71,7 @@ describe("incidencia_identity_choice: documento o anónimo", () => {
     expect(result.session.state).toBe("incidencia_awaiting_descripcion");
     expect(queries(result)).toEqual([]);
     expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
+    expect(texts(result)).toEqual(["Entendemos tu preferencia por el anonimato. Cuéntame tu denuncia (*hasta 1000 caracteres*)."]);
   });
 });
 
@@ -92,6 +94,7 @@ describe("incidencia_awaiting_dni: el largo decide el tipo de documento", () => 
 
     expect(result.session.state).toBe("incidencia_awaiting_descripcion");
     expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
+    expect(texts(result)).toEqual([ASK_DESCRIPCION_ANONIMO_TEXT]);
   });
 
   it.each(["", "1234567", "1234567890", "abcdefgh", "1234 5678", "hdp"])(
@@ -149,7 +152,26 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
     expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe("El consultorio estaba cerrado.");
-    expect(texts(result)[0]).toContain("imagen o un archivo");
+    expect(texts(result)).toEqual([
+      "¿Quieres enviar una *imagen (JPG o PNG, hasta 5 MB)* como evidencia? Es *opcional*: envíala ahora, o toca *Omitir* (o escribe OMITIR) para continuar sin ella.",
+    ]);
+  });
+
+  it("un relato de más de 1000 caracteres se rechaza diciendo cuántos tiene", () => {
+    const result = handleIncidencia(awaitingDescripcion(), text("a b ".repeat(300)));
+
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBeUndefined();
+    expect(texts(result)).toEqual(["Tu mensaje tiene 1199 caracteres; el máximo es 1000. Resúmelo y envíalo de nuevo."]);
+  });
+
+  it("un mensaje sin texto vuelve a pedir el relato, con el documento enmascarado si lo dio", () => {
+    const anonimo = handleIncidencia(awaitingDescripcion(), text("   "));
+    const conDocumento = handleIncidencia({ ...awaitingDescripcion(), slots: { [SlotKey.DNI]: "12347453" } }, text(""));
+
+    expect(texts(anonimo)).toEqual([ASK_DESCRIPCION_ANONIMO_TEXT]);
+    expect(texts(conDocumento)).toEqual(["Cuéntame tu denuncia, documento ****7453 (*hasta 1000 caracteres*)."]);
+    expect(conDocumento.session.state).toBe("incidencia_awaiting_descripcion");
   });
 
   it("la evidencia se ofrece siempre: ya no depende de que exista un servicio de imágenes", () => {
@@ -175,6 +197,7 @@ describe("el registro final: con la persona o anónimo", () => {
   ])("con %s: lleva solo el documento, sin nombre", (_label, documento) => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_con_documento"));
     step = handleIncidencia(step.session, text(documento));
+    expect(texts(step)).toEqual([`Cuéntame tu denuncia, documento ****${documento.slice(-4)} (*hasta 1000 caracteres*).`]);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
     expect(step.session.state).toBe("incidencia_confirm_registro");
@@ -187,7 +210,28 @@ describe("el registro final: con la persona o anónimo", () => {
       descripcion: "El consultorio estaba cerrado.",
       establecimientoId: null,
       mediaDataUris: [],
+      canal: "whatsapp",
     });
+  });
+
+  it("desde el Chat-bot: el registro lleva el canal web", () => {
+    let step = handleIncidencia({ ...identityChoice(), channel: "web" }, tap("incidencia_anonimo"));
+    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
+    step = handleIncidencia(step.session, text("OMITIR"));
+    step = confirmar(step);
+
+    expect(submission(step)).toMatchObject({ canal: "web" });
+  });
+
+  it("confirmar el registro solo pide registrarlo: no manda «Enviando…» ni otro texto", () => {
+    let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
+    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
+    step = handleIncidencia(step.session, text("OMITIR"));
+    step = confirmar(step);
+
+    expect(step.session.state).toBe("incidencia_submit_pending");
+    expect(sent(step)).toEqual([]);
+    expect(queries(step).map((effect) => effect.kind)).toEqual(["incidencia_register"]);
   });
 
   it("con el establecimiento confirmado: el registro lleva su id", () => {
@@ -211,6 +255,7 @@ describe("el registro final: con la persona o anónimo", () => {
       descripcion: "El consultorio estaba cerrado.",
       establecimientoId: null,
       mediaDataUris: [],
+      canal: "whatsapp",
     });
   });
 });
@@ -294,7 +339,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
   it("un archivo que no es imagen válida se rechaza con su motivo", () => {
     const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: "data:text/html;base64,PGI+" });
 
-    expect(texts(result)[0]).toContain("no es una imagen válida");
+    expect(texts(result)[0]).toContain("Solo aceptamos imágenes JPG o PNG de hasta 5 MB; esa imagen no se guardó.");
   });
 
   it.each([
@@ -306,7 +351,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri });
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
-    expect(texts(result)[0]).toContain("no es una imagen válida");
+    expect(texts(result)[0]).toContain("Solo aceptamos imágenes JPG o PNG de hasta 5 MB; esa imagen no se guardó.");
     expect(imagenesDe(result)).toHaveLength(1);
   });
 
@@ -322,7 +367,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     const result = handleIncidencia(awaitingFoto(), file("document"));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
-    expect(texts(result)[0]).toContain("ese documento no se guardó");
+    expect(texts(result)[0]).toContain("Solo aceptamos imágenes JPG o PNG de hasta 5 MB; ese archivo no se guardó.");
     expect(texts(result)[0]).not.toContain("se registró tu evidencia");
   });
 
@@ -511,38 +556,49 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
   });
   const pending = (): Session => ({ state: "incidencia_submit_pending", slots: { descripcionIncidencia: "Mala atención" }, counters: {} });
 
-  it("aceptado sin establecimiento: solo agradece, sin código", () => {
+  const withPlace = (extra: Session["slots"] = {}): Session => ({
+    ...pending(),
+    slots: {
+      ...pending().slots,
+      [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7,
+      [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: "HOSPITAL NACIONAL DOS DE MAYO",
+      ...extra,
+    },
+  });
+
+  it("aceptado sin establecimiento: entrega el código en un solo mensaje, sin nombrar el lugar", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
 
     expect(result.session.state).toBe("incidencia_confirmed");
-    expect(texts(result)).toEqual(["Gracias por tu denuncia, ya se registró."]);
+    expect(texts(result)).toEqual([
+      "¡Gracias! Tu denuncia quedó registrada con el código *MINSA-2026-000123*. Guárdalo: para ver su estado, elige *Consultar mi denuncia* en el menú o escribe tu código. ¡Hasta pronto!",
+    ]);
     expect(result.outcome).toBe("closed");
   });
 
-  it("aceptado con establecimiento, anónimo: entrega el código de seguimiento sin prometer contacto", () => {
-    const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
-    const result = handleIncidencia(withPlace, submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
+  it("aceptado con establecimiento, anónimo: código y establecimiento en negrita, sin prometer contacto", () => {
+    const result = handleIncidencia(withPlace(), submitResult({ status: "accepted", codigo: "MINSA-2026-A-000123" }));
 
     expect(texts(result)).toEqual([
-      "¡Gracias! Tu denuncia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Guarda tu código: lo necesitarás para cualquier consulta posterior sobre esta denuncia.",
+      "¡Gracias! Tu denuncia quedó registrada con el código *MINSA-2026-A-000123* en *HOSPITAL NACIONAL DOS DE MAYO*. Guárdalo: para ver su estado, elige *Consultar mi denuncia* en el menú o escribe tu código. ¡Hasta pronto!",
     ]);
   });
 
   it("aceptado con establecimiento, identificado (tiene DNI): avisa que el área se comunicará", () => {
-    const withPlace: Session = {
-      ...pending(),
-      slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7, [SlotKey.DNI]: "12345678" },
-    };
-    const result = handleIncidencia(withPlace, submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }));
+    const result = handleIncidencia(
+      withPlace({ [SlotKey.DNI]: "12345678" }),
+      submitResult({ status: "accepted", codigo: "MINSA-2026-000123" }),
+    );
 
     expect(texts(result)).toEqual([
-      "¡Gracias! Tu denuncia quedó registrada con el código MINSA-2026-000123. Guárdalo para darle seguimiento. Si el área responsable necesita información adicional, se comunicará contigo.",
+      "¡Gracias! Tu denuncia quedó registrada con el código *MINSA-2026-000123* en *HOSPITAL NACIONAL DOS DE MAYO*. Guárdalo: para ver su estado, elige *Consultar mi denuncia* en el menú o escribe tu código. Si el área responsable necesita información adicional, se comunicará contigo. ¡Hasta pronto!",
     ]);
   });
 
-  it("aceptado con establecimiento pero sin código (una reentrega que no lo pudo leer): solo agradece", () => {
-    const withPlace: Session = { ...pending(), slots: { ...pending().slots, [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } };
-    expect(texts(handleIncidencia(withPlace, submitResult({ status: "accepted" })))).toEqual(["Gracias por tu denuncia, ya se registró."]);
+  it("aceptado pero sin código (una reentrega que no lo pudo leer): agradece y se despide", () => {
+    expect(texts(handleIncidencia(withPlace(), submitResult({ status: "accepted" })))).toEqual([
+      "Gracias por tu denuncia, ya se registró. ¡Hasta pronto!",
+    ]);
   });
   it("tope diario alcanzado: avisa que podrá registrar otra mañana y cierra", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "rejected", reason: "daily_limit" }));
@@ -551,11 +607,19 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     expect(texts(result)[0]).toContain("Podrás registrar otra mañana");
   });
 
-  it("fallido: avisa que no se pudo registrar", () => {
+  it("fallido: se disculpa y pide intentarlo más tarde", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "error" }));
 
     expect(result.session.state).toBe("incidencia_failed");
-    expect(texts(result)[0]).toContain("No pudimos registrar tu denuncia");
+    expect(texts(result)).toEqual([
+      "Lo sentimos, no pudimos registrar tu denuncia en este momento. Por favor, inténtalo de nuevo más tarde.",
+    ]);
+  });
+
+  it("una imagen que pasó del tope al registrar: lo dice con el tope de 5 MB", () => {
+    const result = handleIncidencia(pending(), submitResult({ status: "rejected", reason: "media_too_large" }));
+
+    expect(texts(result)).toEqual(["No pudimos registrar tu denuncia porque una de las imágenes pesa más de 5 MB."]);
   });
 });
 

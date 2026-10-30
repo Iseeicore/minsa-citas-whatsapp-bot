@@ -1,18 +1,17 @@
 import { SlotKey } from "@/lib/enums/slot-key";
 import { ALL_WHITESPACE_RUNS } from "@/lib/constants/regex/text";
 import {
-  ALREADY_MASKED_DNI,
   BEARER_CREDENTIAL,
   DNI_KEY,
   JWT,
   LONG_DIGIT_RUN,
   NEVER_PREVIEW_STATE,
-  NON_DIGIT,
   PERSON_NAME_KEY,
   SENSITIVE_KEY,
   URL_WITH_QUERY_STRING,
 } from "@/lib/constants/regex/observability";
 import { isString } from "@/lib/utils/type-guards";
+import { maskDocumento } from "@/lib/utils/mask-documento";
 
 const LENGTH_ONLY_KEYS = new Set<string>([
   SlotKey.CITA_OFFERED,
@@ -25,28 +24,23 @@ const LENGTH_ONLY_KEYS = new Set<string>([
 const MAX_STRING = 200;
 const MAX_DEPTH = 4;
 const MAX_ITEMS = 20;
+const VISIBLE_TAIL = 4;
 
-export const tail = (value: string): string => `...${value.slice(-4)}`;
-
-export function maskDni(value: string): string {
-  if (ALREADY_MASKED_DNI.test(value)) return value;
-  const digits = value.replace(NON_DIGIT, "");
-  return digits.length > 4 ? `****${digits.slice(-4)}` : "****";
-}
+export const tail = (value: string): string => `...${value.slice(-VISIBLE_TAIL)}`;
 
 export function redactString(value: string): string {
   return value
     .replace(URL_WITH_QUERY_STRING, "$1?[redacted]")
     .replace(BEARER_CREDENTIAL, "Bearer [redacted]")
     .replace(JWT, "[jwt]")
-    .replace(LONG_DIGIT_RUN, (run) => `****${run.slice(-4)}`);
+    .replace(LONG_DIGIT_RUN, maskDocumento);
 }
 
 export function sanitizeValue(key: string, value: unknown, depth = 0): unknown {
   if (value === null || value === undefined) return value;
   if (SENSITIVE_KEY.test(key) || PERSON_NAME_KEY.test(key)) return "[redacted]";
   if (LENGTH_ONLY_KEYS.has(key)) return { length: String(value).length };
-  if (DNI_KEY.test(key) && (isString(value) || typeof value === "number")) return maskDni(String(value));
+  if (DNI_KEY.test(key) && (isString(value) || typeof value === "number")) return maskDocumento(String(value));
 
   if (isString(value)) {
     const clean = redactString(value);

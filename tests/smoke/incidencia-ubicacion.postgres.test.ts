@@ -128,7 +128,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
     const done = await p.tap("incidencia_confirmar_registro_si");
     expect(done.session.state).toBe("incidencia_confirmed");
-    expect(textOf(done.sent.at(-1))).toMatch(/código MINSA-\d{4}-A-\d{6,}/);
+    expect(textOf(done.sent.at(-1))).toMatch(/código \*MINSA-\d{4}-A-\d{6,}\* en \*HOSPITAL NACIONAL DOS DE MAYO\*/);
 
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from }, include: { establecimiento: true } });
     expect(saved.establecimiento?.codigoRenipress).toBe("6206");
@@ -136,7 +136,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     expect(textOf(done.sent.at(-1))).toContain(saved.codigo);
   });
 
-  it("with no establecimiento the incidencia is saved without one and the person is only thanked, with no code", async () => {
+  it("with no establecimiento the incidencia is saved without one and the code is given without naming a place", async () => {
     const p = person();
     await begin(p, "quiero presentar una incidencia");
     await p.say("xyzzy plugh");
@@ -148,8 +148,8 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     await p.say("omitir");
     const done = await p.tap("incidencia_confirmar_registro_si");
 
-    expect(textOf(done.sent.at(-1))).toBe("Gracias por tu denuncia, ya se registró.");
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from } });
+    expect(textOf(done.sent.at(-1))).toContain(`código *${saved.codigo}*. Guárdalo`);
     expect(saved.establecimientoId).toBeNull();
   });
 

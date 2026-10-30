@@ -41,7 +41,7 @@ export function enterDescripcion(session: Session): HandlerResult {
 
   next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);
   next.state = SessionState.INCIDENCIA_AWAITING_DESCRIPCION;
-  return buildResult(next, [sendText(askDescripcion())]);
+  return buildResult(next, [sendText(askDescripcion(next))]);
 }
 
 function applyText(session: Session, text: string): HandlerResult {
@@ -55,7 +55,7 @@ function appendExtra(session: Session, extra: string): HandlerResult {
   const borrador = session.slots[SlotKey.INCIDENCIA_BORRADOR] ?? "";
   const combined = `${borrador}\n${extra}`.trim();
   if (combined.length > MAX_DESCRIPCION_LENGTH) {
-    return buildResult(session, [sendText(borradorTooLongText(MAX_DESCRIPCION_LENGTH))]);
+    return buildResult(session, [sendText(borradorTooLongText(combined.length, MAX_DESCRIPCION_LENGTH))]);
   }
   return applyText(session, combined);
 }

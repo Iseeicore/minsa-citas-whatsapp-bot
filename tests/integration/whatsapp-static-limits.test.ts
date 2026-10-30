@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
-import { BUTTON_TITLE_MAX, WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { buildResult, sendButtons, sendCtaUrl, sendList, withPrefixedFirstMessage } from "@/lib/fsm/core/handlers-shared";
+import { BUTTON_TITLE_MAX, WHATSAPP_INTERACTIVE_BODY_MAX, WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
+import { buildResult, sendButtons, sendCtaUrl, sendList, sendText, withPrefixedFirstMessage } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { buildConsentimientoEffect } from "@/lib/fsm/flows/incidencia/consentimiento";
@@ -69,8 +69,6 @@ import {
   BORRADOR_QUESTION_TEXT,
   CONSENT_BUTTONS,
   CONSENT_QUESTION_TEXT,
-  FOTO_BUTTONS,
-  FOTO_REQUEST_TEXT,
   IDENTITY_QUESTION_TEXT,
   INCIDENCIA_IDENTIDAD_BUTTONS,
   INCIDENCIA_REAUTH_BUTTONS,
@@ -83,9 +81,11 @@ import {
   OMITIR_ACEPTADO_TEXT,
   avisoDenunciaText,
   confirmUbicacionText,
+  incidenciaRegistradaText,
   ubicacionAceptadaText,
   ubicacionDistritoLineText,
 } from "@/lib/constants/textos/incidencia";
+import { askFoto } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 
 type StaticDefinition = { origin: string; effect: SendEffect };
 
@@ -126,7 +126,7 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
   { origin: "OMITIR_RETRY_TEXT + OMITIR_BUTTONS", effect: sendButtons(OMITIR_RETRY_TEXT, OMITIR_BUTTONS) },
   { origin: "CONSENT_QUESTION_TEXT + CONSENT_BUTTONS", effect: sendButtons(CONSENT_QUESTION_TEXT, CONSENT_BUTTONS) },
   { origin: "BORRADOR_QUESTION_TEXT + BORRADOR_BUTTONS", effect: sendButtons(BORRADOR_QUESTION_TEXT, BORRADOR_BUTTONS) },
-  { origin: "FOTO_REQUEST_TEXT + FOTO_BUTTONS", effect: sendButtons(FOTO_REQUEST_TEXT, FOTO_BUTTONS) },
+  { origin: "pedido de evidencia con FOTO_BUTTONS", effect: askFoto() },
   {
     origin: "INCIDENCIA_REAUTH_PROMPT_TEXT + INCIDENCIA_REAUTH_BUTTONS",
     effect: sendButtons(INCIDENCIA_REAUTH_PROMPT_TEXT, INCIDENCIA_REAUTH_BUTTONS),
@@ -275,6 +275,15 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
       for (const lead of ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT]) {
         const [unido] = withPrefixedFirstMessage(buildResult(session, [confirmacion]), avisoDenunciaText(lead)).effects as SendEffect[];
         expect(findLimitViolations(unido), lead).toEqual([]);
+      }
+    });
+
+    it("el cierre de la denuncia registrada, identificada o anónima", () => {
+      for (const identificado of [true, false]) {
+        const cierre = incidenciaRegistradaText("MINSA-2026-A-1000000", nombre, identificado);
+        expect(cierre).toContain(`*${nombre}*`);
+        expect(cierre.length).toBeLessThanOrEqual(WHATSAPP_TEXT_BODY_MAX);
+        expect(findLimitViolations(sendText(cierre))).toEqual([]);
       }
     });
   });

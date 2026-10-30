@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createDailyFileSink, dateFolder, type FileSystemPort } from "@/lib/observability/file-sink";
 import { createLogger } from "@/lib/observability/logger";
-import { maskDni, previewInput, redactString, sanitizeSlots } from "@/lib/observability/mask";
+import { previewInput, redactString, sanitizeSlots } from "@/lib/observability/mask";
+import { maskDocumento } from "@/lib/utils/mask-documento";
 import { createTurnTrace, deriveTraceId, traceIdFor, traceTurn } from "@/lib/observability/tracer";
 import type { LogLevel } from "@/lib/observability/types";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -19,8 +20,8 @@ const TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE4MDAwMDAwMDB9.c2lnbmF0dXJl";
 
 describe("masking", () => {
   it("keeps the last four digits of a document number and nothing more", () => {
-    expect(maskDni(DNI)).toBe("****5678");
-    expect(maskDni("1234")).toBe("****");
+    expect(maskDocumento(DNI)).toBe("****5678");
+    expect(maskDocumento("1234")).toBe("****");
   });
 
   it("hides long digit runs, Bearer headers and JWTs inside any text", () => {
