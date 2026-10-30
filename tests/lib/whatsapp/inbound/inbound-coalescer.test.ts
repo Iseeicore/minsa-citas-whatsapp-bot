@@ -16,7 +16,7 @@ function createFakeBuffer(rows: Row[]): InboundBuffer {
   return {
     async summarize(usuarioId) {
       const list = pending(usuarioId);
-      if (list.length === 0) return { count: 0, newestWaMessageId: null, oldestArrivedAt: null };
+      if (list.length === 0) return { count: 0, newestWaMessageId: undefined, oldestArrivedAt: undefined };
       return { count: list.length, newestWaMessageId: list[list.length - 1].waMessageId, oldestArrivedAt: list[0].arrivedAt };
     },
     async claim(usuarioId, limit, ownerWaMessageId) {

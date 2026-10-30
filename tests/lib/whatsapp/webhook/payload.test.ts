@@ -84,7 +84,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
   });
 
   it("an album outside the evidence step is ignored and nothing is downloaded", async () => {
-    await expect(toInboundEvent(WA, message({ type: "image", image: { id: "m2" } }), "main_menu", ["m1", "m2"])).resolves.toBeNull();
+    await expect(toInboundEvent(WA, message({ type: "image", image: { id: "m2" } }), "main_menu", ["m1", "m2"])).resolves.toBeUndefined();
     expect(media.download).not.toHaveBeenCalled();
   });
 
@@ -107,14 +107,14 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
     ["an image with no id", message({ type: "image", image: {} })],
     ["a document with no id", message({ type: "document", document: { filename: "x.pdf" } })],
   ])("%s is not a file: it is ignored in silence", async (_label, incoming) => {
-    await expect(toInboundEvent(WA, incoming, "incidencia_awaiting_foto")).resolves.toBeNull();
+    await expect(toInboundEvent(WA, incoming, "incidencia_awaiting_foto")).resolves.toBeUndefined();
   });
 
   it.each(["main_menu", "incidencia_awaiting_descripcion", "cita_awaiting_dni", "incidencia_confirm_ubicacion"])(
     "an image or a document in %s is ignored: evidence is only read when it was asked for",
     async (state) => {
-      await expect(toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), state)).resolves.toBeNull();
-      await expect(toInboundEvent(WA, message({ type: "document", document: { id: "m2" } }), state)).resolves.toBeNull();
+      await expect(toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), state)).resolves.toBeUndefined();
+      await expect(toInboundEvent(WA, message({ type: "document", document: { id: "m2" } }), state)).resolves.toBeUndefined();
     },
   );
 

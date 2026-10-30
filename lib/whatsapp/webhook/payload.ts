@@ -101,31 +101,28 @@ export function mapStatus(status: string): EstadoMensajeId | null {
 }
 
 export function extractContentAndMedia(message: WhatsAppMessage): {
-  content: string | null;
-  mediaId: string | null;
+  content: string | undefined;
+  mediaId: string | undefined;
 } {
   switch (message.type) {
     case "text":
-      return { content: message.text?.body ?? null, mediaId: null };
+      return { content: message.text?.body, mediaId: undefined };
     case "image":
-      return { content: message.image?.caption ?? null, mediaId: message.image?.id ?? null };
+      return { content: message.image?.caption, mediaId: message.image?.id };
     case "audio":
-      return { content: null, mediaId: message.audio?.id ?? null };
+      return { content: undefined, mediaId: message.audio?.id };
     case "document":
-      return {
-        content: message.document?.filename ?? null,
-        mediaId: message.document?.id ?? null,
-      };
+      return { content: message.document?.filename, mediaId: message.document?.id };
     case "location":
       return {
         content:
           message.location?.latitude !== undefined && message.location?.longitude !== undefined
             ? `${message.location.latitude},${message.location.longitude}`
-            : null,
-        mediaId: null,
+            : undefined,
+        mediaId: undefined,
       };
     default:
-      return { content: null, mediaId: null };
+      return { content: undefined, mediaId: undefined };
   }
 }
 
@@ -139,7 +136,7 @@ export async function toInboundEvent(
   message: WhatsAppMessage,
   sessionState: string,
   mediaIds?: string[],
-): Promise<InboundEvent | null> {
+): Promise<InboundEvent | undefined> {
   if (message.type === "text") {
     return { from: waId, type: "text", text: message.text?.body };
   }
@@ -167,5 +164,5 @@ export async function toInboundEvent(
     if (message.type === "document" && message.document?.id) return { from: waId, type: "document" };
   }
 
-  return null;
+  return undefined;
 }

@@ -12,6 +12,7 @@ export const FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y consulta de referencias. Por favor elija una opción: [1] Citas [2] Referencia.";
 export const MEDIA_WITHOUT_SESSION_TEXT =
   "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.";
+export const MENSAJE_NO_SOPORTADO_TEXT = "Por ahora solo puedo leer texto e imágenes. Escríbeme tu mensaje, por favor.";
 export const muteNoticeText = (minutes: number): string =>
   `Está enviando mensajes muy rápido. Por favor, espere ${minutes} minutos y vuelva a escribirnos.`;
 export const CONTINUE_BUTTONS = [{ id: CONTINUE_BUTTON_ID, title: CONTINUE_BUTTON_TEXT }];

@@ -18,6 +18,7 @@ import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/pay
 import { SessionState } from "@/lib/enums/session-state";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
 import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
+import { MENSAJE_NO_SOPORTADO_TEXT } from "@/lib/constants/textos/seguridad";
 import { isUndelivered, trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
 
 const TYPING_DELAY_MS = 1000;
@@ -119,7 +120,11 @@ export async function answerMessage(
   }
 
   const inboundEvent = await toInboundEvent(waId, message, existingSession.state, mediaIds);
-  if (!inboundEvent) return;
+  if (inboundEvent === undefined) {
+    logger.info("webhook.unsupported_message", { waId: tail(waId), messageType: message.type, state: existingSession.state });
+    await sendFixedReply(waId, MENSAJE_NO_SOPORTADO_TEXT);
+    return;
+  }
 
   const first = firstSendMarker(marks);
   const deliver = async (effect: SendEffect): Promise<SendOutcome> => {

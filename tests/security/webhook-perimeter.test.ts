@@ -57,7 +57,7 @@ vi.mock("@/lib/whatsapp/inbound/inbound-policy", async (importOriginal) => ({
 }));
 vi.mock("@/lib/whatsapp/inbound/postgres-inbound-buffer", () => ({
   createPostgresInboundBuffer: () => ({
-    summarize: async () => ({ count: 0, newestWaMessageId: null, oldestArrivedAt: null }),
+    summarize: async () => ({ count: 0, newestWaMessageId: undefined, oldestArrivedAt: undefined }),
     claim: async (usuarioId: string, _limit: number, owner: string) => [
       { usuarioId, waMessageId: owner, contenido: "x", tipoMensajeId: 1, fechaHora: new Date(), arrivedAt: new Date() },
     ],
@@ -77,7 +77,7 @@ import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { configureLogger } from "@/lib/observability/logger";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";
-import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT, MENSAJE_NO_SOPORTADO_TEXT } from "@/lib/constants/textos/seguridad";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 import { captureLogs } from "@/tests/support/capture-logs";
 
@@ -329,7 +329,7 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
   });
 
-  it("an image whose session lookup fails is not treated as a citizen without a session: the failure is logged", async () => {
+  it("an image whose session lookup fails is not treated as a citizen without a session: the failure is logged and the citizen told", async () => {
     mocks.sessionFindUnique.mockRejectedValue(new Error("base caida"));
     const lines = captureLogs();
     const waId = freshWaId();
@@ -343,10 +343,42 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
 
     await deliver([message]);
 
-    expect(lines.find((line) => line.event === "webhook.entry_failed")?.error).toMatchObject({ message: "base caida" });
+    expect(lines.find((line) => line.event === "webhook.message_failed")?.error).toMatchObject({ message: "base caida" });
+    expect(lines.find((line) => line.event === "webhook.entry_failed")).toBeUndefined();
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: TURN_FAILURE_TEXT });
     expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalledWith(waId, { kind: "send_text", text: MEDIA_WITHOUT_SESSION_TEXT });
     expect(mocks.downloadMedia).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
+  });
+
+  it("a failed screening does not stop the other messages of the same delivery", async () => {
+    mocks.sessionFindUnique.mockRejectedValueOnce(new Error("base caida"));
+    const image: Message = {
+      id: `wamid.${++messageCounter}`,
+      from_user_id: freshWaId(),
+      timestamp: NOW_SECONDS(),
+      type: "image",
+      image: { id: "media-1" },
+    };
+
+    await deliver([image, textMessage(freshWaId(), "Hola")]);
+
+    expect(mocks.usuarioUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["an audio", { type: "audio", audio: { id: "media-2" } }],
+    ["a location", { type: "location", location: { latitude: -12.04, longitude: -77.03 } }],
+    ["a sticker", { type: "sticker", sticker: { id: "media-3" } }],
+  ])("%s in the middle of a conversation gets the text-only reminder, and no turn runs", async (_case, content) => {
+    mocks.sessionRowExists.mockResolvedValue(true);
+    const waId = freshWaId();
+    const message = { id: `wamid.${++messageCounter}`, from_user_id: waId, timestamp: NOW_SECONDS(), ...content } as unknown as Message;
+
+    await deliver([message]);
+
+    expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: MENSAJE_NO_SOPORTADO_TEXT });
+    expect(mocks.runTurnUnlocked).not.toHaveBeenCalled();
   });
 
   it("a sticker as the first message is silenced completely: no reply, never downloaded", async () => {
