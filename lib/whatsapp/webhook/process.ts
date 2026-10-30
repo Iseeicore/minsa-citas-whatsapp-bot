@@ -28,6 +28,9 @@ import { createPostgresInboundBuffer } from "@/lib/whatsapp/inbound/postgres-inb
 import { resolveWindowMs } from "@/lib/whatsapp/inbound/inbound-policy";
 import { INTERRUPTION_NOTICE_TEXT } from "@/lib/constants/textos/fallas";
 import { isObject } from "@/lib/utils/type-guards";
+import { hasSandboxPrefix } from "@/lib/utils/session-ids";
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
 
 const inboundCoalescer = createInboundCoalescer({
   buffer: createPostgresInboundBuffer(),
@@ -44,7 +47,7 @@ const inboundCoalescer = createInboundCoalescer({
 async function claimInboundMessage(
   message: WhatsAppMessage,
   usuarioId: string,
-  stored: { content: string | null; mediaId: string | null; timestamp: Date },
+  stored: { content: string | undefined; mediaId: string | undefined; timestamp: Date },
 ): Promise<boolean> {
   try {
     await prisma.$transaction([
@@ -72,9 +75,9 @@ async function stageInboundMessage(
   message: WhatsAppMessage,
   contact: WhatsAppContact | undefined,
   marks: LatencyMarks,
-): Promise<(() => Promise<void>) | null> {
+): Promise<(() => Promise<void>) | undefined> {
   if (!isDatabaseEnabled()) {
-    if (!inboundDedupe.claim(message.id)) return null;
+    if (!inboundDedupe.claim(message.id)) return undefined;
     marks.mark("staged");
     return () =>
       withTurnLock(message.from_user_id, () => {
@@ -109,7 +112,7 @@ async function stageInboundMessage(
     findSession(message.from_user_id),
   ]);
 
-  if (!(await claimInboundMessage(message, usuario.id, { content, mediaId, timestamp }))) return null;
+  if (!(await claimInboundMessage(message, usuario.id, { content, mediaId, timestamp }))) return undefined;
 
   marks.mark("staged");
   const windowMs = resolveWindowMs({ state: session?.state, type: message.type });
@@ -128,27 +131,31 @@ export async function processValue(value: WhatsAppValue) {
 
   for (const message of value.messages ?? []) {
     if (message.type === "system") continue;
-
-    const marks = createLatencyMarks();
-    const decision = await screenInbound(
-      { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
-      {
-        limiter: inboundRateLimiter,
-        evidenceLimiter: evidenceImageRateLimiter,
-        hasSession: sessionRowExists,
-        sessionState: async (waId) => (await findSession(waId))?.state,
-      },
-    );
-    if (decision.action === PerimeterAction.DROP) continue;
-    if (decision.action === PerimeterAction.REJECT) {
-      await sendFixedReply(message.from_user_id, decision.reply);
+    if (hasSandboxPrefix(message.from_user_id)) {
+      logger.warn("webhook.sandbox_id_dropped", { waId: tail(message.from_user_id), messageType: message.type });
       continue;
     }
-    marks.mark("perimeter");
 
-    if (!tapReplyTo(message)) void sendTypingIndicator(message.id);
-
+    const marks = createLatencyMarks();
     try {
+      const decision = await screenInbound(
+        { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
+        {
+          limiter: inboundRateLimiter,
+          evidenceLimiter: evidenceImageRateLimiter,
+          hasSession: sessionRowExists,
+          sessionState: async (waId) => (await findSession(waId))?.state,
+        },
+      );
+      if (decision.action === PerimeterAction.DROP) continue;
+      if (decision.action === PerimeterAction.REJECT) {
+        await sendFixedReply(message.from_user_id, decision.reply);
+        continue;
+      }
+      marks.mark("perimeter");
+
+      if (!tapReplyTo(message)) void sendTypingIndicator(message.id);
+
       const respond = await stageInboundMessage(message, contactsByWaId.get(message.from_user_id), marks);
       if (respond) staged.push({ waId: message.from_user_id, messageId: message.id, respond, marks });
     } catch (error) {

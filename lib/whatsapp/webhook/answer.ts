@@ -9,16 +9,17 @@ import { SendType } from "@/lib/enums/send-type";
 import { traceTurn } from "@/lib/observability/tracer";
 import { findSession, saveSession } from "@/lib/fsm/session/session-store";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
-import { sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp/whatsapp-send";
+import { logSendFailure, sendAndRecordEffect, sendTypingIndicator, sendWhatsAppEffect } from "@/lib/whatsapp/whatsapp-send";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import type { InteractiveTracking, SendEffect } from "@/lib/fsm/core/types";
+import type { InteractiveTracking, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
 import { SessionState } from "@/lib/enums/session-state";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
 import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
-import { trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
+import { MENSAJE_NO_SOPORTADO_TEXT } from "@/lib/constants/textos/seguridad";
+import { isUndelivered, trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
 
 const TYPING_DELAY_MS = 1000;
 
@@ -41,12 +42,12 @@ function sleep(ms: number): Promise<void> {
 
 function deliverTo(message: WhatsAppMessage, conversationId: string | null, marks: LatencyMarks | undefined) {
   const first = firstSendMarker(marks);
-  return async (effect: SendEffect): Promise<string | null> => {
+  return async (effect: SendEffect): Promise<SendOutcome> => {
     first.beforeSend();
     await sendTypingIndicator(message.id);
-    const sentId = await sendAndRecordEffect(conversationId, message.from_user_id, effect);
+    const outcome = await sendAndRecordEffect(conversationId, message.from_user_id, effect);
     first.afterSend();
-    return sentId;
+    return outcome;
   };
 }
 
@@ -91,7 +92,12 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
     const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
     const deliver = deliverTo(message, conversationId, marks);
     let tracking: InteractiveTracking = { consumed: false };
-    for (const effect of toSend) tracking = trackSent(tracking, effect, await deliver(effect));
+    for (const effect of toSend) {
+      const outcome = await deliver(effect);
+      if (isUndelivered(outcome))
+        trace.note({ kind: "send_failed", level: "warn", detail: { effect: effect.kind, outcome: outcome.kind } });
+      tracking = trackSent(tracking, effect, outcome);
+    }
 
     const session = withInteractiveTracking(first.session, tracking);
     await saveSession(waId, session);
@@ -114,16 +120,20 @@ export async function answerMessage(
   }
 
   const inboundEvent = await toInboundEvent(waId, message, existingSession.state, mediaIds);
-  if (!inboundEvent) return;
+  if (inboundEvent === undefined) {
+    logger.info("webhook.unsupported_message", { waId: tail(waId), messageType: message.type, state: existingSession.state });
+    await sendFixedReply(waId, MENSAJE_NO_SOPORTADO_TEXT);
+    return;
+  }
 
   const first = firstSendMarker(marks);
-  const deliver = async (effect: SendEffect): Promise<string | null> => {
+  const deliver = async (effect: SendEffect): Promise<SendOutcome> => {
     first.beforeSend();
     await sendTypingIndicator(message.id);
     await sleep(TYPING_DELAY_MS);
-    const sentId = await sendAndRecordEffect(conversationId, waId, effect);
+    const outcome = await sendAndRecordEffect(conversationId, waId, effect);
     first.afterSend();
-    return sentId;
+    return outcome;
   };
 
   let delivered = 0;
@@ -145,7 +155,8 @@ export async function answerMessage(
 
 export async function sendFixedReply(waId: string, text: string): Promise<void> {
   try {
-    await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text });
+    const response = await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text });
+    if (!response.ok) await logSendFailure("fixed_reply", waId, response);
   } catch (error) {
     logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
   }

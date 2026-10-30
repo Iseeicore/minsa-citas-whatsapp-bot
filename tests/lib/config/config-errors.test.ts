@@ -2,7 +2,50 @@ import { afterEach, describe, expect, it } from "vitest";
 import { CONFIG_ERRORS, checkConfig, reportConfigIssues } from "@/lib/config/config-errors";
 import { configureLogger } from "@/lib/observability/logger";
 
-const HEALTHY_ENV = { MINSA_DIGITAL_APP_URL: "https://dminsadigital.minsa.gob.pe" };
+const HEALTHY_ENV = {
+  MINSA_DIGITAL_APP_URL: "https://dminsadigital.minsa.gob.pe",
+  META_APP_SECRET: "secreto",
+  META_ACCESS_TOKEN: "token",
+  META_PHONE_NUMBER_ID: "123",
+};
+
+const codesOf = (env: Record<string, string | undefined>) => checkConfig(env).map((found) => found.code);
+
+describe("checkConfig: missing secrets and hosts", () => {
+  it.each([
+    ["META_APP_SECRET", "META_APP_SECRET_MISSING"],
+    ["META_ACCESS_TOKEN", "META_ACCESS_TOKEN_MISSING"],
+    ["META_PHONE_NUMBER_ID", "META_PHONE_NUMBER_ID_MISSING"],
+  ])("reports %s missing or blank as an error, without echoing a value", (name, code) => {
+    expect(checkConfig({ ...HEALTHY_ENV, [name]: undefined })).toEqual([
+      { code, value: "", message: CONFIG_ERRORS[code as keyof typeof CONFIG_ERRORS].message },
+    ]);
+    expect(codesOf({ ...HEALTHY_ENV, [name]: "  " })).toEqual([code]);
+    expect(CONFIG_ERRORS[code as keyof typeof CONFIG_ERRORS].severity).toBe("error");
+  });
+
+  it("asks for MINSA_API_HOST and MINSA_INTEGRATION_SECRET only with the real MINSA", () => {
+    expect(codesOf(HEALTHY_ENV)).toEqual([]);
+    expect(codesOf({ ...HEALTHY_ENV, SANDBOX_USE_REAL_MINSA: "true" })).toEqual([
+      "MINSA_API_HOST_MISSING",
+      "MINSA_INTEGRATION_SECRET_MISSING",
+    ]);
+    expect(
+      codesOf({
+        ...HEALTHY_ENV,
+        SANDBOX_USE_REAL_MINSA: "true",
+        MINSA_API_HOST: "https://api.example.test",
+        MINSA_INTEGRATION_SECRET: "s",
+      }),
+    ).toEqual([]);
+  });
+
+  it("asks for GOOGLE_CLIENT_API only when the real AI is on", () => {
+    expect(codesOf(HEALTHY_ENV)).toEqual([]);
+    expect(codesOf({ ...HEALTHY_ENV, SANDBOX_USE_REAL_AI: "true" })).toEqual(["GOOGLE_CLIENT_API_MISSING"]);
+    expect(codesOf({ ...HEALTHY_ENV, SANDBOX_USE_REAL_AI: "true", GOOGLE_CLIENT_API: "clave" })).toEqual([]);
+  });
+});
 
 describe("checkConfig", () => {
   it("finds nothing wrong in an environment that sets every checked variable correctly", () => {
@@ -31,10 +74,10 @@ describe("checkConfig", () => {
   });
 
   it("reports MINSA_DIGITAL_APP_URL missing or empty (rompe el botón de bienvenida de WhatsApp si no se blinda)", () => {
-    expect(checkConfig({})).toEqual([
+    expect(checkConfig({ ...HEALTHY_ENV, MINSA_DIGITAL_APP_URL: undefined })).toEqual([
       { code: "MINSA_DIGITAL_APP_URL_MISSING", value: "", message: CONFIG_ERRORS.MINSA_DIGITAL_APP_URL_MISSING.message },
     ]);
-    expect(checkConfig({ MINSA_DIGITAL_APP_URL: "" })).toEqual([
+    expect(checkConfig({ ...HEALTHY_ENV, MINSA_DIGITAL_APP_URL: "" })).toEqual([
       { code: "MINSA_DIGITAL_APP_URL_MISSING", value: "", message: CONFIG_ERRORS.MINSA_DIGITAL_APP_URL_MISSING.message },
     ]);
     expect(checkConfig(HEALTHY_ENV)).toEqual([]);

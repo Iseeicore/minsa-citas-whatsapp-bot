@@ -36,8 +36,8 @@ describe("createPostgresInboundBuffer", () => {
 
     await expect(createPostgresInboundBuffer().summarize("u1")).resolves.toEqual({
       count: 0,
-      newestWaMessageId: null,
-      oldestArrivedAt: null,
+      newestWaMessageId: undefined,
+      oldestArrivedAt: undefined,
     });
   });
 

@@ -1,3 +1,5 @@
+import { findMetaAccessToken, findMetaPhoneNumberId } from "@/lib/config/integrations";
+
 const DEFAULT_GRAPH_API_VERSION = "v21.0";
 
 export function graphApiVersion(): string {
@@ -9,9 +11,9 @@ export function graphApiBaseUrl(): string {
 }
 
 export function graphMessagesUrl(): string {
-  return `${graphApiBaseUrl()}/${process.env.META_PHONE_NUMBER_ID}/messages`;
+  return `${graphApiBaseUrl()}/${findMetaPhoneNumberId()}/messages`;
 }
 
 export function graphAuthHeaders(): Record<string, string> {
-  return { Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}` };
+  return { Authorization: `Bearer ${findMetaAccessToken()}` };
 }

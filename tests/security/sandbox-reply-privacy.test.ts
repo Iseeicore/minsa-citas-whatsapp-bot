@@ -16,7 +16,6 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   resetSession: vi.fn(async () => undefined),
   saveSession: vi.fn(async () => undefined),
   closeSession: vi.fn(async () => undefined),
-  resetAllSandboxTestSessions: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 

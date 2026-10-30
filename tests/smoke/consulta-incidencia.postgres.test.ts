@@ -11,6 +11,7 @@ vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
   sendWhatsAppEffect: vi.fn(async () => undefined),
   sendAndRecordEffect: vi.fn(async (_conversationId: string | null, waId: string, effect: { kind: string; text?: string }) => {
     sender.delivered.push({ waId, effect });
+    return { kind: "sent_no_id" };
   }),
 }));
 

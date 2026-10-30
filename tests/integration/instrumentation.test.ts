@@ -14,6 +14,9 @@ describe("instrumentation register()", () => {
     const restore = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line)), level: "info" });
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("AI_PROVIDER", "gemnini");
+    vi.stubEnv("META_APP_SECRET", "secreto");
+    vi.stubEnv("META_ACCESS_TOKEN", "token");
+    vi.stubEnv("META_PHONE_NUMBER_ID", "123");
 
     await register();
     restore();

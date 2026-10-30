@@ -18,7 +18,7 @@ Las que tienen una prueba ejecutable están marcadas con `gap()` (ver `tests/sup
 Hallazgos de la auditoría del 2026-09-19 que quedaron fuera de alcance y no se han revisado de nuevo:
 
 - Los endpoints del operador (bandeja web) no tienen autenticación; solo los protege la bandera `SANDBOX_PAGE_ENABLED` (en producción se deja sin definir).
-- El campo `from` de `/api/sandbox` lo controla el cliente.
+- El campo `from` de `/api/sandbox` lo controla el cliente. Desde el 2026-10-30 debe empezar con `sandbox-` y WhatsApp descarta los identificadores con ese prefijo, de modo que no alcanza las sesiones de whatsapp-bot; entre conversaciones del Chat-bot sigue sin autenticación.
 
 ## Pendiente con la institución
 

@@ -9,8 +9,10 @@ import { logger } from "@/lib/observability/logger";
 import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
-import { closeSession, resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
-import type { InteractiveTracking, SendEffect } from "@/lib/fsm/core/types";
+import { closeSession, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
+import { SANDBOX_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
+import type { InteractiveTracking, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
@@ -31,8 +33,10 @@ import { SANDBOX_DISABLED_TEXT, SANDBOX_UNSIGNED_TEXT } from "@/lib/constants/te
 import { SandboxSignatureResult } from "@/lib/enums/sandbox-signature-result";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 
+const sentInSandbox = (): SendOutcome => ({ kind: SendOutcomeKind.SENT, messageId: randomUuid() });
+
 const SANDBOX_TURN_HOOKS: TurnHooks = {
-  onSend: async () => randomUuid(),
+  onSend: async () => sentInSandbox(),
   onWaitingForQuery: async () => undefined,
 };
 
@@ -98,7 +102,10 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 const sandboxEventSchema = z.object({
-  from: z.string().min(1),
+  from: z
+    .string()
+    .startsWith(SANDBOX_SESSION_ID_PREFIX)
+    .min(SANDBOX_SESSION_ID_PREFIX.length + 1),
   type: z.enum(["text", "button", "list", "image", "document"]),
   text: z.string().max(SANDBOX_TEXT_MAX_LENGTH).optional(),
   listId: z.string().optional(),
@@ -106,7 +113,6 @@ const sandboxEventSchema = z.object({
   mediaId: z.string().optional(),
   mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
-  resetAll: z.boolean().optional(),
   close: z.boolean().optional(),
 });
 
@@ -133,7 +139,7 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message, headers: cors });
   }
 
-  const { from, type, text, listId, replyTo, mediaId, mediaDataUri, reset, resetAll, close } = parsed.data;
+  const { from, type, text, listId, replyTo, mediaId, mediaDataUri, reset, close } = parsed.data;
 
   if (close) {
     await closeSession(from);
@@ -142,14 +148,10 @@ export async function POST(request: NextRequest) {
 
   const marks = createLatencyMarks();
 
-  if (resetAll) {
-    await resetAllSandboxTestSessions();
-  } else if (reset) {
-    await resetSession(from);
-  }
+  if (reset) await resetSession(from);
   marks.mark("reset");
 
-  const hadExistingSession = reset || resetAll ? false : await sessionRowExists(from);
+  const hadExistingSession = reset ? false : await sessionRowExists(from);
   marks.mark("exists");
 
   if (!hadExistingSession && (type === "text" || type === "image")) {
@@ -194,7 +196,7 @@ async function startConversation(from: string, text: string | undefined, marks: 
       for (const note of first.notes ?? []) trace.note(note);
 
       const sent = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-      const tracking = sent.reduce<InteractiveTracking>((current, effect) => trackSent(current, effect, randomUuid()), { consumed: false });
+      const tracking = sent.reduce<InteractiveTracking>((current, effect) => trackSent(current, effect, sentInSandbox()), { consumed: false });
       const session = withInteractiveTracking(first.session, tracking);
       await saveSession(from, session);
       trace.complete({ session, sentCount: sent.length });

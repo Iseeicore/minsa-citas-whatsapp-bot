@@ -26,7 +26,7 @@ export function createPostgresInboundBuffer(): InboundBuffer {
         FROM chatbot.mensaje
         WHERE usuario_id = ${usuarioId}::uuid AND direccion_mensaje_id = ${ENTRANTE} AND procesado_en IS NULL`;
 
-      return { count: row?.count ?? 0, newestWaMessageId: row?.newest ?? null, oldestArrivedAt: row?.oldest ?? null };
+      return { count: row?.count ?? 0, newestWaMessageId: row?.newest ?? undefined, oldestArrivedAt: row?.oldest ?? undefined };
     },
 
     async claim(usuarioId: string, limit: number, ownerWaMessageId: string): Promise<PendingInbound[]> {

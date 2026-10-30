@@ -12,8 +12,8 @@ export type PendingInbound = {
 
 export type PendingSummary = {
   count: number;
-  newestWaMessageId: string | null;
-  oldestArrivedAt: Date | null;
+  newestWaMessageId: string | undefined;
+  oldestArrivedAt: Date | undefined;
 };
 
 export type InboundBuffer = {

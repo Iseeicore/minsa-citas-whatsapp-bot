@@ -17,6 +17,7 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import { sendAndRecordCtaUrl, sendAndRecordEffect } from "@/lib/whatsapp/whatsapp-send";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 
 const graphOk = () => new Response(JSON.stringify({ messages: [{ id: "wamid.out-1" }] }), { status: 200 });
 
@@ -105,11 +106,39 @@ describe("recording what the bot sends", () => {
   });
 
   it("returns the id Meta gave to the delivered message, with or without a stored user", async () => {
-    await expect(sendAndRecordEffect("user-1", "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toBe("wamid.out-1");
-    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toBe("wamid.out-1");
+    await expect(sendAndRecordEffect("user-1", "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      kind: SendOutcomeKind.SENT,
+      messageId: "wamid.out-1",
+    });
+    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      kind: SendOutcomeKind.SENT,
+      messageId: "wamid.out-1",
+    });
   });
 
-  it("returns the id of the plain-text fallback when that is what reached the person, and null when nothing did", async () => {
+  it("reports a delivery without id apart from a delivery with one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 200 })),
+    );
+    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      kind: SendOutcomeKind.SENT_NO_ID,
+    });
+  });
+
+  it("reports a send that never left as failed, not as absent", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      kind: SendOutcomeKind.FAILED,
+    });
+  });
+
+  it("returns the id of the plain-text fallback when that is what reached the person, and a rejection when nothing did", async () => {
     const buttons = { kind: SendType.BUTTONS as const, text: "¿Confirmas?", buttons: [{ id: "si", title: "Sí" }] };
     vi.stubGlobal(
       "fetch",
@@ -117,12 +146,15 @@ describe("recording what the bot sends", () => {
         .fn(async () => graphOk())
         .mockImplementationOnce(async () => new Response(JSON.stringify({ error: { code: 131009 } }), { status: 400 })),
     );
-    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toBe("wamid.out-1");
+    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toEqual({
+      kind: SendOutcomeKind.SENT,
+      messageId: "wamid.out-1",
+    });
 
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("{}", { status: 400 })),
     );
-    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toBeNull();
+    await expect(sendAndRecordEffect(null, "51987654321", buttons)).resolves.toEqual({ kind: SendOutcomeKind.REJECTED, status: 400 });
   });
 });

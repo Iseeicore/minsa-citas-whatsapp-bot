@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({ touched: 0 }));
 vi.mock("@/lib/db/prisma", () => ({
@@ -16,6 +16,12 @@ vi.mock("@/lib/db/prisma", () => ({
 import { dynamic, GET } from "@/app/api/health/route";
 
 describe("GET /api/health", () => {
+  beforeEach(() => {
+    vi.stubEnv("META_APP_SECRET", "secreto");
+    vi.stubEnv("META_ACCESS_TOKEN", "token");
+    vi.stubEnv("META_PHONE_NUMBER_ID", "123");
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });

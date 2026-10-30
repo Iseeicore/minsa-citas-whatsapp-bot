@@ -9,8 +9,8 @@ const store = vi.hoisted(() => ({ session: undefined as Session | undefined }));
 
 const mocks = vi.hoisted(() => ({
   saveSession: vi.fn<(waId: string, session: unknown) => Promise<void>>(async () => undefined),
-  sendAndRecordEffect: vi.fn<(conversationId: unknown, waId: string, effect: { kind: string; text?: string }) => Promise<void>>(
-    async () => undefined,
+  sendAndRecordEffect: vi.fn<(conversationId: unknown, waId: string, effect: { kind: string; text?: string }) => Promise<{ kind: string }>>(
+    async () => ({ kind: "sent_no_id" }),
   ),
 }));
 

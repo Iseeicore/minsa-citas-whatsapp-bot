@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import {
   acceptTap,
   consumeOnStateChange,
@@ -101,18 +102,32 @@ describe("el seguimiento del último mensaje interactivo", () => {
   });
 
   it("un nuevo mensaje interactivo enviado pasa a ser el recordado, sin consumir", () => {
-    const tracking = trackSent({ messageId: "wamid.viejo", consumed: true }, BUTTONS, "wamid.nuevo");
+    const tracking = trackSent({ messageId: "wamid.viejo", consumed: true }, BUTTONS, {
+      kind: SendOutcomeKind.SENT,
+      messageId: "wamid.nuevo",
+    });
 
     expect(tracking).toEqual({ messageId: "wamid.nuevo", consumed: false });
   });
 
-  it("un texto enviado o un envío sin identificador no cambian lo recordado", () => {
+  it("un texto o un enlace enviados no cambian lo recordado", () => {
     const before = { messageId: "wamid.viejo", consumed: true };
 
-    expect(trackSent(before, TEXT, "wamid.texto")).toEqual(before);
-    expect(trackSent(before, CTA, "wamid.cta")).toEqual(before);
-    expect(trackSent(before, LIST, null)).toEqual(before);
-    expect(trackSent(before, LIST, undefined)).toEqual(before);
+    expect(trackSent(before, TEXT, { kind: SendOutcomeKind.SENT, messageId: "wamid.texto" })).toEqual(before);
+    expect(trackSent(before, CTA, { kind: SendOutcomeKind.SENT, messageId: "wamid.cta" })).toEqual(before);
+  });
+
+  it("un interactivo entregado sin identificador olvida el anterior, para que su toque no se tome por viejo", () => {
+    expect(trackSent({ messageId: "wamid.viejo", consumed: false }, LIST, { kind: SendOutcomeKind.SENT_NO_ID })).toEqual({
+      consumed: false,
+    });
+  });
+
+  it.each([
+    ["rechazado por Meta", { kind: SendOutcomeKind.REJECTED, status: 400 } as const],
+    ["caído en la red", { kind: SendOutcomeKind.FAILED } as const],
+  ])("un interactivo %s no deja la sesión esperando un toque: el anterior queda consumido", (_case, outcome) => {
+    expect(trackSent({ messageId: "wamid.viejo", consumed: false }, LIST, outcome)).toEqual({ messageId: "wamid.viejo", consumed: true });
   });
 
   it("escribe lo recordado en la sesión y no agrega nada cuando no hay nada que recordar", () => {

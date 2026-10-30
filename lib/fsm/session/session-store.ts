@@ -3,7 +3,7 @@ import { isDatabaseEnabled } from "@/lib/db/persistence";
 import type { Session } from "@/lib/fsm/core/types";
 import { createMemorySessionStore } from "@/lib/fsm/session/memory-session-store";
 import { SessionState } from "@/lib/enums/session-state";
-import { CLOSED_SESSION_ID_PREFIX, SANDBOX_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
+import { CLOSED_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
 
 const memory = createMemorySessionStore();
 
@@ -69,13 +69,5 @@ export async function closeSession(from: string): Promise<void> {
   await prisma.sesionConversacion.updateMany({
     where: { waId: from },
     data: { waId: `${CLOSED_SESSION_ID_PREFIX}${from}-${Date.now()}` },
-  });
-}
-
-export async function resetAllSandboxTestSessions(): Promise<void> {
-  if (!isDatabaseEnabled()) return memory.resetAllSandboxTestSessions();
-
-  await prisma.sesionConversacion.deleteMany({
-    where: { waId: { startsWith: SANDBOX_SESSION_ID_PREFIX } },
   });
 }

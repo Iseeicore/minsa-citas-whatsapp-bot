@@ -3,6 +3,7 @@ import type { JsonSchema, LlmClient, LlmJsonOutcome } from "@/lib/fsm/parsing/ai
 import { LlmFailure } from "@/lib/enums/llm-failure";
 import { isString } from "@/lib/utils/type-guards";
 import { REQUEST_TIMEOUT_MS } from "@/lib/constants/limits/ai";
+import { findGoogleClientApi } from "@/lib/config/integrations";
 
 const DEFAULT_MODEL = "gemini-3.6-flash";
 
@@ -38,7 +39,7 @@ export async function requestGeminiJson(request: GeminiJsonRequest): Promise<Gem
   try {
     response = await timedFetch("gemini", request.operation, url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GOOGLE_CLIENT_API ?? "" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": findGoogleClientApi() ?? "" },
       body,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });

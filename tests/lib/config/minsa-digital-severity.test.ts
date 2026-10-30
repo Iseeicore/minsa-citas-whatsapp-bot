@@ -3,6 +3,13 @@ import { CONFIG_ERRORS, checkConfig, reportConfigIssues } from "@/lib/config/con
 import { configureLogger } from "@/lib/observability/logger";
 
 const PORTAL = "https://portal-prueba.example.test";
+const CONFIGURED = {
+  META_APP_SECRET: "secreto",
+  META_ACCESS_TOKEN: "token",
+  META_PHONE_NUMBER_ID: "123",
+  MINSA_API_HOST: "https://api.example.test",
+  MINSA_INTEGRATION_SECRET: "secreto-minsa",
+};
 
 describe("MINSA_DIGITAL_APP_URL faltante según el modo del MINSA", () => {
   let restore: () => void = () => {};
@@ -14,7 +21,7 @@ describe("MINSA_DIGITAL_APP_URL faltante según el modo del MINSA", () => {
   const logged = (env: Record<string, string | undefined>) => {
     const lines: Array<Record<string, unknown>> = [];
     restore = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line)), level: "info" });
-    const issues = reportConfigIssues(env);
+    const issues = reportConfigIssues({ ...CONFIGURED, ...env });
     return { issues, lines };
   };
 
@@ -38,7 +45,7 @@ describe("MINSA_DIGITAL_APP_URL faltante según el modo del MINSA", () => {
   });
 
   it("con la variable definida no hay problema en ningún modo", () => {
-    expect(checkConfig({ SANDBOX_USE_REAL_MINSA: "true", MINSA_DIGITAL_APP_URL: PORTAL })).toEqual([]);
+    expect(checkConfig({ ...CONFIGURED, SANDBOX_USE_REAL_MINSA: "true", MINSA_DIGITAL_APP_URL: PORTAL })).toEqual([]);
     expect(logged({ SANDBOX_USE_REAL_MINSA: "true", MINSA_DIGITAL_APP_URL: PORTAL }).lines).toEqual([]);
   });
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import type { SendEffect, Session } from "@/lib/fsm/core/types";
 
 const store = vi.hoisted(() => ({ sessions: new Map<string, Session>() }));
@@ -20,6 +21,7 @@ function recordingHooks() {
   const hooks: TurnHooks = {
     onSend: async (effect) => {
       calls.push({ kind: "send", effect });
+      return { kind: SendOutcomeKind.SENT_NO_ID };
     },
     onWaitingForQuery: async () => {
       calls.push({ kind: "wait" });

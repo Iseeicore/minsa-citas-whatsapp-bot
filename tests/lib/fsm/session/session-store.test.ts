@@ -14,15 +14,7 @@ vi.mock("@/lib/db/prisma", () => ({
   prisma: { sesionConversacion: { findUnique: db.findUnique, upsert: db.upsert, deleteMany: db.deleteMany, updateMany: db.updateMany } },
 }));
 
-import {
-  closeSession,
-  findSession,
-  getSession,
-  resetAllSandboxTestSessions,
-  resetSession,
-  saveSession,
-  sessionRowExists,
-} from "@/lib/fsm/session/session-store";
+import { closeSession, findSession, getSession, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 
 let counter = 0;
 const freshId = () => `51900${++counter}`;
@@ -51,7 +43,6 @@ describe("session store with DATABASE_ENABLED=false", () => {
 
     await resetSession(id);
     await expect(sessionRowExists(id)).resolves.toBe(false);
-    await resetAllSandboxTestSessions();
     await closeSession(id);
 
     expect(db.findUnique).not.toHaveBeenCalled();
@@ -107,11 +98,9 @@ describe("session store with the database (default)", () => {
     });
   });
 
-  it("deletes by waId, and sandbox sessions by waId prefix", async () => {
+  it("deletes by waId", async () => {
     await resetSession("51999");
     expect(db.deleteMany).toHaveBeenCalledWith({ where: { waId: "51999" } });
-    await resetAllSandboxTestSessions();
-    expect(db.deleteMany).toHaveBeenCalledWith({ where: { waId: { startsWith: "sandbox-" } } });
   });
 
   it("closes by renaming the waId with the closed prefix and the close time, leaving everything else untouched", async () => {

@@ -6,15 +6,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import type { Session } from "@/lib/fsm/core/types";
 import { CLOSED_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
-import {
-  closeSession,
-  findSession,
-  getSession,
-  resetAllSandboxTestSessions,
-  resetSession,
-  saveSession,
-  sessionRowExists,
-} from "@/lib/fsm/session/session-store";
+import { closeSession, findSession, getSession, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const waId = () => `smoke-${randomUUID()}`;
@@ -63,7 +55,7 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
     expect(second.getTime()).toBeGreaterThan(first.getTime());
   });
 
-  it("deletes one session, and only the sandbox ones in bulk", async () => {
+  it("deletes only the session it resets", async () => {
     const real = waId();
     const sandbox = `sandbox-${randomUUID()}`;
     created.push(real, sandbox);
@@ -71,12 +63,9 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
     await saveSession(real, session);
     await saveSession(sandbox, session);
 
-    await resetAllSandboxTestSessions();
-    await expect(sessionRowExists(sandbox)).resolves.toBe(false);
-    await expect(sessionRowExists(real)).resolves.toBe(true);
-
     await resetSession(real);
     await expect(sessionRowExists(real)).resolves.toBe(false);
+    await expect(sessionRowExists(sandbox)).resolves.toBe(true);
   });
 
   it("closes a session by renaming it: keeps state, slots and counters, stamps the closing date, and frees the waId", async () => {
@@ -97,8 +86,5 @@ describe.skipIf(!process.env.DATABASE_URL)("session store against a real Postgre
     expect(closed).toHaveLength(1);
     expect(closed[0]).toMatchObject({ estado: before.estado, slots: before.slots, contadores: before.contadores });
     expect(closed[0].fechaModificacion.getTime()).toBeGreaterThanOrEqual(before.fechaModificacion.getTime());
-
-    await resetAllSandboxTestSessions();
-    await expect(prisma.sesionConversacion.count({ where: { waId: closed[0].waId } })).resolves.toBe(1);
   });
 });

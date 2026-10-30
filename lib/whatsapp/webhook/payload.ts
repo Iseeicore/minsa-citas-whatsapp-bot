@@ -1,6 +1,6 @@
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
-import { downloadWhatsAppMediaAsDataUri, type MediaDownload } from "@/lib/whatsapp/whatsapp-media";
+import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
 import type { InboundEvent, InboundMedia } from "@/lib/fsm/core/types";
 import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
 import { MediaFailure } from "@/lib/enums/media-failure";
@@ -58,17 +58,12 @@ export type WhatsAppWebhookPayload = {
   entry?: WhatsAppEntry[];
 };
 
-function toInboundMedia(download: MediaDownload): InboundMedia {
-  if ("dataUri" in download) return { kind: InboundMediaKind.DATA, dataUri: download.dataUri };
-  return { kind: InboundMediaKind.FAILURE, failure: download.failure };
-}
-
 async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
   const downloaded = await Promise.all(mediaIds.slice(0, MAX_IMAGENES_POR_INCIDENCIA).map(downloadWhatsAppMediaAsDataUri));
   const overLimit = mediaIds
     .slice(MAX_IMAGENES_POR_INCIDENCIA)
     .map((): InboundMedia => ({ kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT }));
-  return [...downloaded.map(toInboundMedia), ...overLimit];
+  return [...downloaded, ...overLimit];
 }
 
 export function mapMessageType(type: string): TipoMensajeId {
@@ -106,31 +101,28 @@ export function mapStatus(status: string): EstadoMensajeId | null {
 }
 
 export function extractContentAndMedia(message: WhatsAppMessage): {
-  content: string | null;
-  mediaId: string | null;
+  content: string | undefined;
+  mediaId: string | undefined;
 } {
   switch (message.type) {
     case "text":
-      return { content: message.text?.body ?? null, mediaId: null };
+      return { content: message.text?.body, mediaId: undefined };
     case "image":
-      return { content: message.image?.caption ?? null, mediaId: message.image?.id ?? null };
+      return { content: message.image?.caption, mediaId: message.image?.id };
     case "audio":
-      return { content: null, mediaId: message.audio?.id ?? null };
+      return { content: undefined, mediaId: message.audio?.id };
     case "document":
-      return {
-        content: message.document?.filename ?? null,
-        mediaId: message.document?.id ?? null,
-      };
+      return { content: message.document?.filename, mediaId: message.document?.id };
     case "location":
       return {
         content:
           message.location?.latitude !== undefined && message.location?.longitude !== undefined
             ? `${message.location.latitude},${message.location.longitude}`
-            : null,
-        mediaId: null,
+            : undefined,
+        mediaId: undefined,
       };
     default:
-      return { content: null, mediaId: null };
+      return { content: undefined, mediaId: undefined };
   }
 }
 
@@ -144,7 +136,7 @@ export async function toInboundEvent(
   message: WhatsAppMessage,
   sessionState: string,
   mediaIds?: string[],
-): Promise<InboundEvent | null> {
+): Promise<InboundEvent | undefined> {
   if (message.type === "text") {
     return { from: waId, type: "text", text: message.text?.body };
   }
@@ -166,11 +158,11 @@ export async function toInboundEvent(
     }
     if (message.type === WhatsAppMessageType.IMAGE && message.image?.id) {
       const download = await downloadWhatsAppMediaAsDataUri(message.image.id);
-      const media = "dataUri" in download ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };
+      const media = download.kind === InboundMediaKind.DATA ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };
       return { from: waId, type: "image", text: message.image.caption, ...media };
     }
     if (message.type === "document" && message.document?.id) return { from: waId, type: "document" };
   }
 
-  return null;
+  return undefined;
 }

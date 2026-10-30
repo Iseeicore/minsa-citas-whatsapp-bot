@@ -38,7 +38,6 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   closeSession: async (from: string) => {
     mocks.sessions.delete(from);
   },
-  resetAllSandboxTestSessions: async () => mocks.sessions.clear(),
 }));
 
 import { POST } from "@/app/api/sandbox/route";

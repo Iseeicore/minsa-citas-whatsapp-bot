@@ -7,6 +7,7 @@ import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 import type { SendButtonsEffect } from "@/lib/fsm/core/types";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { TERMINOS_BUTTONS } from "@/lib/constants/textos/terminos";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 
 type Line = { level: string; event: string } & Record<string, unknown>;
 
@@ -92,6 +93,64 @@ describe("WhatsApp send failures reach the masked logger", () => {
     await expect(sendTypingIndicator("wamid.1")).resolves.toBeUndefined();
 
     expect(lines.find((line) => line.event === "whatsapp.typing_failed")).toMatchObject({ level: "warn" });
+  });
+
+  it("logs a typing indicator that Meta rejects, with its status and Meta error code", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ error: { message: "Invalid message id", code: 100 } }), { status: 400 })),
+    );
+
+    await sendTypingIndicator("wamid.1");
+
+    expect(lines.find((line) => line.event === "whatsapp.typing_failed")).toMatchObject({
+      level: "warn",
+      status: 400,
+      errorCodeNumber: 100,
+    });
+  });
+
+  it("logs a rejection whose body cannot be read, instead of taking it for an empty body", async () => {
+    const unreadable = {
+      ok: false,
+      status: 502,
+      text: async () => {
+        throw new TypeError("body stream already read");
+      },
+    } as unknown as Response;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => unreadable),
+    );
+
+    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      kind: SendOutcomeKind.REJECTED,
+      status: 502,
+    });
+
+    expect(lines.find((line) => line.event === "outbound.rejected")).toMatchObject({
+      status: 502,
+      bodyError: { name: "TypeError", message: "body stream already read" },
+    });
+  });
+
+  it("logs a delivered message whose body cannot be read as sent without id", async () => {
+    const unreadable = {
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    } as unknown as Response;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => unreadable),
+    );
+
+    await expect(sendAndRecordEffect(null, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      kind: SendOutcomeKind.SENT_NO_ID,
+    });
+    expect(lines.find((line) => line.event === "whatsapp.sent_without_id")).toMatchObject({ level: "warn", reason: "unreadable_body" });
   });
 });
 
@@ -216,7 +275,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   it("sends the plain-text fallback exactly once when Meta rejects the format with 400", async () => {
     fetchMock.mockImplementationOnce(async () => graphRejected());
 
-    await expect(sendAndRecordEffect(null, WA_ID, confirmButtons)).resolves.toBe("wamid.ok");
+    await expect(sendAndRecordEffect(null, WA_ID, confirmButtons)).resolves.toEqual({ kind: SendOutcomeKind.SENT, messageId: "wamid.ok" });
 
     expect(sentBodies()).toHaveLength(2);
     expect(sentBodies()[1]).toMatchObject({ type: "text" });
@@ -225,7 +284,7 @@ describe("safety net: the person always receives something Meta accepts", () => 
   it.each([401, 403, 404, 429, 500])("when Meta answers %i it only logs the rejection and sends no fallback", async (status) => {
     fetchMock.mockImplementationOnce(async () => new Response(META_REJECTION, { status }));
 
-    await expect(sendAndRecordEffect(null, WA_ID, confirmButtons)).resolves.toBeNull();
+    await expect(sendAndRecordEffect(null, WA_ID, confirmButtons)).resolves.toEqual({ kind: SendOutcomeKind.REJECTED, status });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(events("outbound.rejected")).toEqual([expect.objectContaining({ kind: SendType.BUTTONS, status })]);
@@ -246,13 +305,13 @@ describe("the terms message on WhatsApp", () => {
     const fetchMock = vi.fn(async () => Response.json({ messages: [{ id: `wamid.terminos-${++sequence}` }] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const sentId = await sendAndRecordEffect(null, "51987654321", buildTerminosEffect());
+    const outcome = await sendAndRecordEffect(null, "51987654321", buildTerminosEffect());
 
     const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
     expect(bodies.map((body) => body.interactive.type)).toEqual(["cta_url", "button"]);
     expect(bodies[1].interactive.action.buttons.map((button: { reply: { id: string } }) => button.reply.id)).toEqual(
       TERMINOS_BUTTONS.map((button) => button.id),
     );
-    expect(sentId).toBe("wamid.terminos-2");
+    expect(outcome).toEqual({ kind: SendOutcomeKind.SENT, messageId: "wamid.terminos-2" });
   });
 });

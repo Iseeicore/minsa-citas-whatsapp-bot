@@ -46,7 +46,7 @@ describe("createMemorySessionStore", () => {
     expect((await store.getSession("51999")).slots[SlotKey.CITA_DISTRITO]).toBe("ATE");
   });
 
-  it("forgets one citizen on reset, and only the sandbox- sessions on reset-all", async () => {
+  it("forgets only the citizen it resets", async () => {
     const store = createMemorySessionStore();
     await store.saveSession("51999", session("main_menu"));
     await store.saveSession("sandbox-a", session("main_menu"));
@@ -54,9 +54,7 @@ describe("createMemorySessionStore", () => {
 
     await store.resetSession("sandbox-a");
     await expect(store.sessionRowExists("sandbox-a")).resolves.toBe(false);
-
-    await store.resetAllSandboxTestSessions();
-    await expect(store.sessionRowExists("sandbox-b")).resolves.toBe(false);
+    await expect(store.sessionRowExists("sandbox-b")).resolves.toBe(true);
     await expect(store.sessionRowExists("51999")).resolves.toBe(true);
   });
 
@@ -113,17 +111,6 @@ describe("createMemorySessionStore", () => {
 
       await store.saveSession("sandbox-a", session("main_menu"));
       expect(store.size()).toBe(2);
-    });
-
-    it("reset-all removes the sandbox sessions but keeps the closed ones", async () => {
-      const store = createMemorySessionStore();
-      await store.saveSession("sandbox-a", session("main_menu"));
-      await store.saveSession("sandbox-b", session("main_menu"));
-      await store.closeSession("sandbox-a");
-
-      await store.resetAllSandboxTestSessions();
-
-      expect(store.size()).toBe(1);
     });
 
     it("closed sessions still expire with the TTL", async () => {

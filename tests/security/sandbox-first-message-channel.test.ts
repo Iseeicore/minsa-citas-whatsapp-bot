@@ -16,7 +16,6 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   resetSession: async (from: string) => {
     store.sessions.delete(from);
   },
-  resetAllSandboxTestSessions: async () => store.sessions.clear(),
 }));
 
 vi.mock("@/lib/fsm/routing/first-contact", () => ({
