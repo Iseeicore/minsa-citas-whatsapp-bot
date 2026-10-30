@@ -3,6 +3,7 @@ import { createDailyFileSink } from "@/lib/observability/file-sink";
 import type { LogEvent } from "@/lib/observability/events";
 import { sanitizeValue } from "@/lib/observability/mask";
 import type { LogFields, LogLevel, LogSink } from "@/lib/observability/types";
+import { getLogDir, isLogToFileEnabled } from "@/lib/config/logging";
 
 const RANK: Record<LogLevel | "silent", number> = { info: 1, warn: 2, error: 3, silent: 4 };
 
@@ -59,9 +60,9 @@ function envLevel(): LogLevel | "silent" {
 }
 
 function defaultSink(): LogSink {
-  if (process.env.LOG_TO_FILE !== "true") return consoleSink;
+  if (!isLogToFileEnabled()) return consoleSink;
 
-  const file = createDailyFileSink({ dir: process.env.LOG_DIR || "logs" });
+  const file = createDailyFileSink({ dir: getLogDir() });
   return (level, line) => {
     consoleSink(level, line);
     file(level, line);

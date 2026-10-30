@@ -6,6 +6,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import type { SessionState } from "@/lib/enums/session-state";
 import type { InternalEventType } from "@/lib/enums/internal-event-type";
 import type { MediaFailure } from "@/lib/enums/media-failure";
+import type { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -95,7 +96,7 @@ export type Session = {
 
 export type InboundEventType = "text" | "button" | "list" | "image" | "document";
 
-export type InboundMedia = { dataUri: string } | { failure: MediaFailure };
+export type InboundMedia = { kind: InboundMediaKind.DATA; dataUri: string } | { kind: InboundMediaKind.FAILURE; failure: MediaFailure };
 
 export type InboundEvent = {
   from: string;

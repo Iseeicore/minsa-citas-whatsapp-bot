@@ -6,6 +6,44 @@ import { CHANNELS } from "@/lib/constants/textos/canales-oficiales";
 import { MENU_ROW_CONSULTAR_INCIDENCIA_TITLE } from "@/lib/constants/textos/menu";
 import type { ConsentButtons } from "@/lib/fsm/core/types";
 
+export type ImagenesRecibidas = {
+  recibidas: number;
+  guardadas: number;
+  total: number;
+  maximo: number;
+  tamano: string;
+  rechazos: ReadonlyArray<readonly [EvidenceRejection, number]>;
+};
+
+const HASTA_MAXIMO_TEXT = `(*hasta ${MAX_DESCRIPCION_LENGTH} caracteres*)`;
+
+const MOTIVO_DE_RECHAZO_TEXT: Readonly<Record<EvidenceRejection, (cantidad: number, imagenes: ImagenesRecibidas) => string>> = {
+  [EvidenceRejection.TOO_LARGE]: (cantidad, { tamano }) => `${cantidad === 1 ? "pesa" : "pesan"} más de ${tamano}`,
+  [EvidenceRejection.NOT_DOWNLOADED]: (cantidad) => `no se ${cantidad === 1 ? "pudo" : "pudieron"} descargar de WhatsApp`,
+  [EvidenceRejection.INVALID]: (cantidad) => (cantidad === 1 ? "no es una imagen JPG o PNG válida" : "no son imágenes JPG o PNG válidas"),
+  [EvidenceRejection.DUPLICATE]: (cantidad) => `ya ${cantidad === 1 ? "la" : "las"} habías enviado`,
+  [EvidenceRejection.OVER_LIMIT]: (cantidad, { maximo }) => `${cantidad === 1 ? "supera" : "superan"} el máximo de ${maximo}`,
+};
+
+const soloImagenesText = (maximo: string): string => `Solo aceptamos imágenes JPG o PNG de hasta ${maximo}`;
+
+const toEnumeracionText = (partes: string[]): string =>
+  partes.length > 1 ? `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}` : (partes[0] ?? "");
+
+function motivosText(imagenes: ImagenesRecibidas): string {
+  const { rechazos } = imagenes;
+  if (rechazos.length === 1) return MOTIVO_DE_RECHAZO_TEXT[rechazos[0][0]](rechazos[0][1], imagenes);
+  return toEnumeracionText(rechazos.map(([motivo, cantidad]) => `${cantidad} ${MOTIVO_DE_RECHAZO_TEXT[motivo](cantidad, imagenes)}`));
+}
+
+function detalleImagenesText(imagenes: ImagenesRecibidas): string {
+  const { recibidas, guardadas } = imagenes;
+  const rechazadas = recibidas - guardadas;
+  if (rechazadas === 0) return recibidas === 1 ? "se guardó" : `las ${recibidas} se guardaron`;
+  if (guardadas === 0) return `${recibidas === 1 ? "no" : "ninguna"} se guardó, porque ${motivosText(imagenes)}`;
+  return `${guardadas} se ${guardadas === 1 ? "guardó" : "guardaron"} y ${rechazadas} no, porque ${motivosText(imagenes)}`;
+}
+
 export const AVISO_EMERGENCIA_DENUNCIA_TEXT = `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS
 
 Si usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato (llamadas gratuitas):
@@ -75,7 +113,6 @@ export const CONSENT_BUTTONS: ConsentButtons = [
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
 ];
 
-const HASTA_MAXIMO_TEXT = `(*hasta ${MAX_DESCRIPCION_LENGTH} caracteres*)`;
 export const ASK_DESCRIPCION_ANONIMO_TEXT = `Entendemos tu preferencia por el anonimato. Cuéntame tu denuncia ${HASTA_MAXIMO_TEXT}.`;
 export const askDescripcionConDocumentoText = (documentoEnmascarado: string): string =>
   `Cuéntame tu denuncia, documento ${documentoEnmascarado} ${HASTA_MAXIMO_TEXT}.`;
@@ -143,44 +180,10 @@ export const DAILY_LIMIT_TEXT =
   "Hoy ya registraste el máximo de denuncias permitido. Podrás registrar otra mañana. Gracias por tu comprensión.";
 export const imagenMuyPesadaText = (maximo: string): string =>
   `No pudimos registrar tu denuncia porque una de las imágenes pesa más de ${maximo}.`;
-export type ImagenesRecibidas = {
-  recibidas: number;
-  guardadas: number;
-  total: number;
-  maximo: number;
-  tamano: string;
-  rechazos: ReadonlyArray<readonly [EvidenceRejection, number]>;
-};
-
-const MOTIVO_DE_RECHAZO_TEXT: Readonly<Record<EvidenceRejection, (cantidad: number, imagenes: ImagenesRecibidas) => string>> = {
-  [EvidenceRejection.TOO_LARGE]: (cantidad, { tamano }) => `${cantidad === 1 ? "pesa" : "pesan"} más de ${tamano}`,
-  [EvidenceRejection.NOT_DOWNLOADED]: (cantidad) => `no se ${cantidad === 1 ? "pudo" : "pudieron"} descargar de WhatsApp`,
-  [EvidenceRejection.INVALID]: (cantidad) => (cantidad === 1 ? "no es una imagen JPG o PNG válida" : "no son imágenes JPG o PNG válidas"),
-  [EvidenceRejection.DUPLICATE]: (cantidad) => `ya ${cantidad === 1 ? "la" : "las"} habías enviado`,
-  [EvidenceRejection.OVER_LIMIT]: (cantidad, { maximo }) => `${cantidad === 1 ? "supera" : "superan"} el máximo de ${maximo}`,
-};
-
-const enumerar = (partes: string[]): string =>
-  partes.length > 1 ? `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}` : (partes[0] ?? "");
-
-function motivosText(imagenes: ImagenesRecibidas): string {
-  const { rechazos } = imagenes;
-  if (rechazos.length === 1) return MOTIVO_DE_RECHAZO_TEXT[rechazos[0][0]](rechazos[0][1], imagenes);
-  return enumerar(rechazos.map(([motivo, cantidad]) => `${cantidad} ${MOTIVO_DE_RECHAZO_TEXT[motivo](cantidad, imagenes)}`));
-}
-
-function detalleImagenesText(imagenes: ImagenesRecibidas): string {
-  const { recibidas, guardadas } = imagenes;
-  const rechazadas = recibidas - guardadas;
-  if (rechazadas === 0) return recibidas === 1 ? "se guardó" : `las ${recibidas} se guardaron`;
-  if (guardadas === 0) return `${recibidas === 1 ? "no" : "ninguna"} se guardó, porque ${motivosText(imagenes)}`;
-  return `${guardadas} se ${guardadas === 1 ? "guardó" : "guardaron"} y ${rechazadas} no, porque ${motivosText(imagenes)}`;
-}
 
 export const imagenesRecibidasText = (imagenes: ImagenesRecibidas): string =>
   `Recibimos ${imagenes.recibidas === 1 ? "tu imagen" : `${imagenes.recibidas} imágenes`} (${imagenes.total} de ${imagenes.maximo}): ${detalleImagenesText(imagenes)}.`;
 
-const soloImagenesText = (maximo: string): string => `Solo aceptamos imágenes JPG o PNG de hasta ${maximo}`;
 export const documentoNoGuardadoText = (maximo: string): string => `${soloImagenesText(maximo)}; ese archivo no se guardó.`;
 export const SEGUIR_CON_IMAGENES_TEXT = "Puedes enviar más o tocar *Listo* para continuar.";
 export const SEGUIR_SIN_IMAGENES_TEXT = "Puedes enviar otra imagen o tocar *Omitir* para continuar sin ella.";

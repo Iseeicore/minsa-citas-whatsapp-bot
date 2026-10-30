@@ -5,7 +5,7 @@ import { Banner } from "@/app/components/ui/Banner";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 import { imagenMuyPesadaText, textoMuyLargoText } from "@/lib/constants/textos/sandbox";
-import { evidenceImageMaxBytes } from "@/lib/config/evidence";
+import { getEvidenceImageMaxBytes } from "@/lib/config/evidence";
 import { bytesToMegabytes } from "@/lib/utils/byte-size";
 
 const captured = vi.hoisted(() => ({
@@ -50,7 +50,7 @@ import Sandbox from "@/app/components/Sandbox";
 const TOO_LONG_TEXT = "No podemos procesar tu mensaje: reduce la cantidad de caracteres (máximo 1000).";
 const IMAGE_TOO_LARGE_TEXT = "La imagen supera el tamaño máximo permitido (5 MB). Envía una imagen más liviana.";
 const MEGABYTE = 1024 * 1024;
-const IMAGE_MAX_BYTES = evidenceImageMaxBytes({});
+const IMAGE_MAX_BYTES = getEvidenceImageMaxBytes({});
 
 function imageFileList(size: number): FileList {
   return [{ name: "foto.jpg", size }] as unknown as FileList;

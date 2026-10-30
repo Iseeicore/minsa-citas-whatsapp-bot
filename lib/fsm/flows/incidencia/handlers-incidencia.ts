@@ -6,7 +6,7 @@ import {
   askDescripcion,
   askFoto,
   handleConfirmRegistro,
-  maxImagenLegible,
+  maxImagenLegibleText,
 } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import {
@@ -73,7 +73,14 @@ import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/valid
 import { MediaFailure } from "@/lib/enums/media-failure";
 import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
 import { EvidenceRejection } from "@/lib/enums/evidence-rejection";
+import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { readImagenes, writeImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
+
+const MOTIVO_DE_FALLA_DE_DESCARGA: Readonly<Record<MediaFailure, EvidenceRejection>> = {
+  [MediaFailure.TOO_LARGE]: EvidenceRejection.TOO_LARGE,
+  [MediaFailure.UNREADABLE]: EvidenceRejection.NOT_DOWNLOADED,
+  [MediaFailure.OVER_LIMIT]: EvidenceRejection.OVER_LIMIT,
+};
 
 function cancel(): HandlerResult {
   return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(INCIDENCIA_CANCELADA_TEXT)]);
@@ -174,7 +181,7 @@ function isFile(event: InboundEvent): boolean {
 
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
   if (event.type === InboundEventType.IMAGE) return handleImagen(session, event);
-  if (isFile(event)) return rechazoDeImagen(session, documentoNoGuardadoText(maxImagenLegible()));
+  if (isFile(event)) return rechazoDeImagen(session, documentoNoGuardadoText(maxImagenLegibleText()));
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR || event.listId === IncidenciaButtonId.FOTO_LISTO) {
     return askConfirmRegistro(session);
   }
@@ -202,38 +209,33 @@ function rechazoDeImagen(session: Session, motivo: string): HandlerResult {
   return buildResult(session, [sendButtons(`${motivo} ${seguir}`, hasImagenes ? FOTO_LISTO_BUTTONS : FOTO_BUTTONS)]);
 }
 
-const MOTIVO_DE_FALLA_DE_DESCARGA: Readonly<Record<MediaFailure, EvidenceRejection>> = {
-  [MediaFailure.TOO_LARGE]: EvidenceRejection.TOO_LARGE,
-  [MediaFailure.UNREADABLE]: EvidenceRejection.NOT_DOWNLOADED,
-  [MediaFailure.OVER_LIMIT]: EvidenceRejection.OVER_LIMIT,
-};
-
-const motivoDeImagenInvalida = (failure: ImageValidationFailure): EvidenceRejection =>
+const toMotivoDeImagenInvalida = (failure: ImageValidationFailure): EvidenceRejection =>
   failure === ImageValidationFailure.TOO_LARGE ? EvidenceRejection.TOO_LARGE : EvidenceRejection.INVALID;
 
-function imagenUnica(event: InboundEvent): InboundMedia {
-  return event.mediaDataUri ? { dataUri: event.mediaDataUri } : { failure: event.mediaFailure ?? MediaFailure.UNREADABLE };
+function buildImagenUnica(event: InboundEvent): InboundMedia {
+  if (event.mediaDataUri) return { kind: InboundMediaKind.DATA, dataUri: event.mediaDataUri };
+  return { kind: InboundMediaKind.FAILURE, failure: event.mediaFailure ?? MediaFailure.UNREADABLE };
 }
 
-function motivoDeRechazo(imagen: InboundMedia, aceptadas: string[]): EvidenceRejection | undefined {
+function findMotivoDeRechazo(imagen: InboundMedia, aceptadas: string[]): EvidenceRejection | undefined {
   if (aceptadas.length >= MAX_IMAGENES_POR_INCIDENCIA) return EvidenceRejection.OVER_LIMIT;
-  if ("failure" in imagen) return MOTIVO_DE_FALLA_DE_DESCARGA[imagen.failure];
+  if (imagen.kind === InboundMediaKind.FAILURE) return MOTIVO_DE_FALLA_DE_DESCARGA[imagen.failure];
 
   const validada = validarImagen(imagen.dataUri);
-  if (esImagenRechazada(validada)) return motivoDeImagenInvalida(validada.failure);
+  if (esImagenRechazada(validada)) return toMotivoDeImagenInvalida(validada.failure);
   return aceptadas.includes(imagen.dataUri) ? EvidenceRejection.DUPLICATE : undefined;
 }
 
 function handleImagen(session: Session, event: InboundEvent): HandlerResult {
-  const recibidas = event.media?.length ? event.media : [imagenUnica(event)];
+  const recibidas = event.media?.length ? event.media : [buildImagenUnica(event)];
   const previas = readImagenes(session.slots);
   const aceptadas = [...previas];
   const rechazos = new Map<EvidenceRejection, number>();
 
   for (const imagen of recibidas) {
-    const motivo = motivoDeRechazo(imagen, aceptadas);
+    const motivo = findMotivoDeRechazo(imagen, aceptadas);
     if (motivo) rechazos.set(motivo, (rechazos.get(motivo) ?? 0) + 1);
-    else if ("dataUri" in imagen) aceptadas.push(imagen.dataUri);
+    else if (imagen.kind === InboundMediaKind.DATA) aceptadas.push(imagen.dataUri);
   }
 
   const next = cloneSession(session);
@@ -244,7 +246,7 @@ function handleImagen(session: Session, event: InboundEvent): HandlerResult {
     guardadas: aceptadas.length - previas.length,
     total: aceptadas.length,
     maximo: MAX_IMAGENES_POR_INCIDENCIA,
-    tamano: maxImagenLegible(),
+    tamano: maxImagenLegibleText(),
     rechazos: [...rechazos],
   });
 
@@ -272,7 +274,7 @@ function confirmationText(session: Session, codigo: string | undefined): string 
 
 function failureText(reason: string | undefined): string {
   if (reason === RegistrationRejectReason.DAILY_LIMIT) return DAILY_LIMIT_TEXT;
-  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return imagenMuyPesadaText(maxImagenLegible());
+  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return imagenMuyPesadaText(maxImagenLegibleText());
   return REGISTRO_FALLIDO_TEXT;
 }
 

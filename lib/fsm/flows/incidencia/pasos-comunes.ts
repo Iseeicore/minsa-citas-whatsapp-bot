@@ -26,18 +26,17 @@ import { channelOf } from "@/lib/fsm/core/channel";
 import { DOCUMENTO_DIGITOS_VISIBLES } from "@/lib/constants/limits/identity";
 import { readImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 import { renderWithinLength } from "@/lib/utils/fit-text";
-import { formatMegabytes } from "@/lib/utils/format-megabytes";
 import { maskDocumento } from "@/lib/utils/mask-documento";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { evidenceImageMaxBytes } from "@/lib/config/evidence";
+import { getEvidenceImageMaxMegabytes } from "@/lib/config/evidence";
 import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
 
-export function maxImagenLegible(): string {
-  return formatMegabytes(evidenceImageMaxBytes());
+export function maxImagenLegibleText(): string {
+  return `${getEvidenceImageMaxMegabytes()} MB`;
 }
 
 export function askFoto() {
-  return sendButtons(fotoRequestText(maxImagenLegible(), MAX_IMAGENES_POR_INCIDENCIA), FOTO_BUTTONS);
+  return sendButtons(fotoRequestText(maxImagenLegibleText(), MAX_IMAGENES_POR_INCIDENCIA), FOTO_BUTTONS);
 }
 
 export function askDescripcion(session: Session): string {

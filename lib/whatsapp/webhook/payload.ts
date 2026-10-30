@@ -1,9 +1,11 @@
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
-import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
+import { downloadWhatsAppMediaAsDataUri, type MediaDownload } from "@/lib/whatsapp/whatsapp-media";
 import type { InboundEvent, InboundMedia } from "@/lib/fsm/core/types";
 import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
 import { MediaFailure } from "@/lib/enums/media-failure";
+import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
+import { WhatsAppMessageType } from "@/lib/enums/whatsapp-message-type";
 import { SessionState } from "@/lib/enums/session-state";
 
 export type WhatsAppContact = {
@@ -124,10 +126,17 @@ export function tapReplyTo(message: WhatsAppMessage): string | undefined {
   return tapped ? message.context?.id || undefined : undefined;
 }
 
+function toInboundMedia(download: MediaDownload): InboundMedia {
+  if ("dataUri" in download) return { kind: InboundMediaKind.DATA, dataUri: download.dataUri };
+  return { kind: InboundMediaKind.FAILURE, failure: download.failure };
+}
+
 async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
   const downloaded = await Promise.all(mediaIds.slice(0, MAX_IMAGENES_POR_INCIDENCIA).map(downloadWhatsAppMediaAsDataUri));
-  const overLimit = mediaIds.slice(MAX_IMAGENES_POR_INCIDENCIA).map((): InboundMedia => ({ failure: MediaFailure.OVER_LIMIT }));
-  return [...downloaded, ...overLimit];
+  const overLimit = mediaIds
+    .slice(MAX_IMAGENES_POR_INCIDENCIA)
+    .map((): InboundMedia => ({ kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT }));
+  return [...downloaded.map(toInboundMedia), ...overLimit];
 }
 
 export async function toInboundEvent(
@@ -152,10 +161,10 @@ export async function toInboundEvent(
   }
 
   if (sessionState === SessionState.INCIDENCIA_AWAITING_FOTO) {
-    if (message.type === "image" && mediaIds && mediaIds.length > 1) {
+    if (message.type === WhatsAppMessageType.IMAGE && mediaIds && mediaIds.length > 1) {
       return { from: waId, type: "image", media: await downloadEvidence(mediaIds) };
     }
-    if (message.type === "image" && message.image?.id) {
+    if (message.type === WhatsAppMessageType.IMAGE && message.image?.id) {
       const download = await downloadWhatsAppMediaAsDataUri(message.image.id);
       const media = "dataUri" in download ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };
       return { from: waId, type: "image", text: message.image.caption, ...media };

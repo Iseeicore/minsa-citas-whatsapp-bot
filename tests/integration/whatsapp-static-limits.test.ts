@@ -10,6 +10,7 @@ import { buildConsentimientoEffect } from "@/lib/fsm/flows/incidencia/consentimi
 import { FORCED_INCIDENCIA_LEAD_TEXT } from "@/lib/constants/textos/seguridad";
 import type { ButtonOption, InboundEvent, InboundMedia, ListRow, SendEffect, Session } from "@/lib/fsm/core/types";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
+import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { MediaFailure } from "@/lib/enums/media-failure";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
@@ -286,10 +287,10 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
       const png = (indice: number) =>
         `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, indice]).toString("base64")}`;
       const rechazadas: InboundMedia[] = [
-        { dataUri: png(0) },
-        { failure: MediaFailure.TOO_LARGE },
-        { dataUri: "data:text/html;base64,PGI+" },
-        { failure: MediaFailure.UNREADABLE },
+        { kind: InboundMediaKind.DATA, dataUri: png(0) },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+        { kind: InboundMediaKind.DATA, dataUri: "data:text/html;base64,PGI+" },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.UNREADABLE },
       ];
       const session = (guardadas: number): Session => ({
         state: "incidencia_awaiting_foto",
@@ -303,10 +304,15 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
       });
       const lote = (media: InboundMedia[]): InboundEvent => ({ from: "51999999999", type: "image", media });
 
-      const bajoElTope = handleIncidencia(session(1), lote([...rechazadas, { dataUri: png(20) }]));
+      const bajoElTope = handleIncidencia(session(1), lote([...rechazadas, { kind: InboundMediaKind.DATA, dataUri: png(20) }]));
       const enElTope = handleIncidencia(
         session(3),
-        lote([...rechazadas, { dataUri: png(20) }, { dataUri: png(21) }, { dataUri: png(22) }]),
+        lote([
+          ...rechazadas,
+          { kind: InboundMediaKind.DATA, dataUri: png(20) },
+          { kind: InboundMediaKind.DATA, dataUri: png(21) },
+          { kind: InboundMediaKind.DATA, dataUri: png(22) },
+        ]),
       );
 
       expect(enElTope.session.state).toBe("incidencia_confirm_registro");

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { MediaFailure } from "@/lib/enums/media-failure";
 import type { HandlerResult, InboundEvent, InboundMedia, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -760,7 +761,7 @@ describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
 
 describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una sola respuesta", () => {
   const lote = (...media: InboundMedia[]): InboundEvent => ({ from: FROM, type: "image", media });
-  const valida = (indice: number): InboundMedia => ({ dataUri: pngDe(indice) });
+  const valida = (indice: number): InboundMedia => ({ kind: InboundMediaKind.DATA, dataUri: pngDe(indice) });
   const LISTO = [{ id: "incidencia_foto_listo", title: "Listo" }];
 
   it("un lote de 3 imágenes se guarda entero y se responde una vez, con el botón Listo", () => {
@@ -782,9 +783,9 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
       awaitingFoto(),
       lote(
         valida(10),
-        { failure: MediaFailure.TOO_LARGE },
-        { dataUri: "data:text/html;base64,PGI+" },
-        { failure: MediaFailure.UNREADABLE },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+        { kind: InboundMediaKind.DATA, dataUri: "data:text/html;base64,PGI+" },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.UNREADABLE },
       ),
     );
 
@@ -795,7 +796,13 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
   });
 
   it("varias rechazadas por el mismo motivo se cuentan juntas, en plural", () => {
-    const result = handleIncidencia(awaitingFoto(), lote({ failure: MediaFailure.TOO_LARGE }, { failure: MediaFailure.TOO_LARGE }));
+    const result = handleIncidencia(
+      awaitingFoto(),
+      lote(
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+      ),
+    );
 
     expect(result.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
     expect(sent(result)).toEqual([
@@ -840,7 +847,7 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
   });
 
   it("las que la descarga dejó fuera por pasar del máximo también se cuentan como no guardadas", () => {
-    const result = handleIncidencia(awaitingFoto(), lote(valida(10), { failure: MediaFailure.OVER_LIMIT }));
+    const result = handleIncidencia(awaitingFoto(), lote(valida(10), { kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT }));
 
     expect(texts(result)[0]).toContain("1 se guardó y 1 no, porque supera el máximo de 5.");
   });
@@ -856,7 +863,7 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
   it("el acuse respeta el máximo que fija EVIDENCE_IMAGE_MAX_MB", () => {
     vi.stubEnv("EVIDENCE_IMAGE_MAX_MB", "3");
     try {
-      const result = handleIncidencia(awaitingFoto(), lote({ failure: MediaFailure.TOO_LARGE }));
+      const result = handleIncidencia(awaitingFoto(), lote({ kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE }));
 
       expect(texts(result)[0]).toContain("no se guardó, porque pesa más de 3 MB");
     } finally {

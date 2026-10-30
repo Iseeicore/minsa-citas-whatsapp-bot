@@ -16,16 +16,20 @@ export type InboundCoalescerDeps = {
   runTurn: (waId: string, task: () => Promise<void>) => Promise<void>;
   answer: (turn: InboundTurn, usuarioId: string, marks?: LatencyMarks) => Promise<void>;
   notifyStale: (waId: string) => Promise<void>;
+  reportFailure: (waId: string, error: unknown) => Promise<void>;
   sleep: (ms: number) => Promise<void>;
   now: () => number;
 };
 
 export type InboundInput = { message: WhatsAppMessage; usuarioId: string; windowMs: number; marks?: LatencyMarks };
 
-type Run = { tipo: TipoMensajeId | null; rows: PendingInbound[] };
+type Run = { tipo: TipoMensajeId | undefined; rows: PendingInbound[] };
 
-const groupedTipo = (row: PendingInbound): TipoMensajeId | null =>
-  (row.tipoMensajeId === TipoMensajeId.TEXTO && row.contenido) || row.tipoMensajeId === TipoMensajeId.IMAGEN ? row.tipoMensajeId : null;
+function findGroupedTipo(row: PendingInbound): TipoMensajeId | undefined {
+  if (row.tipoMensajeId === TipoMensajeId.IMAGEN) return TipoMensajeId.IMAGEN;
+  if (row.tipoMensajeId !== TipoMensajeId.TEXTO || !row.contenido) return undefined;
+  return TipoMensajeId.TEXTO;
+}
 
 function baseMessage(row: PendingInbound, own: WhatsAppMessage, type: string): WhatsAppMessage {
   return {
@@ -53,9 +57,9 @@ function imageTurn(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn {
 export function groupBatch(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn[] {
   const runs: Run[] = [];
   for (const row of rows) {
-    const tipo = groupedTipo(row);
+    const tipo = findGroupedTipo(row);
     const current = runs[runs.length - 1];
-    if (current && tipo !== null && current.tipo === tipo) current.rows.push(row);
+    if (current && tipo !== undefined && current.tipo === tipo) current.rows.push(row);
     else runs.push({ tipo, rows: [row] });
   }
 
@@ -69,6 +73,14 @@ export function groupBatch(rows: PendingInbound[], own: WhatsAppMessage): Inboun
 export function createInboundCoalescer(deps: InboundCoalescerDeps) {
   const { buffer } = deps;
 
+  async function answerGroup(turn: InboundTurn, input: InboundInput): Promise<void> {
+    try {
+      await deps.answer(turn, input.usuarioId, input.marks);
+    } catch (error) {
+      await deps.reportFailure(input.message.from_user_id, error);
+    }
+  }
+
   async function flush(input: InboundInput): Promise<void> {
     const { message, usuarioId, marks } = input;
     let claimed = 0;
@@ -79,7 +91,7 @@ export function createInboundCoalescer(deps: InboundCoalescerDeps) {
         marks?.mark("lock");
         const rows = await buffer.claim(usuarioId, INBOUND_MAX_BATCH, message.id);
         claimed = rows.length;
-        for (const turn of groupBatch(rows, message)) await deps.answer(turn, usuarioId, marks);
+        for (const turn of groupBatch(rows, message)) await answerGroup(turn, input);
       });
     } while (claimed === INBOUND_MAX_BATCH);
   }

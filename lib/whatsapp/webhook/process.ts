@@ -36,6 +36,7 @@ const inboundCoalescer = createInboundCoalescer({
   notifyStale: async (waId) => {
     if (failureNoticeThrottle.shouldNotify(waId)) await sendFixedReply(waId, INTERRUPTION_NOTICE_TEXT);
   },
+  reportFailure: answerFailure,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   now: Date.now,
 });

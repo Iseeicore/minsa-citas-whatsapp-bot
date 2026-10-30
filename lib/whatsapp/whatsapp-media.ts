@@ -1,5 +1,5 @@
 import { MediaFailure } from "@/lib/enums/media-failure";
-import { evidenceImageMaxBytes } from "@/lib/config/evidence";
+import { getEvidenceImageMaxBytes } from "@/lib/config/evidence";
 import { logger } from "@/lib/observability/logger";
 import { graphApiBaseUrl, graphAuthHeaders } from "@/lib/whatsapp/graph-api";
 
@@ -22,7 +22,7 @@ export async function downloadWhatsAppMediaAsDataUri(mediaId: string): Promise<M
 
     const info = (await infoResponse.json()) as MetaMediaInfo;
     if (!info.url || !info.mime_type) return failed(MediaFailure.UNREADABLE);
-    const maxBytes = evidenceImageMaxBytes();
+    const maxBytes = getEvidenceImageMaxBytes();
     if (info.file_size && info.file_size > maxBytes) return failed(MediaFailure.TOO_LARGE);
 
     const mediaResponse = await fetch(info.url, { headers });

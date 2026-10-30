@@ -85,9 +85,10 @@ function imageMessage(source: Row): WhatsAppMessage {
   return { ...messageFor(source, "image"), text: undefined, image: { id: source.mediaId ?? undefined } };
 }
 
-function setup(rows: Row[], options: { nowMs?: number } = {}) {
+function setup(rows: Row[], options: { nowMs?: number; failingType?: string } = {}) {
   const answered: Array<{ message: WhatsAppMessage; mediaIds?: string[]; usuarioId: string }> = [];
   const notified: string[] = [];
+  const failures: Array<{ waId: string; error: unknown }> = [];
   const slept: number[] = [];
   const clock = { nowMs: options.nowMs ?? T0 };
 
@@ -95,10 +96,14 @@ function setup(rows: Row[], options: { nowMs?: number } = {}) {
     buffer: createFakeBuffer(rows),
     runTurn: async (_waId, task) => task(),
     answer: async (turn, usuarioId) => {
+      if (turn.message.type === options.failingType) throw new Error("answer failed");
       answered.push({ ...turn, usuarioId });
     },
     notifyStale: async (waId) => {
       notified.push(waId);
+    },
+    reportFailure: async (waId, error) => {
+      failures.push({ waId, error });
     },
     sleep: async (ms) => {
       slept.push(ms);
@@ -106,7 +111,7 @@ function setup(rows: Row[], options: { nowMs?: number } = {}) {
     now: () => clock.nowMs,
   };
 
-  return { coalescer: createInboundCoalescer(deps), answered, notified, slept, clock };
+  return { coalescer: createInboundCoalescer(deps), answered, notified, failures, slept, clock };
 }
 
 describe("createInboundCoalescer", () => {
@@ -260,6 +265,7 @@ describe("createInboundCoalescer", () => {
         events.push(turn.message.type);
       },
       notifyStale: async () => {},
+      reportFailure: async () => {},
       sleep: async () => {},
       now: () => T0 + 1000,
     });
@@ -267,6 +273,16 @@ describe("createInboundCoalescer", () => {
     await coalescer.handle({ message: imageMessage(rows[1]), usuarioId: "u1", windowMs: 0 });
 
     expect(events).toEqual(["lock", "text", "image", "unlock"]);
+  });
+
+  it("reports a group that fails and still answers the next group of the batch", async () => {
+    const rows = [row("m1", "hola", 0), imageRow("m2", 1)];
+    const { coalescer, answered, failures } = setup(rows, { nowMs: T0 + 1000, failingType: "text" });
+
+    await coalescer.handle({ message: imageMessage(rows[1]), usuarioId: "u1", windowMs: 0 });
+
+    expect(failures).toEqual([{ waId: "wa1", error: new Error("answer failed") }]);
+    expect(answered.map((turn) => turn.message.type)).toEqual(["image"]);
   });
 
   it("drops a message older than the maximum age, notifies once and never feeds it to the flow", async () => {
