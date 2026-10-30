@@ -4,6 +4,10 @@ import { LlmFailure } from "@/lib/enums/llm-failure";
 
 type FailedLlmOutcome = Exclude<LlmJsonOutcome, { ok: true }>;
 
+export const ANSWER_NOT_OBJECT_REASON = "response was not a JSON object";
+
+export const CANDIDATES_NOT_LIST_REASON = "candidates was not a list";
+
 export function describeLlmFailure(outcome: FailedLlmOutcome): string {
   switch (outcome.failure) {
     case LlmFailure.REQUEST_FAILED:
@@ -20,8 +24,6 @@ export function describeLlmFailure(outcome: FailedLlmOutcome): string {
 export function buildMisconfiguredProviderReason(provider: string): string {
   return `provider ${provider} is not registered`;
 }
-
-export const ANSWER_NOT_OBJECT_REASON = "response was not a JSON object";
 
 export function logAiFallback(operation: string, fellBackTo: string, reason: string): void {
   logger.warn("ai.fallback", { operation, fellBackTo, reason });

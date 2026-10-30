@@ -241,6 +241,17 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
     await expect(analyzeMainMenuIntent("quiero una cita", llmAvailable(client))).resolves.toEqual({ intent: "unclear" });
   });
 
+  it("analyzeMainMenuIntent answers unclear and logs the reason when the answer is not an object", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    const { client } = clientAnswering({ ok: true, json: null });
+    await expect(analyzeMainMenuIntent("quiero una cita", llmAvailable(client))).resolves.toEqual({ intent: "unclear" });
+    expect(warn).toHaveBeenCalledWith("ai.fallback", {
+      operation: "analyze_main_menu_intent",
+      fellBackTo: "menu",
+      reason: "response was not a JSON object",
+    });
+  });
+
   it("extractSelectionHints reads both hints from the injected client", async () => {
     const { client } = clientAnswering({ ok: true, json: { especialidad: "Pediatría", establecimiento: null } });
     await expect(extractSelectionHints("especialidad", "pediatria", llmAvailable(client))).resolves.toEqual({
@@ -308,6 +319,17 @@ describe("resolveDistritoAiDetailed: tells a failure apart from 'no district fou
       outcome: "failed",
       candidates: [],
     });
+  });
+
+  it.each<[string, LlmJsonOutcome, string]>([
+    ["an HTTP error", { ok: false, failure: LlmFailure.HTTP_ERROR, status: 500, model: "m" }, "HTTP 500 from model m"],
+    ["a JSON null answer", { ok: true, json: null }, "response was not a JSON object"],
+    ["candidates that are not a list", { ok: true, json: { candidates: "Comas" } }, "candidates was not a list"],
+  ])("logs ai.fallback with the reason on %s", async (_label, outcome, reason) => {
+    const warn = vi.spyOn(logger, "warn");
+    await resolveDistritoAiDetailed("comas", undefined, clientAnswering(outcome));
+    expect(warn).toHaveBeenCalledWith("ai.fallback", { operation: "resolve_distrito_ai", fellBackTo: "failed", reason });
+    warn.mockRestore();
   });
 
   it("with the AI disabled reports found or not_found from the fixed fallback", async () => {

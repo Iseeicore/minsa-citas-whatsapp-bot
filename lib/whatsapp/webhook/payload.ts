@@ -74,6 +74,17 @@ const ESTADO_POR_STATUS: Record<WhatsAppDeliveryStatus, EstadoMensajeId> = {
   [WhatsAppDeliveryStatus.FAILED]: EstadoMensajeId.FALLIDO,
 };
 
+const TIPO_POR_MESSAGE_TYPE: Record<WhatsAppMessageType, TipoMensajeId> = {
+  [WhatsAppMessageType.TEXT]: TipoMensajeId.TEXTO,
+  [WhatsAppMessageType.IMAGE]: TipoMensajeId.IMAGEN,
+  [WhatsAppMessageType.AUDIO]: TipoMensajeId.AUDIO,
+  [WhatsAppMessageType.DOCUMENT]: TipoMensajeId.DOCUMENTO,
+  [WhatsAppMessageType.LOCATION]: TipoMensajeId.UBICACION,
+  [WhatsAppMessageType.TEMPLATE]: TipoMensajeId.PLANTILLA,
+  [WhatsAppMessageType.INTERACTIVE]: TipoMensajeId.DESCONOCIDO,
+  [WhatsAppMessageType.SYSTEM]: TipoMensajeId.DESCONOCIDO,
+};
+
 const STORED_CONTENT_BY_TYPE: Partial<Record<WhatsAppMessageType, (message: WhatsAppMessage) => StoredContent>> = {
   [WhatsAppMessageType.TEXT]: (message) => ({ content: message.text?.body, mediaId: undefined }),
   [WhatsAppMessageType.IMAGE]: (message) => ({ content: message.image?.caption, mediaId: message.image?.id }),
@@ -97,22 +108,7 @@ async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
 }
 
 export function mapMessageType(type: string): TipoMensajeId {
-  switch (type) {
-    case "text":
-      return TipoMensajeId.TEXTO;
-    case "image":
-      return TipoMensajeId.IMAGEN;
-    case "audio":
-      return TipoMensajeId.AUDIO;
-    case "document":
-      return TipoMensajeId.DOCUMENTO;
-    case "location":
-      return TipoMensajeId.UBICACION;
-    case "template":
-      return TipoMensajeId.PLANTILLA;
-    default:
-      return TipoMensajeId.DESCONOCIDO;
-  }
+  return Object.hasOwn(TIPO_POR_MESSAGE_TYPE, type) ? TIPO_POR_MESSAGE_TYPE[type as WhatsAppMessageType] : TipoMensajeId.DESCONOCIDO;
 }
 
 export function mapStatus(status: string): EstadoMensajeId | undefined {
