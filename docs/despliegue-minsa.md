@@ -107,10 +107,10 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 
 | Variable | Para qué sirve | Sin definir |
 |---|---|---|
-| `META_APP_SECRET` | Secreto de la app: valida la firma HMAC (`X-Hub-Signature-256`) de cada webhook | Obligatoria: el compose se detiene y la nombra |
+| `META_APP_SECRET` | Secreto de la app: valida la firma HMAC (`X-Hub-Signature-256`) de cada webhook | Obligatoria: el compose se detiene y la nombra. Si aun así falta o está en blanco, el webhook rechaza con 403 todo lo que llega (nunca valida con una clave vacía), registra `webhook.signature_secret_missing` y `/api/health` responde `degraded` con `META_APP_SECRET_MISSING` |
 | `META_WEBHOOK_VERIFY_TOKEN` | Token que se elige; Meta lo envía en el `GET` de verificación del webhook | Obligatoria: el compose se detiene y la nombra |
-| `META_ACCESS_TOKEN` | Token de acceso con el que se envían los mensajes | Obligatoria: el compose se detiene y la nombra |
-| `META_PHONE_NUMBER_ID` | ID del número de WhatsApp desde el que responde el bot | Obligatoria: el compose se detiene y la nombra |
+| `META_ACCESS_TOKEN` | Token de acceso con el que se envían los mensajes | Obligatoria: el compose se detiene y la nombra. Si aun así falta, se registra al arrancar como `config.invalid` (`META_ACCESS_TOKEN_MISSING`) y `/api/health` responde `degraded` |
+| `META_PHONE_NUMBER_ID` | ID del número de WhatsApp desde el que responde el bot | Obligatoria: el compose se detiene y la nombra. Si aun así falta, se registra al arrancar como `config.invalid` (`META_PHONE_NUMBER_ID_MISSING`) y `/api/health` responde `degraded` |
 | `META_GRAPH_API_VERSION` | Versión de Graph API, sin espacios | `v21.0` |
 
 **Base de datos y contenedor**
@@ -127,8 +127,8 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 | Variable | Para qué sirve | Sin definir |
 |---|---|---|
 | `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento y referencias). **La lee también el webhook real, no solo el Chat-bot** | Datos de prueba fijos |
-| `MINSA_API_HOST` | Host de la API del MINSA | Sin valor por defecto |
-| `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (documento y OTP) | Sin valor por defecto |
+| `MINSA_API_HOST` | Host de la API del MINSA | Sin valor por defecto. Con `SANDBOX_USE_REAL_MINSA=true`, si falta se registra al arrancar como `config.invalid` (`MINSA_API_HOST_MISSING`) y `/api/health` responde `degraded` |
+| `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (documento y OTP) | Sin valor por defecto. Con `SANDBOX_USE_REAL_MINSA=true`, si falta se registra al arrancar como `config.invalid` (`MINSA_INTEGRATION_SECRET_MISSING`) y `/api/health` responde `degraded` |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad | Sin valor por defecto |
 | `MINSA_DIGITAL_APP_URL` | URL pública del portal de MINSA Digital, sin valor por defecto en el código. De ella salen los botones hacia el portal (**Continuar mi cita**, **Ir a MINSADIGITAL**, **Cita Nivel Global** y **Ver mi cita**) y las cabeceras `Origin` y `Referer` de las llamadas autenticadas al MINSA (se toma el origen: esquema, dominio y puerto). Si cambia el dominio, solo se cambia esta variable | Obligatoria: el compose no arranca y la nombra. Si aun así falta, la bienvenida de whatsapp-bot muestra el menú, los demás avisos salen como texto sin enlace y `/api/health` responde `degraded` con `MINSA_DIGITAL_APP_URL_MISSING` (`error` con el MINSA real, `warn` con el simulado). Con el MINSA real, las llamadas autenticadas se cortan con un 503 sin cuerpo, se registra `minsa.request_blocked` y quien llamó lo trata como un error del MINSA |
 | `CITA_ALLOWED_DEPARTAMENTOS` | Departamentos donde se agenda por este canal (alcance del piloto), separados por comas: `LIMA`, `LIMA,CALLAO`… Un distrito fuera de la lista recibe el enlace a MINSA Digital; aplica también al modo manual (departamento → provincia → distrito) | Sin filtro: todo el Perú. En producción se define de forma explícita, por ejemplo `LIMA` |
@@ -156,7 +156,7 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 |---|---|---|
 | `SANDBOX_USE_REAL_AI` | `true`: IA real (intención del mensaje libre, distrito, fecha y pistas) en todo el bot, no solo en el Chat-bot | Diccionario de prueba, sin costo: no entiende texto libre ni distritos mal escritos |
 | `AI_PROVIDER` | Proveedor de IA; vacía o `gemini` es Gemini, hoy el único. Cómo sumar otro: [desarrollo.md](desarrollo.md#cambiar-de-proveedor-de-ia) | Gemini. Un valor desconocido apaga la IA real (respaldo fijo), se registra al arrancar como `config.invalid` (`AI_PROVIDER_UNKNOWN`) y `/api/health` responde `degraded` |
-| `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL | Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`) |
+| `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL | Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`). Con `SANDBOX_USE_REAL_AI=true`, si falta se registra al arrancar como `config.invalid` (`GOOGLE_CLIENT_API_MISSING`) y `/api/health` responde `degraded` |
 | `GOOGLE_AI_MODEL` | Modelo de Gemini. Un nombre que no existe da HTTP 404 | `gemini-3.6-flash` |
 
 **Chat-bot** (variables `SANDBOX_*`)

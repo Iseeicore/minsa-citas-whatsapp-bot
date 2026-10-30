@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { findMinsaIntegrationSecret } from "@/lib/config/integrations";
 
 export type SignedRequestHeaders = {
   "X-WhatsApp-Timestamp": string;
@@ -14,7 +15,7 @@ export function signMinsaRequest(bodyJson: string): SignedRequestHeaders {
   const signature =
     "sha256=" +
     crypto
-      .createHmac("sha256", process.env.MINSA_INTEGRATION_SECRET ?? "")
+      .createHmac("sha256", findMinsaIntegrationSecret() ?? "")
       .update(message)
       .digest("hex");
 

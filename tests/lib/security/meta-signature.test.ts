@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isValidMetaSignature, metaWebhookSignature } from "@/lib/security/meta-signature";
+import { captureLogs } from "@/tests/support/capture-logs";
 
 const SECRET = "app-secret";
 const BODY = '{"entry":[]}';
@@ -11,16 +12,8 @@ afterEach(() => {
 });
 
 describe("metaWebhookSignature", () => {
-  it("signs the raw body exactly like Meta, with META_APP_SECRET", () => {
-    vi.stubEnv("META_APP_SECRET", SECRET);
-
-    expect(metaWebhookSignature(BODY)).toBe(expected(SECRET, BODY));
-  });
-
-  it("signs with an empty key when META_APP_SECRET is not defined, as the webhook verifies today", () => {
-    vi.stubEnv("META_APP_SECRET", undefined);
-
-    expect(metaWebhookSignature(BODY)).toBe(expected("", BODY));
+  it("signs the raw body exactly like Meta, with the given secret", () => {
+    expect(metaWebhookSignature(BODY, SECRET)).toBe(expected(SECRET, BODY));
   });
 });
 
@@ -39,5 +32,17 @@ describe("isValidMetaSignature", () => {
     vi.stubEnv("META_APP_SECRET", SECRET);
 
     expect(isValidMetaSignature(BODY, header)).toBe(false);
+  });
+
+  it.each([
+    ["not defined", undefined],
+    ["empty", ""],
+    ["blank", "   "],
+  ])("rejects even a signature made with an empty key when META_APP_SECRET is %s, and logs it", (_case, secret) => {
+    vi.stubEnv("META_APP_SECRET", secret);
+    const lines = captureLogs();
+
+    expect(isValidMetaSignature(BODY, expected("", BODY))).toBe(false);
+    expect(lines).toContainEqual(expect.objectContaining({ level: "error", event: "webhook.signature_secret_missing" }));
   });
 });

@@ -3,7 +3,12 @@ import { getEvidenceImageMaxBytes, getEvidenceImageMaxMegabytes, findInvalidEvid
 import { checkConfig, CONFIG_ERRORS } from "@/lib/config/config-errors";
 
 const MEGABYTE = 1024 * 1024;
-const HEALTHY_ENV = { MINSA_DIGITAL_APP_URL: "https://dminsadigital.minsa.gob.pe" };
+const HEALTHY_ENV = {
+  MINSA_DIGITAL_APP_URL: "https://dminsadigital.minsa.gob.pe",
+  META_APP_SECRET: "secreto",
+  META_ACCESS_TOKEN: "token",
+  META_PHONE_NUMBER_ID: "123",
+};
 
 describe("EVIDENCE_IMAGE_MAX_MB", () => {
   it("defaults to 5 MB when it is not defined or is empty", () => {

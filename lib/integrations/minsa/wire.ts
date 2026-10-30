@@ -3,11 +3,12 @@ import { logger } from "@/lib/observability/logger";
 import { signMinsaRequest } from "@/lib/integrations/minsa/signature";
 import { nowInLima, todayInLima } from "@/lib/time/lima-clock";
 import { TRAILING_SLASHES } from "@/lib/constants/regex/integrations";
+import { findMinsaApiHost } from "@/lib/config/integrations";
 
 const HTTP_SERVICE_UNAVAILABLE = 503;
 
 function minsaHost(): string {
-  return process.env.MINSA_API_HOST ?? "";
+  return findMinsaApiHost() ?? "";
 }
 
 export const MINSA_DIGITAL_LOGIN_PATH = "/login";
