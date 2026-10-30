@@ -84,6 +84,20 @@ describe("real MINSA — bookAppointment", () => {
     expect(lines.some((line) => JSON.parse(line).event === "minsa.book_appointment.failed")).toBe(false);
   });
 
+  it("MINSA code 9000 «tiene una cita por atender» is already_has_appointment, logged as a rejection and never as a failure", async () => {
+    const minsaMessage = "Error al generar la cita en el servicio externo: 9000 | El paciente tiene una cita por atender en este servicio";
+    const warn = vi.spyOn(logger, "warn");
+    const error = vi.spyOn(logger, "error");
+    vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, data: null, message: minsaMessage }), 500));
+
+    await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({ status: "already_has_appointment", message: minsaMessage });
+    expect(warn).toHaveBeenCalledWith("minsa.booking_rejected", expect.objectContaining({ status: 500, minsaCode: "9000" }));
+    expect(error).not.toHaveBeenCalled();
+
+    vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ message: "El paciente tiene una cita por atender" }), 500));
+    await expect(bookAppointment(params, "bearer-token")).resolves.toMatchObject({ status: "already_has_appointment" });
+  });
+
   it.each([500, 502, 503])("a genuine HTTP %i with no recognizable business message means the service is unavailable", async (status) => {
     vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, message: "Internal Server Error" }), status));
 

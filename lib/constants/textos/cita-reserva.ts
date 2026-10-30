@@ -1,4 +1,5 @@
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
+import { AlreadyBookedButtonId } from "@/lib/enums/already-booked-button-id";
 import { NO_SALIR_BUTTON_TEXT, SI_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { ReferenciaEstadoCodigo } from "@/lib/enums/referencia-estado-codigo";
@@ -27,6 +28,11 @@ export const DUPLICATE_QUESTION_TEXT = "El MINSA permite una sola cita activa po
 export const duplicateActiveText = (especialidad: string): string =>
   `Ya tienes una cita activa para ${especialidad}. ${DUPLICATE_QUESTION_TEXT}`;
 export const DUPLICATE_YES_BUTTON_TEXT = "Otra especialidad";
+export const ALREADY_BOOKED_QUESTION_TEXT = "Ese día ya cuentas con una cita agendada. ¿Deseas seleccionar otra fecha o terminar?";
+export const ALREADY_BOOKED_ESPECIALIDAD_TEXT =
+  "Ya tienes una cita pendiente en esta especialidad. Puedes elegir otra especialidad o terminar.";
+export const ALREADY_BOOKED_OTHER_FECHA_BUTTON_TEXT = "Otra fecha";
+export const TERMINAR_BUTTON_TEXT = "Terminar";
 
 export const REFERENCIA_ESTADO_LABELS: Partial<Record<number, string>> = {
   [ReferenciaEstadoCodigo.ACEPTADO]: "ACEPTADO",
@@ -93,6 +99,16 @@ export const REFERENCIA_CONFIRM_NO_BUTTON_TEXT = "No, ver otra";
 export const DUPLICATE_BUTTONS = [
   { id: DuplicateButtonId.OTHER_ESPECIALIDAD, title: DUPLICATE_YES_BUTTON_TEXT },
   { id: DuplicateButtonId.EXIT, title: NO_SALIR_BUTTON_TEXT },
+];
+
+export const ALREADY_BOOKED_BUTTONS = [
+  { id: AlreadyBookedButtonId.OTHER_FECHA, title: ALREADY_BOOKED_OTHER_FECHA_BUTTON_TEXT },
+  { id: AlreadyBookedButtonId.EXIT, title: TERMINAR_BUTTON_TEXT },
+];
+
+export const ALREADY_BOOKED_ESPECIALIDAD_BUTTONS = [
+  { id: DuplicateButtonId.OTHER_ESPECIALIDAD, title: DUPLICATE_YES_BUTTON_TEXT },
+  { id: DuplicateButtonId.EXIT, title: TERMINAR_BUTTON_TEXT },
 ];
 
 export const REFERENCIA_CONFIRM_BUTTONS = [

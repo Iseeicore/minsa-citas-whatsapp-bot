@@ -1,4 +1,5 @@
 import { offerOtherEspecialidad } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
+import { offerAlreadyBookedChoice } from "@/lib/fsm/flows/cita/steps/booking/already-booked";
 import { buildResult, cloneSession, query, sendText, sendCtaUrl, withNote } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
@@ -41,6 +42,10 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
 
   if (result.status === BookingStatus.DUPLICATE) {
     return offerOtherEspecialidad(next);
+  }
+
+  if (result.status === BookingStatus.ALREADY_HAS_APPOINTMENT) {
+    return offerAlreadyBookedChoice(next);
   }
 
   if (result.status === BookingStatus.UNAVAILABLE) {
