@@ -1,6 +1,6 @@
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
-import { downloadWhatsAppMediaAsDataUri, type MediaDownload } from "@/lib/whatsapp/whatsapp-media";
+import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
 import type { InboundEvent, InboundMedia } from "@/lib/fsm/core/types";
 import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
 import { MediaFailure } from "@/lib/enums/media-failure";
@@ -58,17 +58,12 @@ export type WhatsAppWebhookPayload = {
   entry?: WhatsAppEntry[];
 };
 
-function toInboundMedia(download: MediaDownload): InboundMedia {
-  if ("dataUri" in download) return { kind: InboundMediaKind.DATA, dataUri: download.dataUri };
-  return { kind: InboundMediaKind.FAILURE, failure: download.failure };
-}
-
 async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
   const downloaded = await Promise.all(mediaIds.slice(0, MAX_IMAGENES_POR_INCIDENCIA).map(downloadWhatsAppMediaAsDataUri));
   const overLimit = mediaIds
     .slice(MAX_IMAGENES_POR_INCIDENCIA)
     .map((): InboundMedia => ({ kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT }));
-  return [...downloaded.map(toInboundMedia), ...overLimit];
+  return [...downloaded, ...overLimit];
 }
 
 export function mapMessageType(type: string): TipoMensajeId {
@@ -166,7 +161,7 @@ export async function toInboundEvent(
     }
     if (message.type === WhatsAppMessageType.IMAGE && message.image?.id) {
       const download = await downloadWhatsAppMediaAsDataUri(message.image.id);
-      const media = "dataUri" in download ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };
+      const media = download.kind === InboundMediaKind.DATA ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };
       return { from: waId, type: "image", text: message.image.caption, ...media };
     }
     if (message.type === "document" && message.document?.id) return { from: waId, type: "document" };

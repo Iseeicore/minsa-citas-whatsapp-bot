@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const media = vi.hoisted(() => ({ download: vi.fn(async (): Promise<unknown> => ({ dataUri: "data:image/png;base64,AAAA" })) }));
+const media = vi.hoisted(() => ({
+  download: vi.fn(async (): Promise<unknown> => ({ kind: "data", dataUri: "data:image/png;base64,AAAA" })),
+}));
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: media.download }));
 
 import { toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
@@ -26,14 +28,14 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
   });
 
   it("an image that could not be downloaded still reaches the flow, with the reason", async () => {
-    media.download.mockResolvedValueOnce({ failure: "unreadable" });
+    media.download.mockResolvedValueOnce({ kind: "failure", failure: "unreadable" });
     const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto");
 
     expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaFailure: "unreadable" });
   });
 
   it("an image over the size limit reaches the flow flagged as too large", async () => {
-    media.download.mockResolvedValueOnce({ failure: "too_large" });
+    media.download.mockResolvedValueOnce({ kind: "failure", failure: "too_large" });
     const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto");
 
     expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaFailure: "too_large" });
@@ -49,9 +51,9 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
       "m3",
     ]);
     await vi.waitFor(() => expect(pending).toHaveLength(3));
-    pending[2]({ dataUri: "data:image/png;base64,CCCC" });
-    pending[0]({ dataUri: "data:image/png;base64,AAAA" });
-    pending[1]({ failure: "too_large" });
+    pending[2]({ kind: "data", dataUri: "data:image/png;base64,CCCC" });
+    pending[0]({ kind: "data", dataUri: "data:image/png;base64,AAAA" });
+    pending[1]({ kind: "failure", failure: "too_large" });
 
     expect(await eventPromise).toEqual({
       from: WA,
