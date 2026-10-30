@@ -410,6 +410,17 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
     expect(mocks.runTurnUnlocked).toHaveBeenCalledTimes(1);
   });
 
+  it("a WhatsApp message whose id carries the Chat-bot prefix is dropped and logged, never stored nor answered", async () => {
+    const lines = captureLogs();
+
+    await deliver([textMessage("sandbox-ajeno", "Hola")]);
+
+    expect(lines).toContainEqual(expect.objectContaining({ level: "warn", event: "webhook.sandbox_id_dropped" }));
+    expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalled();
+    expect(mocks.withTurnLock).not.toHaveBeenCalled();
+  });
+
   it("an ordinary first message pays no extra session lookup for the filter", async () => {
     await deliver([textMessage(freshWaId(), "Hola")]);
 

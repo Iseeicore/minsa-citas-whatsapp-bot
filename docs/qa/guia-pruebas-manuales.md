@@ -23,7 +23,7 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 | Entorno | Cómo entrar | Para qué sirve |
 |---|---|---|
 | **Chat-bot (widget)** | `/sandbox` | Simula al ciudadano. No muestra el panel de depuración. |
-| **Chat-bot (consola)** | `/configuracion-visor-sandbox` y el interruptor **Sandbox** (así se rotula hoy en la interfaz) | Igual, pero con el panel **Debug** a la derecha (visible en pantallas anchas) que muestra `from`, `state`, `slots` y `counters`, y con el botón **Reiniciar todas las pruebas**. **Úsalo para verificar los slots.** |
+| **Chat-bot (consola)** | `/configuracion-visor-sandbox` y el interruptor **Sandbox** (así se rotula hoy en la interfaz) | Igual, pero con el panel **Debug** a la derecha (visible en pantallas anchas) que muestra `from`, `state`, `slots` y `counters`, y con el botón **Reiniciar esta prueba** (reinicia solo la conversación de esa pestaña). **Úsalo para verificar los slots.** |
 | **whatsapp-bot** | Tu número de prueba escribiendo al número del bot | Prueba el webhook completo: firma, base de datos, ritmo de mensajes y multimedia. |
 | **Chat real** | `/configuracion-visor-sandbox` con el interruptor **Chat real** | Muestra las conversaciones guardadas. Sirve para comprobar que un mensaje rechazado NO creó una conversación. |
 
@@ -57,8 +57,8 @@ Sin mirar ningún panel de consumo:
 ### 0.4 Qué es un «primer mensaje»
 
 Un primer mensaje es el que llega **sin sesión abierta**.
-- **Chat-bot:** abre una ventana de incógnito o pulsa **Reiniciar todas las pruebas** en la consola. Esto genera una sesión nueva.
-- **Chat-bot, al abrirlo o recargar la página:** ya no se restaura la conversación anterior. Se cierra y empieza una nueva con la bienvenida. En la base, la fila anterior queda como registro cerrado: su `wa_id` pasa a `cerrada-<from anterior>-<marca de tiempo>` y conserva `estado`, `slots` y `contadores` (`fecha_modificacion` queda como fecha de cierre), para saber en qué paso terminó. **Reiniciar todas las pruebas** no borra esos registros cerrados.
+- **Chat-bot:** abre una ventana de incógnito o pulsa **Reiniciar esta prueba** en la consola. Esto genera una sesión nueva.
+- **Chat-bot, al abrirlo o recargar la página:** ya no se restaura la conversación anterior. Se cierra y empieza una nueva con la bienvenida. En la base, la fila anterior queda como registro cerrado: su `wa_id` pasa a `cerrada-<from anterior>-<marca de tiempo>` y conserva `estado`, `slots` y `contadores` (`fecha_modificacion` queda como fecha de cierre), para saber en qué paso terminó. **Reiniciar esta prueba** no borra esos registros cerrados ni las conversaciones de otras pestañas.
 - **whatsapp-bot:** usa un número que nunca haya escrito antes. **El botón de reinicio no borra sesiones de whatsapp-bot.** Si tu número ya tiene sesión, los filtros de primer mensaje (sección 1) no se aplican: pide que borren tu fila de sesión o usa otro número.
 
 ### 0.5 Diferencias entre canales
@@ -160,6 +160,8 @@ Requiere un número **sin sesión** (ver 0.4).
 |---|---|---|---|---|
 | 1.6a | Enviar un `POST` a `/webhook/whatsapp` **sin** la cabecera `x-hub-signature-256` (por ejemplo con `curl -X POST -d '{}' <url>`). | HTTP **403** `Forbidden`. Ningún mensaje al ciudadano. | No se crea conversación, mensaje ni sesión; no hay línea `turn.start` en los logs. | ☐ ☐ |
 | 1.6b | Repetir con una firma inventada (`sha256=` y 64 ceros). | HTTP **403**. | Igual que 1.6a. La comparación de la firma es en tiempo constante. | ☐ ☐ |
+| 1.6c | Con `META_APP_SECRET` vacía (reiniciar el proceso), enviar un `POST` firmado con una clave vacía. | HTTP **403**. | Log `webhook.signature_secret_missing`; `/api/health` responde `degraded` con `META_APP_SECRET_MISSING`. | ☐ ☐ |
+| 1.6d | Enviar un `POST` a `/api/sandbox` con un `from` que no empieza con `sandbox-` (por ejemplo un número de WhatsApp real). | HTTP **400** `INVALID_BODY`. | No se lee ni se escribe ninguna sesión: el Chat-bot no puede hablar en nombre de un ciudadano de WhatsApp. | ☐ ☐ |
 
 ### 1.7 Texto de más de 1000 caracteres — solo Chat-bot
 

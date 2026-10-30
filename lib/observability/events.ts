@@ -27,6 +27,7 @@ export const LOG_EVENTS = [
   "webhook.fixed_reply_failed",
   "webhook.signature_secret_missing",
   "webhook.unsupported_message",
+  "webhook.sandbox_id_dropped",
   "webhook.bsuid_updated",
   "webhook.bsuid_conflict",
   "webhook.bsuid_update_failed",

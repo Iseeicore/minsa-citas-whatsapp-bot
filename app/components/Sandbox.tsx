@@ -85,13 +85,12 @@ export default function Sandbox({
       replyTo?: string;
       mediaDataUri?: string;
       reset?: boolean;
-      resetAll?: boolean;
     },
     userDisplayText?: string,
   ) {
     if (!from) return;
 
-    const esBienvenida = payload.reset === true || payload.resetAll === true || entries.length === 0;
+    const esBienvenida = payload.reset === true || entries.length === 0;
 
     if (userDisplayText) {
       setEntries((prev) => [...prev, { id: randomUuid(), from: ChatEntryAuthor.USER, text: userDisplayText }]);
@@ -149,14 +148,14 @@ export default function Sandbox({
   }
 
   function handleReset() {
-    if (!window.confirm("Esto reiniciará TODAS las conversaciones de prueba (sandbox), en cualquier dispositivo. ¿Continuar?")) {
+    if (!window.confirm("Esto reiniciará esta conversación de prueba. ¿Continuar?")) {
       return;
     }
     setEntries([]);
     setSession(null);
     setCurrentInteractiveId(undefined);
     setDniValue("");
-    sendTurn({ type: "text", resetAll: true });
+    sendTurn({ type: "text", reset: true });
   }
 
   async function handleImageSelect(fileList: FileList | null) {
@@ -203,7 +202,7 @@ export default function Sandbox({
           {showDebugPanel && (
             <div className="flex items-center justify-end px-4 pt-2">
               <Button variant={ButtonVariant.PILL_NEUTRAL} onClick={handleReset}>
-                Reiniciar todas las pruebas
+                Reiniciar esta prueba
               </Button>
             </div>
           )}

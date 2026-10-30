@@ -4,7 +4,6 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   sessionRowExists: vi.fn(async () => false),
   resetSession: vi.fn(async () => undefined),
-  resetAll: vi.fn(async () => undefined),
   saveSession: vi.fn(async () => undefined),
   runTurn: vi.fn(async () => ({
     sent: [{ kind: "send_text", text: "respuesta del bot" }],
@@ -16,7 +15,6 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   sessionRowExists: mocks.sessionRowExists,
   resetSession: mocks.resetSession,
   saveSession: mocks.saveSession,
-  resetAllSandboxTestSessions: mocks.resetAll,
 }));
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 

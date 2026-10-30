@@ -9,7 +9,8 @@ import { logger } from "@/lib/observability/logger";
 import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
-import { closeSession, resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
+import { closeSession, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
+import { SANDBOX_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
 import type { InteractiveTracking, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
 import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -101,7 +102,10 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 const sandboxEventSchema = z.object({
-  from: z.string().min(1),
+  from: z
+    .string()
+    .startsWith(SANDBOX_SESSION_ID_PREFIX)
+    .min(SANDBOX_SESSION_ID_PREFIX.length + 1),
   type: z.enum(["text", "button", "list", "image", "document"]),
   text: z.string().max(SANDBOX_TEXT_MAX_LENGTH).optional(),
   listId: z.string().optional(),
@@ -109,7 +113,6 @@ const sandboxEventSchema = z.object({
   mediaId: z.string().optional(),
   mediaDataUri: z.string().optional(),
   reset: z.boolean().optional(),
-  resetAll: z.boolean().optional(),
   close: z.boolean().optional(),
 });
 
@@ -136,7 +139,7 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message, headers: cors });
   }
 
-  const { from, type, text, listId, replyTo, mediaId, mediaDataUri, reset, resetAll, close } = parsed.data;
+  const { from, type, text, listId, replyTo, mediaId, mediaDataUri, reset, close } = parsed.data;
 
   if (close) {
     await closeSession(from);
@@ -145,14 +148,10 @@ export async function POST(request: NextRequest) {
 
   const marks = createLatencyMarks();
 
-  if (resetAll) {
-    await resetAllSandboxTestSessions();
-  } else if (reset) {
-    await resetSession(from);
-  }
+  if (reset) await resetSession(from);
   marks.mark("reset");
 
-  const hadExistingSession = reset || resetAll ? false : await sessionRowExists(from);
+  const hadExistingSession = reset ? false : await sessionRowExists(from);
   marks.mark("exists");
 
   if (!hadExistingSession && (type === "text" || type === "image")) {

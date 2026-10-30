@@ -28,6 +28,9 @@ import { createPostgresInboundBuffer } from "@/lib/whatsapp/inbound/postgres-inb
 import { resolveWindowMs } from "@/lib/whatsapp/inbound/inbound-policy";
 import { INTERRUPTION_NOTICE_TEXT } from "@/lib/constants/textos/fallas";
 import { isObject } from "@/lib/utils/type-guards";
+import { hasSandboxPrefix } from "@/lib/utils/session-ids";
+import { logger } from "@/lib/observability/logger";
+import { tail } from "@/lib/observability/mask";
 
 const inboundCoalescer = createInboundCoalescer({
   buffer: createPostgresInboundBuffer(),
@@ -128,6 +131,10 @@ export async function processValue(value: WhatsAppValue) {
 
   for (const message of value.messages ?? []) {
     if (message.type === "system") continue;
+    if (hasSandboxPrefix(message.from_user_id)) {
+      logger.warn("webhook.sandbox_id_dropped", { waId: tail(message.from_user_id), messageType: message.type });
+      continue;
+    }
 
     const marks = createLatencyMarks();
     try {

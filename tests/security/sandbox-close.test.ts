@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   closeSession: vi.fn(async () => undefined),
   sessionRowExists: vi.fn(async () => true),
   resetSession: vi.fn(async () => undefined),
-  resetAll: vi.fn(async () => undefined),
   saveSession: vi.fn(async () => undefined),
   runTurn: vi.fn(async () => ({ sent: [], session: { state: "main_menu", slots: {}, counters: {} } })),
 }));
@@ -15,7 +14,6 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   sessionRowExists: mocks.sessionRowExists,
   resetSession: mocks.resetSession,
   saveSession: mocks.saveSession,
-  resetAllSandboxTestSessions: mocks.resetAll,
 }));
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurn: mocks.runTurn }));
 
@@ -46,7 +44,6 @@ describe("POST /api/sandbox with close", () => {
     expect(mocks.saveSession).not.toHaveBeenCalled();
     expect(mocks.sessionRowExists).not.toHaveBeenCalled();
     expect(mocks.resetSession).not.toHaveBeenCalled();
-    expect(mocks.resetAll).not.toHaveBeenCalled();
   });
 
   it("is a 404 when the Sandbox is disabled, and closes nothing", async () => {
