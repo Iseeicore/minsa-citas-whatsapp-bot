@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { OPEN_CHAT_LINK_PROPS } from "@/lib/constants/chat-launcher";
+import { buildChatLinkProps } from "@/lib/utils/chat-link";
 import { cn } from "@/lib/utils/cn";
 
 const LOGO_ALT_TEXT = "Minsa Responde";
@@ -14,7 +14,7 @@ const EMERGENCY_PHONE_HREF = "tel:113";
 
 const NAV_LINK = "text-sm font-semibold uppercase text-gray-600 hover:text-brand-navy";
 
-export function LandingHeader({ loginUrl }: { loginUrl: string }) {
+export function LandingHeader({ loginUrl, chatEnabled }: { loginUrl: string; chatEnabled: boolean }) {
   return (
     <header className="flex items-center justify-between gap-4 py-3 md:px-landing-gutter md:py-4">
       <Image src="/landing/logo.webp" alt={LOGO_ALT_TEXT} width={400} height={162} className="h-10 w-auto md:h-16" priority />
@@ -25,7 +25,7 @@ export function LandingHeader({ loginUrl }: { loginUrl: string }) {
         <a href={loginUrl} className={NAV_LINK}>
           {SERVICIOS_LINK_TEXT}
         </a>
-        <a {...OPEN_CHAT_LINK_PROPS} className={NAV_LINK}>
+        <a {...buildChatLinkProps(chatEnabled, loginUrl)} className={NAV_LINK}>
           {CITAS_LINK_TEXT}
         </a>
       </nav>

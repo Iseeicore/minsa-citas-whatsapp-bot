@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { OPEN_CHAT_LINK_PROPS } from "@/lib/constants/chat-launcher";
+import { buildChatLinkProps } from "@/lib/utils/chat-link";
 import { cn } from "@/lib/utils/cn";
 
 const TITULO_TEXT = "¿Qué deseas hacer hoy?";
@@ -28,7 +28,7 @@ const SERVICES = [
   },
 ];
 
-export function LandingServices({ loginUrl }: { loginUrl: string }) {
+export function LandingServices({ loginUrl, chatEnabled }: { loginUrl: string; chatEnabled: boolean }) {
   return (
     <>
       <h2 className="mt-4 font-gotham text-xl font-bold md:mt-5 md:text-4xl">{TITULO_TEXT}</h2>
@@ -38,7 +38,7 @@ export function LandingServices({ loginUrl }: { loginUrl: string }) {
         {SERVICES.map(({ title, detail, icon, bg, color, chat }) => (
           <li key={title} className="min-h-0">
             <a
-              {...(chat ? OPEN_CHAT_LINK_PROPS : { href: loginUrl })}
+              {...buildChatLinkProps(Boolean(chat) && chatEnabled, loginUrl)}
               className={cn(
                 "flex h-full items-center gap-3 rounded-2xl bg-cover bg-right py-2 pl-4 max-md:pr-landing-card-art md:gap-4 md:pr-landing-card-art-md md:pl-10",
                 bg,
