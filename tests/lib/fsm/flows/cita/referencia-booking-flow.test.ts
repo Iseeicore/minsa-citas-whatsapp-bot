@@ -8,12 +8,9 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-reserva";
-import { AppointmentMode } from "@/lib/enums/appointment-mode";
+import { REFERENCIA_DUPLICATE_TEXT, REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-reserva";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
-import { OtherReferenciaCitaButtonId } from "@/lib/enums/other-referencia-cita-button-id";
-import { CITA_REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-referencia";
 
 const WEB_REFERENCIAS: ReferenciaItem[] = [
   { id: "1364486", destino: "5987", ups: "222800", especialidad: "GASTROENTEROLOGÍA" },
@@ -71,7 +68,8 @@ describe("referencia médica: no hay fechas con cupo en el destino", () => {
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(queries(result)).toHaveLength(0);
     const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
-    expect(accepted.session.state).toBe("referencia_awaiting_lookup_retry");
+    expect(accepted.session.state).toBe("referencia_lookup_pending");
+    expect(queries(accepted).map((effect) => effect.kind)).toEqual(["list_references"]);
   });
 
   it("también cuando MINSA responde found con la lista vacía", () => {
@@ -136,7 +134,6 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     slots: {
       ...fechaPending(true).slots,
       [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify(WEB_REFERENCIAS),
-      [SlotKey.CITA_APPOINTMENT_MODE]: AppointmentMode.REFERENCE,
     },
   });
 
@@ -144,7 +141,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     { status: "empty" },
     { status: "found", items: [] },
     { status: "found", items: [{ fechaCupo: "07/10/2099", cantidadCupos: 0 }] },
-  ])("sin disponibilidad (%j) pregunta si seguir con las referencias o con una cita médica antes de volver al listado", (response) => {
+  ])("sin disponibilidad (%j) pregunta si elegir otra referencia antes de volver al listado", (response) => {
     const session = webFechaPending();
     session.counters[CounterKey.CITA_BOOKING_FAILURES] = 2;
     const original = structuredClone(session);
@@ -152,11 +149,11 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     const result = handle(session, fechasResult(response));
 
     expect(result.session.state).toBe("referencia_awaiting_other_reference");
-    expect(texts(result)).toContain(CITA_REFERENCIA_SIN_FECHAS_TEXT);
+    expect(texts(result)).toContain(REFERENCIA_SIN_FECHAS_TEXT);
     expect(queries(result)).toHaveLength(0);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe("12345678");
-    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaCitaButtonId.REFERENCES });
+    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
     expect(accepted.session.state).toBe("cita_awaiting_referencia_select");
     expect(accepted.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
     expect(accepted.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBeUndefined();
@@ -175,7 +172,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     const result = handle(session, fechasResult({ status: "found", items: [{ fechaCupo: "07/10/2099", cantidadCupos: 1 }] }));
 
     expect(result.session.state).toBe("referencia_awaiting_other_reference");
-    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaCitaButtonId.REFERENCES });
+    const accepted = handle(result.session, { from: FROM, type: "button", listId: OtherReferenciaButtonId.YES });
     expect(accepted.session.slots[SlotKey.CITA_FECHAS_DESCARTADAS]).toBeUndefined();
     expect(queries(result)).toHaveLength(0);
   });
@@ -184,7 +181,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
     const result = handle(webFechaPending(), fechasResult({ status: "error" }));
 
     expect(result.session.state).toBe("cita_awaiting_referencia_select");
-    expect(texts(result)).not.toContain(CITA_REFERENCIA_SIN_FECHAS_TEXT);
+    expect(texts(result)).not.toContain(REFERENCIA_SIN_FECHAS_TEXT);
     expect(queries(result)).toHaveLength(0);
     const retried = handle(result.session, { from: FROM, type: "list", listId: "1364486" });
     expect(queries(retried)).toEqual([{ kind: "list_fechas", payload: { codEess: "5987", especialidadId: "222800" } }]);
@@ -195,7 +192,7 @@ describe("referencia médica web: recuperar disponibilidad sin cambiar el destin
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
-    expect(texts(result)).not.toContain(CITA_REFERENCIA_SIN_FECHAS_TEXT);
+    expect(texts(result)).not.toContain(REFERENCIA_SIN_FECHAS_TEXT);
     expect(queries(result)).toHaveLength(0);
   });
 
@@ -407,7 +404,7 @@ describe("referencia médica: confirmación final en el chat web", () => {
     expect(queries(result)).toHaveLength(0);
   });
 
-  it("si MINSA informa una cita activa, vuelve a elegir sin cambiar silenciosamente especialidad ni destino", () => {
+  it("si MINSA informa una cita activa, continúa con una cita sin referencia y no reutiliza su destino", () => {
     const session = horaSession();
     session.state = "cita_booking_pending";
 
@@ -418,30 +415,12 @@ describe("referencia médica: confirmación final en el chat web", () => {
       result: { status: "duplicate" },
     });
 
-    expect(result.session.state).toBe("referencia_awaiting_appointment_mode");
+    expect(result.session.state).toBe("cita_awaiting_distrito_ai");
     expect(queries(result)).toHaveLength(0);
-    expect(texts(result)).toContain("ya tienes una cita activa");
-    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("5987");
-    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("222800");
-    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBe("1364486");
-  });
-
-  it("una cita duplicada del canal web conserva el destino aunque la sesión persistida no tenga canal", () => {
-    const session = horaSession();
-    delete session.channel;
-    session.state = "cita_booking_pending";
-
-    const result = handle(session, {
-      from: FROM,
-      channel: SessionChannel.WEB,
-      type: InternalEventType.QUERY_RESULT,
-      queryKind: "book_appointment",
-      result: { status: "duplicate" },
-    });
-
-    expect(result.session.state).toBe("referencia_awaiting_appointment_mode");
-    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBe("5987");
-    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBe("222800");
-    expect(queries(result)).toHaveLength(0);
+    expect(texts(result)).toContain(REFERENCIA_DUPLICATE_TEXT);
+    expect(result.session.slots[SlotKey.CITA_COD_EESS]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe(session.slots[SlotKey.CITA_BEARER]);
   });
 });

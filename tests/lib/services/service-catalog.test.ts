@@ -19,7 +19,7 @@ afterEach(() => {
 const ROW_CITA = { id: MenuChoice.AGENDAR_CITA, title: "Agendar una cita médica" };
 const ROW_INCIDENCIA = { id: MenuChoice.REGISTRAR_INCIDENCIA, title: "Denuncia anticorrupción" };
 const ROW_CONSULTA = { id: MenuChoice.CONSULTAR_INCIDENCIA, title: "Consultar mi denuncia" };
-const ROW_REFERENCIA = { id: MenuChoice.CONSULTAR_REFERENCIA, title: "Consultar Referencias" };
+const ROW_REFERENCIA = { id: MenuChoice.CONSULTAR_REFERENCIA, title: "Cita con referencia" };
 const CHANNELS = [SessionChannel.WHATSAPP, SessionChannel.WEB];
 
 describe("the services", () => {
@@ -80,7 +80,7 @@ describe("the services", () => {
     for (const service of [new IncidenciaService(), new ConsultaService()]) {
       expect(service.disabledReply()).toBe(SERVICE_DISABLED_TEXT);
     }
-    expect(SERVICE_DISABLED_TEXT).toBe("Por ahora solo puedo ayudarte a agendar una cita médica o a consultar una referencia.");
+    expect(SERVICE_DISABLED_TEXT).toBe("Por ahora solo puedo ayudarte a agendar una cita médica o una cita con referencia.");
   });
 });
 

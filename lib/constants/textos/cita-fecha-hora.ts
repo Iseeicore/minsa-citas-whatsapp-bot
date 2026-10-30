@@ -5,10 +5,10 @@ import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
 
 export const SEARCHING_FECHAS_TEXT = "Buscando fechas disponibles…";
 export const SEARCHING_HORARIOS_TEXT = "Buscando horarios disponibles…";
-export const fechaFoundText = (fecha: string): string => `Fecha encontrada: ${fecha}. ${SEARCHING_HORARIOS_TEXT}`;
+export const fechaFoundText = (fecha: string): string => `Fecha encontrada: *${fecha}*.`;
 export const FECHA_NOT_IDENTIFIED_TEXT = `No pudimos identificar esa fecha. ${SELECTION_REJECTION_TEXT}`;
 export const cuposDisponiblesText = (cupos: number): string => `${cupos} cupo(s) disponibles`;
-export const SELECT_FECHA_TEXT = "Selecciona la fecha:";
+export const SELECT_FECHA_TEXT = "Selecciona alguna de estas fechas:";
 export const noCuposForFechaText = (fecha: string): string => `No hay cupos para ${fecha}. Elige una de las fechas disponibles:`;
 export const OTHER_FECHA_DECLINED_TEXT = `Entendido, no buscaremos otra fecha por ahora. ${CITA_FAREWELL_TEXT}`;
 export const OTHER_FECHA_NO_DATES_TEXT = `Lamentamos informarte que por ahora no hay otras fechas disponibles en este establecimiento. ${CITA_FAREWELL_TEXT}`;
@@ -18,7 +18,6 @@ export const OTHER_FECHA_ONLY_DECLINED_INTRO_TEXT =
 export const OTHER_FECHA_NO_HORARIOS_INTRO_TEXT = "No hay horarios disponibles para esa fecha.";
 export const OTHER_FECHA_QUESTION_TEXT = "¿Deseas cambiar de fecha?\n\n[1] Sí, cambiar de fecha\n[2] No, salir";
 export const OTHER_FECHA_YES_BUTTON_TEXT = "Sí, otra fecha";
-export const SEARCHING_OTHER_FECHAS_TEXT = "Buscando otras fechas disponibles…";
 export const onlyHoraConfirmText = (range: string): string => `Solo hay un horario disponible: ${range}. ¿Lo confirmas?`;
 export const horaConfirmText = (range: string): string => `¿Confirmas el horario ${range}?`;
 export const ONLY_HORA_NO_BUTTON_TEXT = "No, gracias";
@@ -27,11 +26,10 @@ export const HORA_CHOICE_PROMPT_TEXT = "Elige una de las dos opciones:";
 export const horaOptionText = (hora: string): string => `Opción: ${hora}`;
 export const SEE_HORAS_BUTTON_TEXT = "Ver horas";
 export const CHOOSE_OTHER_HORA_TEXT = "Sin problema. Elige otro horario:";
-export const SELECT_HORA_TEXT = "Selecciona el horario:";
+export const SELECT_HORA_TEXT = "Selecciona la hora de tu preferencia:";
 export const HORA_PAGE_PREV_BUTTON_TEXT = "Horarios anteriores";
 export const HORA_PAGE_NEXT_BUTTON_TEXT = "Ver más horarios";
 export const HORA_PAGE_QUESTION_TEXT = "¿Quieres ver otros horarios de esta especialidad?";
-export const SEARCHING_MORE_HORARIOS_TEXT = "Buscando más horarios…";
 export const hourGroupSeeHorasText = (hourGroup: string): string => `${hourGroup}: ver horas`;
 export const numberedHoraOptionText = (position: number, hora: string): string => `Opción ${position}: ${hora}`;
 

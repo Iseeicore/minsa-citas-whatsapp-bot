@@ -203,14 +203,15 @@ describe("first contact: text that says nothing structured", () => {
 });
 
 describe("first contact: the web (sandbox/widget) channel", () => {
-  it("a greeting gets the web welcome as plain text, with no CTA button, followed by the main menu", () => {
+  it("a greeting gets one message: the short web welcome as the body of the main menu list, with no CTA button", () => {
     const result = handleFirstContact("Hola", "web");
 
-    expect(sent(result)).toHaveLength(2);
-    const [welcome, menu] = sent(result);
-    expect(welcome.kind).toBe("send_text");
-    expect(welcome.kind === "send_text" && welcome.text).toContain("asistente virtual de MINSA Digital");
-    expect(menu.kind).toBe("send_interactive_list");
+    expect(sent(result)).toHaveLength(1);
+    const [welcome] = sent(result);
+    expect(welcome.kind).toBe("send_interactive_list");
+    expect(welcome.kind === "send_interactive_list" && welcome.text).toContain("Soy tu asistente virtual");
+    expect(welcome.kind === "send_interactive_list" && welcome.text).toContain("¿En qué puedo ayudarte?");
+    expect(firstListTitle(result)).toContain("Agendar una cita médica");
   });
 });
 

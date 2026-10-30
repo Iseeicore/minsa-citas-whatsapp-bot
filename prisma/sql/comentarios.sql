@@ -198,6 +198,15 @@ COMMENT ON COLUMN catalogo.tipo_mensaje.usuario_creacion IS 'Quién creó la fil
 COMMENT ON COLUMN catalogo.tipo_mensaje.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.tipo_mensaje.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON TABLE catalogo.tipo_mensaje IS 'Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla).';
+COMMENT ON COLUMN chatbot.aceptacion_terminos.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
+COMMENT ON COLUMN chatbot.aceptacion_terminos.wa_id IS 'Id del chat que aceptó: el número de WhatsApp o el identificador de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque la aceptación puede ocurrir antes de que exista el usuario.';
+COMMENT ON COLUMN chatbot.aceptacion_terminos.canal_origen_id IS 'Canal por el que se aceptó (WhatsApp o web).';
+COMMENT ON COLUMN chatbot.aceptacion_terminos.version IS 'Versión del texto de los términos y condiciones que se mostró y se aceptó, por ejemplo 2026-10-29.';
+COMMENT ON COLUMN chatbot.aceptacion_terminos.aceptado_en IS 'Fecha y hora (UTC) en que la persona aceptó los términos y condiciones.';
+COMMENT ON TABLE chatbot.aceptacion_terminos IS 'Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. Guarda el chat, el canal, la versión del texto aceptado y el momento. Es de solo inserción: no se modifica ni se borra.
+
+Relaciones:
+- canal_origen_id → catalogo.canal_origen: Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se aceptaron los términos.';
 COMMENT ON COLUMN chatbot.archivo_recibido.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
 COMMENT ON COLUMN chatbot.archivo_recibido.solicitud_carga_id IS 'Solicitud de carga con la que se subió el archivo.';
 COMMENT ON COLUMN chatbot.archivo_recibido.nombre_original IS 'Nombre que tenía el archivo en el dispositivo del ciudadano. Es un dato informativo y puede venir vacío.';

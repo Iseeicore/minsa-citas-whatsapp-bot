@@ -1,10 +1,10 @@
-import { normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/text/text";
-import { buildResult, offerList, query, sendText, truncateForRow } from "@/lib/fsm/core/handlers-shared";
+import { normalizeText } from "@/lib/fsm/parsing/text/text";
+import { buildResult, offerList, query, truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-import { searchingCatalogInText, SELECT_UBIGEO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import { SELECT_UBIGEO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 import { isString } from "@/lib/utils/type-guards";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX, WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
@@ -29,8 +29,6 @@ export function pickSettledUbigeo(session: Session, items: UbigeoResultItem[]): 
   return exact.length === 1 ? exact[0] : undefined;
 }
 
-export const searchingCatalogText = (distrito: string) => searchingCatalogInText(toDisplayPlace(distrito));
-
 export function ubigeoRows(items: UbigeoResultItem[]): ListRow[] {
   return items.map((item) => ({
     id: item.ubigeoInei,
@@ -43,11 +41,9 @@ export const isOfferableUbigeoList = (items: UbigeoResultItem[]): boolean => ite
 
 export function acceptSettledUbigeo(next: Session, settled: UbigeoResultItem): HandlerResult {
   next.slots[SlotKey.CITA_UBIGEO] = settled.ubigeoInei;
+  next.slots[SlotKey.CITA_DISTRITO] = settled.distrito;
   next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
-  return buildResult(next, [
-    sendText(searchingCatalogText(settled.distrito)),
-    query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: settled.ubigeoInei }),
-  ]);
+  return buildResult(next, [query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: settled.ubigeoInei })]);
 }
 
 export function offerUbigeos(next: Session, items: UbigeoResultItem[]): HandlerResult {

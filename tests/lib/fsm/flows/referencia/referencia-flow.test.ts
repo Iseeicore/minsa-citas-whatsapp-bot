@@ -3,17 +3,17 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
-import { ANALYZING_CUENTA_TEXT, VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
+import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
-import { referenciasBloqueadasAviso } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
   REFERENCIA_GOODBYE_TEXT,
   REFERENCIA_NONE_TEXT,
+  REFERENCIA_SIN_AGENDABLES_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
 import { DEMO_PEDIATRIA_DNI, DEMO_REFERENCIA_DNI } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
@@ -91,17 +91,17 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBe(DNI);
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
-    expect(texts(result)).toEqual([ANALYZING_CUENTA_TEXT]);
+    expect(texts(result)).toEqual([]);
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
     expect(result.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
   });
 
-  it("cita (no purpose): checks references before deciding whether to request a district", () => {
+  it("cita (no purpose): asks for the district without consulting references", () => {
     const result = handle(verifyPending(DNI), verified);
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
-    expect(texts(result)).toEqual([ANALYZING_CUENTA_TEXT]);
-    expect(queries(result)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(texts(result)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
+    expect(queries(result)).toEqual([]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
   });
 
@@ -112,8 +112,8 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(queries(demo)).toEqual([]);
 
     const cita = handle(verifyPending(dni), verified);
-    expect(cita.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
-    expect(queries(cita)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: dni, tipoDocumento: "01" } }]);
+    expect(cita.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(queries(cita)).toEqual([]);
   });
 
   it("a wrong code keeps the purpose for the next try", () => {
@@ -170,7 +170,6 @@ describe("the lookup", () => {
     const lookupOn = (channel: SessionChannel): Session => ({ ...lookupPending(), channel });
     const rowIds = (result: HandlerResult) =>
       sent(result).flatMap((effect) => (effect.kind === "send_interactive_list" ? effect.rows.map((row) => row.id) : []));
-    const aviso = referenciasBloqueadasAviso([citada]);
 
     const list = (result: HandlerResult) => sent(result).find((effect) => effect.kind === "send_interactive_list");
     const actionIds = (result: HandlerResult) => {
@@ -180,13 +179,12 @@ describe("the lookup", () => {
     const CONSULTA_ACTIONS = [ReferenciaActionButtonId.NEW_APPOINTMENT, ReferenciaActionButtonId.EXIT];
 
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
-      "%s lists only the bookable ones and names the others in one text before the list",
+      "%s lists only the bookable ones and says nothing about the others",
       (channel) => {
         const result = handle(lookupOn(channel), found([citada, REFERENCIA]));
 
-        expect(aviso).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
-        expect(texts(result)).toEqual([aviso]);
-        expect(sent(result)[0]).toEqual({ kind: "send_text", text: aviso });
+        expect(texts(result)).toEqual([]);
+        expect(sent(result)[0]?.kind).toBe("send_interactive_list");
         expect(rowIds(result)).toEqual([REFERENCIA.idReferencia]);
         expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
       },
@@ -232,21 +230,20 @@ describe("the lookup", () => {
       },
     );
 
-    it("Salir closes with the usual farewell and a typed salir keeps the existing exit confirmation", () => {
+    it.each([tap(ReferenciaActionButtonId.EXIT), text("salir"), text("Salir")])("%j closes at once with the usual farewell", (event) => {
       const listed = handle(lookupOn(SessionChannel.WHATSAPP), found([citada, REFERENCIA]));
-      const result = handle(listed.session, tap(ReferenciaActionButtonId.EXIT));
+      const result = handle(listed.session, event);
 
       expect(result.session.state).toBe(SessionState.REFERENCIA_CLOSED);
       expect(texts(result)).toEqual([REFERENCIA_GOODBYE_TEXT]);
-      expect(handle(listed.session, text("salir")).session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
     });
 
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
-      "%s with none bookable sends that text and asks whether to book a cita, with no list",
+      "%s with none bookable says so without naming them and asks whether to book a cita, with no list",
       (channel) => {
         const result = handle(lookupOn(channel), found([citada]));
 
-        expect(texts(result)).toEqual([aviso]);
+        expect(texts(result)).toEqual([REFERENCIA_SIN_AGENDABLES_TEXT]);
         expect(rowIds(result)).toEqual([]);
         expect(buttons(result)).toEqual({
           kind: "send_buttons",
@@ -271,7 +268,7 @@ describe("the lookup", () => {
       const many = Array.from({ length: 13 }, (_, index) => ({ ...REFERENCIA, idReferencia: `ref-${index}`, numero: `n-${index}` }));
       const result = handle(lookupOn(SessionChannel.WEB), found([citada, ...many]));
 
-      expect(texts(result)).toEqual([aviso]);
+      expect(texts(result)).toEqual([]);
       expect(rowIds(result)).toEqual(many.slice(0, 10).map((item) => item.idReferencia));
       expect(actionIds(result)).toEqual(CONSULTA_ACTIONS);
     });
@@ -372,13 +369,13 @@ describe("with referencias: the existing selection and confirmation", () => {
     expect(queries(result)).toEqual([{ kind: QueryKind.LIST_FECHAS, payload: { codEess: "5987", especialidadId: "222800" } }]);
   });
 
-  it("a referencia without destination codes returns to appointment modes without silently choosing a new destination", () => {
+  it("a referencia without destination codes returns to the references list without silently choosing a new destination", () => {
     const session = confirmPending();
     session.slots[SlotKey.CITA_REFERENCIAS_DATA] = JSON.stringify([{ ...REFERENCIA, codigoIpressDestino: "", codigoUpsDestino: "" }]);
 
     const result = handle(session, text("si"));
 
-    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_APPOINTMENT_MODE);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(queries(result)).toEqual([]);
   });

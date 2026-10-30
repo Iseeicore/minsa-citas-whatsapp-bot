@@ -10,10 +10,8 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { PLAUSIBLE_PLACE_NAME } from "@/lib/constants/regex/catalog";
 import {
-  SEARCHING_UBIGEO_TEXT,
   DISTRITO_TOO_MANY_MATCHES_TEXT,
   DISTRITO_DISAMBIGUATION_TEXT,
-  searchingDistritoText,
   UNRECOGNIZED_DISTRITO_TEXT,
 } from "@/lib/constants/textos/cita-ubicacion";
 import {
@@ -97,7 +95,6 @@ export function resolveDistritoCandidates(session: Session, rawCandidates: Distr
     next.slots[SlotKey.CITA_DISTRITO] = candidate.distrito;
     next.state = SessionState.CITA_UBIGEO_PENDING;
     return buildResult(next, [
-      sendText(SEARCHING_UBIGEO_TEXT),
       query(QueryKind.SEARCH_UBIGEO, {
         departamento: candidate.departamento,
         provincia: candidate.provincia,
@@ -137,8 +134,5 @@ export function resolveDistritoText(session: Session, distritoText: string, cont
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_DISTRITO_AI_PENDING;
-  return buildResult(next, [
-    sendText(searchingDistritoText(distritoText)),
-    query(QueryKind.RESOLVE_DISTRITO_AI, { distritoText, contextText }),
-  ]);
+  return buildResult(next, [query(QueryKind.RESOLVE_DISTRITO_AI, { distritoText, contextText })]);
 }

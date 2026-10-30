@@ -1,7 +1,7 @@
 import { graphAuthHeaders, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
 import { ACTOR_SISTEMA_BOT } from "@/lib/db/actor";
 import { recordOutboundMessage } from "@/lib/inbox/repository";
-import type { SendEffect } from "@/lib/fsm/core/types";
+import type { ChannelSendEffect, SendEffect } from "@/lib/fsm/core/types";
 import { SendType } from "@/lib/enums/send-type";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
@@ -13,8 +13,9 @@ import { isRecord } from "@/lib/utils/type-guards";
 import { readNumber, readString } from "@/lib/utils/record-readers";
 import { HTTP_BAD_REQUEST } from "@/lib/constants/http-status";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
+import { toWhatsAppEffects } from "@/lib/whatsapp/terminos-effects";
 
-function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknown> {
+function buildGraphBody(waId: string, effect: ChannelSendEffect): Record<string, unknown> {
   const base = {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -79,14 +80,14 @@ function buildGraphBody(waId: string, effect: SendEffect): Record<string, unknow
   }
 }
 
-function withinLimits(waId: string, effect: SendEffect): SendEffect {
+function withinLimits(waId: string, effect: ChannelSendEffect): ChannelSendEffect {
   const violations = findLimitViolations(effect);
   if (violations.length === 0) return effect;
   logger.warn("outbound.limit_violation", { waId: tail(waId), kind: effect.kind, violations });
   return toNumberedTextEffect(effect);
 }
 
-function postEffect(waId: string, effect: SendEffect): Promise<Response> {
+function postEffect(waId: string, effect: ChannelSendEffect): Promise<Response> {
   return fetch(graphMessagesUrl(), {
     method: "POST",
     headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
@@ -94,11 +95,11 @@ function postEffect(waId: string, effect: SendEffect): Promise<Response> {
   });
 }
 
-export async function sendWhatsAppEffect(waId: string, effect: SendEffect): Promise<Response> {
+export async function sendWhatsAppEffect(waId: string, effect: ChannelSendEffect): Promise<Response> {
   return postEffect(waId, withinLimits(waId, effect));
 }
 
-async function trySend(waId: string, effect: SendEffect): Promise<Response | undefined> {
+async function trySend(waId: string, effect: ChannelSendEffect): Promise<Response | undefined> {
   try {
     return await postEffect(waId, effect);
   } catch (err) {
@@ -107,7 +108,7 @@ async function trySend(waId: string, effect: SendEffect): Promise<Response | und
   }
 }
 
-async function logRejection(waId: string, effect: SendEffect, response: Response): Promise<void> {
+async function logRejection(waId: string, effect: ChannelSendEffect, response: Response): Promise<void> {
   const body = parseJsonOr(await response.text().catch(() => ""), {});
   const error = isRecord(body) && isRecord(body.error) ? body.error : {};
   logger.error("outbound.rejected", {
@@ -164,7 +165,7 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   }
 }
 
-export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<string | null> {
+async function sendAndRecordMessage(conversationId: string | null, waId: string, effect: ChannelSendEffect): Promise<string | null> {
   const outbound = withinLimits(waId, effect);
   const response = await trySend(waId, outbound);
   if (!response) return null;
@@ -181,6 +182,12 @@ export async function sendAndRecordEffect(conversationId: string | null, waId: s
     return null;
   }
   return recordDelivered(conversationId, fallback.text, retry);
+}
+
+export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<string | null> {
+  let sentId: string | null = null;
+  for (const message of toWhatsAppEffects(effect)) sentId = await sendAndRecordMessage(conversationId, waId, message);
+  return sentId;
 }
 
 export async function sendAndRecordCtaUrl(

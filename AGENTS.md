@@ -19,7 +19,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 **Qué gestiona la fase:** la variable de entorno `INCIDENCIAS_ENABLED`, leída en `lib/config/features.ts`.
 
-- Apagada (sin definir, vacía o con cualquier valor distinto de `true`): el menú ofrece solo **Agendar una cita médica** y **Consultar Referencias** (la referencia no lleva bandera y su fila está en los dos canales). El código `MINSA-AAAA-NNNNNN`, las palabras clave, el `3`/`4` escritos y las sesiones que quedaron a medias en incidencia no llegan a esos flujos: el bot responde que por ahora solo agenda citas y consulta referencias, y muestra el menú.
+- Apagada (sin definir, vacía o con cualquier valor distinto de `true`): el menú ofrece solo **Agendar una cita médica** y **Cita con referencia** (la referencia no lleva bandera y su fila está en los dos canales). El código `MINSA-AAAA-NNNNNN`, las palabras clave, el `3`/`4` escritos y las sesiones que quedaron a medias en incidencia no llegan a esos flujos: el bot responde que por ahora solo agenda citas y consulta referencias, y muestra el menú.
 - Encendida (`true`, sin distinguir mayúsculas ni espacios): ofrece también **Registrar una incidencia** y **Consultar una incidencia**.
 - Se lee en cada mensaje: cambiarla exige reiniciar el proceso, no recompilar. Vitest la fuerza a `true` para probar los dos flujos.
 - Cambiar de fase = cambiar esta variable (con aviso a infraestructura, regla 100 de las reglas de backend) y actualizar esta tabla en el mismo PR.

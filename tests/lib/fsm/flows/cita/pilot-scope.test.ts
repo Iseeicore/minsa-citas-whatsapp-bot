@@ -15,7 +15,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const LIMA_ONLY_TEXT =
-  "Por ahora estamos en una etapa inicial y el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Digital.";
+  "Por ahora estamos en una etapa inicial y el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Responde.";
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
@@ -68,7 +68,7 @@ describe("CITA_ALLOWED_DEPARTAMENTOS", () => {
 });
 
 describe("the district search honors the configured scope", () => {
-  it("with LIMA, a district only found outside Lima is redirected to MINSA Digital", () => {
+  it("with LIMA, a district only found outside Lima is redirected to MINSA Responde", () => {
     vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
     const result = resolveDistritoCandidates(session("cita_distrito_ai_pending"), [arequipa]);
 

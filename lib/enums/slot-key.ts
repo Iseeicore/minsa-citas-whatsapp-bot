@@ -28,7 +28,6 @@ export enum SlotKey {
   CITA_HORA_CHOICE_B = "citaHoraChoiceB",
   MENU_CHOICE = "menuChoice",
   POST_LOGIN_FLOW = "postLoginFlow",
-  CITA_APPOINTMENT_MODE = "citaAppointmentMode",
   DNI = "dni",
   CITA_TWOFA_ID = "citaTwofaId",
   CITA_OFFERED = "citaOffered",
@@ -45,6 +44,7 @@ export enum SlotKey {
   CITA_ESTABLECIMIENTO_SIN_FECHAS = "citaEstablecimientoSinFechas",
   CITA_ESTABLECIMIENTO_PROPUESTO = "citaEstablecimientoPropuesto",
   CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE = "citaEstablecimientoPropuestoNombre",
+  CITA_NO_COVERAGE_SUBJECT = "citaNoCoverageSubject",
   INCIDENCIA_ORIGEN = "incidenciaOrigen",
   INCIDENCIA_BORRADOR = "incidenciaBorrador",
   INCIDENCIA_UBICACION_TEXTO = "incidenciaUbicacionTexto",
@@ -62,4 +62,7 @@ export enum SlotKey {
   CONSULTA_LISTADO_DATA = "consultaListadoData",
   INTERACTIVE_MESSAGE_ID = "interactiveMessageId",
   INTERACTIVE_MESSAGE_CONSUMED = "interactiveMessageConsumed",
+  TERMINOS_ACEPTADOS = "terminosAceptados",
+  TERMINOS_RESUME = "terminosResume",
+  TERMINOS_INTRO_TEXT = "terminosIntroText",
 }

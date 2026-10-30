@@ -14,6 +14,7 @@ import { matchExactOption } from "@/lib/fsm/parsing/selection/selection-matchers
 import { consultaService, incidenciaService, serviceCatalog } from "@/lib/services/service-catalog";
 import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { beginReferencias } from "@/lib/fsm/flows/referencia/handlers-referencia";
+import { startCitaIdentity } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
@@ -30,7 +31,6 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import {
-  REVIEWING_MESSAGE_TEXT,
   OUT_OF_SCOPE_REQUEST_TEXT,
   OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT,
   CITA_INTENT_DETECTED_TEXT,
@@ -54,10 +54,7 @@ export function handleAwaitingFlowStart(session: Session, channel: SessionChanne
     return beginIncidencia(next.slots, "");
   }
 
-  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) {
-    next.state = SessionState.CITA_AWAITING_DNI;
-    return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
-  }
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) return startCitaIdentity(next, ASK_DOCUMENTO_TEXT);
 
   return enterMainMenu(channel);
 }
@@ -200,7 +197,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
         slots: { ...preservedSlots, [SlotKey.INCIDENCIA_BORRADOR]: event.text },
         counters: {},
       };
-      return buildResult(next, [sendText(REVIEWING_MESSAGE_TEXT), query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text })]);
+      return buildResult(next, [query(QueryKind.ANALYZE_MAIN_MENU_INTENT, { text: event.text })]);
     }
 
     return enterMainMenu(channel, preservedSlots);

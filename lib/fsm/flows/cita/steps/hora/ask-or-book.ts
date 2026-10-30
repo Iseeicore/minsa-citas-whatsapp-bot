@@ -16,7 +16,7 @@ import {
   ONLY_HORA_CONFIRM_BUTTONS,
   HORA_CONFIRM_BUTTONS,
 } from "@/lib/constants/textos/cita-fecha-hora";
-import { BOOKING_IN_PROGRESS_TEXT, referenciaReservaResumenText } from "@/lib/constants/textos/cita-reserva";
+import { referenciaReservaResumenText } from "@/lib/constants/textos/cita-reserva";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { formatDateLong, parseOfferedDate } from "@/lib/fsm/parsing/date/date-parser";
 
@@ -67,7 +67,6 @@ export function startBooking(session: Session, horaInicio: string): HandlerResul
   next.state = SessionState.CITA_BOOKING_PENDING;
   const referenciaId = referenciaSeleccionadaId(next.slots);
   return buildResult(next, [
-    sendText(BOOKING_IN_PROGRESS_TEXT),
     query(QueryKind.BOOK_APPOINTMENT, {
       codigoRenipress: slotText(next.slots, SlotKey.CITA_COD_EESS),
       codigoUps: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),

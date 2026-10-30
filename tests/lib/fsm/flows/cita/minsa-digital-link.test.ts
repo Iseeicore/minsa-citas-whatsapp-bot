@@ -6,6 +6,7 @@ import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { CITA_BOOKED_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
 
 const FROM = "wa-link";
 const PORTAL = "https://portal-prueba.example.test";
@@ -58,7 +59,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
 
     const result = handle(firstAttempt, notValid);
 
-    expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", buttonText: "Ir a MINSADIGITAL", url: `${PORTAL}/login` });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", buttonText: "Ir a MINSA RESPONDE", url: `${PORTAL}/login` });
     expect(kinds(result)).toEqual(["send_cta_url", "send_buttons"]);
   });
 
@@ -68,7 +69,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
     const result = handle(firstAttempt, notValid);
 
     expect(kinds(result)).toEqual(["send_text", "send_buttons"]);
-    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No encontramos tu documento en MINSADIGITAL") });
+    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No encontramos tu documento en MINSA Responde") });
     expect(sent(result)[0]).not.toHaveProperty("url");
   });
 });
@@ -82,21 +83,39 @@ describe("constancia de la cita reservada", () => {
     result: { status: "booked", url, message: "Cita creada" },
   });
 
-  it("con enlace ofrece el botón «Ver mi cita»", () => {
+  it("con enlace manda dos mensajes: la constancia y el botón «Ver mi cita» con la despedida", () => {
     const result = handle(booking, booked(`${PORTAL}/citas/confirmacion/ABC`));
 
-    expect(kinds(result)).toEqual(["send_text", "send_cta_url", "send_text"]);
-    expect(sent(result)[1]).toMatchObject({ buttonText: "Ver mi cita", url: `${PORTAL}/citas/confirmacion/ABC` });
+    expect(kinds(result)).toEqual(["send_text", "send_cta_url"]);
+    expect(sent(result)[0]).toEqual({
+      kind: "send_text",
+      text: [
+        "*MINISTERIO DE SALUD DEL PERÚ*",
+        "*Constancia de Registro de Cita*",
+        "",
+        "Estimado(a) usuario(a), su solicitud ha sido procesada con éxito:",
+        "*Cita creada*",
+        "",
+        "*Nota:* Recuerde acudir a su cita portando su DNI o documento de identidad físico e intente llegar 15 minutos antes.",
+      ].join("\n"),
+    });
+    expect(sent(result)[1]).toEqual({
+      kind: "send_cta_url",
+      text: [
+        "Si desea ver el PDF de su cita, dé clic en *Ver mi cita*.",
+        "",
+        "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si necesitas agendar otra cita, escríbenos nuevamente. ¡Que tengas un buen día! 👋",
+      ].join("\n"),
+      buttonText: "Ver mi cita",
+      url: `${PORTAL}/citas/confirmacion/ABC`,
+    });
   });
 
-  it("sin enlace manda el mismo aviso como texto, no un botón con la URL vacía", () => {
+  it("sin enlace manda la constancia y solo la despedida, no un botón con la URL vacía", () => {
     const result = handle(booking, booked(""));
 
-    expect(kinds(result)).toEqual(["send_text", "send_text", "send_text"]);
-    expect(sent(result)[1]).toEqual({
-      kind: "send_text",
-      text: "Ingrese a la plataforma oficial para visualizar los detalles de su atención (establecimiento, fecha, hora y consultorio):",
-    });
+    expect(kinds(result)).toEqual(["send_text", "send_text"]);
+    expect(sent(result)[1]).toEqual({ kind: "send_text", text: CITA_BOOKED_FAREWELL_TEXT });
     expect(result.session.state).toBe("cita_booked");
   });
 });

@@ -58,7 +58,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
       expect(list).toMatchObject({ kind: "send_interactive_list" });
       expect(list.kind === "send_interactive_list" && list.rows).toEqual([
         { id: "agendar_cita", title: "Agendar una cita médica" },
-        { id: "consultar_referencia", title: "Consultar Referencias" },
+        { id: "consultar_referencia", title: "Cita con referencia" },
       ]);
     });
 
@@ -273,7 +273,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
 
       expect(reply).toEqual({
         kind: "send_text",
-        text: "Solo puedo ayudarte a agendar una cita médica o a consultar una referencia. Elige una opción:",
+        text: "Solo puedo ayudarte a agendar una cita médica o una cita con referencia. Elige una opción:",
       });
     });
 

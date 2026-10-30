@@ -1,4 +1,4 @@
-import type { SendEffect, SendTextEffect } from "@/lib/fsm/core/types";
+import type { ChannelSendEffect, SendTextEffect } from "@/lib/fsm/core/types";
 import { SendType } from "@/lib/enums/send-type";
 import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { renderWithinLength } from "@/lib/utils/fit-text";
@@ -8,7 +8,7 @@ import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-i
 
 const numberedLines = (titles: string[]): string[] => titles.map((title, index) => numberedOptionLineText(index + 1, title));
 
-function optionLines(effect: SendEffect): string[] {
+function optionLines(effect: ChannelSendEffect): string[] {
   switch (effect.kind) {
     case SendType.TEXT:
       return [];
@@ -24,12 +24,12 @@ function optionLines(effect: SendEffect): string[] {
   }
 }
 
-function plainText(effect: SendEffect): string {
+function plainText(effect: ChannelSendEffect): string {
   const lines = optionLines(effect);
   if (lines.length === 0) return effect.text;
   return renderWithinLength([effect.text], ([body]) => bodyWithOptionLinesText(body, lines), WHATSAPP_TEXT_BODY_MAX);
 }
 
-export function toNumberedTextEffect(effect: SendEffect): SendTextEffect {
+export function toNumberedTextEffect(effect: ChannelSendEffect): SendTextEffect {
   return { kind: SendType.TEXT, text: truncateForRow(plainText(effect), WHATSAPP_TEXT_BODY_MAX) };
 }

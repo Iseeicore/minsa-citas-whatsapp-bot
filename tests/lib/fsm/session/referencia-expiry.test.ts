@@ -140,7 +140,7 @@ describe("the referencias waiting states are protected like the rest of the auth
     session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID] = "synthetic-reference";
     const result = turn(session, { from: FROM, type: InboundEventType.BUTTON, listId: OtherReferenciaButtonId.YES });
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_REAUTH);
-    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.CITA_REFERENCIAS);
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
     expect(result.session.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]).toBeUndefined();
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
     expect(queries(result)).toEqual([]);

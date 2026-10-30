@@ -20,7 +20,6 @@ import { SearchSubject } from "@/lib/enums/search-subject";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { CITA_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
-import { SEARCHING_FECHAS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import {
   SELECT_ESTABLECIMIENTO_TEXT,
   otherEstablecimientoQuestionText,
@@ -93,26 +92,29 @@ export function offerOtherEstablecimiento(session: Session, remaining: Alternati
   ]);
 }
 
+export function acceptProposedEstablecimiento(session: Session): HandlerResult {
+  const next = cloneSession(session);
+  const { slots } = next;
+
+  const codEess = slotText(slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO);
+  const nombreEess = slotText(slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE);
+  const especialidadId = slotText(slots, SlotKey.CITA_ESPECIALIDAD_ID);
+
+  slots[SlotKey.CITA_COD_EESS] = codEess;
+  slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = nombreEess;
+  delete slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO];
+  delete slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE];
+  next.state = SessionState.CITA_FECHA_PENDING;
+
+  const fechasQuery = query(QueryKind.LIST_FECHAS, { codEess, especialidadId });
+  return buildResult(next, [fechasQuery]);
+}
+
 export function handleOtherEstablecimiento(session: Session, event: InboundEvent): HandlerResult {
   const tapped = readTappedId(event);
   const answer = resolveConfirmation(readTypedText(event));
 
-  if (tapped === OtherEstablecimientoButtonId.YES || answer === Confirmation.YES) {
-    const next = cloneSession(session);
-    const proposed = slotText(next.slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO);
-    next.slots[SlotKey.CITA_COD_EESS] = proposed;
-    next.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE] = slotText(next.slots, SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE);
-    delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO];
-    delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE];
-    next.state = SessionState.CITA_FECHA_PENDING;
-    return buildResult(next, [
-      sendText(SEARCHING_FECHAS_TEXT),
-      query(QueryKind.LIST_FECHAS, {
-        codEess: proposed,
-        especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
-      }),
-    ]);
-  }
+  if (tapped === OtherEstablecimientoButtonId.YES || answer === Confirmation.YES) return acceptProposedEstablecimiento(session);
 
   if (tapped === OtherEstablecimientoButtonId.NO || answer === Confirmation.NO) {
     return withNote(buildResult({ state: SessionState.CITA_DECLINED_CLOSED, slots: {}, counters: {} }, [sendText(CITA_FAREWELL_TEXT)]), {

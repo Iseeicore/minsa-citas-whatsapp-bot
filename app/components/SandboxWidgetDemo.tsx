@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import MinsaDigitalBackdrop from "@/app/components/MinsaDigitalBackdrop";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import Sandbox from "@/app/components/Sandbox";
 import { clearStoredChat } from "@/app/components/sandbox-chat/storage";
 import { AssistantCard } from "@/app/components/ui/AssistantCard";
@@ -44,7 +43,7 @@ const OPEN_TIMING: KeyframeAnimationOptions = { duration: 220, easing: "ease-out
 
 const isOpenMode = (mode: WidgetMode) => mode === WidgetMode.NORMAL || mode === WidgetMode.EXPANDED;
 
-export default function SandboxWidgetDemo() {
+export default function SandboxWidgetDemo({ children }: { children: ReactNode }) {
   const [widget, setWidget] = useState<WidgetState>(INITIAL_WIDGET_STATE);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [needsFreshChat, setNeedsFreshChat] = useState(false);
@@ -83,15 +82,22 @@ export default function SandboxWidgetDemo() {
     setWidget(openWidget);
   }
 
+  function openChatFromLink(event: MouseEvent<HTMLDivElement>) {
+    if (!(event.target instanceof Element) || !event.target.closest("[data-open-chat]")) return;
+    event.preventDefault();
+    openChat();
+  }
+
   return (
     <div
+      onClick={openChatFromLink}
       className={cn(
         "relative w-full bg-gray-100 sm:overflow-auto",
         showingChat && "max-sm:overflow-hidden",
         !showingChat && "overflow-auto",
       )}
     >
-      <MinsaDigitalBackdrop />
+      {children}
 
       <div
         inert={showingLauncher}
@@ -128,9 +134,9 @@ export default function SandboxWidgetDemo() {
       <Button
         variant={ButtonVariant.UNSTYLED}
         onClick={openChat}
-        aria-label="Abrir el asistente virtual MINS IA"
+        aria-label="Abrir el asistente virtual"
         className={cn(
-          "fixed right-4 z-20 transition duration-200 hover:scale-105",
+          "fixed right-24 z-20 transition md:right-32 duration-200 hover:scale-105",
           showingLauncher ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}

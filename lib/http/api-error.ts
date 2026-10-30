@@ -11,6 +11,7 @@ export const API_ERRORS: Record<ApiErrorCode, { status: number; message: string 
   },
   [ApiErrorCode.PERSISTENCE_DISABLED]: { status: 503, message: "La persistencia está desactivada en este despliegue." },
   [ApiErrorCode.BUSY]: { status: 503, message: "Tu mensaje anterior sigue en proceso. Intenta de nuevo." },
+  [ApiErrorCode.INTERNAL]: { status: 500, message: "No pudimos procesar tu mensaje. Intenta de nuevo en unos minutos." },
 };
 
 export function apiError(code: ApiErrorCode, options: { message?: string; detail?: string; headers?: HeadersInit } = {}): NextResponse {

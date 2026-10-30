@@ -42,6 +42,8 @@ export const LOG_EVENTS = [
   "incidencia.consulta_failed",
   "incidencia.listado_unavailable",
   "incidencia.listado_failed",
+  "terminos.persist_failed",
+  "terminos.url_missing",
   "sandbox.cors_invalid_origin",
   "sandbox.signature_rejected",
   "config.invalid",

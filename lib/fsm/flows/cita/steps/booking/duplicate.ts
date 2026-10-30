@@ -12,7 +12,7 @@ import {
   withLeadingText,
 } from "@/lib/fsm/core/handlers-shared";
 import { isReferenceAppointment } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
-import { askAppointmentMode } from "@/lib/fsm/flows/referencia/appointment-mode-prompts";
+import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -26,7 +26,6 @@ import { THAT_ESPECIALIDAD_TEXT } from "@/lib/constants/textos/cita-catalogo";
 import {
   DUPLICATE_QUESTION_TEXT,
   duplicateActiveText,
-  SEARCHING_OTHER_ESPECIALIDADES_TEXT,
   DUPLICATE_BUTTONS,
   REFERENCIA_DUPLICATE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
@@ -52,18 +51,34 @@ export function discardedEspecialidades(slots: Session["slots"]): string[] {
   return slotText(slots, SlotKey.CITA_ESPECIALIDADES_DESCARTADAS).split(",").filter(Boolean);
 }
 
+export function withDiscardedEspecialidad(slots: Session["slots"]): Session["slots"] {
+  const especialidadId = slotText(slots, SlotKey.CITA_ESPECIALIDAD_ID);
+  const descartadas = new Set(discardedEspecialidades(slots));
+
+  if (especialidadId) {
+    descartadas.add(especialidadId);
+  }
+
+  if (descartadas.size === 0) {
+    return slots;
+  }
+
+  return {
+    ...slots,
+    [SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]: [...descartadas].join(","),
+  };
+}
+
 export function offerOtherEspecialidad(session: Session): HandlerResult {
   if (isReferenceAppointment(session)) {
-    return withLeadingText(askAppointmentMode(session), REFERENCIA_DUPLICATE_TEXT);
+    return withLeadingText(startNewAppointment(session), REFERENCIA_DUPLICATE_TEXT);
   }
   const next = cloneSession(session);
-  const taken = slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID);
   const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]
     ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*`
     : THAT_ESPECIALIDAD_TEXT;
 
-  const discarded = taken ? [...new Set([...discardedEspecialidades(next.slots), taken])] : discardedEspecialidades(next.slots);
-  if (discarded.length > 0) next.slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS] = discarded.join(",");
+  next.slots = withDiscardedEspecialidad(next.slots);
   for (const slot of BOOKING_BOUND_SLOTS) delete next.slots[slot];
   delete next.counters[CounterKey.CITA_HORA_PAGE];
   delete next.counters[CounterKey.CITA_BOOKING_FAILURES];
@@ -87,10 +102,7 @@ export function handleDuplicateChoice(session: Session, event: InboundEvent): Ha
   if (tapped === DuplicateButtonId.OTHER_ESPECIALIDAD || answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
-    return buildResult(next, [
-      sendText(SEARCHING_OTHER_ESPECIALIDADES_TEXT),
-      query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) }),
-    ]);
+    return buildResult(next, [query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) })]);
   }
 
   if (tapped === DuplicateButtonId.EXIT || answer === Confirmation.NO) {

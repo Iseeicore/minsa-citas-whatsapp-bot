@@ -106,9 +106,9 @@ describe("OTP verification — proactive district resolution from the opening me
       ...(initialMessageText ? { initialMessageText } : {}),
     });
     const verified = handle(session, queryResult("verify_code", { status: "verified", token: "tok" }));
-    expect(queries(verified).some((effect) => effect.kind === "list_references")).toBe(true);
+    expect(queries(verified).some((effect) => effect.kind === "list_references")).toBe(false);
 
-    return handle(verified.session, queryResult("list_references", { statusReference: "empty", message: "", data: [] }));
+    return verified;
   }
 
   it("tries to resolve the district from initialMessageText when the deterministic hint failed but a place preposition was used", () => {

@@ -29,7 +29,7 @@ describe("handleHoraPending: la lista de horarios respeta los límites de Meta",
     const result = handleHoraPending(pending, horas([item("08:00", "08:30"), item("08:00", "08:30", 2), item("09:00", "09:30")]));
     const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
 
-    expect(list).toBeDefined();
+    expect(list).toMatchObject({ text: "Selecciona la hora de tu preferencia:" });
     expect(sent(result).flatMap(findLimitViolations)).toEqual([]);
   });
 

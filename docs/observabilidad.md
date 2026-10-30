@@ -65,6 +65,8 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `incidencia.consulta_failed` | error | `error`. Falló la consulta de una incidencia en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
 | `incidencia.listado_unavailable` | error | `reason`. Se quiso listar todas las incidencias con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
 | `incidencia.listado_failed` | error | `error`. Falló el listado de incidencias en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
+| `terminos.persist_failed` | error | `canal`, `version` y `error`. Falló el guardado de la aceptación de los términos y condiciones; la cita sigue igual, porque la persona ya aceptó en la conversación |
+| `terminos.url_missing` | warn | Sin campos. Se pidieron los términos por whatsapp-bot y `TERMINOS_URL` está vacía: se envían solo los botones Acepto y No acepto, sin el enlace «Ver términos» |
 | `incidencia.establecimiento_lookup_failed` | error | `by` (`codigo` o `nombre`) y `error`. Falló la búsqueda del establecimiento en el padrón; el flujo trata el resultado como no disponible y pide la ubicación de otra forma |
 | `ai.provider_unknown` | warn | `provider`. `AI_PROVIDER` no corresponde a ningún proveedor registrado: la IA queda desactivada y se usan los respaldos fijos |
 | `sandbox.cors_invalid_origin` | warn | `entry`. Una entrada de `SANDBOX_ALLOWED_ORIGINS` no es una URL y se ignora |

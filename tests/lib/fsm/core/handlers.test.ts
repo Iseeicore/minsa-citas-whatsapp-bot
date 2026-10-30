@@ -242,3 +242,22 @@ describe("main_menu — numeric shortcut", () => {
     expect((sentEffects(inDni)[0] as { text: string }).text).toContain("Documento inválido");
   });
 });
+
+describe("handle — a handler that returns no result", () => {
+  afterEach(() => {
+    vi.doUnmock("@/lib/fsm/flows/cita/handlers-cita");
+    vi.resetModules();
+  });
+
+  it("throws MissingHandlerResultError with the state instead of a TypeError", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/fsm/flows/cita/handlers-cita", () => ({ handleCita: () => undefined }));
+    const { handle: handleWithoutResult } = await import("@/lib/fsm/core/handlers");
+    const { MissingHandlerResultError } = await import("@/lib/errors/missing-handler-result-error");
+
+    expect(() => handleWithoutResult(sessionAt("cita_awaiting_dni"), text("12345678"))).toThrow(MissingHandlerResultError);
+    expect(() => handleWithoutResult(sessionAt("cita_awaiting_dni"), text("12345678"))).toThrow(
+      'handle: no result for state "cita_awaiting_dni"',
+    );
+  });
+});

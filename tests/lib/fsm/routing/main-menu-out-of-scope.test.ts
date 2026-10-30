@@ -6,7 +6,8 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { OUT_OF_SCOPE_REQUEST_TEXT } from "@/lib/constants/textos/menu";
-
+
+
 const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "dame código" }, counters: {} };
 
 const aiSays = (result: unknown): QueryResultEvent => ({
@@ -27,7 +28,7 @@ describe("handleMainMenuIntentPending: a request outside the bot's scope", () =>
 
   it("uses the text agreed with the team", () => {
     expect(OUT_OF_SCOPE_REQUEST_TEXT).toBe(
-      "Solo puedo ayudarte a agendar una cita médica, a consultar una referencia o a registrar una denuncia anticorrupción. Elige una opción:",
+      "Solo puedo ayudarte a agendar una cita médica, una cita con referencia o a registrar una denuncia anticorrupción. Elige una opción:",
     );
   });
 

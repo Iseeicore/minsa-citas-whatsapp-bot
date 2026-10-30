@@ -129,7 +129,7 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     });
   });
 
-  it("en WhatsApp lista solo las que permiten agendar y antes nombra las bloqueadas en un texto", async () => {
+  it("en WhatsApp lista solo las que permiten agendar, sin nombrar las bloqueadas", async () => {
     const [seleccionable] = UNA_REFERENCIA.data;
     const citada = { ...seleccionable, idReferencia: "7777777", numero: "00777", upsDestino: "OFTALMOLOGÍA", estado: 7 };
     referencias.result = { ...UNA_REFERENCIA, data: [citada, seleccionable] };
@@ -137,11 +137,7 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     const otp = await loginForReferencias();
 
     expect(otp.session.state).toBe("cita_awaiting_referencia_select");
-    const avisoIndex = otp.texts.findIndex((line) => line.startsWith("Estas referencias no permiten agendar una cita:"));
-    const listIndex = otp.texts.findIndex((line) => line.startsWith("[list]"));
-    expect(avisoIndex).toBeGreaterThanOrEqual(0);
-    expect(avisoIndex).toBeLessThan(listIndex);
-    expect(otp.texts[avisoIndex]).toContain("OFTALMOLOGÍA · HOSPITAL MARIA AUXILIADORA · N° 00777 · PACIENTE CITADO");
+    expect(otp.texts.join(" ")).not.toContain("PACIENTE CITADO");
     const list = otp.sent.find((effect) => effect.kind === "send_interactive_list");
     expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual([seleccionable.idReferencia]);
     expect(list?.kind === "send_interactive_list" && list.text).toContain("ACEPTADO o PACIENTE RECIBIDO");
@@ -152,14 +148,17 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(referencias.calls).toBe(1);
   });
 
-  it("en WhatsApp, sin ninguna que permita agendar, nombra las bloqueadas y pregunta si desea agendar una cita", async () => {
+  it("en WhatsApp, sin ninguna que permita agendar, avisa que no hay referencias para agendar y pregunta si desea agendar una cita", async () => {
     const [seleccionable] = UNA_REFERENCIA.data;
     referencias.result = { ...UNA_REFERENCIA, data: [{ ...seleccionable, estado: 7 }] };
 
     const otp = await loginForReferencias();
 
     expect(otp.session.state).toBe("referencia_awaiting_cita_offer");
-    expect(otp.texts.slice(-2)).toEqual([expect.stringContaining("PACIENTE CITADO"), "[buttons] ¿Deseas agendar una cita?"]);
+    expect(otp.texts.slice(-2)).toEqual([
+      "No cuentas con referencias que permitan agendar una cita.",
+      "[buttons] ¿Deseas agendar una cita?",
+    ]);
     const si = await say(text("sí"));
     expect(si.session.state).toBe("cita_awaiting_distrito_ai");
   });
@@ -175,7 +174,9 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(accepted.texts.join(" ")).not.toContain("documento");
 
     await say(text("en Lurigancho"));
-    await say(text("odontología"));
+    const establecimiento = await say(text("odontología"));
+    expect(establecimiento.session.state).toBe("cita_awaiting_establecimiento_confirm");
+    await say(text("confirmar"));
     await say(text("la segunda"));
     await say(text("a las 9 y media"));
     const booked = await say(text("sí"));
@@ -192,26 +193,19 @@ describe("servicio Consultar referencia de punta a punta (adaptadores simulados,
     expect(declined.session.state).toBe("referencia_closed");
     expect(declined.session.slots).toEqual({});
     expect(declined.texts).toEqual([
-      "Entendido. Cuando necesites consultar una referencia o agendar una cita, escríbenos. ¡Que tengas un buen día!",
+      "Entendido. Cuando necesites agendar una cita, con o sin referencia, escríbenos. ¡Que tengas un buen día!",
     ]);
 
     const next = await say(text("hola"));
     expect(next.session.state).toBe("main_menu");
   });
 
-  it("la cita normal consulta referencias y avanza directamente cuando no hay ninguna", async () => {
-    const otp = await login();
-
-    expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
-    expect(referencias.calls).toBe(1);
-  });
-
-  it("la cita con referencias disponibles ofrece ambas modalidades antes de continuar", async () => {
+  it("la cita normal sigue al distrito sin consultar referencias aunque la persona tenga alguna", async () => {
     referencias.result = UNA_REFERENCIA;
 
     const otp = await login();
 
-    expect(otp.session.state).toBe("referencia_awaiting_appointment_mode");
-    expect(referencias.calls).toBe(1);
+    expect(otp.session.state).toBe("cita_awaiting_distrito_ai");
+    expect(referencias.calls).toBe(0);
   });
 });

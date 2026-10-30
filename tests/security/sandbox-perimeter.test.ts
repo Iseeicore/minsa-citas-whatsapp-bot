@@ -70,11 +70,11 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.runTurn).toHaveBeenCalledTimes(1);
   });
 
-  it("an ordinary first message is not filtered: it gets the web welcome followed by the main menu", async () => {
+  it("an ordinary first message is not filtered: it gets the web welcome with the main menu in one message", async () => {
     const { json } = await send({ type: "text", text: "Hola" });
 
-    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_text", "send_interactive_list"]);
-    expect(json.sent[0].text).toContain("asistente virtual de MINSA Digital");
+    expect(json.sent.map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
+    expect(json.sent[0].text).toContain("Soy tu asistente virtual");
     expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
@@ -137,5 +137,25 @@ describe("turn lock timeout", () => {
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: "BUSY" });
+  });
+});
+
+describe("unexpected failure inside the turn", () => {
+  it("answers 500 with an error code and a message instead of an empty body", async () => {
+    mocks.sessionRowExists.mockResolvedValue(true);
+    mocks.runTurn.mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    const request = new NextRequest("http://localhost/api/sandbox", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ from: "sandbox-qa", type: "text", text: "75969078" }),
+    });
+    const response = await POST(request);
+
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toMatchObject({ error: "INTERNAL" });
+    expect(body.message).toEqual(expect.any(String));
+    expect(JSON.stringify(body)).not.toContain("fetch failed");
   });
 });

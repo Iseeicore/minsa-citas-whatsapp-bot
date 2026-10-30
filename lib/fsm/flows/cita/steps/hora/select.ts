@@ -8,7 +8,6 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { SELECTION_REJECTION_TEXT } from "@/lib/constants/textos/comunes";
-import { SEARCHING_MORE_HORARIOS_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
@@ -26,7 +25,6 @@ export function handleAwaitingHoraSelect(session: Session, event: InboundEvent):
     next.counters[CounterKey.CITA_HORA_PAGE] = Math.max(0, currentPage + (replyId === HoraPageButtonId.NEXT ? 1 : -1));
     next.state = SessionState.CITA_HORA_PAGE_PENDING;
     return buildResult(next, [
-      sendText(SEARCHING_MORE_HORARIOS_TEXT),
       query(QueryKind.LIST_HORAS, {
         codEess: slotText(next.slots, SlotKey.CITA_COD_EESS),
         especialidadId: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
