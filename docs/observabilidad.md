@@ -58,8 +58,8 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; la incidencia sigue sin imagen |
 | `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). La incidencia llegó al servicio con datos que no pasan la validación; no se guarda |
 | `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): la incidencia no se puede guardar y se le responde error al ciudadano |
-| `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
-| `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
+| `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló, respondió un cuerpo que no se pudo leer o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
+| `incidencia.persist_failed` | error | `error` o `reason`. Falló el guardado de la incidencia en la base, o no se obtuvo su código (tampoco el de una reentrega); el ciudadano recibe el aviso de que no se pudo registrar |
 | `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |
 | `incidencia.consulta_unavailable` | error | `reason`. Se quiso consultar una incidencia con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
 | `incidencia.consulta_failed` | error | `error`. Falló la consulta de una incidencia en la base; la persona recibe «inténtalo más tarde» y la sesión termina |

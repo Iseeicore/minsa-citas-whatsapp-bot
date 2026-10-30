@@ -3,16 +3,35 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   findUnique: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
   upsert: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
+  incidenciaFindUnique: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
+  incidenciaFindFirst: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
 }));
 
-vi.mock("@/lib/db/prisma", () => ({ prisma: { usuario: { findUnique: db.findUnique, upsert: db.upsert } } }));
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: {
+    usuario: { findUnique: db.findUnique, upsert: db.upsert },
+    incidenciaPaciente: { findUnique: db.incidenciaFindUnique, findFirst: db.incidenciaFindFirst },
+  },
+}));
 
 import {
+  buscarIncidenciaDeQuienConsulta,
   createMemoryConsentimientoStore,
   createPrismaConsentimientoStore,
+  findCodigoPorTrace,
   marcarConsentimientoAceptado,
   tieneConsentimientoAceptado,
 } from "@/lib/recepcion/repositorio";
+import { SessionChannel } from "@/lib/enums/session-channel";
+
+describe("búsquedas de incidencias sin fila", () => {
+  it("devuelven undefined, no null, cuando la base no tiene la fila", async () => {
+    await expect(findCodigoPorTrace("trace-sin-fila")).resolves.toBeUndefined();
+    await expect(
+      buscarIncidenciaDeQuienConsulta("MINSA-2026-000001", { canal: SessionChannel.WHATSAPP, waId: "wa-1" }),
+    ).resolves.toBeUndefined();
+  });
+});
 
 describe("tieneConsentimientoAceptado", () => {
   beforeEach(() => vi.clearAllMocks());

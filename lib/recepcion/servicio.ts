@@ -5,15 +5,20 @@ import { currentTraceId } from "@/lib/observability/context";
 import { logger } from "@/lib/observability/logger";
 import { registrarIncidenciaSchema, type RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
 import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/validacion";
-import { buscarCodigoPorTrace, contarDelDia, insertarIncidencia, type DatosEvidencia } from "@/lib/recepcion/repositorio";
+import { contarDelDia, findCodigoPorTrace, insertarIncidencia, type DatosEvidencia } from "@/lib/recepcion/repositorio";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
 import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
-import { isObject } from "@/lib/utils/type-guards";
+import { isRecord, isString } from "@/lib/utils/type-guards";
 import { MAX_INCIDENCIAS_POR_DIA } from "@/lib/constants/limits/incidencia";
+import { INCIDENCIA_TRACE_ID_UNIQUE_TARGETS, PRISMA_UNIQUE_VIOLATION_CODE } from "@/lib/constants/prisma-unique";
 import type { AlmacenEvidencias } from "@/lib/types/almacen-evidencias.types";
 
-const isUniqueViolation = (error: unknown) => isObject(error) && "code" in error && error.code === "P2002";
+function isTraceIdReplay(error: unknown): boolean {
+  if (!isRecord(error) || error.code !== PRISMA_UNIQUE_VIOLATION_CODE || !isRecord(error.meta)) return false;
+  const targets: unknown[] = Array.isArray(error.meta.target) ? error.meta.target : [error.meta.target];
+  return targets.some((target) => isString(target) && INCIDENCIA_TRACE_ID_UNIQUE_TARGETS.includes(target));
+}
 
 const MOTIVO_DE_RECHAZO: Readonly<Record<ImageValidationFailure, RegistrationRejectReason>> = {
   [ImageValidationFailure.TOO_LARGE]: RegistrationRejectReason.MEDIA_TOO_LARGE,
@@ -33,14 +38,18 @@ async function guardarEvidencia(mediaDataUri: string, almacen: AlmacenEvidencias
   }
 }
 
-const accepted = (codigo: string | null | undefined): RegistrarIncidenciaResult =>
-  codigo ? { status: RegistrationStatus.ACCEPTED, codigo } : { status: RegistrationStatus.ACCEPTED };
+function acceptedWithCodigo(codigo: string | undefined): RegistrarIncidenciaResult {
+  if (codigo) return { status: RegistrationStatus.ACCEPTED, codigo };
+  logger.error("incidencia.persist_failed", { reason: "codigo_missing" });
+  return { status: RegistrationStatus.ERROR };
+}
 
-async function codigoYaGuardado(traceId: string): Promise<string | null> {
+async function answerReplay(traceId: string): Promise<RegistrarIncidenciaResult> {
   try {
-    return await buscarCodigoPorTrace(traceId);
-  } catch {
-    return null;
+    return acceptedWithCodigo(await findCodigoPorTrace(traceId));
+  } catch (error: unknown) {
+    logger.error("incidencia.persist_failed", { error });
+    return { status: RegistrationStatus.ERROR };
   }
 }
 
@@ -83,9 +92,9 @@ export async function registrarIncidencia(input: unknown, almacen: AlmacenEviden
       evidencias,
       actorCiudadano(waId),
     );
-    return accepted(incidencia.codigo);
-  } catch (error) {
-    if (isUniqueViolation(error)) return accepted(await codigoYaGuardado(traceId));
+    return acceptedWithCodigo(incidencia.codigo);
+  } catch (error: unknown) {
+    if (isTraceIdReplay(error)) return answerReplay(traceId);
     logger.error("incidencia.persist_failed", { error });
     return { status: RegistrationStatus.ERROR };
   }

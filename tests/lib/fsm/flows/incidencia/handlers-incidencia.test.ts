@@ -581,11 +581,6 @@ describe("incidencia_submit_pending: el resultado del registro", () => {
     ]);
   });
 
-  it("aceptado pero sin código (una reentrega que no lo pudo leer): agradece y se despide", () => {
-    expect(texts(handleIncidencia(withPlace(), submitResult({ status: "accepted" })))).toEqual([
-      "Gracias por tu denuncia, ya se registró. ¡Hasta pronto!",
-    ]);
-  });
   it("tope diario alcanzado: avisa que podrá registrar otra mañana y cierra", () => {
     const result = handleIncidencia(pending(), submitResult({ status: "rejected", reason: "daily_limit" }));
 
