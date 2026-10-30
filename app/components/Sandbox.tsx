@@ -20,6 +20,8 @@ import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
+import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
+import { textoMuyLargoText } from "@/lib/constants/textos/sandbox";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
@@ -228,6 +230,7 @@ export default function Sandbox({
             setInputText={setInputText}
             handleSend={handleSend}
             handleImageSelect={handleImageSelect}
+            onTooLong={() => setError(textoMuyLargoText(SANDBOX_TEXT_MAX_LENGTH))}
           />
         </div>
 
