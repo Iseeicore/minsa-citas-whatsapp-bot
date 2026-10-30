@@ -2,7 +2,8 @@ import { MediaFailure } from "@/lib/enums/media-failure";
 import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { getEvidenceImageMaxBytes } from "@/lib/config/evidence";
 import { logger } from "@/lib/observability/logger";
-import { graphApiBaseUrl, graphAuthHeaders } from "@/lib/whatsapp/graph-api";
+import { findGraphMediaTarget } from "@/lib/whatsapp/graph-api";
+import { GraphTargetStatus } from "@/lib/enums/graph-target-status";
 import type { InboundMedia } from "@/lib/fsm/core/types";
 
 type MetaMediaInfo = {
@@ -21,10 +22,12 @@ function unreadableAt(step: "info" | "info_incomplete" | "download", status?: nu
 }
 
 export async function downloadWhatsAppMediaAsDataUri(mediaId: string): Promise<MediaDownload> {
-  const headers = graphAuthHeaders();
+  const target = findGraphMediaTarget(mediaId);
+  if (target.status === GraphTargetStatus.MISSING_VARIABLE) return failed(MediaFailure.UNREADABLE);
+  const { url, headers } = target;
 
   try {
-    const infoResponse = await fetch(`${graphApiBaseUrl()}/${mediaId}`, { headers });
+    const infoResponse = await fetch(url, { headers });
     if (!infoResponse.ok) return unreadableAt("info", infoResponse.status);
 
     const info = (await infoResponse.json()) as MetaMediaInfo;

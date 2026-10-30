@@ -231,4 +231,42 @@ describe("the inbox API keeps its contract on top of usuario and mensaje", () =>
     expect(db.mensajeCreate).not.toHaveBeenCalled();
     expect(logs.map((line) => line.event)).toContain("inbox.send_failed");
   });
+
+  it.each<[string, () => Promise<Response>, string]>([
+    ["no message id", async () => new Response(JSON.stringify({ messages: [] }), { status: 200 }), "missing_id"],
+    ["a body that is not JSON", async () => new Response("<html>ok</html>", { status: 200 }), "unreadable_body"],
+  ])("records a message WhatsApp accepted with %s, without its id, and warns about it", async (_label, respond, reason) => {
+    db.usuarioFindUnique.mockResolvedValueOnce(usuario());
+    db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date() }));
+    db.mensajeCreate.mockResolvedValueOnce(mensaje({ direccionMensajeId: 2, waMessageId: null }));
+    vi.stubGlobal("fetch", vi.fn(respond));
+    const logs = captureLogs();
+
+    const response = await sendMessage(post({ conversationId: "u-1", text: "hola" }));
+
+    expect(response.status).toBe(201);
+    expect(db.mensajeCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ waMessageId: null }) });
+    expect(logs).toContainEqual(expect.objectContaining({ level: "warn", event: "whatsapp.sent_without_id", reason }));
+  });
+
+  it.each(["META_ACCESS_TOKEN", "META_PHONE_NUMBER_ID"])(
+    "answers 503 without calling WhatsApp when %s is missing, and names the variable in the log",
+    async (variable) => {
+      db.usuarioFindUnique.mockResolvedValueOnce(usuario());
+      db.mensajeFindFirst.mockResolvedValueOnce(mensaje({ fechaHora: new Date() }));
+      vi.stubEnv(variable, "");
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const logs = captureLogs();
+
+      const response = await sendMessage(post({ conversationId: "u-1", text: "hola" }));
+
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({ error: ApiErrorCode.WHATSAPP_UNAVAILABLE });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(db.mensajeCreate).not.toHaveBeenCalled();
+      expect(logs).toContainEqual(expect.objectContaining({ event: "whatsapp.config_missing", variable }));
+      expect(logs.map((line) => line.event)).toContain("inbox.send_failed");
+    },
+  );
 });

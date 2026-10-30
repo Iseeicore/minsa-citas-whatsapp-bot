@@ -16,6 +16,7 @@ describe("real MINSA — bookAppointment", () => {
   beforeEach(() => {
     vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
     vi.stubEnv("MINSA_INTEGRATION_SECRET", "test-secret");
+    vi.stubEnv("MINSA_API_HOST", "https://minsa-api.test");
   });
 
   afterEach(() => {

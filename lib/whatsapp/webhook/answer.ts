@@ -6,6 +6,7 @@ import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
 import { isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
 import { SendType } from "@/lib/enums/send-type";
+import { GraphPostStatus } from "@/lib/enums/graph-post-status";
 import { traceTurn } from "@/lib/observability/tracer";
 import { findSession, saveSession } from "@/lib/fsm/session/session-store";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -155,8 +156,8 @@ export async function answerMessage(
 
 export async function sendFixedReply(waId: string, text: string): Promise<void> {
   try {
-    const response = await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text });
-    if (!response.ok) await logSendFailure("fixed_reply", waId, response);
+    const post = await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text });
+    if (post.status === GraphPostStatus.ANSWERED && !post.response.ok) await logSendFailure("fixed_reply", waId, post.response);
   } catch (error) {
     logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
   }

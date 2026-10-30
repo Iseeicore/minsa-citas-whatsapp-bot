@@ -154,6 +154,27 @@ describe("WhatsApp send failures reach the masked logger", () => {
   });
 });
 
+describe("a missing Meta variable never reaches Graph", () => {
+  it.each(["META_ACCESS_TOKEN", "META_PHONE_NUMBER_ID"])("fails the send without calling Graph when %s is missing", async (variable) => {
+    vi.stubEnv(variable, "");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" })).resolves.toEqual({
+      kind: SendOutcomeKind.FAILED,
+    });
+    await expect(sendAndRecordCtaUrl(undefined, "51987654321", { bodyText: "a", buttonText: "b", url: "https://x.test" })).resolves.toEqual(
+      {
+        kind: SendOutcomeKind.FAILED,
+      },
+    );
+    await sendTypingIndicator("wamid.1");
+    await sendWhatsAppEffect("51987654321", { kind: SendType.TEXT, text: "hola" });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("safety net: the person always receives something Meta accepts", () => {
   const WA_ID = "51987654321";
   const META_REJECTION = JSON.stringify({ error: { message: "(#131009) Parameter value is not valid", code: 131009 } });

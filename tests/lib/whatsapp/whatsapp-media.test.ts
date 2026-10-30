@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
 import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { MediaFailure } from "@/lib/enums/media-failure";
@@ -7,8 +7,25 @@ import { captureLogs } from "@/tests/support/capture-logs";
 const UNREADABLE = { kind: InboundMediaKind.FAILURE, failure: MediaFailure.UNREADABLE };
 
 describe("downloadWhatsAppMediaAsDataUri", () => {
+  beforeEach(() => {
+    vi.stubEnv("META_ACCESS_TOKEN", "token");
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("reports the file as unreadable without calling Meta when META_ACCESS_TOKEN is missing", async () => {
+    vi.stubEnv("META_ACCESS_TOKEN", "");
+    const lines = captureLogs();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(downloadWhatsAppMediaAsDataUri("media-1")).resolves.toEqual(UNREADABLE);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(lines).toContainEqual(expect.objectContaining({ event: "whatsapp.config_missing", variable: "META_ACCESS_TOKEN" }));
   });
 
   it("reports the file as unreadable and logs whatsapp.media_failed when the download throws", async () => {
