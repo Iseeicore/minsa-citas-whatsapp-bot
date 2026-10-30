@@ -64,6 +64,7 @@ npm run dev                 # servidor de desarrollo
 npm test                    # suite completa de vitest (almacenes en memoria y fakes, sin secretos ni base)
 npx vitest run tests/lib/fsm/flows/cita/hora-choice.test.ts   # un archivo
 npx vitest run -t "nombre"  # una prueba por nombre
+npm run test:coverage       # la suite con cobertura (coverage/) y umbrales del backend; es lo que corre el CI
 npm run test:perf           # rendimiento y ReDoS; corre solo, en paralelo con la suite falla sin motivo real
 npm run test:gaps           # modo estricto para brechas conocidas (tests/support/known-gap.ts)
 npm run smoke:postgres      # requiere PostgreSQL real: DATABASE_URL + DATABASE_ENABLED=true
@@ -77,8 +78,10 @@ npm run docker:up           # construye y espera el healthcheck
 Chequeo equivalente al CI (`docs/ci.md`):
 
 ```bash
-npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npm run format:check && npx vitest run && npm run test:perf
+npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npm run format:check && npm run test:coverage && npm run test:perf
 ```
+
+`npm install` instala un hook de pre-commit (lint-staged: ESLint y Prettier sobre lo que está en stage) en `$(git rev-parse --git-common-dir)/hooks`, sin tocar `core.hooksPath`; ver `docs/desarrollo.md#hook-de-pre-commit`.
 
 `npx next typegen` es necesario en un checkout limpio antes de `tsc`. Vitest fija `DATABASE_URL=""`, `DATABASE_ENABLED=true`, `INCIDENCIAS_ENABLED=true` (`vitest.config.ts`); nunca correr la suite principal con un `DATABASE_URL` real.
 

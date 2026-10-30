@@ -5,3 +5,4 @@ prisma/seeds/**/*.sql text eol=lf
 prisma/sql/**/*.sql text eol=lf
 
 scripts/docker-entrypoint.sh text eol=lf
+scripts/hooks/* text eol=lf

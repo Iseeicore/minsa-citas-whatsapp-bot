@@ -17,7 +17,7 @@ Los dos canales usan la misma máquina de estados (`lib/fsm/`); cambia cómo lle
 
 ## Desarrollo local
 
-1. Instala las dependencias (también ejecuta `prisma generate` mediante `postinstall`):
+1. Instala las dependencias (también ejecuta `prisma generate` mediante `postinstall` e instala el [hook de pre-commit](#hook-de-pre-commit) mediante `prepare`):
 
    ```bash
    npm install
@@ -200,6 +200,7 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 | Comando | Qué corre |
 |---|---|
 | `npm test` | Suite completa (unitarias, escenarios, seguridad, estrés) con almacenes en memoria y fakes; no necesita secretos ni base de datos, y fija `DATABASE_URL` vacío aunque el runner exporte uno (GitLab Auto DevOps lo hace) |
+| `npm run test:coverage` | La misma suite con cobertura de `lib/` y `app/` y un límite de 30 s por prueba. Deja los reportes en `coverage/` (abrir `coverage/index.html`) y falla si el backend baja de los umbrales; es lo que corre el CI (ver [ci.md](ci.md#cobertura)) |
 | `npm run test:perf` | Pruebas de rendimiento (latencia P99, heap, ReDoS). Corren solas, porque en paralelo con la suite sus límites de tiempo fallan sin motivo real |
 | `npm run test:gaps` | La suite en modo estricto para las brechas conocidas (`tests/support/known-gap.ts`) |
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
@@ -209,7 +210,35 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 | `npm run format` | Aplica el formato de Prettier al código |
 | `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
-El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en cada pull request. Ver [ci.md](ci.md).
+El CI (GitHub Actions) ejecuta tipos, lint, formato, `test:coverage` y `test:perf` en cada pull request. Ver [ci.md](ci.md).
+
+## Hook de pre-commit
+
+Antes de cada commit, [lint-staged](https://github.com/lint-staged/lint-staged) revisa **solo los archivos en stage** (configuración en la clave `lint-staged` de `package.json`):
+
+| Archivos | Qué corre |
+|---|---|
+| `lib/`, `app/` y `tests/` con extensión `.ts` o `.tsx` | `eslint --fix`: corrige lo que ESLint sabe corregir solo y bloquea el commit si queda un error |
+| Todos | `prettier --write --ignore-unknown`: respeta `.prettierignore`, así que hoy no toca `app/`, `docs/` ni los `.md` |
+
+Las tareas corren en ese orden, una después de otra, y lo que corrigen entra en el mismo commit. No corre pruebas: las corre el CI. Si una tarea falla, lint-staged deja los archivos como estaban y el commit no se hace.
+
+**Cómo se instala.** `npm install` (y `npm ci`) corren el script `prepare`, que ejecuta `scripts/instalar-hooks.mjs`:
+
+- escribe un lanzador en `$(git rev-parse --git-common-dir)/hooks/pre-commit`, la carpeta de hooks compartida por el checkout y todos sus worktrees. El lanzador ejecuta `scripts/hooks/pre-commit` del checkout donde se hace el commit;
+- no cambia ninguna configuración de git (no toca `core.hooksPath`) ni usa husky;
+- si ya hay un `pre-commit` que no instaló él (no tiene su línea `instalado_por=...`), avisa y no lo toca;
+- no hace nada si `CI` está definida (GitHub Actions) o si no está dentro de un repositorio git (el `npm ci` de la imagen Docker no tiene `.git` ni `scripts/`); nunca hace fallar la instalación de dependencias;
+- se puede repetir: si el lanzador ya está al día no escribe nada.
+
+Para instalarlo en un checkout que ya tenía `node_modules`: `npm run prepare` (o `npm install`).
+
+- **Sin `core.hooksPath` propio** (lo normal): git ejecuta directamente `.git/hooks/pre-commit`.
+- **Con un `core.hooksPath` global** (una carpeta de hooks propia en `~/.gitconfig`): git ya no mira `.git/hooks`, así que el hook solo corre si el `pre-commit` de esa carpeta reenvía a `$(git rev-parse --git-common-dir)/hooks/pre-commit`. El instalador no escribe nunca en la carpeta de `core.hooksPath`.
+
+`scripts/hooks/pre-commit` deja pasar el commit con un aviso, sin bloquearlo, cuando el checkout no tiene `node_modules/.bin/lint-staged` (un worktree sin `npm install`) o cuando no encuentra `node`. Funciona con el `sh` de Git for Windows.
+
+**Saltarlo.** `git commit --no-verify` omite el hook (y también `commit-msg`). Sirve para un commit de trabajo en curso que se va a reescribir, o para un commit que solo toca archivos que lint-staged no debe procesar. No se usa para esquivar un error de ESLint o de formato en un commit que va a un PR: el CI corre las mismas revisiones sobre todo el código y lo va a rechazar igual.
 
 ## Build con base de datos
 

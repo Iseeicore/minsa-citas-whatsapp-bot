@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --testTimeout=30000",
     "test:gaps": "vitest run --mode strict-gaps",
     "test:perf": "vitest run --config vitest.perf.config.ts",
     "smoke:postgres": "vitest run --config vitest.smoke.config.ts",
@@ -20,6 +21,7 @@
     "db:seed:dev": "node scripts/db-seed-dev.mjs",
     "db:diccionario": "node docs/base-de-datos/generar-diccionario.mjs",
     "postinstall": "prisma generate",
+    "prepare": "node -e \"import('./scripts/instalar-hooks.mjs').then((m) => m.instalar(), () => {})\"",
     "docker:up": "docker compose up -d --build --wait --wait-timeout 180",
     "docker:logs": "docker compose logs -f",
     "docker:down": "docker compose down"
@@ -39,12 +41,18 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "3.2.7",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
+    "lint-staged": "^16.4.0",
     "prettier": "3.9.10",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.7"
+  },
+  "lint-staged": {
+    "{lib,app,tests}/**/*.{ts,tsx}": "eslint --fix --no-warn-ignored",
+    "*": "prettier --write --ignore-unknown"
   },
   "allowScripts": {
     "unrs-resolver@1.12.2": true,
