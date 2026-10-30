@@ -23,8 +23,13 @@ import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 
 const FROM = "sandbox-references";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string, channel: SessionChannel = SessionChannel.WHATSAPP): InboundEvent => ({
+  from: FROM,
+  type: "list",
+  listId: id,
+  channel,
+});
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] =>
@@ -243,7 +248,7 @@ describe("referencias para agendar en el chat web", () => {
     const offered = offerReferenciasList(session);
     const original = structuredClone(offered.session);
 
-    const nextPage = handle(offered.session, tap(ListPageButtonId.NEXT));
+    const nextPage = handle(offered.session, tap(ListPageButtonId.NEXT, SessionChannel.WEB));
     const visible = listRows(nextPage);
 
     expect(visible?.map((row) => row.id)).toEqual([references[10].idReferencia, references[11].idReferencia]);
@@ -588,7 +593,7 @@ describe("referencias en todos los estados", () => {
 
 describe("handleConsultaReferenciasClose", () => {
   it("devuelve NOT_HANDLED cuando no aplica, para que resuelva el siguiente paso de handle()", () => {
-    const session = referenciaConfirmPending();
+    const session: Session = { ...referenciaConfirmPending(), channel: SessionChannel.WHATSAPP };
 
     expect(NOT_HANDLED).toBeUndefined();
     expect(handleConsultaReferenciasClose(session, text("salir"))).toBe(NOT_HANDLED);

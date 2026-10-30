@@ -117,7 +117,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
     if (hint) restored.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT] = hint;
   }
 
-  const tap: InboundEvent = { from: event.from, type: InboundEventType.LIST, listId: matched.id };
+  const tap: InboundEvent = { from: event.from, type: InboundEventType.LIST, listId: matched.id, channel: event.channel };
   return step === SelectionStep.ESTABLECIMIENTO
     ? handleAwaitingEstablecimientoSelect(restored, tap)
     : handleAwaitingEspecialidadSelect(restored, tap);

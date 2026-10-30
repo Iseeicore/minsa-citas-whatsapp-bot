@@ -9,8 +9,8 @@ import { AVISO_EMERGENCIA_DENUNCIA_TEXT, ASK_UBICACION_DENUNCIA_TEXT } from "@/l
 import { answerConsent } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-first-contact";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 

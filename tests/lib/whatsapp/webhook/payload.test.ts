@@ -24,7 +24,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
       "incidencia_awaiting_foto",
     );
 
-    expect(event).toEqual({ from: WA, type: "image", text: "el cobro", mediaDataUri: "data:image/png;base64,AAAA" });
+    expect(event).toEqual({ from: WA, channel: "whatsapp", type: "image", text: "el cobro", mediaDataUri: "data:image/png;base64,AAAA" });
     expect(media.download).toHaveBeenCalledWith("m1");
   });
 
@@ -32,14 +32,14 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
     media.download.mockResolvedValueOnce({ kind: "failure", failure: "unreadable" });
     const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto");
 
-    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaFailure: "unreadable" });
+    expect(event).toEqual({ from: WA, channel: "whatsapp", type: "image", text: undefined, mediaFailure: "unreadable" });
   });
 
   it("an image over the size limit reaches the flow flagged as too large", async () => {
     media.download.mockResolvedValueOnce({ kind: "failure", failure: "too_large" });
     const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto");
 
-    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaFailure: "too_large" });
+    expect(event).toEqual({ from: WA, channel: "whatsapp", type: "image", text: undefined, mediaFailure: "too_large" });
   });
 
   it("an album downloads every image in parallel and travels as one event with one entry per image, in order", async () => {
@@ -58,6 +58,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
 
     expect(await eventPromise).toEqual({
       from: WA,
+      channel: "whatsapp",
       type: "image",
       media: [
         { kind: InboundMediaKind.DATA, dataUri: "data:image/png;base64,AAAA" },
@@ -81,7 +82,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
   it("a single media id keeps the single-image event", async () => {
     const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto", ["m1"]);
 
-    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaDataUri: "data:image/png;base64,AAAA" });
+    expect(event).toEqual({ from: WA, channel: "whatsapp", type: "image", text: undefined, mediaDataUri: "data:image/png;base64,AAAA" });
   });
 
   it("an album outside the evidence step is ignored and nothing is downloaded", async () => {
@@ -96,7 +97,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
       "incidencia_awaiting_foto",
     );
 
-    expect(event).toEqual({ from: WA, type: "document" });
+    expect(event).toEqual({ from: WA, channel: "whatsapp", type: "document" });
     expect(media.download).not.toHaveBeenCalled();
   });
 
@@ -122,6 +123,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
   it("text and taps keep working in any state", async () => {
     await expect(toInboundEvent(WA, message({ type: "text", text: { body: "hola" } }), "main_menu")).resolves.toEqual({
       from: WA,
+      channel: "whatsapp",
       type: "text",
       text: "hola",
     });
@@ -131,7 +133,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
         message({ type: "interactive", interactive: { button_reply: { id: "incidencia_anonimo" } } }),
         "incidencia_identity_choice",
       ),
-    ).resolves.toEqual({ from: WA, type: "button", listId: "incidencia_anonimo" });
+    ).resolves.toEqual({ from: WA, channel: "whatsapp", type: "button", listId: "incidencia_anonimo" });
   });
 
   it("a tap carries the id of the message its button or list row belonged to", async () => {
@@ -139,10 +141,10 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
 
     await expect(
       toInboundEvent(WA, message({ type: "interactive", interactive: { button_reply: { id: "si" } }, context }), "main_menu"),
-    ).resolves.toEqual({ from: WA, type: "button", listId: "si", replyTo: "wamid.resumen" });
+    ).resolves.toEqual({ from: WA, channel: "whatsapp", type: "button", listId: "si", replyTo: "wamid.resumen" });
     await expect(
       toInboundEvent(WA, message({ type: "interactive", interactive: { list_reply: { id: "3" } }, context }), "main_menu"),
-    ).resolves.toEqual({ from: WA, type: "list", listId: "3", replyTo: "wamid.resumen" });
+    ).resolves.toEqual({ from: WA, channel: "whatsapp", type: "list", listId: "3", replyTo: "wamid.resumen" });
   });
 
   it("a quoted text reply is still plain text: its context is not a tap", async () => {
@@ -152,7 +154,7 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
       "main_menu",
     );
 
-    expect(event).toEqual({ from: WA, type: "text", text: "si" });
+    expect(event).toEqual({ from: WA, channel: "whatsapp", type: "text", text: "si" });
   });
 });
 

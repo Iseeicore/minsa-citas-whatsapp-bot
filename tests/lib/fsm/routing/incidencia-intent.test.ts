@@ -10,7 +10,7 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { answerConsent } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-intencion";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 const menu = (slots: Session["slots"] = {}): Session => ({ state: "main_menu", slots, counters: {} });
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
@@ -70,6 +70,7 @@ describe("without the AI, the words of an incidencia are read inside a longer se
 
 describe("what the menu does with that answer", () => {
   const answer = (result: unknown): QueryResultEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind: "analyze_main_menu_intent",
@@ -102,7 +103,7 @@ describe("what the menu does with that answer", () => {
     const located = answerConsent(handle(asked.session, answer({ intent: "incidencia" })), { from: FROM });
     const identity = { ...located.session, state: "incidencia_identity_choice" as const };
 
-    const result = handle(identity, { from: FROM, type: "button", listId: "incidencia_anonimo" });
+    const result = handle(identity, { channel: "whatsapp", from: FROM, type: "button", listId: "incidencia_anonimo" });
     expect(result.session.state).toBe("incidencia_confirm_borrador");
     expect((sent(result)[0] as { text: string }).text).toContain(STORY);
   });

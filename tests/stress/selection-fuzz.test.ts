@@ -135,7 +135,7 @@ describe("Step 5 robustness: hostile typed text in every selection step", () => 
         const input = randomText(random);
         let result!: HandlerResult;
         expect(() => {
-          result = handle(sessionFor(step), { from: FROM, type: "text", text: input });
+          result = handle(sessionFor(step), { from: FROM, type: "text", text: input, channel: "whatsapp" as const });
         }, `input ${JSON.stringify(input.slice(0, 60))}`).not.toThrow();
         assertSafe(step, result, input.slice(0, 60));
       }
@@ -149,7 +149,7 @@ describe("Step 5 robustness: hostile typed text in every selection step", () => 
     "%s: taps on ids that were not offered are rejected",
     (_state, step) => {
       for (const id of ["999999", "01|02", "a|b|c", "'; DROP TABLE x;--", "", "hora_confirm_si", "00:00|00:00"]) {
-        const result = handle(sessionFor(step), { from: FROM, type: "list", listId: id });
+        const result = handle(sessionFor(step), { from: FROM, type: "list", listId: id, channel: "whatsapp" as const });
         const offeredIds = step.offered.rows.map((row) => row.id);
 
         const queried = result.effects.filter(isQueryEffect);
@@ -164,13 +164,13 @@ describe("Step 5 robustness: hostile typed text in every selection step", () => 
 
   it("non-text, non-tap events (an image) are ignored safely in every step", () => {
     for (const step of STEPS) {
-      const result = handle(sessionFor(step), { from: FROM, type: "image", mediaDataUri: "data:image/png;base64,AAAA" });
+      const result = handle(sessionFor(step), { from: FROM, type: "image", mediaDataUri: "data:image/png;base64,AAAA", channel: "whatsapp" as const });
       expect(result.effects.filter(isQueryEffect)).toHaveLength(0);
     }
   });
 
   const aiCalls = (step: StepSpec, input: string) =>
-    handle(sessionFor(step), { from: FROM, type: "text", text: input })
+    handle(sessionFor(step), { from: FROM, type: "text", text: input, channel: "whatsapp" as const })
       .effects.filter(isQueryEffect)
       .filter((effect) => ALLOWED_AI_KINDS.has(effect.kind));
 

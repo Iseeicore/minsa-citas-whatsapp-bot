@@ -33,13 +33,14 @@ import { SlotKey } from "@/lib/enums/slot-key";
 const FROM = "sandbox-referencia-flow";
 const DNI = "12345678";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
-const queryResult = (queryKind: QueryKind, result: unknown): QueryResultEvent => ({
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
+const queryResult = (queryKind: QueryKind, result: unknown, channel: SessionChannel = SessionChannel.WHATSAPP): QueryResultEvent => ({
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
+  channel,
 });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
@@ -188,8 +189,8 @@ describe("the lookup", () => {
 
   describe("with references that do not allow booking", () => {
     const citada: ReferenciaItem = { ...REFERENCIA, idReferencia: "citada", numero: "00777", upsDestino: "OFTALMOLOGÍA", estado: 7 };
-    const found = (data: ReferenciaItem[]) =>
-      queryResult(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, message: "", data });
+    const found = (data: ReferenciaItem[], channel: SessionChannel = SessionChannel.WHATSAPP) =>
+      queryResult(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.FOUND, message: "", data }, channel);
     const lookupOn = (channel: SessionChannel): Session => ({ ...lookupPending(), channel });
     const rowIds = (result: HandlerResult) =>
       sent(result).flatMap((effect) => (effect.kind === "send_interactive_list" ? effect.rows.map((row) => row.id) : []));
@@ -204,7 +205,7 @@ describe("the lookup", () => {
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
       "%s lists only the bookable ones and says nothing about the others",
       (channel) => {
-        const result = handle(lookupOn(channel), found([citada, REFERENCIA]));
+        const result = handle(lookupOn(channel), found([citada, REFERENCIA], channel));
 
         expect(texts(result)).toEqual([]);
         expect(sent(result)[0]?.kind).toBe("send_interactive_list");
@@ -264,7 +265,7 @@ describe("the lookup", () => {
     it.each([SessionChannel.WHATSAPP, SessionChannel.WEB])(
       "%s with none bookable says so without naming them and asks whether to book a cita, with no list",
       (channel) => {
-        const result = handle(lookupOn(channel), found([citada]));
+        const result = handle(lookupOn(channel), found([citada], channel));
 
         expect(texts(result)).toEqual([REFERENCIA_SIN_AGENDABLES_TEXT]);
         expect(rowIds(result)).toEqual([]);
@@ -289,7 +290,7 @@ describe("the lookup", () => {
 
     it("the web chat keeps its page of 10 cards and offers the same two options", () => {
       const many = Array.from({ length: 13 }, (_, index) => ({ ...REFERENCIA, idReferencia: `ref-${index}`, numero: `n-${index}` }));
-      const result = handle(lookupOn(SessionChannel.WEB), found([citada, ...many]));
+      const result = handle(lookupOn(SessionChannel.WEB), found([citada, ...many], SessionChannel.WEB));
 
       expect(texts(result)).toEqual([]);
       expect(rowIds(result)).toEqual(many.slice(0, 10).map((item) => item.idReferencia));

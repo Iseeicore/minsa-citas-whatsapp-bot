@@ -14,8 +14,8 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 
 const FROM = "sandbox-documento-prompts";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const firstText = (result: HandlerResult): string => {
@@ -55,6 +55,7 @@ describe("toda petición del documento dice solo «número de documento»", () =
   it("menú principal: la IA entiende que quiere una cita", () => {
     const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "x" }, counters: {} };
     const answer: QueryResultEvent = {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "analyze_main_menu_intent",

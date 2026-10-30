@@ -10,15 +10,17 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-other-fecha";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const fechasResult = (fechas: string[]): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "list_fechas",
   result: { status: "found", items: fechas.map((fechaCupo) => ({ fechaCupo, cantidadCupos: 2 })) },
 });
 const horasResult = (items: Array<{ horaInicio: string; horaFin: string }>): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "list_horas",
@@ -219,6 +221,7 @@ describe("the dates that come back leave out the ones already declined", () => {
 
   it("MINSA failing or the token expiring while listing behaves as in any fecha step", () => {
     const failed = handle(pendingWith(DAY_1), {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "list_fechas",
@@ -231,6 +234,7 @@ describe("the dates that come back leave out the ones already declined", () => {
       type: InternalEventType.QUERY_RESULT,
       queryKind: "list_fechas",
       result: { status: "unauthorized" },
+      channel: "whatsapp",
     } as const;
     const expired = handle(pendingWith(DAY_1), unauthorized);
     expect(expired.session.state).toBe(handle(pendingWith(""), unauthorized).session.state);

@@ -7,8 +7,8 @@ import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-choice";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const button = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const button = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const sent = (r: HandlerResult) => r.effects.filter((e): e is SendEffect => !isQueryEffect(e));
 const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
 const listIds = (r: HandlerResult) => {

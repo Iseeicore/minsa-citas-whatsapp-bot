@@ -57,8 +57,8 @@ const UNA_REFERENCIA: ListReferencesResult = {
   ],
 };
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "list", listId: id });
 
 async function say(event: InboundEvent) {
   const { sent, session } = await runTurn(FROM, event);

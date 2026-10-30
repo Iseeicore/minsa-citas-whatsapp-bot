@@ -20,9 +20,10 @@ import { AiTaskStatus } from "@/lib/enums/ai-task-status";
 
 const FROM = "sandbox-test";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "list", listId: id });
 const queryResult = (queryKind: QueryEffectKind, result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,
@@ -510,7 +511,7 @@ describe("hora select", () => {
   });
 
   it("the pagination buttons keep working", () => {
-    const result = handle(base, { from: FROM, type: "button", listId: "hora_pagina_siguiente" });
+    const result = handle(base, { channel: "whatsapp", from: FROM, type: "button", listId: "hora_pagina_siguiente" });
 
     expect(result.session.state).toBe("cita_hora_page_pending");
     expect(queries(result)[0].kind).toBe("list_horas");
@@ -860,7 +861,7 @@ describe("hora confirmation", () => {
       [SlotKey.CITA_HORA_CONFIRM_ID]: "13:45|14:15",
       [SlotKey.CITA_HORAS_DIA]: "13:45|14:15|1",
     });
-  const button = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+  const button = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 
   it("'Sí, confirmar' books the offered slot's own 24h start", () => {
     const result = handle(confirming(), button("hora_confirm_si"));

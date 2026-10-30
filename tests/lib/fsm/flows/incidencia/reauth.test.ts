@@ -10,8 +10,8 @@ const FROM = "sandbox-incidencia-reauth";
 const NOW = Date.parse("2026-10-11T15:00:00Z");
 const minutes = (count: number) => count * 60_000;
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 
 function waiting(state: Session["state"], options: { idleMs?: number; slots?: Session["slots"] } = {}): Session {
   return {
@@ -37,7 +37,13 @@ describe("detectIncidenciaExpiry", () => {
   });
 
   it("never fires on synthetic query results, mid-turn", () => {
-    const result: QueryResultEvent = { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "buscar_establecimiento", result: {} };
+    const result: QueryResultEvent = {
+      channel: "whatsapp",
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "buscar_establecimiento",
+      result: {},
+    };
     expect(detectIncidenciaExpiry(waiting("incidencia_ubicacion_pending", { idleMs: minutes(60) }), result, NOW)).toBeNull();
   });
 

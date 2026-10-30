@@ -32,7 +32,8 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
-import { payloadText, requirePayloadText, requireSlotText } from "@/lib/fsm/core/slot-readers";
+import { payloadText, requirePayloadChannel, requirePayloadText, requireSlotText } from "@/lib/fsm/core/slot-readers";
+import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
 import { MAX_PASSES } from "@/lib/constants/limits/engine";
 import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-error";
 import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
@@ -156,6 +157,12 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   }
 }
 
+function identidadConsulta(effect: QueryEffect, from: string): IdentidadConsulta {
+  return requirePayloadChannel(effect.payload, effect.kind) === SessionChannel.WEB
+    ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
+    : { canal: SessionChannel.WHATSAPP, waId: from };
+}
+
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
   const bearer = () => requireSlotText(session.slots, SlotKey.CITA_BEARER, effect.kind);
   const required = (key: string) => requirePayloadText(effect.payload, key, effect.kind);
@@ -175,21 +182,12 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     case QueryKind.CONSULTAR_INCIDENCIA: {
       const { consultarIncidencia } = await import("@/lib/recepcion/consulta");
       const codigo = payloadText(effect.payload, "codigo");
-      return consultarIncidencia(
-        codigo,
-        effect.payload.canal === SessionChannel.WEB
-          ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
-          : { canal: SessionChannel.WHATSAPP, waId: from },
-      );
+      return consultarIncidencia(codigo, identidadConsulta(effect, from));
     }
 
     case QueryKind.LISTAR_INCIDENCIAS: {
       const { listarIncidencias } = await import("@/lib/recepcion/consulta");
-      return listarIncidencias(
-        effect.payload.canal === SessionChannel.WEB
-          ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
-          : { canal: SessionChannel.WHATSAPP, waId: from },
-      );
+      return listarIncidencias(identidadConsulta(effect, from));
     }
 
     case QueryKind.VERIFICAR_CONSENTIMIENTO: {
@@ -217,7 +215,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return saveAceptacionTerminos(
         {
           waId: from,
-          canal: effect.payload.canal === SessionChannel.WEB ? SessionChannel.WEB : SessionChannel.WHATSAPP,
+          canal: requirePayloadChannel(effect.payload, effect.kind),
           version: payloadText(effect.payload, "version"),
         },
         getAceptacionTerminosStore(),

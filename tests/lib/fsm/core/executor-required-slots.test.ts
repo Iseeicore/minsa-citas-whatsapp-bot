@@ -3,6 +3,7 @@ import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 const minsa = vi.hoisted(() => ({
   searchUbigeo: vi.fn(async () => ({ status: "found", items: [] })),
@@ -14,6 +15,9 @@ const minsa = vi.hoisted(() => ({
   listReferences: vi.fn(async () => ({ status: "error" })),
   validateUser: vi.fn(async () => ({ status: "error" })),
   verifyCode: vi.fn(async () => ({ status: "error" })),
+  consultarIncidencia: vi.fn(async () => ({ status: "error" })),
+  listarIncidencias: vi.fn(async () => ({ status: "error" })),
+  saveAceptacionTerminos: vi.fn(async () => ({ ok: true })),
 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
@@ -30,11 +34,14 @@ vi.mock("@/lib/integrations/minsa/catalog", () => ({
 vi.mock("@/lib/integrations/minsa/booking", () => ({ bookAppointment: minsa.bookAppointment }));
 vi.mock("@/lib/integrations/minsa/references", () => ({ listReferences: minsa.listReferences }));
 vi.mock("@/lib/integrations/minsa/identity", () => ({ validateUser: minsa.validateUser, verifyCode: minsa.verifyCode }));
+vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: minsa.consultarIncidencia, listarIncidencias: minsa.listarIncidencias }));
+vi.mock("@/lib/terminos/aceptacion-terminos", () => ({ saveAceptacionTerminos: minsa.saveAceptacionTerminos }));
+vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
 
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 
 const FROM = "51999000333";
-const event = { from: FROM, type: "text" as const, text: "hola" };
+const event = { from: FROM, type: "text" as const, text: "hola", channel: "whatsapp" as const };
 
 const startWith = (kind: QueryKind, payload: Record<string, unknown>, slots: Session["slots"] = {}): HandlerResult => ({
   session: { state: "main_menu", slots, counters: {} },
@@ -91,5 +98,24 @@ describe("the executor refuses to call MINSA with a missing required value", () 
   ])("fails the %s turn without calling MINSA when a value is missing", async (kind, payload, client) => {
     await expect(runTurnUnlocked(FROM, event, undefined, startWith(kind, payload))).rejects.toThrow(MissingSlotError);
     expect(client).not.toHaveBeenCalled();
+  });
+});
+
+describe("the executor refuses to guess the channel of a query", () => {
+  it.each<[QueryKind, Record<string, unknown>, ReturnType<typeof vi.fn>]>([
+    [QueryKind.CONSULTAR_INCIDENCIA, { codigo: "MINSA-2026-000001" }, minsa.consultarIncidencia],
+    [QueryKind.LISTAR_INCIDENCIAS, {}, minsa.listarIncidencias],
+    [QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { version: "1" }, minsa.saveAceptacionTerminos],
+    [QueryKind.CONSULTAR_INCIDENCIA, { codigo: "MINSA-2026-000001", canal: "sms" }, minsa.consultarIncidencia],
+  ])("fails the %s turn when the payload has no valid channel, never assuming whatsapp", async (kind, payload, client) => {
+    await expect(runTurnUnlocked(FROM, event, undefined, startWith(kind, payload))).rejects.toThrow(
+      expect.objectContaining({ field: "canal", queryKind: kind }),
+    );
+    expect(client).not.toHaveBeenCalled();
+  });
+
+  it("passes the whatsapp identity when the payload says whatsapp", async () => {
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.LISTAR_INCIDENCIAS, { canal: SessionChannel.WHATSAPP }));
+    expect(minsa.listarIncidencias).toHaveBeenCalledWith({ canal: SessionChannel.WHATSAPP, waId: FROM });
   });
 });

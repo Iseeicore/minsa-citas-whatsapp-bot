@@ -3,33 +3,41 @@ import type { HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEf
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SendType } from "@/lib/enums/send-type";
-import type { SessionChannel } from "@/lib/enums/session-channel";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 const SYNTHETIC_FROM = "synthetic-fsm";
 
-const withChannel = (channel?: SessionChannel) => (channel ? { channel } : {});
-
-export const text = (value: string, channel?: SessionChannel): InboundEvent => ({
+export const text = (value: string, channel: SessionChannel = SessionChannel.WHATSAPP): InboundEvent => ({
   from: SYNTHETIC_FROM,
   type: InboundEventType.TEXT,
   text: value,
-  ...withChannel(channel),
+  channel,
 });
 
-export const tap = (id: string, channel?: SessionChannel): InboundEvent => ({
+export const tap = (id: string, channel: SessionChannel = SessionChannel.WHATSAPP): InboundEvent => ({
   from: SYNTHETIC_FROM,
   type: InboundEventType.BUTTON,
   listId: id,
-  ...withChannel(channel),
+  channel,
 });
 
-export const pick = (id: string): InboundEvent => ({ from: SYNTHETIC_FROM, type: InboundEventType.LIST, listId: id });
+export const pick = (id: string, channel: SessionChannel = SessionChannel.WHATSAPP): InboundEvent => ({
+  from: SYNTHETIC_FROM,
+  type: InboundEventType.LIST,
+  listId: id,
+  channel,
+});
 
-export const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
+export const queryResult = (
+  queryKind: QueryResultEvent["queryKind"],
+  result: unknown,
+  channel: SessionChannel = SessionChannel.WHATSAPP,
+): QueryResultEvent => ({
   from: SYNTHETIC_FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,
   result,
+  channel,
 });
 
 export const sent = (result: HandlerResult): SendEffect[] =>

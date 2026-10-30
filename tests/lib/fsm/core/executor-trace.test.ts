@@ -25,7 +25,7 @@ const event = (name: string) => lines().find((line) => line.event === name);
 
 const FROM = "51999000111";
 const DNI = "12345678";
-const text = (value: string, messageId?: string) => ({ from: FROM, type: "text" as const, text: value, messageId });
+const text = (value: string, messageId?: string) => ({ from: FROM, type: "text" as const, text: value, messageId, channel: "whatsapp" as const });
 
 beforeEach(() => {
   raw = [];

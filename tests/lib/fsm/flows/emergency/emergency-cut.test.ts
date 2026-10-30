@@ -19,7 +19,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
 });
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 const at = (state: Session["state"], slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
@@ -244,7 +244,7 @@ describe("only typed text is read", () => {
   it("a tap is never taken for an emergency", () => {
     const result = handle(
       at("cita_awaiting_hora_confirm", { [SlotKey.CITA_BEARER]: "token", [SlotKey.CITA_HORA_CONFIRM_ID]: "13:00|13:30" }),
-      { from: FROM, type: "button", listId: "hora_confirm_no" },
+      { channel: "whatsapp", from: FROM, type: "button", listId: "hora_confirm_no" },
     );
 
     expect(oosNote(result)).toBeUndefined();
@@ -252,6 +252,7 @@ describe("only typed text is read", () => {
 
   it("neither is the result of a query", () => {
     const result: QueryResultEvent = {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "list_fechas",

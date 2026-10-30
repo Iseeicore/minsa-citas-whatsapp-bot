@@ -9,8 +9,9 @@ const FROM = "sandbox-slots";
 const MESSAGE = "Apúrense cojudos quiero cita de odontología en San Borja";
 
 const menu = (): Session => ({ state: "main_menu", slots: {}, counters: {} });
-const text = (value: string) => ({ from: FROM, type: "text" as const, text: value });
+const text = (value: string) => ({ from: FROM, type: "text" as const, text: value, channel: "whatsapp" as const });
 const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,

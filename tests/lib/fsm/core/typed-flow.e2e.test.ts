@@ -19,7 +19,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 
 const FROM = "sandbox-e2e";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 
 async function say(value: string) {
   const { sent, session } = await runTurn(FROM, text(value));
@@ -125,7 +125,7 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(warning.session.state).toBe("main_menu");
     expect(warning.texts[0]).toContain("escriba DENUNCIA");
 
-    const menu = await runTurn(FROM, { from: FROM, type: "button", listId: "continuar_menu" });
+    const menu = await runTurn(FROM, { channel: "whatsapp", from: FROM, type: "button", listId: "continuar_menu" });
     expect(menu.sent[0].kind).toBe("send_interactive_list");
 
     const reclamo = await say("RECLAMO");

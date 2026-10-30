@@ -22,6 +22,7 @@ const pending = (counters: Session["counters"] = {}): Session => ({
 });
 
 const aiResult = (result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: "wa-1",
   type: InternalEventType.QUERY_RESULT,
   queryKind: "resolve_distrito_ai",

@@ -2,7 +2,8 @@ import type { z } from "zod";
 import type { SlotKey } from "@/lib/enums/slot-key";
 import type { Slots } from "@/lib/fsm/core/types";
 import { toText } from "@/lib/utils/text-values";
-import { isNonEmptyString } from "@/lib/utils/type-guards";
+import { isNonEmptyString, isString } from "@/lib/utils/type-guards";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";
 import { SlotJsonStatus } from "@/lib/enums/slot-json-status";
 import { logger } from "@/lib/observability/logger";
@@ -24,6 +25,16 @@ function requireText(text: string, field: string, queryKind: string): string {
 
 export function requireSlotText(slots: Slots, key: SlotKey, queryKind: string): string {
   return requireText(slotText(slots, key), key, queryKind);
+}
+
+const SESSION_CHANNELS: readonly string[] = Object.values(SessionChannel);
+
+const isSessionChannel = (value: unknown): value is SessionChannel => isString(value) && SESSION_CHANNELS.includes(value);
+
+export function requirePayloadChannel(payload: Record<string, unknown>, queryKind: string): SessionChannel {
+  const canal = payload.canal;
+  if (!isSessionChannel(canal)) throw new MissingSlotError("canal", queryKind);
+  return canal;
 }
 
 export function requirePayloadText(payload: Record<string, unknown>, key: string, queryKind: string): string {

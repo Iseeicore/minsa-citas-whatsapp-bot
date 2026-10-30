@@ -8,7 +8,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
 
 const FROM = "sandbox-oos";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
 const menu = (slots: Session["slots"] = {}): Session => ({ state: "main_menu", slots, counters: {} });
 const at = (state: Session["state"], slots: Session["slots"] = {}): Session => ({ state, slots, counters: {} });
 

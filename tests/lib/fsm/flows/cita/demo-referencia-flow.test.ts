@@ -17,9 +17,10 @@ import { WHATSAPP_LIST_MAX_ROWS } from "@/lib/constants/limits/whatsapp";
 
 const FROM = "sandbox-demo";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "list", listId: id });
 const verifyResult = (result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "verify_code",
@@ -45,6 +46,7 @@ function verifyPending(
     state: "cita_verify_pending",
     slots: { [SlotKey.CITA_DNI_PENDING]: dni, [SlotKey.CITA_TWOFA_ID]: "fake-twofa", ...purpose, ...extraSlots },
     counters: {},
+    channel: "whatsapp",
   };
 }
 

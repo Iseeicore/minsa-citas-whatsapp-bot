@@ -141,7 +141,12 @@ export function handleFechaAiPending(session: Session, event: QueryResultEvent):
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
   if (isString(result.id) && offered?.rows.some((row) => row.id === result.id)) {
-    return handleAwaitingFechaSelect(restored, { from: event.from, type: InboundEventType.LIST, listId: result.id });
+    return handleAwaitingFechaSelect(restored, {
+      from: event.from,
+      type: InboundEventType.LIST,
+      listId: result.id,
+      channel: event.channel,
+    });
   }
 
   return reshowOffered(restored, offered, FECHA_NOT_IDENTIFIED_TEXT);

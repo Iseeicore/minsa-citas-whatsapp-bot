@@ -17,22 +17,30 @@ import {
 
 const FROM = "51999999999";
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
-const file = (type: "image" | "document"): InboundEvent => ({ from: FROM, type, text: type === "image" ? "foto del cobro" : undefined });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
+const file = (type: "image" | "document"): InboundEvent => ({
+  channel: "whatsapp",
+  from: FROM,
+  type,
+  text: type === "image" ? "foto del cobro" : undefined,
+});
 const fotoIntentResult = (quiereOmitir: boolean): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "analyze_incidencia_foto_intent",
   result: { quiereOmitir },
 });
 const consentCheckResult = (aceptado: boolean): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "verificar_consentimiento",
   result: { aceptado },
 });
 const consentRegisterResult = (): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind: "registrar_consentimiento",
@@ -43,7 +51,7 @@ const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((eff
 const texts = (result: HandlerResult): string[] => sent(result).map((effect) => ("text" in effect ? effect.text : ""));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 
-const identityChoice = (): Session => ({ state: "incidencia_identity_choice", slots: {}, counters: {} });
+const identityChoice = (): Session => ({ state: "incidencia_identity_choice", slots: {}, counters: {}, channel: "whatsapp" });
 
 describe("incidencia_identity_choice: documento o anónimo", () => {
   it("ofrece los botones documento/anónimo", () => {
@@ -253,10 +261,11 @@ const conImagenes = (cantidad: number): Session => ({
     [SlotKey.INCIDENCIA_IMAGENES]: JSON.stringify(Array.from({ length: cantidad }, (_, i) => pngDe(i))),
   },
   counters: {},
+  channel: "whatsapp",
 });
 
 function awaitingFoto(): Session {
-  return { state: "incidencia_awaiting_foto", slots: { descripcionIncidencia: "Mala atención" }, counters: {} };
+  return { state: "incidencia_awaiting_foto", slots: { descripcionIncidencia: "Mala atención" }, counters: {}, channel: "whatsapp" };
 }
 
 describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => {
@@ -381,6 +390,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
   it("al registrar, las imágenes salen de la sesión; si alguna pesaba de más se avisa", () => {
     const pending: Session = { state: "incidencia_submit_pending", slots: conImagenes(2).slots, counters: {} };
     const tooBig = handleIncidencia(pending, {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "incidencia_register",
@@ -400,7 +410,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
   });
 
   it("tocar el botón Omitir pide confirmar el registro igual que escribir OMITIR, sin IA ni acuse", () => {
-    const result = handleIncidencia(awaitingFoto(), { from: FROM, type: "button", listId: "incidencia_foto_omitir" });
+    const result = handleIncidencia(awaitingFoto(), { channel: "whatsapp", from: FROM, type: "button", listId: "incidencia_foto_omitir" });
 
     expect(result.session.state).toBe("incidencia_confirm_registro");
     expect(queries(result)).toHaveLength(0);
@@ -535,6 +545,7 @@ describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
 
   it("si la IA no está disponible, vuelve a pedir la evidencia y no da por omitida la foto", () => {
     const unavailable: QueryResultEvent = {
+      channel: "whatsapp",
       from: FROM,
       type: InternalEventType.QUERY_RESULT,
       queryKind: "analyze_incidencia_foto_intent",
@@ -550,6 +561,7 @@ describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
 
 describe("incidencia_submit_pending: el resultado del registro", () => {
   const submitResult = (result: { status: string; reason?: string; codigo?: string }): QueryResultEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind: "incidencia_register",
@@ -720,6 +732,7 @@ describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
     state: "incidencia_confirm_registro",
     slots: { [SlotKey.DESCRIPCION_INCIDENCIA]: "Me cobraron sin recibo." },
     counters: {},
+    channel: "whatsapp",
   });
 
   it("«Registrar» dispara el registro real", () => {
@@ -749,7 +762,7 @@ describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
 });
 
 describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una sola respuesta", () => {
-  const lote = (...media: InboundMedia[]): InboundEvent => ({ from: FROM, type: "image", media });
+  const lote = (...media: InboundMedia[]): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "image", media });
   const valida = (indice: number): InboundMedia => ({ kind: InboundMediaKind.DATA, dataUri: pngDe(indice) });
   const LISTO = [{ id: "incidencia_foto_listo", title: "Listo" }];
 

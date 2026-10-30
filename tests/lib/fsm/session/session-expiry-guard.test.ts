@@ -20,8 +20,8 @@ const FROM = "sandbox-expiry";
 const NOW = Date.parse("2026-09-19T15:00:00Z");
 const minutes = (count: number) => count * 60_000;
 
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 
 function jwt(expSeconds: number | undefined): string {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -125,7 +125,13 @@ describe("detectSessionExpiry", () => {
   });
 
   it("never fires on synthetic query results, mid-turn", () => {
-    const result: QueryResultEvent = { from: FROM, type: InternalEventType.QUERY_RESULT, queryKind: "list_horas", result: {} };
+    const result: QueryResultEvent = {
+      channel: "whatsapp",
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "list_horas",
+      result: {},
+    };
     const session = authenticated("cita_hora_pending", { idleMs: minutes(60) });
     expect(detectSessionExpiry(session, result, NOW)).toBeNull();
   });
@@ -267,6 +273,7 @@ describe("cita_awaiting_reauth", () => {
 
 describe("after the citizen agrees to verify again", () => {
   const result = (queryKind: QueryResultEvent["queryKind"], body: unknown): QueryResultEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InternalEventType.QUERY_RESULT,
     queryKind,

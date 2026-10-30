@@ -55,6 +55,7 @@ function confirming(slots: Session["slots"] = { [SlotKey.INTERACTIVE_MESSAGE_ID]
 }
 
 const tap = (listId: string, replyTo?: string): InboundEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InboundEventType.BUTTON,
   listId,
@@ -184,7 +185,7 @@ describe("a tap that is still current", () => {
     store.sessions.set(FROM, confirming({ [SlotKey.INTERACTIVE_MESSAGE_ID]: RESUMEN_WAMID }));
     const { hooks } = recordingHooks();
 
-    await runTurnUnlocked(FROM, { from: FROM, type: InboundEventType.TEXT, text: "no entiendo" }, hooks);
+    await runTurnUnlocked(FROM, { channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: "no entiendo" }, hooks);
 
     const saved = store.sessions.get(FROM);
     expect(saved?.state).toBe(SessionState.INCIDENCIA_CONFIRM_REGISTRO);
@@ -217,7 +218,12 @@ describe("typing a button id", () => {
   it("is not a tap: writing the 'Registrar' id does not register the incidencia", async () => {
     store.sessions.set(FROM, confirming({}));
 
-    await runTurnUnlocked(FROM, { from: FROM, type: InboundEventType.TEXT, text: IncidenciaButtonId.CONFIRM_REGISTRO_SI });
+    await runTurnUnlocked(FROM, {
+      channel: "whatsapp",
+      from: FROM,
+      type: InboundEventType.TEXT,
+      text: IncidenciaButtonId.CONFIRM_REGISTRO_SI,
+    });
 
     expect(store.registrar).not.toHaveBeenCalled();
     expect(store.sessions.get(FROM)?.state).toBe(SessionState.INCIDENCIA_CONFIRM_REGISTRO);
@@ -227,7 +233,7 @@ describe("typing a button id", () => {
 describe("a turn that changes the state consumes the remembered message", () => {
   it("typing 'sí' at the confirmation registers, and a later tap on 'Cancelar' of that summary is ignored", async () => {
     store.sessions.set(FROM, confirming());
-    await runTurnUnlocked(FROM, { from: FROM, type: InboundEventType.TEXT, text: "sí" }, recordingHooks().hooks);
+    await runTurnUnlocked(FROM, { channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: "sí" }, recordingHooks().hooks);
     expect(store.registrar).toHaveBeenCalledTimes(1);
     const afterRegister = structuredClone(store.sessions.get(FROM));
     expect(afterRegister?.state).toBe(SessionState.INCIDENCIA_CONFIRMED);
@@ -245,7 +251,7 @@ describe("a turn that changes the state consumes the remembered message", () => 
   it("an unrecognized text that leaves the state unchanged keeps the current buttons valid", async () => {
     const resumen = { [SlotKey.INTERACTIVE_MESSAGE_ID]: RESUMEN_WAMID };
     store.sessions.set(FROM, confirming(resumen));
-    const typed = await runTurnUnlocked(FROM, { from: FROM, type: InboundEventType.TEXT, text: "no entendí" });
+    const typed = await runTurnUnlocked(FROM, { channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: "no entendí" });
     expect(typed.session.state).toBe(SessionState.INCIDENCIA_CONFIRM_REGISTRO);
     expect(store.sessions.get(FROM)?.slots[SlotKey.INTERACTIVE_MESSAGE_CONSUMED]).toBeUndefined();
 
@@ -278,6 +284,7 @@ describe("a turn that changes the state consumes the remembered message", () => 
 
 describe("a tap on the main menu list", () => {
   const tapRow = (listId: string, replyTo?: string): InboundEvent => ({
+    channel: "whatsapp",
     from: FROM,
     type: InboundEventType.LIST,
     listId,
@@ -285,7 +292,11 @@ describe("a tap on the main menu list", () => {
   });
 
   async function showMenu(): Promise<string | undefined> {
-    const shown = await runTurnUnlocked(FROM, { from: FROM, type: InboundEventType.TEXT, text: "hola" }, recordingHooks().hooks);
+    const shown = await runTurnUnlocked(
+      FROM,
+      { channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: "hola" },
+      recordingHooks().hooks,
+    );
     const list = shown.sent.find((effect) => effect.kind === "send_interactive_list");
     expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toContain(MenuChoice.CONSULTAR_REFERENCIA);
     const menuId = store.sessions.get(FROM)?.slots[SlotKey.INTERACTIVE_MESSAGE_ID];
@@ -325,7 +336,7 @@ describe("a tap on the buttons of the referencia choice", () => {
   async function showChoice(): Promise<string | undefined> {
     const shown = await runTurnUnlocked(
       FROM,
-      { from: FROM, type: InboundEventType.TEXT, text: "¿Ya aceptaron mi referencia?" },
+      { channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: "¿Ya aceptaron mi referencia?" },
       recordingHooks().hooks,
     );
     expect(shown.sent.find((effect) => effect.kind === "send_buttons")).toBeDefined();
@@ -386,7 +397,12 @@ describe("an interactive message that never reached the person", () => {
       outcome: HandlerOutcome.CONTINUE,
     };
 
-    const result = await runTurnUnlocked(FROM, { from: FROM, type: InboundEventType.TEXT, text: "hola" }, hooks, start);
+    const result = await runTurnUnlocked(
+      FROM,
+      { channel: "whatsapp", from: FROM, type: InboundEventType.TEXT, text: "hola" },
+      hooks,
+      start,
+    );
 
     expect(result.session.slots[SlotKey.INTERACTIVE_MESSAGE_ID]).toBeUndefined();
     const notes = raw.map((line) => JSON.parse(line) as Record<string, unknown>).filter((line) => line.event === "turn.note");

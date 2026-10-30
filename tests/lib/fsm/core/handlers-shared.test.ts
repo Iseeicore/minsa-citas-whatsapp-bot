@@ -22,7 +22,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 const from = "51999000111";
 
 function event(fields: Partial<InboundEvent>): InboundEvent {
-  return { from, type: InboundEventType.TEXT, ...fields };
+  return { channel: "whatsapp", from, type: InboundEventType.TEXT, ...fields };
 }
 
 describe("cloneSession", () => {
@@ -113,7 +113,7 @@ describe("offerList y offerPagedList: identificadores de fila únicos", () => {
     { id: "09:00|09:30", title: "9:00 - 9:30 AM" },
     { id: "08:00|08:30", title: "8:00 - 8:30 AM", description: "2 cupo(s) disponibles" },
   ];
-  const blank = (): Session => ({ state: "cita_awaiting_hora_select", slots: {}, counters: {} });
+  const blank = (): Session => ({ state: "cita_awaiting_hora_select", slots: {}, counters: {}, channel: "whatsapp" });
   const ids = (rows: ListRow[]): string[] => rows.map((row) => row.id);
 
   it("offerList envía y recuerda cada identificador una sola vez, quedándose con la primera fila", () => {

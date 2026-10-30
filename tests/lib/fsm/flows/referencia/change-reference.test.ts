@@ -206,6 +206,7 @@ describe("cambiar referencia reutiliza el reinicio canónico sin perder la ident
     expect(isChangeReferenceRequest(waiting(), tap(HoraPageButtonId.NEXT))).toBe(false);
     expect(
       isChangeReferenceRequest(waiting(), {
+        channel: "whatsapp",
         from: FROM,
         type: InternalEventType.QUERY_RESULT,
         queryKind: QueryKind.LIST_FECHAS,

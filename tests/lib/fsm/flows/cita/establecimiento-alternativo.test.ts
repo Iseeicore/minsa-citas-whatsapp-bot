@@ -7,9 +7,10 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const FROM = "sandbox-establecimiento";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
+const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "button", listId: id });
 const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
+  channel: "whatsapp",
   from: FROM,
   type: InternalEventType.QUERY_RESULT,
   queryKind,
@@ -177,7 +178,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
         { renipressCode: "0000789", establishmentName: "CS SANTA ANITA" },
       ],
     );
-    const picked = handle(listed.session, { from: FROM, type: "list", listId: "0000789" });
+    const picked = handle(listed.session, { channel: "whatsapp", from: FROM, type: "list", listId: "0000789" });
 
     expect(picked.session.slots[SlotKey.CITA_ESTABLECIMIENTO_NOMBRE]).toBe("CS Santa Anita");
   });

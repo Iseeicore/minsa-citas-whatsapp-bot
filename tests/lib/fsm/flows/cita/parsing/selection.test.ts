@@ -12,7 +12,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 
 const rows = Array.from({ length: 21 }, (_, index) => ({ id: `row-${index}`, title: `Opción ${index + 1}` }));
-const text = (value: string): InboundEvent => ({ from: "synthetic-wa", type: InboundEventType.TEXT, text: value });
+const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: "synthetic-wa", type: InboundEventType.TEXT, text: value });
 const passthroughIds = [HoraPageButtonId.PREV, HoraPageButtonId.NEXT];
 
 function offered(page = 0, state: Session["state"] = SessionState.CITA_AWAITING_FECHA_SELECT): Session {

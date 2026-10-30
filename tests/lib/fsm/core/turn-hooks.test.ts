@@ -14,7 +14,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 import { runTurnUnlocked, type TurnHooks } from "@/lib/fsm/core/executor";
 
 const FROM = "51999000222";
-const text = (value: string) => ({ from: FROM, type: "text" as const, text: value });
+const text = (value: string) => ({ from: FROM, type: "text" as const, text: value, channel: "whatsapp" as const });
 
 function recordingHooks() {
   const calls: Array<{ kind: "send"; effect: SendEffect } | { kind: "wait" }> = [];
