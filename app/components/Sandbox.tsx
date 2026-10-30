@@ -23,7 +23,6 @@ import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 import { imagenMuyPesadaText, textoMuyLargoText } from "@/lib/constants/textos/sandbox";
-import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
 import { bytesToMegabytes } from "@/lib/utils/byte-size";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
@@ -31,11 +30,13 @@ const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 const WELCOME_TRIGGER_TEXT = "Hola";
 
 export default function Sandbox({
+  imageMaxBytes,
   onBack,
   windowControls,
   showDebugPanel = true,
   active = true,
 }: {
+  imageMaxBytes: number;
   onBack?: () => void;
   windowControls?: WindowControls;
   showDebugPanel?: boolean;
@@ -156,8 +157,8 @@ export default function Sandbox({
     const file = fileList?.[0];
     if (!file) return;
 
-    if (file.size > MAX_IMAGE_BYTES) {
-      setError(imagenMuyPesadaText(bytesToMegabytes(MAX_IMAGE_BYTES)));
+    if (file.size > imageMaxBytes) {
+      setError(imagenMuyPesadaText(bytesToMegabytes(imageMaxBytes)));
       return;
     }
 

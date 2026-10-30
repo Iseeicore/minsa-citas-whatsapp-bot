@@ -29,12 +29,14 @@ import { renderWithinLength } from "@/lib/utils/fit-text";
 import { formatMegabytes } from "@/lib/utils/format-megabytes";
 import { maskDocumento } from "@/lib/utils/mask-documento";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
+import { evidenceImageMaxBytes } from "@/lib/config/evidence";
 
-export const MAX_IMAGEN_LEGIBLE = formatMegabytes(MAX_IMAGE_BYTES);
+export function maxImagenLegible(): string {
+  return formatMegabytes(evidenceImageMaxBytes());
+}
 
 export function askFoto() {
-  return sendButtons(fotoRequestText(MAX_IMAGEN_LEGIBLE), FOTO_BUTTONS);
+  return sendButtons(fotoRequestText(maxImagenLegible()), FOTO_BUTTONS);
 }
 
 export function askDescripcion(session: Session): string {

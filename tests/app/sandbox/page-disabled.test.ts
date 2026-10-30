@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/app/components/SandboxWidgetDemo", () => ({ default: () => null }));
 
-import { generateMetadata } from "@/app/sandbox/page";
+import SandboxPage, { generateMetadata } from "@/app/sandbox/page";
 import { SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT } from "@/lib/constants/textos/menu";
 
 afterEach(() => {
@@ -33,5 +33,14 @@ describe("the sandbox page description", () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
 
     expect(generateMetadata().title).toBe("MINSA Responde");
+  });
+});
+
+describe("the sandbox page", () => {
+  it("hands the chat the evidence image limit read on the server from EVIDENCE_IMAGE_MAX_MB", () => {
+    vi.stubEnv("SANDBOX_PAGE_ENABLED", "true");
+    vi.stubEnv("EVIDENCE_IMAGE_MAX_MB", "3");
+
+    expect(SandboxPage().props.imageMaxBytes).toBe(3 * 1024 * 1024);
   });
 });

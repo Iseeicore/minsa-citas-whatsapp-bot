@@ -2,6 +2,8 @@ import { isRegisteredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { logger } from "@/lib/observability/logger";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { ConfigErrorCode } from "@/lib/enums/config-error-code";
+import { invalidEvidenceImageMaxMb } from "@/lib/config/evidence";
+import { EVIDENCE_IMAGE_MAX_MB_DEFAULT, EVIDENCE_IMAGE_MAX_MB_MIN, META_IMAGE_MAX_MB } from "@/lib/constants/limits/incidencia";
 
 type Severity = "warn" | "error";
 
@@ -21,6 +23,10 @@ export const CONFIG_ERRORS = {
     severityWithRealMinsa: "error",
     message:
       "MINSA_DIGITAL_APP_URL no está configurada: la bienvenida de WhatsApp muestra el menú principal, los avisos que llevaban botón hacia MINSA Responde salen como texto sin enlace y, con el MINSA real, las llamadas autenticadas se cortan con un 503 porque no se puede armar Origin ni Referer.",
+  },
+  [ConfigErrorCode.EVIDENCE_IMAGE_MAX_MB_INVALID]: {
+    severity: "warn",
+    message: `EVIDENCE_IMAGE_MAX_MB debe ser un número entero de ${EVIDENCE_IMAGE_MAX_MB_MIN} a ${META_IMAGE_MAX_MB} (Meta no admite imágenes de más de ${META_IMAGE_MAX_MB} MB); se ignora y las imágenes de la denuncia usan el valor por defecto, ${EVIDENCE_IMAGE_MAX_MB_DEFAULT} MB.`,
   },
 } as const satisfies Record<ConfigErrorCode, ConfigErrorEntry>;
 
@@ -47,6 +53,9 @@ export function checkConfig(env: Env = process.env): ConfigIssue[] {
     issues.push(issue(ConfigErrorCode.SANDBOX_ORIGIN_INVALID, entry));
 
   if (!env.MINSA_DIGITAL_APP_URL) issues.push(issue(ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING, env.MINSA_DIGITAL_APP_URL ?? ""));
+
+  const evidenceImageMaxMb = invalidEvidenceImageMaxMb(env);
+  if (evidenceImageMaxMb !== undefined) issues.push(issue(ConfigErrorCode.EVIDENCE_IMAGE_MAX_MB_INVALID, evidenceImageMaxMb));
 
   return issues;
 }
