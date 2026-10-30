@@ -8,7 +8,7 @@ import { SessionStatePrefix } from "@/lib/enums/session-state-prefix";
 export class ConsultaService extends BotService {
   readonly id = MenuChoice.CONSULTAR_INCIDENCIA;
   readonly menuRow = { id: MenuChoice.CONSULTAR_INCIDENCIA, title: MENU_ROW_CONSULTAR_INCIDENCIA_TITLE };
-  override readonly queryKinds = [QueryKind.CONSULTAR_INCIDENCIA, QueryKind.LISTAR_INCIDENCIAS];
+  override readonly queryKinds = [QueryKind.CONSULTAR_INCIDENCIA, QueryKind.CONSULTA_CUPO_DIARIO, QueryKind.CONSULTA_REINTENTOS_AGOTADOS];
 
   matchesState(state: string): boolean {
     return state.startsWith(SessionStatePrefix.CONSULTA);

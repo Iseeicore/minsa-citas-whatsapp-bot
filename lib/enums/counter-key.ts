@@ -11,5 +11,5 @@ export enum CounterKey {
   CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE = "citaEstablecimientosBackFromPage",
   INCIDENCIA_UBICACION_INTENTOS = "incidenciaUbicacionIntentos",
   CONSULTA_INTENTOS_CODIGO = "consultaIntentosCodigo",
-  CONSULTA_INTENTOS_OTP = "consultaIntentosOtp",
+  CONSULTA_INTENTOS_ESTABLECIMIENTO = "consultaIntentosEstablecimiento",
 }

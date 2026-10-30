@@ -31,9 +31,12 @@ import type {
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { SessionChannel } from "@/lib/enums/session-channel";
 import { payloadText, requirePayloadChannel, requirePayloadText, requireSlotText } from "@/lib/fsm/core/slot-readers";
-import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
+import type { ConsultaIncidencia } from "@/lib/types/consulta-incidencia.types";
+import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
+import { MissingSlotError } from "@/lib/errors/missing-slot-error";
+import { isFiniteNumber } from "@/lib/utils/type-guards";
+import { ConsultaPayloadKey } from "@/lib/enums/consulta-payload-key";
 import { MAX_PASSES } from "@/lib/constants/limits/engine";
 import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-error";
 import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
@@ -136,7 +139,8 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   switch (kind) {
     case QueryKind.INCIDENCIA_REGISTER:
     case QueryKind.CONSULTAR_INCIDENCIA:
-    case QueryKind.LISTAR_INCIDENCIAS:
+    case QueryKind.CONSULTA_CUPO_DIARIO:
+    case QueryKind.CONSULTA_REINTENTOS_AGOTADOS:
     case QueryKind.BUSCAR_ESTABLECIMIENTO:
     case QueryKind.VERIFICAR_CONSENTIMIENTO:
     case QueryKind.REGISTRAR_CONSENTIMIENTO:
@@ -153,10 +157,14 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   }
 }
 
-function toIdentidadConsulta(effect: QueryEffect, from: string): IdentidadConsulta {
-  return requirePayloadChannel(effect.payload, effect.kind) === SessionChannel.WEB
-    ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
-    : { canal: SessionChannel.WHATSAPP, waId: from };
+function toConsultaIncidencia(effect: QueryEffect): ConsultaIncidencia {
+  const codigo = requirePayloadText(effect.payload, ConsultaPayloadKey.CODIGO, effect.kind);
+  const establecimientoId = effect.payload[ConsultaPayloadKey.ESTABLECIMIENTO_ID];
+  if (!isFiniteNumber(establecimientoId) || !Number.isInteger(establecimientoId)) {
+    throw new MissingSlotError(ConsultaPayloadKey.ESTABLECIMIENTO_ID, effect.kind);
+  }
+  if (effect.payload[ConsultaPayloadKey.ANONIMA] === true) return { codigo, establecimientoId, esAnonimo: true };
+  return { codigo, establecimientoId, esAnonimo: false, dni: requirePayloadText(effect.payload, ConsultaPayloadKey.DNI, effect.kind) };
 }
 
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {
@@ -176,14 +184,33 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     }
 
     case QueryKind.CONSULTAR_INCIDENCIA: {
-      const { consultarIncidencia } = await import("@/lib/recepcion/consulta");
-      const codigo = payloadText(effect.payload, "codigo");
-      return consultarIncidencia(codigo, toIdentidadConsulta(effect, from));
+      const canal = requirePayloadChannel(effect.payload, effect.kind);
+      const consulta = toConsultaIncidencia(effect);
+      const [{ consultarIncidencia }, { getCupoDiarioStore }] = await Promise.all([
+        import("@/lib/recepcion/consulta"),
+        import("@/lib/composition/stores"),
+      ]);
+      return consultarIncidencia(consulta, { identificador: from, canal }, getCupoDiarioStore());
     }
 
-    case QueryKind.LISTAR_INCIDENCIAS: {
-      const { listarIncidencias } = await import("@/lib/recepcion/consulta");
-      return listarIncidencias(toIdentidadConsulta(effect, from));
+    case QueryKind.CONSULTA_CUPO_DIARIO: {
+      const [{ countIntentosDelDia }, { getCupoDiarioStore }] = await Promise.all([
+        import("@/lib/consulta/cupo-diario"),
+        import("@/lib/composition/stores"),
+      ]);
+      return countIntentosDelDia(from, getCupoDiarioStore());
+    }
+
+    case QueryKind.CONSULTA_REINTENTOS_AGOTADOS: {
+      const canal = requirePayloadChannel(effect.payload, effect.kind);
+      const [{ saveIntentoConsulta }, { getCupoDiarioStore }] = await Promise.all([
+        import("@/lib/consulta/cupo-diario"),
+        import("@/lib/composition/stores"),
+      ]);
+      return saveIntentoConsulta(
+        { identificador: from, canal, resultado: ResultadoIntentoConsulta.REINTENTOS_AGOTADOS },
+        getCupoDiarioStore(),
+      );
     }
 
     case QueryKind.VERIFICAR_CONSENTIMIENTO: {

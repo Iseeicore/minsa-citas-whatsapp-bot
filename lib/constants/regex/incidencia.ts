@@ -1,5 +1,6 @@
 export const CODIGO_EN_TEXTO = /(?<![A-Z0-9-])MINSA-\d{4}-(?:A-)?\d{6,}(?![A-Z0-9-])/i;
 export const CODIGO_EXACTO = /^MINSA-\d{4}-(?:A-)?\d{6,}$/i;
+export const CODIGO_ANONIMO = /^MINSA-\d{4}-A-\d{6,}$/i;
 export const CONSULTA_KEYWORD =
   /\b(?:consultar|consulta|revisar|ver|saber|estado|seguimiento)\b.{0,30}\b(?:incidencia|reporte|denuncias?)\b/i;
 export const REGISTRO_KEYWORD = /\b(?:registrar|presentar|reportar|ingresar|denunciar|hacer|poner|formular|interponer)\b/i;

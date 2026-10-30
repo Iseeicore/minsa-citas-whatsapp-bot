@@ -18,7 +18,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   },
 }));
 vi.mock("@/lib/recepcion/servicio", () => ({ registrarIncidencia: store.registrar }));
-vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: store.consultar, listarIncidencias: vi.fn() }));
+vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: store.consultar }));
 vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
 vi.mock("@/lib/recepcion/repositorio", () => ({
   tieneConsentimientoAceptado: store.tieneConsentimiento,
@@ -39,7 +39,8 @@ const startWith = (kind: QueryKind, payload: Record<string, unknown> = {}): Hand
 const INCIDENT_ONLY = [
   QueryKind.INCIDENCIA_REGISTER,
   QueryKind.CONSULTAR_INCIDENCIA,
-  QueryKind.LISTAR_INCIDENCIAS,
+  QueryKind.CONSULTA_CUPO_DIARIO,
+  QueryKind.CONSULTA_REINTENTOS_AGOTADOS,
   QueryKind.VERIFICAR_CONSENTIMIENTO,
   QueryKind.REGISTRAR_CONSENTIMIENTO,
   QueryKind.BUSCAR_ESTABLECIMIENTO,

@@ -1,20 +1,30 @@
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { logger } from "@/lib/observability/logger";
-import type { ConsultaIncidenciaResult, IdentidadConsulta, ListarIncidenciasResult } from "@/lib/recepcion/consulta-dto";
-import { buscarIncidenciaDeQuienConsulta, listarIncidenciasDeQuienConsulta } from "@/lib/recepcion/repositorio";
+import { saveIntentoConsulta } from "@/lib/consulta/cupo-diario";
+import type { ConsultaIncidenciaResult } from "@/lib/recepcion/consulta-dto";
+import { findIncidenciaParaConsulta } from "@/lib/recepcion/repositorio";
 import { CODIGO_VALIDO } from "@/lib/constants/regex/incidencia";
+import { CupoDiarioStatus } from "@/lib/enums/cupo-diario-status";
 import { LookupStatus } from "@/lib/enums/lookup-status";
-import { ReferenceStatus } from "@/lib/enums/reference-status";
+import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
+import type { ConsultaIncidencia, QuienConsulta } from "@/lib/types/consulta-incidencia.types";
+import type { CupoDiarioStore } from "@/lib/types/cupo-diario.types";
 
-export async function consultarIncidencia(codigo: string, identidad: IdentidadConsulta): Promise<ConsultaIncidenciaResult> {
+const RESULTADO_POR_STATUS: Readonly<Record<LookupStatus, ResultadoIntentoConsulta>> = {
+  [LookupStatus.FOUND]: ResultadoIntentoConsulta.ENCONTRADA,
+  [LookupStatus.NOT_FOUND]: ResultadoIntentoConsulta.NO_ENCONTRADA,
+  [LookupStatus.ERROR]: ResultadoIntentoConsulta.ERROR,
+};
+
+async function getEstadoIncidencia(consulta: ConsultaIncidencia): Promise<ConsultaIncidenciaResult> {
   if (!isDatabaseEnabled()) {
     logger.error("incidencia.consulta_unavailable", { reason: "DATABASE_ENABLED=false" });
     return { status: LookupStatus.ERROR };
   }
-  if (!CODIGO_VALIDO.test(codigo)) return { status: LookupStatus.NOT_FOUND };
+  if (!CODIGO_VALIDO.test(consulta.codigo)) return { status: LookupStatus.NOT_FOUND };
 
   try {
-    const fila = await buscarIncidenciaDeQuienConsulta(codigo, identidad);
+    const fila = await findIncidenciaParaConsulta(consulta);
     if (!fila) return { status: LookupStatus.NOT_FOUND };
     return { status: LookupStatus.FOUND, codigo: fila.codigo, estado: fila.estadoCodigo, fechaRegistro: fila.fechaCreacion.toISOString() };
   } catch (error) {
@@ -23,21 +33,12 @@ export async function consultarIncidencia(codigo: string, identidad: IdentidadCo
   }
 }
 
-export async function listarIncidencias(identidad: IdentidadConsulta): Promise<ListarIncidenciasResult> {
-  if (!isDatabaseEnabled()) {
-    logger.error("incidencia.listado_unavailable", { reason: "DATABASE_ENABLED=false" });
-    return { status: ReferenceStatus.ERROR };
-  }
-
-  try {
-    const filas = await listarIncidenciasDeQuienConsulta(identidad);
-    if (filas.length === 0) return { status: ReferenceStatus.EMPTY };
-    return {
-      status: ReferenceStatus.FOUND,
-      items: filas.map((fila) => ({ codigo: fila.codigo, estado: fila.estadoCodigo, fechaRegistro: fila.fechaCreacion.toISOString() })),
-    };
-  } catch (error) {
-    logger.error("incidencia.listado_failed", { error });
-    return { status: ReferenceStatus.ERROR };
-  }
+export async function consultarIncidencia(
+  consulta: ConsultaIncidencia,
+  quien: QuienConsulta,
+  cupo: CupoDiarioStore,
+): Promise<ConsultaIncidenciaResult> {
+  const result = await getEstadoIncidencia(consulta);
+  const intento = await saveIntentoConsulta({ ...quien, resultado: RESULTADO_POR_STATUS[result.status] }, cupo);
+  return intento.statusCupo === CupoDiarioStatus.SAVED ? result : { status: LookupStatus.ERROR };
 }

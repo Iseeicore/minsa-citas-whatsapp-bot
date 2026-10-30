@@ -70,10 +70,10 @@ export type SlotTypes = {
   [SlotKey.CONSULTA_CANAL]: string;
   [SlotKey.CONSULTA_CODIGO]: string;
   [SlotKey.CONSULTA_DNI]: string;
-  [SlotKey.CONSULTA_DNI_PENDING]: string;
-  [SlotKey.CONSULTA_TWOFA_ID]: string;
-  [SlotKey.CONSULTA_LISTANDO]: boolean;
-  [SlotKey.CONSULTA_LISTADO_DATA]: string;
+  [SlotKey.CONSULTA_ANONIMA]: boolean;
+  [SlotKey.CONSULTA_ESTABLECIMIENTO_ID]: number;
+  [SlotKey.CONSULTA_ESTABLECIMIENTO_PROPUESTO]: string;
+  [SlotKey.CONSULTA_USADAS_HOY]: number;
   [SlotKey.INTERACTIVE_MESSAGE_ID]: string;
   [SlotKey.INTERACTIVE_MESSAGE_CONSUMED]: boolean;
   [SlotKey.TERMINOS_ACEPTADOS]: boolean;
@@ -208,7 +208,8 @@ export type QueryEffectKind =
   | "analyze_incidencia_foto_intent"
   | "buscar_establecimiento"
   | "consultar_incidencia"
-  | "listar_incidencias"
+  | "consulta_cupo_diario"
+  | "consulta_reintentos_agotados"
   | "verificar_consentimiento"
   | "registrar_consentimiento"
   | "registrar_aceptacion_terminos";

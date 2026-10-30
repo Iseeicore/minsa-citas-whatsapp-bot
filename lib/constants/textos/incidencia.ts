@@ -1,4 +1,3 @@
-import { noPudimosLeerText } from "@/lib/constants/textos/comunes";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { EvidenceRejection } from "@/lib/enums/evidence-rejection";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
@@ -59,7 +58,6 @@ export const askUbicacionDenunciaText = (lead: string): string => `${avisoDenunc
 
 export const ASK_OTRA_UBICACION_TEXT = "Escribe el nombre del establecimiento o su código IPRESS.";
 export const CODIGO_NO_ENCONTRADO_TEXT = `No encontré ese código. ${ASK_OTRA_UBICACION_TEXT}`;
-export const UBICACION_ILEGIBLE_TEXT = noPudimosLeerText(ASK_OTRA_UBICACION_TEXT);
 export const UBICACION_RECHAZADA_TEXT = `Entendido. ${ASK_OTRA_UBICACION_TEXT}`;
 
 export const UBICACION_BUTTONS = [

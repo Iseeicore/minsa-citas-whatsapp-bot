@@ -1,360 +1,400 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
-import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
-import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, Session } from "@/lib/fsm/core/types";
+import { queries, queryResult, sent, tap, text, texts } from "@/tests/support/fsm-events";
+import { captureLogs } from "@/tests/support/capture-logs";
 import {
-  ASK_CODIGO_TEXT,
-  ASK_CODIGO_O_LISTAR_TEXT,
-  INVALID_CODIGO_TEXT,
+  ASK_DNI_TEXT,
+  ASK_ESTABLECIMIENTO_TEXT,
+  ASK_TIPO_TEXT,
+  BUSCANDO_INCIDENCIA_TEXT,
+  CODIGO_EJEMPLO_ANONIMA,
+  CODIGO_EJEMPLO_CON_DNI,
   CODIGO_NO_RECONOCIDO_TEXT,
-  CONSULTA_ASK_DOCUMENTO_TEXT,
-  NO_VERIFICADO_TEXT,
-  OTP_BLOQUEADO_TEXT,
-  NO_UBICADA_TEXT,
   CONSULTA_FALLA_TEXT,
+  ESTABLECIMIENTO_AGOTADO_TEXT,
+  ESTABLECIMIENTO_ILEGIBLE_TEXT,
+  ESTABLECIMIENTO_NO_ENCONTRADO_TEXT,
+  ESTABLECIMIENTO_RECHAZADO_TEXT,
+  ESTABLECIMIENTO_VARIOS_TEXT,
+  LIMITE_DIARIO_TEXT,
+  NO_UBICADA_TEXT,
+  SERIE_CON_DNI_TEXT,
+  askCodigoText,
+  confirmEstablecimientoText,
+  consultasRestantesText,
+  invalidCodigoText,
+  otraSerieText,
 } from "@/lib/constants/textos/consulta";
-import { ASK_OTP_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
+import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
+import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
+import { ConsultaTipoButtonId } from "@/lib/enums/consulta-tipo-button-id";
+import { ConsultaEstablecimientoButtonId } from "@/lib/enums/consulta-establecimiento-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { CupoDiarioStatus } from "@/lib/enums/cupo-diario-status";
+import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
+import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-status";
+import { LookupStatus } from "@/lib/enums/lookup-status";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { SessionChannel } from "@/lib/enums/session-channel";
+import { SessionState } from "@/lib/enums/session-state";
+import { SlotKey } from "@/lib/enums/slot-key";
 
-const FROM = "bsuid-ana";
-const CODIGO = "MINSA-2026-000003";
+const ANONIMA = "MINSA-2026-A-000001";
+const CON_DNI = "MINSA-2026-000001";
+const HOSPITAL = { id: 7, areaId: 1, codigoRenipress: "5946", nombre: "Hospital Nacional Hipólito Unanue", distrito: "El Agustino" };
 
-const text = (value: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({
-  from: FROM,
-  type: "text",
-  text: value,
-  channel,
-});
-const pick = (id: string, channel: InboundEvent["channel"] = "whatsapp"): InboundEvent => ({
-  from: FROM,
-  type: "list",
-  listId: id,
-  channel,
-});
-const result = (queryKind: QueryResultEvent["queryKind"], value: unknown): QueryResultEvent => ({
-  channel: "whatsapp",
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind,
-  result: value,
-});
-
-const sent = (r: HandlerResult): SendEffect[] => r.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-const texts = (r: HandlerResult): string[] => sent(r).map((effect) => ("text" in effect ? effect.text : ""));
-const queries = (r: HandlerResult) => r.effects.filter(isQueryEffect);
-
-const mainMenu = (): Session => ({ state: "main_menu", slots: {}, counters: {} });
-
-describe("el código en el primer mensaje", () => {
-  it("WhatsApp: busca de inmediato y la consulta no lleva el wa_id (lo pone el servidor)", () => {
-    const first = handleFirstContact(`quiero revisar mi incidencia ${CODIGO}`, "whatsapp");
-
-    expect(first.session.state).toBe("consulta_query_pending");
-    expect(queries(first)).toEqual([{ kind: "consultar_incidencia", payload: { codigo: CODIGO, canal: "whatsapp" } }]);
+const cupo = (total: number) => queryResult(QueryKind.CONSULTA_CUPO_DIARIO, { statusCupo: CupoDiarioStatus.COUNTED, total });
+const porNombre = (candidatos: unknown[]) =>
+  queryResult(QueryKind.BUSCAR_ESTABLECIMIENTO, { by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.OK, candidatos });
+const porCodigo = () =>
+  queryResult(QueryKind.BUSCAR_ESTABLECIMIENTO, {
+    by: EstablecimientoSearchBy.CODIGO,
+    status: EstablecimientoSearchStatus.FOUND,
+    establecimiento: HOSPITAL,
   });
+const ninguno = () => porNombre([]);
 
-  it("web: antes de buscar pide verificar la identidad", () => {
-    const first = handleFirstContact(CODIGO.toLowerCase(), "web");
-
-    expect(first.session.state).toBe("consulta_awaiting_dni");
-    expect(queries(first)).toEqual([]);
-    expect(texts(first)).toEqual([CONSULTA_ASK_DOCUMENTO_TEXT]);
-  });
-
-  it("la palabra «incidencia» no lo manda a registrar una nueva", () => {
-    const first = handleFirstContact(`mi incidencia ${CODIGO}`, "whatsapp");
-
-    expect(first.session.state.startsWith("incidencia_")).toBe(false);
-  });
-
-  it("sin código, «consultar mi incidencia» pide el código", () => {
-    const first = handleFirstContact("quiero consultar mi incidencia", "whatsapp");
-
-    expect(first.session.state).toBe("consulta_awaiting_codigo");
-    expect(texts(first)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
-    expect(sent(first)[1]).toMatchObject({ buttons: [{ id: "consulta_codigo_listar", title: "Ver mis denuncias" }] });
-  });
-
-  it.each(["consultar mi denuncia", "Consultar mi denuncia", "quiero ver mis denuncias"])("sin código, %j pide el código", (message) => {
-    const first = handleFirstContact(message, "whatsapp");
-
-    expect(first.session.state).toBe("consulta_awaiting_codigo");
-    expect(texts(first)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
-  });
-
-  it("un código con formato incorrecto no inicia la consulta", () => {
-    const first = handleFirstContact("MINSA-2026-0003", "whatsapp");
-
-    expect(first.session.state).not.toMatch(/^consulta_/);
-  });
+const at = (state: SessionState, slots: Session["slots"] = {}, counters: Session["counters"] = {}): Session => ({
+  state,
+  slots: { [SlotKey.CONSULTA_CANAL]: SessionChannel.WHATSAPP, [SlotKey.CONSULTA_USADAS_HOY]: 0, ...slots },
+  counters,
 });
 
-describe("desde el menú principal", () => {
-  it("un código dentro de una frase salta a la consulta, con el canal del evento", () => {
-    const step = handle(mainMenu(), text(`quiero ver mi incidencia ${CODIGO} por favor`, "web"));
+function run(session: Session, ...events: Parameters<typeof handle>[1][]): HandlerResult {
+  let step: HandlerResult = { session, effects: [], outcome: "continue" };
+  for (const event of events) step = handle(step.session, event);
+  return step;
+}
 
-    expect(step.session.state).toBe("consulta_awaiting_dni");
-    expect(step.session.slots).toMatchObject({ consultaCanal: "web", consultaCodigo: CODIGO });
+describe("la entrada lee primero el cupo del día", () => {
+  it.each([
+    ["el menú", () => handle(at(SessionState.MAIN_MENU), tap("consultar_incidencia"))],
+    ["la palabra clave", () => handleFirstContact("consultar mi denuncia", "whatsapp")],
+  ])("desde %s pide el cupo sin mandar mensajes", (_origen, enter) => {
+    const step = enter();
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_CUPO_PENDING);
+    expect(queries(step)).toEqual([{ kind: QueryKind.CONSULTA_CUPO_DIARIO, payload: {} }]);
+    expect(sent(step)).toEqual([]);
   });
 
-  it("la opción «Consultar mi denuncia» del menú (y el 4) piden el código", () => {
-    for (const event of [pick("consultar_incidencia"), text("4")]) {
-      const step = handle(mainMenu(), event);
+  it("con cupo, pregunta si la denuncia fue anónima", () => {
+    const step = run(at(SessionState.CONSULTA_CUPO_PENDING), cupo(0));
 
-      expect(step.session.state).toBe("consulta_awaiting_codigo");
-      expect(texts(step)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
-    }
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_TIPO);
+    expect(sent(step)).toMatchObject([
+      { text: ASK_TIPO_TEXT, buttons: [{ id: ConsultaTipoButtonId.ANONIMA }, { id: ConsultaTipoButtonId.CON_DNI }] },
+    ]);
   });
 
-  it("escribir «consultar mi denuncia» pide el código", () => {
-    const step = handle(mainMenu(), text("consultar mi denuncia"));
+  it("con las 3 consultas del día usadas, la 4.ª termina con el aviso del límite y un aviso en el log sin datos de la persona", () => {
+    const lines = captureLogs();
+    const step = run(at(SessionState.CONSULTA_CUPO_PENDING), cupo(3));
 
-    expect(step.session.state).toBe("consulta_awaiting_codigo");
-    expect(texts(step)).toEqual([ASK_CODIGO_TEXT, ASK_CODIGO_O_LISTAR_TEXT]);
-  });
-});
-
-describe("consulta_awaiting_codigo", () => {
-  const waiting = (): Session => ({ state: "consulta_awaiting_codigo", slots: { consultaCanal: "whatsapp" }, counters: {} });
-
-  it("un código válido busca; uno inválido lo vuelve a pedir con un ejemplo", () => {
-    expect(handle(waiting(), text(CODIGO)).session.state).toBe("consulta_query_pending");
-
-    const bad = handle(waiting(), text("123"));
-    expect(bad.session.state).toBe("consulta_awaiting_codigo");
-    expect(texts(bad)).toEqual([INVALID_CODIGO_TEXT]);
+    expect(step.session.state).toBe(SessionState.CONSULTA_FAILED);
+    expect(texts(step)).toEqual([LIMITE_DIARIO_TEXT]);
+    expect(lines).toEqual([expect.objectContaining({ level: "warn", event: "consulta.daily_limit_reached", canal: "whatsapp" })]);
   });
 
-  it("al tercer intento inválido cierra la consulta", () => {
-    let step = handle(waiting(), text("uno"));
-    step = handle(step.session, text("dos"));
-    step = handle(step.session, text("tres"));
+  it("si no se pudo contar el cupo, no lo toma como cero: avisa la falla y termina", () => {
+    const step = run(
+      at(SessionState.CONSULTA_CUPO_PENDING),
+      queryResult(QueryKind.CONSULTA_CUPO_DIARIO, { statusCupo: CupoDiarioStatus.FAILED }),
+    );
 
-    expect(step.session.state).toBe("consulta_failed");
-    expect(texts(step)).toEqual([CODIGO_NO_RECONOCIDO_TEXT]);
-  });
-});
-
-describe("web: DNI + OTP antes de consultar", () => {
-  const atDni = (): Session => ({ state: "consulta_awaiting_dni", slots: { consultaCanal: "web", consultaCodigo: CODIGO }, counters: {} });
-
-  it("documento inválido se vuelve a pedir; válido valida con MINSA", () => {
-    expect(handle(atDni(), text("123", "web")).session.state).toBe("consulta_awaiting_dni");
-
-    const step = handle(atDni(), text("12345678", "web"));
-    expect(step.session.state).toBe("consulta_validate_pending");
-    expect(queries(step)).toMatchObject([{ kind: "validate_user", payload: { numeroDocumento: "12345678" } }]);
-  });
-
-  it("documento no registrado o MINSA caído cierran la consulta con su mensaje", () => {
-    const pending = handle(atDni(), text("12345678", "web")).session;
-
-    expect(texts(handle(pending, result("validate_user", { status: "not_valid" })))).toEqual([NO_VERIFICADO_TEXT]);
-    expect(texts(handle(pending, result("validate_user", { status: "error" })))).toEqual([CONSULTA_FALLA_TEXT]);
-  });
-
-  it("recorre OTP correcto y busca con el documento verificado (sin guardar el token)", () => {
-    let step = handle(atDni(), text("12345678", "web"));
-    step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw-1" }));
-    expect(step.session.state).toBe("consulta_awaiting_otp");
-    expect(texts(step)).toEqual([ASK_OTP_TEXT]);
-
-    step = handle(step.session, text("123456", "web"));
-    expect(queries(step)).toMatchObject([{ kind: "verify_code", payload: { twofaId: "tw-1", code: "123456" } }]);
-
-    step = handle(step.session, result("verify_code", { status: "verified", token: "secreto" }));
-    expect(step.session.state).toBe("consulta_query_pending");
-    expect(queries(step)).toEqual([{ kind: "consultar_incidencia", payload: { codigo: CODIGO, canal: "web", dni: "12345678" } }]);
-    expect(JSON.stringify(step.session)).not.toContain("secreto");
-  });
-
-  it("OTP incorrecto descuenta intentos y al tercero cierra", () => {
-    let step = handle(atDni(), text("12345678", "web"));
-    step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw-1" }));
-
-    for (const remaining of [2, 1]) {
-      step = handle(step.session, text("000000", "web"));
-      step = handle(step.session, result("verify_code", { status: "invalid" }));
-      expect(step.session.state).toBe("consulta_awaiting_otp");
-      expect(texts(step)).toEqual([`Código incorrecto. Te quedan ${remaining} intento(s).`]);
-    }
-
-    step = handle(step.session, text("000000", "web"));
-    step = handle(step.session, result("verify_code", { status: "invalid" }));
-    expect(step.session.state).toBe("consulta_failed");
-    expect(texts(step)).toEqual([OTP_BLOQUEADO_TEXT]);
-  });
-});
-
-describe("consulta_awaiting_otp: un mensaje con formato inválido cuenta como intento fallido", () => {
-  const atOtp = (): Session => ({
-    state: "consulta_awaiting_otp",
-    slots: { consultaCanal: "web", consultaCodigo: CODIGO, consultaDniPending: "12345678", consultaTwofaId: "tw-1" },
-    counters: {},
+    expect(step.session.state).toBe(SessionState.CONSULTA_FAILED);
+    expect(texts(step)).toEqual([CONSULTA_FALLA_TEXT]);
   });
 
   it.each([
-    ["texto con símbolos", text("{ds", "web")],
-    ["muy corto", text("12", "web")],
-    ["muy largo", text("123456789", "web")],
-    ["un toque de botón", pick("cualquiera", "web")],
-  ])("%s descuenta un intento y no consulta a MINSA", (_caso, event) => {
-    const step = handle(atOtp(), event);
+    [ANONIMA, true],
+    [CON_DNI, false],
+  ])("el código %s escrito desde el menú deduce el tipo y salta la pregunta", (codigo, anonima) => {
+    const step = run(at(SessionState.MAIN_MENU), text(`quiero ver mi denuncia ${codigo}`), cupo(1));
 
-    expect(queries(step)).toEqual([]);
-    expect(step.session.state).toBe("consulta_awaiting_otp");
-    expect(step.session.counters[CounterKey.CONSULTA_INTENTOS_OTP]).toBe(1);
-    expect(texts(step)).toEqual([codigoIncorrectoText(2)]);
-  });
-
-  it("comparte el contador con el código incorrecto y al tercer intento cierra con el texto de agotamiento", () => {
-    let step = handle(atOtp(), text("{ds", "web"));
-    step = handle(step.session, text("123456", "web"));
-    expect(queries(step)).toMatchObject([{ kind: "verify_code" }]);
-
-    step = handle(step.session, result("verify_code", { status: "invalid" }));
-    expect(step.session.counters[CounterKey.CONSULTA_INTENTOS_OTP]).toBe(2);
-    expect(texts(step)).toEqual([codigoIncorrectoText(1)]);
-
-    step = handle(step.session, text("zzz", "web"));
-    expect(step.session.state).toBe("consulta_failed");
-    expect(texts(step)).toEqual([OTP_BLOQUEADO_TEXT]);
-    expect(queries(step)).toEqual([]);
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO);
+    expect(step.session.slots).toMatchObject({ [SlotKey.CONSULTA_CODIGO]: codigo, [SlotKey.CONSULTA_ANONIMA]: anonima });
+    expect(texts(step)).toEqual([ASK_ESTABLECIMIENTO_TEXT]);
   });
 });
 
-describe("consulta_query_pending: el resultado", () => {
-  const pending = (canal: "whatsapp" | "web"): Session => ({
-    state: "consulta_query_pending",
-    slots: { consultaCanal: canal, consultaCodigo: CODIGO },
-    counters: {},
+describe("el camino completo", () => {
+  it("anónima, con el establecimiento por nombre: consulta sin DNI y muestra el estado resumido", () => {
+    const tipo = run(at(SessionState.CONSULTA_AWAITING_TIPO), tap(ConsultaTipoButtonId.ANONIMA));
+    expect(texts(tipo)).toEqual([askCodigoText(CODIGO_EJEMPLO_ANONIMA)]);
+
+    const nombre = run(tipo.session, text(ANONIMA), text("hospital hipolito unanue"));
+    expect(queries(nombre)).toEqual([{ kind: QueryKind.BUSCAR_ESTABLECIMIENTO, payload: { nombre: "hospital hipolito unanue" } }]);
+
+    const confirm = run(nombre.session, porNombre([{ ...HOSPITAL, similitud: 0.9, similitudPalabra: 1 }]));
+    expect(sent(confirm)).toMatchObject([{ text: confirmEstablecimientoText(HOSPITAL.nombre, HOSPITAL.codigoRenipress) }]);
+
+    const search = run(confirm.session, tap(ConsultaEstablecimientoButtonId.SI));
+    expect(texts(search)).toEqual([BUSCANDO_INCIDENCIA_TEXT]);
+    expect(queries(search)).toEqual([
+      { kind: QueryKind.CONSULTAR_INCIDENCIA, payload: { codigo: ANONIMA, establecimientoId: 7, anonima: true, canal: "whatsapp" } },
+    ]);
+
+    const found = run(
+      search.session,
+      queryResult(QueryKind.CONSULTAR_INCIDENCIA, {
+        status: LookupStatus.FOUND,
+        codigo: ANONIMA,
+        estado: "EN_GESTION",
+        fechaRegistro: "2026-10-30T15:00:00.000Z",
+      }),
+    );
+    expect(found.session).toEqual({ state: SessionState.CONSULTA_COMPLETED, slots: {}, counters: {} });
+    expect(texts(found)).toEqual([`Denuncia ${ANONIMA}\nEstado: En proceso\nRegistrada el 30/10/2026`]);
   });
 
-  it("encontrada: código, estado y fecha; nunca descripción ni datos de la persona; termina la sesión", () => {
-    const step = handle(
-      pending("whatsapp"),
-      result("consultar_incidencia", {
-        status: "found",
-        codigo: CODIGO,
-        estado: "DERIVADO",
-        fechaRegistro: "2026-10-10T03:30:00.000Z",
-        descripcion: "secreta",
-        dni: "12345678",
+  it("con DNI, con el establecimiento por código IPRESS: pide el DNI y lo manda en la consulta", () => {
+    const establecimiento = run(at(SessionState.CONSULTA_AWAITING_TIPO), tap(ConsultaTipoButtonId.CON_DNI), text(CON_DNI), text("5946"));
+    expect(queries(establecimiento)).toEqual([{ kind: QueryKind.BUSCAR_ESTABLECIMIENTO, payload: { codigo: "5946" } }]);
+
+    const dni = run(establecimiento.session, porCodigo(), tap(ConsultaEstablecimientoButtonId.SI));
+    expect(dni.session.state).toBe(SessionState.CONSULTA_AWAITING_DNI);
+    expect(texts(dni)).toEqual([ASK_DNI_TEXT]);
+
+    expect(texts(run(dni.session, text("123")))).toEqual([INVALID_DOCUMENT_TEXT]);
+
+    const search = run(dni.session, text("12345678"));
+    expect(queries(search)).toEqual([
+      {
+        kind: QueryKind.CONSULTAR_INCIDENCIA,
+        payload: { codigo: CON_DNI, establecimientoId: 7, anonima: false, canal: "whatsapp", dni: "12345678" },
+      },
+    ]);
+  });
+});
+
+describe("los pasos", () => {
+  it("una respuesta que no es Sí ni No vuelve a preguntar el tipo", () => {
+    const step = run(at(SessionState.CONSULTA_AWAITING_TIPO), text("tal vez"));
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_TIPO);
+    expect(texts(step)).toEqual([FALLBACK_TEXT]);
+    expect(sent(step)[1]).toMatchObject({ text: ASK_TIPO_TEXT });
+  });
+
+  it("un código de la otra serie avisa el tipo con un ejemplo y no cuenta como intento", () => {
+    const step = run(at(SessionState.CONSULTA_AWAITING_CODIGO, { [SlotKey.CONSULTA_ANONIMA]: true }), text(CON_DNI));
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_CODIGO);
+    expect(texts(step)).toEqual([otraSerieText(SERIE_CON_DNI_TEXT, CODIGO_EJEMPLO_ANONIMA)]);
+    expect(step.session.counters).toEqual({});
+  });
+
+  it("un código mal escrito se vuelve a pedir con el ejemplo de su tipo", () => {
+    const step = run(at(SessionState.CONSULTA_AWAITING_CODIGO, { [SlotKey.CONSULTA_ANONIMA]: false }), text("123"));
+
+    expect(texts(step)).toEqual([invalidCodigoText(CODIGO_EJEMPLO_CON_DNI)]);
+    expect(step.session.counters[CounterKey.CONSULTA_INTENTOS_CODIGO]).toBe(1);
+  });
+
+  it("«No, es otro» vuelve a pedir el establecimiento y cuenta como intento del paso", () => {
+    const propuesto = JSON.stringify({ id: 7, nombre: HOSPITAL.nombre, codigoRenipress: HOSPITAL.codigoRenipress });
+    const step = run(
+      at(SessionState.CONSULTA_CONFIRM_ESTABLECIMIENTO, { [SlotKey.CONSULTA_ESTABLECIMIENTO_PROPUESTO]: propuesto }),
+      tap(ConsultaEstablecimientoButtonId.NO),
+    );
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO);
+    expect(texts(step)).toEqual([ESTABLECIMIENTO_RECHAZADO_TEXT]);
+    expect(step.session.counters[CounterKey.CONSULTA_INTENTOS_ESTABLECIMIENTO]).toBe(1);
+  });
+
+  it("un establecimiento que no aparece se vuelve a pedir", () => {
+    const step = run(at(SessionState.CONSULTA_BUSCAR_ESTABLECIMIENTO_PENDING), ninguno());
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO);
+    expect(texts(step)).toEqual([ESTABLECIMIENTO_NO_ENCONTRADO_TEXT]);
+  });
+
+  it("con la búsqueda de establecimientos caída, avisa la falla y termina sin gastar una consulta", () => {
+    const step = run(
+      at(SessionState.CONSULTA_BUSCAR_ESTABLECIMIENTO_PENDING),
+      queryResult(QueryKind.BUSCAR_ESTABLECIMIENTO, {
+        by: EstablecimientoSearchBy.NOMBRE,
+        status: EstablecimientoSearchStatus.UNAVAILABLE,
       }),
     );
 
-    expect(step.session.state).toBe("consulta_completed");
-    expect(step.session.slots).toEqual({});
-    expect(texts(step)).toEqual([`Denuncia ${CODIGO}\nEstado: Derivada al área responsable\nFecha de registro: 09/10/2026`]);
-    expect(texts(step)[0]).not.toMatch(/secreta|12345678/);
-  });
-
-  it("no encontrada produce exactamente el mismo efecto para WhatsApp y web (no se distingue inexistente de ajena)", () => {
-    const whatsapp = handle(pending("whatsapp"), result("consultar_incidencia", { status: "not_found" }));
-    const web = handle(pending("web"), result("consultar_incidencia", { status: "not_found" }));
-
-    expect(texts(whatsapp)).toEqual([NO_UBICADA_TEXT]);
-    expect(web.effects).toEqual(whatsapp.effects);
-    expect(web.session).toEqual(whatsapp.session);
-    expect(whatsapp.session.state).toBe("consulta_completed");
-  });
-
-  it("base caída o apagada: «inténtalo más tarde» y la sesión termina", () => {
-    for (const value of [{ status: "error" }, undefined]) {
-      const step = handle(pending("whatsapp"), result("consultar_incidencia", value));
-
-      expect(texts(step)).toEqual([CONSULTA_FALLA_TEXT]);
-      expect(step.session.state).toBe("consulta_failed");
-    }
-  });
-
-  it("tras terminar, el siguiente mensaje vuelve al inicio (primer contacto), también en la web", () => {
-    const done: Session = { state: "consulta_completed", slots: {}, counters: {} };
-
-    const web = handle(done, text("hola", "web"));
-    expect(web.session.state).toBe("main_menu");
-    expect(sent(web).length).toBe(1);
+    expect(step.session.state).toBe(SessionState.CONSULTA_FAILED);
+    expect(texts(step)).toEqual([CONSULTA_FALLA_TEXT]);
+    expect(queries(step)).toEqual([]);
   });
 });
 
-describe("ver mis incidencias", () => {
-  const LISTAR_ID = "consulta_codigo_listar";
-  const atCodigo = (channel: InboundEvent["channel"] = "whatsapp"): Session => ({
-    state: "consulta_awaiting_codigo",
-    slots: { consultaCanal: channel === "web" ? "web" : "whatsapp" },
-    counters: {},
+describe("el resultado y lo que cuenta para el cupo", () => {
+  const pending = (usadas: number) => at(SessionState.CONSULTA_QUERY_PENDING, { [SlotKey.CONSULTA_USADAS_HOY]: usadas });
+
+  it("no encontrada: dice cuántas consultas le quedan hoy", () => {
+    const step = run(pending(1), queryResult(QueryKind.CONSULTAR_INCIDENCIA, { status: LookupStatus.NOT_FOUND }));
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_COMPLETED);
+    expect(texts(step)).toEqual([`${NO_UBICADA_TEXT} ${consultasRestantesText(1)}`]);
   });
 
-  it("WhatsApp: el botón «Ver mis denuncias» busca de inmediato, sin DNI", () => {
-    const step = handle(atCodigo(), pick(LISTAR_ID));
+  it.each([{ status: LookupStatus.ERROR }, undefined])("error o resultado ilegible: avisa la falla y termina", (value) => {
+    const step = run(pending(0), queryResult(QueryKind.CONSULTAR_INCIDENCIA, value));
 
-    expect(step.session.state).toBe("consulta_listar_pending");
-    expect(queries(step)).toEqual([{ kind: "listar_incidencias", payload: { canal: "whatsapp" } }]);
+    expect(step.session.state).toBe(SessionState.CONSULTA_FAILED);
+    expect(texts(step)).toEqual([CONSULTA_FALLA_TEXT]);
   });
 
-  it("web: el botón «Ver mis denuncias» pide DNI+OTP antes de listar", () => {
-    let step = handle(atCodigo("web"), pick(LISTAR_ID, "web"));
-    expect(step.session.state).toBe("consulta_awaiting_dni");
+  it.each([
+    [
+      "3 códigos inválidos",
+      at(SessionState.CONSULTA_AWAITING_CODIGO, { [SlotKey.CONSULTA_ANONIMA]: true }),
+      [text("a"), text("b"), text("c")],
+      CODIGO_NO_RECONOCIDO_TEXT,
+    ],
+    [
+      "3 establecimientos no encontrados",
+      at(SessionState.CONSULTA_BUSCAR_ESTABLECIMIENTO_PENDING),
+      [ninguno(), text("x hospital"), ninguno(), text("y hospital"), ninguno()],
+      ESTABLECIMIENTO_AGOTADO_TEXT,
+    ],
+  ])("%s agotan el paso y se registran como una consulta del día", (_caso, start, events, aviso) => {
+    const step = run(start, ...events);
 
-    step = handle(step.session, text("12345678", "web"));
-    step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw-1" }));
-    step = handle(step.session, text("123456", "web"));
-    step = handle(step.session, result("verify_code", { status: "verified", token: "secreto" }));
+    expect(step.session.state).toBe(SessionState.CONSULTA_INTENTO_PENDING);
+    expect(texts(step)).toEqual([aviso]);
+    expect(queries(step)).toEqual([{ kind: QueryKind.CONSULTA_REINTENTOS_AGOTADOS, payload: { canal: "whatsapp" } }]);
 
-    expect(step.session.state).toBe("consulta_listar_pending");
-    expect(queries(step)).toEqual([{ kind: "listar_incidencias", payload: { canal: "web", dni: "12345678" } }]);
+    const closed = run(step.session, queryResult(QueryKind.CONSULTA_REINTENTOS_AGOTADOS, { statusCupo: CupoDiarioStatus.SAVED }));
+    expect(closed.session).toEqual({ state: SessionState.CONSULTA_FAILED, slots: {}, counters: {} });
+    expect(sent(closed)).toEqual([]);
   });
 
-  describe("consulta_listar_pending: el resultado", () => {
-    const pendingListar = (): Session => ({ state: "consulta_listar_pending", slots: { consultaCanal: "whatsapp" }, counters: {} });
-
-    it("sin incidencias, cierra con el aviso y no deja ninguna query a medias", () => {
-      const step = handle(pendingListar(), result("listar_incidencias", { status: "empty" }));
-
-      expect(step.session.state).toBe("consulta_completed");
-      expect(texts(step)).toEqual(["No tienes denuncias registradas."]);
-    });
-
-    it("con incidencias, ofrece la lista paginada (mismo mecanismo que las referencias de citas)", () => {
-      const step = handle(
-        pendingListar(),
-        result("listar_incidencias", {
-          status: "found",
-          items: [
-            { codigo: CODIGO, estado: "RESUELTO", fechaRegistro: "2026-10-10T03:30:00.000Z" },
-            { codigo: "MINSA-2026-000009", estado: "EN_GESTION", fechaRegistro: "2026-09-01T03:30:00.000Z" },
-          ],
-        }),
-      );
-
-      expect(step.session.state).toBe("consulta_awaiting_listado");
-      const listEffect = step.effects.find((e) => "rows" in e) as { text: string; rows: { id: string; title: string }[] };
-      expect(listEffect.text).toBe("Estas son tus denuncias:");
-      expect(listEffect.rows.map((r) => r.id)).toEqual([CODIGO, "MINSA-2026-000009"]);
-    });
-
-    it("base caída: cierra con el mismo mensaje de falla que una consulta puntual", () => {
-      const step = handle(pendingListar(), result("listar_incidencias", { status: "error" }));
-
-      expect(texts(step)).toEqual([CONSULTA_FALLA_TEXT]);
-      expect(step.session.state).toBe("consulta_failed");
-    });
-  });
-
-  it("al elegir una de la lista, muestra el mismo detalle que una consulta por código", () => {
-    const listado = handle(
-      { state: "consulta_listar_pending", slots: { consultaCanal: "whatsapp" }, counters: {} },
-      result("listar_incidencias", {
-        status: "found",
-        items: [{ codigo: CODIGO, estado: "RESUELTO", fechaRegistro: "2026-10-10T03:30:00.000Z" }],
+  it("la consulta no lleva el identificador de la persona: lo pone el servidor", () => {
+    const step = run(
+      at(SessionState.CONSULTA_AWAITING_DNI, {
+        [SlotKey.CONSULTA_CODIGO]: CON_DNI,
+        [SlotKey.CONSULTA_ANONIMA]: false,
+        [SlotKey.CONSULTA_ESTABLECIMIENTO_ID]: 7,
       }),
-    ).session;
+      text("12345678"),
+    );
 
-    const step = handle(listado, pick(CODIGO));
+    expect(JSON.stringify(queries(step))).not.toMatch(/waId|identificador|synthetic-fsm/);
+  });
+});
 
-    expect(step.session.state).toBe("consulta_completed");
-    expect(texts(step)).toEqual([`Denuncia ${CODIGO}\nEstado: Resuelta\nFecha de registro: 09/10/2026`]);
+describe("respuestas fuera de lo esperado en cada paso", () => {
+  const propuesto = JSON.stringify({ id: 7, nombre: HOSPITAL.nombre, codigoRenipress: HOSPITAL.codigoRenipress });
+
+  it("el código escrito en la pregunta del tipo lo deduce por la serie", () => {
+    const step = run(at(SessionState.CONSULTA_AWAITING_TIPO), text(ANONIMA));
+
+    expect(step.session.slots[SlotKey.CONSULTA_ANONIMA]).toBe(true);
+    expect(texts(step)).toEqual([ASK_ESTABLECIMIENTO_TEXT]);
+  });
+
+  it("un toque sin texto en el código vuelve a pedirlo sin contar intento", () => {
+    const step = run(at(SessionState.CONSULTA_AWAITING_CODIGO, { [SlotKey.CONSULTA_ANONIMA]: true }), tap("cualquiera"));
+
+    expect(texts(step)).toEqual([askCodigoText(CODIGO_EJEMPLO_ANONIMA)]);
+    expect(step.session.counters).toEqual({});
+  });
+
+  it("una sesión sin el tipo elegido acepta el código de cualquier serie", () => {
+    const step = run(at(SessionState.CONSULTA_AWAITING_CODIGO), text(ANONIMA));
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO);
+  });
+
+  it.each([
+    ["sin texto", tap("cualquiera"), ASK_ESTABLECIMIENTO_TEXT],
+    ["ilegible", text("??? !!! ..."), ESTABLECIMIENTO_ILEGIBLE_TEXT],
+  ])("un establecimiento %s se vuelve a pedir sin buscar", (_caso, event, aviso) => {
+    const step = run(at(SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO), event);
+
+    expect(texts(step)).toEqual([aviso]);
+    expect(queries(step)).toEqual([]);
+  });
+
+  it("varios establecimientos parecidos piden el nombre completo", () => {
+    const step = run(
+      at(SessionState.CONSULTA_BUSCAR_ESTABLECIMIENTO_PENDING),
+      porNombre([
+        { ...HOSPITAL, nombre: "Hospital A", similitud: 0.5, similitudPalabra: 0 },
+        { ...HOSPITAL, nombre: "Hospital B", similitud: 0.45, similitudPalabra: 0 },
+      ]),
+    );
+
+    expect(texts(step)).toEqual([ESTABLECIMIENTO_VARIOS_TEXT]);
+  });
+
+  it("una respuesta que no es Sí ni No repite la confirmación del establecimiento", () => {
+    const step = run(
+      at(SessionState.CONSULTA_CONFIRM_ESTABLECIMIENTO, { [SlotKey.CONSULTA_ESTABLECIMIENTO_PROPUESTO]: propuesto }),
+      text("quizás"),
+    );
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_CONFIRM_ESTABLECIMIENTO);
+    expect(texts(step)).toEqual([FALLBACK_TEXT]);
+    expect(sent(step)[1]).toMatchObject({ text: confirmEstablecimientoText(HOSPITAL.nombre, HOSPITAL.codigoRenipress) });
+  });
+
+  it("sin el establecimiento propuesto en la sesión, lo vuelve a pedir", () => {
+    const step = run(at(SessionState.CONSULTA_CONFIRM_ESTABLECIMIENTO), tap(ConsultaEstablecimientoButtonId.SI));
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO);
+  });
+
+  it("un mensaje mientras espera una consulta termina con el aviso de falla; un resultado mientras espera un mensaje se ignora", () => {
+    expect(texts(run(at(SessionState.CONSULTA_QUERY_PENDING), text("hola")))).toEqual([CONSULTA_FALLA_TEXT]);
+
+    const ignored = run(at(SessionState.CONSULTA_AWAITING_DNI), queryResult(QueryKind.CONSULTAR_INCIDENCIA, {}));
+    expect(ignored.session.state).toBe(SessionState.CONSULTA_AWAITING_DNI);
+    expect(ignored.effects).toEqual([]);
+  });
+
+  it("la última consulta del día no encontrada avisa que ya no quedan; sin fecha legible omite la línea", () => {
+    const pending = at(SessionState.CONSULTA_QUERY_PENDING, { [SlotKey.CONSULTA_USADAS_HOY]: 2 });
+
+    expect(texts(run(pending, queryResult(QueryKind.CONSULTAR_INCIDENCIA, { status: LookupStatus.NOT_FOUND })))).toEqual([
+      `${NO_UBICADA_TEXT} ${consultasRestantesText(0)}`,
+    ]);
+    expect(
+      texts(
+        run(
+          pending,
+          queryResult(QueryKind.CONSULTAR_INCIDENCIA, {
+            status: LookupStatus.FOUND,
+            codigo: ANONIMA,
+            estado: "RESUELTO",
+            fechaRegistro: "x",
+          }),
+        ),
+      ),
+    ).toEqual([`Denuncia ${ANONIMA}\nEstado: Resuelta`]);
+  });
+
+  it.each([
+    [0, "Ya no te quedan consultas hoy."],
+    [1, "Te queda 1 consulta hoy."],
+    [2, "Te quedan 2 consultas hoy."],
+  ])("con %i consultas restantes dice «%s»", (restantes, esperado) => {
+    expect(consultasRestantesText(restantes)).toBe(esperado);
+  });
+});
+
+describe("una sesión guardada en un estado retirado", () => {
+  it.each([
+    "consulta_awaiting_otp",
+    "consulta_awaiting_listado",
+    "consulta_listar_pending",
+    "consulta_validate_pending",
+    "consulta_verify_pending",
+  ])("%s vuelve a empezar la consulta con una sesión limpia", (retirado) => {
+    const step = handle({ state: retirado, slots: {}, counters: {} } as unknown as Session, text("123456"));
+
+    expect(step.session.state).toBe(SessionState.CONSULTA_CUPO_PENDING);
+    expect(step.notes).toContainEqual(expect.objectContaining({ kind: "retired_state", detail: { state: retirado } }));
   });
 });

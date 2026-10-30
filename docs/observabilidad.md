@@ -71,10 +71,9 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |
 | `incidencia.consulta_unavailable` | error | `reason`. Se quiso consultar una incidencia con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
 | `incidencia.consulta_failed` | error | `error`. Falló la consulta de una incidencia en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
-| `incidencia.listado_unavailable` | error | `reason`. Se quiso listar todas las incidencias con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
-| `incidencia.listado_failed` | error | `error`. Falló el listado de incidencias en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
 | `consulta.intento_persist_failed` | error | `canal`, `resultado` y `error` (nunca el identificador). Falló el guardado de una consulta de denuncia en el cupo diario (`chatbot.consulta_incidencia_intento`); quien llama recibe `failed` y decide qué responder |
 | `consulta.cupo_count_failed` | error | `error` (nunca el identificador). Falló el conteo de las consultas del día; quien llama recibe `failed`, nunca «0 consultas», y decide qué responder |
+| `consulta.daily_limit_reached` | warn | `canal` (nunca el identificador, el código ni el DNI). La persona ya usó sus consultas de denuncia del día; recibe el aviso del límite y la consulta termina |
 | `terminos.persist_failed` | error | `canal`, `version` y `error`. Falló el guardado de la aceptación de los términos y condiciones; la cita sigue igual, porque la persona ya aceptó en la conversación |
 | `terminos.url_missing` | warn | Sin campos. Se pidieron los términos por whatsapp-bot y `TERMINOS_URL` está vacía: se envían solo los botones Acepto y No acepto, sin el enlace «Ver términos» |
 | `incidencia.establecimiento_lookup_failed` | error | `by` (`codigo` o `nombre`) y `error`. Falló la búsqueda del establecimiento en el padrón; el flujo trata el resultado como no disponible y pide la ubicación de otra forma |

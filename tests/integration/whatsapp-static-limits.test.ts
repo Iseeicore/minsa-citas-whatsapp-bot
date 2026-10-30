@@ -19,7 +19,12 @@ import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-i
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { CONTINUE_BUTTONS, INSTITUTIONAL_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
-import { ASK_CODIGO_O_LISTAR_TEXT, INCIDENCIAS_LIST_TEXT, LISTAR_BUTTONS } from "@/lib/constants/textos/consulta";
+import {
+  ASK_TIPO_TEXT,
+  CONSULTA_ESTABLECIMIENTO_BUTTONS,
+  CONSULTA_TIPO_BUTTONS,
+  confirmEstablecimientoText,
+} from "@/lib/constants/textos/consulta";
 import {
   REFERENCIA_CHOICE_BUTTONS,
   REFERENCIA_CHOICE_QUESTION_TEXT,
@@ -105,7 +110,11 @@ const LEADS = ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT];
 const PAIRED_DEFINITIONS: StaticDefinition[] = [
   { origin: "INSTITUTIONAL_WARNING_TEXT + CONTINUE_BUTTONS", effect: sendButtons(INSTITUTIONAL_WARNING_TEXT, CONTINUE_BUTTONS) },
   { origin: "RESPECT_REMINDER_TEXT + CONTINUE_BUTTONS", effect: sendButtons(RESPECT_REMINDER_TEXT, CONTINUE_BUTTONS) },
-  { origin: "ASK_CODIGO_O_LISTAR_TEXT + LISTAR_BUTTONS", effect: sendButtons(ASK_CODIGO_O_LISTAR_TEXT, LISTAR_BUTTONS) },
+  { origin: "ASK_TIPO_TEXT + CONSULTA_TIPO_BUTTONS", effect: sendButtons(ASK_TIPO_TEXT, CONSULTA_TIPO_BUTTONS) },
+  {
+    origin: "confirmEstablecimientoText + CONSULTA_ESTABLECIMIENTO_BUTTONS",
+    effect: sendButtons(confirmEstablecimientoText("x".repeat(250), "123456789"), CONSULTA_ESTABLECIMIENTO_BUTTONS),
+  },
   {
     origin: "REFERENCIA_CITA_OFFER_QUESTION_TEXT + REFERENCIA_CITA_OFFER_BUTTONS",
     effect: sendButtons(REFERENCIA_CITA_OFFER_QUESTION_TEXT, REFERENCIA_CITA_OFFER_BUTTONS),
@@ -174,7 +183,6 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
     SELECT_FECHA_TEXT,
     SELECT_HORA_TEXT,
     NARROWED_LIST_TEXT,
-    INCIDENCIAS_LIST_TEXT,
     consultaReferenciasListText(etiquetasSeleccionables()),
     DEMO_ANALYZING_TEXT,
     DEMO_HORAS_LIST_TEXT,
@@ -228,7 +236,7 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
   it("encuentra los botones y los textos de botón declarados en los textos", async () => {
     const origins = (await textosDefinitions()).map((definition) => definition.origin);
 
-    expect(origins).toContain("consulta.LISTAR_BUTTONS");
+    expect(origins).toContain("consulta.CONSULTA_TIPO_BUTTONS");
     expect(origins).toContain("cita-reserva.DUPLICATE_YES_BUTTON_TEXT");
     expect(origins).toContain("incidencia.CONFIRM_REGISTRO_BUTTONS");
     expect(origins).toContain("referencia.REFERENCIA_CHOICE_BUTTONS");
@@ -252,6 +260,10 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
     const nombre = longest(padron, (fila) => fila.nombre.length).nombre;
     const distrito = longest(padron, (fila) => (fila.distrito ?? "").length).distrito ?? "";
     const codigo = longest(padron, (fila) => fila.codigo_renipress.length).codigo_renipress;
+
+    it("la confirmación del establecimiento en la consulta de una denuncia", () => {
+      expect(findLimitViolations(sendButtons(confirmEstablecimientoText(nombre, codigo), CONSULTA_ESTABLECIMIENTO_BUTTONS))).toEqual([]);
+    });
 
     it("el establecimiento aceptado con la pregunta de identidad", () => {
       expect(findLimitViolations(sendButtons(ubicacionAceptadaText(nombre), INCIDENCIA_IDENTIDAD_BUTTONS))).toEqual([]);

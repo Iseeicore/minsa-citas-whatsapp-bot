@@ -4,6 +4,7 @@ import { MissingSlotError } from "@/lib/errors/missing-slot-error";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionChannel } from "@/lib/enums/session-channel";
+import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
 
 const minsa = vi.hoisted(() => ({
   searchUbigeo: vi.fn(async () => ({ status: "found", items: [] })),
@@ -16,7 +17,8 @@ const minsa = vi.hoisted(() => ({
   validateUser: vi.fn(async () => ({ status: "error" })),
   verifyCode: vi.fn(async () => ({ status: "error" })),
   consultarIncidencia: vi.fn(async () => ({ status: "error" })),
-  listarIncidencias: vi.fn(async () => ({ status: "error" })),
+  countIntentosDelDia: vi.fn(async () => ({ statusCupo: "counted", total: 0 })),
+  saveIntentoConsulta: vi.fn(async () => ({ statusCupo: "saved" })),
   saveAceptacionTerminos: vi.fn(async () => ({ ok: true })),
 }));
 
@@ -34,7 +36,11 @@ vi.mock("@/lib/integrations/minsa/catalog", () => ({
 vi.mock("@/lib/integrations/minsa/booking", () => ({ bookAppointment: minsa.bookAppointment }));
 vi.mock("@/lib/integrations/minsa/references", () => ({ listReferences: minsa.listReferences }));
 vi.mock("@/lib/integrations/minsa/identity", () => ({ validateUser: minsa.validateUser, verifyCode: minsa.verifyCode }));
-vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: minsa.consultarIncidencia, listarIncidencias: minsa.listarIncidencias }));
+vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: minsa.consultarIncidencia }));
+vi.mock("@/lib/consulta/cupo-diario", () => ({
+  countIntentosDelDia: minsa.countIntentosDelDia,
+  saveIntentoConsulta: minsa.saveIntentoConsulta,
+}));
 vi.mock("@/lib/terminos/aceptacion-terminos", () => ({ saveAceptacionTerminos: minsa.saveAceptacionTerminos }));
 vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
 
@@ -101,21 +107,64 @@ describe("the executor refuses to call MINSA with a missing required value", () 
   });
 });
 
+const CONSULTA = { codigo: "MINSA-2026-000001", establecimientoId: 7, anonima: false, dni: "12345678" };
+
 describe("the executor refuses to guess the channel of a query", () => {
   it.each<[QueryKind, Record<string, unknown>, ReturnType<typeof vi.fn>]>([
-    [QueryKind.CONSULTAR_INCIDENCIA, { codigo: "MINSA-2026-000001" }, minsa.consultarIncidencia],
-    [QueryKind.LISTAR_INCIDENCIAS, {}, minsa.listarIncidencias],
+    [QueryKind.CONSULTAR_INCIDENCIA, CONSULTA, minsa.consultarIncidencia],
+    [QueryKind.CONSULTA_REINTENTOS_AGOTADOS, {}, minsa.saveIntentoConsulta],
     [QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { version: "1" }, minsa.saveAceptacionTerminos],
-    [QueryKind.CONSULTAR_INCIDENCIA, { codigo: "MINSA-2026-000001", canal: "sms" }, minsa.consultarIncidencia],
+    [QueryKind.CONSULTAR_INCIDENCIA, { ...CONSULTA, canal: "sms" }, minsa.consultarIncidencia],
   ])("fails the %s turn when the payload has no valid channel, never assuming whatsapp", async (kind, payload, client) => {
     await expect(runTurnUnlocked(FROM, event, undefined, startWith(kind, payload))).rejects.toThrow(
       expect.objectContaining({ field: "canal", queryKind: kind }),
     );
     expect(client).not.toHaveBeenCalled();
   });
+});
 
-  it("passes the whatsapp identity when the payload says whatsapp", async () => {
-    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.LISTAR_INCIDENCIAS, { canal: SessionChannel.WHATSAPP }));
-    expect(minsa.listarIncidencias).toHaveBeenCalledWith({ canal: SessionChannel.WHATSAPP, waId: FROM });
+describe("the consulta of a denuncia counts against the sender the server received, never one from the payload", () => {
+  const WEB = { canal: SessionChannel.WEB, identificador: "otra-persona" };
+
+  it("consults with the sender as the identifier", async () => {
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.CONSULTAR_INCIDENCIA, { ...CONSULTA, ...WEB }));
+
+    expect(minsa.consultarIncidencia).toHaveBeenCalledWith(
+      { codigo: CONSULTA.codigo, establecimientoId: 7, esAnonimo: false, dni: "12345678" },
+      { identificador: FROM, canal: SessionChannel.WEB },
+      expect.anything(),
+    );
+  });
+
+  it("an anonymous consulta carries no DNI", async () => {
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.CONSULTAR_INCIDENCIA, { ...CONSULTA, anonima: true, ...WEB }));
+
+    expect(minsa.consultarIncidencia).toHaveBeenCalledWith(
+      { codigo: CONSULTA.codigo, establecimientoId: 7, esAnonimo: true },
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("counts the day and records the exhausted retries for the sender", async () => {
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.CONSULTA_CUPO_DIARIO, { identificador: "otra-persona" }));
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.CONSULTA_REINTENTOS_AGOTADOS, WEB));
+
+    expect(minsa.countIntentosDelDia).toHaveBeenCalledWith(FROM, expect.anything());
+    expect(minsa.saveIntentoConsulta).toHaveBeenCalledWith(
+      { identificador: FROM, canal: SessionChannel.WEB, resultado: ResultadoIntentoConsulta.REINTENTOS_AGOTADOS },
+      expect.anything(),
+    );
+  });
+
+  it.each([
+    ["establecimientoId", { ...CONSULTA, establecimientoId: "siete" }],
+    ["dni", { ...CONSULTA, dni: "" }],
+    ["codigo", { ...CONSULTA, codigo: "" }],
+  ])("fails without consulting when %s is missing", async (field, payload) => {
+    await expect(
+      runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.CONSULTAR_INCIDENCIA, { ...payload, canal: SessionChannel.WEB })),
+    ).rejects.toThrow(expect.objectContaining({ field, queryKind: QueryKind.CONSULTAR_INCIDENCIA }));
+    expect(minsa.consultarIncidencia).not.toHaveBeenCalled();
   });
 });
