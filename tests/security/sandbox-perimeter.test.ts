@@ -181,17 +181,11 @@ describe("unexpected failure inside the turn", () => {
     mocks.sessionRowExists.mockResolvedValue(true);
     mocks.runTurn.mockRejectedValueOnce(new TypeError("fetch failed"));
 
-    const request = new NextRequest("http://localhost/api/sandbox", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ from: "sandbox-qa", type: "text", text: "75969078" }),
-    });
-    const response = await POST(request);
+    const { status, json } = await send({ type: "text", text: "75969078" });
 
-    expect(response.status).toBe(500);
-    const body = await response.json();
-    expect(body).toMatchObject({ error: "INTERNAL" });
-    expect(body.message).toEqual(expect.any(String));
-    expect(JSON.stringify(body)).not.toContain("fetch failed");
+    expect(status).toBe(500);
+    expect(json).toMatchObject({ error: "INTERNAL" });
+    expect(json.message).toEqual(expect.any(String));
+    expect(JSON.stringify(json)).not.toContain("fetch failed");
   });
 });

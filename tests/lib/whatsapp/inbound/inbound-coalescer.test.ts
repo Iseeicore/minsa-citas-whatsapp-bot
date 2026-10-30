@@ -85,7 +85,7 @@ function imageMessage(source: Row): WhatsAppMessage {
   return { ...messageFor(source, "image"), text: undefined, image: { id: source.mediaId ?? undefined } };
 }
 
-function setup(rows: Row[], options: { nowMs?: number; failingType?: string } = {}) {
+function setup(rows: Row[], options: { nowMs?: number; failingType?: string; runTurn?: InboundCoalescerDeps["runTurn"] } = {}) {
   const answered: Array<{ message: WhatsAppMessage; mediaIds?: string[]; usuarioId: string }> = [];
   const notified: string[] = [];
   const failures: Array<{ waId: string; error: unknown }> = [];
@@ -94,7 +94,7 @@ function setup(rows: Row[], options: { nowMs?: number; failingType?: string } = 
 
   const deps: InboundCoalescerDeps = {
     buffer: createFakeBuffer(rows),
-    runTurn: async (_waId, task) => task(),
+    runTurn: options.runTurn ?? (async (_waId, task) => task()),
     answer: async (turn, usuarioId) => {
       if (turn.message.type === options.failingType) throw new Error("answer failed");
       answered.push({ ...turn, usuarioId });
@@ -254,20 +254,13 @@ describe("createInboundCoalescer", () => {
   it("answers every group inside the same turn lock", async () => {
     const rows = [row("m1", "hola", 0), imageRow("m2", 1)];
     const events: string[] = [];
-    const coalescer = createInboundCoalescer({
-      buffer: createFakeBuffer(rows),
+    const { coalescer, answered } = setup(rows, {
+      nowMs: T0 + 1000,
       runTurn: async (_waId, task) => {
         events.push("lock");
         await task();
-        events.push("unlock");
+        events.push(...answered.map((turn) => turn.message.type), "unlock");
       },
-      answer: async (turn) => {
-        events.push(turn.message.type);
-      },
-      notifyStale: async () => {},
-      reportFailure: async () => {},
-      sleep: async () => {},
-      now: () => T0 + 1000,
     });
 
     await coalescer.handle({ message: imageMessage(rows[1]), usuarioId: "u1", windowMs: 0 });

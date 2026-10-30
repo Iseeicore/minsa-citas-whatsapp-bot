@@ -104,6 +104,8 @@ describe("after the OTP: the purpose decides what comes next", () => {
     expect(texts(result)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
     expect(queries(result)).toEqual([]);
     expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
+    expect(result.session.slots[SlotKey.CITA_DNI]).toBe(DNI);
+    expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
   });
 
   it.each([DEMO_REFERENCIA_DNI, DEMO_PEDIATRIA_DNI])("the demo document %s only reaches the demo under the referencias purpose", (dni) => {

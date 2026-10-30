@@ -22,16 +22,13 @@ const queryOf = (result: HandlerResult): QueryEffect => {
   if (!found) throw new Error("no query sent");
   return found;
 };
-const listText = (result: HandlerResult): string => {
+const listOf = (result: HandlerResult) => {
   const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
   if (!list || list.kind !== "send_interactive_list") throw new Error("no list sent");
-  return list.text;
+  return list;
 };
-const rowIds = (result: HandlerResult): string[] => {
-  const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
-  if (!list || list.kind !== "send_interactive_list") throw new Error("no list sent");
-  return list.rows.map((row) => row.id);
-};
+const listText = (result: HandlerResult): string => listOf(result).text;
+const rowIds = (result: HandlerResult): string[] => listOf(result).rows.map((row) => row.id);
 
 const NEXT = "cita_establecimientos_pagina_siguiente";
 const PREV = "cita_establecimientos_pagina_anterior";
@@ -58,18 +55,16 @@ const pending = (slots: Session["slots"] = {}, counters: Session["counters"] = {
 });
 
 describe("establecimientos paginados por el MINSA", () => {
-  it("the first page announces what was found", () => {
-    expect(listText(handle(pending(), queryResult(found(["1", "2"], 1, 3))))).toBe("Encontramos estos establecimientos:");
-  });
-
-  it("without paging from MINSA the list also announces what was found", () => {
-    expect(listText(handle(pending(), queryResult({ status: "found", items: ["1", "2"].map(item) })))).toBe(
+  it.each([
+    ["the first page announces what was found", found(["1", "2"], 1, 3), "Encontramos estos establecimientos:"],
+    [
+      "without paging from MINSA the list also announces what was found",
+      { status: "found", items: ["1", "2"].map(item) },
       "Encontramos estos establecimientos:",
-    );
-  });
-
-  it("the following pages ask to choose", () => {
-    expect(listText(handle(pending(), queryResult(found(["6", "7"], 2, 3))))).toBe("Selecciona el establecimiento:");
+    ],
+    ["the following pages ask to choose", found(["6", "7"], 2, 3), "Selecciona el establecimiento:"],
+  ])("%s", (_case, result, expected) => {
+    expect(listText(handle(pending(), queryResult(result)))).toBe(expected);
   });
 
   it("offers a 'ver más' row and remembers the paging when there are more pages", () => {

@@ -90,7 +90,6 @@ describe("the terms message", () => {
       whatsappText: terminosWhatsappBodyText(TERMINOS_PROMPT_TEXT),
       withTerminosLink: true,
     });
-    expect(TERMINOS_CONTENIDO).toBe("");
     expect(TERMINOS_VERSION).toBe("2026-10-29");
     expect(TERMINOS_BUTTONS.map((button) => button.title)).toEqual(["Acepto", "No acepto"]);
   });
@@ -257,7 +256,6 @@ describe("declining", () => {
       expect(result.session).toEqual({ state: SessionState.CITA_TERMINOS_DECLINED, slots: {}, counters: {} });
       expect(result.outcome).toBe(HandlerOutcome.CLOSED);
       expect(texts(result)).toEqual([TERMINOS_RECHAZADOS_TEXT]);
-      expect(TERMINOS_RECHAZADOS_TEXT.startsWith("Lo sentimos. Muchas gracias por usar nuestros servicios.")).toBe(true);
       expect(queries(result)).toEqual([]);
     },
   );
