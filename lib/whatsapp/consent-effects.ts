@@ -14,13 +14,13 @@ function buildTerminosLink(): ChannelSendEffect[] {
   return [sendCtaUrl(TERMINOS_TITULO_TEXT, TERMINOS_VER_BUTTON_TEXT, url)];
 }
 
-function toConsentMessages(effect: SendConsentEffect): ChannelSendEffect[] {
+function toConsentMessages(effect: SendConsentEffect): [...ChannelSendEffect[], ChannelSendEffect] {
   const question = sendButtons(effect.whatsappText, effect.buttons);
   if (!effect.withTerminosLink) return [question];
   return [...buildTerminosLink(), question];
 }
 
-export function toWhatsAppEffects(effect: SendEffect): ChannelSendEffect[] {
+export function toWhatsAppEffects(effect: SendEffect): [...ChannelSendEffect[], ChannelSendEffect] {
   if (effect.kind === SendType.CONSENT) return toConsentMessages(effect);
   return [effect];
 }

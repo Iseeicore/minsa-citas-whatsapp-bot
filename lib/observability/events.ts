@@ -30,6 +30,7 @@ export const LOG_EVENTS = [
   "webhook.bsuid_conflict",
   "webhook.bsuid_update_failed",
   "whatsapp.send_failed",
+  "whatsapp.sent_without_id",
   "whatsapp.typing_failed",
   "whatsapp.media_failed",
   "outbound.limit_violation",
@@ -69,6 +70,7 @@ export const TURN_NOTE_KINDS = [
   "exit_intent",
   "change_distrito",
   "retired_state",
+  "send_failed",
 ] as const;
 
 export type TurnNoteKind = (typeof TURN_NOTE_KINDS)[number];

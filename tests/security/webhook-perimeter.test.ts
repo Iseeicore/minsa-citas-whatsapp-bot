@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   sessionRowExists: vi.fn(async () => false),
   saveSession: vi.fn(async () => undefined),
   sendWhatsAppEffect: vi.fn(async () => new Response("{}", { status: 200 })),
-  sendAndRecordEffect: vi.fn(async () => undefined),
+  sendAndRecordEffect: vi.fn(async () => ({ kind: "sent_no_id" })),
   sendAndRecordCtaUrl: vi.fn(async () => undefined),
   sendTypingIndicator: vi.fn(async () => undefined),
   downloadMedia: vi.fn(async () => "data:image/png;base64,AAAA"),

@@ -7,6 +7,7 @@ import type { SessionState } from "@/lib/enums/session-state";
 import type { InternalEventType } from "@/lib/enums/internal-event-type";
 import type { MediaFailure } from "@/lib/enums/media-failure";
 import type { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
+import type { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 
 export type SlotValue = string | number | boolean | null;
 
@@ -182,6 +183,12 @@ export type SendConsentEffect = {
 export type ChannelSendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect | SendCtaUrlEffect;
 
 export type SendEffect = ChannelSendEffect | SendConsentEffect;
+
+export type SendOutcome =
+  | { kind: SendOutcomeKind.SENT; messageId: string }
+  | { kind: SendOutcomeKind.SENT_NO_ID }
+  | { kind: SendOutcomeKind.REJECTED; status: number }
+  | { kind: SendOutcomeKind.FAILED };
 
 export type QueryEffectKind =
   | "incidencia_register"

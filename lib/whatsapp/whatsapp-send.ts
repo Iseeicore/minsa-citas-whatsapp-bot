@@ -1,8 +1,9 @@
 import { graphAuthHeaders, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
 import { ACTOR_SISTEMA_BOT } from "@/lib/db/actor";
 import { recordOutboundMessage } from "@/lib/inbox/repository";
-import type { ChannelSendEffect, SendEffect } from "@/lib/fsm/core/types";
+import type { ChannelSendEffect, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
 import { SendType } from "@/lib/enums/send-type";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { LIST_OPEN_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
@@ -108,24 +109,51 @@ async function trySend(waId: string, effect: ChannelSendEffect): Promise<Respons
   }
 }
 
-async function logRejection(waId: string, effect: ChannelSendEffect, response: Response): Promise<void> {
-  const body = parseJsonOr(await response.text().catch(() => ""), {});
-  const error = isRecord(body) && isRecord(body.error) ? body.error : {};
-  logger.error("outbound.rejected", {
-    waId: tail(waId),
-    kind: effect.kind,
-    status: response.status,
-    errorCodeNumber: readNumber(error, "code"),
-    errorMessage: readString(error, "message"),
-  });
+async function readGraphError(response: Response): Promise<Record<string, unknown>> {
+  let raw: string;
+  try {
+    raw = await response.text();
+  } catch (error) {
+    return { status: response.status, bodyError: error };
+  }
+  const body = parseJsonOr(raw, undefined);
+  const error = isRecord(body) && isRecord(body.error) ? body.error : undefined;
+  if (error === undefined) return { status: response.status };
+  return { status: response.status, errorCodeNumber: readNumber(error, "code"), errorMessage: readString(error, "message") };
 }
 
-async function recordDelivered(conversationId: string | null, text: string, response: Response): Promise<string | null> {
-  const graphBody = await response.json().catch(() => ({}));
-  const waMessageId = (graphBody?.messages?.[0]?.id as string | undefined) ?? null;
-  if (conversationId !== null) await recordOutboundMessage(conversationId, text, waMessageId, ACTOR_SISTEMA_BOT);
-  return waMessageId;
+async function logRejection(waId: string, effect: ChannelSendEffect, response: Response): Promise<void> {
+  logger.error("outbound.rejected", { waId: tail(waId), kind: effect.kind, ...(await readGraphError(response)) });
 }
+
+export async function logSendFailure(operation: string, waId: string, response: Response): Promise<void> {
+  logger.error("whatsapp.send_failed", { operation, waId: tail(waId), ...(await readGraphError(response)) });
+}
+
+async function readSentMessageId(response: Response): Promise<string | undefined> {
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch (error) {
+    logger.warn("whatsapp.sent_without_id", { reason: "unreadable_body", error });
+    return undefined;
+  }
+  const messages = isRecord(body) && Array.isArray(body.messages) ? body.messages : [];
+  const first: unknown = messages[0];
+  const messageId = isRecord(first) ? readString(first, "id") : undefined;
+  if (messageId === undefined) logger.warn("whatsapp.sent_without_id", { reason: "missing_id" });
+  return messageId;
+}
+
+async function recordDelivered(conversationId: string | null, text: string, response: Response): Promise<SendOutcome> {
+  const messageId = await readSentMessageId(response);
+  if (conversationId !== null) await recordOutboundMessage(conversationId, text, messageId ?? null, ACTOR_SISTEMA_BOT);
+  return messageId === undefined ? { kind: SendOutcomeKind.SENT_NO_ID } : { kind: SendOutcomeKind.SENT, messageId };
+}
+
+const FAILED: SendOutcome = { kind: SendOutcomeKind.FAILED };
+
+const rejected = (response: Response): SendOutcome => ({ kind: SendOutcomeKind.REJECTED, status: response.status });
 
 export async function sendCtaUrlMessage(waId: string, params: { bodyText: string; buttonText: string; url: string }): Promise<Response> {
   return fetch(graphMessagesUrl(), {
@@ -149,8 +177,9 @@ export async function sendCtaUrlMessage(waId: string, params: { bodyText: string
 }
 
 export async function sendTypingIndicator(inboundMessageId: string): Promise<void> {
+  let response: Response;
   try {
-    await fetch(graphMessagesUrl(), {
+    response = await fetch(graphMessagesUrl(), {
       method: "POST",
       headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -162,55 +191,53 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
     });
   } catch (error) {
     logger.warn("whatsapp.typing_failed", { error });
+    return;
   }
+  if (!response.ok) logger.warn("whatsapp.typing_failed", await readGraphError(response));
 }
 
-async function sendAndRecordMessage(conversationId: string | null, waId: string, effect: ChannelSendEffect): Promise<string | null> {
+async function sendAndRecordMessage(conversationId: string | null, waId: string, effect: ChannelSendEffect): Promise<SendOutcome> {
   const outbound = withinLimits(waId, effect);
   const response = await trySend(waId, outbound);
-  if (!response) return null;
+  if (!response) return FAILED;
   if (response.ok) return recordDelivered(conversationId, outbound.text, response);
 
   await logRejection(waId, outbound, response);
-  if (outbound.kind === SendType.TEXT || response.status !== HTTP_BAD_REQUEST) return null;
+  if (outbound.kind === SendType.TEXT || response.status !== HTTP_BAD_REQUEST) return rejected(response);
 
   const fallback = toNumberedTextEffect(outbound);
   const retry = await trySend(waId, fallback);
-  if (!retry) return null;
+  if (!retry) return FAILED;
   if (!retry.ok) {
     await logRejection(waId, fallback, retry);
-    return null;
+    return rejected(retry);
   }
   return recordDelivered(conversationId, fallback.text, retry);
 }
 
-export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<string | null> {
-  let sentId: string | null = null;
-  for (const message of toWhatsAppEffects(effect)) sentId = await sendAndRecordMessage(conversationId, waId, message);
-  return sentId;
+export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<SendOutcome> {
+  const messages = toWhatsAppEffects(effect);
+  for (const leading of messages.slice(0, -1)) await sendAndRecordMessage(conversationId, waId, leading);
+  return sendAndRecordMessage(conversationId, waId, messages[messages.length - 1]);
 }
 
 export async function sendAndRecordCtaUrl(
   conversationId: string | null,
   waId: string,
   params: { bodyText: string; buttonText: string; url: string },
-): Promise<void> {
+): Promise<SendOutcome> {
   let response: Response;
   try {
     response = await sendCtaUrlMessage(waId, params);
   } catch (err) {
     logger.error("whatsapp.send_failed", { operation: "send_cta_url", waId: tail(waId), error: err });
-    return;
+    return FAILED;
   }
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    logger.error("whatsapp.send_failed", { operation: "send_cta_url", waId: tail(waId), status: response.status, response: body });
-    return;
+    await logSendFailure("send_cta_url", waId, response);
+    return rejected(response);
   }
 
-  const graphBody = await response.json().catch(() => ({}));
-  const waMessageId = graphBody?.messages?.[0]?.id as string | undefined;
-  if (conversationId === null) return;
-  await recordOutboundMessage(conversationId, params.bodyText, waMessageId ?? null, ACTOR_SISTEMA_BOT);
+  return recordDelivered(conversationId, params.bodyText, response);
 }

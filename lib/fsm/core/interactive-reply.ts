@@ -1,8 +1,9 @@
 import { SlotKey } from "@/lib/enums/slot-key";
 import { readTappedId } from "@/lib/fsm/core/handlers-shared";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
-import type { HandleEvent, InboundEvent, InteractiveTracking, SendEffect, Session, Slots } from "@/lib/fsm/core/types";
+import type { HandleEvent, InboundEvent, InteractiveTracking, SendEffect, SendOutcome, Session, Slots } from "@/lib/fsm/core/types";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 
 function isTap(event: HandleEvent): event is InboundEvent {
   return event.type !== InternalEventType.QUERY_RESULT && readTappedId(event) !== undefined;
@@ -31,9 +32,21 @@ export function acceptTap(tracking: InteractiveTracking, event: HandleEvent): In
   return isTap(event) && tracking.messageId ? { ...tracking, consumed: true } : tracking;
 }
 
-export function trackSent(tracking: InteractiveTracking, effect: SendEffect, sentId: string | null | void): InteractiveTracking {
-  if (!sentId || !isInteractiveEffect(effect)) return tracking;
-  return { messageId: sentId, consumed: false };
+export function trackSent(tracking: InteractiveTracking, effect: SendEffect, outcome: SendOutcome): InteractiveTracking {
+  if (!isInteractiveEffect(effect)) return tracking;
+  switch (outcome.kind) {
+    case SendOutcomeKind.SENT:
+      return { messageId: outcome.messageId, consumed: false };
+    case SendOutcomeKind.SENT_NO_ID:
+      return { consumed: false };
+    case SendOutcomeKind.REJECTED:
+    case SendOutcomeKind.FAILED:
+      return { ...tracking, consumed: true };
+  }
+}
+
+export function isUndelivered(outcome: SendOutcome): boolean {
+  return outcome.kind === SendOutcomeKind.REJECTED || outcome.kind === SendOutcomeKind.FAILED;
 }
 
 export function consumeOnStateChange(start: InteractiveTracking, current: InteractiveTracking, stateChanged: boolean): InteractiveTracking {

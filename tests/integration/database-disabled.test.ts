@@ -33,6 +33,7 @@ vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
   sendAndRecordCtaUrl: vi.fn(async () => undefined),
   sendAndRecordEffect: vi.fn(async (conversationId: unknown, waId: string, effect: { text: string }) => {
     state.sent.push({ conversationId, waId, text: effect.text });
+    return { kind: "sent_no_id" };
   }),
 }));
 

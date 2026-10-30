@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 
 const store = vi.hoisted(() => ({
@@ -30,6 +31,8 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SendType } from "@/lib/enums/send-type";
+import { HandlerOutcome } from "@/lib/enums/handler-outcome";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
@@ -65,7 +68,7 @@ function recordingHooks() {
     onSend: async (effect: SendEffect) => {
       calls.push(`send:${effect.text}`);
       next += 1;
-      return `wamid.out.${next}`;
+      return { kind: SendOutcomeKind.SENT, messageId: `wamid.out.${next}` };
     },
     onWaitingForQuery: async () => {
       calls.push("wait");
@@ -367,5 +370,26 @@ describe("a tap on the buttons of the referencia choice", () => {
     expect(result.sent).toEqual([]);
     expect(store.sessions.get(FROM)).toEqual(afterFirst);
     expect(staleLines()).toHaveLength(1);
+  });
+});
+
+describe("an interactive message that never reached the person", () => {
+  it.each([
+    ["rejected by Meta", { kind: SendOutcomeKind.REJECTED, status: 400 } as const],
+    ["lost on the network", { kind: SendOutcomeKind.FAILED } as const],
+  ])("is %s: the turn notes it and the session does not wait for a tap on it", async (_case, outcome) => {
+    const buttons: SendEffect = { kind: SendType.BUTTONS, text: "¿Confirmas?", buttons: [{ id: "si", title: "Sí" }] };
+    const hooks: TurnHooks = { onSend: async () => outcome, onWaitingForQuery: async () => undefined };
+    const start = {
+      session: { state: SessionState.MAIN_MENU, slots: {}, counters: {} },
+      effects: [buttons],
+      outcome: HandlerOutcome.CONTINUE,
+    };
+
+    const result = await runTurnUnlocked(FROM, { from: FROM, type: InboundEventType.TEXT, text: "hola" }, hooks, start);
+
+    expect(result.session.slots[SlotKey.INTERACTIVE_MESSAGE_ID]).toBeUndefined();
+    const notes = raw.map((line) => JSON.parse(line) as Record<string, unknown>).filter((line) => line.event === "turn.note");
+    expect(notes).toContainEqual(expect.objectContaining({ level: "warn", kind: "send_failed", outcome: outcome.kind }));
   });
 });

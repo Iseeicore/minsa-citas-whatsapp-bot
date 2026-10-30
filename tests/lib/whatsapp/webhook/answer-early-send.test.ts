@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   }),
   sendAndRecordEffect: vi.fn(async (_conversationId: unknown, _waId: string, effect: { text: string }) => {
     calls.log.push(`send:${effect.text}`);
+    return { kind: "sent_no_id" };
   }),
   runTurnUnlocked: vi.fn(),
 }));

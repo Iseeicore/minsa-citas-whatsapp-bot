@@ -18,7 +18,16 @@ import { getSession, saveSession } from "@/lib/fsm/session/session-store";
 import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 import { QueryKind } from "@/lib/enums/query-kind";
-import type { HandleEvent, HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import type {
+  HandleEvent,
+  HandlerResult,
+  InboundEvent,
+  QueryEffect,
+  QueryResultEvent,
+  SendEffect,
+  SendOutcome,
+  Session,
+} from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
@@ -35,6 +44,7 @@ import {
   acceptTap,
   consumeOnStateChange,
   isStaleTap,
+  isUndelivered,
   readInteractiveTracking,
   trackSent,
   withInteractiveTracking,
@@ -46,7 +56,7 @@ export type TurnResult = {
 };
 
 export type TurnHooks = {
-  onSend(effect: SendEffect): Promise<string | null | void>;
+  onSend(effect: SendEffect): Promise<SendOutcome>;
   onWaitingForQuery(): Promise<void>;
   onAccepted?(): Promise<void>;
 };
@@ -86,7 +96,12 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
       const sends = result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
       sent.push(...sends);
       if (hooks) {
-        for (const effect of sends) tracking = trackSent(tracking, effect, await hooks.onSend(effect));
+        for (const effect of sends) {
+          const outcome = await hooks.onSend(effect);
+          if (isUndelivered(outcome))
+            trace.note({ kind: "send_failed", level: "warn", detail: { effect: effect.kind, outcome: outcome.kind } });
+          tracking = trackSent(tracking, effect, outcome);
+        }
       }
 
       if (queries.length === 0) {
