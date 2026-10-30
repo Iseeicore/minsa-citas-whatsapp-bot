@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { FAKE_CARNET_EXTRANJERIA, FAKE_DNI, FAKE_TWOFA_ID } from "@/lib/integrations/minsa/fake-data";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
+import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { logger } from "@/lib/observability/logger";
 
 describe("fake validateUser", () => {
   beforeEach(() => {
@@ -77,8 +79,8 @@ describe("real MINSA: validateUser respeta el contrato de validar-usuario", () =
 
   it.each([
     ["valido en false", { valido: false, twofa_id: "tw-1" }, { status: "not_valid" }],
-    ["un cuerpo vacío", {}, { status: "not_valid" }],
-    ["un cuerpo que no es objeto", null, { status: "not_valid" }],
+    ["un cuerpo vacío, sin respuesta explícita", {}, { status: "error" }],
+    ["un cuerpo que no es objeto", null, { status: "error" }],
     ["válido sin twofa_id", { valido: true }, { status: "error" }],
     ["twofa_id que no es texto", { valido: true, twofa_id: 7 }, { status: "error" }],
   ])("%s", async (_caso, body, esperado) => {
@@ -117,14 +119,25 @@ describe("real MINSA: verifyCode", () => {
     await expect(verifyCode("tw-1", "1234")).resolves.toEqual({ status: "verified", token: "jwt" });
   });
 
-  it.each([
-    ["success en false", { success: false, token: "jwt" }],
-    ["sin token", { success: true }],
-    ["un cuerpo que no es objeto", null],
-  ])("%s es invalid", async (_caso, body) => {
-    vi.stubGlobal("fetch", minsaResponding(body));
+  it("success en false es invalid", async () => {
+    vi.stubGlobal("fetch", minsaResponding({ success: false, token: "jwt" }));
 
     await expect(verifyCode("tw-1", "1234")).resolves.toEqual({ status: "invalid" });
+  });
+
+  it.each([
+    ["sin token", { success: true }],
+    ["sin success", { token: "jwt" }],
+    ["un cuerpo que no es objeto", null],
+  ])("%s es un error de contrato que queda en el log, no un código incorrecto", async (_caso, body) => {
+    const error = vi.spyOn(logger, "error");
+    vi.stubGlobal("fetch", minsaResponding(body));
+
+    await expect(verifyCode("tw-1", "1234")).resolves.toEqual({ status: "error" });
+    expect(error).toHaveBeenCalledWith(
+      "minsa.identity.contract_mismatch",
+      expect.objectContaining({ endpoint: MinsaEndpoint.VERIFICAR_CODIGO }),
+    );
   });
 
   it.each([

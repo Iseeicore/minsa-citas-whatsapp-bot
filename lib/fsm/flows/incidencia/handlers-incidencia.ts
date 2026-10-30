@@ -50,7 +50,6 @@ import {
   SEGUIR_CON_IMAGENES_TEXT,
   SEGUIR_SIN_IMAGENES_TEXT,
   imagenesRecibidasText,
-  INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT,
   DAILY_LIMIT_TEXT,
   REGISTRO_FALLIDO_TEXT,
   descripcionTooLongText,
@@ -63,6 +62,7 @@ import {
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
+import type { RegistrarIncidenciaResult } from "@/lib/recepcion/dto";
 import {
   MAX_DESCRIPCION_LENGTH,
   MAX_IMAGENES_POR_INCIDENCIA,
@@ -265,9 +265,7 @@ function handleFotoIntentPending(session: Session, event: QueryResultEvent): Han
   return buildResult(next, [askFoto()]);
 }
 
-function confirmationText(session: Session, codigo: string | undefined): string {
-  if (!codigo) return INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT;
-
+function confirmationText(session: Session, codigo: string): string {
   const establecimiento = slotText(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE);
   return incidenciaRegistradaText(codigo, establecimiento, session.slots[SlotKey.DNI] !== undefined);
 }
@@ -279,7 +277,7 @@ function failureText(reason: string | undefined): string {
 }
 
 function handleSubmitPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; reason?: string; codigo?: string };
+  const result = event.result as RegistrarIncidenciaResult;
   const next = cloneSession(session);
   delete next.slots[SlotKey.INCIDENCIA_IMAGENES];
 
@@ -289,6 +287,6 @@ function handleSubmitPending(session: Session, event: QueryResultEvent): Handler
   }
 
   next.state = SessionState.INCIDENCIA_FAILED;
-  const message = failureText(result.reason);
+  const message = failureText(result.status === RegistrationStatus.REJECTED ? result.reason : undefined);
   return buildResult(next, [sendText(message)]);
 }

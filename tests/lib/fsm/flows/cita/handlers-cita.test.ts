@@ -15,6 +15,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
+import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 
 const FROM = "sandbox-test";
 
@@ -131,6 +132,17 @@ describe("OTP verification — proactive district resolution from the opening me
     expect(queries(result)).toHaveLength(0);
     expect(sent(result).some((effect) => "text" in effect && effect.text.includes("Cuéntanos en qué distrito"))).toBe(true);
   });
+});
+
+it("a verification service error asks for the code again without spending an attempt", () => {
+  const session = at("cita_verify_pending", undefined, { [SlotKey.CITA_DNI_PENDING]: "12345678", [SlotKey.CITA_TWOFA_ID]: "tw-1" });
+  session.counters[CounterKey.CITA_OTP_ATTEMPTS] = 1;
+
+  const result = handle(session, queryResult("verify_code", { status: "error" }));
+
+  expect(result.session.state).toBe("cita_awaiting_otp");
+  expect(result.session.counters[CounterKey.CITA_OTP_ATTEMPTS]).toBe(1);
+  expect(sent(result)).toEqual([expect.objectContaining({ text: TURN_FAILURE_TEXT })]);
 });
 
 describe("offered options are remembered when a list is sent", () => {

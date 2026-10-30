@@ -27,7 +27,7 @@ import {
   REGISTRATION_BUTTONS,
 } from "@/lib/constants/textos/cita-identidad";
 import { ASK_OTP_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
-import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
+import { INVALID_DOCUMENT_TEXT, TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { slotText } from "@/lib/fsm/core/slot-readers";
@@ -139,15 +139,20 @@ export function handleVerifyPending(session: Session, event: QueryResultEvent): 
     return continueVerifiedFlow(next);
   }
 
+  if (result.status === VerifyCodeStatus.ERROR) {
+    next.state = SessionState.CITA_AWAITING_OTP;
+    return buildResult(next, [sendText(TURN_FAILURE_TEXT)]);
+  }
+
   return failOtpAttempt(session);
 }
 
 function continueVerifiedFlow(session: Session): HandlerResult {
   const next = cloneSession(session);
   if (next.slots[SlotKey.POST_LOGIN_FLOW] === PostLoginFlow.REFERENCIAS) {
+    delete next.slots[SlotKey.CITA_RESUME_STATE];
     if (!isDemoReferenciaDni(stringOrUndefined(next.slots[SlotKey.CITA_DNI]))) return startReferenciasLookup(next);
     delete next.slots[SlotKey.POST_LOGIN_FLOW];
-    delete next.slots[SlotKey.CITA_RESUME_STATE];
     delete next.slots[SlotKey.CITA_DISTRITO_HINT_TEXT];
     return offerDemoReferencias(next);
   }

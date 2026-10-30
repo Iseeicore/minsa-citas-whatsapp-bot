@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { REFERENCIA_ESPECIALIDAD_NO_INFORMADA_TEXT } from "@/lib/constants/textos/cita-reserva";
-import { REFERENCIA_CITA_OFFER_QUESTION_TEXT, REFERENCIA_GOODBYE_TEXT, REFERENCIA_NONE_TEXT } from "@/lib/constants/textos/referencia";
+import {
+  REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+  REFERENCIA_CONSULTA_FALLIDA_TEXT,
+  REFERENCIA_GOODBYE_TEXT,
+  REFERENCIA_NONE_TEXT,
+} from "@/lib/constants/textos/referencia";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
@@ -484,5 +489,15 @@ describe("referencias: contrato HTTP real a traves del chat, la FSM y los adapta
     expect(reply.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
     expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_DNI]).toBe(DOCUMENTO);
     expect(mocks.sessions.get(FROM)?.slots[SlotKey.CITA_BEARER]).toBe(TOKEN);
+  });
+
+  it("una consulta de referencias que falla avisa la falla, no la ausencia, y ofrece la cita", async () => {
+    endpointStatuses.set(MinsaEndpoint.REFERENCIAS, 503);
+
+    const offer = await send({ type: InboundEventType.TEXT, text: "123456" });
+
+    expect(offer.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+    expect(textOf(offer)).toContain(REFERENCIA_CONSULTA_FALLIDA_TEXT);
+    expect(textOf(offer)).not.toContain(REFERENCIA_NONE_TEXT);
   });
 });

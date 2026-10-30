@@ -3,7 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
-import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
+import { REVERIFICATION_PROMPT_TEXT, VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
@@ -11,6 +11,7 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+  REFERENCIA_CONSULTA_FALLIDA_TEXT,
   REFERENCIA_GOODBYE_TEXT,
   REFERENCIA_LOGIN_REQUIRED_TEXT,
   REFERENCIA_NONE_TEXT,
@@ -150,21 +151,40 @@ describe("the lookup", () => {
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBe(PostLoginFlow.REFERENCIAS);
   });
 
-  it.each([ReferenceStatus.EMPTY, ReferenceStatus.ERROR, "otro"])(
-    "without referencias (%s): says so and offers a cita, with no list",
-    (statusReference) => {
-      const result = handle(lookupPending(), queryResult(QueryKind.LIST_REFERENCES, { statusReference, message: "", data: [] }));
+  it.each([
+    [ReferenceStatus.EMPTY, REFERENCIA_NONE_TEXT],
+    [ReferenceStatus.ERROR, REFERENCIA_CONSULTA_FALLIDA_TEXT],
+    [ReferenceStatus.UNAVAILABLE, REFERENCIA_CONSULTA_FALLIDA_TEXT],
+    ["otro", REFERENCIA_CONSULTA_FALLIDA_TEXT],
+  ])("without referencias (%s): says why and offers a cita, with no list", (statusReference, aviso) => {
+    const result = handle(lookupPending(), queryResult(QueryKind.LIST_REFERENCES, { statusReference, message: "", data: [] }));
 
-      expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
-      expect(texts(result)).toEqual([REFERENCIA_NONE_TEXT]);
-      expect(buttons(result)).toEqual({
-        kind: "send_buttons",
-        text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
-        buttons: REFERENCIA_CITA_OFFER_BUTTONS,
-      });
-      expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
-    },
-  );
+    expect(result.session.state).toBe(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
+    expect(texts(result)).toEqual([aviso]);
+    expect(buttons(result)).toEqual({
+      kind: "send_buttons",
+      text: REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+      buttons: REFERENCIA_CITA_OFFER_BUTTONS,
+    });
+    expect(result.session.slots[SlotKey.CITA_BEARER]).toBe("token-real");
+  });
+
+  it("an expired session asks to verify again and, once verified, repeats the lookup", () => {
+    const expired = handle(
+      lookupPending(),
+      queryResult(QueryKind.LIST_REFERENCES, { statusReference: ReferenceStatus.UNAUTHORIZED, message: "", data: [] }),
+    );
+
+    expect(expired.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+    expect(expired.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
+    expect(texts(expired)).toEqual([REVERIFICATION_PROMPT_TEXT]);
+
+    const again = handle(verifyPending(DNI, expired.session.slots), verified);
+
+    expect(again.session.state).toBe(SessionState.REFERENCIA_LOOKUP_PENDING);
+    expect(again.session.slots[SlotKey.CITA_RESUME_STATE]).toBeUndefined();
+    expect(queries(again)).toEqual([{ kind: QueryKind.LIST_REFERENCES, payload: { numeroDocumento: DNI, tipoDocumento: "01" } }]);
+  });
 
   describe("with references that do not allow booking", () => {
     const citada: ReferenciaItem = { ...REFERENCIA, idReferencia: "citada", numero: "00777", upsDestino: "OFTALMOLOGÍA", estado: 7 };

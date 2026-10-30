@@ -6,6 +6,7 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 
 const SIN_REFERENCIAS = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
+const NO_DISPONIBLE = { statusReference: ReferenceStatus.UNAVAILABLE, message: "", data: [] };
 const SESSION_TOKEN = "synthetic-session-token";
 
 afterEach(() => {
@@ -19,11 +20,11 @@ describe("MINSA simulado: listReferences", () => {
     vi.stubEnv("SANDBOX_USE_REAL_MINSA", "false");
   });
 
-  it.each(["12345678", "123456789", "87654321"])("no hay referencias simuladas para ningun documento (%s)", async (documento) => {
+  it.each(["12345678", "123456789", "87654321"])("sin MINSA real la consulta no esta disponible, no vacia (%s)", async (documento) => {
     const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(listReferences(documento, "01", SESSION_TOKEN)).resolves.toEqual(SIN_REFERENCIAS);
+    await expect(listReferences(documento, "01", SESSION_TOKEN)).resolves.toEqual(NO_DISPONIBLE);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -222,21 +223,48 @@ describe("respuesta real de MINSA: listReferences", () => {
     }
   });
 
+  it("descarta la fila sin numero o sin fecha de inicio en lugar de inventarlos vacios", async () => {
+    const sinNumero = { ...FILAS[0], nro_referencia: undefined };
+    const sinFecha = { ...FILAS[1], fecha_inicio: "" };
+    vi.stubGlobal("fetch", minsaResponding([sinNumero, sinFecha, FILAS[2]]));
+
+    await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual({
+      statusReference: ReferenceStatus.FOUND,
+      message: "",
+      data: [REFERENCIAS[2]],
+    });
+  });
+
   it("un arreglo no vacio sin filas validas es un error, no ausencia de referencias", async () => {
     vi.stubGlobal("fetch", minsaResponding([{ nro_referencia: "sin id" }, "texto", null, { id_referencia: "sin-estado" }]));
 
     await expect(listReferences("40488601", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
   });
 
-  it.each([401, 403, 500])("un HTTP %i es un error", async (status) => {
+  it.each([403, 500])("un HTTP %i es un error", async (status) => {
     vi.stubGlobal("fetch", minsaResponding([], status));
 
     await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
   });
 
-  it("un cuerpo que no es JSON es un error", async () => {
+  it("un 401 pide verificar de nuevo, no es un error ni ausencia", async () => {
+    vi.stubGlobal("fetch", minsaResponding([], 401));
+
+    await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toMatchObject({ statusReference: ReferenceStatus.UNAUTHORIZED });
+  });
+
+  it("un cuerpo que no es JSON es un error y queda en el log", async () => {
+    const records: Array<Record<string, unknown>> = [];
+    const restore = configureLogger({ level: "warn", sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>) });
     vi.stubGlobal("fetch", minsaResponding("<html>"));
 
-    await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
+    try {
+      await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
+      expect(records.find((record) => record.event === "minsa.catalog.contract_mismatch")).toMatchObject({
+        endpoint: MinsaEndpoint.REFERENCIAS,
+      });
+    } finally {
+      restore();
+    }
   });
 });

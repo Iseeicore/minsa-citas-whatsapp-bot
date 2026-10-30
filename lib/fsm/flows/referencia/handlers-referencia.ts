@@ -15,11 +15,13 @@ import { offerReferenciasList } from "@/lib/fsm/flows/cita/steps/booking/referen
 import { tieneReferenciasSeleccionables } from "@/lib/fsm/flows/cita/steps/booking/referencia-estado";
 import { handleOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { closeReferencia } from "@/lib/fsm/flows/referencia/close-reference";
+import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import type { ListReferencesResult } from "@/lib/integrations/minsa/types";
 import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
+  REFERENCIA_CONSULTA_FALLIDA_TEXT,
   REFERENCIA_LOGIN_REQUIRED_TEXT,
   REFERENCIA_NONE_TEXT,
   REFERENCIA_SIN_AGENDABLES_TEXT,
@@ -51,9 +53,14 @@ export function handleReferenciaLookupPending(session: Session, event: QueryResu
   const result = event.result as ListReferencesResult;
   const next = cloneSession(session);
 
+  if (result.statusReference === ReferenceStatus.UNAUTHORIZED) {
+    return beginReverification(next, SessionState.REFERENCIA_LOOKUP_PENDING);
+  }
   if (result.statusReference !== ReferenceStatus.FOUND || result.data.length === 0) {
     next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
-    return withLeadingText(askCitaOffer(next), REFERENCIA_NONE_TEXT);
+    const consultada = result.statusReference === ReferenceStatus.EMPTY || result.statusReference === ReferenceStatus.FOUND;
+    const aviso = consultada ? REFERENCIA_NONE_TEXT : REFERENCIA_CONSULTA_FALLIDA_TEXT;
+    return withLeadingText(askCitaOffer(next), aviso);
   }
   if (!tieneReferenciasSeleccionables(result.data)) {
     next.state = SessionState.REFERENCIA_AWAITING_CITA_OFFER;
