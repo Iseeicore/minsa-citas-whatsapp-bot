@@ -1,6 +1,7 @@
 import type { BuscarEstablecimientoResult } from "@/lib/establecimientos/buscar";
-import { decidirCandidatos, type Establecimiento } from "@/lib/establecimientos/decidir";
+import type { Establecimiento } from "@/lib/establecimientos/decidir";
 import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
+import { parseEstablecimientoQuery, toEstablecimientoResolucion } from "@/lib/fsm/flows/shared/establecimiento-resolver";
 import { readInicio } from "@/lib/fsm/flows/incidencia/inicio";
 import {
   buildResult,
@@ -15,9 +16,7 @@ import {
   readTrimmedText,
 } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
-import { parseCodigoSuelto } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { quiereOmitirUbicacion } from "@/lib/fsm/parsing/text/omitir-ubicacion";
-import { looksLikeNoise } from "@/lib/security/text-noise";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
@@ -27,7 +26,6 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import {
   ASK_OTRA_UBICACION_TEXT,
   CODIGO_NO_ENCONTRADO_TEXT,
-  UBICACION_ILEGIBLE_TEXT,
   UBICACION_RECHAZADA_TEXT,
   UBICACION_BUTTONS,
   OMITIR_BUTTONS,
@@ -48,9 +46,8 @@ import {
   INCIDENCIA_IDENTIDAD_BUTTONS,
   UNREADABLE_TEXT_RETRY,
 } from "@/lib/constants/textos/incidencia";
-import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-status";
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
-import { EstablecimientoDecision } from "@/lib/enums/establecimiento-decision";
+import { EstablecimientoResolucion } from "@/lib/enums/establecimiento-resolucion";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 import { readSlotJson, getSlotJsonOr } from "@/lib/fsm/core/slot-readers";
 import { z } from "zod";
@@ -104,9 +101,9 @@ export function handleAwaitingUbicacion(session: Session, event: InboundEvent): 
   if (!text) return buildResult(session, [sendText(ASK_OTRA_UBICACION_TEXT)]);
   if (quiereOmitirUbicacion(text)) return offerOmitir(cloneSession(session), "");
 
-  const codigo = parseCodigoSuelto(text);
-  if (!codigo && looksLikeNoise(text)) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
-  return searching(cloneSession(session), codigo ? { codigo } : { nombre: text });
+  const busqueda = parseEstablecimientoQuery(text);
+  if (!busqueda) return buildResult(session, [sendText(UNREADABLE_TEXT_RETRY)]);
+  return searching(cloneSession(session), busqueda);
 }
 
 function failedAttempt(next: Session, message: string): HandlerResult {
@@ -141,34 +138,31 @@ function resolveUbicacion(session: Session, event: QueryResultEvent): HandlerRes
   const fromTexto = next.slots[SlotKey.INCIDENCIA_ORIGEN] === IncidenciaOrigen.TEXTO;
   next.slots[SlotKey.INCIDENCIA_ORIGEN] = IncidenciaOrigen.MENU;
 
-  if (result.status === EstablecimientoSearchStatus.UNAVAILABLE) {
-    return offerOmitir(next, UBICACION_NO_DISPONIBLE_TEXT);
-  }
+  const resolucion = toEstablecimientoResolucion(result);
+  const porNombreConCandidatos =
+    result.by === EstablecimientoSearchBy.NOMBRE &&
+    (resolucion.kind === EstablecimientoResolucion.UNO || resolucion.kind === EstablecimientoResolucion.VARIOS);
+  if (fromTexto && porNombreConCandidatos) next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);
 
-  if (result.by === EstablecimientoSearchBy.CODIGO) {
-    if (result.status === EstablecimientoSearchStatus.FOUND) return confirmUbicacion(next, result.establecimiento);
-    const nombre = next.slots[SlotKey.INCIDENCIA_UBICACION_TEXTO];
-    if (nombre) {
-      next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_UBICACION_TEXTO);
-      return searching(next, { nombre });
-    }
-    return failedAttempt(next, CODIGO_NO_ENCONTRADO_TEXT);
-  }
-
-  if (result.by !== EstablecimientoSearchBy.NOMBRE || result.status !== EstablecimientoSearchStatus.OK)
-    return failedAttempt(next, UBICACION_ILEGIBLE_TEXT);
-
-  const decision = decidirCandidatos(result.candidatos);
-  if (fromTexto && decision.kind !== EstablecimientoDecision.NINGUNO) next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_BORRADOR);
-
-  switch (decision.kind) {
-    case EstablecimientoDecision.UNO:
-      return confirmUbicacion(next, decision.establecimiento);
-    case EstablecimientoDecision.VARIOS:
+  switch (resolucion.kind) {
+    case EstablecimientoResolucion.NO_DISPONIBLE:
+      return offerOmitir(next, UBICACION_NO_DISPONIBLE_TEXT);
+    case EstablecimientoResolucion.UNO:
+      return confirmUbicacion(next, resolucion.establecimiento);
+    case EstablecimientoResolucion.VARIOS:
       return failedAttempt(next, UBICACION_VARIOS_TEXT);
     default:
-      return failedAttempt(next, UBICACION_NO_ENCONTRADA_TEXT);
+      return resolucion.by === EstablecimientoSearchBy.CODIGO
+        ? retryCodigoNoEncontrado(next)
+        : failedAttempt(next, UBICACION_NO_ENCONTRADA_TEXT);
   }
+}
+
+function retryCodigoNoEncontrado(next: Session): HandlerResult {
+  const nombre = next.slots[SlotKey.INCIDENCIA_UBICACION_TEXTO];
+  if (!nombre) return failedAttempt(next, CODIGO_NO_ENCONTRADO_TEXT);
+  next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_UBICACION_TEXTO);
+  return searching(next, { nombre });
 }
 
 function acceptUbicacion(next: Session, propuesto: Propuesto): HandlerResult {
