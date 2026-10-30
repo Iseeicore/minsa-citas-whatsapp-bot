@@ -16,12 +16,12 @@ describe("the app logger's file sink", () => {
   });
 
   it("writes to logs/ when LOG_DIR is left empty, as a copied .env.example leaves it", async () => {
-    const createDailyFileSink = await loadLoggerWith({ LOG_TO_FILE: "true", LOG_DIR: "", VERCEL: "" });
+    const createDailyFileSink = await loadLoggerWith({ LOG_TO_FILE: "true", LOG_DIR: "" });
     expect(createDailyFileSink).toHaveBeenCalledWith({ dir: "logs" });
   });
 
   it("uses LOG_DIR when it is set", async () => {
-    const createDailyFileSink = await loadLoggerWith({ LOG_TO_FILE: "true", LOG_DIR: "custom-logs", VERCEL: "" });
+    const createDailyFileSink = await loadLoggerWith({ LOG_TO_FILE: "true", LOG_DIR: "custom-logs" });
     expect(createDailyFileSink).toHaveBeenCalledWith({ dir: "custom-logs" });
   });
 

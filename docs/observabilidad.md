@@ -6,10 +6,10 @@ Cada mensaje del ciudadano deja **una línea de JSON por evento** (NDJSON) que s
 
 | Destino | Cuándo | Detalle |
 |---|---|---|
-| **stdout** (Vercel Logs o la terminal) | Siempre | `info` sale por `console.info`, `warn` por `console.warn` y `error` por `console.error`, así Vercel muestra la severidad correcta. |
+| **stdout** (la terminal o `docker logs`) | Siempre | `info` sale por `console.info`, `warn` por `console.warn` y `error` por `console.error`, así quien lea la salida ve la severidad correcta. |
 | **Carpeta por día** | Con `LOG_TO_FILE=true` | `logs/19-09-2026/app.ndjson` (todo) y `logs/19-09-2026/alerts.ndjson` (solo `warn` y `error`). El nombre es `DD-MM-AAAA` en hora de Lima; al cambiar el día de Lima se abre una carpeta nueva. |
 
-**Vercel no guarda archivos:** su disco es de solo lectura y por instancia, así que allí la copia duradera es **Vercel Logs** (o un drain a tu proveedor). La carpeta por día sirve para pruebas locales y para un servidor con disco; en Vercel se ignora salvo que se defina `LOG_DIR` a propósito. La carpeta `logs/` está en `.gitignore`.
+**En Docker los archivos viven dentro del contenedor** y se pierden al recrearlo, así que allí la copia duradera es stdout (`npm run docker:logs`). La carpeta por día sirve para pruebas locales y para un servidor con disco. La carpeta `logs/` está en `.gitignore`.
 
 | Variable | Valor por defecto | Para qué |
 |---|---|---|
@@ -86,7 +86,7 @@ Todo campo pasa por `lib/observability/mask.ts` antes de salir, aunque quien lla
 
 ## Cómo encontrar lo que importa
 
-Con `rg` sobre la carpeta del día (o el buscador de Vercel):
+Con `rg` sobre la carpeta del día (o sobre la salida de `npm run docker:logs`):
 
 ```bash
 # Todo lo que pasó en un mensaje

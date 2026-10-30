@@ -29,8 +29,6 @@ yarn-error.log*
 .env*
 !.env.example
 
-.vercel
-
 docker-compose.override.yml
 
 *.tsbuildinfo

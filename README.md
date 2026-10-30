@@ -77,7 +77,7 @@ DATABASE_URL=postgresql://<usuario>:<clave>@<host>:5432/<base>
 DATABASE_ENABLED=true
 ```
 
-- **Pon `true` de forma explícita.** El compose convierte una `DATABASE_ENABLED` vacía en `false` (`${DATABASE_ENABLED:-false}`); vacía solo activa la base en Vercel, que no pasa por el compose.
+- **Pon `true` de forma explícita.** El compose convierte una `DATABASE_ENABLED` vacía en `false` (`${DATABASE_ENABLED:-false}`); vacía solo activa la base fuera del compose, por ejemplo en desarrollo local.
 - El usuario debe ser dueño de la base y poder crear esquemas, tablas, funciones y disparadores. **Si la base no existe, el contenedor la crea** al migrar, siempre que el usuario tenga el permiso `CREATEDB`; sin ese permiso falla con `permission denied to create database` y el DBA debe crearla vacía antes, con el usuario como dueño (`CREATE DATABASE <base> OWNER <usuario>`). Las migraciones se aplican en cada arranque; si no hay pendientes, no hace nada.
 - Con varias réplicas, Prisma toma un candado en la base, así que dos arranques simultáneos no migran a la vez. Aun así el proyecto corre con una sola.
 - Si la clave tiene caracteres especiales (`@ : / ? #`), van codificados en la URL (`%40`, `%3A`...).
@@ -149,9 +149,9 @@ SANDBOX_ALLOWED_ORIGINS=https://dminsadigital.minsa.gob.pe
 
 ## Modos de persistencia
 
-El bot corre de dos formas: **con base de datos** (Vercel + PostgreSQL, con bandeja web de conversaciones) o **sin base de datos** (servidor del MINSA en Docker: solo responde mensajes y no guarda nada). La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor exacto `false` la desactiva; vacía o con cualquier otro valor, la base de datos sigue activa.
+El bot corre de dos formas: **con base de datos** (PostgreSQL, con bandeja web de conversaciones; así corre el servidor del MINSA en Docker) o **sin base de datos** (`DATABASE_ENABLED=false`: solo responde mensajes y no guarda nada). La variable `DATABASE_ENABLED` decide si el bot usa base de datos. Solo el valor exacto `false` la desactiva; vacía o con cualquier otro valor, la base de datos sigue activa.
 
-| Aspecto | Con base de datos (por defecto, Vercel) | Sin base de datos (`DATABASE_ENABLED=false`, Docker) |
+| Aspecto | Con base de datos (por defecto) | Sin base de datos (`DATABASE_ENABLED=false`) |
 |---|---|---|
 | ORM (Prisma) | Conectado a PostgreSQL | Nunca se instancia ni abre conexión; `DATABASE_URL` puede faltar |
 | Estado de cada conversación | Tabla `chatbot.sesion_conversacion` | En memoria; se descarta tras 1 h sin actividad (6 × el timeout de sesión de 10 min, para que el aviso de «tu sesión expiró» siga funcionando) |
@@ -172,16 +172,16 @@ Escalar el modo sin base de datos a varias instancias requiere un almacén compa
 | Bloque | Qué contiene | Cuándo basta |
 |---|---|---|
 | `##### Mínimo: servidor MINSA en Docker (…)` | Meta (5), MINSA (los dos secretos, `SANDBOX_USE_REAL_MINSA`, `CITA_ALLOWED_DEPARTAMENTOS=LIMA` y las tres direcciones del portal), IA (`AI_PROVIDER=gemini` y las 3 de Gemini), Chat-bot (`SANDBOX_ENABLED`, `SANDBOX_PAGE_ENABLED`, `SANDBOX_SHARED_SECRET`), `DATABASE_ENABLED`, `DATABASE_URL` e `INCIDENCIAS_ENABLED` | El servidor del MINSA en Docker: whatsapp-bot (citas) y el Chat-bot conectado al portal de MINSA Digital |
-| `##### Completo: variables opcionales` | Almacén de evidencias, logs, perímetro, candado y `HOST_PORT` | Todo lo demás: Vercel o desarrollo local con base de datos, ajustes finos |
+| `##### Completo: variables opcionales` | Almacén de evidencias, logs, perímetro, candado y `HOST_PORT` | Todo lo demás: desarrollo local con base de datos, ajustes finos |
 
 La versión completa es el archivo entero; la mínima es solo el primer bloque. Ninguna variable se repite entre bloques.
 
-> **El bloque mínimo está pensado para el servidor en Docker con base de datos:** trae `DATABASE_ENABLED=true`, así que completa también `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Deja `SANDBOX_PAGE_ENABLED` sin definir en producción: abre la bandeja web sin autenticación. Si copias el archivo para **Vercel o desarrollo local** sin base, deja `DATABASE_ENABLED` vacía (con `false` no hay bandeja web ni historial) y pon `SANDBOX_ENABLED=false` en Production.
+> **El bloque mínimo está pensado para el servidor en Docker con base de datos:** trae `DATABASE_ENABLED=true`, así que completa también `DATABASE_URL` (ver [Arranque con base de datos](#arranque-con-base-de-datos)). Deja `SANDBOX_PAGE_ENABLED` sin definir en producción: abre la bandeja web sin autenticación. Si copias el archivo para **desarrollo local**, deja `DATABASE_ENABLED` vacía para usar la base (con `false` no hay bandeja web ni historial).
 
 - **Sin el bloque completo, la incidencia no funciona:** con `INCIDENCIAS_ENABLED=true` el menú la ofrece, pero **sin base de datos (`DATABASE_ENABLED` apagada) la incidencia no se puede guardar**: el bot responde que no pudo registrarlo.
 - **Registrar y consultar una incidencia están apagadas por defecto:** sin `INCIDENCIAS_ENABLED=true` el menú solo ofrece **Agendar una cita médica** y **Cita con referencia**, y ni el código `MINSA-AAAA-NNNNNN`, ni las palabras clave, ni el `3` o `4` escritos, ni una sesión que quedó a medias en uno de esos flujos llegan a ellos: el bot responde que por ahora solo agenda citas y consulta referencias, y muestra el menú.
 - **Nunca subas valores reales** a `.env.example`: el archivo se versiona.
-- **En Vercel** se cargan una por una en *Project → Settings → Environment Variables*, sin comentarios ni espacios alrededor del valor.
+- **Sin comentarios ni espacios alrededor del valor:** cada línea es `NOMBRE=valor`.
 - **Una variable vacía equivale a no definirla:** se usa el valor por defecto indicado.
 - `tests/integration/env-example.test.ts` falla si `.env.example` lista una variable que el código no lee, si le falta una que sí lee, o si alguna no está documentada aquí.
 
@@ -199,7 +199,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 
 | Variable | Uso |
 |---|---|
-| `DATABASE_ENABLED` | `false` = sin base de datos (servidor MINSA). Vacía = con base de datos (Vercel). Ver [Modos de persistencia](#modos-de-persistencia) |
+| `DATABASE_ENABLED` | `false` = sin base de datos. Vacía = con base de datos (salvo en Docker Compose, que la toma como `false`; ahí va `true`). Ver [Modos de persistencia](#modos-de-persistencia) |
 | `DATABASE_URL` | Cadena de conexión a PostgreSQL. Con base de datos también se necesita al compilar, porque `npm run build` ejecuta `prisma migrate deploy` y `npm run db:aplicar`. No hace falta con `DATABASE_ENABLED=false` |
 | `RESET_DATABASE_CONFIRM` | **Destructiva, solo Docker.** Si vale lo mismo que el nombre de la base de `DATABASE_URL`, el arranque borra los esquemas y migra desde cero. Úsala una sola vez y quítala después. Ver [Borrar la base y migrar desde cero](#borrar-la-base-y-migrar-desde-cero) |
 | `HOST_PORT` | Solo Docker Compose: puerto publicado en el servidor (por defecto `3000`) |
@@ -209,7 +209,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `SANDBOX_USE_REAL_MINSA` | `true`: MINSA real (identidad, catálogo, agendamiento). **La lee también el webhook real, no solo el Chat-bot** |
-| `CITA_ALLOWED_DEPARTAMENTOS` | Departamentos donde se agenda por este canal (alcance del piloto), separados por comas: `LIMA`, `LIMA,CALLAO`… Un distrito fuera de la lista recibe el enlace a MINSA Digital; aplica también al modo manual (departamento → provincia → distrito). **Vacía o sin definir = sin filtro (todo el Perú).** En Vercel hay que definirla de forma explícita (por ejemplo `CITA_ALLOWED_DEPARTAMENTOS=LIMA`): sin ella el filtro queda desactivado |
+| `CITA_ALLOWED_DEPARTAMENTOS` | Departamentos donde se agenda por este canal (alcance del piloto), separados por comas: `LIMA`, `LIMA,CALLAO`… Un distrito fuera de la lista recibe el enlace a MINSA Digital; aplica también al modo manual (departamento → provincia → distrito). **Vacía o sin definir = sin filtro (todo el Perú).** En producción hay que definirla de forma explícita (por ejemplo `CITA_ALLOWED_DEPARTAMENTOS=LIMA`): sin ella el filtro queda desactivado |
 | `MINSA_API_HOST` | Host de la API del MINSA |
 | `MINSA_INTEGRATION_SECRET` | Secreto con el que se firma la petición de identidad (documento y OTP) |
 | `MINSA_CONVERSATION_ID_PLACEHOLDER` | ID de conversación que el MINSA exige en la petición de identidad |
@@ -249,7 +249,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | Variable | Uso |
 |---|---|
 | `LOG_LEVEL` | Nivel mínimo: `info` (por defecto), `warn`, `error` o `silent` |
-| `LOG_TO_FILE` | `true` escribe también en `logs/DD-MM-AAAA/app.ndjson` y `alerts.ndjson`. Solo local: en Vercel el disco es de solo lectura y los logs van a Vercel Logs. En Docker los archivos quedan dentro del contenedor y se pierden al recrearlo, así que usa `npm run docker:logs` |
+| `LOG_TO_FILE` | `true` escribe también en `logs/DD-MM-AAAA/app.ndjson` y `alerts.ndjson`, además de stdout. En Docker los archivos quedan dentro del contenedor y se pierden al recrearlo, así que usa `npm run docker:logs` |
 | `LOG_DIR` | Carpeta de los logs en archivo (por defecto `logs`) |
 
 **Perímetro y candado de turno** (opcionales: define alguna solo para cambiar su valor por defecto)
@@ -404,25 +404,26 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 
 El CI (GitHub Actions) ejecuta tipos, lint, formato, `npm test` y `test:perf` en cada pull request. Ver [docs/ci.md](docs/ci.md).
 
-## Despliegue en Vercel (con base de datos)
+## Build con base de datos
 
-En Vercel se necesitan `DATABASE_URL` y las variables de Meta. El script `build` ejecuta `prisma migrate deploy` y `node scripts/db-aplicar-sql.mjs` antes de `next build`, así que las migraciones pendientes y los archivos SQL se aplican en cada despliegue:
+Fuera de Docker, `npm run build` necesita `DATABASE_URL`: ejecuta `prisma migrate deploy` y `node scripts/db-aplicar-sql.mjs` antes de `next build`, así que las migraciones pendientes y los archivos SQL se aplican en cada build:
 
 ```json
 "build": "prisma migrate deploy && node scripts/db-aplicar-sql.mjs && next build --webpack"
 ```
 
 - `--webpack` fuerza el compilador clásico en lugar de Turbopack, cuyo build de producción fallaba al prerenderizar `_global-error` en esta versión de Next.js.
-- Correr las migraciones dentro del build es un enfoque simple, suficiente para la escala actual. Conviene revisarlo si el equipo crece o si las migraciones se vuelven riesgosas de ejecutar sin supervisión.
-- `next.config.ts` solo activa la salida *standalone* cuando `NEXT_OUTPUT_STANDALONE=true` (lo hace el Dockerfile), así que los builds de Vercel no cambian.
+- La imagen Docker compila con `npm run build:no-db` y migra al arrancar el contenedor (ver [Arranque con base de datos](#arranque-con-base-de-datos)).
+- `next.config.ts` solo activa la salida *standalone* cuando `NEXT_OUTPUT_STANDALONE=true` (lo hace el Dockerfile); `npm run build` y `npm run dev` no la usan.
 
 ## Chat-bot: página de pruebas de los flujos
 
 Junto a la bandeja real, `/` tiene una pestaña con el Chat-bot (en la interfaz aún se rotula «Sandbox»): un simulador de conversación para los flujos de cita médica, referencia e incidencia, escribiendo mensajes directamente, sin pasar por WhatsApp. Usa la misma máquina de estados (`lib/fsm/`) y nunca toca las conversaciones reales.
 
-- Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería. Las páginas se controlan aparte con `SANDBOX_PAGE_ENABLED=true` (local y Vercel); sin ella, `/`, `/sandbox` y `/configuracion-visor-sandbox` redirigen a `/api/health`.
+- Está **desactivado por defecto** (`SANDBOX_ENABLED=false`) porque la aplicación no tiene autenticación propia: cualquiera que abra la URL pública lo vería. Las páginas se controlan aparte con `SANDBOX_PAGE_ENABLED=true`; sin ella, `/`, `/sandbox` y `/configuracion-visor-sandbox` redirigen a `/api/health`.
 - **Al abrir o recargar el Chat-bot no se restaura la conversación anterior:** el navegador avisa con `POST /api/sandbox` y `close: true` (responde `200 { "closed": true }` sin ejecutar ningún turno), la sesión anterior se cierra y empieza una nueva. En la base, la fila anterior queda como registro cerrado: su `wa_id` pasa a `cerrada-<from anterior>-<marca de tiempo>` y conserva `estado`, `slots` y `contadores`; `fecha_modificacion` pasa a ser la fecha de cierre (un disparador de la base la actualiza en cada cambio). **Reiniciar todas las pruebas** (`resetAll`) solo borra las sesiones `sandbox-…`, no las cerradas. Ojo: `chatbot.purgar_sesiones_inactivas` borra cualquier sesión inactiva, también las cerradas, si se programa; para auditarlas hay que excluir los `wa_id` que empiezan con `cerrada-`. Sin base de datos viven en memoria y vencen con el mismo plazo que el resto.
 - **El texto tiene un máximo de 1000 caracteres** (`SANDBOX_TEXT_MAX_LENGTH`, el mismo de la descripción de la incidencia). La caja de texto corta lo que pase de ese largo, al escribir o al pegar, y muestra el aviso `No podemos procesar tu mensaje: reduce la cantidad de caracteres (máximo 1000).`. El servidor valida igual: `POST /api/sandbox` con un `text` más largo responde `422` con `error: "TEXT_TOO_LONG"` y ese mismo mensaje, sin correr el turno.
+- **Las imágenes tienen el mismo máximo de 5 MB que en whatsapp-bot** (`MAX_IMAGE_BYTES`, un solo valor para los dos canales). El Chat-bot no envía una imagen más pesada y muestra el aviso `La imagen supera el tamaño máximo permitido (5 MB). Envía una imagen más liviana.`; el servidor aplica el mismo límite si llega una más pesada.
 - **El token de MINSA nunca sale del servidor.** `POST /api/sandbox` responde `{ sent, session: { state, slots, counters } }` y `slots` es una lista blanca (`lib/constants/sandbox-visible-slots.ts`, armada por `buildSandboxReply` en `lib/utils/sandbox-reply.ts`): el token (`citaBearer`), los identificadores del código OTP, los documentos, los nombres, los textos libres, los datos de referencias y de consultas no viajan al navegador. El navegador solo guarda `sandbox-from` en `localStorage`, con la forma `sandbox-<UUID v4>` (`crypto.randomUUID()`, o `crypto.getRandomValues` donde la página no es un contexto seguro; nunca `Math.random`): es la única identidad de la sesión del Chat-bot y no debe poder adivinarse. Siguiente paso, aún sin hacer: que el servidor la emita en una cookie `httpOnly` en lugar de `localStorage`; las claves antiguas `sandbox-session` y `sandbox-entries` se borran al abrir el Chat-bot. Una prueba falla si aparece un slot sin clasificar como visible o retirado.
 - Con las integraciones en su valor por defecto (`false`), funciona sin conexión con datos de prueba fijos: DNI `12345678` (8 dígitos) o carnet de extranjería `123456789` (9 dígitos), OTP `1234`, distrito `lurigancho`. El bot pide solo el número de documento y el largo decide el tipo (`01` DNI, `03` carnet de extranjería), que viaja como `tipo_documento` a MINSA.
 - Las referencias médicas tienen su propia fila, **Cita con referencia** (en los dos canales, escribir «referencia» o «cita con referencia», o un texto libre que la IA lea como un pedido de la referencia; ver [docs/flujo-referencias.md](docs/flujo-referencias.md)): documento, OTP, la lista de las referencias que permiten agendar y la reserva con la referencia elegida; no pide los términos. **Agendar una cita médica** ya no consulta referencias: después del OTP pide el distrito ([docs/flujo-cita.md](docs/flujo-cita.md)). Sin `SANDBOX_USE_REAL_MINSA=true` la consulta responde siempre «No cuentas con referencias registradas.» y ofrece agendar una cita. La excepción son los DNI `10308523` y `47391441` del piloto comercial: tras iniciar sesión con ellos, se muestran referencias de demostración (`lib/fsm/flows/cita/steps/demo/`) en lugar de consultar MINSA; el inicio de sesión es el normal, así que necesitan un MINSA que los valide. Si la referencia elegida no tiene cupos, pregunta «¿Deseas seleccionar otra referencia?» con **Sí** / **No, salir**. La referencia que se quedó sin cupos queda marcada en la sesión y ya no aparece al volver a la lista, sin volver a consultar MINSA. La marca se borra al consultar de nuevo las referencias o al pasar a una cita nueva. Una cita duplicada con referencia sigue con una cita sin referencia. La reserva con una referencia real se recorre contra el MINSA real o en `tests/lib/fsm/core/referencia-flow.e2e.test.ts`, que inyecta las referencias.

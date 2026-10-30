@@ -630,7 +630,7 @@ done; wait
 
 ### 4.4 Cómo comprobarlo en los logs
 
-Los logs son **una línea de JSON por evento** (NDJSON). Los ves en **Vercel** (proyecto → Logs; escribe `turn.end`, un `traceId` o un evento en el buscador) o, en local, en la terminal de `npm run dev`. Con `LOG_TO_FILE=true` también quedan en `logs/DD-MM-AAAA/app.ndjson` (y solo los avisos y errores en `alerts.ndjson`). Todos los eventos de un mismo mensaje comparten el `traceId`. Detalle completo en `docs/observabilidad.md`.
+Los logs son **una línea de JSON por evento** (NDJSON). Salen por stdout: en local, en la terminal de `npm run dev`; en Docker, con `npm run docker:logs` (filtra por `turn.end`, un `traceId` o un evento). Con `LOG_TO_FILE=true` también quedan en `logs/DD-MM-AAAA/app.ndjson` (y solo los avisos y errores en `alerts.ndjson`). Todos los eventos de un mismo mensaje comparten el `traceId`. Detalle completo en `docs/observabilidad.md`.
 
 | Evento | Qué significa |
 |---|---|
