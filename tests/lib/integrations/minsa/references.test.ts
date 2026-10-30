@@ -253,6 +253,22 @@ describe("respuesta real de MINSA: listReferences", () => {
     await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toMatchObject({ statusReference: ReferenceStatus.UNAUTHORIZED });
   });
 
+  it("un objeto en lugar del arreglo queda en el log como contrato roto de referencias, no del catalogo", async () => {
+    const records: Array<Record<string, unknown>> = [];
+    const restore = configureLogger({ level: "warn", sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>) });
+    vi.stubGlobal("fetch", minsaResponding({ data: [] }));
+
+    try {
+      await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
+      expect(records.find((record) => record.event === "minsa.contract_mismatch")).toMatchObject({
+        endpoint: MinsaEndpoint.REFERENCIAS,
+        reason: "rows_missing",
+      });
+    } finally {
+      restore();
+    }
+  });
+
   it("un cuerpo que no es JSON es un error y queda en el log", async () => {
     const records: Array<Record<string, unknown>> = [];
     const restore = configureLogger({ level: "warn", sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>) });
@@ -260,7 +276,7 @@ describe("respuesta real de MINSA: listReferences", () => {
 
     try {
       await expect(listReferences("12345678", "01", SESSION_TOKEN)).resolves.toEqual(SIN_RESPUESTA);
-      expect(records.find((record) => record.event === "minsa.catalog.contract_mismatch")).toMatchObject({
+      expect(records.find((record) => record.event === "minsa.contract_mismatch")).toMatchObject({
         endpoint: MinsaEndpoint.REFERENCIAS,
       });
     } finally {

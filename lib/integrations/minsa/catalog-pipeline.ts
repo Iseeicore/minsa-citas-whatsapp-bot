@@ -39,13 +39,13 @@ export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promi
   try {
     body = await response.json();
   } catch (error: unknown) {
-    logger.error("minsa.catalog.contract_mismatch", { endpoint: params.endpoint, reason: "unreadable_body", error });
+    logger.error("minsa.contract_mismatch", { endpoint: params.endpoint, reason: "unreadable_body", error });
     return { status: CatalogStatus.ERROR };
   }
 
   const rawRows = rowsAt(body, params.rowsPath);
   if (!Array.isArray(rawRows)) {
-    logger.error("minsa.catalog.contract_mismatch", { endpoint: params.endpoint, reason: "rows_missing" });
+    logger.error("minsa.contract_mismatch", { endpoint: params.endpoint, reason: "rows_missing" });
     return { status: CatalogStatus.ERROR };
   }
   if (rawRows.length === 0) return { status: CatalogStatus.EMPTY };

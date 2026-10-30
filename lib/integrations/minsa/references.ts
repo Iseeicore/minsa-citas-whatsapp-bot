@@ -48,7 +48,7 @@ function parseReferencia(row: RawRow): ReferenciaItem | undefined {
 function readReferencesResponse(body: unknown): ListReferencesResult {
   const parsed = referencesResponseSchema.safeParse(body);
   if (!parsed.success) {
-    logger.error("minsa.catalog.contract_mismatch", { endpoint: MinsaEndpoint.REFERENCIAS, reason: "rows_missing" });
+    logger.error("minsa.contract_mismatch", { endpoint: MinsaEndpoint.REFERENCIAS, reason: "rows_missing" });
     return SIN_RESPUESTA;
   }
   if (parsed.data.length === 0) return SIN_REFERENCIAS;
@@ -80,7 +80,7 @@ export async function listReferences(numeroDocumento: string, tipoDocumento: str
   try {
     body = await response.json();
   } catch (error: unknown) {
-    logger.error("minsa.catalog.contract_mismatch", { endpoint: MinsaEndpoint.REFERENCIAS, reason: "unreadable_body", error });
+    logger.error("minsa.contract_mismatch", { endpoint: MinsaEndpoint.REFERENCIAS, reason: "unreadable_body", error });
     return SIN_RESPUESTA;
   }
   return readReferencesResponse(body);
