@@ -5,6 +5,10 @@ import { ImageStorageError } from "@/lib/errors/image-storage-error";
 import { ImageStorageFailure } from "@/lib/enums/image-storage-failure";
 import type { AlmacenEvidencias } from "@/lib/types/almacen-evidencias.types";
 
+export const almacenHttp: AlmacenEvidencias = {
+  guardar: ({ bytes, mimeType }) => guardarImagenHttp(bytes, mimeType),
+};
+
 async function readJsonBody(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -30,7 +34,3 @@ export async function guardarImagenHttp(bytes: Buffer, mimeType: string): Promis
   if (!isString(ruta) || ruta === "") throw new ImageStorageError(ImageStorageFailure.MISSING_PATH);
   return { ruta };
 }
-
-export const almacenHttp: AlmacenEvidencias = {
-  guardar: ({ bytes, mimeType }) => guardarImagenHttp(bytes, mimeType),
-};
