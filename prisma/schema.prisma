@@ -509,11 +509,13 @@ model AceptacionTerminos {
 }
 
 model ContadorCodigoIncidencia {
-  anio              Int      @id(map: "pk_contador_codigo_incidencia") @db.SmallInt
+  anio              Int      @db.SmallInt
   ultimo            Int      @default(0)
   fechaCreacion     DateTime @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
   fechaModificacion DateTime @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
+  serie             String   @default("N")
 
+  @@id([anio, serie], map: "pk_contador_codigo_incidencia")
   @@map("contador_codigo_incidencia")
   @@schema("chatbot")
 }
@@ -557,6 +559,7 @@ model UsuarioInterno {
   usuarioCreacion     String    @default(dbgenerated("CURRENT_USER")) @map("usuario_creacion")
   fechaModificacion   DateTime  @default(now()) @map("fecha_modificacion") @db.Timestamptz(3)
   usuarioModificacion String    @default(dbgenerated("CURRENT_USER")) @map("usuario_modificacion")
+  claveCambiadaEn     DateTime? @map("clave_cambiada_en") @db.Timestamptz(3)
 
   area     Area?           @relation(fields: [areaId], references: [id], onDelete: Restrict, map: "fk_usuario_interno_area")
   roles    UsuarioRol[]

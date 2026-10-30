@@ -34,7 +34,7 @@
 | `catalogo.tipo_mensaje` | Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla). |
 | `chatbot.aceptacion_terminos` | Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. |
 | `chatbot.archivo_recibido` | Cada archivo que el ciudadano sube a través de una solicitud de carga, con su estado de verificación. |
-| `chatbot.contador_codigo_incidencia` | Último correlativo usado en cada año para el código de las incidencias. |
+| `chatbot.contador_codigo_incidencia` | Último correlativo usado en cada año y cada serie para el código de las incidencias. |
 | `chatbot.evidencia` | Archivo que el paciente adjunta a su reporte (imagen, video, documento o audio). |
 | `chatbot.incidencia_analisis` | Análisis automático de una incidencia (puntaje y señales de las reglas, y lo que el relato menciona: cargo, área y nombre). |
 | `chatbot.incidencia_etiqueta` | Asignación de una etiqueta a una incidencia. |
@@ -576,25 +576,27 @@ Cada archivo que el ciudadano sube a través de una solicitud de carga, con su e
 
 ### `chatbot.contador_codigo_incidencia`
 
-Último correlativo usado en cada año para el código de las incidencias. Una fila por año, que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.
+Último correlativo usado en cada año y cada serie para el código de las incidencias. Una fila por año y serie (N para las identificadas, A para las anónimas), que la base incrementa dentro de la misma transacción de la inserción: si la transacción se revierte el número no se gasta y dos inserciones simultáneas esperan su turno. Solo avanza y nunca se borra.
 
 **Columnas**
 
 | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---|---|---|---|---|---|
-| `anio` | smallint | No |  | PK | Año del código (zona America/Lima), de cuatro dígitos. Es la clave: hay una fila por año. |
-| `ultimo` | integer | No | `0` |  | Último correlativo entregado ese año. El próximo código usa este valor más uno. Solo puede subir. |
-| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se creó la fila del año, es decir, cuando llegó la primera incidencia de ese año. |
-| `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) del último código entregado ese año. La llena un disparador. |
+| `anio` | smallint | No |  | PK | Año del código (zona America/Lima), de cuatro dígitos. Junto con la serie es la clave: hay una fila por año y serie. |
+| `ultimo` | integer | No | `0` |  | Último correlativo entregado ese año en esa serie. El próximo código usa este valor más uno. Solo puede subir. |
+| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) en que se creó la fila del año y la serie, es decir, cuando llegó la primera incidencia de esa serie ese año. |
+| `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) del último código entregado ese año en esa serie. La llena un disparador. |
+| `serie` | text | No | `'N'::text` | PK | Serie del código: N para las incidencias identificadas (MINSA-AAAA-NNNNNN) y A para las anónimas (MINSA-AAAA-A-NNNNNN). Cada serie lleva su propio correlativo. No cambia. |
 
 **Restricciones**
 
 - `ck_contador_codigo_incidencia_anio`: `CHECK (((anio >= 1000) AND (anio <= 9999)))`.
+- `ck_contador_codigo_incidencia_serie`: `CHECK ((serie = ANY (ARRAY['N'::text, 'A'::text])))`.
 - `ck_contador_codigo_incidencia_ultimo`: `CHECK ((ultimo >= 0))`.
 
 **Reglas que aplica la base (disparadores)**
 
-- `trg_contador_codigo_incidencia_a_reglas` (Antes de borrar o modificar): Impide borrar filas del contador de códigos, cambiar su año o bajar el último correlativo.
+- `trg_contador_codigo_incidencia_a_reglas` (Antes de borrar o modificar): Impide borrar filas del contador de códigos, cambiar su año o su serie, o bajar el último correlativo.
 - `trg_contador_codigo_incidencia_b_fecha` (Antes de modificar): Al modificar: actualiza la fecha de modificación.
 
 ### `chatbot.evidencia`
@@ -726,7 +728,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `usuario_id` | uuid | No |  | FK | Usuario que presentó el reporte. |
 | `mensaje_id` | uuid | Sí |  | FK | Mensaje del chat del que nació el reporte. Opcional. |
 | `wa_id` | text | No |  |  | Id del chat (dato de Meta). Copia del usuario para filtrar sin unir tablas y para enlazar el reporte con el chat. |
-| `es_anonimo` | boolean | No |  |  | Verdadero si el paciente eligió no dar su DNI ni su nombre. El id del chat se guarda igual. |
+| `es_anonimo` | boolean | No |  |  | Verdadero si el paciente eligió no dar su DNI ni su nombre. El id del chat se guarda igual. No cambia después de registrar el caso y decide la serie de su código (A si es anónima). |
 | `dni_reclamante` | text | Sí |  |  | DNI del paciente al momento de presentar el reporte (foto fija: no cambia si el usuario se actualiza después). Nulo si es anónimo. |
 | `nombre_reclamante` | text | Sí |  |  | Nombre del paciente al momento de presentar el reporte. Nulo si es anónimo. |
 | `descripcion` | text | No |  |  | Relato del paciente. Es el texto que analiza la IA. No se puede modificar. |
@@ -754,7 +756,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
 | `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
 | `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
-| `codigo` | text | No | `''::text` |  | Código legible del caso, con el formato MINSA-AAAA-NNNNNN: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año, que reinicia cada año. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada. |
+| `codigo` | text | No | `''::text` |  | Código legible del caso, con el formato MINSA-AAAA-NNNNNN si la incidencia es identificada y MINSA-AAAA-A-NNNNNN si es anónima: AAAA es el año de llegada (zona America/Lima) y NNNNNN el correlativo de ese año en su serie, de 6 dígitos o más, que reinicia cada año. Las dos series llevan contadores separados. La serie A solo la lleva una incidencia anónima; las anónimas anteriores a la serie conservan su código sin la A. Es único y sirve para nombrar el caso por teléfono o en un oficio. Lo genera la base al insertar (lo que se envíe se descarta) y no se puede modificar; las incidencias anteriores a su creación lo recibieron en orden de llegada. |
 | `establecimiento_id` | integer | Sí |  | FK | Establecimiento de salud donde ocurrió el hecho (dato de origen). Opcional. Una vez asignado no se puede cambiar; solo la carga de datos de la migración puede completarlo cuando estaba vacío. |
 | `area_destino_id` | integer | Sí |  | FK | Área a la que se derivó o se asignó el caso. La base la asigna sola: la de OTRANS cuando la categoría es sensible y existe una única área que las recibe, y la del establecimiento de origen cuando un caso no sensible (queja, reclamo u otro) se clasifica sin destino o se corrige de sensible a no sensible mientras no se gestiona. Solo se reasigna mientras el caso está CLASIFICADO o DERIVADO, y un caso sensible solo puede estar en un área que reciba casos sensibles. |
 | `derivado_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que el caso pasó a DERIVADO (o se reasignó su área). La llena la base. |
@@ -790,7 +792,8 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 - `ck_incidencia_paciente_archivo`: `CHECK (((archivado_en IS NULL) = (motivo_archivo_id IS NULL)))`.
 - `ck_incidencia_paciente_archivo_detalle`: `CHECK (((archivo_detalle IS NULL) OR ((motivo_archivo_id IS NOT NULL) AND (char_length(btrim(archivo_detalle)) >= 10))))`.
 - `ck_incidencia_paciente_archivo_manual`: `CHECK (((motivo_archivo_id IS NULL) OR (motivo_archivo_id <> ALL (ARRAY[3, 4])) OR (archivo_detalle IS NOT NULL)))`.
-- `ck_incidencia_paciente_codigo`: `CHECK ((codigo ~ '^MINSA-[0-9]{4}-[0-9]{6,}$'::text))`.
+- `ck_incidencia_paciente_codigo`: `CHECK ((codigo ~ '^MINSA-[0-9]{4}-(A-)?[0-9]{6,}$'::text))`.
+- `ck_incidencia_paciente_codigo_serie`: `CHECK ((es_anonimo OR (codigo !~ '^MINSA-[0-9]{4}-A-'::text)))`.
 - `ck_incidencia_paciente_confianza`: `CHECK (((categoria_confianza IS NULL) OR ((categoria_confianza >= (0)::numeric) AND (categoria_confianza <= (100)::numeric))))`.
 - `ck_incidencia_paciente_derivacion`: `CHECK (((derivado_en IS NULL) = (derivado_por IS NULL)))`.
 - `ck_incidencia_paciente_derivacion_descripcion`: `CHECK (((derivacion_descripcion IS NULL) OR ((derivacion_descripcion = btrim(derivacion_descripcion)) AND ((char_length(derivacion_descripcion) >= 10) AND (char_length(derivacion_descripcion) <= 2000)))))`.
@@ -822,7 +825,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 - `trg_incidencia_paciente_a_reglas_ins` (Antes de insertar): Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma, archivado o reapertura.
 - `trg_incidencia_paciente_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
-- `trg_incidencia_paciente_b_codigo_ins` (Antes de insertar): Al insertar una incidencia le pone su código y descarta el que haya enviado quien inserta.
+- `trg_incidencia_paciente_b_codigo_ins` (Antes de insertar): Al insertar una incidencia le pone su código, en la serie anónima si la incidencia es anónima, y descarta el que haya enviado quien inserta.
 - `trg_incidencia_paciente_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
 - `trg_incidencia_paciente_c_historial` (Después de insertar o modificar): Después de insertar o modificar, guarda el cambio en el historial.
 - `trg_incidencia_paciente_d_entrenamiento` (Después de modificar): Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.
@@ -1141,6 +1144,7 @@ Persona de la institución que gestiona los casos. Es distinta del usuario de Wh
 | `usuario_creacion` | text | No | `CURRENT_USER` |  | Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base. |
 | `fecha_modificacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la última modificación. La llena un disparador. |
 | `usuario_modificacion` | text | No | `CURRENT_USER` |  | Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador. |
+| `clave_cambiada_en` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que el usuario cambió su clave por última vez. Nula mientras no la haya cambiado: el usuario nace sin cambiarla (también el administrador creado con gestion.crear_administrador) y debe cambiarla al iniciar sesión. |
 
 **Llaves foráneas** (qué relaciona y para qué)
 

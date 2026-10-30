@@ -61,10 +61,10 @@ La ejecuta un DBA con el usuario dueño de la base, una sola vez, después de qu
 
    Resultado esperado: `1`. Devuelve `0` si el correo ya existía y no cambia nada. Falla si no se hizo el paso 1.
 
-4. Verificar el usuario (debe salir una fila con `activo = true`):
+4. Verificar el usuario (debe salir una fila con `activo = true` y `clave_cambiada_en` vacía: la clave se cambia al primer inicio de sesión):
 
    ```sql
-   SELECT correo, activo FROM gestion.usuario_interno WHERE correo = '<correo>';
+   SELECT correo, activo, clave_cambiada_en FROM gestion.usuario_interno WHERE correo = '<correo>';
    ```
 
 Los pasos 1 y 3 se pueden repetir sin riesgo.

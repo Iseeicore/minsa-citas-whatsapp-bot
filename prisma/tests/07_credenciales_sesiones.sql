@@ -108,4 +108,27 @@ BEGIN
              AND revocada_en IS NULL) = 0, 'S26 reactivar al usuario no reabre sesiones: hay que iniciar una nueva';
 END $$;
 
+DO $$
+BEGIN
+  ASSERT (SELECT bool_and(clave_cambiada_en IS NULL) FROM gestion.usuario_interno WHERE correo IN ('ana@minsa.gob.pe', 'luis@minsa.gob.pe')),
+    'S27 un usuario nuevo nace sin haber cambiado su clave';
+END $$;
+
+UPDATE gestion.usuario_interno SET clave_cambiada_en = now() WHERE correo = 'ana@minsa.gob.pe';
+DO $$
+BEGIN
+  ASSERT (SELECT clave_cambiada_en IS NOT NULL FROM gestion.usuario_interno WHERE correo = 'ana@minsa.gob.pe'),
+    'S28 el cambio de clave queda registrado con su fecha';
+END $$;
+
+BEGIN;
+SELECT catalogo.cargar_hospitales_fase_1();
+DO $$
+BEGIN
+  ASSERT gestion.crear_administrador('admin-clave@minsa.gob.pe', '$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA') = 1, 'S29 se crea el administrador';
+  ASSERT (SELECT clave_cambiada_en IS NULL FROM gestion.usuario_interno WHERE correo = 'admin-clave@minsa.gob.pe'),
+    'S29 el administrador creado por la funcion debe cambiar su clave al entrar';
+END $$;
+ROLLBACK;
+
 \echo TODAS LAS PRUEBAS DE CREDENCIALES Y SESIONES PASARON
