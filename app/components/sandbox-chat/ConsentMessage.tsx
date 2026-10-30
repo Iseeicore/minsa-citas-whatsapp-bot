@@ -1,28 +1,26 @@
 import { useState } from "react";
 import { Button } from "@/app/components/ui/Button";
-import { TerminosModal } from "@/app/components/sandbox-chat/TerminosModal";
+import { ConsentModal } from "@/app/components/sandbox-chat/ConsentModal";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
-import type { SendTerminosEffect } from "@/lib/fsm/core/types";
+import type { SendConsentEffect } from "@/lib/fsm/core/types";
 
-const REOPEN_LABEL = "Revisar términos y condiciones";
-
-type TerminosMessageProps = {
-  effect: SendTerminosEffect;
+type ConsentMessageProps = {
+  effect: SendConsentEffect;
   disabled: boolean;
   onSelect: (id: string, title: string) => void;
 };
 
-export function TerminosMessage({ effect, disabled, onSelect }: TerminosMessageProps) {
+export function ConsentMessage({ effect, disabled, onSelect }: ConsentMessageProps) {
   const [open, setOpen] = useState(true);
   const showModal = open && !disabled;
 
   return (
     <>
       <Button variant={ButtonVariant.OPTION} width={ButtonWidth.FULL} disabled={disabled} onClick={() => setOpen(true)}>
-        {REOPEN_LABEL}
+        {effect.reopenLabel}
       </Button>
-      {showModal && <TerminosModal effect={effect} onSelect={onSelect} onClose={() => setOpen(false)} />}
+      {showModal && <ConsentModal effect={effect} onSelect={onSelect} onClose={() => setOpen(false)} />}
     </>
   );
 }

@@ -5,7 +5,7 @@ import { WhatsAppLimitField } from "@/lib/enums/whatsapp-limit-field";
 import { WhatsAppLimitRule } from "@/lib/enums/whatsapp-limit-rule";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
 import { LIST_OPEN_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
-import { TERMINOS_TITULO_TEXT, TERMINOS_VER_BUTTON_TEXT, terminosWhatsappBodyText } from "@/lib/constants/textos/terminos";
+import { TERMINOS_TITULO_TEXT, TERMINOS_VER_BUTTON_TEXT } from "@/lib/constants/textos/terminos";
 import {
   BUTTON_TITLE_MAX,
   WHATSAPP_BUTTON_ID_MAX,
@@ -74,6 +74,11 @@ function rowViolations(rows: ListRow[]): WhatsAppLimitViolation[] {
 const interactiveBodyViolations = (text: string): WhatsAppLimitViolation[] =>
   lengthViolations(WhatsAppLimitField.BODY_TEXT, text, WHATSAPP_INTERACTIVE_BODY_MAX);
 
+const terminosLinkViolations = (): WhatsAppLimitViolation[] => [
+  ...interactiveBodyViolations(TERMINOS_TITULO_TEXT),
+  ...lengthViolations(WhatsAppLimitField.CTA_DISPLAY_TEXT, TERMINOS_VER_BUTTON_TEXT, WHATSAPP_CTA_DISPLAY_TEXT_MAX),
+];
+
 export function findLimitViolations(effect: SendEffect): WhatsAppLimitViolation[] {
   switch (effect.kind) {
     case SendType.TEXT:
@@ -87,11 +92,10 @@ export function findLimitViolations(effect: SendEffect): WhatsAppLimitViolation[
         ...interactiveBodyViolations(effect.text),
         ...lengthViolations(WhatsAppLimitField.CTA_DISPLAY_TEXT, effect.buttonText, WHATSAPP_CTA_DISPLAY_TEXT_MAX),
       ];
-    case SendType.TERMINOS:
+    case SendType.CONSENT:
       return [
-        ...interactiveBodyViolations(TERMINOS_TITULO_TEXT),
-        ...lengthViolations(WhatsAppLimitField.CTA_DISPLAY_TEXT, TERMINOS_VER_BUTTON_TEXT, WHATSAPP_CTA_DISPLAY_TEXT_MAX),
-        ...interactiveBodyViolations(terminosWhatsappBodyText(effect.text)),
+        ...(effect.withTerminosLink ? terminosLinkViolations() : []),
+        ...interactiveBodyViolations(effect.whatsappText),
         ...buttonViolations(effect.buttons),
       ];
   }
