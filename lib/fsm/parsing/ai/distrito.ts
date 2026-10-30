@@ -1,10 +1,16 @@
 import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
-import { logAiFallback, buildMisconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
+import {
+  ANSWER_NOT_OBJECT_REASON,
+  CANDIDATES_NOT_LIST_REASON,
+  describeLlmFailure,
+  logAiFallback,
+  buildMisconfiguredProviderReason,
+} from "@/lib/fsm/parsing/ai/ai-fallback";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { DistritoAiOutcome } from "@/lib/enums/distrito-ai-outcome";
 import { DISTRITO_AI_SYSTEM_PROMPT, distritoDirectAnswerLine, distritoInitialMessageLine } from "@/lib/constants/prompts/distrito";
-import { isString } from "@/lib/utils/type-guards";
+import { isRecord, isString } from "@/lib/utils/type-guards";
 
 export type DistritoAiCandidate = {
   departamento: string;
@@ -27,12 +33,6 @@ const withOutcome = (candidates: DistritoAiCandidate[]): ResolveDistritoAiDetail
   candidates,
 });
 
-type DistritoAiJsonShape = {
-  candidates?: unknown;
-  detalle?: string;
-  quiere_salir?: unknown;
-};
-
 export const DISTRITO_AI_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
   properties: {
@@ -54,6 +54,11 @@ export const DISTRITO_AI_RESPONSE_SCHEMA: JsonSchema = {
   required: ["candidates", "detalle", "quiere_salir"],
 };
 
+function failed(reason: string): ResolveDistritoAiDetailedResult {
+  logAiFallback(QueryKind.RESOLVE_DISTRITO_AI, "failed", reason);
+  return FAILED;
+}
+
 function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
   const candidate = value as Partial<DistritoAiCandidate> | null;
   return isString(candidate?.departamento) && isString(candidate?.provincia) && isString(candidate?.distrito);
@@ -64,10 +69,7 @@ export async function resolveDistritoAiDetailed(
   contextText: string | undefined,
   lookup: LlmClientLookup,
 ): Promise<ResolveDistritoAiDetailedResult> {
-  if (lookup.status === LlmClientStatus.MISCONFIGURED) {
-    logAiFallback(QueryKind.RESOLVE_DISTRITO_AI, "failed", buildMisconfiguredProviderReason(lookup.provider));
-    return FAILED;
-  }
+  if (lookup.status === LlmClientStatus.MISCONFIGURED) return failed(buildMisconfiguredProviderReason(lookup.provider));
 
   const userTurn = [distritoDirectAnswerLine(distritoText), contextText ? distritoInitialMessageLine(contextText) : null]
     .filter(Boolean)
@@ -79,17 +81,14 @@ export async function resolveDistritoAiDetailed(
     userText: userTurn,
     schema: DISTRITO_AI_RESPONSE_SCHEMA,
   });
-  if (!outcome.ok) return FAILED;
+  if (!outcome.ok) return failed(describeLlmFailure(outcome));
+  if (!isRecord(outcome.json)) return failed(ANSWER_NOT_OBJECT_REASON);
 
-  try {
-    const parsed = outcome.json as DistritoAiJsonShape;
-    if (!Array.isArray(parsed.candidates)) return FAILED;
+  const parsed = outcome.json;
+  if (!Array.isArray(parsed.candidates)) return failed(CANDIDATES_NOT_LIST_REASON);
 
-    const resolved = withOutcome(parsed.candidates.filter(isDistritoAiCandidate));
-    return parsed.quiere_salir === true ? { ...resolved, quiereSalir: true } : resolved;
-  } catch {
-    return FAILED;
-  }
+  const resolved = withOutcome(parsed.candidates.filter(isDistritoAiCandidate));
+  return parsed.quiere_salir === true ? { ...resolved, quiereSalir: true } : resolved;
 }
 
 export async function resolveDistritoAi(
