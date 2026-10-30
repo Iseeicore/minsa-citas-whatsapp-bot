@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   findUnique: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
@@ -7,7 +7,7 @@ const db = vi.hoisted(() => ({
 
 vi.mock("@/lib/db/prisma", () => ({ prisma: { usuario: { findUnique: db.findUnique, upsert: db.upsert } } }));
 
-import { marcarConsentimientoAceptado, tieneConsentimientoAceptado } from "@/lib/recepcion/repositorio";
+import { createMemoryConsentimientoStore, marcarConsentimientoAceptado, tieneConsentimientoAceptado } from "@/lib/recepcion/repositorio";
 
 describe("tieneConsentimientoAceptado", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -45,5 +45,29 @@ describe("marcarConsentimientoAceptado", () => {
         update: expect.objectContaining({ consentimientoAceptadoEn: expect.any(Date) }),
       }),
     );
+  });
+});
+
+describe("consentimiento sin base de datos", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("el almacén en memoria recuerda a quien autorizó y a nadie más", async () => {
+    const store = createMemoryConsentimientoStore();
+
+    await expect(store.tieneAceptado("bsuid-ana")).resolves.toBe(false);
+    await store.marcarAceptado("bsuid-ana");
+    await expect(store.tieneAceptado("bsuid-ana")).resolves.toBe(true);
+    await expect(store.tieneAceptado("bsuid-beto")).resolves.toBe(false);
+  });
+
+  it("con DATABASE_ENABLED=false no toca Prisma y no falla", async () => {
+    vi.stubEnv("DATABASE_ENABLED", "false");
+
+    await expect(tieneConsentimientoAceptado("bsuid-memoria")).resolves.toBe(false);
+    await expect(marcarConsentimientoAceptado("bsuid-memoria")).resolves.toBeUndefined();
+    await expect(tieneConsentimientoAceptado("bsuid-memoria")).resolves.toBe(true);
+    expect(db.findUnique).not.toHaveBeenCalled();
+    expect(db.upsert).not.toHaveBeenCalled();
   });
 });
