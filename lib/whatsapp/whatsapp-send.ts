@@ -110,10 +110,6 @@ async function postGraphMessage(body: Record<string, unknown>): Promise<GraphPos
   return { status: GraphPostStatus.ANSWERED, response };
 }
 
-export async function sendWhatsAppEffect(waId: string, effect: ChannelSendEffect): Promise<GraphPost> {
-  return postGraphMessage(buildGraphBody(waId, withinLimits(waId, effect)));
-}
-
 async function trySend(waId: string, effect: ChannelSendEffect): Promise<Response | undefined> {
   try {
     const post = await postGraphMessage(buildGraphBody(waId, effect));
@@ -139,10 +135,6 @@ async function readGraphError(response: Response): Promise<Record<string, unknow
 
 async function logRejection(waId: string, effect: ChannelSendEffect, response: Response): Promise<void> {
   logger.error("outbound.rejected", { waId: tail(waId), kind: effect.kind, ...(await readGraphError(response)) });
-}
-
-export async function logSendFailure(operation: WhatsAppSendOperation, waId: string, response: Response): Promise<void> {
-  logger.error("whatsapp.send_failed", { operation, waId: tail(waId), ...(await readGraphError(response)) });
 }
 
 async function readSentMessageId(response: Response): Promise<string | undefined> {
@@ -183,23 +175,6 @@ function sendCtaUrlMessage(waId: string, params: { bodyText: string; buttonText:
   });
 }
 
-export async function sendTypingIndicator(inboundMessageId: string): Promise<void> {
-  let post: GraphPost;
-  try {
-    post = await postGraphMessage({
-      messaging_product: "whatsapp",
-      status: "read",
-      message_id: inboundMessageId,
-      typing_indicator: { type: "text" },
-    });
-  } catch (error) {
-    logger.warn("whatsapp.typing_failed", { error });
-    return;
-  }
-  if (post.status === GraphPostStatus.ANSWERED && !post.response.ok)
-    logger.warn("whatsapp.typing_failed", await readGraphError(post.response));
-}
-
 async function sendAndRecordMessage(conversationId: string | undefined, waId: string, effect: ChannelSendEffect): Promise<SendOutcome> {
   const outbound = withinLimits(waId, effect);
   const response = await trySend(waId, outbound);
@@ -217,6 +192,31 @@ async function sendAndRecordMessage(conversationId: string | undefined, waId: st
     return toRejectedOutcome(retry);
   }
   return recordDelivered(conversationId, fallback.text, retry);
+}
+
+export async function sendWhatsAppEffect(waId: string, effect: ChannelSendEffect): Promise<GraphPost> {
+  return postGraphMessage(buildGraphBody(waId, withinLimits(waId, effect)));
+}
+
+export async function logSendFailure(operation: WhatsAppSendOperation, waId: string, response: Response): Promise<void> {
+  logger.error("whatsapp.send_failed", { operation, waId: tail(waId), ...(await readGraphError(response)) });
+}
+
+export async function sendTypingIndicator(inboundMessageId: string): Promise<void> {
+  let post: GraphPost;
+  try {
+    post = await postGraphMessage({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: inboundMessageId,
+      typing_indicator: { type: "text" },
+    });
+  } catch (error) {
+    logger.warn("whatsapp.typing_failed", { error });
+    return;
+  }
+  if (post.status === GraphPostStatus.ANSWERED && !post.response.ok)
+    logger.warn("whatsapp.typing_failed", await readGraphError(post.response));
 }
 
 export async function sendAndRecordEffect(conversationId: string | undefined, waId: string, effect: SendEffect): Promise<SendOutcome> {
