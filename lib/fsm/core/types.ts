@@ -95,6 +95,8 @@ export type Session = {
 
 export type InboundEventType = "text" | "button" | "list" | "image" | "document";
 
+export type InboundMedia = { dataUri: string } | { failure: MediaFailure };
+
 export type InboundEvent = {
   from: string;
   type: InboundEventType;
@@ -103,6 +105,7 @@ export type InboundEvent = {
   mediaId?: string;
   mediaDataUri?: string;
   mediaFailure?: MediaFailure;
+  media?: InboundMedia[];
   messageId?: string;
   replyTo?: string;
   channel?: SessionChannel;

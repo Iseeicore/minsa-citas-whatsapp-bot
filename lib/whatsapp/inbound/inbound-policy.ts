@@ -1,6 +1,7 @@
 import { SessionState } from "@/lib/enums/session-state";
 
 export const INBOUND_FREE_TEXT_WINDOW_MS = 1_500;
+export const INBOUND_MEDIA_WINDOW_MS = 3_000;
 export const INBOUND_MAX_WAIT_MS = 3_000;
 export const INBOUND_MAX_BATCH = 10;
 export const INBOUND_MAX_AGE_MS = 120_000;
@@ -22,6 +23,7 @@ const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
 ]);
 
 export function resolveWindowMs(input: { state: string | null; type: string }): number {
+  if (input.type === "image") return input.state === SessionState.INCIDENCIA_AWAITING_FOTO ? INBOUND_MEDIA_WINDOW_MS : 0;
   if (input.type !== "text") return 0;
   if (input.state === null) return 0;
   return FREE_TEXT_STATES.has(input.state) ? INBOUND_FREE_TEXT_WINDOW_MS : 0;

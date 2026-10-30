@@ -15,6 +15,8 @@ import { EstadoConversacionId } from "@/lib/enums/estado-conversacion-id";
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import { processValue } from "@/lib/whatsapp/webhook/process";
+import { saveSession } from "@/lib/fsm/session/session-store";
+import { SessionState } from "@/lib/enums/session-state";
 
 const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 
@@ -24,6 +26,14 @@ const textMessage = (waId: string, wamid: string, body: string) => ({
   timestamp: String(nowSeconds()),
   type: "text",
   text: { body },
+});
+
+const imageMessage = (waId: string, wamid: string, mediaId: string) => ({
+  id: wamid,
+  from_user_id: waId,
+  timestamp: String(nowSeconds()),
+  type: "image",
+  image: { id: mediaId },
 });
 
 describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real PostgreSQL", () => {
@@ -61,6 +71,7 @@ describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real Postg
       expect.objectContaining({ id: wamid }),
       usuario.id,
       expect.objectContaining({ mark: expect.any(Function) }),
+      undefined,
     );
   });
 
@@ -103,5 +114,18 @@ describe.skipIf(!process.env.DATABASE_URL)("inbound webhook against a real Postg
     const usuario = await prisma.usuario.findUniqueOrThrow({ where: { waId } });
     expect(usuario.ultimoMensajeEn.getTime()).toBe(later * 1000);
     expect(usuario.versionFila).toBe(2);
+  });
+
+  it("an album sent in the evidence step is claimed with its media ids and answered once", async () => {
+    const waId = `smoke-${randomUUID()}`;
+    answers.answerMessage.mockClear();
+    await saveSession(waId, { state: SessionState.INCIDENCIA_AWAITING_FOTO, slots: {}, counters: {} });
+    const album = [1, 2, 3].map((index) => imageMessage(waId, `wamid.${randomUUID()}`, `media-${index}`));
+
+    await processValue({ messages: album });
+
+    expect(answers.answerMessage).toHaveBeenCalledTimes(1);
+    expect(answers.answerMessage.mock.calls[0][3]).toEqual(["media-1", "media-2", "media-3"]);
+    expect(await prisma.mensaje.count({ where: { waMessageId: { in: album.map((message) => message.id) }, procesadoEn: null } })).toBe(0);
   });
 });

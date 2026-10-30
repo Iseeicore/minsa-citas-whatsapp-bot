@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInboundCoalescer, type InboundCoalescerDeps } from "@/lib/whatsapp/inbound/inbound-coalescer";
 import type { InboundBuffer, PendingInbound } from "@/lib/whatsapp/inbound/inbound-buffer";
-import { INBOUND_MAX_AGE_MS, INBOUND_MAX_BATCH, INBOUND_MAX_WAIT_MS } from "@/lib/whatsapp/inbound/inbound-policy";
+import { INBOUND_MAX_AGE_MS, INBOUND_MAX_BATCH, INBOUND_MAX_WAIT_MS, INBOUND_MEDIA_WINDOW_MS } from "@/lib/whatsapp/inbound/inbound-policy";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
 
@@ -21,7 +21,12 @@ function createFakeBuffer(rows: Row[]): InboundBuffer {
     },
     async claim(usuarioId, limit, ownerWaMessageId) {
       const claimed = pending(usuarioId)
-        .filter((candidate) => candidate.tipoMensajeId === TipoMensajeId.TEXTO || candidate.waMessageId === ownerWaMessageId)
+        .filter(
+          (candidate) =>
+            candidate.tipoMensajeId === TipoMensajeId.TEXTO ||
+            candidate.tipoMensajeId === TipoMensajeId.IMAGEN ||
+            candidate.waMessageId === ownerWaMessageId,
+        )
         .sort((a, b) => a.fechaHora.getTime() - b.fechaHora.getTime() || a.arrivedAt.getTime() - b.arrivedAt.getTime())
         .slice(0, limit);
       for (const row of claimed) row.processed = true;
@@ -53,6 +58,7 @@ function row(id: string, contenido: string | null, secondsAfter: number, overrid
     usuarioId: "u1",
     waMessageId: id,
     contenido,
+    mediaId: null,
     tipoMensajeId: TipoMensajeId.TEXTO,
     fechaHora: at,
     arrivedAt: at,
@@ -71,8 +77,16 @@ function messageFor(source: Row, type = "text"): WhatsAppMessage {
   };
 }
 
+function imageRow(id: string, secondsAfter: number): Row {
+  return row(id, null, secondsAfter, { tipoMensajeId: TipoMensajeId.IMAGEN, mediaId: `media-${id}` });
+}
+
+function imageMessage(source: Row): WhatsAppMessage {
+  return { ...messageFor(source, "image"), text: undefined, image: { id: source.mediaId ?? undefined } };
+}
+
 function setup(rows: Row[], options: { nowMs?: number } = {}) {
-  const answered: Array<{ message: WhatsAppMessage; usuarioId: string }> = [];
+  const answered: Array<{ message: WhatsAppMessage; mediaIds?: string[]; usuarioId: string }> = [];
   const notified: string[] = [];
   const slept: number[] = [];
   const clock = { nowMs: options.nowMs ?? T0 };
@@ -80,8 +94,8 @@ function setup(rows: Row[], options: { nowMs?: number } = {}) {
   const deps: InboundCoalescerDeps = {
     buffer: createFakeBuffer(rows),
     runTurn: async (_waId, task) => task(),
-    answer: async (message, usuarioId) => {
-      answered.push({ message, usuarioId });
+    answer: async (turn, usuarioId) => {
+      answered.push({ ...turn, usuarioId });
     },
     notifyStale: async (waId) => {
       notified.push(waId);
@@ -167,15 +181,92 @@ describe("createInboundCoalescer", () => {
     expect(answered[1].message.text?.body).toBe(`t${INBOUND_MAX_BATCH}\nt${INBOUND_MAX_BATCH + 1}`);
   });
 
-  it("answers only the last message when the batch mixes text with a button or an image", async () => {
+  it("answers a text and an image that arrive together in order, without dropping the text", async () => {
     const text = row("m1", "texto suelto", 0);
-    const button = row("m2", null, 1, { tipoMensajeId: TipoMensajeId.IMAGEN });
-    const { coalescer, answered } = setup([text, button], { nowMs: T0 + 1000 });
+    const image = imageRow("m2", 1);
+    const { coalescer, answered } = setup([text, image], { nowMs: T0 + 1000 });
 
-    await coalescer.handle({ message: messageFor(button, "image"), usuarioId: "u1", windowMs: 0 });
+    await coalescer.handle({ message: imageMessage(image), usuarioId: "u1", windowMs: 0 });
+
+    expect(answered.map((turn) => turn.message.type)).toEqual(["text", "image"]);
+    expect(answered[0].message.text?.body).toBe("texto suelto");
+    expect(answered[1].message.id).toBe("m2");
+    expect(answered[1].mediaIds).toEqual(["media-m2"]);
+  });
+
+  it("answers an album once, with every media id in order, and the owner as the last image", async () => {
+    const images = [imageRow("m1", 0), imageRow("m2", 1), imageRow("m3", 2)];
+    const { coalescer, answered } = setup(images, { nowMs: T0 + 3000 });
+
+    await coalescer.handle({ message: imageMessage(images[0]), usuarioId: "u1", windowMs: 3000 });
 
     expect(answered).toHaveLength(1);
-    expect(answered[0].message.id).toBe("m2");
+    expect(answered[0].message.type).toBe("image");
+    expect(answered[0].message.id).toBe("m3");
+    expect(answered[0].message.image?.id).toBe("media-m3");
+    expect(answered[0].mediaIds).toEqual(["media-m1", "media-m2", "media-m3"]);
+  });
+
+  it("lets only the last image of an album answer when every image waits the media window", async () => {
+    const images = [imageRow("m1", 0), imageRow("m2", 0.5), imageRow("m3", 1)];
+    const { coalescer, answered } = setup(images, { nowMs: T0 + 1000 });
+
+    await Promise.all(
+      images.map((image) => coalescer.handle({ message: imageMessage(image), usuarioId: "u1", windowMs: INBOUND_MEDIA_WINDOW_MS })),
+    );
+
+    expect(answered).toHaveLength(1);
+    expect(answered[0].mediaIds).toEqual(["media-m1", "media-m2", "media-m3"]);
+  });
+
+  it("splits the batch into ordered groups: texts merged, images together, the text after them on its own", async () => {
+    const rows = [row("m1", "hola", 0), row("m2", "mira", 1), imageRow("m3", 2), imageRow("m4", 3), row("m5", "listo", 4)];
+    const { coalescer, answered } = setup(rows, { nowMs: T0 + 4000 });
+
+    await coalescer.handle({ message: messageFor(rows[4]), usuarioId: "u1", windowMs: 0 });
+
+    expect(answered.map((turn) => turn.message.type)).toEqual(["text", "image", "text"]);
+    expect(answered[0].message.text?.body).toBe("hola\nmira");
+    expect(answered[1].mediaIds).toEqual(["media-m3", "media-m4"]);
+    expect(answered[2].message.text?.body).toBe("listo");
+    expect(answered[2].message.id).toBe("m5");
+    expect(rows.every((candidate) => candidate.processed)).toBe(true);
+  });
+
+  it("passes a button owner through untouched, after the pending texts it claimed", async () => {
+    const text = row("m1", "una duda", 0);
+    const button = row("m2", null, 1, { tipoMensajeId: TipoMensajeId.DESCONOCIDO });
+    const tap: WhatsAppMessage = { ...messageFor(button, "interactive"), interactive: { button_reply: { id: "incidencia_foto_listo" } } };
+    const { coalescer, answered } = setup([text, button], { nowMs: T0 + 1000 });
+
+    await coalescer.handle({ message: tap, usuarioId: "u1", windowMs: 0 });
+
+    expect(answered).toHaveLength(2);
+    expect(answered[0].message.text?.body).toBe("una duda");
+    expect(answered[1].message).toBe(tap);
+  });
+
+  it("answers every group inside the same turn lock", async () => {
+    const rows = [row("m1", "hola", 0), imageRow("m2", 1)];
+    const events: string[] = [];
+    const coalescer = createInboundCoalescer({
+      buffer: createFakeBuffer(rows),
+      runTurn: async (_waId, task) => {
+        events.push("lock");
+        await task();
+        events.push("unlock");
+      },
+      answer: async (turn) => {
+        events.push(turn.message.type);
+      },
+      notifyStale: async () => {},
+      sleep: async () => {},
+      now: () => T0 + 1000,
+    });
+
+    await coalescer.handle({ message: imageMessage(rows[1]), usuarioId: "u1", windowMs: 0 });
+
+    expect(events).toEqual(["lock", "text", "image", "unlock"]);
   });
 
   it("drops a message older than the maximum age, notifies once and never feeds it to the flow", async () => {

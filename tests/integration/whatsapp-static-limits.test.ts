@@ -8,7 +8,11 @@ import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { buildConsentimientoEffect } from "@/lib/fsm/flows/incidencia/consentimiento";
 import { FORCED_INCIDENCIA_LEAD_TEXT } from "@/lib/constants/textos/seguridad";
-import type { ButtonOption, ListRow, SendEffect } from "@/lib/fsm/core/types";
+import type { ButtonOption, InboundEvent, InboundMedia, ListRow, SendEffect, Session } from "@/lib/fsm/core/types";
+import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
+import { MediaFailure } from "@/lib/enums/media-failure";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
@@ -275,6 +279,40 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
       for (const lead of ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT]) {
         const [unido] = withPrefixedFirstMessage(buildResult(session, [confirmacion]), avisoDenunciaText(lead)).effects as SendEffect[];
         expect(findLimitViolations(unido), lead).toEqual([]);
+      }
+    });
+
+    it("la respuesta agrupada a las imágenes, con todos los motivos de rechazo y el resumen del tope", () => {
+      const png = (indice: number) =>
+        `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, indice]).toString("base64")}`;
+      const rechazadas: InboundMedia[] = [
+        { dataUri: png(0) },
+        { failure: MediaFailure.TOO_LARGE },
+        { dataUri: "data:text/html;base64,PGI+" },
+        { failure: MediaFailure.UNREADABLE },
+      ];
+      const session = (guardadas: number): Session => ({
+        state: "incidencia_awaiting_foto",
+        slots: {
+          [SlotKey.DESCRIPCION_INCIDENCIA]: "a".repeat(MAX_DESCRIPCION_LENGTH),
+          [SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]: nombre,
+          [SlotKey.DNI]: "123456789",
+          [SlotKey.INCIDENCIA_IMAGENES]: JSON.stringify(Array.from({ length: guardadas }, (_, indice) => png(indice))),
+        },
+        counters: {},
+      });
+      const lote = (media: InboundMedia[]): InboundEvent => ({ from: "51999999999", type: "image", media });
+
+      const bajoElTope = handleIncidencia(session(1), lote([...rechazadas, { dataUri: png(20) }]));
+      const enElTope = handleIncidencia(
+        session(3),
+        lote([...rechazadas, { dataUri: png(20) }, { dataUri: png(21) }, { dataUri: png(22) }]),
+      );
+
+      expect(enElTope.session.state).toBe("incidencia_confirm_registro");
+      for (const result of [bajoElTope, enElTope]) {
+        expect(result.effects).toHaveLength(1);
+        expect(findLimitViolations(result.effects[0] as SendEffect)).toEqual([]);
       }
     });
 
