@@ -17,7 +17,7 @@ import { beginReferencias } from "@/lib/fsm/flows/referencia/handlers-referencia
 import { startCitaIdentity } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
-import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
+import { beginIncidencia } from "@/lib/fsm/flows/incidencia/inicio";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { detectOutOfScope, isCitaKeyword, isContinueKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-id";

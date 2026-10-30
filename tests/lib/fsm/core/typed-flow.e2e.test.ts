@@ -9,6 +9,10 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
     store.set(from, structuredClone(session));
   },
 }));
+vi.mock("@/lib/recepcion/repositorio", () => ({
+  tieneConsentimientoAceptado: async () => true,
+  marcarConsentimientoAceptado: async () => undefined,
+}));
 import { runTurn } from "@/lib/fsm/core/executor";
 import { SlotKey } from "@/lib/enums/slot-key";
 
@@ -110,7 +114,9 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     const result = await say("Doctora imbécil no me dio mi medicina");
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(result.texts.some((line) => line.includes("registrar tu denuncia"))).toBe(true);
+    expect(result.texts).toHaveLength(1);
+    expect(result.texts[0]).toContain("ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS");
+    expect(result.texts[0]).toContain("¿en qué establecimiento de salud ocurrió?");
   });
 
   it("answers a pure insult with the institutional warning and lets the citizen continue", async () => {

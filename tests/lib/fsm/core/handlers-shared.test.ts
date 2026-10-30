@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { cloneSession, offerList, offerPagedList, readTappedId, readTrimmedText, readTypedText } from "@/lib/fsm/core/handlers-shared";
+import {
+  buildResult,
+  cloneSession,
+  offerList,
+  offerPagedList,
+  query,
+  readTappedId,
+  readTrimmedText,
+  readTypedText,
+  sendButtons,
+  sendText,
+  withPrefixedFirstMessage,
+} from "@/lib/fsm/core/handlers-shared";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -118,5 +130,28 @@ describe("offerList y offerPagedList: identificadores de fila únicos", () => {
 
     expect(effect).toEqual({ kind: "send_interactive_list", text: "Selecciona:", rows: [repeated[0], repeated[1]] });
     expect(ids(readOffered(session.slots)?.rows ?? [])).toEqual(["08:00|08:30", "09:00|09:30"]);
+  });
+});
+
+describe("withPrefixedFirstMessage", () => {
+  const session: Session = { state: "incidencia_confirm_ubicacion", slots: {}, counters: {} };
+  const buttons = [{ id: "si", title: "Sí" }];
+
+  it("puts the text on top of the first message, in the same message", () => {
+    const result = withPrefixedFirstMessage(buildResult(session, [sendButtons("¿Es ese?", buttons), sendText("otro")]), "Aviso");
+
+    expect(result.effects).toEqual([sendButtons("Aviso\n\n¿Es ese?", buttons), sendText("otro")]);
+  });
+
+  it("skips the queries to find the first message", () => {
+    const result = withPrefixedFirstMessage(buildResult(session, [query("buscar_establecimiento", {}), sendText("Hola")]), "Aviso");
+
+    expect(result.effects).toEqual([query("buscar_establecimiento", {}), sendText("Aviso\n\nHola")]);
+  });
+
+  it("with no message at all it sends the text on its own", () => {
+    const result = withPrefixedFirstMessage(buildResult(session, [query("buscar_establecimiento", {})]), "Aviso");
+
+    expect(result.effects).toEqual([sendText("Aviso"), query("buscar_establecimiento", {})]);
   });
 });

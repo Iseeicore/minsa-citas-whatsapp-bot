@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { RESPECT_REMINDER_TEXT, INSTITUTIONAL_WARNING_TEXT } from "@/lib/constants/textos/seguridad";
+import { answerConsent } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-test";
 
@@ -35,6 +36,11 @@ function hasQuery(result: ReturnType<typeof handle>): boolean {
   return result.effects.some(isQueryEffect);
 }
 
+function onlyChecksConsent(result: ReturnType<typeof handle>): boolean {
+  const kinds = result.effects.filter(isQueryEffect).map((effect) => effect.kind);
+  return kinds.length === 1 && kinds[0] === "verificar_consentimiento";
+}
+
 describe("main_menu — lexical guard routing", () => {
   it("pure aggression: warns with a Continuar button, no AI query, does not store the insult", () => {
     const result = handle(sessionAt("main_menu"), text("hdp"));
@@ -63,13 +69,16 @@ describe("main_menu — lexical guard routing", () => {
   });
 
   it("aggression with a service complaint: goes straight to the incidencia flow without AI", () => {
-    const result = handle(sessionAt("main_menu"), text("Doctora imbécil no me dio mi medicina"));
+    const begun = handle(sessionAt("main_menu"), text("Doctora imbécil no me dio mi medicina"));
+    expect(begun.session.state).toBe("incidencia_consent_check_pending");
+    expect(onlyChecksConsent(begun)).toBe(true);
 
+    const result = answerConsent(begun);
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(hasQuery(result)).toBe(false);
-    const [, effect] = sentEffects(result);
+    const [effect] = sentEffects(result);
     expect(effect.kind).toBe("send_text");
-    expect((effect as { text: string }).text).toContain("¿En qué establecimiento de salud ocurrió?");
+    expect((effect as { text: string }).text.startsWith("Lamentamos lo ocurrido.")).toBe(true);
+    expect((effect as { text: string }).text).toContain("¿en qué establecimiento de salud ocurrió?");
   });
 
   it("the Continuar button returns to the menu", () => {
@@ -100,8 +109,8 @@ describe("main_menu — incidencia keywords", () => {
   ])("%s starts the incidencia flow without AI", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 
-    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(hasQuery(result)).toBe(false);
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
+    expect(onlyChecksConsent(result)).toBe(true);
   });
 });
 
@@ -225,10 +234,10 @@ describe("main_menu — numeric shortcut", () => {
   it.each(["3", " 3 "])("%j goes straight to the incidencia flow without reprinting the menu", (message) => {
     const result = handle(sessionAt("main_menu"), text(message));
 
-    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(hasQuery(result)).toBe(false);
-    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_text", "send_text"]);
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
+    expect(onlyChecksConsent(result)).toBe(true);
     expect(result.session.slots[SlotKey.MENU_CHOICE]).toBe("registrar_incidencia");
+    expect(sentEffects(answerConsent(result)).map((effect) => effect.kind)).toEqual(["send_text"]);
   });
 
   it.each(["5", "0", "11", "12", "1 2", "uno"])("%j is not a menu shortcut and follows the normal path", (message) => {

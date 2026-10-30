@@ -73,7 +73,7 @@ describe("the order: emergency, then the lexical guard, then the rest", () => {
   });
 
   it("a real complaint request still opens the complaint flow", () => {
-    expect(handle(menu(), text("quiero hacer un reclamo")).session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(handle(menu(), text("quiero hacer un reclamo")).session.state).toBe("incidencia_consent_check_pending");
   });
 });
 
@@ -138,7 +138,7 @@ describe("the words the messages ask the citizen to type", () => {
   });
 
   it("«RECLAMO» still opens the complaint flow", () => {
-    expect(handle(menu(), text("RECLAMO")).session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(handle(menu(), text("RECLAMO")).session.state).toBe("incidencia_consent_check_pending");
   });
 
   it("the whole conversation: an out-of-scope question, then CITAS", () => {

@@ -6,6 +6,7 @@ import type { LlmClient } from "@/lib/fsm/parsing/ai/llm";
 import { analyzeMainMenuIntent, MAIN_MENU_INTENT_RESPONSE_SCHEMA } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { answerConsent } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-intencion";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -81,30 +82,25 @@ describe("what the menu does with that answer", () => {
     expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe(STORY);
   });
 
-  it("when the AI says incidencia, it asks where it happened and keeps the words as the draft", () => {
+  it("when the AI says incidencia, it checks the consent, asks where it happened and keeps the words as the draft", () => {
     const asked = handle(menu(), text(STORY));
-    const result = handle(asked.session, answer({ intent: "incidencia" }));
+    const begun = handle(asked.session, answer({ intent: "incidencia" }));
+    expect(begun.session.state).toBe("incidencia_consent_check_pending");
+    expect(queries(begun).map((effect) => effect.kind)).toEqual(["verificar_consentimiento"]);
 
+    const result = answerConsent(begun, { from: FROM });
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(result.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe(STORY);
     expect(result.session.slots[SlotKey.INCIDENCIA_ORIGEN]).toBe("ia");
-    expect((sent(result)[1] as { text: string }).text).toContain("¿En qué establecimiento de salud ocurrió?");
+    expect((sent(result)[0] as { text: string }).text).toContain("¿en qué establecimiento de salud ocurrió?");
   });
 
   it("the draft is offered to use or to add to once the person has said who they are", () => {
     const asked = handle(menu(), text(STORY));
-    const located = handle(asked.session, answer({ intent: "incidencia" }));
+    const located = answerConsent(handle(asked.session, answer({ intent: "incidencia" })), { from: FROM });
     const identity = { ...located.session, state: "incidencia_identity_choice" as const };
 
-    const consentChecked = handle(identity, { from: FROM, type: "button", listId: "incidencia_anonimo" });
-    expect(consentChecked.session.state).toBe("incidencia_consent_check_pending");
-
-    const result = handle(consentChecked.session, {
-      from: FROM,
-      type: InternalEventType.QUERY_RESULT,
-      queryKind: "verificar_consentimiento",
-      result: { aceptado: true },
-    });
+    const result = handle(identity, { from: FROM, type: "button", listId: "incidencia_anonimo" });
     expect(result.session.state).toBe("incidencia_confirm_borrador");
     expect((sent(result)[0] as { text: string }).text).toContain(STORY);
   });
@@ -120,7 +116,7 @@ describe("what the menu does with that answer", () => {
   it("explicit words still skip the AI, as before", () => {
     const result = handle(menu(), text("quiero hacer un reclamo"));
 
-    expect(queries(result)).toHaveLength(0);
-    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(queries(result).map((effect) => effect.kind)).toEqual(["verificar_consentimiento"]);
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
   });
 });

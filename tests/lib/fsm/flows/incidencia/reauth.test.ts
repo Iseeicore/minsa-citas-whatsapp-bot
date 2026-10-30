@@ -184,7 +184,7 @@ describe("incidencia_awaiting_reauth", () => {
     expect(buttons?.kind === "send_buttons" && buttons.text).toContain("Me cobraron sin recibo.");
   });
 
-  it("resumes the consent step re-showing the notice and buttons, without re-checking the database", () => {
+  it("resumes the consent step re-showing the consent, without re-checking the database", () => {
     const session = waiting("incidencia_awaiting_reauth", {
       slots: { [SlotKey.INCIDENCIA_RESUME_STATE]: "incidencia_consent_choice" },
     });
@@ -193,7 +193,8 @@ describe("incidencia_awaiting_reauth", () => {
 
     expect(result.session.state).toBe("incidencia_consent_choice");
     expect(queries(result)).toHaveLength(0);
-    expect(sent(result).some((effect) => effect.kind === "send_buttons")).toBe(true);
+    expect(sent(result).map((effect) => effect.kind)).toEqual(["send_text", "send_consent"]);
+    expect(sent(result)[1]).toMatchObject({ text: "Para registrar tu denuncia necesitamos tu autorización." });
   });
 
   it("resumes the description draft step, choosing between the draft checklist and asking fresh depending on what is saved", () => {

@@ -4,7 +4,7 @@ import { consultaService, incidenciaService, serviceCatalog } from "@/lib/servic
 import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { beginReferencias } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
-import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
+import { beginIncidencia } from "@/lib/fsm/flows/incidencia/inicio";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
 import { buildResult, withNote } from "@/lib/fsm/core/handlers-shared";

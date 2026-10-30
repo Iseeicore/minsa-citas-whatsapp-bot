@@ -12,14 +12,12 @@ import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { OosCategory } from "@/lib/enums/oos-category";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-status";
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
-
-const AVISO_EMERGENCIA_TEXT = OOS_MESSAGES[OosCategory.OOS_01];
+import { AVISO_EMERGENCIA_DENUNCIA_TEXT, ASK_UBICACION_DENUNCIA_TEXT } from "@/lib/constants/textos/incidencia";
+import { answerConsent, consentChecked } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-ubicacion";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -39,24 +37,6 @@ const at = (state: Session["state"], slots: Session["slots"] = {}, counters: Ses
   counters,
 });
 
-function throughConsent(step: HandlerResult): HandlerResult {
-  const checked: QueryResultEvent = {
-    from: FROM,
-    type: InternalEventType.QUERY_RESULT,
-    queryKind: "verificar_consentimiento",
-    result: { aceptado: false },
-  };
-  const registered: QueryResultEvent = {
-    from: FROM,
-    type: InternalEventType.QUERY_RESULT,
-    queryKind: "registrar_consentimiento",
-    result: { ok: true },
-  };
-  let next = handle(step.session, checked);
-  next = handle(next.session, tap("incidencia_consent_si"));
-  return handle(next.session, registered);
-}
-
 const DOS_DE_MAYO = { id: 7, areaId: 9, codigoRenipress: "6206", nombre: "HOSPITAL NACIONAL DOS DE MAYO", distrito: null };
 const candidato = (nombre: string, codigo: string, similitud: number, similitudPalabra = similitud, id = 1): Candidato => ({
   id,
@@ -75,21 +55,22 @@ const foundByCode: BuscarEstablecimientoResult = {
 };
 
 describe("the way in: QR, text that announces an incidencia, menu and shortcuts", () => {
-  it("the QR message looks the establecimiento up by its code, before any other rule", () => {
-    const result = handleFirstContact(
-      "Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206",
-      "whatsapp",
-    );
+  it("the QR message checks the consent first and then looks the establecimiento up by its code, before any other rule", () => {
+    const begun = handleFirstContact("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206", "whatsapp");
 
+    expect(begun.session.state).toBe("incidencia_consent_check_pending");
+    expect(queries(begun)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
+    expect(sent(begun)).toEqual([]);
+
+    const result = answerConsent(begun);
     expect(result.session.state).toBe("incidencia_ubicacion_pending");
     expect(queries(result)).toEqual([{ kind: "buscar_establecimiento", payload: { codigo: "6206" } }]);
     expect(result.session.slots[SlotKey.INCIDENCIA_ORIGEN]).toBe("qr");
   });
 
   it("keeps the name as a fallback and what was written after the code as a draft", () => {
-    const result = handleFirstContact(
-      "Hola quiero presentar una incidencia POSTA X - CODIGO-IPRESS 5862 me cobraron sin recibo",
-      "whatsapp",
+    const result = answerConsent(
+      handleFirstContact("Hola quiero presentar una incidencia POSTA X - CODIGO-IPRESS 5862 me cobraron sin recibo", "whatsapp"),
     );
 
     expect(result.session.slots[SlotKey.INCIDENCIA_UBICACION_TEXTO]).toBe("POSTA X");
@@ -97,40 +78,86 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
   });
 
   it("a name with no code is looked up by name", () => {
-    const result = handleFirstContact("quiero presentar una incidencia en el hospital dos de mayo", "whatsapp");
+    const result = answerConsent(handleFirstContact("quiero presentar una incidencia en el hospital dos de mayo", "whatsapp"));
 
     expect(queries(result)).toEqual([{ kind: "buscar_establecimiento", payload: { nombre: "hospital dos de mayo" } }]);
     expect(result.session.slots[SlotKey.INCIDENCIA_ORIGEN]).toBe("texto");
   });
 
-  it("with no place at all it asks where it happened", () => {
-    const result = handleFirstContact("quiero presentar una incidencia", "whatsapp");
+  it("with no place at all and the consent already given, one message carries the greeting, the notice and the question", () => {
+    const result = answerConsent(handleFirstContact("quiero presentar una incidencia", "whatsapp"));
 
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(sent(result)).toEqual([
-      { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
-      {
-        kind: "send_text",
-        text: "¡Hola! Vamos a registrar tu denuncia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
-      },
+      { kind: "send_text", text: `¡Hola!\n\n${AVISO_EMERGENCIA_DENUNCIA_TEXT}\n\n${ASK_UBICACION_DENUNCIA_TEXT}` },
     ]);
+    expect(result.session.slots[SlotKey.INCIDENCIA_INICIO]).toBeUndefined();
   });
 
-  it("the menu option and the shortcuts ask for the place too", () => {
-    const fromMenu = handle(at("main_menu"), tap("registrar_incidencia"));
+  it("the greeting goes on the consent when it is asked, and is not repeated with the place", () => {
+    const asked = handle(handleFirstContact("quiero presentar una incidencia", "whatsapp").session, consentChecked(false, FROM));
+    expect(sent(asked)).toHaveLength(1);
+    expect(sent(asked)[0]).toMatchObject({ kind: "send_consent", text: "¡Hola! Para registrar tu denuncia necesitamos tu autorización." });
+    expect((sent(asked)[0] as { whatsappText: string }).whatsappText.startsWith("¡Hola! Antes de continuar")).toBe(true);
+
+    const result = answerConsent(handleFirstContact("quiero presentar una incidencia", "whatsapp"), { aceptado: false });
+    expect(sent(result)).toEqual([{ kind: "send_text", text: `${AVISO_EMERGENCIA_DENUNCIA_TEXT}\n\n${ASK_UBICACION_DENUNCIA_TEXT}` }]);
+  });
+
+  it("the notice of the denuncia keeps SAMU and Bomberos in bold and leaves out the line to go to a center", () => {
+    expect(AVISO_EMERGENCIA_DENUNCIA_TEXT).toContain("*SAMU: 106*");
+    expect(AVISO_EMERGENCIA_DENUNCIA_TEXT).toContain("*Bomberos: 116*");
+    expect(AVISO_EMERGENCIA_DENUNCIA_TEXT).not.toContain("Acuda ahora mismo");
+  });
+
+  it("the menu option and the shortcuts ask for the place too, after the consent", () => {
+    const begun = handle(at("main_menu"), tap("registrar_incidencia"));
+    expect(begun.session.state).toBe("incidencia_consent_check_pending");
+
+    const fromMenu = answerConsent(begun);
     expect(fromMenu.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(sent(fromMenu)).toEqual([
-      { kind: "send_text", text: AVISO_EMERGENCIA_TEXT },
-      {
-        kind: "send_text",
-        text: "Vamos a registrar tu denuncia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
-      },
-    ]);
+    expect(sent(fromMenu)).toEqual([{ kind: "send_text", text: `${AVISO_EMERGENCIA_DENUNCIA_TEXT}\n\n${ASK_UBICACION_DENUNCIA_TEXT}` }]);
   });
 
   it("a QR scanned with the main menu already open is read too", () => {
-    const result = handle(at("main_menu"), text("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206"));
+    const result = answerConsent(
+      handle(at("main_menu"), text("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206")),
+    );
     expect(queries(result)).toEqual([{ kind: "buscar_establecimiento", payload: { codigo: "6206" } }]);
+  });
+
+  it("with a QR the notice goes on top of the confirmation of the establecimiento, in one message", () => {
+    const searching = answerConsent(
+      handleFirstContact("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206", "whatsapp"),
+    );
+    const result = handle(searching.session, answer(foundByCode));
+
+    expect(result.session.state).toBe("incidencia_confirm_ubicacion");
+    expect(sent(result)).toHaveLength(1);
+    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
+    const body = (sent(result)[0] as { text: string }).text;
+    expect(body.startsWith(`¡Hola!\n\n${AVISO_EMERGENCIA_DENUNCIA_TEXT}\n\n¿Estás seguro de esa ubicación?`)).toBe(true);
+    expect(result.session.slots[SlotKey.INCIDENCIA_INICIO]).toBeUndefined();
+  });
+
+  it("with a QR whose code is unknown, the notice waits for the search by name and goes on its first answer", () => {
+    const searching = answerConsent(handleFirstContact("Hola quiero presentar una incidencia POSTA X - CODIGO-IPRESS 5862", "whatsapp"), {
+      aceptado: false,
+    });
+    const byName = handle(searching.session, answer({ by: EstablecimientoSearchBy.CODIGO, status: EstablecimientoSearchStatus.NOT_FOUND }));
+    expect(queries(byName)).toEqual([{ kind: "buscar_establecimiento", payload: { nombre: "POSTA X" } }]);
+    expect(sent(byName)).toEqual([]);
+
+    const result = handle(
+      byName.session,
+      answer({ by: EstablecimientoSearchBy.NOMBRE, status: EstablecimientoSearchStatus.OK, candidatos: [] }),
+    );
+    expect(sent(result)).toEqual([
+      {
+        kind: "send_text",
+        text: `${AVISO_EMERGENCIA_DENUNCIA_TEXT}\n\nNo encontré ese establecimiento. Escribe su nombre completo o su código IPRESS.`,
+      },
+    ]);
   });
 
   it("the QR message of every one of the 434 establecimientos goes to the lookup by its own code", () => {
@@ -141,8 +168,11 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
       const message = `Hola quiero presentar una incidencia ${fila.nombre} - CODIGO-IPRESS ${fila.codigo_renipress}`;
       expect(isEmergency(textoDeLaPersona(message)), fila.nombre).toBe(false);
       expect(evaluateLexicalGuard(textoDeLaPersona(message)).action, fila.nombre).toBe("ALLOW");
-      const result = handleFirstContact(message, "whatsapp");
-      expect(queries(result), fila.nombre).toEqual([{ kind: "buscar_establecimiento", payload: { codigo: fila.codigo_renipress } }]);
+      const begun = handleFirstContact(message, "whatsapp");
+      expect(queries(begun), fila.nombre).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
+      expect(queries(answerConsent(begun)), fila.nombre).toEqual([
+        { kind: "buscar_establecimiento", payload: { codigo: fila.codigo_renipress } },
+      ]);
     }
   });
 });
@@ -152,7 +182,9 @@ describe("the part of the QR message that the system wrote is not what the perso
     const message = "Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137";
     expect(evaluateLexicalGuard(message).action).toBe("DROP_AND_WARN");
     expect(evaluateLexicalGuard(textoDeLaPersona(message)).action).toBe("ALLOW");
-    expect(queries(handle(at("main_menu"), text(message)))).toEqual([{ kind: "buscar_establecimiento", payload: { codigo: "38137" } }]);
+    expect(queries(answerConsent(handle(at("main_menu"), text(message))))).toEqual([
+      { kind: "buscar_establecimiento", payload: { codigo: "38137" } },
+    ]);
   });
 
   it("what the person adds after the code is still checked", () => {
@@ -327,7 +359,7 @@ describe("confirming the place", () => {
     ["the Sí button", tap("incidencia_ubicacion_si")],
     ["«sí»", text("sí")],
     ["«dale»", text("dale")],
-  ])("yes (%s) keeps the place and goes to ask about the name", (_label, event) => {
+  ])("yes (%s) keeps the place and asks about the name in the same message", (_label, event) => {
     const result = handle(at("incidencia_confirm_ubicacion", propuesto), event);
 
     expect(result.session.state).toBe("incidencia_identity_choice");
@@ -335,7 +367,16 @@ describe("confirming the place", () => {
     expect(result.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]).toBe("6206");
     expect(result.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE]).toBe("HOSPITAL NACIONAL DOS DE MAYO");
     expect(result.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO]).toBeUndefined();
-    expect(sent(result).map((effect) => effect.kind)).toEqual(["send_text", "send_buttons"]);
+    expect(sent(result)).toEqual([
+      {
+        kind: "send_buttons",
+        text: "Perfecto, registraremos tu denuncia en *HOSPITAL NACIONAL DOS DE MAYO*. ¿Deseas registrarla con tu número de documento o prefieres que sea anónima?",
+        buttons: [
+          { id: "incidencia_con_documento", title: "Con mi documento" },
+          { id: "incidencia_anonimo", title: "Prefiero ser anónimo" },
+        ],
+      },
+    ]);
   });
 
   it("no asks for another name or code and counts the attempt", () => {
@@ -381,6 +422,12 @@ describe("going on without the establecimiento", () => {
     expect(result.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]).toBeUndefined();
     expect(result.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]).toBeUndefined();
     expect(result.session.counters[CounterKey.INCIDENCIA_UBICACION_INTENTOS]).toBeUndefined();
+    expect(sent(result)).toEqual([
+      expect.objectContaining({
+        kind: "send_buttons",
+        text: "Entendido, seguiremos sin indicar el establecimiento. ¿Deseas registrar tu denuncia con tu número de documento o prefieres que sea anónima?",
+      }),
+    ]);
   });
 
   it("no goes back to asking for the place, with the attempts back to zero", () => {
@@ -396,26 +443,24 @@ describe("what the person already wrote: use it or add more", () => {
   const withDraft = (state: Session["state"]) => at(state, { [SlotKey.INCIDENCIA_BORRADOR]: story });
 
   it("when the relato is asked, a usable draft is shown with «Usar así» and «Agregar más»", () => {
-    const afterConsent = throughConsent(handle(withDraft("incidencia_identity_choice"), tap("incidencia_anonimo")));
+    const afterIdentity = handle(withDraft("incidencia_identity_choice"), tap("incidencia_anonimo"));
 
-    expect(afterConsent.session.state).toBe("incidencia_confirm_borrador");
-    expect((sent(afterConsent)[0] as { text: string }).text).toContain(`«${story}»`);
-    expect(sent(afterConsent)[0]).toMatchObject({ buttons: [{ id: "incidencia_borrador_usar" }, { id: "incidencia_borrador_agregar" }] });
+    expect(afterIdentity.session.state).toBe("incidencia_confirm_borrador");
+    expect((sent(afterIdentity)[0] as { text: string }).text).toContain(`«${story}»`);
+    expect(sent(afterIdentity)[0]).toMatchObject({ buttons: [{ id: "incidencia_borrador_usar" }, { id: "incidencia_borrador_agregar" }] });
   });
 
   it("a draft that is too short or is noise is dropped and the relato is asked", () => {
     for (const draft of ["cobraron", "123456789012345678901234"]) {
-      const afterConsent = throughConsent(
-        handle(at("incidencia_identity_choice", { [SlotKey.INCIDENCIA_BORRADOR]: draft }), tap("incidencia_anonimo")),
-      );
-      expect(afterConsent.session.state).toBe("incidencia_awaiting_descripcion");
-      expect(afterConsent.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
+      const afterIdentity = handle(at("incidencia_identity_choice", { [SlotKey.INCIDENCIA_BORRADOR]: draft }), tap("incidencia_anonimo"));
+      expect(afterIdentity.session.state).toBe("incidencia_awaiting_descripcion");
+      expect(afterIdentity.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
     }
   });
 
   it("without a draft the relato is asked as always", () => {
-    const afterConsent = throughConsent(handle(at("incidencia_identity_choice"), tap("incidencia_anonimo")));
-    expect(afterConsent.session.state).toBe("incidencia_awaiting_descripcion");
+    const afterIdentity = handle(at("incidencia_identity_choice"), tap("incidencia_anonimo"));
+    expect(afterIdentity.session.state).toBe("incidencia_awaiting_descripcion");
   });
 
   it.each([

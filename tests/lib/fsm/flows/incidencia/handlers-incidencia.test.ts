@@ -5,7 +5,12 @@ import { MediaFailure } from "@/lib/enums/media-failure";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { INCIDENCIA_CANCELADA_TEXT } from "@/lib/constants/textos/incidencia";
+import {
+  ASK_UBICACION_DENUNCIA_TEXT,
+  AVISO_EMERGENCIA_DENUNCIA_TEXT,
+  AVISO_PRIVACIDAD_TEXT,
+  INCIDENCIA_CANCELADA_TEXT,
+} from "@/lib/constants/textos/incidencia";
 
 const FROM = "51999999999";
 
@@ -31,12 +36,6 @@ const consentRegisterResult = (): QueryResultEvent => ({
   result: { ok: true },
 });
 
-function throughConsent(step: HandlerResult): HandlerResult {
-  let next = handleIncidencia(step.session, consentCheckResult(false));
-  next = handleIncidencia(next.session, tap("incidencia_consent_si"));
-  return handleIncidencia(next.session, consentRegisterResult());
-}
-
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] => sent(result).map((effect) => ("text" in effect ? effect.text : ""));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
@@ -50,8 +49,9 @@ describe("incidencia_identity_choice: documento o anónimo", () => {
     expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
     expect(sent(result)[1]).toMatchObject({
       kind: "send_buttons",
+      text: "¿Deseas registrar tu denuncia con tu número de documento o prefieres que sea anónima?",
       buttons: [
-        { id: "incidencia_con_documento", title: "Ingresar documento" },
+        { id: "incidencia_con_documento", title: "Con mi documento" },
         { id: "incidencia_anonimo", title: "Prefiero ser anónimo" },
       ],
     });
@@ -64,11 +64,11 @@ describe("incidencia_identity_choice: documento o anónimo", () => {
     expect(texts(result)).toEqual(["Ingresa tu número de documento."]);
   });
 
-  it("'incidencia_anonimo' salta directo a verificar el consentimiento, sin pedir documento", () => {
+  it("'incidencia_anonimo' pasa directo al relato, sin pedir documento ni volver a pedir la autorización", () => {
     const result = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
 
-    expect(result.session.state).toBe("incidencia_consent_check_pending");
-    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(queries(result)).toEqual([]);
     expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
   });
 });
@@ -79,19 +79,18 @@ describe("incidencia_awaiting_dni: el largo decide el tipo de documento", () => 
   it.each([
     ["un DNI de 8 dígitos", " 12345678 ", "12345678"],
     ["un carnet de extranjería de 9 dígitos", "123456789", "123456789"],
-  ])("%s se guarda sin consultar a nadie y pasa a verificar el consentimiento", (_label, typed, saved) => {
+  ])("%s se guarda sin consultar a nadie y pasa al relato", (_label, typed, saved) => {
     const result = handleIncidencia(awaitingDni(), text(typed));
 
-    expect(result.session.state).toBe("incidencia_consent_check_pending");
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
     expect(result.session.slots[SlotKey.DNI]).toBe(saved);
-    expect(queries(result)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
-    expect(texts(result)).toEqual([]);
+    expect(queries(result)).toEqual([]);
   });
 
-  it("tocar «Continuar anónimo» sigue a verificar el consentimiento, sin documento", () => {
+  it("tocar «Continuar anónimo» sigue al relato, sin documento", () => {
     const result = handleIncidencia(awaitingDni(), tap("incidencia_anonimo"));
 
-    expect(result.session.state).toBe("incidencia_consent_check_pending");
+    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
     expect(result.session.slots[SlotKey.DNI]).toBeUndefined();
   });
 
@@ -111,16 +110,13 @@ describe("incidencia_awaiting_dni: el largo decide el tipo de documento", () => 
     },
   );
 
-  it("con un borrador ya escrito, lo ofrece usar después de que autorice el tratamiento de datos", () => {
+  it("con un borrador ya escrito, lo ofrece usar apenas recibe el documento", () => {
     const session: Session = {
       ...awaitingDni(),
       slots: { [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla." },
     };
-    let result = handleIncidencia(session, text("12345678"));
+    const result = handleIncidencia(session, text("12345678"));
 
-    expect(result.session.state).toBe("incidencia_consent_check_pending");
-
-    result = throughConsent(result);
     expect(result.session.state).toBe("incidencia_confirm_borrador");
   });
 });
@@ -179,7 +175,6 @@ describe("el registro final: con la persona o anónimo", () => {
   ])("con %s: lleva solo el documento, sin nombre", (_label, documento) => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_con_documento"));
     step = handleIncidencia(step.session, text(documento));
-    step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
     expect(step.session.state).toBe("incidencia_confirm_registro");
@@ -197,7 +192,6 @@ describe("el registro final: con la persona o anónimo", () => {
 
   it("con el establecimiento confirmado: el registro lleva su id", () => {
     let step = handleIncidencia({ ...identityChoice(), slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } }, tap("incidencia_anonimo"));
-    step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
     step = confirmar(step);
@@ -207,7 +201,6 @@ describe("el registro final: con la persona o anónimo", () => {
 
   it("anónimo: llega sin documento", () => {
     let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
-    step = throughConsent(step);
     step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
     step = handleIncidencia(step.session, text("OMITIR"));
     step = confirmar(step);
@@ -483,7 +476,7 @@ describe("«quiero cerrar» cancela desde cualquier paso", () => {
   });
 
   it("tocar un botón no cancela", () => {
-    expect(handleIncidencia(identityChoice(), tap("incidencia_anonimo")).session.state).toBe("incidencia_consent_check_pending");
+    expect(handleIncidencia(identityChoice(), tap("incidencia_anonimo")).session.state).toBe("incidencia_awaiting_descripcion");
   });
 });
 
@@ -575,29 +568,38 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
   const choice = (): Session => ({ state: "incidencia_consent_choice", slots: {}, counters: {} });
   const registerPending = (): Session => ({ state: "incidencia_consent_register_pending", slots: {}, counters: {} });
 
-  it("si ya había autorizado antes, salta directo al relato sin volver a preguntar", () => {
+  it("si ya había autorizado antes, salta directo a pedir el establecimiento sin volver a preguntar", () => {
     const result = handleIncidencia(checkPending(), consentCheckResult(true));
 
-    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(queries(result)).toHaveLength(0);
+    expect(texts(result)).toEqual([`${AVISO_EMERGENCIA_DENUNCIA_TEXT}\n\n${ASK_UBICACION_DENUNCIA_TEXT}`]);
   });
 
-  it("si nunca autorizó, muestra el aviso de privacidad con los botones Autorizo/No autorizo", () => {
+  it("si nunca autorizó, manda un solo efecto de consentimiento: modal en el Chat-bot y botones Autorizo/No autorizo en WhatsApp", () => {
     const result = handleIncidencia(checkPending(), consentCheckResult(false));
 
     expect(result.session.state).toBe("incidencia_consent_choice");
-    expect(sent(result)[1]).toMatchObject({
-      kind: "send_buttons",
-      buttons: [
-        { id: "incidencia_consent_si", title: "Sí, autorizo" },
-        { id: "incidencia_consent_no", title: "No autorizo" },
-      ],
-    });
+    expect(sent(result)).toEqual([
+      {
+        kind: "send_consent",
+        title: "Autorización de datos",
+        text: "Para registrar tu denuncia necesitamos tu autorización.",
+        content: AVISO_PRIVACIDAD_TEXT,
+        buttons: [
+          { id: "incidencia_consent_si", title: "Sí, autorizo" },
+          { id: "incidencia_consent_no", title: "No autorizo" },
+        ],
+        acceptLabel: "Acepto, autorizo mis datos",
+        reopenLabel: "Revisar autorización",
+        whatsappText: `${AVISO_PRIVACIDAD_TEXT}\n\n¿Autorizas el tratamiento de tus datos?`,
+      },
+    ]);
   });
 
   it("los botones de la autorización caben en los 20 caracteres que WhatsApp admite", () => {
     const result = handleIncidencia(checkPending(), consentCheckResult(false));
-    const buttons = (sent(result)[1] as { buttons: { title: string }[] }).buttons;
+    const buttons = (sent(result)[0] as { buttons: { title: string }[] }).buttons;
 
     for (const button of buttons) expect(button.title.length).toBeLessThanOrEqual(20);
   });
@@ -626,10 +628,10 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
     expect(queries(result)).toEqual([{ kind: "registrar_consentimiento", payload: {} }]);
   });
 
-  it("tras registrar el consentimiento, pasa al relato", () => {
+  it("tras registrar el consentimiento, pide el establecimiento", () => {
     const result = handleIncidencia(registerPending(), consentRegisterResult());
 
-    expect(result.session.state).toBe("incidencia_awaiting_descripcion");
+    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
   });
 
   it("«No autorizo» cierra sin registrar nada y sin ofrecer reintento", () => {

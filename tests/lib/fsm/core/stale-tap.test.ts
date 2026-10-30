@@ -257,7 +257,10 @@ describe("a turn that changes the state consumes the remembered message", () => 
   it("a state change that sends a new interactive message leaves that new one current and unconsumed", async () => {
     store.sessions.set(FROM, {
       state: SessionState.INCIDENCIA_IDENTITY_CHOICE,
-      slots: { [SlotKey.INTERACTIVE_MESSAGE_ID]: "wamid.identidad" },
+      slots: {
+        [SlotKey.INTERACTIVE_MESSAGE_ID]: "wamid.identidad",
+        [SlotKey.INCIDENCIA_BORRADOR]: "Me cobraron sin recibo en la ventanilla de admisión.",
+      },
       counters: {},
     });
 

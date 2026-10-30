@@ -1,7 +1,7 @@
 import { buildResult, omitSlot, pageEffects, sendButtons, sendText, TERMINAL_STATES, withNote } from "@/lib/fsm/core/handlers-shared";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
-import { beginIncidencia } from "@/lib/fsm/flows/incidencia/ubicacion";
+import { beginIncidencia } from "@/lib/fsm/flows/incidencia/inicio";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { askReferenciaChoice, beginCita, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
 import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";

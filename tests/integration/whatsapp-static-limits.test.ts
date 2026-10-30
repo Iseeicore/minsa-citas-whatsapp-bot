@@ -3,9 +3,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import { BUTTON_TITLE_MAX, WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { sendButtons, sendCtaUrl, sendList } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, sendButtons, sendCtaUrl, sendList, withPrefixedFirstMessage } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { buildConsentimientoEffect } from "@/lib/fsm/flows/incidencia/consentimiento";
+import { FORCED_INCIDENCIA_LEAD_TEXT } from "@/lib/constants/textos/seguridad";
 import type { ButtonOption, ListRow, SendEffect } from "@/lib/fsm/core/types";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
@@ -57,6 +59,7 @@ import {
   MENU_ROW_CONSULTAR_INCIDENCIA_TITLE,
   MENU_ROW_CONSULTAR_REFERENCIA_TITLE,
   MENU_ROW_REGISTRAR_INCIDENCIA_TITLE,
+  FIRST_CONTACT_LEAD_TEXT,
   WELCOME_CTA_BUTTON_TEXT,
   WELCOME_MESSAGE_TEXT,
 } from "@/lib/constants/textos/menu";
@@ -77,6 +80,11 @@ import {
   CONTINUAR_ANONIMO_BUTTONS,
   UBICACION_BUTTONS,
   UBICACION_CONFIRM_RETRY_TEXT,
+  OMITIR_ACEPTADO_TEXT,
+  avisoDenunciaText,
+  confirmUbicacionText,
+  ubicacionAceptadaText,
+  ubicacionDistritoLineText,
 } from "@/lib/constants/textos/incidencia";
 
 type StaticDefinition = { origin: string; effect: SendEffect };
@@ -233,6 +241,42 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
     expect(consent.whatsappText.length).toBeLessThanOrEqual(WHATSAPP_INTERACTIVE_BODY_MAX);
     for (const button of consent.buttons) expect(button.title.length).toBeLessThanOrEqual(BUTTON_TITLE_MAX);
     expect(findLimitViolations(consent)).toEqual([]);
+  });
+
+  it("el efecto de consentimiento de la denuncia cabe en WhatsApp con el saludo más largo delante", () => {
+    const leads = ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT];
+
+    for (const lead of leads) {
+      const consent = buildConsentimientoEffect(lead);
+      expect(consent.whatsappText.length, lead).toBeLessThanOrEqual(WHATSAPP_INTERACTIVE_BODY_MAX);
+      for (const button of consent.buttons) expect(button.title.length).toBeLessThanOrEqual(BUTTON_TITLE_MAX);
+      expect(findLimitViolations(consent)).toEqual([]);
+    }
+  });
+
+  describe("los mensajes unidos de la denuncia, con el establecimiento de nombre más largo del padrón", () => {
+    const padron: { nombre: string; distrito: string | null; codigo_renipress: string }[] = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "prisma", "seeds", "eess", "establecimientos.json"), "utf8"),
+    );
+    const longest = <T>(items: T[], size: (item: T) => number): T => items.reduce((a, b) => (size(b) > size(a) ? b : a));
+    const nombre = longest(padron, (fila) => fila.nombre.length).nombre;
+    const distrito = longest(padron, (fila) => (fila.distrito ?? "").length).distrito ?? "";
+    const codigo = longest(padron, (fila) => fila.codigo_renipress.length).codigo_renipress;
+
+    it("el establecimiento aceptado con la pregunta de identidad", () => {
+      expect(findLimitViolations(sendButtons(ubicacionAceptadaText(nombre), INCIDENCIA_IDENTIDAD_BUTTONS))).toEqual([]);
+      expect(findLimitViolations(sendButtons(OMITIR_ACEPTADO_TEXT, INCIDENCIA_IDENTIDAD_BUTTONS))).toEqual([]);
+    });
+
+    it("el aviso de emergencia sobre la confirmación del QR", () => {
+      const confirmacion = sendButtons(confirmUbicacionText(nombre, codigo, ubicacionDistritoLineText(distrito)), UBICACION_BUTTONS);
+      const session = { state: "incidencia_confirm_ubicacion" as const, slots: {}, counters: {} };
+
+      for (const lead of ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT]) {
+        const [unido] = withPrefixedFirstMessage(buildResult(session, [confirmacion]), avisoDenunciaText(lead)).effects as SendEffect[];
+        expect(findLimitViolations(unido), lead).toEqual([]);
+      }
+    });
   });
 
   it("revisa el menú real de whatsapp-bot, con la fila de las referencias", () => {
