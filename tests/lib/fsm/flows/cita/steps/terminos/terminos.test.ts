@@ -101,7 +101,7 @@ function expectTerminos(result: HandlerResult, resume: TerminosResume) {
 function accept(result: HandlerResult, channel: SessionChannel = SessionChannel.WHATSAPP): HandlerResult {
   const accepted = handle(result.session, tap(TerminosButtonId.ACCEPT, channel));
   expect(accepted.session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);
-  return handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { status: "saved" }));
+  return handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" }));
 }
 
 beforeEach(() => {
@@ -259,7 +259,7 @@ describe("accepting", () => {
     const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
     const accepted = handle(gated.session, tap(TerminosButtonId.ACCEPT));
 
-    const resumed = handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { status: "failed" }));
+    const resumed = handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "failed" }));
 
     expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(resumed)).toEqual([ASK_DOCUMENTO_TEXT]);
@@ -388,7 +388,7 @@ describe("a session saved without what to resume", () => {
       slots: { [SlotKey.TERMINOS_ACEPTADOS]: true },
       counters: {},
     };
-    const event: HandleEvent = queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { status: "saved" });
+    const event: HandleEvent = queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" });
 
     const result = handle(session, event);
 

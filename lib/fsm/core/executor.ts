@@ -177,23 +177,35 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     }
 
     case QueryKind.VERIFICAR_CONSENTIMIENTO: {
-      const { tieneConsentimientoAceptado } = await import("@/lib/recepcion/repositorio");
-      return { aceptado: await tieneConsentimientoAceptado(from) };
+      const [{ tieneConsentimientoAceptado }, { getConsentimientoStore }] = await Promise.all([
+        import("@/lib/recepcion/repositorio"),
+        import("@/lib/composition/stores"),
+      ]);
+      return { aceptado: await tieneConsentimientoAceptado(from, getConsentimientoStore()) };
     }
 
     case QueryKind.REGISTRAR_CONSENTIMIENTO: {
-      const { marcarConsentimientoAceptado } = await import("@/lib/recepcion/repositorio");
-      await marcarConsentimientoAceptado(from);
+      const [{ marcarConsentimientoAceptado }, { getConsentimientoStore }] = await Promise.all([
+        import("@/lib/recepcion/repositorio"),
+        import("@/lib/composition/stores"),
+      ]);
+      await marcarConsentimientoAceptado(from, getConsentimientoStore());
       return { ok: true };
     }
 
     case QueryKind.REGISTRAR_ACEPTACION_TERMINOS: {
-      const { saveAceptacionTerminos } = await import("@/lib/terminos/aceptacion-terminos");
-      return saveAceptacionTerminos({
-        waId: from,
-        canal: effect.payload.canal === SessionChannel.WEB ? SessionChannel.WEB : SessionChannel.WHATSAPP,
-        version: payloadText(effect.payload, "version"),
-      });
+      const [{ saveAceptacionTerminos }, { getAceptacionTerminosStore }] = await Promise.all([
+        import("@/lib/terminos/aceptacion-terminos"),
+        import("@/lib/composition/stores"),
+      ]);
+      return saveAceptacionTerminos(
+        {
+          waId: from,
+          canal: effect.payload.canal === SessionChannel.WEB ? SessionChannel.WEB : SessionChannel.WHATSAPP,
+          version: payloadText(effect.payload, "version"),
+        },
+        getAceptacionTerminosStore(),
+      );
     }
 
     case QueryKind.VALIDATE_USER:

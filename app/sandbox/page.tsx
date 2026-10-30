@@ -8,7 +8,7 @@ import {
   SANDBOX_PAGE_TITLE_TEXT,
 } from "@/lib/constants/textos/menu";
 import { MenuChoice } from "@/lib/enums/menu-choice";
-import { loginUrl } from "@/lib/integrations/minsa/wire";
+import { getLoginUrl } from "@/lib/integrations/minsa/wire";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default function SandboxPage() {
 
   return (
     <SandboxWidgetDemo>
-      <Landing loginUrl={loginUrl()} />
+      <Landing loginUrl={getLoginUrl()} />
     </SandboxWidgetDemo>
   );
 }

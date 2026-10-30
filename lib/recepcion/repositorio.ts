@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
 import { declararActorEn } from "@/lib/db/actor";
-import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
@@ -16,6 +15,13 @@ export type DatosIncidencia = {
 };
 
 export type DatosEvidencia = { mimeType: string; tamano: number; ruta: string };
+
+export type IncidenciaConsultada = { codigo: string; fechaCreacion: Date; estadoCodigo: string };
+
+export type ConsentimientoStore = {
+  tieneAceptado(waId: string): Promise<boolean>;
+  marcarAceptado(waId: string): Promise<void>;
+};
 
 export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvidencia[], actor: string) {
   return prisma.$transaction(async (tx) => {
@@ -66,8 +72,6 @@ export async function buscarCodigoPorTrace(traceId: string): Promise<string | nu
   return fila?.codigo ?? null;
 }
 
-export type IncidenciaConsultada = { codigo: string; fechaCreacion: Date; estadoCodigo: string };
-
 export async function buscarIncidenciaDeQuienConsulta(codigo: string, identidad: IdentidadConsulta): Promise<IncidenciaConsultada | null> {
   const fila = await prisma.incidenciaPaciente.findFirst({
     where: {
@@ -98,11 +102,6 @@ export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsu
   return filas.map((fila) => ({ codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo }));
 }
 
-export type ConsentimientoStore = {
-  tieneAceptado(waId: string): Promise<boolean>;
-  marcarAceptado(waId: string): Promise<void>;
-};
-
 export function createPrismaConsentimientoStore(): ConsentimientoStore {
   return {
     tieneAceptado: async (waId) => {
@@ -129,16 +128,10 @@ export function createMemoryConsentimientoStore(): ConsentimientoStore {
   };
 }
 
-const memoryConsentimientos = createMemoryConsentimientoStore();
-
-function consentimientoStore(): ConsentimientoStore {
-  return isDatabaseEnabled() ? createPrismaConsentimientoStore() : memoryConsentimientos;
-}
-
-export function tieneConsentimientoAceptado(waId: string, store: ConsentimientoStore = consentimientoStore()): Promise<boolean> {
+export function tieneConsentimientoAceptado(waId: string, store: ConsentimientoStore): Promise<boolean> {
   return store.tieneAceptado(waId);
 }
 
-export function marcarConsentimientoAceptado(waId: string, store: ConsentimientoStore = consentimientoStore()): Promise<void> {
+export function marcarConsentimientoAceptado(waId: string, store: ConsentimientoStore): Promise<void> {
   return store.marcarAceptado(waId);
 }

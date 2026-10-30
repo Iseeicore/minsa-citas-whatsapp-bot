@@ -12,7 +12,11 @@ const NATIVE_BUTTON_TAG = /<button\b/g;
 const INLINE_REGEX_ARGUMENT = /\.(?:test|exec|match|matchAll|replace|replaceAll|split|search)\(\s*\/(?![/*])[^\n]*/g;
 const DYNAMIC_REGEX = /new RegExp\([^\n]*/g;
 
+const ARBITRARY_VALUE = /[\w-]+-\[[^\]\s]+\]|\[@[^\]]+\]:/g;
+
 const BASE_BUTTON_FILE = path.join("app", "components", "ui", "Button.tsx");
+const LANDING_FILE = path.join("app", "components", "Landing.tsx");
+const LANDING_FOLDER = path.join("app", "components", "landing") + path.sep;
 
 function appFiles(extensions: string[]): string[] {
   return fs
@@ -58,6 +62,14 @@ describe("reglas de arquitectura de UI", () => {
 
     expect(outside).toEqual([]);
     expect(matches(BASE_BUTTON_FILE, NATIVE_BUTTON_TAG)).toHaveLength(1);
+  });
+
+  it("la landing usa tokens de @theme y no valores arbitrarios de Tailwind", () => {
+    const landing = files.filter((file) => file === LANDING_FILE || file.startsWith(LANDING_FOLDER));
+    const found = landing.flatMap((file) => matches(file, ARBITRARY_VALUE));
+
+    expect(landing.length).toBeGreaterThan(1);
+    expect(found).toEqual([]);
   });
 
   it("no escribe expresiones regulares en el lugar donde se usan", () => {

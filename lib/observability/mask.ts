@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants/regex/observability";
 import { isString } from "@/lib/utils/type-guards";
 import { maskDocumento } from "@/lib/utils/mask-documento";
+import { DOCUMENTO_DIGITOS_VISIBLES } from "@/lib/constants/limits/identity";
 
 const LENGTH_ONLY_KEYS = new Set<string>([
   SlotKey.CITA_OFFERED,
@@ -24,9 +25,8 @@ const LENGTH_ONLY_KEYS = new Set<string>([
 const MAX_STRING = 200;
 const MAX_DEPTH = 4;
 const MAX_ITEMS = 20;
-const VISIBLE_TAIL = 4;
 
-export const tail = (value: string): string => `...${value.slice(-VISIBLE_TAIL)}`;
+export const tail = (value: string): string => `...${value.slice(-DOCUMENTO_DIGITOS_VISIBLES)}`;
 
 export function redactString(value: string): string {
   return value

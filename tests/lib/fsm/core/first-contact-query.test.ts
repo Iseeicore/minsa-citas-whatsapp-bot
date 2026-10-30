@@ -14,6 +14,10 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   },
 }));
 vi.mock("@/lib/establecimientos/buscar", () => ({ buscarEstablecimiento: store.buscar }));
+vi.mock("@/lib/composition/stores", () => ({
+  getConsentimientoStore: () => ({ tieneAceptado: async () => false, marcarAceptado: async () => undefined }),
+  getAceptacionTerminosStore: () => ({ save: async () => undefined }),
+}));
 vi.mock("@/lib/recepcion/repositorio", () => ({
   tieneConsentimientoAceptado: store.consentimiento,
   marcarConsentimientoAceptado: async () => undefined,
@@ -40,7 +44,7 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
 
     const turn = await runTurnUnlocked(FROM, { from: FROM, type: "text", text: QR }, undefined, first);
 
-    expect(store.consentimiento).toHaveBeenCalledWith(FROM);
+    expect(store.consentimiento).toHaveBeenCalledWith(FROM, expect.anything());
     expect(store.buscar).toHaveBeenCalledWith({ codigo: "6206" });
     expect(turn.session.state).toBe("incidencia_confirm_ubicacion");
     expect(turn.sent).toHaveLength(1);

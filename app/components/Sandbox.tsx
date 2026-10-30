@@ -17,6 +17,7 @@ import { DebugPanel } from "@/app/components/sandbox-chat/DebugPanel";
 import { Banner } from "@/app/components/ui/Banner";
 import { Button } from "@/app/components/ui/Button";
 import { BannerTone } from "@/lib/enums/banner-tone";
+import { ChatOptionKind } from "@/lib/enums/chat-option-kind";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
@@ -136,8 +137,8 @@ export default function Sandbox({
     sendTurn({ type: "text", text }, text);
   }
 
-  function handleOptionClick(kind: "list" | "buttons", id: string, title: string, replyTo: string | undefined) {
-    sendTurn({ type: kind === "list" ? "list" : "button", listId: id, replyTo }, title);
+  function handleOptionClick(kind: ChatOptionKind, id: string, title: string, replyTo: string | undefined) {
+    sendTurn({ type: kind === ChatOptionKind.LIST ? "list" : "button", listId: id, replyTo }, title);
   }
 
   function handleReset() {

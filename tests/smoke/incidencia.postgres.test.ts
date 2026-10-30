@@ -5,7 +5,7 @@ import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { runWithTrace } from "@/lib/observability/context";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
-import { marcarConsentimientoAceptado, tieneConsentimientoAceptado } from "@/lib/recepcion/repositorio";
+import { createPrismaConsentimientoStore, marcarConsentimientoAceptado, tieneConsentimientoAceptado } from "@/lib/recepcion/repositorio";
 
 describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a real PostgreSQL", () => {
   afterAll(async () => {
@@ -20,10 +20,11 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
   it("the consent of a new citizen is stored on the usuario and is read back on the next denuncia", async () => {
     const waId = `smoke-${randomUUID()}`;
 
-    await expect(tieneConsentimientoAceptado(waId)).resolves.toBe(false);
-    await marcarConsentimientoAceptado(waId);
+    const store = createPrismaConsentimientoStore();
+    await expect(tieneConsentimientoAceptado(waId, store)).resolves.toBe(false);
+    await marcarConsentimientoAceptado(waId, store);
 
-    await expect(tieneConsentimientoAceptado(waId)).resolves.toBe(true);
+    await expect(tieneConsentimientoAceptado(waId, store)).resolves.toBe(true);
     const usuario = await prisma.usuario.findUniqueOrThrow({ where: { waId } });
     expect(usuario.consentimientoAceptadoEn).toBeInstanceOf(Date);
   });

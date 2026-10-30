@@ -2,7 +2,7 @@ export type EmptyPageJump = { page: number; skips: number; clearBackFrom: boolea
 
 export type EmptyPagePaging = { page: number; totalPages: number; skips: number; backFrom: number | undefined };
 
-export function nextPageAfterEmpty(paging: EmptyPagePaging, maxSkips: number): EmptyPageJump | undefined {
+export function findPageAfterEmpty(paging: EmptyPagePaging, maxSkips: number): EmptyPageJump | undefined {
   const { page, totalPages, skips, backFrom } = paging;
   const canSkip = skips < maxSkips;
 
@@ -20,6 +20,9 @@ export function nextPageAfterEmpty(paging: EmptyPagePaging, maxSkips: number): E
   return undefined;
 }
 
-export function availableEstablecimientos<T extends { quotasOnline: number; renipressCode: string }>(items: T[], discarded: string[]): T[] {
+export function listAvailableEstablecimientos<T extends { quotasOnline: number; renipressCode: string }>(
+  items: T[],
+  discarded: string[],
+): T[] {
   return items.filter((item) => item.quotasOnline > 0 && !discarded.includes(item.renipressCode));
 }
