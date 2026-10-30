@@ -5,8 +5,9 @@ const media = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: media.download }));
 
-import { extractContentAndMedia, mapStatus, toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
+import { extractContentAndMedia, mapMessageType, mapStatus, toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
+import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { MediaFailure } from "@/lib/enums/media-failure";
 
@@ -155,6 +156,29 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
     );
 
     expect(event).toEqual({ from: WA, channel: "whatsapp", type: "text", text: "si" });
+  });
+});
+
+describe("mapMessageType", () => {
+  it.each([
+    ["text", TipoMensajeId.TEXTO],
+    ["image", TipoMensajeId.IMAGEN],
+    ["audio", TipoMensajeId.AUDIO],
+    ["document", TipoMensajeId.DOCUMENTO],
+    ["location", TipoMensajeId.UBICACION],
+    ["template", TipoMensajeId.PLANTILLA],
+    ["interactive", TipoMensajeId.DESCONOCIDO],
+    ["system", TipoMensajeId.DESCONOCIDO],
+  ])("traduce el tipo %s que Meta informa", (type, tipo) => {
+    expect(mapMessageType(type)).toBe(tipo);
+  });
+
+  it("un tipo con nombre de propiedad de objeto es desconocido", () => {
+    expect(mapMessageType("toString")).toBe(TipoMensajeId.DESCONOCIDO);
+  });
+
+  it("un tipo que Meta agregue después es desconocido", () => {
+    expect(mapMessageType("sticker")).toBe(TipoMensajeId.DESCONOCIDO);
   });
 });
 
