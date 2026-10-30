@@ -108,7 +108,7 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 | Variable | Para qué sirve | Sin definir |
 |---|---|---|
 | `META_APP_SECRET` | Secreto de la app: valida la firma HMAC (`X-Hub-Signature-256`) de cada webhook | Obligatoria: el compose se detiene y la nombra. Si aun así falta o está en blanco, el webhook rechaza con 403 todo lo que llega (nunca valida con una clave vacía), registra `webhook.signature_secret_missing` y `/api/health` responde `degraded` con `META_APP_SECRET_MISSING` |
-| `META_WEBHOOK_VERIFY_TOKEN` | Token que se elige; Meta lo envía en el `GET` de verificación del webhook | Obligatoria: el compose se detiene y la nombra |
+| `META_WEBHOOK_VERIFY_TOKEN` | Token que se elige; Meta lo envía en el `GET` de verificación del webhook. Si no coincide, el `GET` responde `403` con `{"error":"FORBIDDEN","message":"…"}` | Obligatoria: el compose se detiene y la nombra. Si aun así falta, ningún `GET` de verificación se acepta, ni siquiera uno sin token |
 | `META_ACCESS_TOKEN` | Token de acceso con el que se envían los mensajes | Obligatoria: el compose se detiene y la nombra. Si aun así falta, se registra al arrancar como `config.invalid` (`META_ACCESS_TOKEN_MISSING`) y `/api/health` responde `degraded` |
 | `META_PHONE_NUMBER_ID` | ID del número de WhatsApp desde el que responde el bot | Obligatoria: el compose se detiene y la nombra. Si aun así falta, se registra al arrancar como `config.invalid` (`META_PHONE_NUMBER_ID_MISSING`) y `/api/health` responde `degraded` |
 | `META_GRAPH_API_VERSION` | Versión de Graph API, sin espacios | `v21.0` |

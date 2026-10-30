@@ -40,6 +40,7 @@ export const LOG_EVENTS = [
   "whatsapp.typing_failed",
   "whatsapp.media_failed",
   "outbound.limit_violation",
+  "inbox.send_failed",
   "outbound.rejected",
   "incidencia.invalid_submission",
   "incidencia.not_persisted",
