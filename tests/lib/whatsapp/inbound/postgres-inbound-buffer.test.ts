@@ -47,6 +47,7 @@ describe("createPostgresInboundBuffer", () => {
         usuario_id: "u1",
         wa_message_id: "m2",
         contenido: "b",
+        media_id: null,
         tipo_mensaje_id: 1,
         fecha_hora: new Date(2000),
         fecha_creacion: new Date(10),
@@ -55,6 +56,7 @@ describe("createPostgresInboundBuffer", () => {
         usuario_id: "u1",
         wa_message_id: "m1",
         contenido: "a",
+        media_id: null,
         tipo_mensaje_id: 1,
         fecha_hora: new Date(1000),
         fecha_creacion: new Date(20),
@@ -68,6 +70,7 @@ describe("createPostgresInboundBuffer", () => {
       usuarioId: "u1",
       waMessageId: "m1",
       contenido: "a",
+      mediaId: null,
       tipoMensajeId: TipoMensajeId.TEXTO,
       fechaHora: new Date(1000),
       arrivedAt: new Date(20),
@@ -75,6 +78,38 @@ describe("createPostgresInboundBuffer", () => {
     const sql = sqlOf(db.queryRaw.mock.calls[0]);
     expect(sql).toMatch(/UPDATE chatbot\.mensaje/);
     expect(sql).toMatch(/RETURNING/);
+  });
+
+  it("claims the pending images together with the texts and returns their media id", async () => {
+    db.queryRaw.mockResolvedValueOnce([
+      {
+        usuario_id: "u1",
+        wa_message_id: "m1",
+        contenido: null,
+        media_id: "media-1",
+        tipo_mensaje_id: TipoMensajeId.IMAGEN,
+        fecha_hora: new Date(1000),
+        fecha_creacion: new Date(10),
+      },
+    ]);
+
+    const rows = await createPostgresInboundBuffer().claim("u1", 10, "m9");
+
+    expect(rows).toEqual([
+      {
+        usuarioId: "u1",
+        waMessageId: "m1",
+        contenido: null,
+        mediaId: "media-1",
+        tipoMensajeId: TipoMensajeId.IMAGEN,
+        fechaHora: new Date(1000),
+        arrivedAt: new Date(10),
+      },
+    ]);
+    const [strings, ...values] = db.queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
+    expect(strings.join("?")).toMatch(/tipo_mensaje_id IN \(\?, \?\) OR wa_message_id = \?/);
+    expect(strings.join("?")).toMatch(/RETURNING .*media_id/);
+    expect(values).toEqual(expect.arrayContaining([TipoMensajeId.TEXTO, TipoMensajeId.IMAGEN, "m9"]));
   });
 
   it("marks a single message as processed on discard", async () => {

@@ -4,6 +4,7 @@ export type PendingInbound = {
   usuarioId: string;
   waMessageId: string;
   contenido: string | null;
+  mediaId: string | null;
   tipoMensajeId: TipoMensajeId;
   fechaHora: Date;
   arrivedAt: Date;

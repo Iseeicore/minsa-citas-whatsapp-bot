@@ -161,6 +161,7 @@ El bot corre de dos formas: **con base de datos** (PostgreSQL, con bandeja web d
 | Incidencias | Tabla `chatbot.incidencia_paciente`, con historial de cambios | **No se pueden guardar**: el bot responde que no pudo registrar la incidencia |
 | Bandeja web (`/api/conversations*`, `/api/messages/send`) | Disponible solo con `SANDBOX_PAGE_ENABLED=true`; sin ella responde `404` | Con `SANDBOX_PAGE_ENABLED=true` responde `503` con `{"error":"PERSISTENCE_DISABLED","message":"…"}`; sin ella, `404` |
 | Candado de turno por ciudadano | Postgres (advisory lock) | En memoria, aunque exista `DATABASE_URL` |
+| Imágenes de la denuncia que llegan juntas | Se agrupan (ventana de 3 s) y reciben **una** respuesta | Sin agrupador: una respuesta por imagen |
 | Build | `npm run build` (aplica migraciones y SQL) | `npm run build:no-db` (sin migraciones) |
 
 Escalar el modo sin base de datos a varias instancias requiere un almacén compartido externo, con expiración, detrás de `lib/fsm/session/session-store.ts` y `lib/whatsapp/webhook/inbound-dedupe.ts`. Hoy el proyecto no usa ninguno.
@@ -218,7 +219,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 | `TERMINOS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) muestra los términos y condiciones antes de agendar una cita médica, en whatsapp-bot y en el Chat-bot; **Cita con referencia** no los pide. En el Chat-bot salen en una ventana con la casilla «Acepto los términos y condiciones»; en WhatsApp, con los botones **Acepto** y **No acepto**. Cada aceptación se guarda en `chatbot.aceptacion_terminos`. Apagada por defecto: sin definir, vacía o con cualquier otro valor, la cita empieza sin términos. Se lee en cada mensaje |
 | `TERMINOS_URL` | Página de los términos que enlaza el botón **Ver términos** de WhatsApp (por ejemplo `https://<host-del-bot>/terminos`; el bot publica el mismo texto en `/terminos`). Sin valor por defecto: sin ella WhatsApp muestra solo **Acepto** y **No acepto** y queda el aviso `terminos.url_missing` en el log |
 
-**Imágenes de la incidencia** (hasta 5 por incidencia, de hasta `EVIDENCE_IMAGE_MAX_MB` cada una; la persona toca **Listo** cuando termina. Sin `MEDIA_STORAGE_BASE_URL` las imágenes se guardan en la propia base, en base64, en `chatbot.evidencia.ruta`; con ella se suben al servicio y se guarda su ruta. Los PDF y demás documentos todavía no se guardan: el bot lo dice)
+**Imágenes de la incidencia** (hasta 5 por incidencia, de hasta `EVIDENCE_IMAGE_MAX_MB` cada una; las que llegan juntas en WhatsApp reciben **una sola respuesta** que dice cuántas se guardaron y por qué no las otras, y al llegar a 5 esa respuesta ya trae el resumen para registrar; la persona toca **Listo** cuando termina. Sin `MEDIA_STORAGE_BASE_URL` las imágenes se guardan en la propia base, en base64, en `chatbot.evidencia.ruta`; con ella se suben al servicio y se guarda su ruta. Los PDF y demás documentos todavía no se guardan: el bot lo dice)
 
 | Variable | Uso |
 |---|---|

@@ -4,6 +4,7 @@ import {
   INBOUND_MAX_AGE_MS,
   INBOUND_MAX_BATCH,
   INBOUND_MAX_WAIT_MS,
+  INBOUND_MEDIA_WINDOW_MS,
   resolveWindowMs,
 } from "@/lib/whatsapp/inbound/inbound-policy";
 import { SessionState } from "@/lib/enums/session-state";
@@ -31,9 +32,20 @@ describe("resolveWindowMs", () => {
     }
   });
 
-  it("never waits for buttons, lists, images or any non-text message", () => {
+  it("never waits for buttons, lists, images or any non-text message outside the evidence step", () => {
     for (const type of ["interactive", "image", "audio", "location"]) {
       expect(resolveWindowMs({ state: SessionState.MAIN_MENU, type })).toBe(0);
+    }
+  });
+
+  it("waits the media window for images only in the evidence step, so an album gets one answer", () => {
+    expect(resolveWindowMs({ state: SessionState.INCIDENCIA_AWAITING_FOTO, type: "image" })).toBe(INBOUND_MEDIA_WINDOW_MS);
+    expect(INBOUND_MEDIA_WINDOW_MS).toBe(3_000);
+    for (const type of ["text", "interactive", "document", "audio"]) {
+      expect(resolveWindowMs({ state: SessionState.INCIDENCIA_AWAITING_FOTO, type })).toBe(0);
+    }
+    for (const state of [SessionState.INCIDENCIA_AWAITING_DESCRIPCION, SessionState.INCIDENCIA_CONFIRM_REGISTRO, null]) {
+      expect(resolveWindowMs({ state, type: "image" })).toBe(0);
     }
   });
 
