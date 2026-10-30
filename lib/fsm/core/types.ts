@@ -80,6 +80,7 @@ export type SlotTypes = {
   [SlotKey.TERMINOS_RESUME]: string;
   [SlotKey.TERMINOS_INTRO_TEXT]: string;
   [SlotKey.CITA_DOCUMENTO_INTRO_TEXT]: string;
+  [SlotKey.CITA_ESTABLECIMIENTOS_RETENIDOS]: string;
 };
 
 export type Slots = { [K in SlotKey]?: SlotTypes[K] };

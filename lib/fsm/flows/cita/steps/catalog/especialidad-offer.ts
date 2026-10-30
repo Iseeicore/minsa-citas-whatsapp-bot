@@ -12,6 +12,7 @@ import {
   SELECT_ESPECIALIDAD_TEXT,
 } from "@/lib/constants/textos/cita-catalogo";
 import { slotText } from "@/lib/fsm/core/slot-readers";
+import { forgetEstablecimientoPaging } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 
 export type EspecialidadResultItem = {
   codigoEspecialidad: string;
@@ -40,6 +41,7 @@ export function acceptDetectedEspecialidad(next: Session, matched: EspecialidadR
   delete next.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT];
   next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = matched.codigoEspecialidad;
   next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = name.full;
+  forgetEstablecimientoPaging(next);
   next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
   return buildResult(next, [
     sendText(especialidadDetectedText(name.full)),
