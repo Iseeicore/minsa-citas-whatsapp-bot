@@ -26,6 +26,11 @@ describe("GET /webhook/whatsapp: Meta's subscription check", () => {
 
   it.each([
     ["a wrong token", { "hub.mode": "subscribe", "hub.verify_token": "otro", "hub.challenge": "1234" }],
+    [
+      "a wrong token of the same length",
+      { "hub.mode": "subscribe", "hub.verify_token": "X".repeat(TOKEN.length), "hub.challenge": "1234" },
+    ],
+    ["the token followed by more characters", { "hub.mode": "subscribe", "hub.verify_token": `${TOKEN}x`, "hub.challenge": "1234" }],
     ["another mode", { "hub.mode": "unsubscribe", "hub.verify_token": TOKEN, "hub.challenge": "1234" }],
     ["no parameters", {}],
   ])("answers 403 with the standard error format for %s", async (_label, params) => {
@@ -39,6 +44,14 @@ describe("GET /webhook/whatsapp: Meta's subscription check", () => {
     vi.stubEnv("META_WEBHOOK_VERIFY_TOKEN", "");
 
     const response = await verification({ "hub.mode": "subscribe", "hub.verify_token": "", "hub.challenge": "1234" });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("answers 403 when the configured verify token is blank, even if the request sends the same blanks", async () => {
+    vi.stubEnv("META_WEBHOOK_VERIFY_TOKEN", "   ");
+
+    const response = await verification({ "hub.mode": "subscribe", "hub.verify_token": "   ", "hub.challenge": "1234" });
 
     expect(response.status).toBe(403);
   });

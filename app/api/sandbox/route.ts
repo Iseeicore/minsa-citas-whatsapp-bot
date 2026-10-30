@@ -10,7 +10,8 @@ import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { closeSession, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
-import { SANDBOX_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
+import { SANDBOX_SESSION_ID } from "@/lib/constants/regex/session-ids";
+import { SANDBOX_SESSION_ID_MAX_LENGTH } from "@/lib/constants/limits/sandbox";
 import type { InteractiveTracking, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
 import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -102,10 +103,7 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 const sandboxEventSchema = z.object({
-  from: z
-    .string()
-    .startsWith(SANDBOX_SESSION_ID_PREFIX)
-    .min(SANDBOX_SESSION_ID_PREFIX.length + 1),
+  from: z.string().max(SANDBOX_SESSION_ID_MAX_LENGTH).regex(SANDBOX_SESSION_ID),
   type: z.enum(["text", "button", "list", "image", "document"]),
   text: z.string().max(SANDBOX_TEXT_MAX_LENGTH).optional(),
   listId: z.string().optional(),

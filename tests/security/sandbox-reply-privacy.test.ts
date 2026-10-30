@@ -50,7 +50,7 @@ beforeEach(() => {
 
 describe("POST /api/sandbox privacy", () => {
   it("never sends the token or the document to the browser and returns only allowed slots", async () => {
-    const raw = await send({ from: "sandbox-qa", type: "text", text: "Miraflores" });
+    const raw = await send({ from: "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7", type: "text", text: "Miraflores" });
     const { session } = JSON.parse(raw) as { session: { slots: Record<string, unknown> } };
 
     expect(raw).not.toContain(FAKE_JWT);

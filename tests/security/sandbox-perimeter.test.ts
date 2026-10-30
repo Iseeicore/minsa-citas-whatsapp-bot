@@ -30,7 +30,7 @@ async function send(body: Record<string, unknown>) {
   const request = new NextRequest("http://localhost/api/sandbox", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ from: "sandbox-qa", ...body }),
+    body: JSON.stringify({ from: "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7", ...body }),
   });
   const response = await POST(request);
   return {
@@ -79,7 +79,10 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent.map((effect) => effect.kind)).toEqual(["send_interactive_list"]);
     expect(json.sent[0].text).toContain("Soy tu asistente virtual");
-    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
+    expect(mocks.saveSession).toHaveBeenCalledWith(
+      "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7",
+      expect.objectContaining({ state: "main_menu" }),
+    );
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 
@@ -88,7 +91,10 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent).toHaveLength(1);
     expect(json.sent[0].text).toContain("Medicina General en San Juan de Lurigancho");
-    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "cita_awaiting_dni" }));
+    expect(mocks.saveSession).toHaveBeenCalledWith(
+      "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7",
+      expect.objectContaining({ state: "cita_awaiting_dni" }),
+    );
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 
@@ -97,7 +103,11 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(json.sent).toHaveLength(1);
     expect(json.sent[0].text).toContain("106");
-    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", { state: "emergency_closed", slots: {}, counters: {} });
+    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7", {
+      state: "emergency_closed",
+      slots: {},
+      counters: {},
+    });
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 
@@ -123,7 +133,10 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
 
     expect(mocks.resetSession).toHaveBeenCalledTimes(1);
     expect(mocks.sessionRowExists).not.toHaveBeenCalled();
-    expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
+    expect(mocks.saveSession).toHaveBeenCalledWith(
+      "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7",
+      expect.objectContaining({ state: "main_menu" }),
+    );
   });
 });
 
@@ -138,7 +151,11 @@ describe("the Chat-bot API limits the text to the shared maximum", () => {
     const { status } = await send({ type: "text", text });
 
     expect(status).toBe(200);
-    expect(mocks.runTurn).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ text }), expect.anything());
+    expect(mocks.runTurn).toHaveBeenCalledWith(
+      "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7",
+      expect.objectContaining({ text }),
+      expect.anything(),
+    );
   });
 
   it("answers 422 TEXT_TOO_LONG with the citizen message for one character more, without running the turn", async () => {
@@ -160,12 +177,12 @@ describe("the Chat-bot API limits the text to the shared maximum", () => {
 describe("turn lock timeout", () => {
   it("answers 503 BUSY instead of replying from a stale session", async () => {
     mocks.sessionRowExists.mockResolvedValue(true);
-    mocks.runTurn.mockRejectedValueOnce(new TurnLockTimeoutError("sandbox-qa", TurnLockLayer.PROCESS));
+    mocks.runTurn.mockRejectedValueOnce(new TurnLockTimeoutError("sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7", TurnLockLayer.PROCESS));
 
     const request = new NextRequest("http://localhost/api/sandbox", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ from: "sandbox-qa", type: "text", text: "Hola" }),
+      body: JSON.stringify({ from: "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7", type: "text", text: "Hola" }),
     });
     const response = await POST(request);
 

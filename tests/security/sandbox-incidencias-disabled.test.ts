@@ -19,7 +19,7 @@ import { POST } from "@/app/api/sandbox/route";
 import { SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 
-const FROM = "sandbox-incidencias-off";
+const FROM = "sandbox-4a7b0d23-5e6f-4081-9c93-a4b5c6d7e8f9";
 
 type Reply = { sent: Array<{ kind: string; text?: string; rows?: Array<{ id: string }> }>; session: { state: string } };
 

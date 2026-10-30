@@ -16,6 +16,10 @@ export function findMetaPhoneNumberId(env: Env = process.env): string | undefine
   return findPresent(env.META_PHONE_NUMBER_ID);
 }
 
+export function findMetaWebhookVerifyToken(env: Env = process.env): string | undefined {
+  return findPresent(env.META_WEBHOOK_VERIFY_TOKEN);
+}
+
 export function findMinsaApiHost(env: Env = process.env): string | undefined {
   return findPresent(env.MINSA_API_HOST);
 }
