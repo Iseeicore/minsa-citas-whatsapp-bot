@@ -86,6 +86,18 @@ Si se pulsa **Cambiar referencia** con la sesión vencida, esa intención se con
 - El servicio depende de que el backend publique `/whatsapp/api/v1/references` y de `SANDBOX_USE_REAL_MINSA=true`. Sin una de las dos, la respuesta siempre es «No cuentas con referencias registradas.» y se ofrece agendar una cita. Las demos (DNI `10308523` y `47391441`) son la única excepción, pero igual exigen iniciar sesión.
 - Una sesión guardada en un estado `referencia_*` que ya no existe (`referencia_awaiting_appointment_mode`, `referencia_awaiting_lookup_retry`) no falla: se descarta lo guardado, se vuelve a pedir el documento para consultar las referencias y queda la nota `retired_state`. Las guardadas en `cita_references_pending` o `cita_awaiting_references_offer` todavía no se migran y fallan al responder; solo importa si existe una base de datos con sesiones en esos estados.
 
+## Contrato de `/whatsapp/api/v1/references`
+
+`lib/integrations/minsa/references.ts` es el único punto que lo lee.
+
+- El backend responde un arreglo raíz de filas, sin sobre `status_reference`/`data`. El bot no filtra referencias por su estado al leerlas: de cada fila guarda `estado.codigo` y `estado.descripcion`.
+- Hacia adentro el resultado es `{ statusReference, message, data }`: un arreglo vacío es `empty`, uno con filas válidas es `found`, y un HTTP que no es 2xx, un cuerpo ilegible, un objeto en lugar de arreglo o un arreglo sin filas válidas llegan como `statusReference: "error"`.
+- Cada fila exige `id_referencia` y `estado.codigo`; las que no los traen se descartan y se registran en `minsa.catalog.rows_discarded`.
+- Solo los estados 3 y 5 (ACEPTADO, PACIENTE RECIBIDO) permiten agendar; el estado 7 (PACIENTE CITADO) ya no. En los dos canales, en Cita con referencia, la lista muestra solo esas referencias y no nombra las demás; si hay referencias pero ninguna permite agendar, el bot responde «No cuentas con referencias que permitan agendar una cita.» y pregunta «¿Deseas agendar una cita?» con **Sí** (cita nueva con la sesión vigente, sin otro código) y **No** (despedida).
+- La lista explica qué estados se pueden agendar y termina con **Cita sin referencia** y **Salir**, en los dos canales; en WhatsApp son filas de la lista y la página muestra 6 referencias. En WhatsApp la descripción de la fila (máximo 72 caracteres) siempre conserva completos el número, la fecha y el estado; lo que se acorta, con «…», es el destino, y solo si aun así no entra se acorta el estado.
+- Las demás, con la descripción del estado que manda MINSA (o «Código N» si no llega), no se pueden elegir; si una llega elegida igual, el servidor responde «Esta referencia está en estado … y no permite agendar una cita. Elige otra.» y repite la misma página.
+- Solo con `found` se listan las referencias; en cualquier otro caso el bot responde «No cuentas con referencias registradas.» y pregunta si quiere agendar una cita.
+
 ## Lo que todavía no hace
 
 - Un mensaje con la palabra exacta «referencia» que no es un pedido corto recibe la elección de OOS-03 (Cita con referencia / Agendar cita) antes de llegar a la IA, así que la intención `referencia` de la IA solo ve los textos sin esa palabra (mal escrita, «derivación»).
