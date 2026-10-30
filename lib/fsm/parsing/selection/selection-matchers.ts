@@ -4,7 +4,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { DIGITS_ONLY, OPTION_NUMBER, ORDINAL_FILLER } from "@/lib/constants/regex/selection";
 import { MatchKind } from "@/lib/enums/match-kind";
 import { stripAccents } from "@/lib/utils/text-values";
-import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { readSlotJson, getSlotJsonOr } from "@/lib/fsm/core/slot-readers";
 import { z } from "zod";
 import { MIN_PREFIX_MATCH_LENGTH, MIN_TOKEN_LENGTH } from "@/lib/constants/limits/selection";
 
@@ -37,7 +37,7 @@ const OFFERED_SCHEMA = z.object({
 });
 
 export function readOffered(slots: Session["slots"]): OfferedList | undefined {
-  return slotJsonOr<OfferedList | undefined>(readSlotJson(slots, SlotKey.CITA_OFFERED, OFFERED_SCHEMA), undefined);
+  return getSlotJsonOr<OfferedList | undefined>(readSlotJson(slots, SlotKey.CITA_OFFERED, OFFERED_SCHEMA), undefined);
 }
 
 export type SelectionMatch =

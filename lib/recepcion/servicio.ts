@@ -14,16 +14,16 @@ import { MAX_INCIDENCIAS_POR_DIA } from "@/lib/constants/limits/incidencia";
 import { INCIDENCIA_TRACE_ID_UNIQUE_TARGETS, PRISMA_UNIQUE_VIOLATION_CODE } from "@/lib/constants/prisma-unique";
 import type { AlmacenEvidencias } from "@/lib/types/almacen-evidencias.types";
 
+const MOTIVO_DE_RECHAZO: Readonly<Record<ImageValidationFailure, RegistrationRejectReason>> = {
+  [ImageValidationFailure.TOO_LARGE]: RegistrationRejectReason.MEDIA_TOO_LARGE,
+  [ImageValidationFailure.INVALID]: RegistrationRejectReason.OTHER,
+};
+
 function isTraceIdReplay(error: unknown): boolean {
   if (!isRecord(error) || error.code !== PRISMA_UNIQUE_VIOLATION_CODE || !isRecord(error.meta)) return false;
   const targets: unknown[] = Array.isArray(error.meta.target) ? error.meta.target : [error.meta.target];
   return targets.some((target) => isString(target) && INCIDENCIA_TRACE_ID_UNIQUE_TARGETS.includes(target));
 }
-
-const MOTIVO_DE_RECHAZO: Readonly<Record<ImageValidationFailure, RegistrationRejectReason>> = {
-  [ImageValidationFailure.TOO_LARGE]: RegistrationRejectReason.MEDIA_TOO_LARGE,
-  [ImageValidationFailure.INVALID]: RegistrationRejectReason.OTHER,
-};
 
 async function guardarEvidencia(mediaDataUri: string, almacen: AlmacenEvidencias): Promise<DatosEvidencia | RegistrarIncidenciaResult> {
   const imagen = validarImagen(mediaDataUri);

@@ -5,7 +5,7 @@ import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { readSlotJson, getSlotJsonOr } from "@/lib/fsm/core/slot-readers";
 import { z } from "zod";
 
 export type InicioDenuncia = { codigoRenipress?: string; nombre?: string; lead?: string };
@@ -17,7 +17,7 @@ const INICIO_SCHEMA = z.object({
 });
 
 export function readInicio(slots: Session["slots"]): InicioDenuncia {
-  return slotJsonOr<InicioDenuncia>(readSlotJson(slots, SlotKey.INCIDENCIA_INICIO, INICIO_SCHEMA), {});
+  return getSlotJsonOr<InicioDenuncia>(readSlotJson(slots, SlotKey.INCIDENCIA_INICIO, INICIO_SCHEMA), {});
 }
 
 export function writeInicio(slots: Session["slots"], inicio: InicioDenuncia): void {

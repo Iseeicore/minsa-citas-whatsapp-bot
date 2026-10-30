@@ -153,7 +153,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   }
 }
 
-function identidadConsulta(effect: QueryEffect, from: string): IdentidadConsulta {
+function toIdentidadConsulta(effect: QueryEffect, from: string): IdentidadConsulta {
   return requirePayloadChannel(effect.payload, effect.kind) === SessionChannel.WEB
     ? { canal: SessionChannel.WEB, dni: payloadText(effect.payload, "dni") }
     : { canal: SessionChannel.WHATSAPP, waId: from };
@@ -178,12 +178,12 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     case QueryKind.CONSULTAR_INCIDENCIA: {
       const { consultarIncidencia } = await import("@/lib/recepcion/consulta");
       const codigo = payloadText(effect.payload, "codigo");
-      return consultarIncidencia(codigo, identidadConsulta(effect, from));
+      return consultarIncidencia(codigo, toIdentidadConsulta(effect, from));
     }
 
     case QueryKind.LISTAR_INCIDENCIAS: {
       const { listarIncidencias } = await import("@/lib/recepcion/consulta");
-      return listarIncidencias(identidadConsulta(effect, from));
+      return listarIncidencias(toIdentidadConsulta(effect, from));
     }
 
     case QueryKind.VERIFICAR_CONSENTIMIENTO: {

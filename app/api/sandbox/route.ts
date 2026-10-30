@@ -34,16 +34,18 @@ import { SANDBOX_DISABLED_TEXT, SANDBOX_UNSIGNED_TEXT } from "@/lib/constants/te
 import { SandboxSignatureResult } from "@/lib/enums/sandbox-signature-result";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 
-const sentInSandbox = (): SendOutcome => ({ kind: SendOutcomeKind.SENT, messageId: randomUuid() });
-
 const SANDBOX_TURN_HOOKS: TurnHooks = {
-  onSend: async () => sentInSandbox(),
+  onSend: async () => buildSandboxSentOutcome(),
   onWaitingForQuery: async () => undefined,
 };
 
 const warnedInvalidOrigins = new Set<string>();
 
 const TEXT_FIELD = "text";
+
+function buildSandboxSentOutcome(): SendOutcome {
+  return { kind: SendOutcomeKind.SENT, messageId: randomUuid() };
+}
 
 function allowedOrigins(): string[] {
   const { origins, invalid } = parseAllowedOrigins(process.env.SANDBOX_ALLOWED_ORIGINS);
@@ -194,7 +196,7 @@ async function startConversation(from: string, text: string | undefined, marks: 
       for (const note of first.notes ?? []) trace.note(note);
 
       const sent = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-      const tracking = sent.reduce<InteractiveTracking>((current, effect) => trackSent(current, effect, sentInSandbox()), { consumed: false });
+      const tracking = sent.reduce<InteractiveTracking>((current, effect) => trackSent(current, effect, buildSandboxSentOutcome()), { consumed: false });
       const session = withInteractiveTracking(first.session, tracking);
       await saveSession(from, session);
       trace.complete({ session, sentCount: sent.length });

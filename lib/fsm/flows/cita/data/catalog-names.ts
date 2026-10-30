@@ -14,9 +14,11 @@ import {
   TITLE_CASED_ROMAN_NUMERAL,
 } from "@/lib/constants/regex/catalog";
 import { cuposText } from "@/lib/constants/textos/cita-catalogo";
-import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { readSlotJson, getSlotJsonOr } from "@/lib/fsm/core/slot-readers";
 import { z } from "zod";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
+
+const OFFERED_NAMES_SCHEMA = z.record(z.string(), z.string());
 
 export type CatalogName = { title: string; full: string };
 
@@ -72,10 +74,8 @@ export function rememberFullNames(slots: Session["slots"], entries: ReadonlyArra
   slots[SlotKey.CITA_OFFERED_NAMES] = JSON.stringify(Object.fromEntries(entries.map((entry) => [entry.id, entry.full])));
 }
 
-const OFFERED_NAMES_SCHEMA = z.record(z.string(), z.string());
-
 export function offeredFullName(slots: Session["slots"], row: OfferedRow): string {
-  const names = slotJsonOr<Record<string, string>>(readSlotJson(slots, SlotKey.CITA_OFFERED_NAMES, OFFERED_NAMES_SCHEMA), {});
+  const names = getSlotJsonOr<Record<string, string>>(readSlotJson(slots, SlotKey.CITA_OFFERED_NAMES, OFFERED_NAMES_SCHEMA), {});
   const full = names[row.id];
   return full ? full : fullNameFromRow(row);
 }
