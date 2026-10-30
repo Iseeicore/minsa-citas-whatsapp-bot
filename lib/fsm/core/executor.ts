@@ -36,6 +36,7 @@ import type { ConsultaIncidencia } from "@/lib/types/consulta-incidencia.types";
 import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";
 import { isFiniteNumber } from "@/lib/utils/type-guards";
+import { ConsultaPayloadKey } from "@/lib/enums/consulta-payload-key";
 import { MAX_PASSES } from "@/lib/constants/limits/engine";
 import { MultipleQueryEffectsError } from "@/lib/errors/multiple-query-effects-error";
 import { MaxPassesExceededError } from "@/lib/errors/max-passes-exceeded-error";
@@ -157,13 +158,13 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
 }
 
 function toConsultaIncidencia(effect: QueryEffect): ConsultaIncidencia {
-  const codigo = requirePayloadText(effect.payload, "codigo", effect.kind);
-  const establecimientoId = effect.payload.establecimientoId;
+  const codigo = requirePayloadText(effect.payload, ConsultaPayloadKey.CODIGO, effect.kind);
+  const establecimientoId = effect.payload[ConsultaPayloadKey.ESTABLECIMIENTO_ID];
   if (!isFiniteNumber(establecimientoId) || !Number.isInteger(establecimientoId)) {
-    throw new MissingSlotError("establecimientoId", effect.kind);
+    throw new MissingSlotError(ConsultaPayloadKey.ESTABLECIMIENTO_ID, effect.kind);
   }
-  if (effect.payload.anonima === true) return { codigo, establecimientoId, esAnonimo: true };
-  return { codigo, establecimientoId, esAnonimo: false, dni: requirePayloadText(effect.payload, "dni", effect.kind) };
+  if (effect.payload[ConsultaPayloadKey.ANONIMA] === true) return { codigo, establecimientoId, esAnonimo: true };
+  return { codigo, establecimientoId, esAnonimo: false, dni: requirePayloadText(effect.payload, ConsultaPayloadKey.DNI, effect.kind) };
 }
 
 async function resolveQuery(effect: QueryEffect, session: Session, from: string): Promise<unknown> {

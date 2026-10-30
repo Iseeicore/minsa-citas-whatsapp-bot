@@ -15,7 +15,7 @@ export function handleCupoPending(session: Session, event: QueryResultEvent): Ha
   const result = event.result as CountIntentosDelDiaResult | undefined;
   if (result?.statusCupo !== CupoDiarioStatus.COUNTED) return closeConsulta(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
   if (result.total >= MAX_CONSULTAS_POR_DIA) {
-    logger.warn("consulta.daily_limit", { canal: slotText(session.slots, SlotKey.CONSULTA_CANAL) });
+    logger.warn("consulta.daily_limit_reached", { canal: slotText(session.slots, SlotKey.CONSULTA_CANAL) });
     return closeConsulta(SessionState.CONSULTA_FAILED, LIMITE_DIARIO_TEXT);
   }
 

@@ -27,30 +27,30 @@ type ActiveConsultaState = Exclude<
 
 const RETIRED_STATES: ReadonlySet<string> = new Set(Object.values(RetiredConsultaState));
 
-function onResult(handler: (session: Session, event: QueryResultEvent) => HandlerResult): ConsultaHandler {
+const CONSULTA_HANDLERS: Readonly<Record<ActiveConsultaState, ConsultaHandler>> = {
+  [SessionState.CONSULTA_CUPO_PENDING]: buildResultHandler(handleCupoPending),
+  [SessionState.CONSULTA_AWAITING_TIPO]: buildInboundHandler(handleAwaitingTipo),
+  [SessionState.CONSULTA_AWAITING_CODIGO]: buildInboundHandler(handleAwaitingCodigo),
+  [SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO]: buildInboundHandler(handleAwaitingEstablecimiento),
+  [SessionState.CONSULTA_BUSCAR_ESTABLECIMIENTO_PENDING]: buildResultHandler(handleBuscarEstablecimientoPending),
+  [SessionState.CONSULTA_CONFIRM_ESTABLECIMIENTO]: buildInboundHandler(handleConfirmEstablecimiento),
+  [SessionState.CONSULTA_AWAITING_DNI]: buildInboundHandler(handleAwaitingDni),
+  [SessionState.CONSULTA_QUERY_PENDING]: buildResultHandler(handleQueryPending),
+  [SessionState.CONSULTA_INTENTO_PENDING]: buildResultHandler(() => closeConsulta(SessionState.CONSULTA_FAILED)),
+};
+
+const CONSULTA_HANDLER_BY_STATE = new Map<string, ConsultaHandler>(Object.entries(CONSULTA_HANDLERS));
+
+function buildResultHandler(handler: (session: Session, event: QueryResultEvent) => HandlerResult): ConsultaHandler {
   return (session, event) =>
     event.type === InternalEventType.QUERY_RESULT
       ? handler(session, event)
       : closeConsulta(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 }
 
-function onInbound(handler: (session: Session, event: InboundEvent) => HandlerResult): ConsultaHandler {
+function buildInboundHandler(handler: (session: Session, event: InboundEvent) => HandlerResult): ConsultaHandler {
   return (session, event) => (event.type === InternalEventType.QUERY_RESULT ? buildResult(session, []) : handler(session, event));
 }
-
-const CONSULTA_HANDLERS: Readonly<Record<ActiveConsultaState, ConsultaHandler>> = {
-  [SessionState.CONSULTA_CUPO_PENDING]: onResult(handleCupoPending),
-  [SessionState.CONSULTA_AWAITING_TIPO]: onInbound(handleAwaitingTipo),
-  [SessionState.CONSULTA_AWAITING_CODIGO]: onInbound(handleAwaitingCodigo),
-  [SessionState.CONSULTA_AWAITING_ESTABLECIMIENTO]: onInbound(handleAwaitingEstablecimiento),
-  [SessionState.CONSULTA_BUSCAR_ESTABLECIMIENTO_PENDING]: onResult(handleBuscarEstablecimientoPending),
-  [SessionState.CONSULTA_CONFIRM_ESTABLECIMIENTO]: onInbound(handleConfirmEstablecimiento),
-  [SessionState.CONSULTA_AWAITING_DNI]: onInbound(handleAwaitingDni),
-  [SessionState.CONSULTA_QUERY_PENDING]: onResult(handleQueryPending),
-  [SessionState.CONSULTA_INTENTO_PENDING]: onResult(() => closeConsulta(SessionState.CONSULTA_FAILED)),
-};
-
-const CONSULTA_HANDLER_BY_STATE = new Map<string, ConsultaHandler>(Object.entries(CONSULTA_HANDLERS));
 
 export function beginConsulta(channel: SessionChannel, codigo?: string): HandlerResult {
   const session: Session = {

@@ -3,6 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { queries, queryResult, sent, tap, text, texts } from "@/tests/support/fsm-events";
+import { captureLogs } from "@/tests/support/capture-logs";
 import {
   ASK_DNI_TEXT,
   ASK_ESTABLECIMIENTO_TEXT,
@@ -88,11 +89,13 @@ describe("la entrada lee primero el cupo del día", () => {
     ]);
   });
 
-  it("con las 3 consultas del día usadas, la 4.ª termina con el aviso del límite", () => {
+  it("con las 3 consultas del día usadas, la 4.ª termina con el aviso del límite y un aviso en el log sin datos de la persona", () => {
+    const lines = captureLogs();
     const step = run(at(SessionState.CONSULTA_CUPO_PENDING), cupo(3));
 
     expect(step.session.state).toBe(SessionState.CONSULTA_FAILED);
     expect(texts(step)).toEqual([LIMITE_DIARIO_TEXT]);
+    expect(lines).toEqual([expect.objectContaining({ level: "warn", event: "consulta.daily_limit_reached", canal: "whatsapp" })]);
   });
 
   it("si no se pudo contar el cupo, no lo toma como cero: avisa la falla y termina", () => {

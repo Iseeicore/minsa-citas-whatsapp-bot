@@ -15,6 +15,7 @@ import {
 } from "@/lib/constants/textos/consulta";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { MAX_CONSULTAS_POR_DIA } from "@/lib/constants/limits/consulta";
+import { ConsultaPayloadKey } from "@/lib/enums/consulta-payload-key";
 import { LookupStatus } from "@/lib/enums/lookup-status";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
@@ -44,11 +45,11 @@ export function startSearch(next: Session): HandlerResult {
   return buildResult(next, [
     sendText(BUSCANDO_INCIDENCIA_TEXT),
     query(QueryKind.CONSULTAR_INCIDENCIA, {
-      codigo: slotText(next.slots, SlotKey.CONSULTA_CODIGO),
-      establecimientoId: next.slots[SlotKey.CONSULTA_ESTABLECIMIENTO_ID],
-      anonima,
-      canal: slotText(next.slots, SlotKey.CONSULTA_CANAL),
-      ...(anonima ? {} : { dni: slotText(next.slots, SlotKey.CONSULTA_DNI) }),
+      [ConsultaPayloadKey.CODIGO]: slotText(next.slots, SlotKey.CONSULTA_CODIGO),
+      [ConsultaPayloadKey.ESTABLECIMIENTO_ID]: next.slots[SlotKey.CONSULTA_ESTABLECIMIENTO_ID],
+      [ConsultaPayloadKey.ANONIMA]: anonima,
+      [ConsultaPayloadKey.CANAL]: slotText(next.slots, SlotKey.CONSULTA_CANAL),
+      ...(anonima ? {} : { [ConsultaPayloadKey.DNI]: slotText(next.slots, SlotKey.CONSULTA_DNI) }),
     }),
   ]);
 }
