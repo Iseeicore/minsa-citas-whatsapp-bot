@@ -1,19 +1,21 @@
 import type { BuscarEstablecimientoResult } from "@/lib/establecimientos/buscar";
 import { decidirCandidatos, type Establecimiento } from "@/lib/establecimientos/decidir";
 import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
+import { readInicio } from "@/lib/fsm/flows/incidencia/inicio";
 import {
   buildResult,
   cloneSession,
+  isQueryEffect,
   omitSlot,
   query,
   sendButtons,
   sendText,
-  withLeadingText,
+  withPrefixedFirstMessage,
   withRejectionNotice,
   readTrimmedText,
 } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
-import { parseCodigoSuelto, type InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
+import { parseCodigoSuelto } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { quiereOmitirUbicacion } from "@/lib/fsm/parsing/text/omitir-ubicacion";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { Confirmation } from "@/lib/enums/confirmation";
@@ -23,14 +25,12 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import {
-  ASK_UBICACION_TEXT,
   ASK_OTRA_UBICACION_TEXT,
   CODIGO_NO_ENCONTRADO_TEXT,
   UBICACION_ILEGIBLE_TEXT,
   UBICACION_RECHAZADA_TEXT,
   UBICACION_BUTTONS,
   OMITIR_BUTTONS,
-  INCIDENCIA_LEAD_IN_TEXT,
   UBICACION_NO_UBICADA_TEXT,
   UBICACION_NO_DISPONIBLE_TEXT,
   UBICACION_VARIOS_TEXT,
@@ -38,6 +38,8 @@ import {
   UBICACION_CONFIRM_RETRY_TEXT,
   OMITIR_QUESTION_TEXT,
   OMITIR_ACEPTADO_TEXT,
+  askUbicacionDenunciaText,
+  avisoDenunciaText,
   ubicacionDistritoLineText,
   confirmUbicacionText,
   ubicacionAceptadaText,
@@ -46,7 +48,6 @@ import {
   INCIDENCIA_IDENTIDAD_BUTTONS,
   UNREADABLE_TEXT_RETRY,
 } from "@/lib/constants/textos/incidencia";
-import { AVISO_EMERGENCIA_TEXT } from "@/lib/constants/textos/fuera-de-alcance";
 import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-status";
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 import { EstablecimientoDecision } from "@/lib/enums/establecimiento-decision";
@@ -71,26 +72,22 @@ function readPropuesto(session: Session): Propuesto | undefined {
   return parseJsonOr(raw, undefined) as Propuesto | undefined;
 }
 
-function leadIn(lead: string): string {
-  return [lead, INCIDENCIA_LEAD_IN_TEXT].filter(Boolean).join(" ");
-}
-
 function searching(next: Session, payload: { codigo?: string; nombre?: string }): HandlerResult {
   next.state = SessionState.INCIDENCIA_UBICACION_PENDING;
   return buildResult(next, [query(QueryKind.BUSCAR_ESTABLECIMIENTO, payload)]);
 }
 
-export function beginIncidencia(slots: Session["slots"], lead: string, inicio: InicioIncidencia | null = null): HandlerResult {
-  const next: Session = { state: SessionState.INCIDENCIA_AWAITING_UBICACION, slots: { ...slots }, counters: {} };
-  next.slots[SlotKey.INCIDENCIA_ORIGEN] = inicio?.origen ?? IncidenciaOrigen.MENU;
-  if (inicio?.resto) next.slots[SlotKey.INCIDENCIA_BORRADOR] = inicio.resto;
-
-  if (inicio?.codigoRenipress) {
+export function startUbicacion(next: Session): HandlerResult {
+  const inicio = readInicio(next.slots);
+  if (inicio.codigoRenipress) {
     if (inicio.nombre) next.slots[SlotKey.INCIDENCIA_UBICACION_TEXTO] = inicio.nombre;
-    return withLeadingText(searching(next, { codigo: inicio.codigoRenipress }), AVISO_EMERGENCIA_TEXT);
+    return searching(next, { codigo: inicio.codigoRenipress });
   }
-  if (inicio?.nombre) return withLeadingText(searching(next, { nombre: inicio.nombre }), AVISO_EMERGENCIA_TEXT);
-  return withLeadingText(buildResult(next, [sendText(`${leadIn(lead)} ${ASK_UBICACION_TEXT}`)]), AVISO_EMERGENCIA_TEXT);
+  if (inicio.nombre) return searching(next, { nombre: inicio.nombre });
+
+  next.slots = omitSlot(next.slots, SlotKey.INCIDENCIA_INICIO);
+  next.state = SessionState.INCIDENCIA_AWAITING_UBICACION;
+  return buildResult(next, [sendText(askUbicacionDenunciaText(inicio.lead ?? ""))]);
 }
 
 export function handleAwaitingUbicacion(session: Session, event: InboundEvent): HandlerResult {
@@ -121,6 +118,15 @@ function confirmUbicacion(next: Session, establecimiento: Establecimiento): Hand
 }
 
 export function handleUbicacionPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = resolveUbicacion(session, event);
+  if (!(SlotKey.INCIDENCIA_INICIO in result.session.slots) || result.effects.some(isQueryEffect)) return result;
+
+  const { lead } = readInicio(result.session.slots);
+  const shown = { ...result, session: { ...result.session, slots: omitSlot(result.session.slots, SlotKey.INCIDENCIA_INICIO) } };
+  return withPrefixedFirstMessage(shown, avisoDenunciaText(lead ?? ""));
+}
+
+function resolveUbicacion(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as BuscarEstablecimientoResult;
   const next = cloneSession(session);
   const fromTexto = next.slots[SlotKey.INCIDENCIA_ORIGEN] === IncidenciaOrigen.TEXTO;
@@ -169,7 +175,7 @@ function continueAfterUbicacion(next: Session, acknowledgement: string): Handler
   }
   next.counters = omitCounter(next.counters);
   next.state = SessionState.INCIDENCIA_IDENTITY_CHOICE;
-  return buildResult(next, [sendText(acknowledgement), sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_IDENTIDAD_BUTTONS)]);
+  return buildResult(next, [sendButtons(acknowledgement, INCIDENCIA_IDENTIDAD_BUTTONS)]);
 }
 
 function omitCounter(counters: Session["counters"]): Session["counters"] {

@@ -26,73 +26,85 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
   };
 
   const textOf = (effect: SendEffect | undefined) => (effect && "text" in effect ? effect.text : "");
+  const AVISO = "ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS";
+
+  const begin = async (p: ReturnType<typeof person>, text: string) => {
+    const asked = await p.start(text);
+    expect(asked.session.state).toBe("incidencia_consent_choice");
+    return p.tap("incidencia_consent_si");
+  };
 
   afterAll(async () => {
     await prisma.sesionConversacion.deleteMany({ where: { waId: { in: created } } });
     await prisma.$disconnect();
   });
 
-  it("the QR of the Hospital Dos de Mayo asks to confirm that place, and yes goes on to the name question", async () => {
+  it("the QR of the Hospital Dos de Mayo asks the consent first, then to confirm that place, and yes goes on to the name question", async () => {
     const p = person();
-    const confirm = await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    const consent = await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    expect(consent.session.state).toBe("incidencia_consent_choice");
+    expect(consent.sent.map((effect) => effect.kind)).toEqual(["send_consent"]);
 
+    const confirm = await p.tap("incidencia_consent_si");
     expect(confirm.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(textOf(confirm.sent[1])).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
+    expect(confirm.sent).toHaveLength(1);
+    expect(textOf(confirm.sent[0])).toContain(AVISO);
+    expect(textOf(confirm.sent[0])).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
 
     const identity = await p.tap("incidencia_ubicacion_si");
     expect(identity.session.state).toBe("incidencia_identity_choice");
+    expect(identity.sent.map((effect) => effect.kind)).toEqual(["send_buttons"]);
     expect(identity.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_CODIGO]).toBe("6206");
     expect(typeof identity.session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]).toBe("number");
   });
 
   it("the QR of a center named C.S.M. is not dropped as an insult", async () => {
-    const turn = await person().start(QR("C.S.M. COMUNITARIO LINCE", "38137"));
+    const p = person();
+    const turn = await begin(p, QR("C.S.M. COMUNITARIO LINCE", "38137"));
     expect(turn.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(textOf(turn.sent[1])).toContain("C.S.M. COMUNITARIO LINCE");
+    expect(textOf(turn.sent[0])).toContain("C.S.M. COMUNITARIO LINCE");
   });
 
   it("a QR with a story after the code: the place is confirmed and then the story is offered to use or add to", async () => {
     const p = person();
     const story = "Me cobraron sin recibo en la ventanilla de admisión.";
-    await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206", ` ${story}`));
+    await begin(p, QR("HOSPITAL NACIONAL DOS DE MAYO", "6206", ` ${story}`));
     await p.tap("incidencia_ubicacion_si");
 
-    const consentAsked = await p.tap("incidencia_anonimo");
-    expect(consentAsked.session.state).toBe("incidencia_consent_choice");
-
-    const draft = await p.tap("incidencia_consent_si");
+    const draft = await p.tap("incidencia_anonimo");
     expect(draft.session.state).toBe("incidencia_confirm_borrador");
     expect(textOf(draft.sent[0])).toContain(story);
   });
 
   it("only the name, written the way a person would: finds the hospital and asks to confirm it", async () => {
-    const turn = await person().start("quiero presentar una incidencia en el hospital dos de mayo");
+    const turn = await begin(person(), "quiero presentar una incidencia en el hospital dos de mayo");
 
     expect(turn.session.state).toBe("incidencia_confirm_ubicacion");
-    expect(textOf(turn.sent[1])).toContain("HOSPITAL NACIONAL DOS DE MAYO");
+    expect(textOf(turn.sent[0])).toContain("HOSPITAL NACIONAL DOS DE MAYO");
     expect(turn.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBeUndefined();
   });
 
   it("only «hospital»: no list is shown, it asks for the name", async () => {
-    const turn = await person().start("quiero presentar una incidencia en el hospital");
+    const turn = await begin(person(), "quiero presentar una incidencia en el hospital");
 
     expect(turn.session.state).toBe("incidencia_awaiting_ubicacion");
     expect(turn.sent.every((effect) => effect.kind === "send_text")).toBe(true);
-    expect(textOf(turn.sent[1])).toContain("Hay varios establecimientos que se parecen");
+    expect(textOf(turn.sent[0])).toContain(AVISO);
+    expect(textOf(turn.sent[0])).toContain("Hay varios establecimientos que se parecen");
   });
 
   it("a story with no place: the place is asked and the story is kept as a draft", async () => {
     const story = "porque el doctor me atendió mal y además me cobraron sin recibo";
-    const turn = await person().start(`quiero presentar una incidencia ${story}`);
+    const turn = await begin(person(), `quiero presentar una incidencia ${story}`);
 
     expect(turn.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(textOf(turn.sent[1])).toContain("No encontré ese establecimiento");
+    expect(textOf(turn.sent[0])).toContain("No encontré ese establecimiento");
     expect(turn.session.slots[SlotKey.INCIDENCIA_BORRADOR]).toBe(story);
   });
 
   it("failing three times offers to go on without the establecimiento, and yes goes on with none", async () => {
     const p = person();
-    await p.start("quiero presentar una incidencia");
+    await begin(p, "quiero presentar una incidencia");
     await p.say("xyzzy plugh");
     await p.say("qwerty asdfgh");
     const offer = await p.say("zzzz yyyy");
@@ -105,10 +117,9 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
   it("from the QR to a saved incidencia: the place goes to the database and the person gets the code", async () => {
     const p = person();
-    await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    await begin(p, QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
     await p.tap("incidencia_ubicacion_si");
     await p.tap("incidencia_anonimo");
-    await p.tap("incidencia_consent_si");
     const asked = await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
     expect(asked.session.state).toBe("incidencia_awaiting_foto");
 
@@ -127,13 +138,12 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
   it("with no establecimiento the incidencia is saved without one and the person is only thanked, with no code", async () => {
     const p = person();
-    await p.start("quiero presentar una incidencia");
+    await begin(p, "quiero presentar una incidencia");
     await p.say("xyzzy plugh");
     await p.say("qwerty asdfgh");
     await p.say("zzzz yyyy");
     await p.tap("incidencia_omitir_si");
     await p.tap("incidencia_anonimo");
-    await p.tap("incidencia_consent_si");
     await p.say("El doctor me atendió mal y no me explicó nada.");
     await p.say("omitir");
     const done = await p.tap("incidencia_confirmar_registro_si");
@@ -143,16 +153,15 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     expect(saved.establecimientoId).toBeNull();
   });
 
-  it("with a document it goes straight to the consent, with no name lookup, and the document is saved", async () => {
+  it("with a document it goes straight to the relato, with no name lookup, and the document is saved", async () => {
     const p = person();
-    await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    await begin(p, QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
     await p.tap("incidencia_ubicacion_si");
     await p.tap("incidencia_con_documento");
     const identified = await p.say("12345678");
-    expect(identified.session.state).toBe("incidencia_consent_choice");
+    expect(identified.session.state).toBe("incidencia_awaiting_descripcion");
     expect(identified.session.slots[SlotKey.DNI]).toBe("12345678");
 
-    await p.tap("incidencia_consent_si");
     await p.say("Me cobraron sin recibo en la ventanilla de admisión.");
     await p.say("omitir");
     await p.tap("incidencia_confirmar_registro_si");
@@ -162,7 +171,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
   it("«quiero cerrar» in the middle ends the conversation and saves nothing", async () => {
     const p = person();
-    await p.start(QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
+    await begin(p, QR("HOSPITAL NACIONAL DOS DE MAYO", "6206"));
     await p.tap("incidencia_ubicacion_si");
     await p.tap("incidencia_anonimo");
     const closed = await p.say("quiero cerrar");
@@ -177,11 +186,10 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
   it("a relato shorter than 20 characters is asked to be longer and nothing is saved", async () => {
     const p = person();
-    await p.start("quiero presentar una incidencia");
+    await begin(p, "quiero presentar una incidencia");
     await p.say("omitir");
     await p.tap("incidencia_omitir_si");
     await p.tap("incidencia_anonimo");
-    await p.tap("incidencia_consent_si");
     const short = await p.say("me cobraron");
 
     expect(short.session.state).toBe("incidencia_awaiting_descripcion");
@@ -192,15 +200,12 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
   it("the daily maximum: the sixth incidencia of the same phone is refused, the first five were saved", async () => {
     const p = person();
 
-    await p.start("quiero presentar una incidencia");
-    await p.say("omitir");
-    await p.tap("incidencia_omitir_si");
-    await p.tap("incidencia_anonimo");
-    await p.tap("incidencia_consent_si");
+    await begin(p, "quiero presentar una incidencia");
     await p.say("quiero cerrar");
 
     const registrar = async () => {
-      await p.start("quiero presentar una incidencia");
+      const asked = await p.start("quiero presentar una incidencia");
+      expect(asked.session.state).toBe("incidencia_awaiting_ubicacion");
       await p.say("omitir");
       await p.tap("incidencia_omitir_si");
       await p.tap("incidencia_anonimo");
@@ -221,13 +226,26 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
     expect(await prisma.incidenciaPaciente.count({ where: { waId: p.from } })).toBe(5);
   });
 
-  it("the menu option asks for the place and a typed code finds it", async () => {
+  it("the menu option asks for the place after the consent, in one message with the notice, and a typed code finds it", async () => {
     const p = person();
-    const asked = await p.start("3");
+    const asked = await begin(p, "3");
     expect(asked.session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(asked.sent).toHaveLength(1);
+    expect(textOf(asked.sent[0])).toContain(AVISO);
+    expect(textOf(asked.sent[0])).toContain("¿en qué establecimiento de salud ocurrió?");
 
     const confirm = await p.say("5946");
     expect(confirm.session.state).toBe("incidencia_confirm_ubicacion");
     expect(textOf(confirm.sent[0])).toContain("Hipólito Unanue");
+  });
+
+  it("declining the consent ends the conversation before the place and saves nothing", async () => {
+    const p = person();
+    await p.start("quiero presentar una incidencia");
+    const declined = await p.tap("incidencia_consent_no");
+
+    expect(declined.session.state).toBe("incidencia_cancelled");
+    expect(textOf(declined.sent[0])).toContain("No se registrará tu denuncia por este canal");
+    expect(await prisma.incidenciaPaciente.count({ where: { waId: p.from } })).toBe(0);
   });
 });

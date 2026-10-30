@@ -46,21 +46,25 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     };
   };
 
-  it("the QR is answered with the place to confirm, the session is saved, and the whole conversation ends with a code in the database", async () => {
+  it("the QR is answered with the consent, then with the place to confirm, and the whole conversation ends with a code in the database", async () => {
     const p = person();
 
-    const confirm = await p.text(QR);
-    expect(confirm).toHaveLength(2);
-    expect(confirm[1].kind).toBe("send_buttons");
-    expect(confirm[1].text).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
-    await expect(p.state()).resolves.toBe("incidencia_confirm_ubicacion");
-
-    await p.tap("incidencia_ubicacion_si");
-    const consentAsked = await p.tap("incidencia_anonimo");
-    expect(consentAsked.some((effect) => effect.kind === "send_buttons")).toBe(true);
+    const consent = await p.text(QR);
+    expect(consent.map((effect) => effect.kind)).toEqual(["send_consent"]);
     await expect(p.state()).resolves.toBe("incidencia_consent_choice");
 
-    await p.tap("incidencia_consent_si");
+    const confirm = await p.tap("incidencia_consent_si");
+    expect(confirm).toHaveLength(1);
+    expect(confirm[0].kind).toBe("send_buttons");
+    expect(confirm[0].text).toContain("ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS");
+    expect(confirm[0].text).toContain("*HOSPITAL NACIONAL DOS DE MAYO*");
+    await expect(p.state()).resolves.toBe("incidencia_confirm_ubicacion");
+
+    const identity = await p.tap("incidencia_ubicacion_si");
+    expect(identity.map((effect) => effect.kind)).toEqual(["send_buttons"]);
+    await p.tap("incidencia_anonimo");
+    await expect(p.state()).resolves.toBe("incidencia_awaiting_descripcion");
+
     const asked = await p.text("Me cobraron sin recibo en la ventanilla de admisión.");
     expect(asked[0].text).toContain("evidencia");
 
@@ -88,10 +92,12 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
   it("a QR with a center named C.S.M. gets through the first-message filters", async () => {
     const p = person();
 
-    const confirm = await p.text("Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137");
+    const consent = await p.text("Hola quiero presentar una incidencia C.S.M. COMUNITARIO LINCE - CODIGO-IPRESS 38137");
+    expect(consent.map((effect) => effect.kind)).toEqual(["send_consent"]);
 
-    expect(confirm).toHaveLength(2);
-    expect(confirm[1].text).toContain("C.S.M. COMUNITARIO LINCE");
+    const confirm = await p.tap("incidencia_consent_si");
+    expect(confirm).toHaveLength(1);
+    expect(confirm[0].text).toContain("C.S.M. COMUNITARIO LINCE");
   }, 60_000);
 
   it("«quiero cerrar» closes it and the next message starts over", async () => {

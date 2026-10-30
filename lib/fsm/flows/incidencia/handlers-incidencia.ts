@@ -1,10 +1,5 @@
-import { handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
-import {
-  askConsentimiento,
-  handleConsentCheckPending,
-  handleConsentimiento,
-  handleConsentRegisterPending,
-} from "@/lib/fsm/flows/incidencia/consentimiento";
+import { enterDescripcion, handleAwaitingBorradorExtra, handleConfirmBorrador } from "@/lib/fsm/flows/incidencia/borrador";
+import { handleConsentCheckPending, handleConsentimiento, handleConsentRegisterPending } from "@/lib/fsm/flows/incidencia/consentimiento";
 import { afterDescripcion, askConfirmRegistro, askFoto, handleConfirmRegistro } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import {
   handleAwaitingUbicacion,
@@ -133,13 +128,13 @@ function handleIdentityChoice(session: Session, event: InboundEvent): HandlerRes
     return buildResult(next, [sendText(ASK_DOCUMENTO_TEXT)]);
   }
 
-  if (replyId === IncidenciaButtonId.ANONIMO) return askConsentimiento(next);
+  if (replyId === IncidenciaButtonId.ANONIMO) return enterDescripcion(next);
 
   return withRejectionNotice(buildResult(session, [sendButtons(IDENTITY_QUESTION_TEXT, INCIDENCIA_IDENTIDAD_BUTTONS)]));
 }
 
 function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult {
-  if (readTappedId(event) === IncidenciaButtonId.ANONIMO) return askConsentimiento(cloneSession(session));
+  if (readTappedId(event) === IncidenciaButtonId.ANONIMO) return enterDescripcion(cloneSession(session));
 
   const documento = readTrimmedText(event);
 
@@ -149,7 +144,7 @@ function handleAwaitingDni(session: Session, event: InboundEvent): HandlerResult
 
   const next = cloneSession(session);
   next.slots[SlotKey.DNI] = documento;
-  return askConsentimiento(next);
+  return enterDescripcion(next);
 }
 
 function handleAwaitingDescripcion(session: Session, event: InboundEvent): HandlerResult {
@@ -198,7 +193,6 @@ function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResul
   return buildResult(next, [query(QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT, { text: typed })]);
 }
 
-/** Dice por qué no se guardó el archivo y deja a la persona seguir con otra imagen o continuar. */
 function rechazoDeImagen(session: Session, motivo: string): HandlerResult {
   const hasImagenes = readImagenes(session.slots).length > 0;
   const seguir = hasImagenes ? SEGUIR_CON_IMAGENES_TEXT : SEGUIR_SIN_IMAGENES_TEXT;
@@ -210,7 +204,6 @@ const MAX_IMAGE_MB = MAX_IMAGE_BYTES / (1024 * 1024);
 const motivoDeImagenRechazada = (failure: ImageValidationFailure): string =>
   failure === ImageValidationFailure.TOO_LARGE ? imagenNoGuardadaMuyPesadaText(MAX_IMAGE_MB) : IMAGEN_NO_VALIDA_TEXT;
 
-/** Cada imagen se acumula en la sesión (hasta el máximo) como data URI hasta que se registra la incidencia. */
 function handleImagen(session: Session, event: InboundEvent): HandlerResult {
   const imagenes = readImagenes(session.slots);
 

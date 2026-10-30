@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { declararActorEn } from "@/lib/db/actor";
+import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
@@ -96,15 +97,47 @@ export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsu
   return filas.map((fila) => ({ codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo }));
 }
 
-export async function tieneConsentimientoAceptado(waId: string): Promise<boolean> {
-  const usuario = await prisma.usuario.findUnique({ where: { waId }, select: { consentimientoAceptadoEn: true } });
-  return usuario?.consentimientoAceptadoEn != null;
+export type ConsentimientoStore = {
+  tieneAceptado(waId: string): Promise<boolean>;
+  marcarAceptado(waId: string): Promise<void>;
+};
+
+export function createPrismaConsentimientoStore(): ConsentimientoStore {
+  return {
+    tieneAceptado: async (waId) => {
+      const usuario = await prisma.usuario.findUnique({ where: { waId }, select: { consentimientoAceptadoEn: true } });
+      return usuario?.consentimientoAceptadoEn != null;
+    },
+    marcarAceptado: async (waId) => {
+      await prisma.usuario.upsert({
+        where: { waId },
+        create: { waId, consentimientoAceptadoEn: new Date() },
+        update: { consentimientoAceptadoEn: new Date() },
+      });
+    },
+  };
 }
 
-export async function marcarConsentimientoAceptado(waId: string): Promise<void> {
-  await prisma.usuario.upsert({
-    where: { waId },
-    create: { waId, consentimientoAceptadoEn: new Date() },
-    update: { consentimientoAceptadoEn: new Date() },
-  });
+export function createMemoryConsentimientoStore(): ConsentimientoStore {
+  const aceptados = new Set<string>();
+  return {
+    tieneAceptado: async (waId) => aceptados.has(waId),
+    marcarAceptado: async (waId) => {
+      aceptados.add(waId);
+    },
+  };
+}
+
+const memoryConsentimientos = createMemoryConsentimientoStore();
+
+function consentimientoStore(): ConsentimientoStore {
+  return isDatabaseEnabled() ? createPrismaConsentimientoStore() : memoryConsentimientos;
+}
+
+export function tieneConsentimientoAceptado(waId: string, store: ConsentimientoStore = consentimientoStore()): Promise<boolean> {
+  return store.tieneAceptado(waId);
+}
+
+export function marcarConsentimientoAceptado(waId: string, store: ConsentimientoStore = consentimientoStore()): Promise<void> {
+  return store.marcarAceptado(waId);
 }

@@ -81,6 +81,15 @@ export function withLeadingText(result: HandlerResult, text: string): HandlerRes
   return { ...result, effects: [sendText(text), ...result.effects] };
 }
 
+export function withPrefixedFirstMessage(result: HandlerResult, prefix: string): HandlerResult {
+  const index = result.effects.findIndex((effect) => !isQueryEffect(effect));
+  if (index < 0) return withLeadingText(result, prefix);
+  const effects = result.effects.map((effect, position) =>
+    position === index && !isQueryEffect(effect) ? { ...effect, text: `${prefix}\n\n${effect.text}` } : effect,
+  );
+  return { ...result, effects };
+}
+
 export function withRejectionNotice(result: HandlerResult, text: string = FALLBACK_TEXT): HandlerResult {
   return withLeadingText(result, text);
 }

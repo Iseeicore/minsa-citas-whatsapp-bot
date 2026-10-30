@@ -5,6 +5,8 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { AVISO_EMERGENCIA_DENUNCIA_TEXT, ASK_UBICACION_DENUNCIA_TEXT } from "@/lib/constants/textos/incidencia";
+import { answerConsent } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-first-contact";
 const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
@@ -145,11 +147,11 @@ describe("first contact: answering the [1] / [2] / [3] the rejection text offers
     expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
   });
 
-  it("«3» opens the complaint flow", () => {
+  it("«3» opens the complaint flow, which checks the consent first", () => {
     const result = handleFirstContact(" 3 ", "whatsapp");
 
-    expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(sent(result)[0]).toMatchObject({ kind: "send_text" });
+    expect(result.session.state).toBe("incidencia_consent_check_pending");
+    expect(sent(answerConsent(result))[0]).toMatchObject({ kind: "send_text" });
   });
 
   it("any other number is just text: it gets the menu", () => {
@@ -163,7 +165,7 @@ describe("first contact: answering the [1] / [2] / [3] the rejection text offers
 
     expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_dni");
     expect(handle(finished, text("2")).session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
-    expect(handle(finished, text("3")).session.state).toBe("incidencia_awaiting_ubicacion");
+    expect(handle(finished, text("3")).session.state).toBe("incidencia_consent_check_pending");
   });
 });
 
@@ -181,14 +183,15 @@ describe("first contact: a request to file a complaint", () => {
     "coima",
     "quiero presentar una denuncia anticorrupción",
   ])("%j goes straight to the complaint flow", (message) => {
-    const result = handleFirstContact(message, "whatsapp");
+    const begun = handleFirstContact(message, "whatsapp");
+    expect(begun.session.state).toBe("incidencia_consent_check_pending");
+    expect(sent(begun)).toEqual([]);
 
+    const result = answerConsent(begun);
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
-    expect(sent(result)).toHaveLength(2);
-    expect(sent(result)[1]).toEqual({
-      kind: "send_text",
-      text: "¡Hola! Vamos a registrar tu denuncia. ¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.",
-    });
+    expect(sent(result)).toEqual([
+      { kind: "send_text", text: `¡Hola!\n\n${AVISO_EMERGENCIA_DENUNCIA_TEXT}\n\n${ASK_UBICACION_DENUNCIA_TEXT}` },
+    ]);
   });
 });
 

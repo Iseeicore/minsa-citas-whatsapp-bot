@@ -5,6 +5,7 @@ import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { runWithTrace } from "@/lib/observability/context";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
+import { marcarConsentimientoAceptado, tieneConsentimientoAceptado } from "@/lib/recepcion/repositorio";
 
 describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a real PostgreSQL", () => {
   afterAll(async () => {
@@ -14,6 +15,17 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+  });
+
+  it("the consent of a new citizen is stored on the usuario and is read back on the next denuncia", async () => {
+    const waId = `smoke-${randomUUID()}`;
+
+    await expect(tieneConsentimientoAceptado(waId)).resolves.toBe(false);
+    await marcarConsentimientoAceptado(waId);
+
+    await expect(tieneConsentimientoAceptado(waId)).resolves.toBe(true);
+    const usuario = await prisma.usuario.findUniqueOrThrow({ where: { waId } });
+    expect(usuario.consentimientoAceptadoEn).toBeInstanceOf(Date);
   });
 
   it("stores an anonymous incident: registered, uncategorized, signed by the citizen, with its creation history", async () => {

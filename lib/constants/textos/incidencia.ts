@@ -1,8 +1,22 @@
 import { noPudimosLeerText } from "@/lib/constants/textos/comunes";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
+import { CHANNELS } from "@/lib/constants/textos/canales-oficiales";
+import type { ConsentButtons } from "@/lib/fsm/core/types";
 
-export const ASK_UBICACION_TEXT = "¿En qué establecimiento de salud ocurrió? Escribe su nombre o su código IPRESS.";
+export const AVISO_EMERGENCIA_DENUNCIA_TEXT = `⚠️ ESTE CANAL NO ATIENDE EMERGENCIAS MÉDICAS
+
+Si usted o su familiar presentan una emergencia con riesgo vital, llame de inmediato (llamadas gratuitas):
+
+- *SAMU: ${CHANNELS.samu}* (ambulancias y emergencias médicas)
+- *Bomberos: ${CHANNELS.bomberos}* (rescate y urgencias)`;
+
+export const ASK_UBICACION_DENUNCIA_TEXT =
+  "Vamos, cuéntame, ¿en qué establecimiento de salud ocurrió? *Escribe su nombre o su código IPRESS*.";
+
+export const avisoDenunciaText = (lead: string): string => [lead, AVISO_EMERGENCIA_DENUNCIA_TEXT].filter(Boolean).join("\n\n");
+export const askUbicacionDenunciaText = (lead: string): string => `${avisoDenunciaText(lead)}\n\n${ASK_UBICACION_DENUNCIA_TEXT}`;
+
 export const ASK_OTRA_UBICACION_TEXT = "Escribe el nombre del establecimiento o su código IPRESS.";
 export const CODIGO_NO_ENCONTRADO_TEXT = `No encontré ese código. ${ASK_OTRA_UBICACION_TEXT}`;
 export const UBICACION_ILEGIBLE_TEXT = noPudimosLeerText(ASK_OTRA_UBICACION_TEXT);
@@ -18,7 +32,6 @@ export const OMITIR_BUTTONS = [
   { id: IncidenciaButtonId.OMITIR_NO, title: "No, indicarlo" },
 ];
 
-export const INCIDENCIA_LEAD_IN_TEXT = "Vamos a registrar tu denuncia.";
 export const UBICACION_NO_UBICADA_TEXT = "Disculpa, no logramos ubicar el establecimiento.";
 export const ubicacionDistritoLineText = (distrito: string): string => `\nDistrito: ${distrito}`;
 
@@ -28,15 +41,17 @@ export const confirmUbicacionText = (nombre: string, codigoRenipress: string, di
 export const UBICACION_NO_DISPONIBLE_TEXT = "No pudimos buscar el establecimiento en este momento.";
 export const UBICACION_VARIOS_TEXT = "Hay varios establecimientos que se parecen. Escribe su nombre completo o su código IPRESS.";
 export const UBICACION_NO_ENCONTRADA_TEXT = "No encontré ese establecimiento. Escribe su nombre completo o su código IPRESS.";
-export const ubicacionAceptadaText = (nombre: string): string => `Perfecto, registraremos tu denuncia en *${nombre}*.`;
+export const IDENTITY_QUESTION_TEXT = "¿Deseas registrar tu denuncia con tu número de documento o prefieres que sea anónima?";
+export const OMITIR_ACEPTADO_TEXT = `Entendido, seguiremos sin indicar el establecimiento. ${IDENTITY_QUESTION_TEXT}`;
+
+export const ubicacionAceptadaText = (nombre: string): string =>
+  `Perfecto, registraremos tu denuncia en *${nombre}*. ¿Deseas registrarla con tu número de documento o prefieres que sea anónima?`;
 export const UBICACION_CONFIRM_RETRY_TEXT = "¿Es ese el establecimiento donde ocurrió? Toca Sí o No.";
 export const OMITIR_QUESTION_TEXT = "¿Quieres continuar sin indicar el establecimiento?";
 export const OMITIR_RETRY_TEXT = `${OMITIR_QUESTION_TEXT} Toca Sí o No.`;
-export const OMITIR_ACEPTADO_TEXT = "Entendido, seguiremos sin indicar el establecimiento.";
-export const IDENTITY_QUESTION_TEXT = "¿Deseas ser anónimo o ingresar tu número de documento de identidad?";
 
 export const INCIDENCIA_IDENTIDAD_BUTTONS = [
-  { id: IncidenciaButtonId.CON_DOCUMENTO, title: "Ingresar documento" },
+  { id: IncidenciaButtonId.CON_DOCUMENTO, title: "Con mi documento" },
   { id: IncidenciaButtonId.ANONIMO, title: "Prefiero ser anónimo" },
 ];
 
@@ -44,8 +59,16 @@ export const CONTINUAR_ANONIMO_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, titl
 export const AVISO_PRIVACIDAD_TEXT =
   "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu denuncia.";
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
+export const CONSENT_TITULO_TEXT = "Autorización de datos";
+export const CONSENT_PROMPT_TEXT = "Para registrar tu denuncia necesitamos tu autorización.";
+export const CONSENT_ACCEPT_LABEL = "Acepto, autorizo mis datos";
+export const CONSENT_REOPEN_LABEL = "Revisar autorización";
+export const consentimientoBubbleText = (lead: string): string => [lead, CONSENT_PROMPT_TEXT].filter(Boolean).join(" ");
 
-export const CONSENT_BUTTONS = [
+export const consentimientoWhatsappText = (lead: string): string =>
+  `${[lead, AVISO_PRIVACIDAD_TEXT].filter(Boolean).join(" ")}\n\n${CONSENT_QUESTION_TEXT}`;
+
+export const CONSENT_BUTTONS: ConsentButtons = [
   { id: IncidenciaButtonId.CONSENT_SI, title: "Sí, autorizo" },
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
 ];
