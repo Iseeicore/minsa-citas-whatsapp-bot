@@ -6,6 +6,7 @@ import { toMessageDto } from "@/lib/inbox/dto";
 import { findLastInbound, findUser } from "@/lib/inbox/repository";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { CONVERSACION_NO_ENCONTRADA_TEXT } from "@/lib/constants/textos/bandeja";
 import { sendOperatorMessage } from "@/lib/whatsapp/operator-send";
 import { OperatorSendStatus } from "@/lib/enums/operator-send-status";
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
   const usuario = await findUser(conversationId);
 
   if (!usuario) {
-    return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
+    return apiError(ApiErrorCode.NOT_FOUND, { message: CONVERSACION_NO_ENCONTRADA_TEXT });
   }
 
   const lastInbound = await findLastInbound(conversationId);

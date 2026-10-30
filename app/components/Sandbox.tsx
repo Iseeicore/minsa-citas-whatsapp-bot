@@ -30,6 +30,10 @@ const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
 const WELCOME_TRIGGER_TEXT = "Hola";
 
+const RESET_CONFIRM_TEXT = "Esto reiniciará esta conversación de prueba. ¿Continuar?";
+
+const RESET_BUTTON_TEXT = "Reiniciar esta prueba";
+
 const INBOUND_TYPE_BY_OPTION_KIND: Readonly<Record<ChatOptionKind, InboundEventType>> = {
   [ChatOptionKind.LIST]: InboundEventTypeEnum.LIST,
   [ChatOptionKind.BUTTONS]: InboundEventTypeEnum.BUTTON,
@@ -148,7 +152,7 @@ export default function Sandbox({
   }
 
   function handleReset() {
-    if (!window.confirm("Esto reiniciará esta conversación de prueba. ¿Continuar?")) {
+    if (!window.confirm(RESET_CONFIRM_TEXT)) {
       return;
     }
     setEntries([]);
@@ -202,7 +206,7 @@ export default function Sandbox({
           {showDebugPanel && (
             <div className="flex items-center justify-end px-4 pt-2">
               <Button variant={ButtonVariant.PILL_NEUTRAL} onClick={handleReset}>
-                Reiniciar esta prueba
+                {RESET_BUTTON_TEXT}
               </Button>
             </div>
           )}
