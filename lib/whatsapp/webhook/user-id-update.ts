@@ -32,6 +32,7 @@ export function extractBsuidChanges(value: WhatsAppValue): BsuidChange[] {
 export async function applyBsuidChange({ previous, current }: BsuidChange): Promise<BsuidChangeOutcome> {
   return prisma.$transaction(async (tx) => {
     await declararActorEn(tx, ACTOR_EXTERNO_META);
+    await tx.consultaIncidenciaIntento.updateMany({ where: { identificador: previous }, data: { identificador: current } });
 
     const anterior = await tx.usuario.findUnique({ where: { waId: previous }, select: { id: true } });
     if (!anterior) return "unchanged";

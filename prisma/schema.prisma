@@ -65,6 +65,7 @@ model CanalOrigen {
 
   incidencias          IncidenciaPaciente[]
   aceptacionesTerminos AceptacionTerminos[]
+  consultasIncidencia  ConsultaIncidenciaIntento[]
 
   @@map("canal_origen")
   @@schema("catalogo")
@@ -505,6 +506,19 @@ model AceptacionTerminos {
 
   @@index([waId], map: "ix_aceptacion_terminos_wa_id")
   @@map("aceptacion_terminos")
+  @@schema("chatbot")
+}
+
+model ConsultaIncidenciaIntento {
+  id            String      @id(map: "pk_consulta_incidencia_intento") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identificador String
+  canalOrigenId Int         @map("canal_origen_id") @db.SmallInt
+  resultado     String
+  fechaCreacion DateTime    @default(now()) @map("fecha_creacion") @db.Timestamptz(3)
+  canalOrigen   CanalOrigen @relation(fields: [canalOrigenId], references: [id], map: "fk_consulta_incidencia_intento_canal_origen")
+
+  @@index([identificador, fechaCreacion], map: "ix_consulta_incidencia_intento_identificador_fecha")
+  @@map("consulta_incidencia_intento")
   @@schema("chatbot")
 }
 
