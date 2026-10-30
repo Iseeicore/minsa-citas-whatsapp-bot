@@ -9,10 +9,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
     store.set(from, structuredClone(session));
   },
 }));
-vi.mock("@/lib/composition/stores", () => ({
-  getConsentimientoStore: () => ({ tieneAceptado: async () => false, marcarAceptado: async () => undefined }),
-  getAceptacionTerminosStore: () => ({ save: async () => undefined }),
-}));
+vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
 vi.mock("@/lib/recepcion/repositorio", () => ({
   tieneConsentimientoAceptado: async () => true,
   marcarConsentimientoAceptado: async () => undefined,

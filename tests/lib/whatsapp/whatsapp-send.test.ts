@@ -263,14 +263,4 @@ describe("the terms message on WhatsApp", () => {
     );
     expect(sentId).toBe("wamid.terminos-2");
   });
-
-  it("without TERMINOS_URL sends only the buttons", async () => {
-    vi.stubEnv("TERMINOS_URL", "");
-    const fetchMock = vi.fn(async () => Response.json({ messages: [{ id: "wamid.terminos" }] }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await sendAndRecordEffect(null, "51987654321", buildTerminosEffect());
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-  });
 });

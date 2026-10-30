@@ -1,27 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
-import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
-import type { HandlerResult, InboundEvent, QueryEffect, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { EstablecimientoConfirmButtonId } from "@/lib/enums/establecimiento-confirm-button-id";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { queries, queryResult, sent, tap, text } from "@/tests/support/fsm-events";
 
-const FROM = "sandbox-estab-unico";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "button", listId: id });
-const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown): QueryResultEvent => ({
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind,
-  result,
-});
-
-const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-const queries = (result: HandlerResult): QueryEffect[] => result.effects.filter(isQueryEffect);
 const buttonsOf = (result: HandlerResult) => {
   const buttons = sent(result).find((effect) => effect.kind === "send_buttons");
   if (!buttons || buttons.kind !== "send_buttons") throw new Error("no buttons sent");

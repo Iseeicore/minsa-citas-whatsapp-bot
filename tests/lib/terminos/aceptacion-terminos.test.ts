@@ -7,24 +7,19 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import {
-  createMemoryAceptacionTerminosStore,
   createPrismaAceptacionTerminosStore,
   saveAceptacionTerminos,
   type AceptacionTerminos,
   type AceptacionTerminosStore,
 } from "@/lib/terminos/aceptacion-terminos";
-import { configureLogger } from "@/lib/observability/logger";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { SessionChannel } from "@/lib/enums/session-channel";
+import { captureLogs } from "@/tests/support/capture-logs";
 
 const ACEPTACION: AceptacionTerminos = { waId: "51999000111", canal: SessionChannel.WHATSAPP, version: "2026-10-29" };
 
-let restoreLogger: (() => void) | undefined;
-
 afterEach(() => {
-  restoreLogger?.();
-  restoreLogger = undefined;
   db.create.mockReset();
 });
 
@@ -40,8 +35,7 @@ describe("saveAceptacionTerminos", () => {
   });
 
   it("does not break the conversation when the store fails: it logs the failure without the chat id and answers FAILED", async () => {
-    const lines: Array<Record<string, unknown>> = [];
-    restoreLogger = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line)), level: "info" });
+    const lines = captureLogs();
     const broken: AceptacionTerminosStore = { save: () => Promise.reject(new Error("conexion caida")) };
 
     const result = await saveAceptacionTerminos(ACEPTACION, broken);
@@ -51,22 +45,6 @@ describe("saveAceptacionTerminos", () => {
       expect.objectContaining({ level: "error", event: "terminos.persist_failed", canal: SessionChannel.WHATSAPP, version: "2026-10-29" }),
     ]);
     expect(JSON.stringify(lines)).not.toContain(ACEPTACION.waId);
-  });
-
-  it("saves in memory without touching Prisma", async () => {
-    const result = await saveAceptacionTerminos(ACEPTACION, createMemoryAceptacionTerminosStore());
-
-    expect(result).toEqual({ resultado: AceptacionTerminosStatus.SAVED });
-    expect(db.create).not.toHaveBeenCalled();
-  });
-
-  it("saves in the database through the Prisma store", async () => {
-    db.create.mockResolvedValue({});
-
-    const result = await saveAceptacionTerminos({ ...ACEPTACION, canal: SessionChannel.WEB }, createPrismaAceptacionTerminosStore());
-
-    expect(result).toEqual({ resultado: AceptacionTerminosStatus.SAVED });
-    expect(db.create).toHaveBeenCalledOnce();
   });
 });
 

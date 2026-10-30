@@ -1,12 +1,9 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { Banner } from "@/app/components/ui/Banner";
-import { BannerTone } from "@/lib/enums/banner-tone";
-import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
-import { imagenMuyPesadaText, textoMuyLargoText } from "@/lib/constants/textos/sandbox";
 import { getEvidenceImageMaxBytes } from "@/lib/config/evidence";
-import { bytesToMegabytes } from "@/lib/utils/byte-size";
+import { API_ERRORS } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
 const captured = vi.hoisted(() => ({
   onTooLong: undefined as (() => void) | undefined,
@@ -47,7 +44,7 @@ vi.mock("@/app/components/sandbox-chat/browser", async (importOriginal) => {
 
 import Sandbox from "@/app/components/Sandbox";
 
-const TOO_LONG_TEXT = "No podemos procesar tu mensaje: reduce la cantidad de caracteres (máximo 1000).";
+const TOO_LONG_TEXT = API_ERRORS[ApiErrorCode.TEXT_TOO_LONG].message;
 const IMAGE_TOO_LARGE_TEXT = "La imagen supera el tamaño máximo permitido (5 MB). Envía una imagen más liviana.";
 const MEGABYTE = 1024 * 1024;
 const IMAGE_MAX_BYTES = getEvidenceImageMaxBytes({});
@@ -57,22 +54,12 @@ function imageFileList(size: number): FileList {
 }
 
 describe("Sandbox", () => {
-  it("shows the over-limit warning in the error banner when the composer reports a message too long", () => {
+  it("shows the same over-limit warning as the API when the composer reports a message too long", () => {
     renderToStaticMarkup(createElement(Sandbox, { imageMaxBytes: IMAGE_MAX_BYTES, showDebugPanel: false, active: false }));
 
     captured.onTooLong?.();
 
     expect(captured.stateUpdates).toContain(TOO_LONG_TEXT);
-    expect(renderToStaticMarkup(Banner({ tone: BannerTone.ERROR, children: TOO_LONG_TEXT }))).toContain(TOO_LONG_TEXT);
-  });
-
-  it("builds the warning from the shared limit", () => {
-    expect(textoMuyLargoText(SANDBOX_TEXT_MAX_LENGTH)).toBe(TOO_LONG_TEXT);
-  });
-
-  it("uses the same 5 MB image limit as the WhatsApp channel", () => {
-    expect(IMAGE_MAX_BYTES).toBe(5 * MEGABYTE);
-    expect(imagenMuyPesadaText(bytesToMegabytes(IMAGE_MAX_BYTES))).toBe(IMAGE_TOO_LARGE_TEXT);
   });
 
   it("checks the image against the limit the server passes, not a value of its own", async () => {

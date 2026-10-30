@@ -24,6 +24,9 @@ import { POST } from "@/app/api/sandbox/route";
 import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
+import { API_ERRORS } from "@/lib/http/api-error";
+import { ApiErrorCode } from "@/lib/enums/api-error-code";
 
 async function send(body: Record<string, unknown>) {
   const request = new NextRequest("http://localhost/api/sandbox", {
@@ -32,7 +35,10 @@ async function send(body: Record<string, unknown>) {
     body: JSON.stringify({ from: "sandbox-qa", ...body }),
   });
   const response = await POST(request);
-  return { status: response.status, json: (await response.json()) as { sent: Array<{ kind: string; text?: string }> } };
+  return {
+    status: response.status,
+    json: (await response.json()) as { sent: Array<{ kind: string; text?: string }>; error?: string; message?: string },
+  };
 }
 
 beforeEach(() => {
@@ -120,6 +126,36 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.resetSession).toHaveBeenCalledTimes(1);
     expect(mocks.sessionRowExists).not.toHaveBeenCalled();
     expect(mocks.saveSession).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ state: "main_menu" }));
+  });
+});
+
+describe("the Chat-bot API limits the text to the shared maximum", () => {
+  beforeEach(() => {
+    mocks.sessionRowExists.mockResolvedValue(true);
+  });
+
+  it("accepts a text of exactly the limit and runs the turn", async () => {
+    const text = "a".repeat(SANDBOX_TEXT_MAX_LENGTH);
+
+    const { status } = await send({ type: "text", text });
+
+    expect(status).toBe(200);
+    expect(mocks.runTurn).toHaveBeenCalledWith("sandbox-qa", expect.objectContaining({ text }), expect.anything());
+  });
+
+  it("answers 422 TEXT_TOO_LONG with the citizen message for one character more, without running the turn", async () => {
+    const { status, json } = await send({ type: "text", text: "a".repeat(SANDBOX_TEXT_MAX_LENGTH + 1) });
+
+    expect(status).toBe(422);
+    expect(json).toEqual({ error: ApiErrorCode.TEXT_TOO_LONG, message: API_ERRORS[ApiErrorCode.TEXT_TOO_LONG].message });
+    expect(mocks.runTurn).not.toHaveBeenCalled();
+  });
+
+  it("keeps INVALID_BODY for any other validation error", async () => {
+    const { status, json } = await send({ type: "voz", text: "hola" });
+
+    expect(status).toBe(400);
+    expect(json).toMatchObject({ error: ApiErrorCode.INVALID_BODY });
   });
 });
 

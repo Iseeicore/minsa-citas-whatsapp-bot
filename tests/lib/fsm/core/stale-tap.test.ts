@@ -17,10 +17,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   },
 }));
 vi.mock("@/lib/recepcion/servicio", () => ({ registrarIncidencia: store.registrar }));
-vi.mock("@/lib/composition/stores", () => ({
-  getConsentimientoStore: () => ({ tieneAceptado: async () => false, marcarAceptado: async () => undefined }),
-  getAceptacionTerminosStore: () => ({ save: async () => undefined }),
-}));
+vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
 vi.mock("@/lib/recepcion/repositorio", () => ({
   tieneConsentimientoAceptado: async () => false,
   marcarConsentimientoAceptado: async () => undefined,

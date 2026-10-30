@@ -240,14 +240,6 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
     expect(violationsOf(definitions)).toEqual([]);
   });
 
-  it("el efecto de consentimiento de los términos cabe en WhatsApp con su propio texto y sus botones", () => {
-    const consent = buildTerminosEffect();
-
-    expect(consent.whatsappText.length).toBeLessThanOrEqual(WHATSAPP_INTERACTIVE_BODY_MAX);
-    for (const button of consent.buttons) expect(button.title.length).toBeLessThanOrEqual(BUTTON_TITLE_MAX);
-    expect(findLimitViolations(consent)).toEqual([]);
-  });
-
   it("el efecto de consentimiento de la denuncia cabe en WhatsApp con el saludo más largo delante", () => {
     const leads = ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT];
 

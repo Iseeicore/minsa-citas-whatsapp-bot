@@ -1,25 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { toSandboxTurnFailureResponse } from "@/lib/http/sandbox-turn-failure";
 import { API_ERRORS } from "@/lib/http/api-error";
-import { configureLogger } from "@/lib/observability/logger";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
+import { captureLogs } from "@/tests/support/capture-logs";
 
 const WA_ID = "51999000123";
-
-let restoreLogger: (() => void) | undefined;
-
-function captureLogs(): Array<Record<string, unknown>> {
-  const lines: Array<Record<string, unknown>> = [];
-  restoreLogger = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line)), level: "info" });
-  return lines;
-}
-
-afterEach(() => {
-  restoreLogger?.();
-  restoreLogger = undefined;
-});
 
 describe("toSandboxTurnFailureResponse", () => {
   it("logs the cause of an unexpected failure without the full chat id and answers the generic 500", async () => {

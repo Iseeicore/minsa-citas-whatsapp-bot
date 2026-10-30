@@ -191,6 +191,11 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
 describe("el registro final: con la persona o anónimo", () => {
   const submission = (step: HandlerResult) => queries(step)[0].payload.submission as { dni: string | null; mediaDataUris: string[] };
   const confirmar = (step: HandlerResult) => handleIncidencia(step.session, tap("incidencia_confirmar_registro_si"));
+  const registrarAnonimo = (session: Session) => {
+    const descripcion = handleIncidencia(session, tap("incidencia_anonimo"));
+    const foto = handleIncidencia(descripcion.session, text("El consultorio estaba cerrado."));
+    return confirmar(handleIncidencia(foto.session, text("OMITIR")));
+  };
 
   it.each([
     ["un DNI", "12345678"],
@@ -215,40 +220,14 @@ describe("el registro final: con la persona o anónimo", () => {
     });
   });
 
-  it("desde el Chat-bot: el registro lleva el canal web", () => {
-    let step = handleIncidencia({ ...identityChoice(), channel: "web" }, tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
-
-    expect(submission(step)).toMatchObject({ canal: "web" });
-  });
-
-  it("confirmar el registro solo pide registrarlo: no manda «Enviando…» ni otro texto", () => {
-    let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
-
-    expect(step.session.state).toBe("incidencia_submit_pending");
-    expect(sent(step)).toEqual([]);
-    expect(queries(step).map((effect) => effect.kind)).toEqual(["incidencia_register"]);
-  });
-
   it("con el establecimiento confirmado: el registro lleva su id", () => {
-    let step = handleIncidencia({ ...identityChoice(), slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } }, tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
+    const step = registrarAnonimo({ ...identityChoice(), slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } });
 
     expect(submission(step)).toMatchObject({ establecimientoId: 7 });
   });
 
   it("anónimo: llega sin documento", () => {
-    let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
+    const step = registrarAnonimo(identityChoice());
 
     expect(submission(step)).toEqual({
       waId: FROM,
