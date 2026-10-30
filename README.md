@@ -102,9 +102,9 @@ Para usar la base de datos se necesitan `DATABASE_ENABLED=true` y `DATABASE_URL`
 ## Documentación
 
 - [docs/despliegue-minsa.md](docs/despliegue-minsa.md): base de datos, todas las variables, imagen Docker, arranque y comprobaciones para infraestructura
-- [docs/desarrollo.md](docs/desarrollo.md): canales, desarrollo local, modos de persistencia, estructura, pruebas y notas técnicas
+- [docs/desarrollo.md](docs/desarrollo.md): canales, desarrollo local, modos de persistencia, estructura, pruebas (`npm run test:coverage` mide la cobertura), hook de pre-commit y notas técnicas
 - [prisma/README.md](prisma/README.md): migraciones, SQL, carga inicial y cómo se cambia una regla de la base
 - [docs/flujo-cita.md](docs/flujo-cita.md), [docs/flujo-referencias.md](docs/flujo-referencias.md) y [docs/flujo-incidencia.md](docs/flujo-incidencia.md): los flujos de la conversación
-- [docs/observabilidad.md](docs/observabilidad.md) y [docs/ci.md](docs/ci.md): logs, trazas y enmascarado; qué comprueba el CI y la regla de `main`
+- [docs/observabilidad.md](docs/observabilidad.md) y [docs/ci.md](docs/ci.md): logs, trazas y enmascarado; qué comprueba el CI (con los umbrales de cobertura) y la regla de `main`
 - [docs/brechas-tecnicas.md](docs/brechas-tecnicas.md) y [docs/canales-fuera-de-alcance.md](docs/canales-fuera-de-alcance.md): pendientes abiertos
 - [docs/qa/guia-pruebas-manuales.md](docs/qa/guia-pruebas-manuales.md): casos de prueba manual
