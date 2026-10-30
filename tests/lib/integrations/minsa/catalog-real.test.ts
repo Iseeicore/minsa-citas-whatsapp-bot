@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listEspecialidades, listEstablecimientos, listFechas, listHoras, searchUbigeo } from "@/lib/integrations/minsa/catalog";
 import { readNumber, readString } from "@/lib/utils/record-readers";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { configureLogger } from "@/lib/observability/logger";
 
 const minsaResponding = (body: unknown, status = 200) =>
   vi.fn().mockImplementation(async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
@@ -129,12 +130,27 @@ describe("real MINSA — catalog pipeline", () => {
     await expect(listFechas("6181", "02", "b")).resolves.toEqual({ status: "error" });
   });
 
-  it("keeps 'empty' for a genuinely empty list or a missing list", async () => {
+  it("keeps 'empty' only for a genuinely empty list", async () => {
     vi.stubGlobal("fetch", minsaResponding({ data: { horarios: [] } }));
-    await expect(listHoras("6181", "02", "20260920", "b")).resolves.toEqual({ status: "empty" });
 
-    vi.stubGlobal("fetch", minsaResponding({ data: {} }));
     await expect(listHoras("6181", "02", "20260920", "b")).resolves.toEqual({ status: "empty" });
+  });
+
+  it.each([
+    ["a missing list", { data: {} }],
+    ["an error envelope", { success: false, message: "Error interno" }],
+    ["an unparsable body", "<html>"],
+  ])("ends in 'error' and logs the broken contract for %s, never 'empty'", async (_case, body) => {
+    const records: Array<Record<string, unknown>> = [];
+    const restore = configureLogger({ level: "warn", sink: (_level, line) => records.push(JSON.parse(line) as Record<string, unknown>) });
+    vi.stubGlobal("fetch", minsaResponding(body));
+
+    try {
+      await expect(listHoras("6181", "02", "20260920", "b")).resolves.toEqual({ status: "error" });
+      expect(records.find((record) => record.event === "minsa.catalog.contract_mismatch")).toMatchObject({ endpoint: MinsaEndpoint.HORAS });
+    } finally {
+      restore();
+    }
   });
 
   it("maps 401 to unauthorized, other HTTP failures, a non-array list and an unparsable body to error", async () => {

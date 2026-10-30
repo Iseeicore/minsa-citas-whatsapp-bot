@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bookAppointment } from "@/lib/integrations/minsa/booking";
-import { configureLogger } from "@/lib/observability/logger";
+import { configureLogger, logger } from "@/lib/observability/logger";
 
 describe("real MINSA — bookAppointment", () => {
   const params = {
@@ -113,6 +113,29 @@ describe("real MINSA — bookAppointment", () => {
       url: "https://dminsadigital.minsa.gob.pe/citas/confirmacion/ABC",
       message: "Cita creada correctamente",
     });
+  });
+
+  it.each([
+    ["not JSON", () => "<html>"],
+    ["unreadable", () => new ReadableStream({ start: (controller) => controller.error(new TypeError("terminated")) })],
+  ])("a 2xx whose body is %s is a logged error, never a rejection", async (_case, body) => {
+    const error = vi.spyOn(logger, "error");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body(), { status: 200 })));
+
+    await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({ status: "error" });
+    expect(error).toHaveBeenCalledWith("minsa.book_appointment.failed", expect.objectContaining({ status: 200 }));
+  });
+
+  it.each([
+    ["booked", { data: { url: "https://x.test/ok" } }],
+    ["rejected", { success: false }],
+  ])("a %s answer without a MINSA message leaves the message missing so the default text applies", async (status, body) => {
+    vi.stubGlobal("fetch", minsaResponding(JSON.stringify(body), 200));
+
+    const result = await bookAppointment(params, "bearer-token");
+
+    expect(result.status).toBe(status);
+    expect("message" in result ? result.message : undefined).toBeUndefined();
   });
 
   it("a 401 is unauthorized regardless of body", async () => {

@@ -3,8 +3,8 @@ import { postWithBearer } from "@/lib/integrations/minsa/wire";
 import type { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { isRecord } from "@/lib/utils/type-guards";
-
-const HTTP_UNAUTHORIZED = 401;
+import { logger } from "@/lib/observability/logger";
+import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
 
 export type CatalogFetchResult<T> =
   | { status: CatalogStatus.FOUND; items: T[]; page?: number; totalPages?: number }
@@ -35,11 +35,19 @@ export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promi
   if (response.status === HTTP_UNAUTHORIZED) return { status: CatalogStatus.UNAUTHORIZED };
   if (!response.ok) return { status: CatalogStatus.ERROR };
 
-  const body: unknown = await response.json().catch(() => undefined);
-  if (body === undefined) return { status: CatalogStatus.ERROR };
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch (error: unknown) {
+    logger.error("minsa.catalog.contract_mismatch", { endpoint: params.endpoint, reason: "unreadable_body", error });
+    return { status: CatalogStatus.ERROR };
+  }
 
-  const rawRows = rowsAt(body, params.rowsPath) ?? [];
-  if (!Array.isArray(rawRows)) return { status: CatalogStatus.ERROR };
+  const rawRows = rowsAt(body, params.rowsPath);
+  if (!Array.isArray(rawRows)) {
+    logger.error("minsa.catalog.contract_mismatch", { endpoint: params.endpoint, reason: "rows_missing" });
+    return { status: CatalogStatus.ERROR };
+  }
   if (rawRows.length === 0) return { status: CatalogStatus.EMPTY };
 
   const items = parseRows(params.endpoint, rawRows, params.parseRow);

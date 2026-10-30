@@ -33,8 +33,10 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `external.http` | info / warn / error | `service`, `operation`, `method`, `path`, `status`, `durationMs` |
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
-| `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
+| `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload`; o `endpoint`, `status` y `error` si el cuerpo de la respuesta no se pudo leer. También un 2xx sin JSON legible, que se trata como error y no como rechazo |
 | `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total`. Filas de un catálogo o de las referencias médicas que no pasaron la validación de la frontera |
+| `minsa.catalog.contract_mismatch` | error | `endpoint`, `reason` (`unreadable_body` o `rows_missing`) y `error` si el cuerpo no se pudo leer. Un catálogo o las referencias médicas respondieron 2xx sin la lista esperada (otro sobre, un sobre de error o un cuerpo que no es JSON); se trata como falla, nunca como lista vacía |
+| `minsa.identity.contract_mismatch` | error | `endpoint`, `reason` (`body_not_object`, `no_explicit_answer` o `token_missing`). Validar usuario o verificar código respondió 2xx sin una respuesta explícita; se trata como falla del servicio, nunca como documento no válido ni código incorrecto |
 | `minsa.request_blocked` | error | `path`, `reason`. Una llamada autenticada al MINSA real no se envió porque falta `MINSA_DIGITAL_APP_URL` y no se puede armar `Origin` ni `Referer`; quien llamó recibe un 503 sin cuerpo y lo trata como error del MINSA |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
 | `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el texto fijo «Ocurrió un inconveniente temporal…», **como mucho una vez cada 30 s por número** (C4.2: una ráfaga que falla entera no manda un aviso por mensaje) |
