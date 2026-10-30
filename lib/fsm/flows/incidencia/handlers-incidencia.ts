@@ -6,7 +6,7 @@ import {
   askDescripcion,
   askFoto,
   handleConfirmRegistro,
-  MAX_IMAGEN_LEGIBLE,
+  maxImagenLegible,
 } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import {
@@ -29,7 +29,7 @@ import {
   withRejectionNotice,
   readTrimmedText,
 } from "@/lib/fsm/core/handlers-shared";
-import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import type { HandleEvent, HandlerResult, InboundEvent, InboundMedia, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -46,15 +46,10 @@ import {
   documentoNoGuardadoText,
   FOTO_BUTTONS,
   FOTO_LISTO_BUTTONS,
-  IMAGEN_NO_DESCARGADA_TEXT,
-  imagenNoValidaText,
-  IMAGEN_REPETIDA_TEXT,
   LISTO_KEYWORD,
   SEGUIR_CON_IMAGENES_TEXT,
   SEGUIR_SIN_IMAGENES_TEXT,
-  imagenNoGuardadaMuyPesadaText,
-  imagenRecibidaText,
-  imagenesCompletasText,
+  imagenesRecibidasText,
   INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT,
   DAILY_LIMIT_TEXT,
   REGISTRO_FALLIDO_TEXT,
@@ -77,6 +72,7 @@ import {
 import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/validacion";
 import { MediaFailure } from "@/lib/enums/media-failure";
 import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
+import { EvidenceRejection } from "@/lib/enums/evidence-rejection";
 import { readImagenes, writeImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 
 function cancel(): HandlerResult {
@@ -178,7 +174,7 @@ function isFile(event: InboundEvent): boolean {
 
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
   if (event.type === InboundEventType.IMAGE) return handleImagen(session, event);
-  if (isFile(event)) return rechazoDeImagen(session, documentoNoGuardadoText(MAX_IMAGEN_LEGIBLE));
+  if (isFile(event)) return rechazoDeImagen(session, documentoNoGuardadoText(maxImagenLegible()));
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR || event.listId === IncidenciaButtonId.FOTO_LISTO) {
     return askConfirmRegistro(session);
   }
@@ -206,36 +202,55 @@ function rechazoDeImagen(session: Session, motivo: string): HandlerResult {
   return buildResult(session, [sendButtons(`${motivo} ${seguir}`, hasImagenes ? FOTO_LISTO_BUTTONS : FOTO_BUTTONS)]);
 }
 
-const motivoDeImagenRechazada = (failure: ImageValidationFailure): string =>
-  failure === ImageValidationFailure.TOO_LARGE ? imagenNoGuardadaMuyPesadaText(MAX_IMAGEN_LEGIBLE) : imagenNoValidaText(MAX_IMAGEN_LEGIBLE);
+const MOTIVO_DE_FALLA_DE_DESCARGA: Readonly<Record<MediaFailure, EvidenceRejection>> = {
+  [MediaFailure.TOO_LARGE]: EvidenceRejection.TOO_LARGE,
+  [MediaFailure.UNREADABLE]: EvidenceRejection.NOT_DOWNLOADED,
+  [MediaFailure.OVER_LIMIT]: EvidenceRejection.OVER_LIMIT,
+};
+
+const motivoDeImagenInvalida = (failure: ImageValidationFailure): EvidenceRejection =>
+  failure === ImageValidationFailure.TOO_LARGE ? EvidenceRejection.TOO_LARGE : EvidenceRejection.INVALID;
+
+function imagenUnica(event: InboundEvent): InboundMedia {
+  return event.mediaDataUri ? { dataUri: event.mediaDataUri } : { failure: event.mediaFailure ?? MediaFailure.UNREADABLE };
+}
+
+function motivoDeRechazo(imagen: InboundMedia, aceptadas: string[]): EvidenceRejection | undefined {
+  if (aceptadas.length >= MAX_IMAGENES_POR_INCIDENCIA) return EvidenceRejection.OVER_LIMIT;
+  if ("failure" in imagen) return MOTIVO_DE_FALLA_DE_DESCARGA[imagen.failure];
+
+  const validada = validarImagen(imagen.dataUri);
+  if (esImagenRechazada(validada)) return motivoDeImagenInvalida(validada.failure);
+  return aceptadas.includes(imagen.dataUri) ? EvidenceRejection.DUPLICATE : undefined;
+}
 
 function handleImagen(session: Session, event: InboundEvent): HandlerResult {
-  const imagenes = readImagenes(session.slots);
+  const recibidas = event.media?.length ? event.media : [imagenUnica(event)];
+  const previas = readImagenes(session.slots);
+  const aceptadas = [...previas];
+  const rechazos = new Map<EvidenceRejection, number>();
 
-  if (imagenes.length >= MAX_IMAGENES_POR_INCIDENCIA) {
-    const confirm = askConfirmRegistro(session);
-    return { ...confirm, effects: [sendText(imagenesCompletasText(MAX_IMAGENES_POR_INCIDENCIA)), ...confirm.effects] };
+  for (const imagen of recibidas) {
+    const motivo = motivoDeRechazo(imagen, aceptadas);
+    if (motivo) rechazos.set(motivo, (rechazos.get(motivo) ?? 0) + 1);
+    else if ("dataUri" in imagen) aceptadas.push(imagen.dataUri);
   }
-
-  if (event.mediaFailure === MediaFailure.TOO_LARGE) {
-    return rechazoDeImagen(session, imagenNoGuardadaMuyPesadaText(MAX_IMAGEN_LEGIBLE));
-  }
-  if (!event.mediaDataUri) return rechazoDeImagen(session, IMAGEN_NO_DESCARGADA_TEXT);
-
-  const imagen = validarImagen(event.mediaDataUri);
-  if (esImagenRechazada(imagen)) return rechazoDeImagen(session, motivoDeImagenRechazada(imagen.failure));
-  if (imagenes.includes(event.mediaDataUri)) return rechazoDeImagen(session, IMAGEN_REPETIDA_TEXT);
 
   const next = cloneSession(session);
-  writeImagenes(next.slots, [...imagenes, event.mediaDataUri]);
-  const cantidad = imagenes.length + 1;
+  if (aceptadas.length > previas.length) writeImagenes(next.slots, aceptadas);
 
-  if (cantidad >= MAX_IMAGENES_POR_INCIDENCIA) {
-    const confirm = askConfirmRegistro(next);
-    return { ...confirm, effects: [sendText(imagenesCompletasText(MAX_IMAGENES_POR_INCIDENCIA)), ...confirm.effects] };
-  }
+  const resultado = imagenesRecibidasText({
+    recibidas: recibidas.length,
+    guardadas: aceptadas.length - previas.length,
+    total: aceptadas.length,
+    maximo: MAX_IMAGENES_POR_INCIDENCIA,
+    tamano: maxImagenLegible(),
+    rechazos: [...rechazos],
+  });
 
-  return buildResult(next, [sendButtons(imagenRecibidaText(cantidad, MAX_IMAGENES_POR_INCIDENCIA), FOTO_LISTO_BUTTONS)]);
+  if (aceptadas.length >= MAX_IMAGENES_POR_INCIDENCIA) return askConfirmRegistro(next, resultado);
+  if (aceptadas.length === 0) return buildResult(next, [sendButtons(`${resultado} ${SEGUIR_SIN_IMAGENES_TEXT}`, FOTO_BUTTONS)]);
+  return buildResult(next, [sendButtons(`${resultado} ${SEGUIR_CON_IMAGENES_TEXT}`, FOTO_LISTO_BUTTONS)]);
 }
 
 function handleFotoIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
@@ -257,7 +272,7 @@ function confirmationText(session: Session, codigo: string | undefined): string 
 
 function failureText(reason: string | undefined): string {
   if (reason === RegistrationRejectReason.DAILY_LIMIT) return DAILY_LIMIT_TEXT;
-  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return imagenMuyPesadaText(MAX_IMAGEN_LEGIBLE);
+  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return imagenMuyPesadaText(maxImagenLegible());
   return REGISTRO_FALLIDO_TEXT;
 }
 

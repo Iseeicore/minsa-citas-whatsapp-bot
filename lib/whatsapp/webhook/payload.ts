@@ -1,7 +1,9 @@
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 import { downloadWhatsAppMediaAsDataUri } from "@/lib/whatsapp/whatsapp-media";
-import type { InboundEvent } from "@/lib/fsm/core/types";
+import type { InboundEvent, InboundMedia } from "@/lib/fsm/core/types";
+import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
+import { MediaFailure } from "@/lib/enums/media-failure";
 import { SessionState } from "@/lib/enums/session-state";
 
 export type WhatsAppContact = {
@@ -122,7 +124,18 @@ export function tapReplyTo(message: WhatsAppMessage): string | undefined {
   return tapped ? message.context?.id || undefined : undefined;
 }
 
-export async function toInboundEvent(waId: string, message: WhatsAppMessage, sessionState: string): Promise<InboundEvent | null> {
+async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
+  const downloaded = await Promise.all(mediaIds.slice(0, MAX_IMAGENES_POR_INCIDENCIA).map(downloadWhatsAppMediaAsDataUri));
+  const overLimit = mediaIds.slice(MAX_IMAGENES_POR_INCIDENCIA).map((): InboundMedia => ({ failure: MediaFailure.OVER_LIMIT }));
+  return [...downloaded, ...overLimit];
+}
+
+export async function toInboundEvent(
+  waId: string,
+  message: WhatsAppMessage,
+  sessionState: string,
+  mediaIds?: string[],
+): Promise<InboundEvent | null> {
   if (message.type === "text") {
     return { from: waId, type: "text", text: message.text?.body };
   }
@@ -139,6 +152,9 @@ export async function toInboundEvent(waId: string, message: WhatsAppMessage, ses
   }
 
   if (sessionState === SessionState.INCIDENCIA_AWAITING_FOTO) {
+    if (message.type === "image" && mediaIds && mediaIds.length > 1) {
+      return { from: waId, type: "image", media: await downloadEvidence(mediaIds) };
+    }
     if (message.type === "image" && message.image?.id) {
       const download = await downloadWhatsAppMediaAsDataUri(message.image.id);
       const media = "dataUri" in download ? { mediaDataUri: download.dataUri } : { mediaFailure: download.failure };

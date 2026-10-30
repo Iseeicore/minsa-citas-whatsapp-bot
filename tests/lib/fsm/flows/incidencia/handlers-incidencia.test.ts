@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { MediaFailure } from "@/lib/enums/media-failure";
-import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, InboundEvent, InboundMedia, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import {
@@ -153,7 +153,7 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
     expect(result.session.state).toBe("incidencia_awaiting_foto");
     expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe("El consultorio estaba cerrado.");
     expect(texts(result)).toEqual([
-      "¿Quieres enviar una *imagen (JPG o PNG, hasta 5 MB)* como evidencia? Es *opcional*: envíala ahora, o toca *Omitir* (o escribe OMITIR) para continuar sin ella.",
+      "¿Quieres enviar *imágenes* como evidencia? Es *opcional*.\n• *JPG o PNG*, hasta *5 MB* cada una, máximo *5*.\n• Selecciónalas y envíalas *juntas*: revisaremos cada una y te diremos cuáles se guardaron y cuáles no.\nSi no tienes, toca *Omitir*.",
     ]);
   });
 
@@ -295,11 +295,15 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     expect(texts(result)[0]).toContain("(2 de 5)");
   });
 
-  it("al llegar a la quinta pasa a confirmar y avisa que es el máximo", () => {
+  it("al llegar a la quinta pasa a confirmar en un solo mensaje, con el acuse delante del resumen", () => {
     const result = handleIncidencia(conImagenes(4), { ...file("image"), mediaDataUri: PNG_B });
 
     expect(result.session.state).toBe("incidencia_confirm_registro");
-    expect(texts(result)[0]).toContain("es el máximo por denuncia");
+    expect(sent(result)).toHaveLength(1);
+    expect(texts(result)[0].startsWith("Recibimos tu imagen (5 de 5): se guardó.\n\nLa información está lista para ser registrada.")).toBe(
+      true,
+    );
+    expect(texts(result)[0]).toContain("Imágenes adjuntas: 5");
     expect(imagenesDe(result)).toHaveLength(5);
   });
 
@@ -314,7 +318,9 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaFailure: MediaFailure.TOO_LARGE });
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
-    expect(texts(result)[0]).toContain("pesa más de 5 MB y no se guardó");
+    expect(texts(result)[0]).toBe(
+      "Recibimos tu imagen (0 de 5): no se guardó, porque pesa más de 5 MB. Puedes enviar otra imagen o tocar *Omitir* para continuar sin ella.",
+    );
     expect(texts(result)[0]).toContain("Omitir");
     expect(result.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
   });
@@ -332,14 +338,14 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     const result = handleIncidencia(awaitingFoto(), file("image"));
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
-    expect(texts(result)[0]).toContain("No pudimos descargar esa imagen desde WhatsApp, por eso no se guardó");
+    expect(texts(result)[0]).toContain("no se guardó, porque no se pudo descargar de WhatsApp");
     expect(result.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
   });
 
   it("un archivo que no es imagen válida se rechaza con su motivo", () => {
     const result = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: "data:text/html;base64,PGI+" });
 
-    expect(texts(result)[0]).toContain("Solo aceptamos imágenes JPG o PNG de hasta 5 MB; esa imagen no se guardó.");
+    expect(texts(result)[0]).toContain("no se guardó, porque no es una imagen JPG o PNG válida.");
   });
 
   it.each([
@@ -351,7 +357,7 @@ describe("incidencia_awaiting_foto: hasta cinco imágenes de referencia", () => 
     const result = handleIncidencia(conImagenes(1), { ...file("image"), mediaDataUri });
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
-    expect(texts(result)[0]).toContain("Solo aceptamos imágenes JPG o PNG de hasta 5 MB; esa imagen no se guardó.");
+    expect(texts(result)[0]).toContain("no se guardó, porque no es una imagen JPG o PNG válida.");
     expect(imagenesDe(result)).toHaveLength(1);
   });
 
@@ -749,5 +755,112 @@ describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
     expect(result.session.state).toBe("incidencia_confirm_registro");
     expect(texts(result)[0]).toContain("No pudimos identificar tu respuesta");
     expect(sent(result)[1]).toMatchObject({ kind: "send_buttons" });
+  });
+});
+
+describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una sola respuesta", () => {
+  const lote = (...media: InboundMedia[]): InboundEvent => ({ from: FROM, type: "image", media });
+  const valida = (indice: number): InboundMedia => ({ dataUri: pngDe(indice) });
+  const LISTO = [{ id: "incidencia_foto_listo", title: "Listo" }];
+
+  it("un lote de 3 imágenes se guarda entero y se responde una vez, con el botón Listo", () => {
+    const result = handleIncidencia(awaitingFoto(), lote(valida(10), valida(11), valida(12)));
+
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(imagenesDe(result)).toEqual([pngDe(10), pngDe(11), pngDe(12)]);
+    expect(sent(result)).toEqual([
+      {
+        kind: "send_buttons",
+        text: "Recibimos 3 imágenes (3 de 5): las 3 se guardaron. Puedes enviar más o tocar *Listo* para continuar.",
+        buttons: LISTO,
+      },
+    ]);
+  });
+
+  it("un lote con rechazos de distinto motivo dice cuántas se guardaron y por qué no las otras, agrupadas", () => {
+    const result = handleIncidencia(
+      awaitingFoto(),
+      lote(
+        valida(10),
+        { failure: MediaFailure.TOO_LARGE },
+        { dataUri: "data:text/html;base64,PGI+" },
+        { failure: MediaFailure.UNREADABLE },
+      ),
+    );
+
+    expect(imagenesDe(result)).toEqual([pngDe(10)]);
+    expect(texts(result)).toEqual([
+      "Recibimos 4 imágenes (1 de 5): 1 se guardó y 3 no, porque 1 pesa más de 5 MB, 1 no es una imagen JPG o PNG válida y 1 no se pudo descargar de WhatsApp. Puedes enviar más o tocar *Listo* para continuar.",
+    ]);
+  });
+
+  it("varias rechazadas por el mismo motivo se cuentan juntas, en plural", () => {
+    const result = handleIncidencia(awaitingFoto(), lote({ failure: MediaFailure.TOO_LARGE }, { failure: MediaFailure.TOO_LARGE }));
+
+    expect(result.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
+    expect(sent(result)).toEqual([
+      {
+        kind: "send_buttons",
+        text: "Recibimos 2 imágenes (0 de 5): ninguna se guardó, porque pesan más de 5 MB. Puedes enviar otra imagen o tocar *Omitir* para continuar sin ella.",
+        buttons: [{ id: "incidencia_foto_omitir", title: "Omitir" }],
+      },
+    ]);
+  });
+
+  it("una imagen repetida dentro del mismo lote, o ya guardada antes, no se guarda dos veces", () => {
+    const result = handleIncidencia(conImagenes(1), lote(valida(10), valida(10), valida(0)));
+
+    expect(imagenesDe(result)).toEqual([pngDe(0), pngDe(10)]);
+    expect(texts(result)[0]).toBe(
+      "Recibimos 3 imágenes (2 de 5): 1 se guardó y 2 no, porque ya las habías enviado. Puedes enviar más o tocar *Listo* para continuar.",
+    );
+  });
+
+  it("las que pasan del máximo de 5 se cuentan como no guardadas y el tope pasa al resumen en un solo mensaje", () => {
+    const result = handleIncidencia(conImagenes(3), lote(valida(10), valida(11), valida(12), valida(13)));
+
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(imagenesDe(result)).toEqual([pngDe(0), pngDe(1), pngDe(2), pngDe(10), pngDe(11)]);
+    expect(sent(result)).toHaveLength(1);
+    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons", buttons: [{ title: "Registrar" }, { title: "Cancelar" }] });
+    expect(
+      texts(result)[0].startsWith(
+        "Recibimos 4 imágenes (5 de 5): 2 se guardaron y 2 no, porque superan el máximo de 5.\n\nLa información está lista para ser registrada.",
+      ),
+    ).toBe(true);
+    expect(texts(result)[0]).toContain("Imágenes adjuntas: 5");
+  });
+
+  it("un álbum de 5 se responde con un único mensaje que ya es el resumen para registrar", () => {
+    const result = handleIncidencia(awaitingFoto(), lote(valida(10), valida(11), valida(12), valida(13), valida(14)));
+
+    expect(result.session.state).toBe("incidencia_confirm_registro");
+    expect(sent(result)).toHaveLength(1);
+    expect(texts(result)[0].startsWith("Recibimos 5 imágenes (5 de 5): las 5 se guardaron.\n\n")).toBe(true);
+  });
+
+  it("las que la descarga dejó fuera por pasar del máximo también se cuentan como no guardadas", () => {
+    const result = handleIncidencia(awaitingFoto(), lote(valida(10), { failure: MediaFailure.OVER_LIMIT }));
+
+    expect(texts(result)[0]).toContain("1 se guardó y 1 no, porque supera el máximo de 5.");
+  });
+
+  it("una sola imagen por el camino de siempre responde igual que un lote de una", () => {
+    const sola = handleIncidencia(awaitingFoto(), { ...file("image"), mediaDataUri: pngDe(10) });
+    const deUna = handleIncidencia(awaitingFoto(), lote(valida(10)));
+
+    expect(sola).toEqual(deUna);
+    expect(texts(sola)).toEqual(["Recibimos tu imagen (1 de 5): se guardó. Puedes enviar más o tocar *Listo* para continuar."]);
+  });
+
+  it("el acuse respeta el máximo que fija EVIDENCE_IMAGE_MAX_MB", () => {
+    vi.stubEnv("EVIDENCE_IMAGE_MAX_MB", "3");
+    try {
+      const result = handleIncidencia(awaitingFoto(), lote({ failure: MediaFailure.TOO_LARGE }));
+
+      expect(texts(result)[0]).toContain("no se guardó, porque pesa más de 3 MB");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

@@ -37,6 +37,48 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
     expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaFailure: "too_large" });
   });
 
+  it("an album downloads every image in parallel and travels as one event with one entry per image, in order", async () => {
+    const pending: Array<(value: unknown) => void> = [];
+    for (let call = 0; call < 3; call += 1) media.download.mockImplementationOnce(() => new Promise((resolve) => pending.push(resolve)));
+
+    const eventPromise = toInboundEvent(WA, message({ type: "image", image: { id: "m3" } }), "incidencia_awaiting_foto", [
+      "m1",
+      "m2",
+      "m3",
+    ]);
+    await vi.waitFor(() => expect(pending).toHaveLength(3));
+    pending[2]({ dataUri: "data:image/png;base64,CCCC" });
+    pending[0]({ dataUri: "data:image/png;base64,AAAA" });
+    pending[1]({ failure: "too_large" });
+
+    expect(await eventPromise).toEqual({
+      from: WA,
+      type: "image",
+      media: [{ dataUri: "data:image/png;base64,AAAA" }, { failure: "too_large" }, { dataUri: "data:image/png;base64,CCCC" }],
+    });
+    expect(media.download.mock.calls.map((call) => (call as unknown[])[0])).toEqual(["m1", "m2", "m3"]);
+  });
+
+  it("an album over the cap downloads only the first five and marks the rest as over the limit", async () => {
+    const ids = ["m1", "m2", "m3", "m4", "m5", "m6", "m7"];
+    const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m7" } }), "incidencia_awaiting_foto", ids);
+
+    expect(media.download).toHaveBeenCalledTimes(5);
+    expect(event?.media).toHaveLength(7);
+    expect(event?.media?.slice(5)).toEqual([{ failure: "over_limit" }, { failure: "over_limit" }]);
+  });
+
+  it("a single media id keeps the single-image event", async () => {
+    const event = await toInboundEvent(WA, message({ type: "image", image: { id: "m1" } }), "incidencia_awaiting_foto", ["m1"]);
+
+    expect(event).toEqual({ from: WA, type: "image", text: undefined, mediaDataUri: "data:image/png;base64,AAAA" });
+  });
+
+  it("an album outside the evidence step is ignored and nothing is downloaded", async () => {
+    await expect(toInboundEvent(WA, message({ type: "image", image: { id: "m2" } }), "main_menu", ["m1", "m2"])).resolves.toBeNull();
+    expect(media.download).not.toHaveBeenCalled();
+  });
+
   it("a document (a PDF) becomes a document event: it is never downloaded and its file name is not read", async () => {
     const event = await toInboundEvent(
       WA,

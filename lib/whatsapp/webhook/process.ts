@@ -32,7 +32,7 @@ import { isObject } from "@/lib/utils/type-guards";
 const inboundCoalescer = createInboundCoalescer({
   buffer: createPostgresInboundBuffer(),
   runTurn: withTurnLock,
-  answer: answerMessage,
+  answer: (turn, usuarioId, marks) => answerMessage(turn.message, usuarioId, marks, turn.mediaIds),
   notifyStale: async (waId) => {
     if (failureNoticeThrottle.shouldNotify(waId)) await sendFixedReply(waId, INTERRUPTION_NOTICE_TEXT);
   },

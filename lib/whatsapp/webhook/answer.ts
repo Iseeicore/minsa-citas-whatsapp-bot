@@ -99,7 +99,12 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
   });
 }
 
-export async function answerMessage(message: WhatsAppMessage, conversationId: string | null, marks?: LatencyMarks): Promise<void> {
+export async function answerMessage(
+  message: WhatsAppMessage,
+  conversationId: string | null,
+  marks?: LatencyMarks,
+  mediaIds?: string[],
+): Promise<void> {
   const waId = message.from_user_id;
   const existingSession = await findSession(waId);
 
@@ -108,7 +113,7 @@ export async function answerMessage(message: WhatsAppMessage, conversationId: st
     return;
   }
 
-  const inboundEvent = await toInboundEvent(waId, message, existingSession.state);
+  const inboundEvent = await toInboundEvent(waId, message, existingSession.state, mediaIds);
   if (!inboundEvent) return;
 
   const first = firstSendMarker(marks);

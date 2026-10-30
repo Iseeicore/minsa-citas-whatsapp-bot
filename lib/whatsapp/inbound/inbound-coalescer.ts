@@ -9,10 +9,12 @@ import {
   INBOUND_REPEAT_WINDOW_MS,
 } from "@/lib/whatsapp/inbound/inbound-policy";
 
+export type InboundTurn = { message: WhatsAppMessage; mediaIds?: string[] };
+
 export type InboundCoalescerDeps = {
   buffer: InboundBuffer;
   runTurn: (waId: string, task: () => Promise<void>) => Promise<void>;
-  answer: (message: WhatsAppMessage, usuarioId: string, marks?: LatencyMarks) => Promise<void>;
+  answer: (turn: InboundTurn, usuarioId: string, marks?: LatencyMarks) => Promise<void>;
   notifyStale: (waId: string) => Promise<void>;
   sleep: (ms: number) => Promise<void>;
   now: () => number;
@@ -20,19 +22,48 @@ export type InboundCoalescerDeps = {
 
 export type InboundInput = { message: WhatsAppMessage; usuarioId: string; windowMs: number; marks?: LatencyMarks };
 
-function mergeBatch(rows: PendingInbound[], own: WhatsAppMessage): WhatsAppMessage {
-  const texts = rows.filter((row) => row.tipoMensajeId === TipoMensajeId.TEXTO && row.contenido);
-  if (texts.length !== rows.length) return own;
+type Run = { tipo: TipoMensajeId | null; rows: PendingInbound[] };
 
-  const last = rows[rows.length - 1];
-  if (rows.length === 1 && last.waMessageId === own.id) return own;
+const groupedTipo = (row: PendingInbound): TipoMensajeId | null =>
+  (row.tipoMensajeId === TipoMensajeId.TEXTO && row.contenido) || row.tipoMensajeId === TipoMensajeId.IMAGEN ? row.tipoMensajeId : null;
 
+function baseMessage(row: PendingInbound, own: WhatsAppMessage, type: string): WhatsAppMessage {
   return {
-    ...own,
-    id: last.waMessageId,
-    type: "text",
-    text: { body: rows.map((row) => row.contenido).join("\n") },
+    id: row.waMessageId,
+    from_user_id: own.from_user_id,
+    ...(own.from ? { from: own.from } : {}),
+    timestamp: String(Math.floor(row.fechaHora.getTime() / 1000)),
+    type,
   };
+}
+
+function textTurn(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn {
+  const last = rows[rows.length - 1];
+  if (rows.length === 1 && last.waMessageId === own.id) return { message: own };
+  return { message: { ...baseMessage(last, own, "text"), text: { body: rows.map((row) => row.contenido).join("\n") } } };
+}
+
+function imageTurn(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn {
+  const mediaIds = rows.map((row) => row.mediaId).filter((mediaId): mediaId is string => !!mediaId);
+  const last = rows[rows.length - 1];
+  if (rows.length === 1 && last.waMessageId === own.id) return { message: own, mediaIds };
+  return { message: { ...baseMessage(last, own, "image"), image: { id: mediaIds[mediaIds.length - 1] } }, mediaIds };
+}
+
+export function groupBatch(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn[] {
+  const runs: Run[] = [];
+  for (const row of rows) {
+    const tipo = groupedTipo(row);
+    const current = runs[runs.length - 1];
+    if (current && tipo !== null && current.tipo === tipo) current.rows.push(row);
+    else runs.push({ tipo, rows: [row] });
+  }
+
+  return runs.flatMap((run): InboundTurn[] => {
+    if (run.tipo === TipoMensajeId.TEXTO) return [textTurn(run.rows, own)];
+    if (run.tipo === TipoMensajeId.IMAGEN) return [imageTurn(run.rows, own)];
+    return run.rows.some((row) => row.waMessageId === own.id) ? [{ message: own }] : [];
+  });
 }
 
 export function createInboundCoalescer(deps: InboundCoalescerDeps) {
@@ -48,8 +79,7 @@ export function createInboundCoalescer(deps: InboundCoalescerDeps) {
         marks?.mark("lock");
         const rows = await buffer.claim(usuarioId, INBOUND_MAX_BATCH, message.id);
         claimed = rows.length;
-        if (rows.length === 0) return;
-        await deps.answer(mergeBatch(rows, message), usuarioId, marks);
+        for (const turn of groupBatch(rows, message)) await deps.answer(turn, usuarioId, marks);
       });
     } while (claimed === INBOUND_MAX_BATCH);
   }

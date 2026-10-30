@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_IMAGE_BYTES, parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
+import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
+import { evidenceImageMaxBytes } from "@/lib/config/evidence";
 import { guardarImagenHttp } from "@/lib/recepcion/imagenes/almacen-http";
 import { isMediaStorageConfigured } from "@/lib/recepcion/imagenes/config";
 import { ImageStorageError } from "@/lib/errors/image-storage-error";
@@ -34,9 +35,22 @@ describe("reading an image data URI", () => {
   });
 
   it("flags an image over the size limit without decoding it twice", () => {
-    const big = Buffer.alloc(MAX_IMAGE_BYTES + 1, 1).toString("base64");
+    const big = Buffer.alloc(evidenceImageMaxBytes() + 1, 1).toString("base64");
 
     expect(parseImageDataUri(`data:image/jpeg;base64,${big}`)).toEqual({ tooLarge: true });
+  });
+
+  it("takes the size limit from EVIDENCE_IMAGE_MAX_MB", () => {
+    vi.stubEnv("EVIDENCE_IMAGE_MAX_MB", "1");
+    try {
+      const overOneMegabyte = Buffer.alloc(1024 * 1024 + 1, 1).toString("base64");
+      const withinOneMegabyte = Buffer.alloc(1024 * 1024, 1).toString("base64");
+
+      expect(parseImageDataUri(`data:image/jpeg;base64,${overOneMegabyte}`)).toEqual({ tooLarge: true });
+      expect(parseImageDataUri(`data:image/jpeg;base64,${withinOneMegabyte}`)).not.toEqual({ tooLarge: true });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
@@ -141,7 +155,7 @@ describe("validating an evidence image before storing it", () => {
   });
 
   it("rejects an image over the size limit as too large, before looking at its signature", () => {
-    const big = Buffer.alloc(MAX_IMAGE_BYTES + 1, 1).toString("base64");
+    const big = Buffer.alloc(evidenceImageMaxBytes() + 1, 1).toString("base64");
 
     expect(validarImagen(`data:image/jpeg;base64,${big}`)).toEqual({ failure: ImageValidationFailure.TOO_LARGE });
   });

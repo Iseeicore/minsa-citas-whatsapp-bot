@@ -8,6 +8,7 @@ type ClaimedRow = {
   usuario_id: string;
   wa_message_id: string;
   contenido: string | null;
+  media_id: string | null;
   tipo_mensaje_id: number;
   fecha_hora: Date;
   fecha_creacion: Date;
@@ -36,12 +37,12 @@ export function createPostgresInboundBuffer(): InboundBuffer {
           WHERE id IN (
             SELECT id FROM chatbot.mensaje
             WHERE usuario_id = ${usuarioId}::uuid AND direccion_mensaje_id = ${ENTRANTE} AND procesado_en IS NULL
-              AND (tipo_mensaje_id = ${TipoMensajeId.TEXTO} OR wa_message_id = ${ownerWaMessageId})
+              AND (tipo_mensaje_id IN (${TipoMensajeId.TEXTO}, ${TipoMensajeId.IMAGEN}) OR wa_message_id = ${ownerWaMessageId})
             ORDER BY fecha_hora, fecha_creacion
             LIMIT ${limit}
             FOR UPDATE
           )
-          RETURNING usuario_id, wa_message_id, contenido, tipo_mensaje_id, fecha_hora, fecha_creacion`,
+          RETURNING usuario_id, wa_message_id, contenido, media_id, tipo_mensaje_id, fecha_hora, fecha_creacion`,
       ]);
 
       return rows
@@ -49,6 +50,7 @@ export function createPostgresInboundBuffer(): InboundBuffer {
           usuarioId: row.usuario_id,
           waMessageId: row.wa_message_id,
           contenido: row.contenido,
+          mediaId: row.media_id,
           tipoMensajeId: row.tipo_mensaje_id as TipoMensajeId,
           fechaHora: row.fecha_hora,
           arrivedAt: row.fecha_creacion,

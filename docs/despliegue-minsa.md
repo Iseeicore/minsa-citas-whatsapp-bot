@@ -80,6 +80,7 @@ TERMINOS_URL=
 MEDIA_STORAGE_BASE_URL=
 MEDIA_STORAGE_TOKEN=
 MEDIA_STORAGE_TIMEOUT_MS=
+EVIDENCE_IMAGE_MAX_MB=
 LOG_LEVEL=info
 LOG_TO_FILE=false
 ```
@@ -94,6 +95,7 @@ LOG_TO_FILE=false
 | `MEDIA_STORAGE_BASE_URL` | Servicio donde se guarda la foto de evidencia de una incidencia | La foto se recibe pero no se guarda, y queda un aviso en el log |
 | `MEDIA_STORAGE_TOKEN` | Credencial de ese servicio, si la pide | Sin credencial |
 | `MEDIA_STORAGE_TIMEOUT_MS` | Tiempo máximo de espera de ese servicio | 10 000 ms |
+| `EVIDENCE_IMAGE_MAX_MB` | Peso máximo de cada imagen de evidencia de una denuncia, en MB, entero de 1 a 5 (Meta no admite imágenes de más de 5 MB) | 5 MB. Un valor fuera de rango se ignora y `/api/health` marca `degraded` |
 | `LOG_LEVEL` | Nivel de logs: `info`, `warn`, `error` o `silent` | `info` |
 | `LOG_TO_FILE` | `true` además escribe los logs en archivos | Solo consola, lo adecuado para Docker |
 

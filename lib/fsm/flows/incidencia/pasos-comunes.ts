@@ -29,12 +29,15 @@ import { renderWithinLength } from "@/lib/utils/fit-text";
 import { formatMegabytes } from "@/lib/utils/format-megabytes";
 import { maskDocumento } from "@/lib/utils/mask-documento";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
+import { evidenceImageMaxBytes } from "@/lib/config/evidence";
+import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
 
-export const MAX_IMAGEN_LEGIBLE = formatMegabytes(MAX_IMAGE_BYTES);
+export function maxImagenLegible(): string {
+  return formatMegabytes(evidenceImageMaxBytes());
+}
 
 export function askFoto() {
-  return sendButtons(fotoRequestText(MAX_IMAGEN_LEGIBLE), FOTO_BUTTONS);
+  return sendButtons(fotoRequestText(maxImagenLegible(), MAX_IMAGENES_POR_INCIDENCIA), FOTO_BUTTONS);
 }
 
 export function askDescripcion(session: Session): string {
@@ -64,7 +67,7 @@ export function afterDescripcion(session: Session): HandlerResult {
   return buildResult(next, [askFoto()]);
 }
 
-function resumenRegistro(session: Session): string {
+function resumenRegistro(session: Session, lead?: string): string {
   const descripcion = slotText(session.slots, SlotKey.DESCRIPCION_INCIDENCIA);
   const establecimiento = slotText(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE);
   const documento = slotText(session.slots, SlotKey.DNI);
@@ -72,6 +75,7 @@ function resumenRegistro(session: Session): string {
 
   const render = ([relatoMostrado, establecimientoMostrado]: string[]): string =>
     [
+      ...(lead ? [lead, ""] : []),
       RESUMEN_LISTO_TEXT,
       establecimiento ? resumenEstablecimientoText(establecimientoMostrado) : undefined,
       resumenRelatoText(relatoMostrado),
@@ -86,10 +90,10 @@ function resumenRegistro(session: Session): string {
   return renderWithinLength([descripcion, establecimiento], render, WHATSAPP_INTERACTIVE_BODY_MAX);
 }
 
-export function askConfirmRegistro(session: Session): HandlerResult {
+export function askConfirmRegistro(session: Session, lead?: string): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_CONFIRM_REGISTRO;
-  return buildResult(next, [sendButtons(resumenRegistro(next), CONFIRM_REGISTRO_BUTTONS)]);
+  return buildResult(next, [sendButtons(resumenRegistro(next, lead), CONFIRM_REGISTRO_BUTTONS)]);
 }
 
 export function handleConfirmRegistro(session: Session, event: InboundEvent): HandlerResult {

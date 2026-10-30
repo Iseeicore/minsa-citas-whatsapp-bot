@@ -18,7 +18,7 @@ const SANDBOX_AVATAR_TEXT = "MD";
 const SANDBOX_ROW_TITLE_TEXT = "Asistente MINSA Responde";
 const SANDBOX_ROW_HINT_TEXT = "Toca para iniciar una conversación de prueba";
 
-export default function Home() {
+export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [mode, setMode] = useState<Mode>(initialModeFromQuery);
   const [mobileShowingDetail, setMobileShowingDetail] = useState(false);
@@ -37,7 +37,7 @@ export default function Home() {
         </aside>
 
         <main className="h-full overflow-hidden">
-          {mode === "real" ? <ConversationPane conversation={selectedConversation} /> : <Sandbox />}
+          {mode === "real" ? <ConversationPane conversation={selectedConversation} /> : <Sandbox imageMaxBytes={imageMaxBytes} />}
         </main>
       </div>
 
@@ -66,7 +66,7 @@ export default function Home() {
             {mode === "real" ? (
               <ConversationPane conversation={selectedConversation} onBack={() => setMobileShowingDetail(false)} />
             ) : (
-              <Sandbox onBack={() => setMobileShowingDetail(false)} />
+              <Sandbox imageMaxBytes={imageMaxBytes} onBack={() => setMobileShowingDetail(false)} />
             )}
           </div>
         )}
