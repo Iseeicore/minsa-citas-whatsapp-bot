@@ -43,6 +43,8 @@ import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { MatchKind } from "@/lib/enums/match-kind";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
+import type { FechaAiResult } from "@/lib/fsm/parsing/ai/fecha";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 type FechaResultItem = {
@@ -128,12 +130,13 @@ function askFechaAi(session: Session, typed: string): HandlerResult | undefined 
 }
 
 export function handleFechaAiPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { id?: unknown; quiereSalir?: boolean };
+  const result = event.result as FechaAiResult;
   const offered = readOffered(session.slots);
 
   const restored = cloneSession(session);
   restored.state = SessionState.CITA_AWAITING_FECHA_SELECT;
 
+  if (result.status === AiTaskStatus.UNAVAILABLE) return reshowOffered(restored, offered, FECHA_NOT_IDENTIFIED_TEXT);
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
 
   if (isString(result.id) && offered?.rows.some((row) => row.id === result.id)) {

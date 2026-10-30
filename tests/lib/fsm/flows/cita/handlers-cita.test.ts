@@ -16,6 +16,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
 
 const FROM = "sandbox-test";
 
@@ -619,6 +620,17 @@ describe("fecha select — typed dates and AI fallback", () => {
       expect(listRowsOf(result)).toEqual(fechas.rows);
     },
   );
+
+  it("an unavailable AI returns to the offered dates with the same explanation, even if the answer carried an id", () => {
+    const pending = at("cita_fecha_ai_pending", fechas);
+
+    const result = handle(pending, queryResult("resolve_fecha_ai", { status: AiTaskStatus.UNAVAILABLE, id: "23/09/2026" }));
+
+    expect(result.session.state).toBe(state);
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("No pudimos identificar");
+    expect(listRowsOf(result)).toEqual(fechas.rows);
+  });
 });
 
 describe("especialidad/establecimiento — hints from a message that names more than one thing", () => {
@@ -719,6 +731,20 @@ describe("especialidad/establecimiento — hints from a message that names more 
     const pending = at("cita_selection_hints_pending", especialidades, { [SlotKey.CITA_SELECTION_STEP]: "especialidad" });
 
     const result = handle(pending, queryResult("extract_selection_hints", { especialidad: "Cardiología" }));
+
+    expect(result.session.state).toBe(especialidadState);
+    expect(queries(result)).toHaveLength(0);
+    expect((sent(result)[0] as { text: string }).text).toContain("No pudimos identificar");
+    expect(listRowsOf(result)).toEqual(especialidades.rows);
+  });
+
+  it("an unavailable AI goes back to the list, even if the answer carried a hint", () => {
+    const pending = at("cita_selection_hints_pending", especialidades, { [SlotKey.CITA_SELECTION_STEP]: "especialidad" });
+
+    const result = handle(
+      pending,
+      queryResult("extract_selection_hints", { status: AiTaskStatus.UNAVAILABLE, especialidad: "Odontología" }),
+    );
 
     expect(result.session.state).toBe(especialidadState);
     expect(queries(result)).toHaveLength(0);

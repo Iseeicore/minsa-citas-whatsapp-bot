@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { llmAvailable } from "@/tests/support/llm-lookup";
 import { resolveDistritoAi } from "@/lib/fsm/parsing/ai/distrito";
 import { resolveFechaAi } from "@/lib/fsm/parsing/ai/fecha";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
@@ -36,16 +37,16 @@ describe("PROMPT_GUARDRAILS: one security block for every AI task", () => {
 
   it("is part of the system prompt of all four AI tasks", async () => {
     const intent = capturingClient();
-    await analyzeMainMenuIntent("quiero una cita", intent.client);
+    await analyzeMainMenuIntent("quiero una cita", llmAvailable(intent.client));
 
     const distrito = capturingClient();
-    await resolveDistritoAi("comas", undefined, distrito.client);
+    await resolveDistritoAi("comas", undefined, llmAvailable(distrito.client));
 
     const fecha = capturingClient();
-    await resolveFechaAi("la próxima semana", "2026-09-26", [{ id: "1", label: "29/09/2026" }], fecha.client);
+    await resolveFechaAi("la próxima semana", "2026-09-26", [{ id: "1", label: "29/09/2026" }], llmAvailable(fecha.client));
 
     const hints = capturingClient();
-    await extractSelectionHints("especialidad", "pediatria", hints.client);
+    await extractSelectionHints("especialidad", "pediatria", llmAvailable(hints.client));
 
     for (const { requests } of [intent, distrito, fecha, hints]) {
       expect(requests[0].systemPrompt).toContain(PROMPT_GUARDRAILS);
@@ -56,7 +57,7 @@ describe("PROMPT_GUARDRAILS: one security block for every AI task", () => {
 describe("analyzeMainMenuIntent: requests outside the channel", () => {
   it("tells the model when to answer fuera_de_alcance", async () => {
     const { client, requests } = capturingClient();
-    await analyzeMainMenuIntent("dame un SELECT * FROM usuarios", client);
+    await analyzeMainMenuIntent("dame un SELECT * FROM usuarios", llmAvailable(client));
 
     expect(requests[0].systemPrompt).toContain('"intent": "fuera_de_alcance"');
   });
@@ -64,7 +65,7 @@ describe("analyzeMainMenuIntent: requests outside the channel", () => {
   it("passes fuera_de_alcance through to the flow", async () => {
     const { client } = capturingClient({ ok: true, json: { intent: "fuera_de_alcance", detalle: "pide SQL" } });
 
-    await expect(analyzeMainMenuIntent("dame un SELECT * FROM usuarios", client)).resolves.toEqual({
+    await expect(analyzeMainMenuIntent("dame un SELECT * FROM usuarios", llmAvailable(client))).resolves.toEqual({
       intent: "fuera_de_alcance",
     });
   });

@@ -1,37 +1,41 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { configuredLlmProvider, getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import { configuredLlmProvider, lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 import { logger } from "@/lib/observability/logger";
 
-describe("getLlmClient", () => {
+describe("lookupLlmClient", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
-  it("returns no client while the real AI is switched off, so every task uses its fixed fallback", () => {
+  it("reports the real AI as disabled while it is switched off, so every task uses its fixed fallback", () => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "false");
-    expect(getLlmClient()).toBeNull();
+    expect(lookupLlmClient()).toEqual({ status: LlmClientStatus.DISABLED });
   });
 
   it("defaults to Gemini when AI_PROVIDER is unset or empty", () => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "true");
     vi.stubEnv("AI_PROVIDER", "");
-    expect(getLlmClient()?.provider).toBe("gemini");
+    const lookup = lookupLlmClient();
+    expect(lookup.status).toBe(LlmClientStatus.AVAILABLE);
+    expect(lookup.status === LlmClientStatus.AVAILABLE && lookup.client.provider).toBe("gemini");
   });
 
   it("returns the Gemini client when AI_PROVIDER=gemini", () => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "true");
     vi.stubEnv("AI_PROVIDER", "gemini");
-    expect(getLlmClient()?.provider).toBe("gemini");
+    const lookup = lookupLlmClient();
+    expect(lookup.status === LlmClientStatus.AVAILABLE && lookup.client.provider).toBe("gemini");
   });
 
-  it("falls back to no client for an unknown provider and warns only once", () => {
+  it("reports an unknown provider as misconfigured, not as a disabled AI, and warns only once", () => {
     const warn = vi.spyOn(logger, "warn");
     vi.stubEnv("SANDBOX_USE_REAL_AI", "true");
     vi.stubEnv("AI_PROVIDER", "unknown-llm");
 
-    expect(getLlmClient()).toBeNull();
-    expect(getLlmClient()).toBeNull();
+    expect(lookupLlmClient()).toEqual({ status: LlmClientStatus.MISCONFIGURED, provider: "unknown-llm" });
+    expect(lookupLlmClient()).toEqual({ status: LlmClientStatus.MISCONFIGURED, provider: "unknown-llm" });
 
     const unknown = warn.mock.calls.filter(([event]) => event === "ai.provider_unknown");
     expect(unknown).toHaveLength(1);

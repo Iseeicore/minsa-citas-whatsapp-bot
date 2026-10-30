@@ -1,5 +1,7 @@
-import type { JsonSchema, LlmClient } from "@/lib/fsm/parsing/ai/llm";
-import { getLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
+import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import { logAiFallback, misconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
+import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 import { DistritoAiOutcome } from "@/lib/enums/distrito-ai-outcome";
 import { DISTRITO_AI_SYSTEM_PROMPT, distritoDirectAnswerLine, distritoInitialMessageLine } from "@/lib/constants/prompts/distrito";
 import { isString } from "@/lib/utils/type-guards";
@@ -74,14 +76,19 @@ function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
 export async function resolveDistritoAiDetailed(
   distritoText: string,
   contextText?: string,
-  llm: LlmClient | null = getLlmClient(),
+  lookup: LlmClientLookup = lookupLlmClient(),
 ): Promise<ResolveDistritoAiDetailedResult> {
-  if (llm) {
+  if (lookup.status === LlmClientStatus.MISCONFIGURED) {
+    logAiFallback("resolve_distrito_ai", "failed", misconfiguredProviderReason(lookup.provider));
+    return FAILED;
+  }
+
+  if (lookup.status === LlmClientStatus.AVAILABLE) {
     const userTurn = [distritoDirectAnswerLine(distritoText), contextText ? distritoInitialMessageLine(contextText) : null]
       .filter(Boolean)
       .join("\n");
 
-    const outcome = await llm.generateJson({
+    const outcome = await lookup.client.generateJson({
       operation: "resolve_distrito_ai",
       systemPrompt: DISTRITO_AI_SYSTEM_PROMPT,
       userText: userTurn,
@@ -117,8 +124,8 @@ export async function resolveDistritoAiDetailed(
 export async function resolveDistritoAi(
   distritoText: string,
   contextText?: string,
-  llm: LlmClient | null = getLlmClient(),
+  lookup: LlmClientLookup = lookupLlmClient(),
 ): Promise<ResolveDistritoAiResult> {
-  const { candidates } = await resolveDistritoAiDetailed(distritoText, contextText, llm);
+  const { candidates } = await resolveDistritoAiDetailed(distritoText, contextText, lookup);
   return { candidates };
 }

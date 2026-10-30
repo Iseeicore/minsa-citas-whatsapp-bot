@@ -50,6 +50,8 @@ import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { SelectionStep } from "@/lib/enums/selection-step";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
+import type { SelectionHintsResult } from "@/lib/fsm/parsing/ai/selection-hints";
 import { listAvailableEstablecimientos, findPageAfterEmpty } from "@/lib/utils/catalog";
 import { HINT_MAX_LENGTH } from "@/lib/constants/limits/cita";
 import { ESTABLECIMIENTOS_MAX_EMPTY_PAGE_SKIPS } from "@/lib/constants/limits/minsa";
@@ -84,12 +86,7 @@ function askSelectionHints(session: Session, step: SelectionStep, typed: string)
 }
 
 export function handleSelectionHintsPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as {
-    especialidad?: unknown;
-    establecimiento?: unknown;
-    quiereSalir?: boolean;
-    quiereCambiarDistrito?: boolean;
-  };
+  const result = event.result as SelectionHintsResult;
   const step =
     session.slots[SlotKey.CITA_SELECTION_STEP] === SelectionStep.ESTABLECIMIENTO
       ? SelectionStep.ESTABLECIMIENTO
@@ -103,6 +100,7 @@ export function handleSelectionHintsPending(session: Session, event: QueryResult
       ? SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT
       : SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT;
 
+  if (result.status === AiTaskStatus.UNAVAILABLE) return reshowOffered(restored, offered, OPTION_NOT_IDENTIFIED_TEXT);
   if (result.quiereSalir === true) return askToLeave(restored, "ai");
   if (result.quiereCambiarDistrito === true) return offerChangeDistrito(restored, "ai");
 

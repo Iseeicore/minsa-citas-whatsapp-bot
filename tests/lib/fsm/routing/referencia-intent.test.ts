@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LLM_DISABLED, llmAvailable } from "@/tests/support/llm-lookup";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session, SessionChannel } from "@/lib/fsm/core/types";
@@ -52,7 +53,7 @@ describe("the AI offers and reads the referencia", () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", flag);
     const { client, requests } = recordingClient({ intent: "referencia", detalle: "x" });
 
-    await expect(analyzeMainMenuIntent(TYPO_REQUEST, client)).resolves.toEqual({ intent: MainMenuIntent.REFERENCIA });
+    await expect(analyzeMainMenuIntent(TYPO_REQUEST, llmAvailable(client))).resolves.toEqual({ intent: MainMenuIntent.REFERENCIA });
 
     expect(intents(requests[0])).toContain("referencia");
     expect(requests[0].systemPrompt).toContain('"intent": "referencia"');
@@ -60,7 +61,7 @@ describe("the AI offers and reads the referencia", () => {
   });
 
   it.each(["referencia", "Referencia", " REFERENCIA "])("reads %j as a referencia", async (intent) => {
-    await expect(analyzeMainMenuIntent(TYPO_REQUEST, recordingClient({ intent, detalle: "x" }).client)).resolves.toEqual({
+    await expect(analyzeMainMenuIntent(TYPO_REQUEST, llmAvailable(recordingClient({ intent, detalle: "x" }).client))).resolves.toEqual({
       intent: MainMenuIntent.REFERENCIA,
     });
   });
@@ -68,7 +69,7 @@ describe("the AI offers and reads the referencia", () => {
   it("a referencia carries no cita hints even if the model sent some", async () => {
     const { client } = recordingClient({ intent: "referencia", especialidad: "Cardiología", distrito: "Lince", detalle: "x" });
 
-    await expect(analyzeMainMenuIntent(TYPO_REQUEST, client)).resolves.toEqual({ intent: MainMenuIntent.REFERENCIA });
+    await expect(analyzeMainMenuIntent(TYPO_REQUEST, llmAvailable(client))).resolves.toEqual({ intent: MainMenuIntent.REFERENCIA });
   });
 });
 
@@ -77,7 +78,7 @@ describe("the boundary between a cita and a referencia", () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", flag);
     const { client, requests } = recordingClient({ intent: "cita", detalle: "x" });
 
-    await analyzeMainMenuIntent("quiero sacar cita", client);
+    await analyzeMainMenuIntent("quiero sacar cita", llmAvailable(client));
 
     expect(requests[0].systemPrompt).toContain("«quiero sacar cita»");
     expect(requests[0].systemPrompt).toContain("«cita por referencia»");
@@ -87,7 +88,10 @@ describe("the boundary between a cita and a referencia", () => {
     ["quiero sacar cita con el cardiólogo", "Cardiología"],
     ["me derivaron al hospital y necesito que me atiendan allá", undefined],
   ])("%j, answered cita by the model, stays a cita with its hints", async (message, especialidad) => {
-    const result = await analyzeMainMenuIntent(message, recordingClient({ intent: "cita", especialidad, detalle: "x" }).client);
+    const result = await analyzeMainMenuIntent(
+      message,
+      llmAvailable(recordingClient({ intent: "cita", especialidad, detalle: "x" }).client),
+    );
 
     expect(result).toEqual({ intent: MainMenuIntent.CITA, especialidad, distrito: undefined });
   });
@@ -121,10 +125,12 @@ describe("the boundary between a cita and a referencia", () => {
   });
 
   it("without the AI, a derivación is read as a referencia and a cita with a derivación as a cita", async () => {
-    await expect(analyzeMainMenuIntent("me dieron una derivación al hospital, ya la aprobaron?", null)).resolves.toEqual({
+    await expect(analyzeMainMenuIntent("me dieron una derivación al hospital, ya la aprobaron?", LLM_DISABLED)).resolves.toEqual({
       intent: MainMenuIntent.REFERENCIA,
     });
-    await expect(analyzeMainMenuIntent("quiero una cita por mi derivación", null)).resolves.toMatchObject({ intent: MainMenuIntent.CITA });
+    await expect(analyzeMainMenuIntent("quiero una cita por mi derivación", LLM_DISABLED)).resolves.toMatchObject({
+      intent: MainMenuIntent.CITA,
+    });
   });
 });
 

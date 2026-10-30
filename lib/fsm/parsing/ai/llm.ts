@@ -1,4 +1,5 @@
 import type { LlmFailure } from "@/lib/enums/llm-failure";
+import type { LlmClientStatus } from "@/lib/enums/llm-client-status";
 
 export type LlmProvider = "gemini";
 
@@ -27,3 +28,8 @@ export interface LlmClient {
   readonly provider: LlmProvider;
   generateJson(request: LlmJsonRequest): Promise<LlmJsonOutcome>;
 }
+
+export type LlmClientLookup =
+  | { status: LlmClientStatus.AVAILABLE; client: LlmClient }
+  | { status: LlmClientStatus.DISABLED }
+  | { status: LlmClientStatus.MISCONFIGURED; provider: string };

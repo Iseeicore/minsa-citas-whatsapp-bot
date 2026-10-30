@@ -6,6 +6,7 @@ import { MediaFailure } from "@/lib/enums/media-failure";
 import type { HandlerResult, InboundEvent, InboundMedia, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { AiTaskStatus } from "@/lib/enums/ai-task-status";
 import {
   ASK_DESCRIPCION_ANONIMO_TEXT,
   ASK_UBICACION_DENUNCIA_TEXT,
@@ -527,6 +528,20 @@ describe("incidencia_foto_intent_pending: resuelve lo que dijo la IA", () => {
 
   it("si la IA dice que no quiere omitir, vuelve a pedir la evidencia", () => {
     const result = handleIncidencia(pending(), fotoIntentResult(false));
+
+    expect(result.session.state).toBe("incidencia_awaiting_foto");
+    expect(queries(result)).toHaveLength(0);
+  });
+
+  it("si la IA no está disponible, vuelve a pedir la evidencia y no da por omitida la foto", () => {
+    const unavailable: QueryResultEvent = {
+      from: FROM,
+      type: InternalEventType.QUERY_RESULT,
+      queryKind: "analyze_incidencia_foto_intent",
+      result: { status: AiTaskStatus.UNAVAILABLE, quiereOmitir: true },
+    };
+
+    const result = handleIncidencia(pending(), unavailable);
 
     expect(result.session.state).toBe("incidencia_awaiting_foto");
     expect(queries(result)).toHaveLength(0);

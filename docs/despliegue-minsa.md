@@ -155,7 +155,7 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 | Variable | Para qué sirve | Sin definir |
 |---|---|---|
 | `SANDBOX_USE_REAL_AI` | `true`: IA real (intención del mensaje libre, distrito, fecha y pistas) en todo el bot, no solo en el Chat-bot | Diccionario de prueba, sin costo: no entiende texto libre ni distritos mal escritos |
-| `AI_PROVIDER` | Proveedor de IA; vacía o `gemini` es Gemini, hoy el único. Cómo sumar otro: [desarrollo.md](desarrollo.md#cambiar-de-proveedor-de-ia) | Gemini. Un valor desconocido apaga la IA real (respaldo fijo), se registra al arrancar como `config.invalid` (`AI_PROVIDER_UNKNOWN`) y `/api/health` responde `degraded` |
+| `AI_PROVIDER` | Proveedor de IA; vacía o `gemini` es Gemini, hoy el único. Cómo sumar otro: [desarrollo.md](desarrollo.md#cambiar-de-proveedor-de-ia) | Gemini. Un valor desconocido deja la IA como no disponible (sin respaldo fijo de demostración: cada mensaje libre registra `ai.fallback`), se registra al arrancar como `config.invalid` (`AI_PROVIDER_UNKNOWN`) y `/api/health` responde `degraded` |
 | `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL | Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`). Con `SANDBOX_USE_REAL_AI=true`, si falta se registra al arrancar como `config.invalid` (`GOOGLE_CLIENT_API_MISSING`) y `/api/health` responde `degraded` |
 | `GOOGLE_AI_MODEL` | Modelo de Gemini. Un nombre que no existe da HTTP 404 | `gemini-3.6-flash` |
 
