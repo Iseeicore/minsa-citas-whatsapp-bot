@@ -31,7 +31,7 @@ export function buildTerminosEffect(): SendConsentEffect {
   };
 }
 
-export function needsTerminos(session: Session): boolean {
+export function isTerminosRequired(session: Session): boolean {
   return isTerminosEnabled() && session.slots[SlotKey.TERMINOS_ACEPTADOS] !== true;
 }
 
@@ -51,6 +51,6 @@ export function askCitaDocumento(session: Session, intro: string): HandlerResult
 }
 
 export function startCitaIdentity(session: Session, intro: string): HandlerResult {
-  if (!needsTerminos(session)) return askCitaDocumento(session, intro);
+  if (!isTerminosRequired(session)) return askCitaDocumento(session, intro);
   return askTerminos({ ...session, slots: { ...session.slots, [SlotKey.TERMINOS_INTRO_TEXT]: intro } }, TerminosResume.ASK_DOCUMENTO);
 }

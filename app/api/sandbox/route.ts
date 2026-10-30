@@ -9,13 +9,13 @@ import { logger } from "@/lib/observability/logger";
 import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
-import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { closeSession, resetAllSandboxTestSessions, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import type { InteractiveTracking, SendEffect } from "@/lib/fsm/core/types";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { apiError } from "@/lib/http/api-error";
+import { toSandboxTurnFailureResponse } from "@/lib/http/sandbox-turn-failure";
 import { buildSandboxReply } from "@/lib/utils/sandbox-reply";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { SendType } from "@/lib/enums/send-type";
@@ -175,10 +175,7 @@ export async function POST(request: NextRequest) {
         ? await startConversation(from, type === "text" ? text : undefined, marks)
         : await runTurn(from, { from, type, text, listId, replyTo, mediaId, mediaDataUri, channel: "web" }, SANDBOX_TURN_HOOKS);
   } catch (error) {
-    if (error instanceof TurnLockTimeoutError) {
-      return apiError(ApiErrorCode.BUSY, { headers: cors });
-    }
-    return apiError(ApiErrorCode.INTERNAL, { headers: cors });
+    return toSandboxTurnFailureResponse(from, error, cors);
   }
   marks.mark("turn");
   marks.finish("sandbox.latency", { waId: from, channel: "web" });

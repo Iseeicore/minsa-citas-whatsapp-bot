@@ -12,6 +12,7 @@ import {
   REFERENCIA_CITA_OFFER_BUTTONS,
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
   REFERENCIA_GOODBYE_TEXT,
+  REFERENCIA_LOGIN_REQUIRED_TEXT,
   REFERENCIA_NONE_TEXT,
   REFERENCIA_SIN_AGENDABLES_TEXT,
 } from "@/lib/constants/textos/referencia";
@@ -343,6 +344,24 @@ describe("without referencias: the offer of a cita", () => {
   it("a dispatcher that receives a state that is not its own fails loudly", () => {
     expect(() => handleReferencia({ ...citaOffer(), state: SessionState.REFERENCIA_CLOSED }, text("hola"))).toThrow(UnknownStateError);
   });
+
+  it.each(["referencia_awaiting_appointment_mode", "referencia_awaiting_lookup_retry"])(
+    "a session saved in the retired state %s restarts the consulta with a clean session instead of failing",
+    (retired) => {
+      const saved = {
+        state: retired,
+        slots: { ...citaOffer().slots, cita_appointment_mode: "presencial" },
+        counters: {},
+      } as unknown as Session;
+
+      const result = handle(saved, text("hola"));
+
+      expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+      expect(result.session.slots).toEqual({ [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS });
+      expect(result.effects).toEqual([expect.objectContaining({ text: REFERENCIA_LOGIN_REQUIRED_TEXT })]);
+      expect(result.notes).toContainEqual(expect.objectContaining({ kind: "retired_state", detail: { state: retired } }));
+    },
+  );
 });
 
 describe("with referencias: the existing selection and confirmation", () => {

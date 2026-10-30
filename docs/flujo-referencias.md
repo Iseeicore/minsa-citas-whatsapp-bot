@@ -84,7 +84,7 @@ Si se pulsa **Cambiar referencia** con la sesión vencida, esa intención se con
 
 - En los pasos de documento y OTP, en la lista, en la confirmación de la referencia y en la oferta de cita vale la salida voluntaria de cita («quiero salir»), que pide confirmación con un texto propio de referencias; al confirmar, la sesión se cierra y se limpia el propósito. Un insulto en esos pasos recibe el recordatorio de respeto y se repite la pregunta.
 - El servicio depende de que el backend publique `/whatsapp/api/v1/references` y de `SANDBOX_USE_REAL_MINSA=true`. Sin una de las dos, la respuesta siempre es «No cuentas con referencias registradas.» y se ofrece agendar una cita. Las demos (DNI `10308523` y `47391441`) son la única excepción, pero igual exigen iniciar sesión.
-- Las sesiones guardadas en `cita_references_pending`, `cita_awaiting_references_offer`, `referencia_awaiting_appointment_mode` o `referencia_awaiting_lookup_retry` (estados que ya no existen) no se migran y fallan al responder. Solo importa si existe una base de datos con sesiones en esos estados; la base de desarrollo parte limpia.
+- Una sesión guardada en un estado `referencia_*` que ya no existe (`referencia_awaiting_appointment_mode`, `referencia_awaiting_lookup_retry`) no falla: se descarta lo guardado, se vuelve a pedir el documento para consultar las referencias y queda la nota `retired_state`. Las guardadas en `cita_references_pending` o `cita_awaiting_references_offer` todavía no se migran y fallan al responder; solo importa si existe una base de datos con sesiones en esos estados.
 
 ## Lo que todavía no hace
 

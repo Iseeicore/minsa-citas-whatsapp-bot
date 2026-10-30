@@ -21,7 +21,7 @@ export function minsaDigitalUrl(path = ""): string | null {
   return base ? `${base}${path}` : null;
 }
 
-export function loginUrl(): string {
+export function getLoginUrl(): string {
   return minsaDigitalUrl(MINSA_DIGITAL_LOGIN_PATH) ?? "#";
 }
 

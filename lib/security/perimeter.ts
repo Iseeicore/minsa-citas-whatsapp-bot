@@ -2,7 +2,7 @@ import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { deriveTraceId } from "@/lib/observability/tracer";
 import { checkFirstMessagePayload, type RejectReason } from "@/lib/security/payload-filter";
-import { DEFAULT_MUTE_MS, type RateLimiter } from "@/lib/security/rate-limiter";
+import type { RateLimiter } from "@/lib/security/rate-limiter";
 import { RateVerdict } from "@/lib/enums/rate-verdict";
 import { RejectReason as RejectReasonEnum } from "@/lib/enums/reject-reason";
 import { PerimeterAction } from "@/lib/enums/perimeter-action";
@@ -10,14 +10,14 @@ import { muteNoticeText } from "@/lib/constants/textos/seguridad";
 import { PayloadVerdictKind } from "@/lib/enums/payload-verdict-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
-import { EVIDENCE_IMAGE_BURST_LIMIT, EVIDENCE_IMAGE_BURST_WINDOW_MS } from "@/lib/constants/limits/perimeter";
+import { EVIDENCE_IMAGE_BURST_LIMIT, EVIDENCE_IMAGE_BURST_WINDOW_MS, INBOUND_MUTE_MS } from "@/lib/constants/limits/perimeter";
 
 export type PerimeterDecision =
   | { action: PerimeterAction.DROP; reason: RateVerdict.THROTTLED | RateVerdict.BANNED | RejectReasonEnum.NOISE | RejectReasonEnum.STICKER }
   | { action: PerimeterAction.REJECT; reason: RejectReason | RateVerdict.MUTED; reply: string }
   | { action: PerimeterAction.CONTINUE };
 
-export const MUTE_NOTICE_TEXT = muteNoticeText(DEFAULT_MUTE_MS / 60_000);
+export const MUTE_NOTICE_TEXT = muteNoticeText(INBOUND_MUTE_MS / 60_000);
 
 export type PerimeterDeps = {
   limiter: RateLimiter;

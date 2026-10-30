@@ -26,17 +26,17 @@ afterEach(() => {
   restoreLogger?.();
   restoreLogger = undefined;
   db.create.mockReset();
-  vi.unstubAllEnvs();
 });
 
 describe("saveAceptacionTerminos", () => {
   it("keeps the acceptance in the store it receives", async () => {
-    const store = createMemoryAceptacionTerminosStore();
+    const saved: AceptacionTerminos[] = [];
+    const store: AceptacionTerminosStore = { save: async (aceptacion) => void saved.push(aceptacion) };
 
     const result = await saveAceptacionTerminos(ACEPTACION, store);
 
-    expect(result).toEqual({ status: AceptacionTerminosStatus.SAVED });
-    expect(store.list()).toEqual([ACEPTACION]);
+    expect(result).toEqual({ resultado: AceptacionTerminosStatus.SAVED });
+    expect(saved).toEqual([ACEPTACION]);
   });
 
   it("does not break the conversation when the store fails: it logs the failure without the chat id and answers FAILED", async () => {
@@ -46,28 +46,26 @@ describe("saveAceptacionTerminos", () => {
 
     const result = await saveAceptacionTerminos(ACEPTACION, broken);
 
-    expect(result).toEqual({ status: AceptacionTerminosStatus.FAILED });
+    expect(result).toEqual({ resultado: AceptacionTerminosStatus.FAILED });
     expect(lines).toEqual([
       expect.objectContaining({ level: "error", event: "terminos.persist_failed", canal: SessionChannel.WHATSAPP, version: "2026-10-29" }),
     ]);
     expect(JSON.stringify(lines)).not.toContain(ACEPTACION.waId);
   });
 
-  it("uses memory when the database is off, so it works without Prisma", async () => {
-    vi.stubEnv("DATABASE_ENABLED", "false");
+  it("saves in memory without touching Prisma", async () => {
+    const result = await saveAceptacionTerminos(ACEPTACION, createMemoryAceptacionTerminosStore());
 
-    const result = await saveAceptacionTerminos(ACEPTACION);
-
-    expect(result).toEqual({ status: AceptacionTerminosStatus.SAVED });
+    expect(result).toEqual({ resultado: AceptacionTerminosStatus.SAVED });
     expect(db.create).not.toHaveBeenCalled();
   });
 
-  it("uses the database when it is on", async () => {
+  it("saves in the database through the Prisma store", async () => {
     db.create.mockResolvedValue({});
 
-    const result = await saveAceptacionTerminos({ ...ACEPTACION, canal: SessionChannel.WEB });
+    const result = await saveAceptacionTerminos({ ...ACEPTACION, canal: SessionChannel.WEB }, createPrismaAceptacionTerminosStore());
 
-    expect(result).toEqual({ status: AceptacionTerminosStatus.SAVED });
+    expect(result).toEqual({ resultado: AceptacionTerminosStatus.SAVED });
     expect(db.create).toHaveBeenCalledOnce();
   });
 });

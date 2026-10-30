@@ -6,6 +6,7 @@ import {
   sendButtons,
   sendText,
   withLeadingText,
+  withNote,
   withRejectionNotice,
 } from "@/lib/fsm/core/handlers-shared";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
@@ -92,8 +93,15 @@ const REFERENCIA_HANDLER_BY_STATE = new Map<string, (session: Session, event: Ha
   Object.entries(REFERENCIA_HANDLERS),
 );
 
+const CURRENT_SESSION_STATES = new Set<string>(Object.values(SessionState));
+
+function restartRetiredReferencia(session: Session): HandlerResult {
+  return withNote(beginReferencias({}), { kind: "retired_state", level: "warn", detail: { state: session.state } });
+}
+
 export function handleReferencia(session: Session, event: HandleEvent): HandlerResult {
   const handler = REFERENCIA_HANDLER_BY_STATE.get(session.state);
-  if (!handler) throw new UnknownStateError("handleReferencia", session.state);
-  return handler(session, event);
+  if (handler) return handler(session, event);
+  if (CURRENT_SESSION_STATES.has(session.state)) throw new UnknownStateError("handleReferencia", session.state);
+  return restartRetiredReferencia(session);
 }

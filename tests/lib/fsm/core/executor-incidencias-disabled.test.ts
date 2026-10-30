@@ -19,6 +19,10 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 }));
 vi.mock("@/lib/recepcion/servicio", () => ({ registrarIncidencia: store.registrar }));
 vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: store.consultar, listarIncidencias: vi.fn() }));
+vi.mock("@/lib/composition/stores", () => ({
+  getConsentimientoStore: () => ({ tieneAceptado: async () => false, marcarAceptado: async () => undefined }),
+  getAceptacionTerminosStore: () => ({ save: async () => undefined }),
+}));
 vi.mock("@/lib/recepcion/repositorio", () => ({
   tieneConsentimientoAceptado: store.tieneConsentimiento,
   marcarConsentimientoAceptado: vi.fn(),
@@ -80,7 +84,7 @@ describe("the executor, as the last defense", () => {
 
     await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.VERIFICAR_CONSENTIMIENTO));
 
-    expect(store.tieneConsentimiento).toHaveBeenCalledWith(FROM);
+    expect(store.tieneConsentimiento).toHaveBeenCalledWith(FROM, expect.anything());
   });
 
   it("does not block a query the cita shares with the rest (the document lookup runs)", async () => {

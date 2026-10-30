@@ -21,6 +21,7 @@ export const LOG_EVENTS = [
   "inbound.latency",
   "inbound.stale_tap",
   "sandbox.latency",
+  "sandbox.turn_failed",
   "webhook.message_failed",
   "webhook.entry_failed",
   "webhook.fixed_reply_failed",
@@ -66,6 +67,7 @@ export const TURN_NOTE_KINDS = [
   "cita_closed",
   "exit_intent",
   "change_distrito",
+  "retired_state",
 ] as const;
 
 export type TurnNoteKind = (typeof TURN_NOTE_KINDS)[number];

@@ -50,7 +50,7 @@ import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { SelectionStep } from "@/lib/enums/selection-step";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
-import { availableEstablecimientos, nextPageAfterEmpty } from "@/lib/utils/catalog";
+import { listAvailableEstablecimientos, findPageAfterEmpty } from "@/lib/utils/catalog";
 import { HINT_MAX_LENGTH } from "@/lib/constants/limits/cita";
 import { ESTABLECIMIENTOS_MAX_EMPTY_PAGE_SKIPS } from "@/lib/constants/limits/minsa";
 
@@ -153,7 +153,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
 function skipEmptyPage(next: Session, page: number, totalPages: number): HandlerResult | undefined {
   const skips = next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS] ?? 0;
   const backFrom = next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE];
-  const jump = nextPageAfterEmpty({ page, totalPages, skips, backFrom }, ESTABLECIMIENTOS_MAX_EMPTY_PAGE_SKIPS);
+  const jump = findPageAfterEmpty({ page, totalPages, skips, backFrom }, ESTABLECIMIENTOS_MAX_EMPTY_PAGE_SKIPS);
   if (!jump) return undefined;
 
   if (jump.clearBackFrom) delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE];
@@ -181,7 +181,7 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   const { page, totalPages } = establecimientoPaging(next.counters);
 
   const discarded = discardedEstablecimientos(next.slots);
-  const items = result.status === CatalogStatus.FOUND ? availableEstablecimientos(result.items ?? [], discarded) : [];
+  const items = result.status === CatalogStatus.FOUND ? listAvailableEstablecimientos(result.items ?? [], discarded) : [];
 
   const skipped = result.status === CatalogStatus.FOUND && items.length === 0 ? skipEmptyPage(next, page, totalPages) : undefined;
   if (skipped) return skipped;

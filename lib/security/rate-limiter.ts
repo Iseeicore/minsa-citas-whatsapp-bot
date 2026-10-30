@@ -1,17 +1,23 @@
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { RateVerdict } from "@/lib/enums/rate-verdict";
+import { isInboundRateLimitEnabled } from "@/lib/config/rate-limit";
 import {
   EVIDENCE_IMAGE_BAN_MS,
   EVIDENCE_IMAGE_BAN_THRESHOLD,
   EVIDENCE_IMAGE_BAN_WINDOW_MS,
   EVIDENCE_IMAGE_BURST_LIMIT,
   EVIDENCE_IMAGE_BURST_WINDOW_MS,
+  INBOUND_BAN_MS,
+  INBOUND_BAN_THRESHOLD,
+  INBOUND_BAN_WINDOW_MS,
+  INBOUND_BURST_LIMIT,
+  INBOUND_BURST_WINDOW_MS,
+  INBOUND_MAX_TRACKED_KEYS,
+  INBOUND_MUTE_MS,
 } from "@/lib/constants/limits/perimeter";
 
 export type { RateVerdict };
-
-export const DEFAULT_MUTE_MS = 2 * 60 * 1000;
 
 export type RateLimiterOptions = {
   now?: () => number;
@@ -30,13 +36,13 @@ export type RateLimiterOptions = {
 export function createRateLimiter(options: RateLimiterOptions = {}) {
   const now = options.now ?? Date.now;
   const enabled = options.enabled ?? true;
-  const burstLimit = options.burstLimit ?? 5;
-  const burstWindowMs = options.burstWindowMs ?? 10_000;
-  const banThreshold = options.banThreshold ?? 20;
-  const windowMs = options.windowMs ?? 60_000;
-  const banMs = options.banMs ?? 60 * 60 * 1000;
-  const muteMs = options.muteMs ?? DEFAULT_MUTE_MS;
-  const maxKeys = options.maxKeys ?? 20_000;
+  const burstLimit = options.burstLimit ?? INBOUND_BURST_LIMIT;
+  const burstWindowMs = options.burstWindowMs ?? INBOUND_BURST_WINDOW_MS;
+  const banThreshold = options.banThreshold ?? INBOUND_BAN_THRESHOLD;
+  const windowMs = options.windowMs ?? INBOUND_BAN_WINDOW_MS;
+  const banMs = options.banMs ?? INBOUND_BAN_MS;
+  const muteMs = options.muteMs ?? INBOUND_MUTE_MS;
+  const maxKeys = options.maxKeys ?? INBOUND_MAX_TRACKED_KEYS;
 
   const hits = new Map<string, number[]>();
   const bans = new Map<string, number>();
@@ -123,9 +129,19 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
 export type RateLimiter = ReturnType<typeof createRateLimiter>;
 
 export const inboundRateLimiter: RateLimiter = createRateLimiter({
-  enabled: process.env.INBOUND_RATE_LIMIT !== "off",
-  onBan: (key) => logger.warn("perimeter.banned", { waId: tail(key), duration: "1 hour", limit: "more than 20 messages in 60 s" }),
-  onMute: (key) => logger.warn("perimeter.muted", { waId: tail(key), duration: "2 minutes", limit: "more than 5 messages in 10 s" }),
+  enabled: isInboundRateLimitEnabled(),
+  onBan: (key) =>
+    logger.warn("perimeter.banned", {
+      waId: tail(key),
+      durationMs: INBOUND_BAN_MS,
+      limit: `more than ${INBOUND_BAN_THRESHOLD} messages in ${INBOUND_BAN_WINDOW_MS / 1000} s`,
+    }),
+  onMute: (key) =>
+    logger.warn("perimeter.muted", {
+      waId: tail(key),
+      durationMs: INBOUND_MUTE_MS,
+      limit: `more than ${INBOUND_BURST_LIMIT} messages in ${INBOUND_BURST_WINDOW_MS / 1000} s`,
+    }),
 });
 
 export function createEvidenceImageRateLimiter(options: RateLimiterOptions = {}): RateLimiter {
@@ -141,11 +157,11 @@ export function createEvidenceImageRateLimiter(options: RateLimiterOptions = {})
 }
 
 export const evidenceImageRateLimiter: RateLimiter = createEvidenceImageRateLimiter({
-  enabled: process.env.INBOUND_RATE_LIMIT !== "off",
+  enabled: isInboundRateLimitEnabled(),
   onBan: (key) =>
     logger.warn("perimeter.banned", {
       waId: tail(key),
-      duration: "1 hour",
+      durationMs: EVIDENCE_IMAGE_BAN_MS,
       limit: `more than ${EVIDENCE_IMAGE_BAN_THRESHOLD} evidence images in ${EVIDENCE_IMAGE_BAN_WINDOW_MS / 1000} s`,
     }),
 });

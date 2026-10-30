@@ -5,7 +5,7 @@ import type { ChannelSendEffect, SendConsentEffect, SendEffect } from "@/lib/fsm
 import { TERMINOS_TITULO_TEXT, TERMINOS_VER_BUTTON_TEXT } from "@/lib/constants/textos/terminos";
 import { SendType } from "@/lib/enums/send-type";
 
-function terminosLink(): ChannelSendEffect[] {
+function buildTerminosLink(): ChannelSendEffect[] {
   const url = findTerminosUrl();
   if (!url) {
     logger.warn("terminos.url_missing");
@@ -17,7 +17,7 @@ function terminosLink(): ChannelSendEffect[] {
 function toConsentMessages(effect: SendConsentEffect): ChannelSendEffect[] {
   const question = sendButtons(effect.whatsappText, effect.buttons);
   if (!effect.withTerminosLink) return [question];
-  return [...terminosLink(), question];
+  return [...buildTerminosLink(), question];
 }
 
 export function toWhatsAppEffects(effect: SendEffect): ChannelSendEffect[] {
