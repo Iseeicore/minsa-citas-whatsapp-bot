@@ -12,7 +12,6 @@ import {
   readTappedId,
   readTypedText,
 } from "@/lib/fsm/core/handlers-shared";
-import { withDiscardedEspecialidad } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
@@ -135,7 +134,7 @@ export function askOtherDistrito(session: Session): HandlerResult {
 
 function searchOtherEspecialidad(session: Session): HandlerResult {
   const next = cloneSession(session);
-  next.slots = ESPECIALIDAD_BOUND_SLOTS.reduce(omitSlot, withDiscardedEspecialidad(next.slots));
+  next.slots = ESPECIALIDAD_BOUND_SLOTS.reduce(omitSlot, next.slots);
   for (const counter of ESTABLECIMIENTO_PAGING_COUNTERS) delete next.counters[counter];
   next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
   return buildResult(next, [query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) })]);

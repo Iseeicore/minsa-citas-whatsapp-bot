@@ -154,7 +154,7 @@ describe("sin establecimientos con cupos para la especialidad", () => {
   it.each([
     ["tap", tap(OtherDistritoButtonId.OTHER_ESPECIALIDAD)],
     ["otra especialidad", text("otra especialidad")],
-  ])("«%s» lists the especialidades of the same ubigeo without the current one", (_label, answer) => {
+  ])("«%s» lists again every especialidad of the same ubigeo, the current one included", (_label, answer) => {
     const searching = handle(
       { ...none().session, counters: { [CounterKey.CITA_ESTABLECIMIENTOS_PAGE]: 2, [CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES]: 2 } },
       answer,
@@ -171,15 +171,17 @@ describe("sin establecimientos con cupos para la especialidad", () => {
 
     const offered = handle(searching.session, queryResult("list_especialidades", especialidades));
     const list = sent(offered).find((effect) => effect.kind === "send_interactive_list");
-    expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["222400", "220100"]);
+    expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["221900", "222400", "220100"]);
+    expect(searching.session.slots[SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]).toBeUndefined();
   });
 
-  it("follows the no especialidades path when none is left", () => {
-    const searching = handle(none().session, tap(OtherDistritoButtonId.OTHER_ESPECIALIDAD));
-    const result = handle(searching.session, queryResult("list_especialidades", { status: "found", items: [especialidades.items[0]] }));
+  it("still hides an especialidad discarded because of a duplicate cita", () => {
+    const duplicated = { ...none().session, slots: { ...none().session.slots, [SlotKey.CITA_ESPECIALIDADES_DESCARTADAS]: "222400" } };
+    const searching = handle(duplicated, tap(OtherDistritoButtonId.OTHER_ESPECIALIDAD));
+    const offered = handle(searching.session, queryResult("list_especialidades", especialidades));
 
-    expect(result.session.state).toBe("cita_awaiting_other_distrito");
-    expect(buttonsOf(result).buttons.map((button) => button.id)).toEqual([OtherDistritoButtonId.YES, OtherDistritoButtonId.NO]);
+    const list = sent(offered).find((effect) => effect.kind === "send_interactive_list");
+    expect(list?.kind === "send_interactive_list" && list.rows.map((row) => row.id)).toEqual(["221900", "220100"]);
   });
 
   it.each([
