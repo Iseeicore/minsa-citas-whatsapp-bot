@@ -16,7 +16,8 @@ const asksTheAi = (result: HandlerResult) =>
 function perimeter() {
   const hasSession = vi.fn(async () => false);
   const limiter = createRateLimiter();
-  return { hasSession, screen: (body: string) => screenInbound({ waId: WA_ID, type: "text", text: body }, { limiter, hasSession }) };
+  const deps = { limiter, evidenceLimiter: createRateLimiter(), hasSession, sessionState: vi.fn(async () => null) };
+  return { hasSession, screen: (body: string) => screenInbound({ waId: WA_ID, type: "text", text: body }, deps) };
 }
 
 describe("1. the perimeter comes first", () => {
