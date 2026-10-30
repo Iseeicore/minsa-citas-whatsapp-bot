@@ -133,7 +133,7 @@ describe("the chosen establecimiento has no dates: another one is offered", () =
     const result = establecimientos(noDates().session, [{ renipressCode: "0000123", establishmentName: "CS SAN BORJA" }]);
 
     expect(result.session.state).toBe("cita_awaiting_other_distrito");
-    expect(sent(result)[0]).toMatchObject({ kind: "send_buttons" });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_interactive_list" });
   });
 
   it("the second empty establecimiento is discarded too, so the search never offers it again", () => {

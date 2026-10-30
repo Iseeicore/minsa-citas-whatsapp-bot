@@ -49,7 +49,13 @@ import {
   DEMO_CONFIRM_QUESTION_TEXT,
   DEMO_HORAS_LIST_TEXT,
 } from "@/lib/constants/textos/cita-demo";
-import { DISTRITO_DISAMBIGUATION_TEXT, SELECT_UBIGEO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import {
+  DISTRITO_DISAMBIGUATION_TEXT,
+  NO_ESTABLECIMIENTOS_ROWS,
+  SELECT_UBIGEO_TEXT,
+  noCoverageInPlaceText,
+  noEstablecimientosText,
+} from "@/lib/constants/textos/cita-ubicacion";
 import {
   APPOINTMENT_BUTTON_TEXT,
   APPOINTMENT_CTA_TEXT,
@@ -202,6 +208,10 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
     effect: sendCtaUrl(APPOINTMENT_CTA_TEXT, APPOINTMENT_BUTTON_TEXT, URL),
   },
   { origin: "términos y condiciones en whatsapp-bot", effect: buildTerminosEffect() },
+  {
+    origin: "noEstablecimientosText + NO_ESTABLECIMIENTOS_ROWS",
+    effect: sendList(noEstablecimientosText(`*${"x".repeat(120)}*`, noCoverageInPlaceText("x".repeat(60))), NO_ESTABLECIMIENTOS_ROWS),
+  },
   {
     origin: "CUENTA_MINSA_AVISO_TEXT + CUENTA_MINSA_AVISO_BUTTONS",
     effect: sendButtons(CUENTA_MINSA_AVISO_TEXT, CUENTA_MINSA_AVISO_BUTTONS),

@@ -15,6 +15,12 @@ const buttonsOf = (result: HandlerResult) => {
   return buttons;
 };
 
+const optionsOf = (result: HandlerResult) => {
+  const list = sent(result).find((effect) => effect.kind === "send_interactive_list");
+  if (!list || list.kind !== "send_interactive_list") throw new Error("no list sent");
+  return list;
+};
+
 const item = (code: string, name: string, quotasOnline = 4) => ({ renipressCode: code, establishmentName: name, quotasOnline });
 const SAN_FERNANDO = item("0002", "CENTRO DE SALUD SAN FERNANDO");
 const UNANUE = item("0001", "HOSPITAL NACIONAL HIPOLITO UNANUE");
@@ -138,17 +144,35 @@ const especialidades = {
 describe("sin establecimientos con cupos para la especialidad", () => {
   const none = () => listed([{ ...SAN_FERNANDO, quotasOnline: 0 }]);
 
-  it("offers another district, another especialidad or leaving", () => {
+  it("offers another district, another especialidad, going back or leaving in one list", () => {
     const result = none();
 
     expect(result.session.state).toBe("cita_awaiting_other_distrito");
-    expect(buttonsOf(result).text).toBe(NO_ESTABLECIMIENTOS_TEXT);
-    expect(buttonsOf(result).buttons).toEqual([
+    expect(optionsOf(result).text).toBe(NO_ESTABLECIMIENTOS_TEXT);
+    expect(optionsOf(result).rows).toEqual([
       { id: OtherDistritoButtonId.YES, title: "Otro distrito" },
       { id: OtherDistritoButtonId.OTHER_ESPECIALIDAD, title: "Otra especialidad" },
+      { id: OtherDistritoButtonId.BACK, title: "Atrás" },
       { id: OtherDistritoButtonId.NO, title: "Salir" },
     ]);
-    expect(findLimitViolations(buttonsOf(result))).toEqual([]);
+    expect(findLimitViolations(optionsOf(result))).toEqual([]);
+  });
+
+  it("«Atrás» returns to the establecimientos list already shown, or to the especialidades when none was shown", () => {
+    const shownBefore = {
+      ...none().session,
+      counters: { [CounterKey.CITA_ESTABLECIMIENTOS_FIRST_PAGE]: 2, [CounterKey.CITA_ESTABLECIMIENTOS_PAGE]: 4 },
+    };
+    const back = handle(shownBefore, tap(OtherDistritoButtonId.BACK));
+    expect(back.session.state).toBe("cita_establecimiento_pending");
+    expect(queries(back)).toEqual([
+      expect.objectContaining({ kind: "list_establecimientos", payload: { especialidadId: "221900", ubigeo: "150132", page: 2 } }),
+    ]);
+    expect(back.session.slots[SlotKey.CITA_NO_COVERAGE_SUBJECT]).toBeUndefined();
+
+    const typed = handle(none().session, text("atrás"));
+    expect(typed.session.state).toBe("cita_especialidad_pending");
+    expect(queries(typed)).toEqual([expect.objectContaining({ kind: "list_especialidades", payload: { ubigeo: "150132" } })]);
   });
 
   it.each([
@@ -193,13 +217,14 @@ describe("sin establecimientos con cupos para la especialidad", () => {
     expect(handle(none().session, answer).session.state).toBe(state);
   });
 
-  it("an unknown answer repeats the three options", () => {
+  it("an unknown answer repeats the four options", () => {
     const result = handle(none().session, text("123"));
 
     expect(result.session.state).toBe("cita_awaiting_other_distrito");
-    expect(buttonsOf(result).buttons.map((button) => button.id)).toEqual([
+    expect(optionsOf(result).rows.map((row) => row.id)).toEqual([
       OtherDistritoButtonId.YES,
       OtherDistritoButtonId.OTHER_ESPECIALIDAD,
+      OtherDistritoButtonId.BACK,
       OtherDistritoButtonId.NO,
     ]);
   });

@@ -206,7 +206,11 @@ export const NO_ESTABLECIMIENTOS_ANSWERS: ReadonlyMap<string, OtherDistritoButto
   ["OTRA", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
   ["OTRA ESPECIALIDAD", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
   ["ELEGIR OTRA ESPECIALIDAD", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
-  ["3", OtherDistritoButtonId.NO],
+  ["3", OtherDistritoButtonId.BACK],
+  ["ATRAS", OtherDistritoButtonId.BACK],
+  ["VOLVER", OtherDistritoButtonId.BACK],
+  ["REGRESAR", OtherDistritoButtonId.BACK],
+  ["4", OtherDistritoButtonId.NO],
 ]);
 
 export const CHANGE_DATE_ANSWERS = new Set([
