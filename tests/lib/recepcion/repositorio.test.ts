@@ -15,20 +15,19 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import {
-  buscarIncidenciaDeQuienConsulta,
   createMemoryConsentimientoStore,
   createPrismaConsentimientoStore,
   findCodigoPorTrace,
+  findIncidenciaParaConsulta,
   marcarConsentimientoAceptado,
   tieneConsentimientoAceptado,
 } from "@/lib/recepcion/repositorio";
-import { SessionChannel } from "@/lib/enums/session-channel";
 
 describe("búsquedas de incidencias sin fila", () => {
   it("devuelven undefined, no null, cuando la base no tiene la fila", async () => {
     await expect(findCodigoPorTrace("trace-sin-fila")).resolves.toBeUndefined();
     await expect(
-      buscarIncidenciaDeQuienConsulta("MINSA-2026-000001", { canal: SessionChannel.WHATSAPP, waId: "wa-1" }),
+      findIncidenciaParaConsulta({ codigo: "MINSA-2026-000001", establecimientoId: 7, esAnonimo: true }),
     ).resolves.toBeUndefined();
   });
 });

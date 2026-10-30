@@ -2,154 +2,113 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   findFirst: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
-  findMany: vi.fn<(args: unknown) => Promise<unknown>>(async () => []),
   enabled: true,
 }));
 
 vi.mock("@/lib/db/persistence", () => ({ isDatabaseEnabled: () => db.enabled }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { incidenciaPaciente: { findFirst: db.findFirst, findMany: db.findMany } } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { incidenciaPaciente: { findFirst: db.findFirst } } }));
 
-import { consultarIncidencia, listarIncidencias } from "@/lib/recepcion/consulta";
+import { consultarIncidencia } from "@/lib/recepcion/consulta";
 import { estadoLegible, fechaLegible } from "@/lib/recepcion/consulta-dto";
+import type { CupoDiarioStore, IntentoConsulta } from "@/lib/types/cupo-diario.types";
+import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 const CODIGO = "MINSA-2026-000003";
+const ANONIMA = { codigo: "MINSA-2026-A-000003", establecimientoId: 7, esAnonimo: true as const };
+const CON_DNI = { codigo: CODIGO, establecimientoId: 7, esAnonimo: false as const, dni: "12345678" };
+const QUIEN = { identificador: "bsuid-ana", canal: SessionChannel.WHATSAPP };
 const fila = { codigo: CODIGO, fechaCreacion: new Date("2026-10-09T15:30:00.000Z"), estadoIncidencia: { codigo: "EN_GESTION" } };
+
+function cupo(save: (intento: IntentoConsulta) => Promise<void> = async () => undefined) {
+  const saved: IntentoConsulta[] = [];
+  const store: CupoDiarioStore = {
+    save: async (intento) => {
+      await save(intento);
+      saved.push(intento);
+    },
+    countDelDia: async () => 0,
+  };
+  return { store, saved };
+}
 
 describe("consultarIncidencia", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     db.enabled = true;
     db.findFirst.mockResolvedValue(null);
-    db.findMany.mockResolvedValue([]);
   });
 
-  it("WhatsApp: busca por el usuario dueño (su wa_id actual), sin borradas, y devuelve solo código, estado y fecha", async () => {
-    db.findFirst.mockResolvedValue({ ...fila, descripcion: "no debe salir", dniReclamante: "12345678", nombreReclamante: "Ana" });
+  it("anónima: busca por código y establecimiento, solo entre las anónimas, y devuelve solo código, estado y fecha", async () => {
+    db.findFirst.mockResolvedValue({ ...fila, descripcion: "no debe salir", dniReclamante: "12345678" });
+    const { store, saved } = cupo();
 
-    const result = await consultarIncidencia(CODIGO, { canal: "whatsapp", waId: "bsuid-ana" });
+    const result = await consultarIncidencia(ANONIMA, QUIEN, store);
 
     expect(result).toEqual({ status: "found", codigo: CODIGO, estado: "EN_GESTION", fechaRegistro: "2026-10-09T15:30:00.000Z" });
-    expect(JSON.stringify(result)).not.toMatch(/no debe salir|12345678|Ana/);
+    expect(JSON.stringify(result)).not.toMatch(/no debe salir|12345678/);
     expect(db.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { codigo: CODIGO, activo: true, eliminadoEn: null, usuario: { waId: "bsuid-ana" } } }),
-    );
-  });
-
-  it("web: exige el DNI verificado y excluye las anónimas", async () => {
-    db.findFirst.mockResolvedValue(fila);
-
-    await consultarIncidencia(CODIGO, { canal: "web", dni: "12345678" });
-
-    expect(db.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { codigo: CODIGO, activo: true, eliminadoEn: null, esAnonimo: false, dniReclamante: "12345678" } }),
-    );
-  });
-
-  it("inexistente, ajena o borrada dan el mismo resultado (una sola consulta, sin distinguir)", async () => {
-    const ajena = await consultarIncidencia(CODIGO, { canal: "whatsapp", waId: "bsuid-beto" });
-    const inexistente = await consultarIncidencia("MINSA-2026-999999", { canal: "whatsapp", waId: "bsuid-beto" });
-
-    expect(ajena).toEqual({ status: "not_found" });
-    expect(inexistente).toEqual(ajena);
-    expect(db.findFirst).toHaveBeenCalledTimes(2);
-  });
-
-  it("un código con formato inválido no llega a la base", async () => {
-    await expect(consultarIncidencia("MINSA-2026-3", { canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "not_found" });
-    expect(db.findFirst).not.toHaveBeenCalled();
-  });
-
-  it.each(["MINSA-2026-A-000012", "MINSA-2026-1000000", "MINSA-2026-A-1000000"])("el código %s llega a la base", async (codigo) => {
-    db.findFirst.mockResolvedValue({ ...fila, codigo });
-
-    await expect(consultarIncidencia(codigo, { canal: "whatsapp", waId: "x" })).resolves.toMatchObject({ status: "found", codigo });
-    expect(db.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ codigo }) }));
-  });
-
-  it.each(["MINSA-2026-B-000012", "MINSA-2026-A-00012", "minsa-2026-a-000012"])("el código %s no llega a la base", async (codigo) => {
-    await expect(consultarIncidencia(codigo, { canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "not_found" });
-    expect(db.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("base apagada: error (se avisa «inténtalo más tarde») y no consulta", async () => {
-    db.enabled = false;
-
-    await expect(consultarIncidencia(CODIGO, { canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "error" });
-    expect(db.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("base caída: error, sin propagar la excepción", async () => {
-    db.findFirst.mockRejectedValue(new Error("connection refused"));
-
-    await expect(consultarIncidencia(CODIGO, { canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "error" });
-  });
-});
-
-describe("listarIncidencias", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    db.enabled = true;
-    db.findMany.mockResolvedValue([]);
-  });
-
-  it("WhatsApp: busca todas las del usuario dueño, de la más reciente a la más antigua", async () => {
-    db.findMany.mockResolvedValue([
-      { ...fila, descripcion: "no debe salir" },
-      { codigo: "MINSA-2026-000001", fechaCreacion: new Date("2026-01-01T00:00:00.000Z"), estadoIncidencia: { codigo: "RESUELTO" } },
-    ]);
-
-    const result = await listarIncidencias({ canal: "whatsapp", waId: "bsuid-ana" });
-
-    expect(result).toEqual({
-      status: "found",
-      items: [
-        { codigo: CODIGO, estado: "EN_GESTION", fechaRegistro: "2026-10-09T15:30:00.000Z" },
-        { codigo: "MINSA-2026-000001", estado: "RESUELTO", fechaRegistro: "2026-01-01T00:00:00.000Z" },
-      ],
-    });
-    expect(JSON.stringify(result)).not.toMatch(/no debe salir/);
-    expect(db.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { activo: true, eliminadoEn: null, usuario: { waId: "bsuid-ana" } },
-        orderBy: { fechaCreacion: "desc" },
+        where: { codigo: ANONIMA.codigo, establecimientoId: 7, esAnonimo: true, activo: true, eliminadoEn: null },
+      }),
+    );
+    expect(saved).toEqual([{ ...QUIEN, resultado: ResultadoIntentoConsulta.ENCONTRADA }]);
+  });
+
+  it("con DNI: exige el DNI con el que se registró", async () => {
+    await consultarIncidencia(CON_DNI, QUIEN, cupo().store);
+
+    expect(db.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { codigo: CODIGO, establecimientoId: 7, esAnonimo: false, dniReclamante: "12345678", activo: true, eliminadoEn: null },
       }),
     );
   });
 
-  it("web: exige el DNI verificado y excluye las anónimas, igual que la consulta puntual", async () => {
-    await listarIncidencias({ canal: "web", dni: "12345678" });
+  it("no encontrada: cuenta como consulta del día", async () => {
+    const { store, saved } = cupo();
 
-    expect(db.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { activo: true, eliminadoEn: null, esAnonimo: false, dniReclamante: "12345678" } }),
-    );
+    await expect(consultarIncidencia(CON_DNI, QUIEN, store)).resolves.toEqual({ status: "not_found" });
+    expect(saved.map((intento) => intento.resultado)).toEqual([ResultadoIntentoConsulta.NO_ENCONTRADA]);
   });
 
-  it("sin incidencias: empty", async () => {
-    await expect(listarIncidencias({ canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "empty" });
+  it("un código con formato inválido no llega a la base, pero cuenta", async () => {
+    const { store, saved } = cupo();
+
+    await expect(consultarIncidencia({ ...CON_DNI, codigo: "MINSA-2026-3" }, QUIEN, store)).resolves.toEqual({ status: "not_found" });
+    expect(db.findFirst).not.toHaveBeenCalled();
+    expect(saved).toHaveLength(1);
   });
 
-  it("base apagada: error y no consulta", async () => {
-    db.enabled = false;
+  it.each([
+    ["base apagada", () => (db.enabled = false)],
+    ["base caída", () => db.findFirst.mockRejectedValue(new Error("connection refused"))],
+  ])("%s: error, sin propagar la excepción, y también cuenta", async (_caso, romper) => {
+    romper();
+    const { store, saved } = cupo();
 
-    await expect(listarIncidencias({ canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "error" });
-    expect(db.findMany).not.toHaveBeenCalled();
+    await expect(consultarIncidencia(ANONIMA, QUIEN, store)).resolves.toEqual({ status: "error" });
+    expect(saved.map((intento) => intento.resultado)).toEqual([ResultadoIntentoConsulta.ERROR]);
   });
 
-  it("base caída: error, sin propagar la excepción", async () => {
-    db.findMany.mockRejectedValue(new Error("connection refused"));
+  it("si la consulta no se pudo registrar en el cupo, no muestra el resultado: error", async () => {
+    db.findFirst.mockResolvedValue(fila);
+    const { store } = cupo(async () => {
+      throw new Error("insert failed");
+    });
 
-    await expect(listarIncidencias({ canal: "whatsapp", waId: "x" })).resolves.toEqual({ status: "error" });
+    await expect(consultarIncidencia(CON_DNI, QUIEN, store)).resolves.toEqual({ status: "error" });
   });
 });
 
 describe("estadoLegible y fechaLegible", () => {
   it.each([
-    ["REGISTRADO", "Recibida, pendiente de revisión"],
-    ["CLASIFICADO", "Recibida, pendiente de revisión"],
-    ["DERIVADO", "Derivada al área responsable"],
-    ["EN_GESTION", "En atención por el área responsable"],
+    ["REGISTRADO", "Registrada"],
+    ["CLASIFICADO", "Registrada"],
+    ["DERIVADO", "En proceso"],
+    ["EN_GESTION", "En proceso"],
     ["RESUELTO", "Resuelta"],
-    ["ARCHIVADO", "Archivada"],
+    ["ARCHIVADO", "Cerrada"],
     ["ANULADO", "Cerrada"],
     ["OTRO_NUEVO", "En proceso"],
   ])("%s se muestra como «%s»", (codigo, esperado) => {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractCodigoIncidencia, isConsultaKeyword, parseCodigoIncidencia } from "@/lib/fsm/parsing/text/codigo-incidencia";
+import {
+  extractCodigoIncidencia,
+  isCodigoAnonimo,
+  isConsultaKeyword,
+  parseCodigoIncidencia,
+} from "@/lib/fsm/parsing/text/codigo-incidencia";
 
 describe("extractCodigoIncidencia", () => {
   it.each([
@@ -78,5 +83,16 @@ describe("isConsultaKeyword", () => {
     "quiero saber cómo interponer una denuncia",
   ])("%j no pide consultar", (text) => {
     expect(isConsultaKeyword(text)).toBe(false);
+  });
+});
+
+describe("isCodigoAnonimo", () => {
+  it.each([
+    ["MINSA-2026-A-000012", true],
+    ["minsa-2026-a-1000000", true],
+    ["MINSA-2026-000012", false],
+    ["MINSA-2026-AA-000012", false],
+  ])("%s es anónimo: %s", (codigo, esperado) => {
+    expect(isCodigoAnonimo(codigo)).toBe(esperado);
   });
 });

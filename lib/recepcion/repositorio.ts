@@ -2,8 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import { declararActorEn } from "@/lib/db/actor";
 import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
-import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
-import { SessionChannel } from "@/lib/enums/session-channel";
+import type { SessionChannel } from "@/lib/enums/session-channel";
+import type { ConsultaIncidencia } from "@/lib/types/consulta-incidencia.types";
 import type { ConsentimientoStore } from "@/lib/types/consentimiento.types";
 
 export type DatosIncidencia = {
@@ -68,38 +68,20 @@ export async function findCodigoPorTrace(traceId: string): Promise<string | unde
   return fila?.codigo;
 }
 
-export async function buscarIncidenciaDeQuienConsulta(
-  codigo: string,
-  identidad: IdentidadConsulta,
-): Promise<IncidenciaConsultada | undefined> {
+export async function findIncidenciaParaConsulta(consulta: ConsultaIncidencia): Promise<IncidenciaConsultada | undefined> {
   const fila = await prisma.incidenciaPaciente.findFirst({
     where: {
-      codigo,
+      codigo: consulta.codigo,
+      establecimientoId: consulta.establecimientoId,
+      esAnonimo: consulta.esAnonimo,
+      ...(consulta.esAnonimo ? {} : { dniReclamante: consulta.dni }),
       activo: true,
       eliminadoEn: null,
-      ...(identidad.canal === SessionChannel.WHATSAPP
-        ? { usuario: { waId: identidad.waId } }
-        : { esAnonimo: false, dniReclamante: identidad.dni }),
     },
     select: { codigo: true, fechaCreacion: true, estadoIncidencia: { select: { codigo: true } } },
   });
   if (!fila) return undefined;
   return { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo };
-}
-
-export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsulta): Promise<IncidenciaConsultada[]> {
-  const filas = await prisma.incidenciaPaciente.findMany({
-    where: {
-      activo: true,
-      eliminadoEn: null,
-      ...(identidad.canal === SessionChannel.WHATSAPP
-        ? { usuario: { waId: identidad.waId } }
-        : { esAnonimo: false, dniReclamante: identidad.dni }),
-    },
-    orderBy: { fechaCreacion: "desc" },
-    select: { codigo: true, fechaCreacion: true, estadoIncidencia: { select: { codigo: true } } },
-  });
-  return filas.map((fila) => ({ codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo }));
 }
 
 export function createPrismaConsentimientoStore(): ConsentimientoStore {

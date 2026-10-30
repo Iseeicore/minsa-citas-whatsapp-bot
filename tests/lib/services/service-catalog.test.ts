@@ -134,7 +134,8 @@ describe("the ServiceCatalog", () => {
     expect(serviceCatalog.forQuery(QueryKind.BUSCAR_ESTABLECIMIENTO)).toBeInstanceOf(IncidenciaService);
     expect(serviceCatalog.forQuery(QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT)).toBeInstanceOf(IncidenciaService);
     expect(serviceCatalog.forQuery(QueryKind.CONSULTAR_INCIDENCIA)).toBeInstanceOf(ConsultaService);
-    expect(serviceCatalog.forQuery(QueryKind.LISTAR_INCIDENCIAS)).toBeInstanceOf(ConsultaService);
+    expect(serviceCatalog.forQuery(QueryKind.CONSULTA_CUPO_DIARIO)).toBeInstanceOf(ConsultaService);
+    expect(serviceCatalog.forQuery(QueryKind.CONSULTA_REINTENTOS_AGOTADOS)).toBeInstanceOf(ConsultaService);
     for (const shared of [QueryKind.VALIDATE_USER, QueryKind.VERIFY_CODE, QueryKind.LIST_ESTABLECIMIENTOS]) {
       expect(serviceCatalog.forQuery(shared)).toBeUndefined();
     }

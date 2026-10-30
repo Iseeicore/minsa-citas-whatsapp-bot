@@ -151,7 +151,7 @@ function resolveUbicacion(session: Session, event: QueryResultEvent): HandlerRes
       return confirmUbicacion(next, resolucion.establecimiento);
     case EstablecimientoResolucion.VARIOS:
       return failedAttempt(next, UBICACION_VARIOS_TEXT);
-    default:
+    case EstablecimientoResolucion.NINGUNO:
       return resolucion.by === EstablecimientoSearchBy.CODIGO
         ? retryCodigoNoEncontrado(next)
         : failedAttempt(next, UBICACION_NO_ENCONTRADA_TEXT);

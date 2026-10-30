@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const sender = vi.hoisted(() => {
   process.env.INBOUND_RATE_LIMIT = "off";
@@ -16,90 +16,97 @@ vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
 }));
 
 import { prisma } from "@/lib/db/prisma";
+import { createPrismaCupoDiarioStore } from "@/lib/consulta/cupo-diario";
 import { consultarIncidencia } from "@/lib/recepcion/consulta";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
-import { NO_UBICADA_TEXT } from "@/lib/constants/textos/consulta";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
+import { NO_UBICADA_TEXT } from "@/lib/constants/textos/consulta";
+import { ConsultaEstablecimientoButtonId } from "@/lib/enums/consulta-establecimiento-button-id";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
-describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la base real", () => {
+const IPRESS = "6206";
+
+describe.skipIf(!process.env.DATABASE_URL)("consultar una denuncia contra la base real", () => {
+  let establecimientoId = 0;
+
+  beforeAll(async () => {
+    establecimientoId = (await prisma.establecimientoSalud.findUniqueOrThrow({ where: { codigoRenipress: IPRESS } })).id;
+  });
   afterAll(async () => {
     await prisma.$disconnect();
   });
 
-  const person = (waId = `smoke-${randomUUID()}`) => ({
-    waId,
-    text: async (body: string) => {
+  const person = (waId = `smoke-${randomUUID()}`) => {
+    const send = async (message: Pick<WhatsAppMessage, "type"> & Partial<WhatsAppMessage>) => {
       sender.delivered.length = 0;
-      const message: WhatsAppMessage = {
-        id: `wamid.${randomUUID()}`,
-        from_user_id: waId,
-        timestamp: String(Math.floor(Date.now() / 1000)),
-        type: "text",
-        text: { body },
-      };
-      await processValue({ messages: [message] });
+      await processValue({
+        messages: [{ id: `wamid.${randomUUID()}`, from_user_id: waId, timestamp: String(Math.floor(Date.now() / 1000)), ...message }],
+      });
       return sender.delivered.filter((item) => item.waId === waId).map((item) => item.effect.text ?? "");
-    },
-  });
+    };
+    return {
+      waId,
+      text: (body: string) => send({ type: "text", text: { body } }),
+      tap: (id: string) => send({ type: "interactive", interactive: { button_reply: { id } } }),
+    };
+  };
 
-  const registrar = async (waId: string, extra: { dni?: string | null } = {}) => {
+  const registrar = async (dni: string | null) => {
     const result = await registrarIncidencia(
-      {
-        waId,
-        canal: "whatsapp",
-        dni: null,
-        descripcion: "El consultorio estaba cerrado sin aviso",
-        ...extra,
-      },
+      { waId: `smoke-${randomUUID()}`, canal: "whatsapp", dni, establecimientoId, descripcion: "El consultorio estaba cerrado sin aviso" },
       crearAlmacenEvidencias(),
     );
-    if (result.status !== "accepted" || !result.codigo) throw new Error("no se registró la incidencia de prueba");
+    if (result.status !== "accepted" || !result.codigo) throw new Error("no se registró la denuncia de prueba");
     return result.codigo;
   };
 
-  it("por WhatsApp solo la ve quien la registró; inexistente y ajena responden lo mismo", async () => {
+  it("por WhatsApp, una anónima se ve con el código y el establecimiento, sin datos de la persona", async () => {
+    const codigo = await registrar(null);
     const ana = person();
-    const beto = person();
-    const codigo = await registrar(ana.waId);
 
-    const propia = await ana.text(`quiero ver mi incidencia ${codigo}`);
-    expect(propia.join("\n")).toContain(`Denuncia ${codigo}`);
-    expect(propia.join("\n")).toContain("Estado: Recibida, pendiente de revisión");
-    expect(propia.join("\n")).not.toContain("consultorio");
+    await ana.text(`quiero ver mi denuncia ${codigo}`);
+    await ana.text(IPRESS);
+    const respuesta = await ana.tap(ConsultaEstablecimientoButtonId.SI);
 
-    const ajena = await beto.text(`quiero ver mi incidencia ${codigo}`);
-    const inexistente = await person().text("mi incidencia MINSA-2026-999999");
-    expect(ajena.at(-1)).toBe(NO_UBICADA_TEXT);
-    expect(inexistente.at(-1)).toBe(NO_UBICADA_TEXT);
-    expect(ajena.join("\n")).not.toContain(codigo);
-  });
-
-  it("consultarIncidencia por la web exige el DNI verificado y deja fuera las anónimas", async () => {
-    const dni = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
-    const identificada = await registrar(`smoke-${randomUUID()}`, { dni });
-    const anonima = await registrar(`smoke-${randomUUID()}`);
-
-    await expect(consultarIncidencia(identificada, { canal: "web", dni })).resolves.toMatchObject({
-      status: "found",
-      codigo: identificada,
-    });
-    await expect(consultarIncidencia(identificada, { canal: "web", dni: "00000000" })).resolves.toEqual({ status: "not_found" });
-    await expect(consultarIncidencia(anonima, { canal: "web", dni })).resolves.toEqual({ status: "not_found" });
-  });
-
-  it("user_id_update: tras el cambio de identificador la persona sigue viendo su incidencia", async () => {
-    const ana = person();
-    const codigo = await registrar(ana.waId);
-    const nuevo = `smoke-${randomUUID()}`;
-
-    await ana.text("hola");
-    await processValue({ user_id_update: [{ user_id: { previous: ana.waId, current: nuevo } }] });
-    await processValue({ user_id_update: [{ user_id: { previous: ana.waId, current: nuevo } }] });
-
-    const respuesta = await person(nuevo).text(`mi incidencia ${codigo}`);
     expect(respuesta.join("\n")).toContain(`Denuncia ${codigo}`);
-    expect((await ana.text(`mi incidencia ${codigo}`)).at(-1)).toBe(NO_UBICADA_TEXT);
+    expect(respuesta.join("\n")).toContain("Estado: Registrada");
+    expect(respuesta.join("\n")).not.toContain("consultorio");
+  });
+
+  it("con DNI exige el DNI con el que se registró, y cada consulta cuenta en el cupo del día", async () => {
+    const dni = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
+    const codigo = await registrar(dni);
+    const anonima = await registrar(null);
+    const cupo = createPrismaCupoDiarioStore();
+    const quien = { identificador: `smoke-${randomUUID()}`, canal: SessionChannel.WEB };
+
+    await expect(consultarIncidencia({ codigo, establecimientoId, esAnonimo: false, dni }, quien, cupo)).resolves.toMatchObject({
+      status: "found",
+      codigo,
+    });
+    await expect(consultarIncidencia({ codigo, establecimientoId, esAnonimo: false, dni: "00000000" }, quien, cupo)).resolves.toEqual({
+      status: "not_found",
+    });
+    await expect(consultarIncidencia({ codigo, establecimientoId, esAnonimo: true }, quien, cupo)).resolves.toEqual({
+      status: "not_found",
+    });
+    await expect(
+      consultarIncidencia({ codigo: anonima, establecimientoId: establecimientoId + 1, esAnonimo: true }, quien, cupo),
+    ).resolves.toEqual({
+      status: "not_found",
+    });
+    await expect(cupo.countDelDia(quien.identificador)).resolves.toBe(4);
+  });
+
+  it("no encontrada por WhatsApp responde lo mismo para una inexistente", async () => {
+    const beto = person();
+
+    await beto.text("mi denuncia MINSA-2026-A-999999");
+    await beto.text(IPRESS);
+    const respuesta = await beto.tap(ConsultaEstablecimientoButtonId.SI);
+
+    expect(respuesta.at(-1)).toContain(NO_UBICADA_TEXT);
   });
 });
