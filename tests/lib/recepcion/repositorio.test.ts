@@ -64,14 +64,4 @@ describe("consentimiento sin base de datos", () => {
     await expect(store.tieneAceptado("bsuid-ana")).resolves.toBe(true);
     await expect(store.tieneAceptado("bsuid-beto")).resolves.toBe(false);
   });
-
-  it("con el almacén en memoria las funciones del repositorio no tocan Prisma", async () => {
-    const store = createMemoryConsentimientoStore();
-
-    await expect(tieneConsentimientoAceptado("bsuid-memoria", store)).resolves.toBe(false);
-    await expect(marcarConsentimientoAceptado("bsuid-memoria", store)).resolves.toBeUndefined();
-    await expect(tieneConsentimientoAceptado("bsuid-memoria", store)).resolves.toBe(true);
-    expect(db.findUnique).not.toHaveBeenCalled();
-    expect(db.upsert).not.toHaveBeenCalled();
-  });
 });

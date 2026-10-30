@@ -28,17 +28,17 @@ export type PerimeterDeps = {
 
 type InboundToScreen = { waId: string; type: string; text?: string; messageId?: string };
 
-const traceOf = (message: { waId: string; messageId?: string }) =>
-  message.messageId ? deriveTraceId(message.waId, message.messageId) : undefined;
+type ImageScreen = { decision: PerimeterDecision } | { sessionExists: boolean };
 
 const EVIDENCE_IMAGE_LIMIT_LABEL = `more than ${EVIDENCE_IMAGE_BURST_LIMIT} evidence images in ${EVIDENCE_IMAGE_BURST_WINDOW_MS / 1000} s`;
+
+const traceOf = (message: { waId: string; messageId?: string }) =>
+  message.messageId ? deriveTraceId(message.waId, message.messageId) : undefined;
 
 function dropImage(message: InboundToScreen, reason: RateVerdict.THROTTLED | RateVerdict.BANNED, limit?: string): PerimeterDecision {
   logger.info("perimeter.dropped", { traceId: traceOf(message), waId: tail(message.waId), reason, messageType: message.type, limit });
   return { action: PerimeterAction.DROP, reason };
 }
-
-type ImageScreen = { decision: PerimeterDecision } | { sessionExists: boolean };
 
 async function screenImage(message: InboundToScreen, deps: PerimeterDeps): Promise<ImageScreen> {
   const blocked = deps.limiter.peek(message.waId);

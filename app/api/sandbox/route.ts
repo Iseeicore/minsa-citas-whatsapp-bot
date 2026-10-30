@@ -37,6 +37,8 @@ const SANDBOX_TURN_HOOKS: TurnHooks = {
 
 const warnedInvalidOrigins = new Set<string>();
 
+const TEXT_FIELD = "text";
+
 function allowedOrigins(): string[] {
   const { origins, invalid } = parseAllowedOrigins(process.env.SANDBOX_ALLOWED_ORIGINS);
   for (const entry of invalid) {
@@ -75,6 +77,10 @@ function rejectedSignature(request: NextRequest, rawBody: string): SandboxSignat
   return result === SandboxSignatureResult.VALID ? undefined : result;
 }
 
+function isTextTooLong(error: z.ZodError): boolean {
+  return error.issues.some((issue) => issue.code === "too_big" && issue.path[0] === TEXT_FIELD);
+}
+
 export async function OPTIONS(request: NextRequest) {
   if (!isSandboxEnabled()) return apiError(ApiErrorCode.NOT_FOUND, { message: SANDBOX_DISABLED_TEXT });
 
@@ -92,12 +98,6 @@ export async function OPTIONS(request: NextRequest) {
       Vary: "Origin",
     },
   });
-}
-
-const TEXT_FIELD = "text";
-
-function isTextTooLong(error: z.ZodError): boolean {
-  return error.issues.some((issue) => issue.code === "too_big" && issue.path[0] === TEXT_FIELD);
 }
 
 const sandboxEventSchema = z.object({

@@ -2,7 +2,7 @@ import { isRegisteredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { logger } from "@/lib/observability/logger";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { ConfigErrorCode } from "@/lib/enums/config-error-code";
-import { invalidEvidenceImageMaxMb } from "@/lib/config/evidence";
+import { findInvalidEvidenceImageMaxMb } from "@/lib/config/evidence";
 import { EVIDENCE_IMAGE_MAX_MB_DEFAULT, EVIDENCE_IMAGE_MAX_MB_MIN, META_IMAGE_MAX_MB } from "@/lib/constants/limits/incidencia";
 
 type Severity = "warn" | "error";
@@ -54,7 +54,7 @@ export function checkConfig(env: Env = process.env): ConfigIssue[] {
 
   if (!env.MINSA_DIGITAL_APP_URL) issues.push(issue(ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING, env.MINSA_DIGITAL_APP_URL ?? ""));
 
-  const evidenceImageMaxMb = invalidEvidenceImageMaxMb(env);
+  const evidenceImageMaxMb = findInvalidEvidenceImageMaxMb(env);
   if (evidenceImageMaxMb !== undefined) issues.push(issue(ConfigErrorCode.EVIDENCE_IMAGE_MAX_MB_INVALID, evidenceImageMaxMb));
 
   return issues;

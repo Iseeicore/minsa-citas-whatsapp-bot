@@ -11,16 +11,16 @@ function parseEvidenceImageMaxMb(raw: string | undefined): number | undefined {
   return megabytes >= EVIDENCE_IMAGE_MAX_MB_MIN && megabytes <= META_IMAGE_MAX_MB ? megabytes : undefined;
 }
 
-export function invalidEvidenceImageMaxMb(env: Env = process.env): string | undefined {
+export function findInvalidEvidenceImageMaxMb(env: Env = process.env): string | undefined {
   const raw = env.EVIDENCE_IMAGE_MAX_MB;
   if (!raw?.trim()) return undefined;
   return parseEvidenceImageMaxMb(raw) === undefined ? raw : undefined;
 }
 
-export function evidenceImageMaxMegabytes(env: Env = process.env): number {
+export function getEvidenceImageMaxMegabytes(env: Env = process.env): number {
   return parseEvidenceImageMaxMb(env.EVIDENCE_IMAGE_MAX_MB) ?? EVIDENCE_IMAGE_MAX_MB_DEFAULT;
 }
 
-export function evidenceImageMaxBytes(env: Env = process.env): number {
-  return evidenceImageMaxMegabytes(env) * BYTES_PER_MEGABYTE;
+export function getEvidenceImageMaxBytes(env: Env = process.env): number {
+  return getEvidenceImageMaxMegabytes(env) * BYTES_PER_MEGABYTE;
 }

@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
-import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
-import type { HandleEvent, HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
-import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
+import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import { CITA_INTENT_DETECTED_TEXT, FIRST_CONTACT_CITA_TEXT, firstContactCitaRequestText } from "@/lib/constants/textos/menu";
 import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
@@ -22,7 +20,6 @@ import {
 } from "@/lib/constants/textos/terminos";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { HandlerOutcome } from "@/lib/enums/handler-outcome";
-import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
@@ -36,46 +33,13 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { TerminosButtonId } from "@/lib/enums/terminos-button-id";
 import { TerminosResume } from "@/lib/enums/terminos-resume";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
+import { queries, queryResult, sent, tap, text, texts } from "@/tests/support/fsm-events";
+import { buildReferencia } from "@/tests/support/referencia";
 
-const FROM = "synthetic-terminos";
 const DNI = "12345678";
 const CHANNELS = [SessionChannel.WHATSAPP, SessionChannel.WEB];
 
-const text = (value: string, channel: SessionChannel = SessionChannel.WHATSAPP): InboundEvent => ({
-  from: FROM,
-  type: "text",
-  text: value,
-  channel,
-});
-const tap = (id: string, channel: SessionChannel = SessionChannel.WHATSAPP): InboundEvent => ({
-  from: FROM,
-  type: "button",
-  listId: id,
-  channel,
-});
-const queryResult = (queryKind: QueryKind, result: unknown): QueryResultEvent => ({
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind,
-  result,
-});
-const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-const texts = (result: HandlerResult): string[] => sent(result).flatMap((effect) => (effect.kind === SendType.TEXT ? [effect.text] : []));
-const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const mainMenu = (slots: Session["slots"] = {}): Session => ({ state: SessionState.MAIN_MENU, slots, counters: {} });
-
-const REFERENCIA: ReferenciaItem = {
-  idReferencia: "synthetic-ref",
-  numero: "00123",
-  fechaInicio: "24/07/2026 10:00",
-  ipressOrigen: "CENTRO SINTÉTICO",
-  ipressDestino: "HOSPITAL SINTÉTICO",
-  upsOrigen: "MEDICINA GENERAL",
-  upsDestino: "CARDIOLOGÍA",
-  codigoIpressDestino: "5987",
-  codigoUpsDestino: "222800",
-  estado: 5,
-};
 
 function verifiedReferencias(state: Session["state"], slots: Session["slots"] = {}): Session {
   return {
@@ -84,7 +48,7 @@ function verifiedReferencias(state: Session["state"], slots: Session["slots"] = 
       [SlotKey.CITA_BEARER]: "synthetic-token",
       [SlotKey.CITA_DNI]: DNI,
       [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS,
-      [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCIA]),
+      [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([buildReferencia()]),
       ...slots,
     },
     counters: {},
@@ -98,7 +62,7 @@ function expectTerminos(result: HandlerResult, resume: TerminosResume) {
   expect(queries(result)).toEqual([]);
 }
 
-function accept(result: HandlerResult, channel: SessionChannel = SessionChannel.WHATSAPP): HandlerResult {
+function accept(result: HandlerResult, channel?: SessionChannel): HandlerResult {
   const accepted = handle(result.session, tap(TerminosButtonId.ACCEPT, channel));
   expect(accepted.session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);
   return handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" }));

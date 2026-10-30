@@ -4,6 +4,8 @@ const media = vi.hoisted(() => ({ download: vi.fn(async (): Promise<unknown> => 
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: media.download }));
 
 import { toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
+import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
+import { MediaFailure } from "@/lib/enums/media-failure";
 
 const WA = "51999000111";
 const base = { id: "wamid.1", from_user_id: WA, timestamp: "1" };
@@ -54,7 +56,11 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
     expect(await eventPromise).toEqual({
       from: WA,
       type: "image",
-      media: [{ dataUri: "data:image/png;base64,AAAA" }, { failure: "too_large" }, { dataUri: "data:image/png;base64,CCCC" }],
+      media: [
+        { kind: InboundMediaKind.DATA, dataUri: "data:image/png;base64,AAAA" },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+        { kind: InboundMediaKind.DATA, dataUri: "data:image/png;base64,CCCC" },
+      ],
     });
     expect(media.download.mock.calls.map((call) => (call as unknown[])[0])).toEqual(["m1", "m2", "m3"]);
   });
@@ -65,7 +71,8 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
 
     expect(media.download).toHaveBeenCalledTimes(5);
     expect(event?.media).toHaveLength(7);
-    expect(event?.media?.slice(5)).toEqual([{ failure: "over_limit" }, { failure: "over_limit" }]);
+    const overLimit = { kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT };
+    expect(event?.media?.slice(5)).toEqual([overLimit, overLimit]);
   });
 
   it("a single media id keeps the single-image event", async () => {

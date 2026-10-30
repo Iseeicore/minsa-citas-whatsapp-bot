@@ -5,50 +5,33 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("isIncidenciasEnabled", () => {
-  it.each(["true", "TRUE", "True", " true ", "\ttrue\n"])("enables the incidencias when INCIDENCIAS_ENABLED is %j", (value) => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", value);
+describe.each([
+  ["INCIDENCIAS_ENABLED", isIncidenciasEnabled],
+  ["TERMINOS_ENABLED", isTerminosEnabled],
+])("the %s flag", (variable, isEnabled) => {
+  it.each(["true", "TRUE", "True", " true ", "\ttrue\n"])("turns on when the value is %j", (value) => {
+    vi.stubEnv(variable, value);
 
-    expect(isIncidenciasEnabled()).toBe(true);
+    expect(isEnabled()).toBe(true);
   });
 
-  it.each(["", "false", "1", "yes", "si", "truee", "on"])("keeps them off when the value is %j", (value) => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", value);
+  it.each(["", "false", "1", "yes", "si", "truee", "on"])("stays off when the value is %j", (value) => {
+    vi.stubEnv(variable, value);
 
-    expect(isIncidenciasEnabled()).toBe(false);
+    expect(isEnabled()).toBe(false);
   });
 
-  it("keeps them off when the variable is not defined", () => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", undefined);
+  it("stays off when the variable is not defined", () => {
+    vi.stubEnv(variable, undefined);
 
-    expect(isIncidenciasEnabled()).toBe(false);
+    expect(isEnabled()).toBe(false);
   });
 
   it("is read on every call, so a change in the environment takes effect without reloading the module", () => {
-    vi.stubEnv("INCIDENCIAS_ENABLED", "true");
-    expect(isIncidenciasEnabled()).toBe(true);
+    vi.stubEnv(variable, "true");
+    expect(isEnabled()).toBe(true);
 
-    vi.stubEnv("INCIDENCIAS_ENABLED", "false");
-    expect(isIncidenciasEnabled()).toBe(false);
-  });
-});
-
-describe("isTerminosEnabled", () => {
-  it.each(["true", "TRUE", " true ", "\ttrue\n"])("shows the terms when TERMINOS_ENABLED is %j", (value) => {
-    vi.stubEnv("TERMINOS_ENABLED", value);
-
-    expect(isTerminosEnabled()).toBe(true);
-  });
-
-  it.each(["", "false", "1", "yes", "si", "on"])("keeps them off when the value is %j", (value) => {
-    vi.stubEnv("TERMINOS_ENABLED", value);
-
-    expect(isTerminosEnabled()).toBe(false);
-  });
-
-  it("keeps them off when the variable is not defined", () => {
-    vi.stubEnv("TERMINOS_ENABLED", undefined);
-
-    expect(isTerminosEnabled()).toBe(false);
+    vi.stubEnv(variable, "false");
+    expect(isEnabled()).toBe(false);
   });
 });

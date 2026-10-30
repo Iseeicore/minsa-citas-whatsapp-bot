@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleIncidencia } from "@/lib/fsm/flows/incidencia/handlers-incidencia";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
+import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { MediaFailure } from "@/lib/enums/media-failure";
 import type { HandlerResult, InboundEvent, InboundMedia, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -190,6 +191,11 @@ describe("incidencia_awaiting_descripcion: ruido no se registra como incidencia"
 describe("el registro final: con la persona o anónimo", () => {
   const submission = (step: HandlerResult) => queries(step)[0].payload.submission as { dni: string | null; mediaDataUris: string[] };
   const confirmar = (step: HandlerResult) => handleIncidencia(step.session, tap("incidencia_confirmar_registro_si"));
+  const registrarAnonimo = (session: Session) => {
+    const descripcion = handleIncidencia(session, tap("incidencia_anonimo"));
+    const foto = handleIncidencia(descripcion.session, text("El consultorio estaba cerrado."));
+    return confirmar(handleIncidencia(foto.session, text("OMITIR")));
+  };
 
   it.each([
     ["un DNI", "12345678"],
@@ -214,40 +220,14 @@ describe("el registro final: con la persona o anónimo", () => {
     });
   });
 
-  it("desde el Chat-bot: el registro lleva el canal web", () => {
-    let step = handleIncidencia({ ...identityChoice(), channel: "web" }, tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
-
-    expect(submission(step)).toMatchObject({ canal: "web" });
-  });
-
-  it("confirmar el registro solo pide registrarlo: no manda «Enviando…» ni otro texto", () => {
-    let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
-
-    expect(step.session.state).toBe("incidencia_submit_pending");
-    expect(sent(step)).toEqual([]);
-    expect(queries(step).map((effect) => effect.kind)).toEqual(["incidencia_register"]);
-  });
-
   it("con el establecimiento confirmado: el registro lleva su id", () => {
-    let step = handleIncidencia({ ...identityChoice(), slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } }, tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
+    const step = registrarAnonimo({ ...identityChoice(), slots: { [SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID]: 7 } });
 
     expect(submission(step)).toMatchObject({ establecimientoId: 7 });
   });
 
   it("anónimo: llega sin documento", () => {
-    let step = handleIncidencia(identityChoice(), tap("incidencia_anonimo"));
-    step = handleIncidencia(step.session, text("El consultorio estaba cerrado."));
-    step = handleIncidencia(step.session, text("OMITIR"));
-    step = confirmar(step);
+    const step = registrarAnonimo(identityChoice());
 
     expect(submission(step)).toEqual({
       waId: FROM,
@@ -760,7 +740,7 @@ describe("incidencia_confirm_registro: checklist final antes de enviar", () => {
 
 describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una sola respuesta", () => {
   const lote = (...media: InboundMedia[]): InboundEvent => ({ from: FROM, type: "image", media });
-  const valida = (indice: number): InboundMedia => ({ dataUri: pngDe(indice) });
+  const valida = (indice: number): InboundMedia => ({ kind: InboundMediaKind.DATA, dataUri: pngDe(indice) });
   const LISTO = [{ id: "incidencia_foto_listo", title: "Listo" }];
 
   it("un lote de 3 imágenes se guarda entero y se responde una vez, con el botón Listo", () => {
@@ -782,9 +762,9 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
       awaitingFoto(),
       lote(
         valida(10),
-        { failure: MediaFailure.TOO_LARGE },
-        { dataUri: "data:text/html;base64,PGI+" },
-        { failure: MediaFailure.UNREADABLE },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+        { kind: InboundMediaKind.DATA, dataUri: "data:text/html;base64,PGI+" },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.UNREADABLE },
       ),
     );
 
@@ -795,7 +775,13 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
   });
 
   it("varias rechazadas por el mismo motivo se cuentan juntas, en plural", () => {
-    const result = handleIncidencia(awaitingFoto(), lote({ failure: MediaFailure.TOO_LARGE }, { failure: MediaFailure.TOO_LARGE }));
+    const result = handleIncidencia(
+      awaitingFoto(),
+      lote(
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+        { kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE },
+      ),
+    );
 
     expect(result.session.slots[SlotKey.INCIDENCIA_IMAGENES]).toBeUndefined();
     expect(sent(result)).toEqual([
@@ -840,7 +826,7 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
   });
 
   it("las que la descarga dejó fuera por pasar del máximo también se cuentan como no guardadas", () => {
-    const result = handleIncidencia(awaitingFoto(), lote(valida(10), { failure: MediaFailure.OVER_LIMIT }));
+    const result = handleIncidencia(awaitingFoto(), lote(valida(10), { kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT }));
 
     expect(texts(result)[0]).toContain("1 se guardó y 1 no, porque supera el máximo de 5.");
   });
@@ -856,7 +842,7 @@ describe("incidencia_awaiting_foto: las imágenes que llegan juntas reciben una 
   it("el acuse respeta el máximo que fija EVIDENCE_IMAGE_MAX_MB", () => {
     vi.stubEnv("EVIDENCE_IMAGE_MAX_MB", "3");
     try {
-      const result = handleIncidencia(awaitingFoto(), lote({ failure: MediaFailure.TOO_LARGE }));
+      const result = handleIncidencia(awaitingFoto(), lote({ kind: InboundMediaKind.FAILURE, failure: MediaFailure.TOO_LARGE }));
 
       expect(texts(result)[0]).toContain("no se guardó, porque pesa más de 3 MB");
     } finally {

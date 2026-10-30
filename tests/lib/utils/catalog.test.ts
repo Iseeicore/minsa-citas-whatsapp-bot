@@ -4,44 +4,31 @@ import { listAvailableEstablecimientos, findPageAfterEmpty } from "@/lib/utils/c
 const MAX_SKIPS = 3;
 
 describe("findPageAfterEmpty", () => {
-  it("advances to the next page and counts the jump", () => {
-    expect(findPageAfterEmpty({ page: 1, totalPages: 5, skips: 0, backFrom: undefined }, MAX_SKIPS)).toEqual({
-      page: 2,
-      skips: 1,
-      clearBackFrom: false,
-    });
-  });
-
-  it("stops advancing once the jumps reach the limit", () => {
-    expect(findPageAfterEmpty({ page: 2, totalPages: 9, skips: MAX_SKIPS, backFrom: undefined }, MAX_SKIPS)).toBeUndefined();
-  });
-
-  it("stops advancing on the last page", () => {
-    expect(findPageAfterEmpty({ page: 5, totalPages: 5, skips: 0, backFrom: undefined }, MAX_SKIPS)).toBeUndefined();
-  });
-
-  it("goes back one page while going backwards and counts the jump", () => {
-    expect(findPageAfterEmpty({ page: 3, totalPages: 5, skips: 1, backFrom: 4 }, MAX_SKIPS)).toEqual({
-      page: 2,
-      skips: 2,
-      clearBackFrom: false,
-    });
-  });
-
-  it("returns to the page it went back from when there is no previous page left", () => {
-    expect(findPageAfterEmpty({ page: 1, totalPages: 5, skips: 0, backFrom: 2 }, MAX_SKIPS)).toEqual({
-      page: 2,
-      skips: MAX_SKIPS,
-      clearBackFrom: true,
-    });
-  });
-
-  it("returns to the page it went back from once the jumps reach the limit", () => {
-    expect(findPageAfterEmpty({ page: 3, totalPages: 5, skips: MAX_SKIPS, backFrom: 4 }, MAX_SKIPS)).toEqual({
-      page: 4,
-      skips: MAX_SKIPS,
-      clearBackFrom: true,
-    });
+  it.each([
+    [
+      "advances to the next page and counts the jump",
+      { page: 1, totalPages: 5, skips: 0, backFrom: undefined },
+      { page: 2, skips: 1, clearBackFrom: false },
+    ],
+    ["stops advancing once the jumps reach the limit", { page: 2, totalPages: 9, skips: MAX_SKIPS, backFrom: undefined }, undefined],
+    ["stops advancing on the last page", { page: 5, totalPages: 5, skips: 0, backFrom: undefined }, undefined],
+    [
+      "goes back one page while going backwards and counts the jump",
+      { page: 3, totalPages: 5, skips: 1, backFrom: 4 },
+      { page: 2, skips: 2, clearBackFrom: false },
+    ],
+    [
+      "returns to the page it went back from when there is no previous page left",
+      { page: 1, totalPages: 5, skips: 0, backFrom: 2 },
+      { page: 2, skips: MAX_SKIPS, clearBackFrom: true },
+    ],
+    [
+      "returns to the page it went back from once the jumps reach the limit",
+      { page: 3, totalPages: 5, skips: MAX_SKIPS, backFrom: 4 },
+      { page: 4, skips: MAX_SKIPS, clearBackFrom: true },
+    ],
+  ])("%s", (_name, position, expected) => {
+    expect(findPageAfterEmpty(position, MAX_SKIPS)).toEqual(expected);
   });
 });
 

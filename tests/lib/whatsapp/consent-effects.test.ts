@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { toWhatsAppEffects } from "@/lib/whatsapp/consent-effects";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
-import { configureLogger } from "@/lib/observability/logger";
 import {
   TERMINOS_BUTTONS,
   TERMINOS_PRIVACIDAD_WHATSAPP_TEXT,
@@ -13,14 +12,11 @@ import {
 } from "@/lib/constants/textos/terminos";
 import { SendType } from "@/lib/enums/send-type";
 import type { ChannelSendEffect, SendConsentEffect } from "@/lib/fsm/core/types";
+import { captureLogs } from "@/tests/support/capture-logs";
 
 const URL = "https://bot.minsa.test/terminos";
 
-let restoreLogger: (() => void) | undefined;
-
 afterEach(() => {
-  restoreLogger?.();
-  restoreLogger = undefined;
   vi.unstubAllEnvs();
 });
 
@@ -38,8 +34,7 @@ describe("toWhatsAppEffects", () => {
 
   it("without TERMINOS_URL sends only the buttons and warns that the link is missing", () => {
     vi.stubEnv("TERMINOS_URL", "");
-    const lines: Array<Record<string, unknown>> = [];
-    restoreLogger = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line)), level: "info" });
+    const lines = captureLogs();
 
     const effects = toWhatsAppEffects(buildTerminosEffect());
 
@@ -69,8 +64,7 @@ describe("toWhatsAppEffects", () => {
 
   it("without the terms link sends only its own WhatsApp question and buttons, with no warning", () => {
     vi.stubEnv("TERMINOS_URL", "");
-    const lines: Array<Record<string, unknown>> = [];
-    restoreLogger = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line)), level: "info" });
+    const lines = captureLogs();
     const consent: SendConsentEffect = { ...buildTerminosEffect(), withTerminosLink: undefined, whatsappText: "¿Nos autorizas?" };
 
     expect(toWhatsAppEffects(consent)).toEqual([{ kind: SendType.BUTTONS, text: "¿Nos autorizas?", buttons: TERMINOS_BUTTONS }]);

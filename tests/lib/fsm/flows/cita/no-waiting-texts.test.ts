@@ -1,33 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
-import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { serializeOffered, type OfferedList } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { startReferenciasLookup } from "@/lib/fsm/flows/referencia/lookup";
 import { resolveDistritoCandidates, resolveDistritoText } from "@/lib/fsm/flows/cita/parsing/distrito-resolver";
-import type { HandlerResult, InboundEvent, QueryEffectKind, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
-import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
+import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { QueryKind } from "@/lib/enums/query-kind";
+import { SendType } from "@/lib/enums/send-type";
+import { SessionState } from "@/lib/enums/session-state";
 import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
 import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
 import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
+import { pick, queries, queryResult, sent, tap, text } from "@/tests/support/fsm-events";
+import { buildReferencia } from "@/tests/support/referencia";
 
-const FROM = "sandbox-no-waiting-texts";
-const text = (value: string): InboundEvent => ({ from: FROM, type: "text", text: value });
-const tap = (id: string): InboundEvent => ({ from: FROM, type: "list", listId: id });
-const queryResult = (queryKind: QueryEffectKind, result: unknown): QueryResultEvent => ({
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind,
-  result,
-});
+type QueryOnlyCase = [string, () => HandlerResult, QueryKind];
 
-const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-const queryKinds = (result: HandlerResult): string[] => result.effects.filter(isQueryEffect).map((effect) => effect.kind);
-
-function at(state: Session["state"], slots: Session["slots"] = {}, offered?: OfferedList, counters: Session["counters"] = {}): Session {
+function at(state: SessionState, slots: Session["slots"] = {}, offered?: OfferedList, counters: Session["counters"] = {}): Session {
   return {
     state,
     slots: {
@@ -43,9 +34,9 @@ function at(state: Session["state"], slots: Session["slots"] = {}, offered?: Off
   };
 }
 
-function expectOnlyQuery(result: HandlerResult, kind: QueryEffectKind): void {
+function expectOnlyQuery(result: HandlerResult, kind: QueryKind): void {
   expect(sent(result)).toEqual([]);
-  expect(queryKinds(result)).toEqual([kind]);
+  expect(queries(result).map((effect) => effect.kind)).toEqual([kind]);
 }
 
 const especialidades: OfferedList = {
@@ -89,18 +80,17 @@ const ubigeos: OfferedList = {
   ],
 };
 
-const REFERENCIA: ReferenciaItem = {
-  idReferencia: "1364486",
-  numero: "00123",
-  fechaInicio: "24/07/2024 23:03",
-  ipressOrigen: "SAN FERNANDO",
-  ipressDestino: "HOSPITAL MARIA AUXILIADORA",
-  upsOrigen: "MEDICINA GENERAL",
-  upsDestino: "GASTROENTEROLOGÍA",
-  codigoIpressDestino: "5987",
-  codigoUpsDestino: "222800",
-  estado: 5,
+const distritos: OfferedList = {
+  text: "Encontramos varias opciones. ¿Cuál es tu distrito?",
+  rows: [
+    { id: "Lima|Lima|Miraflores", title: "Miraflores", description: "Lima — Lima" },
+    { id: "Arequipa|Arequipa|Miraflores", title: "Miraflores", description: "Arequipa — Arequipa" },
+  ],
 };
+
+const REFERENCIA = buildReferencia();
+const UBIGEO_FOUND = { status: "found", items: [{ ubigeoInei: "150110", distrito: "COMAS", provincia: "LIMA", departamento: "LIMA" }] };
+const FECHA_HORA = { [SlotKey.CITA_FECHA]: "22/09/2026" };
 
 beforeEach(() => {
   vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
@@ -111,143 +101,182 @@ afterEach(() => {
 });
 
 describe("identidad: sin «Validando…» ni «Verificando…»", () => {
-  it("el documento válido solo consulta a MINSA", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_dni"), text("12345678")), "validate_user");
-  });
-
-  it("el código OTP solo se verifica", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_otp", { [SlotKey.CITA_TWOFA_ID]: "twofa-1" }), text("123456")), "verify_code");
-  });
-
-  it("la búsqueda de referencias no anuncia que analiza la cuenta", () => {
-    expectOnlyQuery(startReferenciasLookup(at("cita_verify_pending")), "list_references");
+  it.each<QueryOnlyCase>([
+    [
+      "el documento válido solo consulta a MINSA",
+      () => handle(at(SessionState.CITA_AWAITING_DNI), text("12345678")),
+      QueryKind.VALIDATE_USER,
+    ],
+    [
+      "el código OTP solo se verifica",
+      () => handle(at(SessionState.CITA_AWAITING_OTP, { [SlotKey.CITA_TWOFA_ID]: "twofa-1" }), text("123456")),
+      QueryKind.VERIFY_CODE,
+    ],
+    [
+      "la búsqueda de referencias no anuncia que analiza la cuenta",
+      () => startReferenciasLookup(at(SessionState.CITA_VERIFY_PENDING)),
+      QueryKind.LIST_REFERENCES,
+    ],
+  ])("%s", (_name, run, kind) => {
+    expectOnlyQuery(run(), kind);
   });
 });
 
 describe("ubicación: sin «Buscando tu ubigeo…» ni «Buscando tu distrito…»", () => {
-  it("un único distrito candidato solo busca el ubigeo", () => {
-    const candidate = { departamento: "Lima", provincia: "Lima", distrito: "Comas" };
-
-    expectOnlyQuery(resolveDistritoCandidates(at("cita_awaiting_distrito_ai"), [candidate]), "search_ubigeo");
-  });
-
-  it("un distrito que solo la IA puede leer se consulta sin anunciarlo", () => {
-    expectOnlyQuery(resolveDistritoText(at("cita_awaiting_distrito_ai"), "Sam Borja", undefined), "resolve_distrito_ai");
-  });
-
-  it("elegir un distrito entre varios solo busca el ubigeo", () => {
-    const offered: OfferedList = {
-      text: "Encontramos varias opciones. ¿Cuál es tu distrito?",
-      rows: [
-        { id: "Lima|Lima|Miraflores", title: "Miraflores", description: "Lima — Lima" },
-        { id: "Arequipa|Arequipa|Miraflores", title: "Miraflores", description: "Arequipa — Arequipa" },
-      ],
-    };
-
-    expectOnlyQuery(handle(at("cita_awaiting_distrito_disambiguation", {}, offered), tap("Lima|Lima|Miraflores")), "search_ubigeo");
-  });
-
-  it("el distrito escrito a mano solo busca el ubigeo", () => {
-    const session = at("cita_awaiting_distrito", { [SlotKey.CITA_DEPARTAMENTO]: "Lima", [SlotKey.CITA_PROVINCIA]: "Lima" });
-
-    expectOnlyQuery(handle(session, text("Miraflores")), "search_ubigeo");
-  });
-
-  it("un ubigeo fijado pasa a las especialidades sin el «Entendido. Buscando…»", () => {
-    const session = at("cita_ubigeo_pending", { [SlotKey.CITA_DISTRITO]: "Comas" });
-    const found = { status: "found", items: [{ ubigeoInei: "150110", distrito: "COMAS", provincia: "LIMA", departamento: "LIMA" }] };
-
-    expectOnlyQuery(handle(session, queryResult("search_ubigeo", found)), "list_especialidades");
-  });
-
-  it("un ubigeo elegido de la lista pasa a las especialidades sin el «Entendido. Buscando…»", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_ubigeo_select", {}, ubigeos), tap("150101")), "list_especialidades");
+  it.each<QueryOnlyCase>([
+    [
+      "un único distrito candidato solo busca el ubigeo",
+      () =>
+        resolveDistritoCandidates(at(SessionState.CITA_AWAITING_DISTRITO_AI), [
+          { departamento: "Lima", provincia: "Lima", distrito: "Comas" },
+        ]),
+      QueryKind.SEARCH_UBIGEO,
+    ],
+    [
+      "un distrito que solo la IA puede leer se consulta sin anunciarlo",
+      () => resolveDistritoText(at(SessionState.CITA_AWAITING_DISTRITO_AI), "Sam Borja", undefined),
+      QueryKind.RESOLVE_DISTRITO_AI,
+    ],
+    [
+      "elegir un distrito entre varios solo busca el ubigeo",
+      () => handle(at(SessionState.CITA_AWAITING_DISTRITO_DISAMBIGUATION, {}, distritos), pick("Lima|Lima|Miraflores")),
+      QueryKind.SEARCH_UBIGEO,
+    ],
+    [
+      "el distrito escrito a mano solo busca el ubigeo",
+      () =>
+        handle(
+          at(SessionState.CITA_AWAITING_DISTRITO, { [SlotKey.CITA_DEPARTAMENTO]: "Lima", [SlotKey.CITA_PROVINCIA]: "Lima" }),
+          text("Miraflores"),
+        ),
+      QueryKind.SEARCH_UBIGEO,
+    ],
+    [
+      "un ubigeo fijado pasa a las especialidades sin el «Entendido. Buscando…»",
+      () =>
+        handle(
+          at(SessionState.CITA_UBIGEO_PENDING, { [SlotKey.CITA_DISTRITO]: "Comas" }),
+          queryResult(QueryKind.SEARCH_UBIGEO, UBIGEO_FOUND),
+        ),
+      QueryKind.LIST_ESPECIALIDADES,
+    ],
+    [
+      "un ubigeo elegido de la lista pasa a las especialidades sin el «Entendido. Buscando…»",
+      () => handle(at(SessionState.CITA_AWAITING_UBIGEO_SELECT, {}, ubigeos), pick("150101")),
+      QueryKind.LIST_ESPECIALIDADES,
+    ],
+  ])("%s", (_name, run, kind) => {
+    expectOnlyQuery(run(), kind);
   });
 });
 
 describe("catálogo: sin «Buscando…» ni «revisando tu respuesta»", () => {
-  it("la especialidad elegida solo busca establecimientos", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_especialidad_select", {}, especialidades), tap("01")), "list_establecimientos");
+  it.each<QueryOnlyCase>([
+    [
+      "la especialidad elegida solo busca establecimientos",
+      () => handle(at(SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT, {}, especialidades), pick("01")),
+      QueryKind.LIST_ESTABLECIMIENTOS,
+    ],
+    [
+      "la página siguiente de establecimientos no anuncia la búsqueda",
+      () =>
+        handle(
+          at(SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT, {}, establecimientos, {
+            [CounterKey.CITA_ESTABLECIMIENTOS_PAGE]: 1,
+            [CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES]: 2,
+          }),
+          pick(EstablecimientoPageRowId.NEXT),
+        ),
+      QueryKind.LIST_ESTABLECIMIENTOS,
+    ],
+    [
+      "el establecimiento elegido solo busca fechas",
+      () => handle(at(SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT, {}, establecimientos), pick("0000456")),
+      QueryKind.LIST_FECHAS,
+    ],
+    [
+      "aceptar el establecimiento propuesto solo busca fechas",
+      () =>
+        handle(
+          at(SessionState.CITA_AWAITING_OTHER_ESTABLECIMIENTO, {
+            [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO]: "0000456",
+            [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE]: "Hospital Lurigancho",
+          }),
+          pick(OtherEstablecimientoButtonId.YES),
+        ),
+      QueryKind.LIST_FECHAS,
+    ],
+    [
+      "la referencia elegida solo busca fechas en su destino",
+      () =>
+        handle(
+          at(
+            SessionState.CITA_AWAITING_REFERENCIA_SELECT,
+            { [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCIA]) },
+            { text: "Estas son tus referencias:", rows: [{ id: REFERENCIA.idReferencia, title: "Cardiología", description: "Destino" }] },
+          ),
+          pick(REFERENCIA.idReferencia),
+        ),
+      QueryKind.LIST_FECHAS,
+    ],
+  ])("%s", (_name, run, kind) => {
+    expectOnlyQuery(run(), kind);
   });
 
   it("un texto que la lista no reconoce va a la IA sin anunciarlo", () => {
-    const result = handle(at("cita_awaiting_especialidad_select", {}, especialidades), text("algo para los dientes de mi hijo"));
+    const result = handle(at(SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT, {}, especialidades), text("algo para los dientes de mi hijo"));
 
-    expect(result.session.state).toBe("cita_selection_hints_pending");
-    expectOnlyQuery(result, "extract_selection_hints");
-  });
-
-  it("la página siguiente de establecimientos no anuncia la búsqueda", () => {
-    const counters = { [CounterKey.CITA_ESTABLECIMIENTOS_PAGE]: 1, [CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES]: 2 };
-    const session = at("cita_awaiting_establecimiento_select", {}, establecimientos, counters);
-
-    expectOnlyQuery(handle(session, tap(EstablecimientoPageRowId.NEXT)), "list_establecimientos");
-  });
-
-  it("el establecimiento elegido solo busca fechas", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_establecimiento_select", {}, establecimientos), tap("0000456")), "list_fechas");
-  });
-
-  it("aceptar el establecimiento propuesto solo busca fechas", () => {
-    const session = at("cita_awaiting_other_establecimiento", {
-      [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO]: "0000456",
-      [SlotKey.CITA_ESTABLECIMIENTO_PROPUESTO_NOMBRE]: "Hospital Lurigancho",
-    });
-
-    expectOnlyQuery(handle(session, tap(OtherEstablecimientoButtonId.YES)), "list_fechas");
-  });
-
-  it("la referencia elegida solo busca fechas en su destino", () => {
-    const session = at(
-      "cita_awaiting_referencia_select",
-      { [SlotKey.CITA_REFERENCIAS_DATA]: JSON.stringify([REFERENCIA]) },
-      { text: "Estas son tus referencias:", rows: [{ id: "1364486", title: "Gastroenterología", description: "Destino" }] },
-    );
-
-    expectOnlyQuery(handle(session, tap("1364486")), "list_fechas");
+    expect(result.session.state).toBe(SessionState.CITA_SELECTION_HINTS_PENDING);
+    expectOnlyQuery(result, QueryKind.EXTRACT_SELECTION_HINTS);
   });
 });
 
 describe("fecha y hora: sin «Buscando…» ni «Agendando…»", () => {
-  it("aceptar otra fecha solo vuelve a buscar fechas", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_other_fecha"), tap(OtherFechaButtonId.YES)), "list_fechas");
+  it.each<QueryOnlyCase>([
+    [
+      "aceptar otra fecha solo vuelve a buscar fechas",
+      () => handle(at(SessionState.CITA_AWAITING_OTHER_FECHA), pick(OtherFechaButtonId.YES)),
+      QueryKind.LIST_FECHAS,
+    ],
+    [
+      "una frase de tiempo que las reglas no leen va a la IA sin anunciarlo",
+      () => handle(at(SessionState.CITA_AWAITING_FECHA_SELECT, {}, fechas), text("la próxima semana")),
+      QueryKind.RESOLVE_FECHA_AI,
+    ],
+    [
+      "la fecha elegida solo busca horarios",
+      () => handle(at(SessionState.CITA_AWAITING_FECHA_SELECT, {}, fechas), pick("22/09/2026")),
+      QueryKind.LIST_HORAS,
+    ],
+    [
+      "la página siguiente de horarios no anuncia la búsqueda",
+      () => handle(at(SessionState.CITA_AWAITING_HORA_SELECT, FECHA_HORA, horas), tap(HoraPageButtonId.NEXT)),
+      QueryKind.LIST_HORAS,
+    ],
+    [
+      "el horario elegido reserva sin «Agendando tu cita…»",
+      () => handle(at(SessionState.CITA_AWAITING_HORA_SELECT, FECHA_HORA, horas), pick("08:45|09:15")),
+      QueryKind.BOOK_APPOINTMENT,
+    ],
+  ])("%s", (_name, run, kind) => {
+    expectOnlyQuery(run(), kind);
   });
 
   it("una sola fecha se anuncia en negrita y sin «Buscando horarios…»", () => {
     const found = { status: "found", items: [{ fechaCupo: "22/09/2026", cantidadCupos: 3 }] };
-    const result = handle(at("cita_fecha_pending"), queryResult("list_fechas", found));
+    const result = handle(at(SessionState.CITA_FECHA_PENDING), queryResult(QueryKind.LIST_FECHAS, found));
 
     expect(sent(result)).toHaveLength(1);
-    expect(sent(result)[0]).toMatchObject({ kind: "send_text", text: expect.stringMatching(/^Fecha encontrada: \*[^*]+\*\.$/) });
-    expect(queryKinds(result)).toEqual(["list_horas"]);
-  });
-
-  it("una frase de tiempo que las reglas no leen va a la IA sin anunciarlo", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_fecha_select", {}, fechas), text("la próxima semana")), "resolve_fecha_ai");
-  });
-
-  it("la fecha elegida solo busca horarios", () => {
-    expectOnlyQuery(handle(at("cita_awaiting_fecha_select", {}, fechas), tap("22/09/2026")), "list_horas");
-  });
-
-  it("la página siguiente de horarios no anuncia la búsqueda", () => {
-    const session = at("cita_awaiting_hora_select", { [SlotKey.CITA_FECHA]: "22/09/2026" }, horas);
-
-    expectOnlyQuery(handle(session, { from: FROM, type: "button", listId: HoraPageButtonId.NEXT }), "list_horas");
-  });
-
-  it("el horario elegido reserva sin «Agendando tu cita…»", () => {
-    const session = at("cita_awaiting_hora_select", { [SlotKey.CITA_FECHA]: "22/09/2026" }, horas);
-
-    expectOnlyQuery(handle(session, tap("08:45|09:15")), "book_appointment");
+    expect(sent(result)[0]).toMatchObject({ kind: SendType.TEXT, text: expect.stringMatching(/^Fecha encontrada: \*[^*]+\*\.$/) });
+    expect(queries(result).map((effect) => effect.kind)).toEqual([QueryKind.LIST_HORAS]);
   });
 });
 
 describe("menú principal: sin «revisando tu mensaje»", () => {
   it("un mensaje que solo la IA puede leer se consulta sin anunciarlo", () => {
-    const result = handle({ state: "main_menu", slots: {}, counters: {} }, text("Buenas tarde, no sé qué hacer"));
+    const result = handle({ state: SessionState.MAIN_MENU, slots: {}, counters: {} }, text("Buenas tarde, no sé qué hacer"));
 
-    expect(result.session.state).toBe("main_menu_intent_pending");
-    expectOnlyQuery(result, "analyze_main_menu_intent");
+    expect(result.session.state).toBe(SessionState.MAIN_MENU_INTENT_PENDING);
+    expectOnlyQuery(result, QueryKind.ANALYZE_MAIN_MENU_INTENT);
   });
 });

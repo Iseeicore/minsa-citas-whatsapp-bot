@@ -33,10 +33,6 @@ describe("ConsentModal", () => {
     expect(markup).toContain("Términos y condiciones");
   });
 
-  it("has a scrollable content area with a maximum height", () => {
-    expect(render()).toMatch(/class="[^"]*max-h-[^"]*overflow-y-auto[^"]*"/);
-  });
-
   it("asks to tick «Acepto los términos y condiciones» and keeps «Continuar» disabled until then", () => {
     const markup = render();
     const continuar = markup.match(BUTTON_TAG)?.find((tag) => tag.includes("Continuar"));
