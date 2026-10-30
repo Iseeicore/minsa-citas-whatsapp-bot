@@ -230,6 +230,15 @@ Relaciones:
 - estado_archivo_id → catalogo.estado_archivo: Garantiza que el estado del archivo sea uno del catálogo. Sirve para distinguir lo recibido de lo verificado.
 - evidencia_id → chatbot.evidencia: Enlaza el archivo verificado con su evidencia definitiva. Sirve para rastrear de qué subida salió cada evidencia.
 - solicitud_carga_id → chatbot.solicitud_carga: Cada archivo llegó por una solicitud de carga. Sirve para contar y listar los archivos de una solicitud.';
+COMMENT ON COLUMN chatbot.consulta_incidencia_intento.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
+COMMENT ON COLUMN chatbot.consulta_incidencia_intento.identificador IS 'Id del chat que consultó, puesto por el servidor y nunca por el cliente: el identificador de WhatsApp (BSUID) o el de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque en el Chat-bot web no hay usuario. Es lo único que cambia: pasa al identificador nuevo cuando WhatsApp se lo cambia a la persona.';
+COMMENT ON COLUMN chatbot.consulta_incidencia_intento.canal_origen_id IS 'Canal por el que se consultó (WhatsApp o web).';
+COMMENT ON COLUMN chatbot.consulta_incidencia_intento.resultado IS 'Cómo terminó la consulta: encontrada, no_encontrada, error (falló la búsqueda en la base) o reintentos_agotados (la persona agotó los reintentos de un paso antes de llegar a la búsqueda). Todas cuentan para el tope del día.';
+COMMENT ON COLUMN chatbot.consulta_incidencia_intento.fecha_creacion IS 'Fecha y hora (UTC) de la consulta, con el reloj de la base. El tope cuenta las consultas desde la medianoche de Lima (America/Lima).';
+COMMENT ON TABLE chatbot.consulta_incidencia_intento IS 'Registro de cada consulta del estado de una incidencia que hace una persona en el chatbot. Sirve para limitar cuántas consultas puede hacer por día (día de Lima), también las que no encontraron nada o fallaron. Es de solo inserción: no se modifica ni se borra, salvo el identificador, que sigue a la persona cuando WhatsApp le cambia el suyo.
+
+Relaciones:
+- canal_origen_id → catalogo.canal_origen: Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se hizo la consulta.';
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.anio IS 'Año del código (zona America/Lima), de cuatro dígitos. Junto con la serie es la clave: hay una fila por año y serie.';
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.ultimo IS 'Último correlativo entregado ese año en esa serie. El próximo código usa este valor más uno. Solo puede subir.';
 COMMENT ON COLUMN chatbot.contador_codigo_incidencia.fecha_creacion IS 'Fecha y hora (UTC) en que se creó la fila del año y la serie, es decir, cuando llegó la primera incidencia de esa serie ese año.';

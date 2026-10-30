@@ -175,6 +175,15 @@
         "aceptado_en": "Fecha y hora (UTC) en que la persona aceptó los términos y condiciones."
       }
     },
+    "chatbot.consulta_incidencia_intento": {
+      "descripcion": "Registro de cada consulta del estado de una incidencia que hace una persona en el chatbot. Sirve para limitar cuántas consultas puede hacer por día (día de Lima), también las que no encontraron nada o fallaron. Es de solo inserción: no se modifica ni se borra, salvo el identificador, que sigue a la persona cuando WhatsApp le cambia el suyo.",
+      "columnas": {
+        "identificador": "Id del chat que consultó, puesto por el servidor y nunca por el cliente: el identificador de WhatsApp (BSUID) o el de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque en el Chat-bot web no hay usuario. Es lo único que cambia: pasa al identificador nuevo cuando WhatsApp se lo cambia a la persona.",
+        "canal_origen_id": "Canal por el que se consultó (WhatsApp o web).",
+        "resultado": "Cómo terminó la consulta: encontrada, no_encontrada, error (falló la búsqueda en la base) o reintentos_agotados (la persona agotó los reintentos de un paso antes de llegar a la búsqueda). Todas cuentan para el tope del día.",
+        "fecha_creacion": "Fecha y hora (UTC) de la consulta, con el reloj de la base. El tope cuenta las consultas desde la medianoche de Lima (America/Lima)."
+      }
+    },
     "chatbot.sesion_conversacion": {
       "descripcion": "Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). Es efímera: se reescribe en cada turno y se purga cuando queda inactiva. No guarda imágenes.",
       "columnas": {
@@ -353,6 +362,7 @@
     "fk_mensaje_tipo_mensaje": "Garantiza que el tipo de contenido sea uno conocido. Sirve para decidir cómo mostrar o procesar el mensaje.",
     "fk_mensaje_estado_mensaje": "Garantiza que el estado de entrega sea uno del catálogo. Sirve para reintentar o reportar mensajes fallidos.",
     "fk_aceptacion_terminos_canal_origen": "Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se aceptaron los términos.",
+    "fk_consulta_incidencia_intento_canal_origen": "Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se hizo la consulta.",
     "fk_incidencia_paciente_canal_origen": "Garantiza que el canal sea uno del catálogo. Sirve para unificar reportes de varios canales.",
     "fk_incidencia_paciente_usuario": "Cada reporte lo presenta un usuario. Sirve para ver todo lo que reportó una persona.",
     "fk_incidencia_paciente_mensaje": "Enlaza el reporte con el mensaje del chat del que nació. Sirve para reconstruir el contexto de la conversación.",

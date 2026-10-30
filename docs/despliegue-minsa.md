@@ -10,6 +10,7 @@ Para infraestructura. Resume lo que hay que preparar para desplegar la imagen Do
 - **La imagen sigue sin credenciales dentro.** Todo entra por variables de entorno.
 - **El servicio de referencias se llama ahora «Cita con referencia», sin variable nueva.** Está siempre encendido y depende del endpoint de referencias de MINSA (`/whatsapp/api/v1/references`) y de `SANDBOX_USE_REAL_MINSA=true`; el detalle, en [flujo-referencias.md](flujo-referencias.md). «Agendar una cita médica» ya no consulta referencias después del OTP.
 - **Términos y condiciones antes de la cita, apagados por defecto.** `TERMINOS_ENABLED=true` los muestra antes de agendar una cita médica y `TERMINOS_URL` (sin valor por defecto) es la página que enlaza WhatsApp, por ejemplo `https://<host-del-bot>/terminos`. Cada aceptación se guarda en la tabla nueva `chatbot.aceptacion_terminos`, que crea la migración `20261029130000_aceptacion_terminos`.
+- **Tabla nueva para el tope diario de consultas de denuncias, sin variable nueva.** La migración `20261030130000_consulta_incidencia_intento` crea `chatbot.consulta_incidencia_intento` y el arranque la aplica solo. La usará la consulta de denuncias, que sigue detrás de `INCIDENCIAS_ENABLED`.
 
 ## 2. Requisitos de la base (PostgreSQL 16)
 

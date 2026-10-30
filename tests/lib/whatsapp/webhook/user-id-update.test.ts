@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Fila = { id: string; waId: string };
+type Intento = { id: string; identificador: string };
 
 const db = vi.hoisted(() => ({
   usuarios: [] as Array<{ id: string; waId: string }>,
   sesiones: [] as Array<{ id: string; waId: string }>,
+  intentos: [] as Array<{ id: string; identificador: string }>,
   actores: [] as string[],
   fallar: false,
   warn: vi.fn(),
@@ -35,11 +37,22 @@ const tabla = (filas: Fila[]) => ({
   },
 });
 
+const tablaIntentos = (filas: Intento[]) => ({
+  updateMany: async ({ where, data }: { where: { identificador: string }; data: { identificador: string } }) => {
+    for (const fila of filas.filter((candidate) => candidate.identificador === where.identificador))
+      fila.identificador = data.identificador;
+  },
+});
+
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     $transaction: async (run: (tx: unknown) => Promise<unknown>) => {
       if (db.fallar) throw new Error("connection refused");
-      return run({ usuario: tabla(db.usuarios), sesionConversacion: tabla(db.sesiones) });
+      return run({
+        usuario: tabla(db.usuarios),
+        sesionConversacion: tabla(db.sesiones),
+        consultaIncidenciaIntento: tablaIntentos(db.intentos),
+      });
     },
   },
 }));
@@ -99,6 +112,7 @@ describe("applyBsuidChange", () => {
     vi.clearAllMocks();
     db.usuarios.splice(0, db.usuarios.length, { id: "u-ana", waId: OLD });
     db.sesiones.splice(0, db.sesiones.length, { id: "s-ana", waId: OLD });
+    db.intentos.splice(0, db.intentos.length, { id: "i-1", identificador: OLD }, { id: "i-2", identificador: OLD });
     db.actores.length = 0;
   });
 
@@ -107,6 +121,10 @@ describe("applyBsuidChange", () => {
 
     expect(db.usuarios).toEqual([{ id: "u-ana", waId: NEW }]);
     expect(db.sesiones).toEqual([{ id: "s-ana", waId: NEW }]);
+    expect(db.intentos).toEqual([
+      { id: "i-1", identificador: NEW },
+      { id: "i-2", identificador: NEW },
+    ]);
     expect(db.actores).toEqual(["externo:meta"]);
     expect(db.info).toHaveBeenCalledWith("webhook.bsuid_updated", { previous: "...1111", current: "...2222" });
   });
@@ -130,6 +148,7 @@ describe("applyBsuidChange", () => {
       { id: "u-nuevo", waId: NEW },
     ]);
     expect(db.sesiones).toEqual([{ id: "s-ana", waId: OLD }]);
+    expect(db.intentos.map((intento) => intento.identificador)).toEqual([NEW, NEW]);
     expect(db.warn).toHaveBeenCalledWith("webhook.bsuid_conflict", { previous: "...1111", current: "...2222" });
   });
 
@@ -146,6 +165,14 @@ describe("applyBsuidChange", () => {
 
     expect(db.usuarios).toEqual([{ id: "u-ana", waId: OLD }]);
   });
+
+  it("las consultas del día pasan al identificador nuevo aunque el anterior no tenga usuario, para que el cupo no se reinicie", async () => {
+    db.usuarios.length = 0;
+
+    await expect(applyBsuidChange({ previous: OLD, current: NEW })).resolves.toBe("unchanged");
+
+    expect(db.intentos.map((intento) => intento.identificador)).toEqual([NEW, NEW]);
+  });
 });
 
 describe("processBsuidChanges", () => {
@@ -154,6 +181,7 @@ describe("processBsuidChanges", () => {
     db.fallar = false;
     db.usuarios.splice(0, db.usuarios.length, { id: "u-ana", waId: OLD });
     db.sesiones.splice(0, db.sesiones.length);
+    db.intentos.splice(0, db.intentos.length);
   });
 
   it("aplica cada cambio del valor del webhook", async () => {

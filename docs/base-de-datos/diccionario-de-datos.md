@@ -34,6 +34,7 @@
 | `catalogo.tipo_mensaje` | Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla). |
 | `chatbot.aceptacion_terminos` | Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. |
 | `chatbot.archivo_recibido` | Cada archivo que el ciudadano sube a través de una solicitud de carga, con su estado de verificación. |
+| `chatbot.consulta_incidencia_intento` | Registro de cada consulta del estado de una incidencia que hace una persona en el chatbot. |
 | `chatbot.contador_codigo_incidencia` | Último correlativo usado en cada año y cada serie para el código de las incidencias. |
 | `chatbot.evidencia` | Archivo que el paciente adjunta a su reporte (imagen, video, documento o audio). |
 | `chatbot.incidencia_analisis` | Análisis automático de una incidencia (puntaje y señales de las reglas, y lo que el relato menciona: cargo, área y nombre). |
@@ -573,6 +574,39 @@ Cada archivo que el ciudadano sube a través de una solicitud de carga, con su e
 - `trg_archivo_recibido_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_archivo_recibido_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_archivo_recibido_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
+
+### `chatbot.consulta_incidencia_intento`
+
+Registro de cada consulta del estado de una incidencia que hace una persona en el chatbot. Sirve para limitar cuántas consultas puede hacer por día (día de Lima), también las que no encontraron nada o fallaron. Es de solo inserción: no se modifica ni se borra, salvo el identificador, que sigue a la persona cuando WhatsApp le cambia el suyo.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid(). |
+| `identificador` | text | No |  |  | Id del chat que consultó, puesto por el servidor y nunca por el cliente: el identificador de WhatsApp (BSUID) o el de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque en el Chat-bot web no hay usuario. Es lo único que cambia: pasa al identificador nuevo cuando WhatsApp se lo cambia a la persona. |
+| `canal_origen_id` | smallint | No |  | FK | Canal por el que se consultó (WhatsApp o web). |
+| `resultado` | text | No |  |  | Cómo terminó la consulta: encontrada, no_encontrada, error (falló la búsqueda en la base) o reintentos_agotados (la persona agotó los reintentos de un paso antes de llegar a la búsqueda). Todas cuentan para el tope del día. |
+| `fecha_creacion` | timestamp(3) with time zone | No | `CURRENT_TIMESTAMP` |  | Fecha y hora (UTC) de la consulta, con el reloj de la base. El tope cuenta las consultas desde la medianoche de Lima (America/Lima). |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_consulta_incidencia_intento_canal_origen` | `canal_origen_id` | `catalogo.canal_origen` | Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se hizo la consulta. |
+
+**Restricciones**
+
+- `ck_consulta_incidencia_intento_identificador`: `CHECK ((char_length(btrim(identificador)) > 0))`.
+- `ck_consulta_incidencia_intento_resultado`: `CHECK ((resultado = ANY (ARRAY['encontrada'::text, 'no_encontrada'::text, 'error'::text, 'reintentos_agotados'::text])))`.
+
+**Índices**
+
+- `ix_consulta_incidencia_intento_identificador_fecha`: `USING btree (identificador, fecha_creacion)`.
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_consulta_incidencia_intento_bloqueo` (Antes de borrar o modificar): Tabla de solo inserción: bloquea modificar y borrar.
 
 ### `chatbot.contador_codigo_incidencia`
 
