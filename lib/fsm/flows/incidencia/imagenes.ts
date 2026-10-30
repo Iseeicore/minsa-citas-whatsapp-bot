@@ -1,17 +1,12 @@
+import { z } from "zod";
 import { SlotKey } from "@/lib/enums/slot-key";
 import type { Slots } from "@/lib/fsm/core/types";
-import { isString } from "@/lib/utils/type-guards";
+import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+
+const IMAGENES_SCHEMA = z.array(z.string());
 
 export function readImagenes(slots: Slots): string[] {
-  const raw = slots[SlotKey.INCIDENCIA_IMAGENES];
-  if (!raw) return [];
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isString) : [];
-  } catch {
-    return [];
-  }
+  return slotJsonOr(readSlotJson(slots, SlotKey.INCIDENCIA_IMAGENES, IMAGENES_SCHEMA), []);
 }
 
 export function writeImagenes(slots: Slots, imagenes: string[]): void {

@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   catalogRowDescription,
   formatEspecialidadName,
   formatEstablecimientoName,
   fullNameFromRow,
+  offeredFullName,
+  rememberFullNames,
 } from "@/lib/fsm/flows/cita/data/catalog-names";
+import type { Session } from "@/lib/fsm/core/types";
+import { logger } from "@/lib/observability/logger";
+import { SlotKey } from "@/lib/enums/slot-key";
 
 describe("formatEspecialidadName", () => {
   it("cleans the real MINSA names: no service prefix, no stray dashes, title case", () => {
@@ -73,5 +78,25 @@ describe("fullNameFromRow", () => {
     expect(
       fullNameFromRow({ id: "2", title: "Pediatria", description: catalogRowDescription({ title: "Pediatria", full: "Pediatria" }, 5) }),
     ).toBe("Pediatria");
+  });
+});
+
+describe("offeredFullName", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("usa el nombre completo guardado para la fila", () => {
+    const slots: Session["slots"] = {};
+    rememberFullNames(slots, [{ id: "02", full: "Medicina General / Atención del Adulto" }]);
+
+    expect(offeredFullName(slots, { id: "02", title: "Medicina General" })).toBe("Medicina General / Atención del Adulto");
+  });
+
+  it("con el slot dañado lo registra y usa el nombre de la fila", () => {
+    const warn = vi.spyOn(logger, "warn");
+
+    expect(offeredFullName({ [SlotKey.CITA_OFFERED_NAMES]: "[1," }, { id: "02", title: "Medicina General" })).toBe("Medicina General");
+    expect(warn).toHaveBeenCalledWith("session.slot_corrupt", { slot: SlotKey.CITA_OFFERED_NAMES });
   });
 });

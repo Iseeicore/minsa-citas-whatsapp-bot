@@ -1245,9 +1245,16 @@ describe("caracterización de los patrones: seguridad, sesión y vista", () => {
     expect(payload).toMatch(/[-_]/);
     expect(twice(() => [decodeJwtExp(`h.${payload}.s`), decodeJwtExp("a.b"), decodeJwtExp("a.!!.c")])).toMatchInlineSnapshot(`
       [
-        1790000000,
-        null,
-        null,
+        {
+          "exp": 1790000000,
+          "status": "found",
+        },
+        {
+          "status": "malformed",
+        },
+        {
+          "status": "malformed",
+        },
       ]
     `);
   });

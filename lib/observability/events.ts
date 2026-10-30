@@ -18,6 +18,8 @@ export const LOG_EVENTS = [
   "perimeter.rejected",
   "perimeter.muted",
   "perimeter.banned",
+  "session.token_unreadable",
+  "session.slot_corrupt",
   "inbound.expired_on_boot",
   "inbound.expire_failed",
   "inbound.latency",

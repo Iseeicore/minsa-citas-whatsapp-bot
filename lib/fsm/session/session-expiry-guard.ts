@@ -4,7 +4,9 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { BASE64URL_MINUS, BASE64URL_UNDERSCORE } from "@/lib/constants/regex/integrations";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { isString, isFiniteNumber, isObject } from "@/lib/utils/type-guards";
+import { isString, isFiniteNumber, isRecord } from "@/lib/utils/type-guards";
+import { JwtExpiryStatus } from "@/lib/enums/jwt-expiry-status";
+import { logger } from "@/lib/observability/logger";
 
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
@@ -48,20 +50,26 @@ export function resumeStateFor(waitingState: string, slots: Session["slots"] = {
   return guarded ? (RESUME_STATE_BY_WAITING_STATE[guarded] ?? undefined) : undefined;
 }
 
-export function decodeJwtExp(token: string): number | null {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
+export type JwtExpiry =
+  { status: JwtExpiryStatus.FOUND; exp: number } | { status: JwtExpiryStatus.ABSENT } | { status: JwtExpiryStatus.MALFORMED };
 
+const MALFORMED: JwtExpiry = { status: JwtExpiryStatus.MALFORMED };
+
+export function decodeJwtExp(token: string): JwtExpiry {
+  const parts = token.split(".");
+  if (parts.length !== 3) return MALFORMED;
+
+  const base64 = parts[1].replace(BASE64URL_MINUS, "+").replace(BASE64URL_UNDERSCORE, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  let payload: unknown;
   try {
-    const base64 = parts[1].replace(BASE64URL_MINUS, "+").replace(BASE64URL_UNDERSCORE, "/");
-    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-    const payload: unknown = JSON.parse(atob(padded));
-    if (!isObject(payload)) return null;
-    const exp = (payload as { exp?: unknown }).exp;
-    return isFiniteNumber(exp) ? exp : null;
+    payload = JSON.parse(atob(padded));
   } catch {
-    return null;
+    return MALFORMED;
   }
+  if (!isRecord(payload)) return MALFORMED;
+  if (payload.exp === undefined) return { status: JwtExpiryStatus.ABSENT };
+  return isFiniteNumber(payload.exp) ? { status: JwtExpiryStatus.FOUND, exp: payload.exp } : MALFORMED;
 }
 
 export function detectSessionExpiry(session: Session, event: HandleEvent, now: number): SessionExpiryReason | null {
@@ -75,8 +83,12 @@ export function detectSessionExpiry(session: Session, event: HandleEvent, now: n
     return SessionExpiryReason.IDLE;
   }
 
-  const exp = decodeJwtExp(bearer);
-  if (exp !== null && exp * 1000 - now < TOKEN_EXPIRY_MARGIN_MS) return SessionExpiryReason.TOKEN_EXPIRED;
+  const expiry = decodeJwtExp(bearer);
+  if (expiry.status === JwtExpiryStatus.MALFORMED) {
+    logger.warn("session.token_unreadable", { state: session.state });
+    return null;
+  }
+  if (expiry.status === JwtExpiryStatus.FOUND && expiry.exp * 1000 - now < TOKEN_EXPIRY_MARGIN_MS) return SessionExpiryReason.TOKEN_EXPIRED;
 
   return null;
 }

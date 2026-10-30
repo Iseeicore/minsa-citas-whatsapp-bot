@@ -1,8 +1,8 @@
 import type { Session } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { arrayOr } from "@/lib/utils/array-values";
-import { parseJsonOr } from "@/lib/utils/safe-json";
+import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { z } from "zod";
 import { isString } from "@/lib/utils/type-guards";
 import { cloneSession } from "@/lib/fsm/core/handlers-shared";
 
@@ -11,14 +11,16 @@ export function referenciaSeleccionadaId(slots: Session["slots"]): string | unde
   return isString(id) && id ? id : undefined;
 }
 
+const REFERENCIAS_SCHEMA = z.array(z.looseObject({ idReferencia: z.string() }));
+
+const SIN_PROGRAMACION_SCHEMA = z.array(z.string());
+
 export function readReferencias(session: Session): ReferenciaItem[] {
-  const raw = session.slots[SlotKey.CITA_REFERENCIAS_DATA];
-  return isString(raw) ? arrayOr<ReferenciaItem>(parseJsonOr(raw, [])) : [];
+  return slotJsonOr(readSlotJson(session.slots, SlotKey.CITA_REFERENCIAS_DATA, REFERENCIAS_SCHEMA), []) as ReferenciaItem[];
 }
 
 export function readReferenciasSinProgramacion(session: Session): ReadonlySet<string> {
-  const raw = session.slots[SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION];
-  return new Set(isString(raw) ? arrayOr<unknown>(parseJsonOr(raw, [])).filter(isString) : []);
+  return new Set(slotJsonOr(readSlotJson(session.slots, SlotKey.CITA_REFERENCIAS_SIN_PROGRAMACION, SIN_PROGRAMACION_SCHEMA), []));
 }
 
 export function marcarReferenciaSinProgramacion(session: Session): Session {

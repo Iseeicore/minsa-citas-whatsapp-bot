@@ -49,8 +49,8 @@ import { LookupStatus } from "@/lib/enums/lookup-status";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
-import { parseJsonOr } from "@/lib/utils/safe-json";
-import { arrayOr } from "@/lib/utils/array-values";
+import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { z } from "zod";
 import { MAX_INTENTOS_CODIGO, MAX_INTENTOS_OTP } from "@/lib/constants/limits/consulta";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
@@ -223,10 +223,10 @@ function handleQueryPending(event: QueryResultEvent): HandlerResult {
 
 type IncidenciaListada = { codigo: string; estado: string; fechaRegistro: string };
 
+const LISTADO_SCHEMA = z.array(z.object({ codigo: z.string(), estado: z.string(), fechaRegistro: z.string() }));
+
 function readListado(session: Session): IncidenciaListada[] {
-  const raw = session.slots[SlotKey.CONSULTA_LISTADO_DATA];
-  if (!isString(raw)) return [];
-  return arrayOr<IncidenciaListada>(parseJsonOr(raw, []));
+  return slotJsonOr(readSlotJson(session.slots, SlotKey.CONSULTA_LISTADO_DATA, LISTADO_SCHEMA), []);
 }
 
 function listadoRows(items: IncidenciaListada[]): ListRow[] {

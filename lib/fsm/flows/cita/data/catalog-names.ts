@@ -14,8 +14,8 @@ import {
   TITLE_CASED_ROMAN_NUMERAL,
 } from "@/lib/constants/regex/catalog";
 import { cuposText } from "@/lib/constants/textos/cita-catalogo";
-import { isString } from "@/lib/utils/type-guards";
-import { parseJsonOr } from "@/lib/utils/safe-json";
+import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { z } from "zod";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
 
 export type CatalogName = { title: string; full: string };
@@ -72,12 +72,10 @@ export function rememberFullNames(slots: Session["slots"], entries: ReadonlyArra
   slots[SlotKey.CITA_OFFERED_NAMES] = JSON.stringify(Object.fromEntries(entries.map((entry) => [entry.id, entry.full])));
 }
 
+const OFFERED_NAMES_SCHEMA = z.record(z.string(), z.string());
+
 export function offeredFullName(slots: Session["slots"], row: OfferedRow): string {
-  const raw = slots[SlotKey.CITA_OFFERED_NAMES];
-  if (isString(raw)) {
-    const names = parseJsonOr(raw, null) as Record<string, unknown> | null;
-    const full = names?.[row.id];
-    if (isString(full) && full) return full;
-  }
-  return fullNameFromRow(row);
+  const names = slotJsonOr<Record<string, string>>(readSlotJson(slots, SlotKey.CITA_OFFERED_NAMES, OFFERED_NAMES_SCHEMA), {});
+  const full = names[row.id];
+  return full ? full : fullNameFromRow(row);
 }

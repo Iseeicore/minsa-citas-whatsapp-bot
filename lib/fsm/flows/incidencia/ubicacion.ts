@@ -52,8 +52,8 @@ import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 import { EstablecimientoDecision } from "@/lib/enums/establecimiento-decision";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
-import { isString } from "@/lib/utils/type-guards";
-import { parseJsonOr } from "@/lib/utils/safe-json";
+import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { z } from "zod";
 import { MAX_INTENTOS_UBICACION } from "@/lib/constants/limits/incidencia";
 
 type Propuesto = { id: number; areaId: number; codigoRenipress: string; nombre: string; distrito: string | null };
@@ -66,10 +66,19 @@ const toPropuesto = (establecimiento: Establecimiento): Propuesto => ({
   distrito: establecimiento.distrito,
 });
 
+const PROPUESTO_SCHEMA = z.object({
+  id: z.number(),
+  areaId: z.number(),
+  codigoRenipress: z.string(),
+  nombre: z.string(),
+  distrito: z.string().nullable(),
+});
+
 function readPropuesto(session: Session): Propuesto | undefined {
-  const raw = session.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO];
-  if (!isString(raw)) return undefined;
-  return parseJsonOr(raw, undefined) as Propuesto | undefined;
+  return slotJsonOr<Propuesto | undefined>(
+    readSlotJson(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO, PROPUESTO_SCHEMA),
+    undefined,
+  );
 }
 
 function searching(next: Session, payload: { codigo?: string; nombre?: string }): HandlerResult {
