@@ -1,4 +1,5 @@
 import { SearchSubject } from "@/lib/enums/search-subject";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { closeWithApology, discardedDates } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
@@ -158,7 +159,7 @@ export function handleAwaitingFechaSelect(session: Session, event: InboundEvent)
     },
     onNoMatchText: (typed) => askFechaAi(session, typed),
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   const next = clearOffered(session);

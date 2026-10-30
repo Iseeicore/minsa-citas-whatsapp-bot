@@ -9,6 +9,7 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 
 const rows = Array.from({ length: 21 }, (_, index) => ({ id: `row-${index}`, title: `Opción ${index + 1}` }));
 const text = (value: string): InboundEvent => ({ from: "synthetic-wa", type: InboundEventType.TEXT, text: value });
@@ -49,53 +50,73 @@ describe("respuestas escritas para listas de referencia de WhatsApp", () => {
       const session = offered(page, state);
       const before = structuredClone(session);
       const last = String(size);
-      expect(resolveSelection(session, text("1"))).toEqual({ replyId: rows[page * size].id, typed: "1" });
-      expect(resolveSelection(session, text(last))).toEqual({ replyId: rows[page * size + size - 1].id, typed: last });
+      expect(resolveSelection(session, text("1"))).toEqual({
+        kind: SelectionOutcomeKind.SELECTED,
+        replyId: rows[page * size].id,
+        typed: "1",
+      });
+      expect(resolveSelection(session, text(last))).toEqual({
+        kind: SelectionOutcomeKind.SELECTED,
+        replyId: rows[page * size + size - 1].id,
+        typed: last,
+      });
       expect(session).toEqual(before);
     }
   });
 
   it.each([1, 2])("en la página %s de horarios los números se refieren a sus siete filas ya recortadas", (page) => {
     const customMatch = vi.fn();
-    expect(resolveSelection(hours(page), text("1"), { customMatch, passthroughIds })).toEqual({ replyId: rows[page * 7].id, typed: "1" });
+    expect(resolveSelection(hours(page), text("1"), { customMatch, passthroughIds })).toEqual({
+      kind: SelectionOutcomeKind.SELECTED,
+      replyId: rows[page * 7].id,
+      typed: "1",
+    });
     expect(customMatch).not.toHaveBeenCalled();
   });
 
   it.each(["0", "-1", "+1", "8", "99", "99999"])("rechaza %s sin interpretarlo como una opción o como un horario", (value) => {
     const customMatch = vi.fn();
-    expect(resolveSelection(hours(1), text(value), { customMatch, passthroughIds })).toHaveProperty("result");
+    expect(resolveSelection(hours(1), text(value), { customMatch, passthroughIds })).toMatchObject({ kind: SelectionOutcomeKind.HANDLED });
     expect(customMatch).not.toHaveBeenCalled();
   });
 
   it("permite escribir los controles visibles de lista con acentos y conserva límites de página", () => {
     const next = resolveSelection(offered(), text("  Ver más opciones  "));
-    expect("result" in next && next.result.session.counters[CounterKey.CITA_LIST_PAGE]).toBe(1);
+    expect(next.kind === SelectionOutcomeKind.HANDLED && next.result.session.counters[CounterKey.CITA_LIST_PAGE]).toBe(1);
     const previous = resolveSelection(offered(2), text("anteriores"));
-    expect("result" in previous && previous.result.session.counters[CounterKey.CITA_LIST_PAGE]).toBe(1);
+    expect(previous.kind === SelectionOutcomeKind.HANDLED && previous.result.session.counters[CounterKey.CITA_LIST_PAGE]).toBe(1);
     for (const [page, value] of [
       [0, "Anteriores"],
       [2, "Ver más opciones"],
     ] as const) {
       const rejected = resolveSelection(offered(page), text(value));
-      expect("result" in rejected && rejected.result.session.counters[CounterKey.CITA_LIST_PAGE]).toBe(page);
+      expect(rejected.kind === SelectionOutcomeKind.HANDLED && rejected.result.session.counters[CounterKey.CITA_LIST_PAGE]).toBe(page);
     }
   });
 
   it("los comandos de horarios solo producen navegación si ese control está permitido y existe la página", () => {
-    expect(resolveSelection(hours(1), text("Ver más horarios"), { passthroughIds })).toEqual({ replyId: HoraPageButtonId.NEXT });
-    expect(resolveSelection(hours(1), text("Horarios anteriores"), { passthroughIds })).toEqual({ replyId: HoraPageButtonId.PREV });
-    expect(resolveSelection(hours(), text("Ver más horarios"))).toHaveProperty("result");
-    expect(resolveSelection(hours(), text("Horarios anteriores"), { passthroughIds })).toHaveProperty("result");
-    expect(resolveSelection(hours(2), text("Ver más horarios"), { passthroughIds })).toHaveProperty("result");
-    expect(resolveSelection(offered(), text("Ver más horarios"), { passthroughIds })).toHaveProperty("result");
-    expect(resolveSelection(hours(), text("Ver más opciones"), { passthroughIds })).toHaveProperty("result");
+    expect(resolveSelection(hours(1), text("Ver más horarios"), { passthroughIds })).toEqual({
+      kind: SelectionOutcomeKind.SELECTED,
+      replyId: HoraPageButtonId.NEXT,
+    });
+    expect(resolveSelection(hours(1), text("Horarios anteriores"), { passthroughIds })).toEqual({
+      kind: SelectionOutcomeKind.SELECTED,
+      replyId: HoraPageButtonId.PREV,
+    });
+    expect(resolveSelection(hours(), text("Ver más horarios"))).toMatchObject({ kind: SelectionOutcomeKind.HANDLED });
+    expect(resolveSelection(hours(), text("Horarios anteriores"), { passthroughIds })).toMatchObject({
+      kind: SelectionOutcomeKind.HANDLED,
+    });
+    expect(resolveSelection(hours(2), text("Ver más horarios"), { passthroughIds })).toMatchObject({ kind: SelectionOutcomeKind.HANDLED });
+    expect(resolveSelection(offered(), text("Ver más horarios"), { passthroughIds })).toMatchObject({ kind: SelectionOutcomeKind.HANDLED });
+    expect(resolveSelection(hours(), text("Ver más opciones"), { passthroughIds })).toMatchObject({ kind: SelectionOutcomeKind.HANDLED });
   });
 
   it("conserva la interpretación anterior para web y citas nuevas de WhatsApp", () => {
     const web = { ...offered(1), channel: SessionChannel.WEB };
     const newAppointment = offered(1);
     delete newAppointment.slots[SlotKey.CITA_REFERENCIA_SELECCIONADA_ID];
-    expect(resolveSelection(web, text("1"))).toEqual({ replyId: rows[0].id, typed: "1" });
-    expect(resolveSelection(newAppointment, text("1"))).toEqual({ replyId: rows[0].id, typed: "1" });
+    expect(resolveSelection(web, text("1"))).toEqual({ kind: SelectionOutcomeKind.SELECTED, replyId: rows[0].id, typed: "1" });
+    expect(resolveSelection(newAppointment, text("1"))).toEqual({ kind: SelectionOutcomeKind.SELECTED, replyId: rows[0].id, typed: "1" });
   });
 });

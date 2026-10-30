@@ -1,4 +1,5 @@
 import { SearchSubject } from "@/lib/enums/search-subject";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { askOtherDistrito, offerChangeDistrito, offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
@@ -127,7 +128,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
     includeDescription: true,
     onNoMatchText: (typed) => askSelectionHints(session, SelectionStep.ESPECIALIDAD, typed),
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   const chosen = readOffered(session.slots)?.rows.find((row) => row.id === replyId);
@@ -234,7 +235,7 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
     includeDescription: true,
     onNoMatchText: (typed) => askSelectionHints(session, SelectionStep.ESTABLECIMIENTO, typed),
   });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
   const replyId = outcome.replyId;
 
   if (replyId === EstablecimientoPageRowId.NEXT || replyId === EstablecimientoPageRowId.PREV) {

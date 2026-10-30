@@ -1,4 +1,5 @@
 import { CLOCK_TIME } from "@/lib/constants/regex/text";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { formatHora12 } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { channelOf } from "@/lib/fsm/core/channel";
@@ -237,7 +238,7 @@ export function handleAwaitingReferenciaSelect(session: Session, event: InboundE
   const action = findConsultaAction(event);
   if (action) return action(session);
   const outcome = resolveSelection(session, event, { includeDescription: channelOf(session) === SessionChannel.WEB });
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
 
   const item = readReferencias(session).find((r) => r.idReferencia === outcome.replyId);
   if (item && !esReferenciaSeleccionable(item, readReferenciasSinProgramacion(session))) return rejectBlockedReferencia(session, item);

@@ -1,4 +1,5 @@
 import { CLOCK_TIME } from "@/lib/constants/regex/text";
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import {
   buildResult,
@@ -75,7 +76,7 @@ function askDemoConfirmation(session: Session, codigo: string, horaId: string): 
 
 export function handleDemoAwaitingReferenciaSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event);
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
 
   const next = clearOffered(session);
   return offerDemoHoras(next, outcome.replyId);
@@ -83,7 +84,7 @@ export function handleDemoAwaitingReferenciaSelect(session: Session, event: Inbo
 
 export function handleDemoAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event);
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
 
   const next = clearOffered(session);
   const codigo = slotText(next.slots, SlotKey.CITA_DEMO_REFERENCIA_CODIGO);

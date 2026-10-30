@@ -7,6 +7,7 @@ import { ImageStorageError } from "@/lib/errors/image-storage-error";
 import { ImageStorageFailure } from "@/lib/enums/image-storage-failure";
 import { ImageMimeType } from "@/lib/enums/image-mime-type";
 import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
+import { ParsedImageStatus } from "@/lib/enums/parsed-image-status";
 import { esImagenRechazada, validarImagen } from "@/lib/recepcion/imagenes/validacion";
 import { almacenEnLaBase } from "@/lib/recepcion/imagenes/almacen-base-de-datos";
 import { almacenHttp } from "@/lib/recepcion/imagenes/almacen-http";
@@ -25,19 +26,19 @@ describe("reading an image data URI", () => {
   it("returns the mime type and the bytes of an image", () => {
     const parsed = parseImageDataUri(`data:image/png;base64,${PNG_BASE64}`);
 
-    expect(parsed).toEqual({ mimeType: "image/png", bytes: Buffer.from(PNG_BASE64, "base64") });
+    expect(parsed).toEqual({ status: ParsedImageStatus.PARSED, mimeType: "image/png", bytes: Buffer.from(PNG_BASE64, "base64") });
   });
 
   it("refuses anything that is not a base64 image", () => {
-    expect(parseImageDataUri("data:text/html;base64,PGI+")).toBeNull();
-    expect(parseImageDataUri("data:image/png,rawtext")).toBeNull();
-    expect(parseImageDataUri("not a data uri")).toBeNull();
+    expect(parseImageDataUri("data:text/html;base64,PGI+")).toEqual({ status: ParsedImageStatus.INVALID });
+    expect(parseImageDataUri("data:image/png,rawtext")).toEqual({ status: ParsedImageStatus.INVALID });
+    expect(parseImageDataUri("not a data uri")).toEqual({ status: ParsedImageStatus.INVALID });
   });
 
   it("flags an image over the size limit without decoding it twice", () => {
     const big = Buffer.alloc(getEvidenceImageMaxBytes() + 1, 1).toString("base64");
 
-    expect(parseImageDataUri(`data:image/jpeg;base64,${big}`)).toEqual({ tooLarge: true });
+    expect(parseImageDataUri(`data:image/jpeg;base64,${big}`)).toEqual({ status: ParsedImageStatus.TOO_LARGE });
   });
 
   it("takes the size limit from EVIDENCE_IMAGE_MAX_MB", () => {
@@ -46,8 +47,8 @@ describe("reading an image data URI", () => {
       const overOneMegabyte = Buffer.alloc(1024 * 1024 + 1, 1).toString("base64");
       const withinOneMegabyte = Buffer.alloc(1024 * 1024, 1).toString("base64");
 
-      expect(parseImageDataUri(`data:image/jpeg;base64,${overOneMegabyte}`)).toEqual({ tooLarge: true });
-      expect(parseImageDataUri(`data:image/jpeg;base64,${withinOneMegabyte}`)).not.toEqual({ tooLarge: true });
+      expect(parseImageDataUri(`data:image/jpeg;base64,${overOneMegabyte}`)).toEqual({ status: ParsedImageStatus.TOO_LARGE });
+      expect(parseImageDataUri(`data:image/jpeg;base64,${withinOneMegabyte}`)).toMatchObject({ status: ParsedImageStatus.PARSED });
     } finally {
       vi.unstubAllEnvs();
     }

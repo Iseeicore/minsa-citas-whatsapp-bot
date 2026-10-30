@@ -2,6 +2,7 @@ import { IMAGE_SIGNATURES } from "@/lib/constants/image-signatures";
 import { ImageMimeType } from "@/lib/enums/image-mime-type";
 import { ImageValidationFailure } from "@/lib/enums/image-validation-failure";
 import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
+import { ParsedImageStatus } from "@/lib/enums/parsed-image-status";
 import type { ImagenRechazada, ImagenValidada } from "@/lib/types/almacen-evidencias.types";
 
 const TIPOS_PERMITIDOS: readonly string[] = Object.values(ImageMimeType);
@@ -20,8 +21,8 @@ export const esImagenRechazada = (imagen: ImagenValidada | ImagenRechazada): ima
 
 export function validarImagen(dataUri: string): ImagenValidada | ImagenRechazada {
   const parsed = parseImageDataUri(dataUri);
-  if (parsed === null) return rechazada(ImageValidationFailure.INVALID);
-  if ("tooLarge" in parsed) return rechazada(ImageValidationFailure.TOO_LARGE);
+  if (parsed.status === ParsedImageStatus.INVALID) return rechazada(ImageValidationFailure.INVALID);
+  if (parsed.status === ParsedImageStatus.TOO_LARGE) return rechazada(ImageValidationFailure.TOO_LARGE);
 
   const { mimeType, bytes } = parsed;
   if (!esTipoPermitido(mimeType)) return rechazada(ImageValidationFailure.INVALID);

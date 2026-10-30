@@ -1,3 +1,4 @@
+import { SelectionOutcomeKind } from "@/lib/enums/selection-outcome-kind";
 import {
   buildResult,
   cloneSession,
@@ -249,7 +250,7 @@ function handleListarPending(event: QueryResultEvent): HandlerResult {
 
 function handleAwaitingListado(session: Session, event: InboundEvent): HandlerResult {
   const outcome = resolveSelection(session, event);
-  if ("result" in outcome) return outcome.result;
+  if (outcome.kind === SelectionOutcomeKind.HANDLED) return outcome.result;
 
   const item = readListado(session).find((i) => i.codigo === outcome.replyId);
   if (!item) return closed(SessionState.CONSULTA_COMPLETED, NO_UBICADA_TEXT);

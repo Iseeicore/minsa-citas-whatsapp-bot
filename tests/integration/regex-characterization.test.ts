@@ -21,6 +21,7 @@ import { dateFolder } from "@/lib/observability/file-sink";
 import { previewInput, redactString } from "@/lib/observability/mask";
 import { maskDocumento } from "@/lib/utils/mask-documento";
 import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
+import { ParsedImageStatus } from "@/lib/enums/parsed-image-status";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
 import { initials } from "@/lib/utils/avatar";
@@ -1261,9 +1262,9 @@ describe("caracterización de los patrones: seguridad, sesión y vista", () => {
 
   it("parseImageDataUri separa el tipo y el contenido", () => {
     const parsed = twice(() => parseImageDataUri("DATA:image/PNG;base64,aGk="));
-    expect(parsed).toEqual({ mimeType: "image/png", bytes: Buffer.from("hi") });
-    expect(parseImageDataUri("data:text/plain;base64,aGk=")).toBeNull();
-    expect(parseImageDataUri("data:image/png;base64,aGk=\n")).toBeNull();
+    expect(parsed).toEqual({ status: ParsedImageStatus.PARSED, mimeType: "image/png", bytes: Buffer.from("hi") });
+    expect(parseImageDataUri("data:text/plain;base64,aGk=")).toEqual({ status: ParsedImageStatus.INVALID });
+    expect(parseImageDataUri("data:image/png;base64,aGk=\n")).toEqual({ status: ParsedImageStatus.INVALID });
   });
 
   it("tokenizeChatText y splitParagraphs", () => {
