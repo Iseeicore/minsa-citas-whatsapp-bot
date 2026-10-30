@@ -24,7 +24,7 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 vi.mock("@/lib/observability/context", () => ({ currentTraceId: () => "trace-abc" }));
 
-import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
+import { evidenceImageMaxBytes } from "@/lib/config/evidence";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
 import { logger } from "@/lib/observability/logger";
 import type { AlmacenEvidencias, ImagenValidada } from "@/lib/types/almacen-evidencias.types";
@@ -233,7 +233,7 @@ describe("the photos that go with an incident", () => {
 
   it("rejects an oversized image as too large, and stores nothing", async () => {
     const { almacen, guardar } = almacenFalso();
-    const big = Buffer.alloc(MAX_IMAGE_BYTES + 1, 1).toString("base64");
+    const big = Buffer.alloc(evidenceImageMaxBytes() + 1, 1).toString("base64");
 
     await expect(registrarIncidencia({ ...base, mediaDataUris: [`data:image/jpeg;base64,${big}`] }, almacen)).resolves.toEqual({
       status: "rejected",
@@ -283,7 +283,7 @@ describe("the photos that go with an incident", () => {
 
   it("without an image service, an image that is too big or is not an image is refused before saving anything", async () => {
     vi.stubEnv("MEDIA_STORAGE_BASE_URL", "");
-    const big = Buffer.alloc(MAX_IMAGE_BYTES + 1).toString("base64");
+    const big = Buffer.alloc(evidenceImageMaxBytes() + 1).toString("base64");
 
     await expect(
       registrarIncidencia({ ...base, mediaDataUris: [`data:image/jpeg;base64,${big}`] }, crearAlmacenEvidencias()),

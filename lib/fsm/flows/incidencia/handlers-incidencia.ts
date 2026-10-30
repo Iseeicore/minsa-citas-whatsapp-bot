@@ -6,7 +6,7 @@ import {
   askDescripcion,
   askFoto,
   handleConfirmRegistro,
-  MAX_IMAGEN_LEGIBLE,
+  maxImagenLegible,
 } from "@/lib/fsm/flows/incidencia/pasos-comunes";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import {
@@ -178,7 +178,7 @@ function isFile(event: InboundEvent): boolean {
 
 function handleAwaitingFoto(session: Session, event: InboundEvent): HandlerResult {
   if (event.type === InboundEventType.IMAGE) return handleImagen(session, event);
-  if (isFile(event)) return rechazoDeImagen(session, documentoNoGuardadoText(MAX_IMAGEN_LEGIBLE));
+  if (isFile(event)) return rechazoDeImagen(session, documentoNoGuardadoText(maxImagenLegible()));
   if (event.listId === IncidenciaButtonId.FOTO_OMITIR || event.listId === IncidenciaButtonId.FOTO_LISTO) {
     return askConfirmRegistro(session);
   }
@@ -207,7 +207,7 @@ function rechazoDeImagen(session: Session, motivo: string): HandlerResult {
 }
 
 const motivoDeImagenRechazada = (failure: ImageValidationFailure): string =>
-  failure === ImageValidationFailure.TOO_LARGE ? imagenNoGuardadaMuyPesadaText(MAX_IMAGEN_LEGIBLE) : imagenNoValidaText(MAX_IMAGEN_LEGIBLE);
+  failure === ImageValidationFailure.TOO_LARGE ? imagenNoGuardadaMuyPesadaText(maxImagenLegible()) : imagenNoValidaText(maxImagenLegible());
 
 function handleImagen(session: Session, event: InboundEvent): HandlerResult {
   const imagenes = readImagenes(session.slots);
@@ -218,7 +218,7 @@ function handleImagen(session: Session, event: InboundEvent): HandlerResult {
   }
 
   if (event.mediaFailure === MediaFailure.TOO_LARGE) {
-    return rechazoDeImagen(session, imagenNoGuardadaMuyPesadaText(MAX_IMAGEN_LEGIBLE));
+    return rechazoDeImagen(session, imagenNoGuardadaMuyPesadaText(maxImagenLegible()));
   }
   if (!event.mediaDataUri) return rechazoDeImagen(session, IMAGEN_NO_DESCARGADA_TEXT);
 
@@ -257,7 +257,7 @@ function confirmationText(session: Session, codigo: string | undefined): string 
 
 function failureText(reason: string | undefined): string {
   if (reason === RegistrationRejectReason.DAILY_LIMIT) return DAILY_LIMIT_TEXT;
-  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return imagenMuyPesadaText(MAX_IMAGEN_LEGIBLE);
+  if (reason === RegistrationRejectReason.MEDIA_TOO_LARGE) return imagenMuyPesadaText(maxImagenLegible());
   return REGISTRO_FALLIDO_TEXT;
 }
 

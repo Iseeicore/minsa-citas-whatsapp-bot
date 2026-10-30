@@ -14,7 +14,7 @@ import { ButtonWidth } from "@/lib/enums/button-width";
 import { cn } from "@/lib/utils/cn";
 import { type SandboxMode as Mode, initialModeFromQuery } from "@/lib/utils/sandbox-mode";
 
-export default function Home() {
+export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [mode, setMode] = useState<Mode>(initialModeFromQuery);
   const [mobileShowingDetail, setMobileShowingDetail] = useState(false);
@@ -33,7 +33,7 @@ export default function Home() {
         </aside>
 
         <main className="h-full overflow-hidden">
-          {mode === "real" ? <ConversationPane conversation={selectedConversation} /> : <Sandbox />}
+          {mode === "real" ? <ConversationPane conversation={selectedConversation} /> : <Sandbox imageMaxBytes={imageMaxBytes} />}
         </main>
       </div>
 
@@ -62,7 +62,7 @@ export default function Home() {
             {mode === "real" ? (
               <ConversationPane conversation={selectedConversation} onBack={() => setMobileShowingDetail(false)} />
             ) : (
-              <Sandbox onBack={() => setMobileShowingDetail(false)} />
+              <Sandbox imageMaxBytes={imageMaxBytes} onBack={() => setMobileShowingDetail(false)} />
             )}
           </div>
         )}

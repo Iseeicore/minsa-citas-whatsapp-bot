@@ -43,7 +43,7 @@ const OPEN_TIMING: KeyframeAnimationOptions = { duration: 220, easing: "ease-out
 
 const isOpenMode = (mode: WidgetMode) => mode === WidgetMode.NORMAL || mode === WidgetMode.EXPANDED;
 
-export default function SandboxWidgetDemo({ children }: { children: ReactNode }) {
+export default function SandboxWidgetDemo({ children, imageMaxBytes }: { children: ReactNode; imageMaxBytes: number }) {
   const [widget, setWidget] = useState<WidgetState>(INITIAL_WIDGET_STATE);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [needsFreshChat, setNeedsFreshChat] = useState(false);
@@ -118,6 +118,7 @@ export default function SandboxWidgetDemo({ children }: { children: ReactNode })
           {!showingLauncher && (
             <Sandbox
               key={chatKey}
+              imageMaxBytes={imageMaxBytes}
               showDebugPanel={false}
               active={!showingLauncher}
               windowControls={{

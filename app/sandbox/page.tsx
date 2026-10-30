@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Landing from "@/app/components/Landing";
 import SandboxWidgetDemo from "@/app/components/SandboxWidgetDemo";
 import { HEALTH_PATH, isSandboxPageEnabled } from "@/lib/config/sandbox-page";
+import { evidenceImageMaxBytes } from "@/lib/config/evidence";
 import {
   SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT,
   SANDBOX_PAGE_DESCRIPTION_TEXT,
@@ -26,7 +27,7 @@ export default function SandboxPage() {
   if (!isSandboxPageEnabled()) redirect(HEALTH_PATH);
 
   return (
-    <SandboxWidgetDemo>
+    <SandboxWidgetDemo imageMaxBytes={evidenceImageMaxBytes()}>
       <Landing loginUrl={loginUrl()} />
     </SandboxWidgetDemo>
   );
