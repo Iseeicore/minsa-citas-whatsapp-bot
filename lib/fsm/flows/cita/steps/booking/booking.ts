@@ -1,5 +1,6 @@
 import { offerOtherEspecialidad } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
 import { offerAlreadyBookedChoice } from "@/lib/fsm/flows/cita/steps/booking/already-booked";
+import { offerBookingRetry } from "@/lib/fsm/flows/cita/steps/booking/booking-retry";
 import { buildResult, cloneSession, query, sendText, sendCtaUrl, withNote } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { beginReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
@@ -16,7 +17,6 @@ import {
   BOOKING_TECHNICAL_RETRY_TEXT,
   BOOKING_SLOT_TAKEN_RETRY_TEXT,
   BOOKING_REJECTED_TEXT,
-  BOOKING_SERVICE_UNAVAILABLE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import { CITA_BOOKED_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
 import { BookingStatus } from "@/lib/enums/booking-status";
@@ -49,12 +49,7 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
   }
 
   if (result.status === BookingStatus.UNAVAILABLE) {
-    next.state = SessionState.CITA_BOOKING_REJECTED;
-    return withNote(buildResult(next, [sendText(BOOKING_SERVICE_UNAVAILABLE_TEXT)]), {
-      kind: "booking_rejected",
-      level: "warn",
-      detail: { status: result.status, reason: "service_unavailable" },
-    });
+    return offerBookingRetry(next);
   }
 
   const failures = (next.counters[CounterKey.CITA_BOOKING_FAILURES] ?? 0) + 1;

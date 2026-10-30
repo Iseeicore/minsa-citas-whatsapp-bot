@@ -1,5 +1,6 @@
 import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { reshowAlreadyBookedChoice } from "@/lib/fsm/flows/cita/steps/booking/already-booked";
+import { reshowBookingRetry } from "@/lib/fsm/flows/cita/steps/booking/booking-retry";
 import { reshowEstablecimientoConfirm } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { reshowCuentaMinsa, reshowCuentaMinsaCreada } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
@@ -21,6 +22,7 @@ const BUTTON_REPROMPTS = new Map<string, ButtonReprompt>([
   [SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA, reshowCuentaMinsaCreada],
   [SessionState.MAIN_MENU_REFERENCIA_CHOICE, askReferenciaChoice],
   [SessionState.CITA_AWAITING_ALREADY_BOOKED_CHOICE, reshowAlreadyBookedChoice],
+  [SessionState.CITA_AWAITING_BOOKING_RETRY, reshowBookingRetry],
 ]);
 
 export function findButtonReprompt(state: string): ButtonReprompt | undefined {

@@ -2,6 +2,7 @@ export enum SessionState {
   AWAITING_FLOW_START = "awaiting_flow_start",
   CITA_ABANDONED = "cita_abandoned",
   CITA_AWAITING_ALREADY_BOOKED_CHOICE = "cita_awaiting_already_booked_choice",
+  CITA_AWAITING_BOOKING_RETRY = "cita_awaiting_booking_retry",
   CITA_AWAITING_CUENTA_MINSA = "cita_awaiting_cuenta_minsa",
   CITA_AWAITING_CUENTA_MINSA_CREADA = "cita_awaiting_cuenta_minsa_creada",
   CITA_AWAITING_DEPARTAMENTO = "cita_awaiting_departamento",

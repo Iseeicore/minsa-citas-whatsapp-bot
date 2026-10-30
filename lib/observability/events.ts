@@ -9,6 +9,7 @@ export const LOG_EVENTS = [
   "external.http",
   "minsa.book_appointment.failed",
   "minsa.booking_rejected",
+  "booking.retry_wait",
   "minsa.catalog.rows_discarded",
   "minsa.contract_mismatch",
   "minsa.request_blocked",

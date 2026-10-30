@@ -1,6 +1,7 @@
 export enum CounterKey {
   CITA_BOOKING_FAILURES = "citaBookingFailures",
   CITA_ALREADY_BOOKED_REJECTIONS = "citaAlreadyBookedRejections",
+  CITA_BOOKING_RETRIES = "citaBookingRetries",
   CITA_HORA_PAGE = "citaHoraPage",
   CITA_OTP_ATTEMPTS = "citaOtpAttempts",
   CITA_REGISTRATION_CHECKS = "citaRegistrationChecks",

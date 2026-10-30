@@ -104,6 +104,14 @@ describe("real MINSA — bookAppointment", () => {
     await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({ status: "unavailable" });
   });
 
+  it("a network failure or timeout is an unavailable service, logged, not a crashed turn", async () => {
+    const error = vi.spyOn(logger, "error");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
+
+    await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({ status: "unavailable" });
+    expect(error).toHaveBeenCalledWith("minsa.book_appointment.failed", expect.objectContaining({ status: 0 }));
+  });
+
   it("a client error such as HTTP 400 stays a raw 'error' that may be retried", async () => {
     vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, message: "Bad Request" }), 400));
 

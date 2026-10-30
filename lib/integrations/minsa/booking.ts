@@ -8,7 +8,7 @@ import { BookingStatus } from "@/lib/enums/booking-status";
 import { stringOrUndefined } from "@/lib/utils/text-values";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isRecord } from "@/lib/utils/type-guards";
-import { BOOKING_LOG_BODY_LIMIT, HTTP_SERVER_ERROR_MIN_STATUS } from "@/lib/constants/limits/minsa";
+import { BOOKING_LOG_BODY_LIMIT, HTTP_SERVER_ERROR_MIN_STATUS, NETWORK_FAILURE_STATUS } from "@/lib/constants/limits/minsa";
 import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
 
 const UNPARSABLE_BODY = Symbol("unparsable_body");
@@ -42,20 +42,30 @@ function logBookingFailure(params: BookAppointmentParams, httpStatus: number, bo
   });
 }
 
+function postBooking(params: BookAppointmentParams, bearer: string): Promise<Response> {
+  return postWithBearer(
+    MinsaEndpoint.CITAS,
+    {
+      codigo_renipress: params.codigoRenipress,
+      codigo_ups: params.codigoUps,
+      fecha_cita: params.fechaCita,
+      hora_cita: params.horaCita,
+      numero_documento_paciente: params.numeroDocumentoPaciente,
+      ...(params.referenciaId ? { referencia_id: params.referenciaId } : {}),
+    },
+    bearer,
+  );
+}
+
 export async function bookAppointment(params: BookAppointmentParams, bearer: string): Promise<BookAppointmentResult> {
   if (isRealMinsaEnabled()) {
-    const response = await postWithBearer(
-      MinsaEndpoint.CITAS,
-      {
-        codigo_renipress: params.codigoRenipress,
-        codigo_ups: params.codigoUps,
-        fecha_cita: params.fechaCita,
-        hora_cita: params.horaCita,
-        numero_documento_paciente: params.numeroDocumentoPaciente,
-        ...(params.referenciaId ? { referencia_id: params.referenciaId } : {}),
-      },
-      bearer,
-    );
+    let response: Response;
+    try {
+      response = await postBooking(params, bearer);
+    } catch (error: unknown) {
+      logger.error("minsa.book_appointment.failed", { endpoint: MinsaEndpoint.CITAS, status: NETWORK_FAILURE_STATUS, error });
+      return { status: BookingStatus.UNAVAILABLE };
+    }
     if (response.status === HTTP_UNAUTHORIZED) return { status: BookingStatus.UNAUTHORIZED };
 
     let rawBody: string;
