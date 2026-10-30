@@ -11,12 +11,12 @@ import { SEARCHING_ESTABLECIMIENTOS_TEXT } from "@/lib/constants/textos/cita-cat
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 
-export function beginReverification(session: Session, resumeState: string): HandlerResult {
+export function beginReverification(session: Session, resumeState: string, prompt: string = REVERIFICATION_PROMPT_TEXT): HandlerResult {
   const next = cloneSession(session);
   next.slots[SlotKey.CITA_RESUME_STATE] = resumeState;
   delete next.slots[SlotKey.CITA_BEARER];
   next.state = SessionState.CITA_AWAITING_DNI;
-  return buildResult(next, [sendText(REVERIFICATION_PROMPT_TEXT)]);
+  return buildResult(next, [sendText(prompt)]);
 }
 
 export function resumeAfterReverification(session: Session, resumeState: string): HandlerResult {

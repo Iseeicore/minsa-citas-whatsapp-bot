@@ -62,6 +62,12 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
     return buildResult(next, [sendText(ASK_OTP_TEXT)]);
   }
 
+  if (result.status === ValidateUserStatus.ERROR) {
+    delete next.slots[SlotKey.CITA_DNI_PENDING];
+    next.state = SessionState.CITA_AWAITING_DNI;
+    return buildResult(next, [sendText(TURN_FAILURE_TEXT)]);
+  }
+
   const checks = (next.counters[CounterKey.CITA_REGISTRATION_CHECKS] ?? 0) + 1;
   next.counters[CounterKey.CITA_REGISTRATION_CHECKS] = checks;
 

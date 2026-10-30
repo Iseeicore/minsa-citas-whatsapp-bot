@@ -6,6 +6,8 @@ import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-i
 export const REFERENCIA_LOGIN_REQUIRED_TEXT = `Para agendar una cita con referencia debes iniciar sesión. ${ASK_DOCUMENTO_TEXT}`;
 export const REFERENCIA_NONE_TEXT = "No cuentas con referencias registradas.";
 export const REFERENCIA_CONSULTA_FALLIDA_TEXT = "No pudimos consultar tus referencias en este momento. Inténtalo de nuevo más tarde.";
+export const REFERENCIA_REVERIFICATION_PROMPT_TEXT =
+  "Tu verificación anterior expiró por inactividad. Ingresa tu número de documento para volver a consultar tus referencias.";
 export const REFERENCIA_SIN_AGENDABLES_TEXT = "No cuentas con referencias que permitan agendar una cita.";
 export const REFERENCIA_CITA_OFFER_QUESTION_TEXT = "¿Deseas agendar una cita?";
 export const REFERENCIA_GOODBYE_TEXT =

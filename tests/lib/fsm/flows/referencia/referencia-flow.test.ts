@@ -3,7 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
-import { REVERIFICATION_PROMPT_TEXT, VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
+import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
@@ -15,6 +15,7 @@ import {
   REFERENCIA_GOODBYE_TEXT,
   REFERENCIA_LOGIN_REQUIRED_TEXT,
   REFERENCIA_NONE_TEXT,
+  REFERENCIA_REVERIFICATION_PROMPT_TEXT,
   REFERENCIA_SIN_AGENDABLES_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
@@ -178,7 +179,8 @@ describe("the lookup", () => {
 
     expect(expired.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(expired.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
-    expect(texts(expired)).toEqual([REVERIFICATION_PROMPT_TEXT]);
+    expect(texts(expired)).toEqual([REFERENCIA_REVERIFICATION_PROMPT_TEXT]);
+    expect(texts(expired).join(" ")).not.toContain("tu cita");
 
     const again = handle(verifyPending(DNI, expired.session.slots), verified);
 
