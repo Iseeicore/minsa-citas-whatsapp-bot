@@ -24,7 +24,7 @@ export function writeInicio(slots: Session["slots"], inicio: InicioDenuncia): vo
   slots[SlotKey.INCIDENCIA_INICIO] = JSON.stringify(inicio);
 }
 
-export function beginIncidencia(slots: Session["slots"], lead: string, inicio: InicioIncidencia | null = null): HandlerResult {
+export function beginIncidencia(slots: Session["slots"], lead: string, inicio?: InicioIncidencia): HandlerResult {
   const next: Session = { state: SessionState.INCIDENCIA_CONSENT_CHECK_PENDING, slots: { ...slots }, counters: {} };
   next.slots[SlotKey.INCIDENCIA_ORIGEN] = inicio?.origen ?? IncidenciaOrigen.MENU;
   if (inicio?.resto) next.slots[SlotKey.INCIDENCIA_BORRADOR] = inicio.resto;

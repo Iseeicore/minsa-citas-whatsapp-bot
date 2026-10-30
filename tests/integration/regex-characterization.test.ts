@@ -406,7 +406,7 @@ describe("caracterización de los patrones: lectura de lo que escribe la persona
           "origen": "texto",
           "resto": "en el  de la Posta San Borja",
         },
-        null,
+        undefined,
         "123",
         undefined,
         undefined,

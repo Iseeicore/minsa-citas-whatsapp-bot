@@ -98,7 +98,7 @@ describe("webhook with DATABASE_ENABLED=false", () => {
 
     await deliver({ statuses: [{ id: "wamid.out", status: "delivered" }] });
 
-    expect(state.sent.every((send) => send.conversationId === null)).toBe(true);
+    expect(state.sent.every((send) => send.conversationId === undefined)).toBe(true);
     expect(state.prismaConstructed).toBe(0);
   }, 30_000);
 });

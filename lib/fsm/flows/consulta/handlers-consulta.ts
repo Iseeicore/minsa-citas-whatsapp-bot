@@ -127,7 +127,7 @@ function handleAwaitingCodigo(session: Session, event: InboundEvent): HandlerRes
   const reply = readTappedId(event);
   if (reply === ConsultaCodigoButtonId.LISTAR) return afterListarChoice(session);
 
-  const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
+  const codigo = event.text ? extractCodigoIncidencia(event.text) : undefined;
   if (codigo) {
     const next = cloneSession(session);
     next.slots[SlotKey.CONSULTA_CODIGO] = codigo;

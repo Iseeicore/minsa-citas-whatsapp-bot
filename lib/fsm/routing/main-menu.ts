@@ -96,7 +96,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     return withNote(enterMainMenu(channel, session.slots), { kind: "shortcut", detail: { name: "continue_after_warning" } });
   }
 
-  const codigo = event.text ? extractCodigoIncidencia(event.text) : null;
+  const codigo = event.text ? extractCodigoIncidencia(event.text) : undefined;
   if (codigo) {
     if (!consultaService.isEnabled()) return disabledServiceReply(consultaService, channel, session.slots);
     return withNote(beginConsulta(event.channel, codigo), { kind: "shortcut", detail: { name: "consulta_codigo" } });
@@ -106,7 +106,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     return withNote(beginConsulta(event.channel), { kind: "shortcut", detail: { name: "consulta_keyword" } });
   }
 
-  const inicio = event.text ? parseInicioIncidencia(event.text) : null;
+  const inicio = event.text ? parseInicioIncidencia(event.text) : undefined;
   if (inicio) {
     if (!incidenciaService.isEnabled()) return disabledServiceReply(incidenciaService, channel, session.slots);
     return withNote(beginIncidencia(session.slots, "", inicio), {

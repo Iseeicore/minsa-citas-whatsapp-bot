@@ -1,6 +1,6 @@
-export function formatWindowCountdown(windowExpiresAt: string): { label: string; warning: boolean } | null {
+export function formatWindowCountdown(windowExpiresAt: string): { label: string; warning: boolean } | undefined {
   const remainingMs = new Date(windowExpiresAt).getTime() - Date.now();
-  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return null;
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return undefined;
 
   const totalMinutes = Math.floor(remainingMs / 60_000);
   const hours = Math.floor(totalMinutes / 60);

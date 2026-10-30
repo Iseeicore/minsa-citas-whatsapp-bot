@@ -5,7 +5,8 @@ const media = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: media.download }));
 
-import { toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
+import { mapStatus, toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
+import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { MediaFailure } from "@/lib/enums/media-failure";
 
@@ -152,5 +153,15 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
     );
 
     expect(event).toEqual({ from: WA, type: "text", text: "si" });
+  });
+});
+
+describe("mapStatus", () => {
+  it("traduce los estados que Meta informa", () => {
+    expect(mapStatus("read")).toBe(EstadoMensajeId.LEIDO);
+  });
+
+  it("un estado que no se guarda no tiene valor", () => {
+    expect(mapStatus("deleted")).toBeUndefined();
   });
 });

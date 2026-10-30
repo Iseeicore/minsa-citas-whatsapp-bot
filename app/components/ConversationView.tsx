@@ -138,7 +138,7 @@ export default function ConversationView({
   const displayName = profileName ?? waId ?? "Contacto";
 
   const countdown =
-    windowOpen && windowExpiresAt ? formatWindowCountdown(windowExpiresAt) : null;
+    windowOpen && windowExpiresAt ? formatWindowCountdown(windowExpiresAt) : undefined;
 
   return (
     <div className="flex h-full flex-col">

@@ -145,9 +145,9 @@ async function readSentMessageId(response: Response): Promise<string | undefined
   return messageId;
 }
 
-async function recordDelivered(conversationId: string | null, text: string, response: Response): Promise<SendOutcome> {
+async function recordDelivered(conversationId: string | undefined, text: string, response: Response): Promise<SendOutcome> {
   const messageId = await readSentMessageId(response);
-  if (conversationId !== null) await recordOutboundMessage(conversationId, text, messageId ?? null, ACTOR_SISTEMA_BOT);
+  if (conversationId !== undefined) await recordOutboundMessage(conversationId, text, messageId ?? null, ACTOR_SISTEMA_BOT);
   return messageId === undefined ? { kind: SendOutcomeKind.SENT_NO_ID } : { kind: SendOutcomeKind.SENT, messageId };
 }
 
@@ -196,7 +196,7 @@ export async function sendTypingIndicator(inboundMessageId: string): Promise<voi
   if (!response.ok) logger.warn("whatsapp.typing_failed", await readGraphError(response));
 }
 
-async function sendAndRecordMessage(conversationId: string | null, waId: string, effect: ChannelSendEffect): Promise<SendOutcome> {
+async function sendAndRecordMessage(conversationId: string | undefined, waId: string, effect: ChannelSendEffect): Promise<SendOutcome> {
   const outbound = withinLimits(waId, effect);
   const response = await trySend(waId, outbound);
   if (!response) return FAILED;
@@ -215,14 +215,14 @@ async function sendAndRecordMessage(conversationId: string | null, waId: string,
   return recordDelivered(conversationId, fallback.text, retry);
 }
 
-export async function sendAndRecordEffect(conversationId: string | null, waId: string, effect: SendEffect): Promise<SendOutcome> {
+export async function sendAndRecordEffect(conversationId: string | undefined, waId: string, effect: SendEffect): Promise<SendOutcome> {
   const messages = toWhatsAppEffects(effect);
   for (const leading of messages.slice(0, -1)) await sendAndRecordMessage(conversationId, waId, leading);
   return sendAndRecordMessage(conversationId, waId, messages[messages.length - 1]);
 }
 
 export async function sendAndRecordCtaUrl(
-  conversationId: string | null,
+  conversationId: string | undefined,
   waId: string,
   params: { bodyText: string; buttonText: string; url: string },
 ): Promise<SendOutcome> {

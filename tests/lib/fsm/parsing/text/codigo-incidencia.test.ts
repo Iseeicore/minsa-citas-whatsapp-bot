@@ -31,7 +31,7 @@ describe("extractCodigoIncidencia", () => {
     "MINSA 2026 000003",
     "MINSA-2026-000003-1",
   ])("no toma %j como un código", (text) => {
-    expect(extractCodigoIncidencia(text)).toBeNull();
+    expect(extractCodigoIncidencia(text)).toBeUndefined();
   });
 });
 
@@ -46,11 +46,11 @@ describe("parseCodigoIncidencia", () => {
   });
 
   it("rechaza una serie distinta de la anónima", () => {
-    expect(parseCodigoIncidencia("MINSA-2026-B-000012")).toBeNull();
+    expect(parseCodigoIncidencia("MINSA-2026-B-000012")).toBeUndefined();
   });
 
   it("rechaza una frase que lo contiene", () => {
-    expect(parseCodigoIncidencia("mi código MINSA-2026-000003")).toBeNull();
+    expect(parseCodigoIncidencia("mi código MINSA-2026-000003")).toBeUndefined();
   });
 });
 

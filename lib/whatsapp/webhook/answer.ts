@@ -40,7 +40,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function deliverTo(message: WhatsAppMessage, conversationId: string | null, marks: LatencyMarks | undefined) {
+function deliverTo(message: WhatsAppMessage, conversationId: string | undefined, marks: LatencyMarks | undefined) {
   const first = firstSendMarker(marks);
   return async (effect: SendEffect): Promise<SendOutcome> => {
     first.beforeSend();
@@ -51,7 +51,7 @@ function deliverTo(message: WhatsAppMessage, conversationId: string | null, mark
   };
 }
 
-async function answerFirstContact(message: WhatsAppMessage, conversationId: string | null, marks?: LatencyMarks): Promise<void> {
+async function answerFirstContact(message: WhatsAppMessage, conversationId: string | undefined, marks?: LatencyMarks): Promise<void> {
   const waId = message.from_user_id;
   const firstContactText = message.type === "text" ? message.text?.body : undefined;
   const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "whatsapp" as const };
@@ -107,7 +107,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
 
 export async function answerMessage(
   message: WhatsAppMessage,
-  conversationId: string | null,
+  conversationId: string | undefined,
   marks?: LatencyMarks,
   mediaIds?: string[],
 ): Promise<void> {

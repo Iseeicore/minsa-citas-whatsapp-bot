@@ -39,7 +39,7 @@ const routed = (
 export function handleFirstContact(text: string | undefined, channel: SessionChannel): HandlerResult {
   const message = text?.trim();
   const esEmergencia = message ? detectOutOfScope(message) === OosCategory.OOS_01 : false;
-  const codigo = message && !esEmergencia ? extractCodigoIncidencia(message) : null;
+  const codigo = message && !esEmergencia ? extractCodigoIncidencia(message) : undefined;
   if (codigo) {
     if (!consultaService.isEnabled()) return routed("menu", disabledServiceReply(consultaService, channel));
     return routed("consulta", beginConsulta(channel, codigo));
@@ -49,7 +49,7 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
     return routed("consulta", beginConsulta(channel));
   }
 
-  const inicio = message ? parseInicioIncidencia(message) : null;
+  const inicio = message ? parseInicioIncidencia(message) : undefined;
   if (inicio?.origen === IncidenciaOrigen.QR) {
     if (!incidenciaService.isEnabled()) return routed("menu", disabledServiceReply(incidenciaService, channel));
     return routed("incidencia", beginIncidencia({}, FIRST_CONTACT_LEAD_TEXT, inicio));

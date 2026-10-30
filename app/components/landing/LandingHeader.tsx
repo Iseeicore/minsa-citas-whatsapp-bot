@@ -14,7 +14,7 @@ const EMERGENCY_PHONE_HREF = "tel:113";
 
 const NAV_LINK = "text-sm font-semibold uppercase text-gray-600 hover:text-brand-navy";
 
-export function LandingHeader({ loginUrl, chatEnabled }: { loginUrl: string; chatEnabled: boolean }) {
+export function LandingHeader({ loginUrl, chatEnabled }: { loginUrl: string | undefined; chatEnabled: boolean }) {
   return (
     <header className="flex items-center justify-between gap-4 py-3 md:px-landing-gutter md:py-4">
       <Image src="/landing/logo.webp" alt={LOGO_ALT_TEXT} width={400} height={162} className="h-10 w-auto md:h-16" priority />

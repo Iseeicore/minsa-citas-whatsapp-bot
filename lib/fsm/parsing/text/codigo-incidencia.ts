@@ -1,13 +1,13 @@
 import { CODIGO_EN_TEXTO, CODIGO_EXACTO, CONSULTA_KEYWORD, REGISTRO_KEYWORD } from "@/lib/constants/regex/incidencia";
 
-export function extractCodigoIncidencia(text: string): string | null {
+export function extractCodigoIncidencia(text: string): string | undefined {
   const match = CODIGO_EN_TEXTO.exec(text);
-  return match ? match[0].toUpperCase() : null;
+  return match ? match[0].toUpperCase() : undefined;
 }
 
-export function parseCodigoIncidencia(text: string): string | null {
+export function parseCodigoIncidencia(text: string): string | undefined {
   const trimmed = text.trim();
-  return CODIGO_EXACTO.test(trimmed) ? trimmed.toUpperCase() : null;
+  return CODIGO_EXACTO.test(trimmed) ? trimmed.toUpperCase() : undefined;
 }
 
 export function isConsultaKeyword(text: string): boolean {

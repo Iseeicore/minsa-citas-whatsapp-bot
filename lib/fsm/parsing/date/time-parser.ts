@@ -92,16 +92,16 @@ function normalize(raw: string): string {
 }
 
 type Parsed =
-  | { kind: TimeRequestKind.TIME; hour: number; minute: number | null; period: MeridiemPeriod | null }
+  | { kind: TimeRequestKind.TIME; hour: number; minute?: number; period?: MeridiemPeriod }
   | { kind: TimeRequestKind.PERIOD; period: MeridiemPeriod }
   | { kind: TimeRequestKind.EARLIEST }
   | { kind: TimeRequestKind.LATEST }
   | { kind: TimeRequestKind.NONE };
 
-function detectPeriod(text: string): MeridiemPeriod | null {
+function detectPeriod(text: string): MeridiemPeriod | undefined {
   if (MORNING_WORD.test(text)) return MeridiemPeriod.AM;
   if (AFTERNOON_OR_NIGHT_WORD.test(text)) return MeridiemPeriod.PM;
-  return null;
+  return undefined;
 }
 
 function parse(text: string): Parsed {
@@ -110,13 +110,13 @@ function parse(text: string): Parsed {
   }
   if (LATEST_TIME_REQUEST.test(text)) return { kind: TimeRequestKind.LATEST };
 
-  if (NOON.test(text)) return { kind: TimeRequestKind.TIME, hour: 12, minute: 0, period: null };
-  if (MIDNIGHT.test(text)) return { kind: TimeRequestKind.TIME, hour: 0, minute: 0, period: null };
+  if (NOON.test(text)) return { kind: TimeRequestKind.TIME, hour: 12, minute: 0 };
+  if (MIDNIGHT.test(text)) return { kind: TimeRequestKind.TIME, hour: 0, minute: 0 };
 
   const period = detectPeriod(text);
 
   let hour: number | undefined;
-  let minute: number | null = null;
+  let minute: number | undefined;
   let hasHourMarker = false;
   let match: RegExpExecArray | null;
 
@@ -145,18 +145,18 @@ function parse(text: string): Parsed {
     hasHourMarker = true;
   } else if ((match = BARE_HOUR.exec(text))) {
     hour = Number(match[1]);
-    hasHourMarker = HOUR_MARKER.test(text) || period !== null;
+    hasHourMarker = HOUR_MARKER.test(text) || period !== undefined;
   }
 
   if (hour === undefined) return period ? { kind: TimeRequestKind.PERIOD, period } : { kind: TimeRequestKind.NONE };
 
-  if (hour > 24 || (minute !== null && minute > 59)) return { kind: TimeRequestKind.NONE };
-  if (minute === null && !hasHourMarker && hour <= HIGHEST_AMBIGUOUS_BARE_HOUR) return { kind: TimeRequestKind.NONE };
+  if (hour > 24 || (minute !== undefined && minute > 59)) return { kind: TimeRequestKind.NONE };
+  if (minute === undefined && !hasHourMarker && hour <= HIGHEST_AMBIGUOUS_BARE_HOUR) return { kind: TimeRequestKind.NONE };
 
   return { kind: TimeRequestKind.TIME, hour: hour % 24, minute, period };
 }
 
-function hourCandidates(hour: number, period: MeridiemPeriod | null): number[] {
+function hourCandidates(hour: number, period: MeridiemPeriod | undefined): number[] {
   let candidates: number[];
   if (hour === 0) candidates = [0];
   else if (hour < 12) candidates = [hour, hour + 12];
@@ -205,7 +205,7 @@ export function matchHoraText(text: string, offered: HoraSlot[]): HoraMatch {
       return toMatch(
         chronological.filter((slot) => {
           const start = startOf(slot);
-          return hours.includes(start.hour) && (parsed.minute === null || parsed.minute === start.minute);
+          return hours.includes(start.hour) && (parsed.minute === undefined || parsed.minute === start.minute);
         }),
       );
     }

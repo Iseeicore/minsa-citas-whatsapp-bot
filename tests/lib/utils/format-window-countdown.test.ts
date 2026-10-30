@@ -11,12 +11,12 @@ describe("formatWindowCountdown", () => {
     vi.useRealTimers();
   });
 
-  it("returns null once the window already expired", () => {
-    expect(formatWindowCountdown("2025-12-31T23:00:00Z")).toBeNull();
+  it("returns nothing once the window already expired", () => {
+    expect(formatWindowCountdown("2025-12-31T23:00:00Z")).toBeUndefined();
   });
 
-  it("returns null exactly at expiry", () => {
-    expect(formatWindowCountdown("2026-01-01T00:00:00Z")).toBeNull();
+  it("returns nothing exactly at expiry", () => {
+    expect(formatWindowCountdown("2026-01-01T00:00:00Z")).toBeUndefined();
   });
 
   it("labels the remaining hours and minutes", () => {

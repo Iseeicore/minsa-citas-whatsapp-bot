@@ -52,7 +52,7 @@ describe("answerMessage: the citizen never waits in silence", () => {
       return { sent: [], session: { state: "cita_awaiting_dni", slots: {}, counters: {} } };
     });
 
-    await answerMessage(MESSAGE, null);
+    await answerMessage(MESSAGE, undefined);
 
     expect(calls.log[0]).toBe("typing");
     expect(calls.log.indexOf("turn")).toBeGreaterThan(0);
@@ -61,7 +61,7 @@ describe("answerMessage: the citizen never waits in silence", () => {
   it("does not mark the message as read when the turn ignores it", async () => {
     mocks.runTurnUnlocked.mockImplementation(async () => ({ sent: [], session: { state: "cita_awaiting_dni", slots: {}, counters: {} } }));
 
-    await answerMessage(MESSAGE, null);
+    await answerMessage(MESSAGE, undefined);
 
     expect(calls.log).toEqual([]);
   });
@@ -78,7 +78,7 @@ describe("answerMessage: the citizen never waits in silence", () => {
       };
     });
 
-    await answerMessage(MESSAGE, null);
+    await answerMessage(MESSAGE, undefined);
 
     const sends = calls.log.filter((entry) => entry.startsWith("send:"));
     expect(sends).toEqual(["send:Verificando tu documento…", "send:Listo"]);
@@ -93,7 +93,7 @@ describe("answerMessage: the citizen never waits in silence", () => {
       session: { state: "main_menu", slots: {}, counters: {} },
     }));
 
-    await answerMessage(MESSAGE, null);
+    await answerMessage(MESSAGE, undefined);
 
     expect(calls.log.filter((entry) => entry.startsWith("send:"))).toEqual(["send:uno", "send:dos"]);
   });

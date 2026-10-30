@@ -85,7 +85,7 @@ export function mapMessageType(type: string): TipoMensajeId {
   }
 }
 
-export function mapStatus(status: string): EstadoMensajeId | null {
+export function mapStatus(status: string): EstadoMensajeId | undefined {
   switch (status) {
     case "sent":
       return EstadoMensajeId.ENVIADO;
@@ -96,7 +96,7 @@ export function mapStatus(status: string): EstadoMensajeId | null {
     case "failed":
       return EstadoMensajeId.FALLIDO;
     default:
-      return null;
+      return undefined;
   }
 }
 
