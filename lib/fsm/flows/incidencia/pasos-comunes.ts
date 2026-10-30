@@ -7,14 +7,14 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import {
-  ASK_DESCRIPCION_TEXT,
-  FOTO_REQUEST_TEXT,
+  ASK_DESCRIPCION_ANONIMO_TEXT,
+  askDescripcionConDocumentoText,
+  fotoRequestText,
   FOTO_BUTTONS,
   RESUMEN_LISTO_TEXT,
   RESUMEN_ANONIMO_TEXT,
   RESUMEN_DECLARACION_TEXT,
   CONFIRM_REGISTRO_BUTTONS,
-  ENVIANDO_INCIDENCIA_TEXT,
   resumenEstablecimientoText,
   resumenRelatoText,
   resumenDocumentoText,
@@ -22,17 +22,24 @@ import {
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
 import { slotText } from "@/lib/fsm/core/slot-readers";
+import { channelOf } from "@/lib/fsm/core/channel";
 import { DOCUMENTO_DIGITOS_VISIBLES } from "@/lib/constants/limits/identity";
 import { readImagenes } from "@/lib/fsm/flows/incidencia/imagenes";
 import { renderWithinLength } from "@/lib/utils/fit-text";
+import { formatMegabytes } from "@/lib/utils/format-megabytes";
+import { maskDocumento } from "@/lib/utils/mask-documento";
 import { WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
+import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
+
+export const MAX_IMAGEN_LEGIBLE = formatMegabytes(MAX_IMAGE_BYTES);
 
 export function askFoto() {
-  return sendButtons(FOTO_REQUEST_TEXT, FOTO_BUTTONS);
+  return sendButtons(fotoRequestText(MAX_IMAGEN_LEGIBLE), FOTO_BUTTONS);
 }
 
-export function askDescripcion(): string {
-  return ASK_DESCRIPCION_TEXT;
+export function askDescripcion(session: Session): string {
+  const documento = slotText(session.slots, SlotKey.DNI);
+  return documento ? askDescripcionConDocumentoText(maskDocumento(documento)) : ASK_DESCRIPCION_ANONIMO_TEXT;
 }
 
 export function submitIncidencia(session: Session, from: string): HandlerResult {
@@ -45,9 +52,10 @@ export function submitIncidencia(session: Session, from: string): HandlerResult 
     descripcion: next.slots[SlotKey.DESCRIPCION_INCIDENCIA],
     establecimientoId: next.slots[SlotKey.INCIDENCIA_ESTABLECIMIENTO_ID] ?? null,
     mediaDataUris: readImagenes(next.slots),
+    canal: channelOf(next),
   };
 
-  return buildResult(next, [sendText(ENVIANDO_INCIDENCIA_TEXT), query(QueryKind.INCIDENCIA_REGISTER, { submission })]);
+  return buildResult(next, [query(QueryKind.INCIDENCIA_REGISTER, { submission })]);
 }
 
 export function afterDescripcion(session: Session): HandlerResult {

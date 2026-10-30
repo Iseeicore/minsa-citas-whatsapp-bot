@@ -29,7 +29,6 @@ import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { ENVIANDO_INCIDENCIA_TEXT } from "@/lib/constants/textos/incidencia";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
@@ -157,8 +156,8 @@ describe("a tap on a WhatsApp button that is no longer current", () => {
     ]);
 
     expect(store.registrar).toHaveBeenCalledTimes(1);
-    const enviando = results.filter((result) => result.sent.some((effect) => effect.text === ENVIANDO_INCIDENCIA_TEXT));
-    expect(enviando).toHaveLength(1);
+    const registradas = results.filter((result) => result.sent.some((effect) => effect.text?.includes("*000123*")));
+    expect(registradas).toHaveLength(1);
     expect(store.sessions.get(FROM)?.state).not.toBe(SessionState.INCIDENCIA_SUBMIT_PENDING);
   });
 });
@@ -173,7 +172,7 @@ describe("a tap that is still current", () => {
     expect(store.registrar).toHaveBeenCalledTimes(1);
     expect(result.sent.length).toBeGreaterThan(0);
     expect(calls[0]).toBe("accepted");
-    expect(calls).toContain(`send:${ENVIANDO_INCIDENCIA_TEXT}`);
+    expect(calls.filter((call) => call.startsWith("send:"))).toEqual([expect.stringContaining("*000123*")]);
     expect(staleLines()).toEqual([]);
   });
 

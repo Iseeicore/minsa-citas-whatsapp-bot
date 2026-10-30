@@ -461,6 +461,9 @@ describe("what the person already wrote: use it or add more", () => {
   it("without a draft the relato is asked as always", () => {
     const afterIdentity = handle(at("incidencia_identity_choice"), tap("incidencia_anonimo"));
     expect(afterIdentity.session.state).toBe("incidencia_awaiting_descripcion");
+    expect((sent(afterIdentity)[0] as { text: string }).text).toBe(
+      "Entendemos tu preferencia por el anonimato. Cuéntame tu denuncia (*hasta 1000 caracteres*).",
+    );
   });
 
   it.each([
@@ -488,10 +491,14 @@ describe("what the person already wrote: use it or add more", () => {
     expect(result.session.slots[SlotKey.DESCRIPCION_INCIDENCIA]).toBe(`${story}\nY también me trataron mal.`);
   });
 
-  it("the draft plus the extra cannot pass 1000 characters", () => {
-    const result = handle(withDraft("incidencia_awaiting_borrador_extra"), text("a b ".repeat(300)));
+  it("the draft plus the extra cannot pass 1000 characters, and the reply says how many it would have", () => {
+    const extra = "a b ".repeat(300);
+    const result = handle(withDraft("incidencia_awaiting_borrador_extra"), text(extra));
+    const combined = `${story}\n${extra.trim()}`.length;
 
     expect(result.session.state).toBe("incidencia_awaiting_borrador_extra");
-    expect((sent(result)[0] as { text: string }).text).toContain("no puede pasar de 1000 caracteres");
+    expect((sent(result)[0] as { text: string }).text).toBe(
+      `Con lo que agregaste, tu denuncia tendría ${combined} caracteres; el máximo es 1000. Resúmelo y envíalo de nuevo.`,
+    );
   });
 });

@@ -18,7 +18,8 @@ import { namesMatch, normalizeText, toDisplayPlace } from "@/lib/fsm/parsing/tex
 import { detectCitaRequest, isGreeting } from "@/lib/fsm/routing/menu-shortcuts";
 import { decodeJwtExp } from "@/lib/fsm/session/session-expiry-guard";
 import { dateFolder } from "@/lib/observability/file-sink";
-import { maskDni, previewInput, redactString } from "@/lib/observability/mask";
+import { previewInput, redactString } from "@/lib/observability/mask";
+import { maskDocumento } from "@/lib/utils/mask-documento";
 import { parseImageDataUri } from "@/lib/recepcion/imagenes/data-uri";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
 import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
@@ -72,9 +73,16 @@ describe("caracterización de los patrones: enmascarado de logs", () => {
     );
   });
 
-  it("maskDni deja solo los cuatro últimos dígitos y no vuelve a enmascarar lo ya enmascarado", () => {
-    expect(twice(() => [maskDni("12.345.678"), maskDni("****5678"), maskDni("123"), maskDni("****"), maskDni("*****1")]))
-      .toMatchInlineSnapshot(`
+  it("maskDocumento deja solo los cuatro últimos dígitos y no vuelve a enmascarar lo ya enmascarado", () => {
+    expect(
+      twice(() => [
+        maskDocumento("12.345.678"),
+        maskDocumento("****5678"),
+        maskDocumento("123"),
+        maskDocumento("****"),
+        maskDocumento("*****1"),
+      ]),
+    ).toMatchInlineSnapshot(`
       [
         "****5678",
         "****5678",

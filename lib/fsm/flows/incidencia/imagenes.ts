@@ -2,7 +2,6 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import type { Slots } from "@/lib/fsm/core/types";
 import { isString } from "@/lib/utils/type-guards";
 
-/** Las imágenes de la incidencia viven en la sesión como un arreglo JSON de data URI hasta que se registra. */
 export function readImagenes(slots: Slots): string[] {
   const raw = slots[SlotKey.INCIDENCIA_IMAGENES];
   if (!raw) return [];

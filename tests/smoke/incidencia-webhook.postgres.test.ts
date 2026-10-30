@@ -17,6 +17,7 @@ vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
 import { prisma } from "@/lib/db/prisma";
 import { processValue } from "@/lib/whatsapp/webhook/process";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
+import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 
 const QR = "Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206";
 
@@ -73,18 +74,21 @@ describe.skipIf(!process.env.DATABASE_URL)("an incidencia through the real webho
     await expect(p.state()).resolves.toBe("incidencia_awaiting_foto");
 
     const rejected = await p.file("document");
-    expect(rejected[0].text).toContain("ese documento no se guardó");
+    expect(rejected[0].text).toContain("ese archivo no se guardó");
     await expect(p.state()).resolves.toBe("incidencia_awaiting_foto");
 
     await p.tap("incidencia_foto_omitir");
     await expect(p.state()).resolves.toBe("incidencia_confirm_registro");
 
     const done = await p.tap("incidencia_confirmar_registro_si");
-    expect(done.map((effect) => effect.text)).toEqual(["Enviando tu denuncia…", expect.stringMatching(/código MINSA-\d{4}-A-\d{6,}/)]);
+    expect(done.map((effect) => effect.text)).toEqual([
+      expect.stringMatching(/código \*MINSA-\d{4}-A-\d{6,}\* en \*HOSPITAL NACIONAL DOS DE MAYO\*/),
+    ]);
 
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.waId }, include: { establecimiento: true } });
     expect(saved.establecimiento?.codigoRenipress).toBe("6206");
     expect(saved.esAnonimo).toBe(true);
+    expect(saved.canalOrigenId).toBe(CanalOrigenId.WHATSAPP);
     expect(saved.descripcion).toBe("Me cobraron sin recibo en la ventanilla de admisión.");
     expect(done.at(-1)?.text).toContain(saved.codigo);
   }, 60_000);

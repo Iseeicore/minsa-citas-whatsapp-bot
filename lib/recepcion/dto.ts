@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidDocumentoFormat } from "@/lib/fsm/parsing/text/identity-format";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import type { RegistrationStatus } from "@/lib/enums/registration-status";
 import type { RegistrationRejectReason } from "@/lib/enums/registration-reject-reason";
 import { DOCUMENTO_MAX_LENGTH } from "@/lib/constants/limits/identity";
@@ -11,6 +12,7 @@ export const registrarIncidenciaSchema = z.object({
   establecimientoId: z.number().int().positive().nullable().default(null),
   descripcion: z.string().trim().min(1).max(MAX_DESCRIPCION_LENGTH),
   mediaDataUris: z.array(z.string()).max(MAX_IMAGENES_POR_INCIDENCIA).default([]),
+  canal: z.enum(SessionChannel).default(SessionChannel.WHATSAPP),
 });
 
 export type RegistrarIncidenciaInput = z.infer<typeof registrarIncidenciaSchema>;
