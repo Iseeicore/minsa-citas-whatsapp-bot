@@ -264,3 +264,46 @@ describe("memory", () => {
     for (let i = 0; i < 100; i++) expect(limiter.check("wa-1")).toBe("allow");
   });
 });
+
+describe("peek and ban: the perimeter can ask without counting and ban from outside", () => {
+  it("peek reports the current block without counting the message", () => {
+    const { limiter } = limiterWithClock();
+
+    for (let i = 0; i < 20; i++) expect(limiter.peek("wa-1")).toBe("allow");
+
+    expect(limiter.check("wa-1")).toBe("allow");
+  });
+
+  it("peek sees a mute as «throttled» and a ban as «banned», and both expire", () => {
+    const { limiter, advance } = limiterWithClock();
+    for (let i = 0; i < 6; i++) limiter.check("wa-1");
+
+    expect(limiter.peek("wa-1")).toBe("throttled");
+    advance(121_000);
+    expect(limiter.peek("wa-1")).toBe("allow");
+
+    limiter.ban("wa-1");
+    expect(limiter.peek("wa-1")).toBe("banned");
+    advance(60 * 60 * 1000 + 1);
+    expect(limiter.peek("wa-1")).toBe("allow");
+  });
+
+  it("ban blocks the number for a full hour, only that number", () => {
+    const { limiter, advance } = limiterWithClock();
+
+    limiter.ban("wa-1");
+    advance(59 * 60 * 1000);
+
+    expect(limiter.check("wa-1")).toBe("banned");
+    expect(limiter.check("someone-else")).toBe("allow");
+  });
+
+  it("both do nothing when the limiter is off", () => {
+    const { limiter } = limiterWithClock({ enabled: false });
+
+    limiter.ban("wa-1");
+
+    expect(limiter.peek("wa-1")).toBe("allow");
+    expect(limiter.check("wa-1")).toBe("allow");
+  });
+});

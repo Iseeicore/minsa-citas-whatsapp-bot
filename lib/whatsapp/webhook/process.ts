@@ -6,7 +6,7 @@ import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { failureNoticeThrottle } from "@/lib/fsm/core/failure-notice";
 import { findSession, sessionRowExists } from "@/lib/fsm/session/session-store";
 import { screenInbound } from "@/lib/security/perimeter";
-import { inboundRateLimiter } from "@/lib/security/rate-limiter";
+import { evidenceImageRateLimiter, inboundRateLimiter } from "@/lib/security/rate-limiter";
 import { PerimeterAction } from "@/lib/enums/perimeter-action";
 import {
   type WhatsAppContact,
@@ -131,7 +131,12 @@ export async function processValue(value: WhatsAppValue) {
     const marks = createLatencyMarks();
     const decision = await screenInbound(
       { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
-      { limiter: inboundRateLimiter, hasSession: sessionRowExists },
+      {
+        limiter: inboundRateLimiter,
+        evidenceLimiter: evidenceImageRateLimiter,
+        hasSession: sessionRowExists,
+        sessionState: async (waId) => (await findSession(waId))?.state ?? null,
+      },
     );
     if (decision.action === PerimeterAction.DROP) continue;
     if (decision.action === PerimeterAction.REJECT) {

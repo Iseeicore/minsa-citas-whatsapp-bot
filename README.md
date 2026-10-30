@@ -258,7 +258,7 @@ La versión completa es el archivo entero; la mínima es solo el primer bloque. 
 
 | Variable | Uso |
 |---|---|
-| `INBOUND_RATE_LIMIT` | `off` desactiva el límite de mensajes entrantes (más de 20 en 60 s bloquea al número por 1 hora); solo para depurar en local |
+| `INBOUND_RATE_LIMIT` | `off` desactiva el límite de mensajes entrantes (más de 20 en 60 s bloquea al número por 1 hora) y el de las imágenes del paso de evidencia (cuentan aparte para que un álbum no silencie el número); solo para depurar en local |
 | `TURN_PROCESS_LOCK_TIMEOUT_MS` | Espera máxima en la cola en memoria del proceso (por defecto `30000`) |
 | `TURN_LOCK_TIMEOUT_MS` | `lock_timeout` del candado en Postgres (por defecto `10000`) |
 | `TURN_LOCK_MAX_CONCURRENCY` | Turnos con candado de Postgres a la vez por instancia (por defecto `4`) |

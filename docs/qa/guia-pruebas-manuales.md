@@ -151,6 +151,7 @@ Requiere un número **sin sesión** (ver 0.4).
 | 1.5c | Enviar mensajes sostenidos hasta pasar de 20 en un minuto (uno cada 2–3 s durante un minuto). | El bot deja de responder. Sigue en silencio aunque escribas tras unos minutos. | Sanción de 1 hora. Log: `perimeter.banned` (1 hora, más de 20 mensajes en 60 s). | ☐ ☐ |
 | 1.5d | Escribir con **otro** número mientras el primero está sancionado. | El segundo número responde normalmente. | La sanción es por número, no global. | ☐ ☐ |
 | 1.5e | Esperar **2 minutos** desde la ráfaga de 1.5a y enviar `hola`. | Vuelve a responder con normalidad. | El silencio terminó. Si en esos 2 minutos se insistió hasta pasar de 20 mensajes en 60 s, en cambio, aplica la sanción de 1 hora (1.5c). | ☐ ☐ |
+| 1.5f | Llegar al paso de la evidencia de la denuncia, seleccionar **5 imágenes** juntas, enviarlas y tocar **Listo** enseguida. | El bot responde a las imágenes y el toque de **Listo** pasa al resumen. **No** llega el aviso `Está enviando mensajes muy rápido…`. | Las imágenes de ese paso se cuentan aparte: hasta 6 en 10 s, y la de más se descarta sin aviso (`perimeter.dropped`, `messageType: image`). No gastan el cupo de 5 mensajes en 10 s, por eso Listo pasa. Más de 20 imágenes en 60 s siguen bloqueando el número 1 hora. Fuera de ese paso las imágenes cuentan como cualquier mensaje. | ☐ ☐ |
 
 ### 1.6 Firma del webhook (Paso 0) — solo con herramientas
 

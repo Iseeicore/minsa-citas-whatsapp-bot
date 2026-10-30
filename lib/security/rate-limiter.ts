@@ -1,6 +1,13 @@
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { RateVerdict } from "@/lib/enums/rate-verdict";
+import {
+  EVIDENCE_IMAGE_BAN_MS,
+  EVIDENCE_IMAGE_BAN_THRESHOLD,
+  EVIDENCE_IMAGE_BAN_WINDOW_MS,
+  EVIDENCE_IMAGE_BURST_LIMIT,
+  EVIDENCE_IMAGE_BURST_WINDOW_MS,
+} from "@/lib/constants/limits/perimeter";
 
 export type { RateVerdict };
 
@@ -92,6 +99,21 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
       return RateVerdict.THROTTLED;
     },
 
+    peek(key: string): RateVerdict {
+      if (!enabled) return RateVerdict.ALLOW;
+      const current = now();
+      if ((bans.get(key) ?? 0) > current) return RateVerdict.BANNED;
+      if ((mutes.get(key) ?? 0) > current) return RateVerdict.THROTTLED;
+      return RateVerdict.ALLOW;
+    },
+
+    ban(key: string): void {
+      if (!enabled) return;
+      bans.set(key, now() + banMs);
+      mutes.delete(key);
+      hits.delete(key);
+    },
+
     size(): number {
       return hits.size;
     },
@@ -104,4 +126,26 @@ export const inboundRateLimiter: RateLimiter = createRateLimiter({
   enabled: process.env.INBOUND_RATE_LIMIT !== "off",
   onBan: (key) => logger.warn("perimeter.banned", { waId: tail(key), duration: "1 hour", limit: "more than 20 messages in 60 s" }),
   onMute: (key) => logger.warn("perimeter.muted", { waId: tail(key), duration: "2 minutes", limit: "more than 5 messages in 10 s" }),
+});
+
+export function createEvidenceImageRateLimiter(options: RateLimiterOptions = {}): RateLimiter {
+  return createRateLimiter({
+    burstLimit: EVIDENCE_IMAGE_BURST_LIMIT,
+    burstWindowMs: EVIDENCE_IMAGE_BURST_WINDOW_MS,
+    banThreshold: EVIDENCE_IMAGE_BAN_THRESHOLD,
+    windowMs: EVIDENCE_IMAGE_BAN_WINDOW_MS,
+    banMs: EVIDENCE_IMAGE_BAN_MS,
+    muteMs: 0,
+    ...options,
+  });
+}
+
+export const evidenceImageRateLimiter: RateLimiter = createEvidenceImageRateLimiter({
+  enabled: process.env.INBOUND_RATE_LIMIT !== "off",
+  onBan: (key) =>
+    logger.warn("perimeter.banned", {
+      waId: tail(key),
+      duration: "1 hour",
+      limit: `more than ${EVIDENCE_IMAGE_BAN_THRESHOLD} evidence images in ${EVIDENCE_IMAGE_BAN_WINDOW_MS / 1000} s`,
+    }),
 });
