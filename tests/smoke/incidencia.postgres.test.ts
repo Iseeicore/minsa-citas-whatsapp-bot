@@ -24,7 +24,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
       registrarIncidencia({ waId, descripcion: "Me cobraron por una atencion gratuita" }, crearAlmacenEvidencias()),
     );
 
-    expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-\d{6,}$/) });
+    expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-A-\d{6,}$/) });
     const incidencia = await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } });
     expect(incidencia).toMatchObject({
       waId,
@@ -89,7 +89,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const first = await submit();
     const second = await submit();
 
-    expect(first).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-\d{6,}$/) });
+    expect(first).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-A-\d{6,}$/) });
     expect(second).toEqual(first);
     const incidencia = await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } });
     expect(incidencia.establecimientoId).toBe(dosDeMayo.id);
@@ -151,7 +151,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
       ),
     );
 
-    expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-\d{6,}$/) });
+    expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-A-\d{6,}$/) });
     const incidencia = await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } });
     const evidencias = await prisma.evidencia.findMany({ where: { incidenciaPacienteId: incidencia.id } });
     expect(evidencias).toHaveLength(1);

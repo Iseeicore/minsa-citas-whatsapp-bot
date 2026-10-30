@@ -117,7 +117,7 @@ describe.skipIf(!process.env.DATABASE_URL)("the way into an incidencia, with the
 
     const done = await p.tap("incidencia_confirmar_registro_si");
     expect(done.session.state).toBe("incidencia_confirmed");
-    expect(textOf(done.sent.at(-1))).toMatch(/código MINSA-\d{4}-\d{6,}/);
+    expect(textOf(done.sent.at(-1))).toMatch(/código MINSA-\d{4}-A-\d{6,}/);
 
     const saved = await prisma.incidenciaPaciente.findFirstOrThrow({ where: { waId: p.from }, include: { establecimiento: true } });
     expect(saved.establecimiento?.codigoRenipress).toBe("6206");
