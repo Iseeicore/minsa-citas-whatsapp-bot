@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { Conversation } from "@/app/components/types";
 import { Avatar } from "@/app/components/ui/Avatar";
 import { Badge } from "@/app/components/ui/Badge";
@@ -13,10 +12,13 @@ import { ButtonWidth } from "@/lib/enums/button-width";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { Banner } from "@/app/components/ui/Banner";
-import { fetchJson } from "@/lib/utils/fetch-json";
-import { FetchJsonStatus } from "@/lib/enums/fetch-json-status";
+import { readRequestData, useConversationPolling } from "@/app/components/hooks/use-conversation-polling";
+import { RequestStatus } from "@/lib/enums/request-status";
 
-const POLL_INTERVAL_MS = 4000;
+const CONVERSATIONS_URL = "/api/conversations";
+const LOAD_ERROR_TEXT = "No se pudieron cargar las conversaciones. La lista puede no estar al día.";
+const LOADING_TEXT = "Cargando conversaciones…";
+const EMPTY_TEXT = "Aún no hay conversaciones.";
 
 export default function ConversationList({
   selectedId,
@@ -25,43 +27,18 @@ export default function ConversationList({
   selectedId: string | null;
   onSelect: (conversation: Conversation) => void;
 }) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      const result = await fetchJson<Conversation[]>(
-        "/api/conversations",
-        "No se pudieron cargar las conversaciones. La lista puede no estar al día.",
-      );
-      if (cancelled) return;
-      if (result.status === FetchJsonStatus.FAILED) {
-        setLoadError(result.message);
-        return;
-      }
-      setLoadError(null);
-      setConversations(result.data);
-    }
-
-    load();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
+  const { state } = useConversationPolling<Conversation[]>(CONVERSATIONS_URL, LOAD_ERROR_TEXT);
+  const conversations = readRequestData(state) ?? [];
+  const placeholder =
+    state.status === RequestStatus.LOADING ? LOADING_TEXT : state.status === RequestStatus.DATA && state.data.length === 0 ? EMPTY_TEXT : undefined;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <h2 className="border-b border-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
         Conversaciones
       </h2>
-      {loadError && <Banner tone={BannerTone.ERROR}>{loadError}</Banner>}
-      {!loadError && conversations.length === 0 && (
-        <p className="px-4 py-6 text-center text-sm text-gray-400">Aún no hay conversaciones.</p>
-      )}
+      {state.status === RequestStatus.ERROR && <Banner tone={BannerTone.ERROR}>{state.message}</Banner>}
+      {placeholder && <p className="px-4 py-6 text-center text-sm text-gray-400">{placeholder}</p>}
       <ul>
         {conversations.map((conversation) => {
           const label = conversation.profileName ?? conversation.waId;

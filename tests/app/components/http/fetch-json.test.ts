@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchJson } from "@/lib/utils/fetch-json";
+import { fetchJson } from "@/app/components/http/fetch-json";
 import { FetchJsonStatus } from "@/lib/enums/fetch-json-status";
 
 const FALLBACK = "No se pudo cargar.";

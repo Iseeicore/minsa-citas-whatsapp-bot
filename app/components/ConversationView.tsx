@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Message } from "@/app/components/types";
+import type { ConversationMessages, Message } from "@/app/components/types";
 import {
   BackArrowIcon,
   CameraIcon,
@@ -20,8 +20,8 @@ import { TextInput } from "@/app/components/ui/TextInput";
 import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
-import { fetchJson } from "@/lib/utils/fetch-json";
-import { FetchJsonStatus } from "@/lib/enums/fetch-json-status";
+import { readRequestData, useConversationPolling } from "@/app/components/hooks/use-conversation-polling";
+import { RequestStatus } from "@/lib/enums/request-status";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonSize } from "@/lib/enums/button-size";
 import { ButtonVariant } from "@/lib/enums/button-variant";
@@ -29,14 +29,8 @@ import { ConversationStatus } from "@/lib/enums/conversation-status";
 import { MessageDirection } from "@/lib/enums/message-direction";
 import { TextInputVariant } from "@/lib/enums/text-input-variant";
 
-const POLL_INTERVAL_MS = 4000;
-
-type ConversationMessages = {
-  messages: Message[];
-  windowOpen: boolean;
-  windowExpiresAt: string | null;
-  status: ConversationStatus;
-};
+const LOAD_ERROR_TEXT = "No se pudo actualizar la conversación. Los mensajes pueden no estar al día.";
+const LOADING_TEXT = "Cargando mensajes…";
 
 export default function ConversationView({
   conversationId,
@@ -49,49 +43,22 @@ export default function ConversationView({
   waId?: string;
   onBack?: () => void;
 }) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [windowOpen, setWindowOpen] = useState(true);
-  const [windowExpiresAt, setWindowExpiresAt] = useState<string | null>(null);
-  const [status, setStatus] = useState<ConversationStatus>(ConversationStatus.OPEN);
+  const { state, update } = useConversationPolling<ConversationMessages>(`/api/conversations/${conversationId}/messages`, LOAD_ERROR_TEXT);
+  const data = readRequestData(state);
+  const messages = data?.messages ?? [];
+  const windowOpen = data?.windowOpen ?? true;
+  const windowExpiresAt = data?.windowExpiresAt ?? null;
+  const status = data?.status ?? ConversationStatus.OPEN;
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      const result = await fetchJson<ConversationMessages>(
-        `/api/conversations/${conversationId}/messages`,
-        "No se pudo actualizar la conversación. Los mensajes pueden no estar al día.",
-      );
-      if (cancelled) return;
-      if (result.status === FetchJsonStatus.FAILED) {
-        setLoadError(result.message);
-        return;
-      }
-      setLoadError(null);
-      setMessages(result.data.messages);
-      setWindowOpen(result.data.windowOpen);
-      setWindowExpiresAt(result.data.windowExpiresAt);
-      setStatus(result.data.status);
-    }
-
-    load();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [conversationId]);
-
-  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [data]);
 
   async function handleSend() {
     if (!text.trim()) return;
@@ -112,7 +79,7 @@ export default function ConversationView({
       }
 
       const created = (await res.json()) as Message;
-      setMessages((prev) => [...prev, created]);
+      update((current) => ({ ...current, messages: [...current.messages, created] }));
       setText("");
     } catch {
       setSendError("No se pudo enviar el mensaje.");
@@ -134,7 +101,7 @@ export default function ConversationView({
         return;
       }
 
-      setStatus(ConversationStatus.CLOSED);
+      update((current) => ({ ...current, status: ConversationStatus.CLOSED }));
     } catch {
       setCloseError("No se pudo cerrar la conversación.");
     } finally {
@@ -178,6 +145,7 @@ export default function ConversationView({
       </header>
 
       <div className="flex-1 overflow-y-auto bg-wa-panel px-4 py-3">
+        {state.status === RequestStatus.LOADING && <p className="py-6 text-center text-sm text-gray-500">{LOADING_TEXT}</p>}
         {messages.map((message) => (
           <div
             key={message.id}
@@ -224,7 +192,7 @@ export default function ConversationView({
         </Banner>
       )}
 
-      {loadError && <Banner tone={BannerTone.ERROR}>{loadError}</Banner>}
+      {state.status === RequestStatus.ERROR && <Banner tone={BannerTone.ERROR}>{state.message}</Banner>}
       {sendError && <Banner tone={BannerTone.ERROR}>{sendError}</Banner>}
 
       {closeError && <Banner tone={BannerTone.ERROR}>{closeError}</Banner>}
