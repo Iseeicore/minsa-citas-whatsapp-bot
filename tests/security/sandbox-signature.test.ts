@@ -23,7 +23,7 @@ import { signSandboxBody, verifySandboxSignature } from "@/lib/security/sandbox-
 import { SandboxSignatureResult } from "@/lib/enums/sandbox-signature-result";
 
 const SECRET = "secreto-compartido-de-prueba";
-const BODY = JSON.stringify({ from: "sandbox-qa", type: "text", text: "hola" });
+const BODY = JSON.stringify({ from: "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7", type: "text", text: "hola" });
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 function post(body: string, headers: Record<string, string> = {}) {

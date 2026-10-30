@@ -1,0 +1,4 @@
+export const INBOX_POLL_INTERVAL_MS = 4000;
+export const INBOX_POLL_BACKOFF_FACTOR = 2;
+export const INBOX_POLL_MAX_DELAY_MS = 60000;
+export const INBOX_POLL_MAX_FAILURES = 5;

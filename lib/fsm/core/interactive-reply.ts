@@ -4,9 +4,14 @@ import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import type { HandleEvent, InboundEvent, InteractiveTracking, SendEffect, SendOutcome, Session, Slots } from "@/lib/fsm/core/types";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
+import type { TurnTrace } from "@/lib/observability/tracer";
 
 function isTap(event: HandleEvent): event is InboundEvent {
   return event.type !== InternalEventType.QUERY_RESULT && readTappedId(event) !== undefined;
+}
+
+function isUndelivered(outcome: SendOutcome): boolean {
+  return outcome.kind === SendOutcomeKind.REJECTED || outcome.kind === SendOutcomeKind.FAILED;
 }
 
 export function readInteractiveTracking(slots: Slots): InteractiveTracking {
@@ -45,8 +50,14 @@ export function trackSent(tracking: InteractiveTracking, effect: SendEffect, out
   }
 }
 
-export function isUndelivered(outcome: SendOutcome): boolean {
-  return outcome.kind === SendOutcomeKind.REJECTED || outcome.kind === SendOutcomeKind.FAILED;
+export function trackDelivery(
+  trace: Pick<TurnTrace, "note">,
+  tracking: InteractiveTracking,
+  effect: SendEffect,
+  outcome: SendOutcome,
+): InteractiveTracking {
+  if (isUndelivered(outcome)) trace.note({ kind: "send_failed", level: "warn", detail: { effect: effect.kind, outcome: outcome.kind } });
+  return trackSent(tracking, effect, outcome);
 }
 
 export function consumeOnStateChange(start: InteractiveTracking, current: InteractiveTracking, stateChanged: boolean): InteractiveTracking {

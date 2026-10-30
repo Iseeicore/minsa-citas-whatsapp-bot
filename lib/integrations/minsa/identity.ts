@@ -13,7 +13,7 @@ const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
 
 function rootAndData(endpoint: MinsaEndpoint, body: unknown): { root: RawRow; data: RawRow } | undefined {
   if (!isRecord(body)) {
-    logger.error("minsa.identity.contract_mismatch", { endpoint, reason: "body_not_object" });
+    logger.error("minsa.contract_mismatch", { endpoint, reason: "body_not_object" });
     return undefined;
   }
   return { root: body, data: isRecord(body.data) ? body.data : {} };
@@ -30,7 +30,7 @@ function parseValidateUser(body: unknown): ValidateUserResult {
   const flags = validityFlags(parts.root, parts.data);
   if (!flags.includes(true)) {
     if (flags.includes(false)) return { status: ValidateUserStatus.NOT_VALID };
-    logger.error("minsa.identity.contract_mismatch", { endpoint: MinsaEndpoint.VALIDAR_USUARIO, reason: "no_explicit_answer" });
+    logger.error("minsa.contract_mismatch", { endpoint: MinsaEndpoint.VALIDAR_USUARIO, reason: "no_explicit_answer" });
     return { status: ValidateUserStatus.ERROR };
   }
 
@@ -46,7 +46,7 @@ function parseVerifyCode(body: unknown): VerifyCodeResult {
   const token = parts.root.token ?? parts.data.token;
   if (parts.root.success === true && isString(token)) return { status: VerifyCodeStatus.VERIFIED, token };
 
-  logger.error("minsa.identity.contract_mismatch", {
+  logger.error("minsa.contract_mismatch", {
     endpoint: MinsaEndpoint.VERIFICAR_CODIGO,
     reason: parts.root.success === true ? "token_missing" : "no_explicit_answer",
   });

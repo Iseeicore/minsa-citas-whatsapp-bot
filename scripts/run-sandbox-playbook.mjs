@@ -2,6 +2,7 @@
 
 import { mkdir, appendFile } from "node:fs/promises";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 
 const SANDBOX_URL = process.env.SANDBOX_URL ?? "http://localhost:3000/api/sandbox";
 const WEBHOOK_URL = new URL("/webhook/whatsapp", SANDBOX_URL).toString();
@@ -66,7 +67,7 @@ async function sendRaw(from, action, { caseId, section, expect, expectAbsent, no
 }
 
 function ctxFor(id, section) {
-  const from = `sandbox-qa-${id}`;
+  const from = `sandbox-${randomUUID()}`;
   return { from, send: (action, opts = {}) => sendRaw(from, action, { caseId: id, section, ...opts }) };
 }
 

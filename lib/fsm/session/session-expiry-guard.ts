@@ -8,6 +8,11 @@ import { isString, isFiniteNumber, isRecord } from "@/lib/utils/type-guards";
 import { JwtExpiryStatus } from "@/lib/enums/jwt-expiry-status";
 import { logger } from "@/lib/observability/logger";
 
+export type JwtExpiry =
+  { status: JwtExpiryStatus.FOUND; exp: number } | { status: JwtExpiryStatus.ABSENT } | { status: JwtExpiryStatus.MALFORMED };
+
+const MALFORMED: JwtExpiry = { status: JwtExpiryStatus.MALFORMED };
+
 export const SESSION_IDLE_TIMEOUT_MS = 600_000;
 export const TOKEN_EXPIRY_MARGIN_MS = 30_000;
 
@@ -49,11 +54,6 @@ export function resumeStateFor(waitingState: string, slots: Session["slots"] = {
   const guarded = guardedStateOf(waitingState, slots);
   return guarded ? (RESUME_STATE_BY_WAITING_STATE[guarded] ?? undefined) : undefined;
 }
-
-export type JwtExpiry =
-  { status: JwtExpiryStatus.FOUND; exp: number } | { status: JwtExpiryStatus.ABSENT } | { status: JwtExpiryStatus.MALFORMED };
-
-const MALFORMED: JwtExpiry = { status: JwtExpiryStatus.MALFORMED };
 
 export function decodeJwtExp(token: string): JwtExpiry {
   const parts = token.split(".");

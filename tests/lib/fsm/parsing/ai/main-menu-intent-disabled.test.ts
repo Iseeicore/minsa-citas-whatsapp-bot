@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { LLM_DISABLED, llmAvailable } from "@/tests/support/llm-lookup";
+import { LLM_FAKE, llmAvailable } from "@/tests/support/llm-lookup";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PROMPT_GUARDRAILS } from "@/lib/constants/prompts/guardrails";
@@ -53,7 +53,7 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED on", () => {
   it("the offline stand-in still recognizes a complaint", async () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
 
-    await expect(analyzeMainMenuIntent("quiero poner un reclamo", LLM_DISABLED)).resolves.toEqual({ intent: "incidencia" });
+    await expect(analyzeMainMenuIntent("quiero poner un reclamo", LLM_FAKE)).resolves.toEqual({ intent: "incidencia" });
   });
 
   it.each(["hay corrupción en la posta", "me pidieron una coima", "quisieron un soborno"])(
@@ -61,7 +61,7 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED on", () => {
     async (message) => {
       vi.stubEnv("INCIDENCIAS_ENABLED", "true");
 
-      await expect(analyzeMainMenuIntent(message, LLM_DISABLED)).resolves.toEqual({ intent: "incidencia" });
+      await expect(analyzeMainMenuIntent(message, LLM_FAKE)).resolves.toEqual({ intent: "incidencia" });
     },
   );
 });
@@ -99,19 +99,19 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED off", () => {
   it("the offline stand-in does not turn a complaint into an incidencia: it stays unclear", async () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
 
-    await expect(analyzeMainMenuIntent("quiero poner un reclamo", LLM_DISABLED)).resolves.toEqual({ intent: "unclear" });
+    await expect(analyzeMainMenuIntent("quiero poner un reclamo", LLM_FAKE)).resolves.toEqual({ intent: "unclear" });
   });
 
   it("the offline stand-in reads a complaint that mentions atención as a cita, as it always did", async () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
 
-    await expect(analyzeMainMenuIntent("quiero un reclamo por mala atención", LLM_DISABLED)).resolves.toEqual({ intent: "cita" });
+    await expect(analyzeMainMenuIntent("quiero un reclamo por mala atención", LLM_FAKE)).resolves.toEqual({ intent: "cita" });
   });
 
   it("the cita and the out-of-scope answers keep working", async () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
 
-    await expect(analyzeMainMenuIntent("quiero una cita de pediatría", LLM_DISABLED)).resolves.toEqual({
+    await expect(analyzeMainMenuIntent("quiero una cita de pediatría", LLM_FAKE)).resolves.toEqual({
       intent: "cita",
       especialidad: "Pediatría",
     });

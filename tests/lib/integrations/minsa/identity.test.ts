@@ -36,6 +36,7 @@ describe("real MINSA: validateUser respeta el contrato de validar-usuario", () =
   beforeEach(() => {
     vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
     vi.stubEnv("MINSA_INTEGRATION_SECRET", "test-secret");
+    vi.stubEnv("MINSA_API_HOST", "https://minsa-api.test");
     vi.stubEnv("MINSA_CONVERSATION_ID_PLACEHOLDER", "wa-session-550e8400-e29b-41d4-a716-446655440000");
   });
 
@@ -102,6 +103,7 @@ describe("real MINSA: verifyCode", () => {
   beforeEach(() => {
     vi.stubEnv("SANDBOX_USE_REAL_MINSA", "true");
     vi.stubEnv("MINSA_INTEGRATION_SECRET", "test-secret");
+    vi.stubEnv("MINSA_API_HOST", "https://minsa-api.test");
   });
 
   afterEach(() => {
@@ -134,10 +136,7 @@ describe("real MINSA: verifyCode", () => {
     vi.stubGlobal("fetch", minsaResponding(body));
 
     await expect(verifyCode("tw-1", "1234")).resolves.toEqual({ status: "error" });
-    expect(error).toHaveBeenCalledWith(
-      "minsa.identity.contract_mismatch",
-      expect.objectContaining({ endpoint: MinsaEndpoint.VERIFICAR_CODIGO }),
-    );
+    expect(error).toHaveBeenCalledWith("minsa.contract_mismatch", expect.objectContaining({ endpoint: MinsaEndpoint.VERIFICAR_CODIGO }));
   });
 
   it.each([

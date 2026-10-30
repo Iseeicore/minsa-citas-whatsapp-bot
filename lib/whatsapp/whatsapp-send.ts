@@ -1,4 +1,7 @@
-import { graphAuthHeaders, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
+import { findGraphMessagesTarget } from "@/lib/whatsapp/graph-api";
+import { GraphTargetStatus } from "@/lib/enums/graph-target-status";
+import { GraphPostStatus } from "@/lib/enums/graph-post-status";
+import { WhatsAppSendOperation } from "@/lib/enums/whatsapp-send-operation";
 import { ACTOR_SISTEMA_BOT } from "@/lib/db/actor";
 import { recordOutboundMessage } from "@/lib/inbox/repository";
 import type { ChannelSendEffect, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
@@ -15,6 +18,14 @@ import { readNumber, readString } from "@/lib/utils/record-readers";
 import { HTTP_BAD_REQUEST } from "@/lib/constants/http-status";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
 import { toWhatsAppEffects } from "@/lib/whatsapp/consent-effects";
+
+export type GraphPost = { status: GraphPostStatus.ANSWERED; response: Response } | { status: GraphPostStatus.NOT_CONFIGURED };
+
+const FAILED: SendOutcome = { kind: SendOutcomeKind.FAILED };
+
+function toRejectedOutcome(response: Response): SendOutcome {
+  return { kind: SendOutcomeKind.REJECTED, status: response.status };
+}
 
 function buildGraphBody(waId: string, effect: ChannelSendEffect): Record<string, unknown> {
   const base = {
@@ -88,23 +99,27 @@ function withinLimits(waId: string, effect: ChannelSendEffect): ChannelSendEffec
   return toNumberedTextEffect(effect);
 }
 
-function postEffect(waId: string, effect: ChannelSendEffect): Promise<Response> {
-  return fetch(graphMessagesUrl(), {
+async function postGraphMessage(body: Record<string, unknown>): Promise<GraphPost> {
+  const target = findGraphMessagesTarget();
+  if (target.status === GraphTargetStatus.MISSING_VARIABLE) return { status: GraphPostStatus.NOT_CONFIGURED };
+  const response = await fetch(target.url, {
     method: "POST",
-    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(buildGraphBody(waId, effect)),
+    headers: { ...target.headers, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
+  return { status: GraphPostStatus.ANSWERED, response };
 }
 
-export async function sendWhatsAppEffect(waId: string, effect: ChannelSendEffect): Promise<Response> {
-  return postEffect(waId, withinLimits(waId, effect));
+export async function sendWhatsAppEffect(waId: string, effect: ChannelSendEffect): Promise<GraphPost> {
+  return postGraphMessage(buildGraphBody(waId, withinLimits(waId, effect)));
 }
 
 async function trySend(waId: string, effect: ChannelSendEffect): Promise<Response | undefined> {
   try {
-    return await postEffect(waId, effect);
+    const post = await postGraphMessage(buildGraphBody(waId, effect));
+    return post.status === GraphPostStatus.ANSWERED ? post.response : undefined;
   } catch (err) {
-    logger.error("whatsapp.send_failed", { operation: "send_effect", waId: tail(waId), error: err });
+    logger.error("whatsapp.send_failed", { operation: WhatsAppSendOperation.SEND_EFFECT, waId: tail(waId), error: err });
     return undefined;
   }
 }
@@ -126,7 +141,7 @@ async function logRejection(waId: string, effect: ChannelSendEffect, response: R
   logger.error("outbound.rejected", { waId: tail(waId), kind: effect.kind, ...(await readGraphError(response)) });
 }
 
-export async function logSendFailure(operation: string, waId: string, response: Response): Promise<void> {
+export async function logSendFailure(operation: WhatsAppSendOperation, waId: string, response: Response): Promise<void> {
   logger.error("whatsapp.send_failed", { operation, waId: tail(waId), ...(await readGraphError(response)) });
 }
 
@@ -151,49 +166,38 @@ async function recordDelivered(conversationId: string | undefined, text: string,
   return messageId === undefined ? { kind: SendOutcomeKind.SENT_NO_ID } : { kind: SendOutcomeKind.SENT, messageId };
 }
 
-const FAILED: SendOutcome = { kind: SendOutcomeKind.FAILED };
-
-const rejected = (response: Response): SendOutcome => ({ kind: SendOutcomeKind.REJECTED, status: response.status });
-
-export async function sendCtaUrlMessage(waId: string, params: { bodyText: string; buttonText: string; url: string }): Promise<Response> {
-  return fetch(graphMessagesUrl(), {
-    method: "POST",
-    headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      recipient: waId,
-      type: "interactive",
-      interactive: {
-        type: "cta_url",
-        body: { text: params.bodyText },
-        action: {
-          name: "cta_url",
-          parameters: { display_text: params.buttonText, url: params.url },
-        },
+function sendCtaUrlMessage(waId: string, params: { bodyText: string; buttonText: string; url: string }): Promise<GraphPost> {
+  return postGraphMessage({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    recipient: waId,
+    type: "interactive",
+    interactive: {
+      type: "cta_url",
+      body: { text: params.bodyText },
+      action: {
+        name: "cta_url",
+        parameters: { display_text: params.buttonText, url: params.url },
       },
-    }),
+    },
   });
 }
 
 export async function sendTypingIndicator(inboundMessageId: string): Promise<void> {
-  let response: Response;
+  let post: GraphPost;
   try {
-    response = await fetch(graphMessagesUrl(), {
-      method: "POST",
-      headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        status: "read",
-        message_id: inboundMessageId,
-        typing_indicator: { type: "text" },
-      }),
+    post = await postGraphMessage({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: inboundMessageId,
+      typing_indicator: { type: "text" },
     });
   } catch (error) {
     logger.warn("whatsapp.typing_failed", { error });
     return;
   }
-  if (!response.ok) logger.warn("whatsapp.typing_failed", await readGraphError(response));
+  if (post.status === GraphPostStatus.ANSWERED && !post.response.ok)
+    logger.warn("whatsapp.typing_failed", await readGraphError(post.response));
 }
 
 async function sendAndRecordMessage(conversationId: string | undefined, waId: string, effect: ChannelSendEffect): Promise<SendOutcome> {
@@ -203,14 +207,14 @@ async function sendAndRecordMessage(conversationId: string | undefined, waId: st
   if (response.ok) return recordDelivered(conversationId, outbound.text, response);
 
   await logRejection(waId, outbound, response);
-  if (outbound.kind === SendType.TEXT || response.status !== HTTP_BAD_REQUEST) return rejected(response);
+  if (outbound.kind === SendType.TEXT || response.status !== HTTP_BAD_REQUEST) return toRejectedOutcome(response);
 
   const fallback = toNumberedTextEffect(outbound);
   const retry = await trySend(waId, fallback);
   if (!retry) return FAILED;
   if (!retry.ok) {
     await logRejection(waId, fallback, retry);
-    return rejected(retry);
+    return toRejectedOutcome(retry);
   }
   return recordDelivered(conversationId, fallback.text, retry);
 }
@@ -226,18 +230,31 @@ export async function sendAndRecordCtaUrl(
   waId: string,
   params: { bodyText: string; buttonText: string; url: string },
 ): Promise<SendOutcome> {
-  let response: Response;
+  let post: GraphPost;
   try {
-    response = await sendCtaUrlMessage(waId, params);
+    post = await sendCtaUrlMessage(waId, params);
   } catch (err) {
-    logger.error("whatsapp.send_failed", { operation: "send_cta_url", waId: tail(waId), error: err });
+    logger.error("whatsapp.send_failed", { operation: WhatsAppSendOperation.SEND_CTA_URL, waId: tail(waId), error: err });
     return FAILED;
   }
+  if (post.status === GraphPostStatus.NOT_CONFIGURED) return FAILED;
 
+  const { response } = post;
   if (!response.ok) {
-    await logSendFailure("send_cta_url", waId, response);
-    return rejected(response);
+    await logSendFailure(WhatsAppSendOperation.SEND_CTA_URL, waId, response);
+    return toRejectedOutcome(response);
   }
 
   return recordDelivered(conversationId, params.bodyText, response);
+}
+
+export async function sendOperatorText(waId: string, text: string): Promise<SendOutcome> {
+  const effect: ChannelSendEffect = { kind: SendType.TEXT, text };
+  const response = await trySend(waId, effect);
+  if (!response) return FAILED;
+  if (!response.ok) {
+    await logRejection(waId, effect, response);
+    return toRejectedOutcome(response);
+  }
+  return recordDelivered(undefined, text, response);
 }

@@ -4,11 +4,14 @@ import { signMinsaRequest } from "@/lib/integrations/minsa/signature";
 import { nowInLima, todayInLima } from "@/lib/time/lima-clock";
 import { TRAILING_SLASHES } from "@/lib/constants/regex/integrations";
 import { findMinsaApiHost } from "@/lib/config/integrations";
+import { ConfigErrorCode } from "@/lib/enums/config-error-code";
+import { MinsaSignatureStatus } from "@/lib/enums/minsa-signature-status";
 
 const HTTP_SERVICE_UNAVAILABLE = 503;
 
-function minsaHost(): string {
-  return findMinsaApiHost() ?? "";
+function toBlockedResponse(path: string, reason: ConfigErrorCode): Response {
+  logger.error("minsa.request_blocked", { path, reason });
+  return new Response(null, { status: HTTP_SERVICE_UNAVAILABLE });
 }
 
 export const MINSA_DIGITAL_LOGIN_PATH = "/login";
@@ -46,26 +49,29 @@ export function isRealMinsaEnabled(): boolean {
 }
 
 export async function postSigned(path: string, body: Record<string, unknown>): Promise<Response> {
+  const host = findMinsaApiHost();
+  if (host === undefined) return toBlockedResponse(path, ConfigErrorCode.MINSA_API_HOST_MISSING);
   const bodyJson = JSON.stringify(body);
-  const signedHeaders = signMinsaRequest(bodyJson);
+  const signature = signMinsaRequest(bodyJson);
+  if (signature.status === MinsaSignatureStatus.SECRET_MISSING)
+    return toBlockedResponse(path, ConfigErrorCode.MINSA_INTEGRATION_SECRET_MISSING);
 
-  return timedFetch("minsa", path, `${minsaHost()}${path}`, {
+  return timedFetch("minsa", path, `${host}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...signedHeaders,
+      ...signature.headers,
     },
     body: bodyJson,
   });
 }
 
 export async function postWithBearer(path: string, body: Record<string, unknown>, bearer: string): Promise<Response> {
-  if (isRealMinsaEnabled() && minsaDigitalOrigin() === null) {
-    logger.error("minsa.request_blocked", { path, reason: "MINSA_DIGITAL_APP_URL_MISSING" });
-    return new Response(null, { status: HTTP_SERVICE_UNAVAILABLE });
-  }
+  if (isRealMinsaEnabled() && minsaDigitalOrigin() === null) return toBlockedResponse(path, ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING);
+  const host = findMinsaApiHost();
+  if (host === undefined) return toBlockedResponse(path, ConfigErrorCode.MINSA_API_HOST_MISSING);
 
-  return timedFetch("minsa", path, `${minsaHost()}${path}`, {
+  return timedFetch("minsa", path, `${host}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

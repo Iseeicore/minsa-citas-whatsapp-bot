@@ -52,7 +52,7 @@ import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 import { EstablecimientoDecision } from "@/lib/enums/establecimiento-decision";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
-import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { readSlotJson, getSlotJsonOr } from "@/lib/fsm/core/slot-readers";
 import { z } from "zod";
 import { MAX_INTENTOS_UBICACION } from "@/lib/constants/limits/incidencia";
 
@@ -75,7 +75,7 @@ const PROPUESTO_SCHEMA = z.object({
 });
 
 function readPropuesto(session: Session): Propuesto | undefined {
-  return slotJsonOr<Propuesto | undefined>(
+  return getSlotJsonOr<Propuesto | undefined>(
     readSlotJson(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_PROPUESTO, PROPUESTO_SCHEMA),
     undefined,
   );

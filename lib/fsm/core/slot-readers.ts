@@ -10,6 +10,22 @@ import { logger } from "@/lib/observability/logger";
 
 export type SlotJson<T> = { status: SlotJsonStatus.OK; value: T } | { status: SlotJsonStatus.ABSENT } | { status: SlotJsonStatus.CORRUPT };
 
+const SESSION_CHANNELS: readonly string[] = Object.values(SessionChannel);
+
+function isSessionChannel(value: unknown): value is SessionChannel {
+  return isString(value) && SESSION_CHANNELS.includes(value);
+}
+
+function requireText(text: string, field: string, queryKind: string): string {
+  if (text.trim() === "") throw new MissingSlotError(field, queryKind);
+  return text;
+}
+
+function buildCorruptSlotJson(key: SlotKey): SlotJson<never> {
+  logger.warn("session.slot_corrupt", { slot: key });
+  return { status: SlotJsonStatus.CORRUPT };
+}
+
 export function slotText(slots: Slots, key: SlotKey): string {
   return toText(slots[key]);
 }
@@ -18,18 +34,9 @@ export function payloadText(payload: Record<string, unknown>, key: string): stri
   return toText(payload[key]);
 }
 
-function requireText(text: string, field: string, queryKind: string): string {
-  if (text.trim() === "") throw new MissingSlotError(field, queryKind);
-  return text;
-}
-
 export function requireSlotText(slots: Slots, key: SlotKey, queryKind: string): string {
   return requireText(slotText(slots, key), key, queryKind);
 }
-
-const SESSION_CHANNELS: readonly string[] = Object.values(SessionChannel);
-
-const isSessionChannel = (value: unknown): value is SessionChannel => isString(value) && SESSION_CHANNELS.includes(value);
 
 export function requirePayloadChannel(payload: Record<string, unknown>, queryKind: string): SessionChannel {
   const canal = payload.canal;
@@ -41,11 +48,6 @@ export function requirePayloadText(payload: Record<string, unknown>, key: string
   return requireText(payloadText(payload, key), key, queryKind);
 }
 
-function corrupt(key: SlotKey): SlotJson<never> {
-  logger.warn("session.slot_corrupt", { slot: key });
-  return { status: SlotJsonStatus.CORRUPT };
-}
-
 export function readSlotJson<T>(slots: Slots, key: SlotKey, schema: z.ZodType<T>): SlotJson<T> {
   const raw = slots[key];
   if (!isNonEmptyString(raw)) return { status: SlotJsonStatus.ABSENT };
@@ -54,13 +56,13 @@ export function readSlotJson<T>(slots: Slots, key: SlotKey, schema: z.ZodType<T>
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return corrupt(key);
+    return buildCorruptSlotJson(key);
   }
 
   const checked = schema.safeParse(parsed);
-  return checked.success ? { status: SlotJsonStatus.OK, value: checked.data } : corrupt(key);
+  return checked.success ? { status: SlotJsonStatus.OK, value: checked.data } : buildCorruptSlotJson(key);
 }
 
-export function slotJsonOr<T>(read: SlotJson<T>, fallback: T): T {
+export function getSlotJsonOr<T>(read: SlotJson<T>, fallback: T): T {
   return read.status === SlotJsonStatus.OK ? read.value : fallback;
 }

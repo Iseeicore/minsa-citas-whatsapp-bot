@@ -5,6 +5,14 @@ import { ImageStorageError } from "@/lib/errors/image-storage-error";
 import { ImageStorageFailure } from "@/lib/enums/image-storage-failure";
 import type { AlmacenEvidencias } from "@/lib/types/almacen-evidencias.types";
 
+async function readJsonBody(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch (error: unknown) {
+    throw new ImageStorageError(ImageStorageFailure.UNREADABLE_BODY, response.status, { cause: error });
+  }
+}
+
 export async function guardarImagenHttp(bytes: Buffer, mimeType: string): Promise<{ ruta: string }> {
   const { baseUrl, token, timeoutMs } = mediaStorageConfig();
 
@@ -21,14 +29,6 @@ export async function guardarImagenHttp(bytes: Buffer, mimeType: string): Promis
   const ruta = isRecord(body) ? body.ruta : undefined;
   if (!isString(ruta) || ruta === "") throw new ImageStorageError(ImageStorageFailure.MISSING_PATH);
   return { ruta };
-}
-
-async function readJsonBody(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (error: unknown) {
-    throw new ImageStorageError(ImageStorageFailure.UNREADABLE_BODY, response.status, { cause: error });
-  }
 }
 
 export const almacenHttp: AlmacenEvidencias = {

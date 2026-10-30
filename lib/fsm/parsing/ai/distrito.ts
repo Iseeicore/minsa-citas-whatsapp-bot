@@ -1,7 +1,7 @@
 import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
-import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { logAiFallback, misconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
+import { logAiFallback, buildMisconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
+import { QueryKind } from "@/lib/enums/query-kind";
 import { DistritoAiOutcome } from "@/lib/enums/distrito-ai-outcome";
 import { DISTRITO_AI_SYSTEM_PROMPT, distritoDirectAnswerLine, distritoInitialMessageLine } from "@/lib/constants/prompts/distrito";
 import { isString } from "@/lib/utils/type-guards";
@@ -54,20 +54,6 @@ export const DISTRITO_AI_RESPONSE_SCHEMA: JsonSchema = {
   required: ["candidates", "detalle", "quiere_salir"],
 };
 
-const FAKE_DISTRITO_CANDIDATES: Record<string, DistritoAiCandidate[]> = {
-  lurigancho: [{ departamento: "Lima", provincia: "Lima", distrito: "Lurigancho" }],
-  miraflores: [
-    { departamento: "Lima", provincia: "Lima", distrito: "Miraflores" },
-    { departamento: "Arequipa", provincia: "Arequipa", distrito: "Miraflores" },
-  ],
-  "san juan": [
-    { departamento: "Lima", provincia: "Lima", distrito: "San Juan de Lurigancho" },
-    { departamento: "Lima", provincia: "Lima", distrito: "San Juan de Miraflores" },
-    { departamento: "Lima", provincia: "Huarochirí", distrito: "San Juan de Iris" },
-    { departamento: "Lima", provincia: "Huarochirí", distrito: "San Juan de Tantaranche" },
-  ],
-};
-
 function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
   const candidate = value as Partial<DistritoAiCandidate> | null;
   return isString(candidate?.departamento) && isString(candidate?.provincia) && isString(candidate?.distrito);
@@ -75,56 +61,41 @@ function isDistritoAiCandidate(value: unknown): value is DistritoAiCandidate {
 
 export async function resolveDistritoAiDetailed(
   distritoText: string,
-  contextText?: string,
-  lookup: LlmClientLookup = lookupLlmClient(),
+  contextText: string | undefined,
+  lookup: LlmClientLookup,
 ): Promise<ResolveDistritoAiDetailedResult> {
   if (lookup.status === LlmClientStatus.MISCONFIGURED) {
-    logAiFallback("resolve_distrito_ai", "failed", misconfiguredProviderReason(lookup.provider));
+    logAiFallback(QueryKind.RESOLVE_DISTRITO_AI, "failed", buildMisconfiguredProviderReason(lookup.provider));
     return FAILED;
   }
 
-  if (lookup.status === LlmClientStatus.AVAILABLE) {
-    const userTurn = [distritoDirectAnswerLine(distritoText), contextText ? distritoInitialMessageLine(contextText) : null]
-      .filter(Boolean)
-      .join("\n");
+  const userTurn = [distritoDirectAnswerLine(distritoText), contextText ? distritoInitialMessageLine(contextText) : null]
+    .filter(Boolean)
+    .join("\n");
 
-    const outcome = await lookup.client.generateJson({
-      operation: "resolve_distrito_ai",
-      systemPrompt: DISTRITO_AI_SYSTEM_PROMPT,
-      userText: userTurn,
-      schema: DISTRITO_AI_RESPONSE_SCHEMA,
-    });
-    if (!outcome.ok) return FAILED;
+  const outcome = await lookup.client.generateJson({
+    operation: QueryKind.RESOLVE_DISTRITO_AI,
+    systemPrompt: DISTRITO_AI_SYSTEM_PROMPT,
+    userText: userTurn,
+    schema: DISTRITO_AI_RESPONSE_SCHEMA,
+  });
+  if (!outcome.ok) return FAILED;
 
-    try {
-      const parsed = outcome.json as DistritoAiJsonShape;
-      if (!Array.isArray(parsed.candidates)) return FAILED;
+  try {
+    const parsed = outcome.json as DistritoAiJsonShape;
+    if (!Array.isArray(parsed.candidates)) return FAILED;
 
-      const resolved = withOutcome(parsed.candidates.filter(isDistritoAiCandidate));
-      return parsed.quiere_salir === true ? { ...resolved, quiereSalir: true } : resolved;
-    } catch {
-      return FAILED;
-    }
+    const resolved = withOutcome(parsed.candidates.filter(isDistritoAiCandidate));
+    return parsed.quiere_salir === true ? { ...resolved, quiereSalir: true } : resolved;
+  } catch {
+    return FAILED;
   }
-
-  const key = distritoText.trim().toLowerCase();
-  const direct = FAKE_DISTRITO_CANDIDATES[key];
-  if (direct) return withOutcome(direct);
-
-  const haystack = `${distritoText} ${contextText ?? ""}`.toLowerCase();
-  for (const [knownDistrito, candidates] of Object.entries(FAKE_DISTRITO_CANDIDATES)) {
-    if (haystack.includes(knownDistrito)) {
-      return withOutcome(candidates);
-    }
-  }
-
-  return withOutcome([]);
 }
 
 export async function resolveDistritoAi(
   distritoText: string,
-  contextText?: string,
-  lookup: LlmClientLookup = lookupLlmClient(),
+  contextText: string | undefined,
+  lookup: LlmClientLookup,
 ): Promise<ResolveDistritoAiResult> {
   const { candidates } = await resolveDistritoAiDetailed(distritoText, contextText, lookup);
   return { candidates };

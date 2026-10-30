@@ -3,6 +3,7 @@ import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persist
 import { consoleDisabledResponse } from "@/lib/inbox/console-access";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { CONVERSACION_NO_ENCONTRADA_TEXT } from "@/lib/constants/textos/bandeja";
 import { toConversationStatus, toMessageDto } from "@/lib/inbox/dto";
 import { findLastInbound, findUserState, listMessages } from "@/lib/inbox/repository";
 
@@ -20,7 +21,7 @@ export async function GET(
   const { id } = await params;
 
   const usuario = await findUserState(id);
-  if (!usuario) return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
+  if (!usuario) return apiError(ApiErrorCode.NOT_FOUND, { message: CONVERSACION_NO_ENCONTRADA_TEXT });
 
   const mensajes = await listMessages(id);
   const lastInbound = await findLastInbound(id);

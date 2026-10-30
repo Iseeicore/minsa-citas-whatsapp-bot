@@ -17,7 +17,7 @@ export function describeLlmFailure(outcome: FailedLlmOutcome): string {
   }
 }
 
-export function misconfiguredProviderReason(provider: string): string {
+export function buildMisconfiguredProviderReason(provider: string): string {
   return `provider ${provider} is not registered`;
 }
 

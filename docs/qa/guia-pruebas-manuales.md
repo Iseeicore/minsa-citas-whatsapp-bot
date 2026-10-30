@@ -161,7 +161,7 @@ Requiere un número **sin sesión** (ver 0.4).
 | 1.6a | Enviar un `POST` a `/webhook/whatsapp` **sin** la cabecera `x-hub-signature-256` (por ejemplo con `curl -X POST -d '{}' <url>`). | HTTP **403** `Forbidden`. Ningún mensaje al ciudadano. | No se crea conversación, mensaje ni sesión; no hay línea `turn.start` en los logs. | ☐ ☐ |
 | 1.6b | Repetir con una firma inventada (`sha256=` y 64 ceros). | HTTP **403**. | Igual que 1.6a. La comparación de la firma es en tiempo constante. | ☐ ☐ |
 | 1.6c | Con `META_APP_SECRET` vacía (reiniciar el proceso), enviar un `POST` firmado con una clave vacía. | HTTP **403**. | Log `webhook.signature_secret_missing`; `/api/health` responde `degraded` con `META_APP_SECRET_MISSING`. | ☐ ☐ |
-| 1.6d | Enviar un `POST` a `/api/sandbox` con un `from` que no empieza con `sandbox-` (por ejemplo un número de WhatsApp real). | HTTP **400** `INVALID_BODY`. | No se lee ni se escribe ninguna sesión: el Chat-bot no puede hablar en nombre de un ciudadano de WhatsApp. | ☐ ☐ |
+| 1.6d | Enviar un `POST` a `/api/sandbox` con un `from` que no es `sandbox-` seguido de un UUID v4 (por ejemplo un número de WhatsApp real o `sandbox-prueba`). | HTTP **400** `INVALID_BODY`. | No se lee ni se escribe ninguna sesión: el Chat-bot no puede hablar en nombre de un ciudadano de WhatsApp. | ☐ ☐ |
 
 ### 1.7 Texto de más de 1000 caracteres — solo Chat-bot
 

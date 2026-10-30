@@ -32,6 +32,8 @@ import { hasSandboxPrefix } from "@/lib/utils/session-ids";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 
+type StagedTurn = { waId: string; messageId: string; respond: () => Promise<void>; marks: LatencyMarks };
+
 const inboundCoalescer = createInboundCoalescer({
   buffer: createPostgresInboundBuffer(),
   runTurn: withTurnLock,
@@ -119,13 +121,49 @@ async function stageInboundMessage(
   return () => inboundCoalescer.handle({ message, usuarioId: usuario.id, windowMs, marks });
 }
 
+async function screenAndStage(message: WhatsAppMessage, contact: WhatsAppContact | undefined): Promise<StagedTurn | undefined> {
+  const marks = createLatencyMarks();
+  const decision = await screenInbound(
+    { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
+    {
+      limiter: inboundRateLimiter,
+      evidenceLimiter: evidenceImageRateLimiter,
+      hasSession: sessionRowExists,
+      sessionState: async (waId) => (await findSession(waId))?.state,
+    },
+  );
+  if (decision.action === PerimeterAction.DROP) return undefined;
+  if (decision.action === PerimeterAction.REJECT) {
+    await sendFixedReply(message.from_user_id, decision.reply);
+    return undefined;
+  }
+  marks.mark("perimeter");
+
+  if (!tapReplyTo(message)) void sendTypingIndicator(message.id);
+
+  const respond = await stageInboundMessage(message, contact, marks);
+  return respond ? { waId: message.from_user_id, messageId: message.id, respond, marks } : undefined;
+}
+
+async function screenAndStageOrAnswerFailure(
+  message: WhatsAppMessage,
+  contact: WhatsAppContact | undefined,
+): Promise<StagedTurn | undefined> {
+  try {
+    return await screenAndStage(message, contact);
+  } catch (error) {
+    await answerFailure(message.from_user_id, error);
+    return undefined;
+  }
+}
+
 export async function processValue(value: WhatsAppValue) {
   const contactsByWaId = new Map<string, WhatsAppContact>();
   for (const contact of value.contacts ?? []) {
     contactsByWaId.set(contact.user_id, contact);
   }
 
-  const staged: Array<{ waId: string; messageId: string; respond: () => Promise<void>; marks: LatencyMarks }> = [];
+  const staged: StagedTurn[] = [];
 
   if (isDatabaseEnabled()) await processBsuidChanges(value);
 
@@ -136,31 +174,8 @@ export async function processValue(value: WhatsAppValue) {
       continue;
     }
 
-    const marks = createLatencyMarks();
-    try {
-      const decision = await screenInbound(
-        { waId: message.from_user_id, type: message.type, text: message.text?.body, messageId: message.id },
-        {
-          limiter: inboundRateLimiter,
-          evidenceLimiter: evidenceImageRateLimiter,
-          hasSession: sessionRowExists,
-          sessionState: async (waId) => (await findSession(waId))?.state,
-        },
-      );
-      if (decision.action === PerimeterAction.DROP) continue;
-      if (decision.action === PerimeterAction.REJECT) {
-        await sendFixedReply(message.from_user_id, decision.reply);
-        continue;
-      }
-      marks.mark("perimeter");
-
-      if (!tapReplyTo(message)) void sendTypingIndicator(message.id);
-
-      const respond = await stageInboundMessage(message, contactsByWaId.get(message.from_user_id), marks);
-      if (respond) staged.push({ waId: message.from_user_id, messageId: message.id, respond, marks });
-    } catch (error) {
-      await answerFailure(message.from_user_id, error);
-    }
+    const turn = await screenAndStageOrAnswerFailure(message, contactsByWaId.get(message.from_user_id));
+    if (turn) staged.push(turn);
   }
 
   await Promise.all(

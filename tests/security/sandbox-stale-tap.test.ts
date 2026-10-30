@@ -29,7 +29,7 @@ import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-i
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 
-const FROM = "sandbox-stale-tap";
+const FROM = "sandbox-6c9d2f45-7081-42a3-9eb5-c6d7e8f90a1b";
 const RESUMEN_ID = "web-resumen";
 
 type Reply = { sent: Array<{ kind: string; text?: string }>; session: { state: string }; interactiveId?: string };

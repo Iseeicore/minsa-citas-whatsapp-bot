@@ -1,6 +1,7 @@
 import { logger } from "@/lib/observability/logger";
 import type { LlmClient, LlmClientLookup, LlmProvider } from "@/lib/fsm/parsing/ai/llm";
 import { createGeminiClient } from "@/lib/fsm/parsing/ai/providers/gemini";
+import { createFakeLlmClient } from "@/lib/fsm/parsing/ai/providers/fake";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 
 const DEFAULT_PROVIDER: LlmProvider = "gemini";
@@ -23,7 +24,7 @@ export function configuredLlmProvider(): LlmProvider {
 }
 
 export function lookupLlmClient(): LlmClientLookup {
-  if (process.env.SANDBOX_USE_REAL_AI !== "true") return { status: LlmClientStatus.DISABLED };
+  if (process.env.SANDBOX_USE_REAL_AI !== "true") return { status: LlmClientStatus.AVAILABLE, client: createFakeLlmClient() };
 
   const requested = requestedProvider();
   const create = PROVIDERS.get(requested);

@@ -42,7 +42,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 
 import { POST } from "@/app/api/sandbox/route";
 
-const FROM = "sandbox-reference-http-contract";
+const FROM = "sandbox-5b8c1e34-6f70-4192-8da4-b5c6d7e8f90a";
 const DOCUMENTO = "23456789";
 const TOKEN = "synthetic-reference-contract-session-token";
 const API_ORIGIN = "https://synthetic-minsa-api.test";

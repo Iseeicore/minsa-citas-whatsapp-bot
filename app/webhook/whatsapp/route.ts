@@ -6,6 +6,7 @@ import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isValidMetaSignature } from "@/lib/security/meta-signature";
+import { isValidMetaVerifyToken } from "@/lib/security/meta-verify-token";
 import { META_SIGNATURE_HEADER } from "@/lib/constants/meta-signature";
 
 export const runtime = "nodejs";
@@ -18,8 +19,7 @@ export async function GET(request: NextRequest) {
   const verifyToken = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
-  if (mode === "subscribe" && expectedToken && verifyToken === expectedToken) {
+  if (mode === "subscribe" && isValidMetaVerifyToken(verifyToken)) {
     return new NextResponse(challenge ?? "", { status: 200 });
   }
 

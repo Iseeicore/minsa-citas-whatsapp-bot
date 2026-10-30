@@ -27,7 +27,7 @@ function postFrom(origin: string | undefined) {
   return new NextRequest("http://localhost/api/sandbox", {
     method: "POST",
     headers,
-    body: JSON.stringify({ from: "sandbox-qa", type: "text", text: "hola" }),
+    body: JSON.stringify({ from: "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7", type: "text", text: "hola" }),
   });
 }
 

@@ -32,7 +32,7 @@ vi.mock("@/lib/fsm/parsing/ai/main-menu-intent", () => ({
 
 import { POST } from "@/app/api/sandbox/route";
 
-const FROM = "sandbox-first-message-channel";
+const FROM = "sandbox-3f6a9c12-4d5e-4f70-8b82-93a4b5c6d7e8";
 
 type Reply = { sent: Array<{ kind: string; rows?: Array<{ id: string }> }> };
 

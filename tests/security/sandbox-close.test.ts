@@ -35,11 +35,11 @@ beforeEach(() => {
 
 describe("POST /api/sandbox with close", () => {
   it("closes the previous conversation and answers 200 { closed: true } without running any turn", async () => {
-    const response = await post({ from: "sandbox-old", type: "text", close: true });
+    const response = await post({ from: "sandbox-1d4e7a90-2b3c-4d5e-8f60-718293a4b5c6", type: "text", close: true });
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ closed: true });
-    expect(mocks.closeSession).toHaveBeenCalledWith("sandbox-old");
+    expect(mocks.closeSession).toHaveBeenCalledWith("sandbox-1d4e7a90-2b3c-4d5e-8f60-718293a4b5c6");
     expect(mocks.runTurn).not.toHaveBeenCalled();
     expect(mocks.saveSession).not.toHaveBeenCalled();
     expect(mocks.sessionRowExists).not.toHaveBeenCalled();
@@ -49,7 +49,7 @@ describe("POST /api/sandbox with close", () => {
   it("is a 404 when the Sandbox is disabled, and closes nothing", async () => {
     process.env.SANDBOX_ENABLED = "false";
 
-    const response = await post({ from: "sandbox-old", type: "text", close: true });
+    const response = await post({ from: "sandbox-1d4e7a90-2b3c-4d5e-8f60-718293a4b5c6", type: "text", close: true });
 
     expect(response.status).toBe(404);
     expect(mocks.closeSession).not.toHaveBeenCalled();

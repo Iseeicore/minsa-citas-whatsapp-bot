@@ -50,10 +50,14 @@ import { LookupStatus } from "@/lib/enums/lookup-status";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { isString } from "@/lib/utils/type-guards";
-import { readSlotJson, slotJsonOr } from "@/lib/fsm/core/slot-readers";
+import { readSlotJson, getSlotJsonOr } from "@/lib/fsm/core/slot-readers";
 import { z } from "zod";
 import { MAX_INTENTOS_CODIGO, MAX_INTENTOS_OTP } from "@/lib/constants/limits/consulta";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";
+
+type IncidenciaListada = { codigo: string; estado: string; fechaRegistro: string };
+
+const LISTADO_SCHEMA = z.array(z.object({ codigo: z.string(), estado: z.string(), fechaRegistro: z.string() }));
 
 function closed(state: SessionState.CONSULTA_COMPLETED | SessionState.CONSULTA_FAILED, text: string): HandlerResult {
   return buildResult({ state, slots: {}, counters: {} }, [sendText(text)]);
@@ -219,12 +223,8 @@ function handleQueryPending(event: QueryResultEvent): HandlerResult {
   return closed(SessionState.CONSULTA_FAILED, CONSULTA_FALLA_TEXT);
 }
 
-type IncidenciaListada = { codigo: string; estado: string; fechaRegistro: string };
-
-const LISTADO_SCHEMA = z.array(z.object({ codigo: z.string(), estado: z.string(), fechaRegistro: z.string() }));
-
 function readListado(session: Session): IncidenciaListada[] {
-  return slotJsonOr(readSlotJson(session.slots, SlotKey.CONSULTA_LISTADO_DATA, LISTADO_SCHEMA), []);
+  return getSlotJsonOr(readSlotJson(session.slots, SlotKey.CONSULTA_LISTADO_DATA, LISTADO_SCHEMA), []);
 }
 
 function listadoRows(items: IncidenciaListada[]): ListRow[] {

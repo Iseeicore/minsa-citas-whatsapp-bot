@@ -1,16 +1,14 @@
-import { graphAuthHeaders, graphMessagesUrl } from "@/lib/whatsapp/graph-api";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ACTOR_OPERADOR_BANDEJA } from "@/lib/db/actor";
 import { isDatabaseEnabled, persistenceDisabledResponse } from "@/lib/db/persistence";
 import { consoleDisabledResponse } from "@/lib/inbox/console-access";
 import { toMessageDto } from "@/lib/inbox/dto";
-import { findLastInbound, findUser, recordOutboundMessage } from "@/lib/inbox/repository";
+import { findLastInbound, findUser } from "@/lib/inbox/repository";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
-import { logger } from "@/lib/observability/logger";
-import { parseJsonOr } from "@/lib/utils/safe-json";
-import { graphFailureErrorCode, type GraphSendBody } from "@/lib/inbox/graph-failure";
+import { CONVERSACION_NO_ENCONTRADA_TEXT } from "@/lib/constants/textos/bandeja";
+import { sendOperatorMessage } from "@/lib/whatsapp/operator-send";
+import { OperatorSendStatus } from "@/lib/enums/operator-send-status";
 
 const sendMessageSchema = z.object({
   conversationId: z.string().min(1),
@@ -38,7 +36,7 @@ export async function POST(request: NextRequest) {
   const usuario = await findUser(conversationId);
 
   if (!usuario) {
-    return apiError(ApiErrorCode.NOT_FOUND, { message: "No se encontró la conversación." });
+    return apiError(ApiErrorCode.NOT_FOUND, { message: CONVERSACION_NO_ENCONTRADA_TEXT });
   }
 
   const lastInbound = await findLastInbound(conversationId);
@@ -50,39 +48,8 @@ export async function POST(request: NextRequest) {
     return apiError(ApiErrorCode.WINDOW_EXPIRED);
   }
 
-  let graphResponse: Response;
-  try {
-    graphResponse = await fetch(graphMessagesUrl(), {
-      method: "POST",
-      headers: { ...graphAuthHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        recipient: usuario.waId,
-        type: "text",
-        text: { body: text },
-      }),
-    });
-  } catch (error) {
-    logger.error("inbox.send_failed", { conversationId, reason: "request_failed", error });
-    return apiError(ApiErrorCode.WHATSAPP_UNAVAILABLE);
-  }
+  const result = await sendOperatorMessage(usuario, text);
+  if (result.status === OperatorSendStatus.FAILED) return apiError(result.errorCode);
 
-  const graphBody = parseJsonOr(await graphResponse.text(), undefined) as GraphSendBody | undefined;
-
-  if (!graphResponse.ok) {
-    const errorCode = graphFailureErrorCode(graphResponse.status);
-    logger.error("inbox.send_failed", {
-      conversationId,
-      reason: "graph_error",
-      status: graphResponse.status,
-      metaErrorCode: graphBody?.error?.code,
-    });
-    return apiError(errorCode);
-  }
-
-  const waMessageId = graphBody?.messages?.[0]?.id;
-  const message = await recordOutboundMessage(usuario.id, text, waMessageId ?? null, ACTOR_OPERADOR_BANDEJA);
-
-  return NextResponse.json(toMessageDto(message), { status: 201 });
+  return NextResponse.json(toMessageDto(result.message), { status: 201 });
 }

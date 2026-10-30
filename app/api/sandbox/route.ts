@@ -10,7 +10,8 @@ import { traceTurn } from "@/lib/observability/tracer";
 import { createLatencyMarks, type LatencyMarks } from "@/lib/observability/inbound-latency";
 import { withTurnLock } from "@/lib/fsm/session/turn-lock";
 import { closeSession, resetSession, saveSession, sessionRowExists } from "@/lib/fsm/session/session-store";
-import { SANDBOX_SESSION_ID_PREFIX } from "@/lib/constants/session-ids";
+import { SANDBOX_SESSION_ID } from "@/lib/constants/regex/session-ids";
+import { SANDBOX_SESSION_ID_MAX_LENGTH } from "@/lib/constants/limits/sandbox";
 import type { InteractiveTracking, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
 import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -33,16 +34,18 @@ import { SANDBOX_DISABLED_TEXT, SANDBOX_UNSIGNED_TEXT } from "@/lib/constants/te
 import { SandboxSignatureResult } from "@/lib/enums/sandbox-signature-result";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 
-const sentInSandbox = (): SendOutcome => ({ kind: SendOutcomeKind.SENT, messageId: randomUuid() });
-
 const SANDBOX_TURN_HOOKS: TurnHooks = {
-  onSend: async () => sentInSandbox(),
+  onSend: async () => buildSandboxSentOutcome(),
   onWaitingForQuery: async () => undefined,
 };
 
 const warnedInvalidOrigins = new Set<string>();
 
 const TEXT_FIELD = "text";
+
+function buildSandboxSentOutcome(): SendOutcome {
+  return { kind: SendOutcomeKind.SENT, messageId: randomUuid() };
+}
 
 function allowedOrigins(): string[] {
   const { origins, invalid } = parseAllowedOrigins(process.env.SANDBOX_ALLOWED_ORIGINS);
@@ -102,10 +105,7 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 const sandboxEventSchema = z.object({
-  from: z
-    .string()
-    .startsWith(SANDBOX_SESSION_ID_PREFIX)
-    .min(SANDBOX_SESSION_ID_PREFIX.length + 1),
+  from: z.string().max(SANDBOX_SESSION_ID_MAX_LENGTH).regex(SANDBOX_SESSION_ID),
   type: z.enum(["text", "button", "list", "image", "document"]),
   text: z.string().max(SANDBOX_TEXT_MAX_LENGTH).optional(),
   listId: z.string().optional(),
@@ -196,7 +196,7 @@ async function startConversation(from: string, text: string | undefined, marks: 
       for (const note of first.notes ?? []) trace.note(note);
 
       const sent = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-      const tracking = sent.reduce<InteractiveTracking>((current, effect) => trackSent(current, effect, sentInSandbox()), { consumed: false });
+      const tracking = sent.reduce<InteractiveTracking>((current, effect) => trackSent(current, effect, buildSandboxSentOutcome()), { consumed: false });
       const session = withInteractiveTracking(first.session, tracking);
       await saveSession(from, session);
       trace.complete({ session, sentCount: sent.length });

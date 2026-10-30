@@ -147,7 +147,7 @@ describe("real MINSA — catalog pipeline", () => {
 
     try {
       await expect(listHoras("6181", "02", "20260920", "b")).resolves.toEqual({ status: "error" });
-      expect(records.find((record) => record.event === "minsa.catalog.contract_mismatch")).toMatchObject({ endpoint: MinsaEndpoint.HORAS });
+      expect(records.find((record) => record.event === "minsa.contract_mismatch")).toMatchObject({ endpoint: MinsaEndpoint.HORAS });
     } finally {
       restore();
     }

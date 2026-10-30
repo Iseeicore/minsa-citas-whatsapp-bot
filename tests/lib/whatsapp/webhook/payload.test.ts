@@ -5,7 +5,7 @@ const media = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri: media.download }));
 
-import { mapStatus, toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
+import { extractContentAndMedia, mapStatus, toInboundEvent, type WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
 import { EstadoMensajeId } from "@/lib/enums/estado-mensaje-id";
 import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { MediaFailure } from "@/lib/enums/media-failure";
@@ -159,11 +159,51 @@ describe("toInboundEvent: what reaches the flow when an incidencia asks for evid
 });
 
 describe("mapStatus", () => {
-  it("traduce los estados que Meta informa", () => {
-    expect(mapStatus("read")).toBe(EstadoMensajeId.LEIDO);
+  it.each([
+    ["sent", EstadoMensajeId.ENVIADO],
+    ["delivered", EstadoMensajeId.ENTREGADO],
+    ["read", EstadoMensajeId.LEIDO],
+    ["failed", EstadoMensajeId.FALLIDO],
+  ])("traduce el estado %s que Meta informa", (status, estado) => {
+    expect(mapStatus(status)).toBe(estado);
+  });
+
+  it("un estado con nombre de propiedad de objeto no tiene valor", () => {
+    expect(mapStatus("toString")).toBeUndefined();
   });
 
   it("un estado que no se guarda no tiene valor", () => {
     expect(mapStatus("deleted")).toBeUndefined();
+  });
+});
+
+describe("extractContentAndMedia", () => {
+  it.each<[string, Partial<WhatsAppMessage> & { type: string }, { content: string | undefined; mediaId: string | undefined }]>([
+    ["un texto guarda su cuerpo", { type: "text", text: { body: "hola" } }, { content: "hola", mediaId: undefined }],
+    [
+      "una imagen guarda su leyenda y su archivo",
+      { type: "image", image: { id: "m1", caption: "foto" } },
+      { content: "foto", mediaId: "m1" },
+    ],
+    ["un audio guarda solo su archivo", { type: "audio", audio: { id: "a1" } }, { content: undefined, mediaId: "a1" }],
+    [
+      "un documento guarda su nombre y su archivo",
+      { type: "document", document: { id: "d1", filename: "x.pdf" } },
+      { content: "x.pdf", mediaId: "d1" },
+    ],
+    [
+      "una ubicacion guarda sus coordenadas",
+      { type: "location", location: { latitude: -12, longitude: -77 } },
+      { content: "-12,-77", mediaId: undefined },
+    ],
+    [
+      "una ubicacion incompleta no guarda nada",
+      { type: "location", location: { latitude: -12 } },
+      { content: undefined, mediaId: undefined },
+    ],
+    ["un tipo que no se guarda no tiene contenido", { type: "sticker" }, { content: undefined, mediaId: undefined }],
+    ["un tipo con nombre de propiedad de objeto no tiene contenido", { type: "constructor" }, { content: undefined, mediaId: undefined }],
+  ])("%s", (_label, extra, expected) => {
+    expect(extractContentAndMedia(message(extra))).toEqual(expected);
   });
 });
