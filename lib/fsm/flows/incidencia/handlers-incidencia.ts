@@ -86,6 +86,23 @@ function cancel(): HandlerResult {
   return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(INCIDENCIA_CANCELADA_TEXT)]);
 }
 
+const toMotivoDeImagenInvalida = (failure: ImageValidationFailure): EvidenceRejection =>
+  failure === ImageValidationFailure.TOO_LARGE ? EvidenceRejection.TOO_LARGE : EvidenceRejection.INVALID;
+
+function buildImagenUnica(event: InboundEvent): InboundMedia {
+  if (event.mediaDataUri) return { kind: InboundMediaKind.DATA, dataUri: event.mediaDataUri };
+  return { kind: InboundMediaKind.FAILURE, failure: event.mediaFailure ?? MediaFailure.UNREADABLE };
+}
+
+function findMotivoDeRechazo(imagen: InboundMedia, aceptadas: string[]): EvidenceRejection | undefined {
+  if (aceptadas.length >= MAX_IMAGENES_POR_INCIDENCIA) return EvidenceRejection.OVER_LIMIT;
+  if (imagen.kind === InboundMediaKind.FAILURE) return MOTIVO_DE_FALLA_DE_DESCARGA[imagen.failure];
+
+  const validada = validarImagen(imagen.dataUri);
+  if (esImagenRechazada(validada)) return toMotivoDeImagenInvalida(validada.failure);
+  return aceptadas.includes(imagen.dataUri) ? EvidenceRejection.DUPLICATE : undefined;
+}
+
 export function handleIncidencia(session: Session, event: HandleEvent): HandlerResult {
   if (event.type === InboundEventType.TEXT && event.text && quiereCerrar(event.text)) return cancel();
 
@@ -207,23 +224,6 @@ function rechazoDeImagen(session: Session, motivo: string): HandlerResult {
   const hasImagenes = readImagenes(session.slots).length > 0;
   const seguir = hasImagenes ? SEGUIR_CON_IMAGENES_TEXT : SEGUIR_SIN_IMAGENES_TEXT;
   return buildResult(session, [sendButtons(`${motivo} ${seguir}`, hasImagenes ? FOTO_LISTO_BUTTONS : FOTO_BUTTONS)]);
-}
-
-const toMotivoDeImagenInvalida = (failure: ImageValidationFailure): EvidenceRejection =>
-  failure === ImageValidationFailure.TOO_LARGE ? EvidenceRejection.TOO_LARGE : EvidenceRejection.INVALID;
-
-function buildImagenUnica(event: InboundEvent): InboundMedia {
-  if (event.mediaDataUri) return { kind: InboundMediaKind.DATA, dataUri: event.mediaDataUri };
-  return { kind: InboundMediaKind.FAILURE, failure: event.mediaFailure ?? MediaFailure.UNREADABLE };
-}
-
-function findMotivoDeRechazo(imagen: InboundMedia, aceptadas: string[]): EvidenceRejection | undefined {
-  if (aceptadas.length >= MAX_IMAGENES_POR_INCIDENCIA) return EvidenceRejection.OVER_LIMIT;
-  if (imagen.kind === InboundMediaKind.FAILURE) return MOTIVO_DE_FALLA_DE_DESCARGA[imagen.failure];
-
-  const validada = validarImagen(imagen.dataUri);
-  if (esImagenRechazada(validada)) return toMotivoDeImagenInvalida(validada.failure);
-  return aceptadas.includes(imagen.dataUri) ? EvidenceRejection.DUPLICATE : undefined;
 }
 
 function handleImagen(session: Session, event: InboundEvent): HandlerResult {

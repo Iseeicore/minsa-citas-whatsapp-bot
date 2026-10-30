@@ -8,7 +8,9 @@ function parseEvidenceImageMaxMb(raw: string | undefined): number | undefined {
   const value = raw?.trim() ?? "";
   if (!POSITIVE_INTEGER.test(value)) return undefined;
   const megabytes = Number(value);
-  return megabytes >= EVIDENCE_IMAGE_MAX_MB_MIN && megabytes <= META_IMAGE_MAX_MB ? megabytes : undefined;
+  if (megabytes < EVIDENCE_IMAGE_MAX_MB_MIN) return undefined;
+  if (megabytes > META_IMAGE_MAX_MB) return undefined;
+  return megabytes;
 }
 
 export function findInvalidEvidenceImageMaxMb(env: Env = process.env): string | undefined {

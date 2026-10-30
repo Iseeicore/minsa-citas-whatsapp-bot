@@ -25,10 +25,10 @@ export async function getSession(from: string): Promise<Session> {
   };
 }
 
-export async function findSession(from: string): Promise<{ state: string } | null> {
+export async function findSession(from: string): Promise<{ state: string } | undefined> {
   if (!isDatabaseEnabled()) return memory.findSession(from);
   const row = await prisma.sesionConversacion.findUnique({ where: { waId: from } });
-  return row ? { state: row.estado } : null;
+  return row ? { state: row.estado } : undefined;
 }
 
 export async function sessionRowExists(from: string): Promise<boolean> {

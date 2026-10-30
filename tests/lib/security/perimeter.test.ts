@@ -6,10 +6,10 @@ import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
 import { EVIDENCE_IMAGE_BURST_LIMIT } from "@/lib/constants/limits/perimeter";
 import { SessionState } from "@/lib/enums/session-state";
 
-function setup(options: { hasSession?: boolean; state?: string | null } = {}) {
+function setup(options: { hasSession?: boolean; state?: string } = {}) {
   const hasSession = vi.fn(async () => options.hasSession ?? false);
-  const state = options.state ?? (options.hasSession ? SessionState.MAIN_MENU : null);
-  const sessionState = vi.fn(async () => state);
+  const state = options.state ?? (options.hasSession ? SessionState.MAIN_MENU : undefined);
+  const sessionState = vi.fn(async (): Promise<string | undefined> => state);
   const limiter = createRateLimiter();
   const evidenceLimiter = createEvidenceImageRateLimiter();
   return { hasSession, sessionState, limiter, deps: { limiter, evidenceLimiter, hasSession, sessionState } };

@@ -27,7 +27,7 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 vi.mock("@/lib/fsm/session/session-store", () => ({
-  findSession: async () => null,
+  findSession: async () => undefined,
   sessionRowExists: async () => false,
 }));
 vi.mock("@/lib/security/perimeter", () => ({

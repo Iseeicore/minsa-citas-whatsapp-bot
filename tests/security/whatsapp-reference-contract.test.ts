@@ -30,7 +30,7 @@ vi.mock("next/server", async (importOriginal) => ({
 }));
 vi.mock("@/lib/fsm/session/session-store", () => ({
   getSession: async (from: string) => structuredClone(storage.sessions.get(from) ?? { state: "main_menu", slots: {}, counters: {} }),
-  findSession: async (from: string) => structuredClone(storage.sessions.get(from)) ?? null,
+  findSession: async (from: string) => structuredClone(storage.sessions.get(from)),
   sessionRowExists: async (from: string) => storage.sessions.has(from),
   saveSession: async (from: string, session: Session) => storage.sessions.set(from, structuredClone(session)),
 }));

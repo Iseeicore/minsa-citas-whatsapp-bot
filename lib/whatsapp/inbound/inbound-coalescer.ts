@@ -1,4 +1,5 @@
 import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
+import { WhatsAppMessageType } from "@/lib/enums/whatsapp-message-type";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
 import type { InboundBuffer, PendingInbound } from "@/lib/whatsapp/inbound/inbound-buffer";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
@@ -31,7 +32,7 @@ function findGroupedTipo(row: PendingInbound): TipoMensajeId | undefined {
   return TipoMensajeId.TEXTO;
 }
 
-function baseMessage(row: PendingInbound, own: WhatsAppMessage, type: string): WhatsAppMessage {
+function buildBaseMessage(row: PendingInbound, own: WhatsAppMessage, type: WhatsAppMessageType): WhatsAppMessage {
   return {
     id: row.waMessageId,
     from_user_id: own.from_user_id,
@@ -41,17 +42,19 @@ function baseMessage(row: PendingInbound, own: WhatsAppMessage, type: string): W
   };
 }
 
-function textTurn(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn {
+function buildTextTurn(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn {
   const last = rows[rows.length - 1];
   if (rows.length === 1 && last.waMessageId === own.id) return { message: own };
-  return { message: { ...baseMessage(last, own, "text"), text: { body: rows.map((row) => row.contenido).join("\n") } } };
+  return {
+    message: { ...buildBaseMessage(last, own, WhatsAppMessageType.TEXT), text: { body: rows.map((row) => row.contenido).join("\n") } },
+  };
 }
 
-function imageTurn(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn {
+function buildImageTurn(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn {
   const mediaIds = rows.map((row) => row.mediaId).filter((mediaId): mediaId is string => !!mediaId);
   const last = rows[rows.length - 1];
   if (rows.length === 1 && last.waMessageId === own.id) return { message: own, mediaIds };
-  return { message: { ...baseMessage(last, own, "image"), image: { id: mediaIds[mediaIds.length - 1] } }, mediaIds };
+  return { message: { ...buildBaseMessage(last, own, WhatsAppMessageType.IMAGE), image: { id: mediaIds[mediaIds.length - 1] } }, mediaIds };
 }
 
 export function groupBatch(rows: PendingInbound[], own: WhatsAppMessage): InboundTurn[] {
@@ -64,8 +67,8 @@ export function groupBatch(rows: PendingInbound[], own: WhatsAppMessage): Inboun
   }
 
   return runs.flatMap((run): InboundTurn[] => {
-    if (run.tipo === TipoMensajeId.TEXTO) return [textTurn(run.rows, own)];
-    if (run.tipo === TipoMensajeId.IMAGEN) return [imageTurn(run.rows, own)];
+    if (run.tipo === TipoMensajeId.TEXTO) return [buildTextTurn(run.rows, own)];
+    if (run.tipo === TipoMensajeId.IMAGEN) return [buildImageTurn(run.rows, own)];
     return run.rows.some((row) => row.waMessageId === own.id) ? [{ message: own }] : [];
   });
 }

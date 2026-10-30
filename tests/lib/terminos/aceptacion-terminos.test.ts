@@ -6,12 +6,8 @@ vi.mock("@/lib/db/prisma", () => ({
   prisma: { aceptacionTerminos: { create: db.create } },
 }));
 
-import {
-  createPrismaAceptacionTerminosStore,
-  saveAceptacionTerminos,
-  type AceptacionTerminos,
-  type AceptacionTerminosStore,
-} from "@/lib/terminos/aceptacion-terminos";
+import { createPrismaAceptacionTerminosStore, saveAceptacionTerminos } from "@/lib/terminos/aceptacion-terminos";
+import type { AceptacionTerminos, AceptacionTerminosStore } from "@/lib/types/aceptacion-terminos.types";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { SessionChannel } from "@/lib/enums/session-channel";

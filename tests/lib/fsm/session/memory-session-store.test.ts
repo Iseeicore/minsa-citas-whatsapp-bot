@@ -18,7 +18,7 @@ describe("createMemorySessionStore", () => {
     const store = createMemorySessionStore();
     await expect(store.getSession("51999")).resolves.toEqual({ state: "main_menu", slots: {}, counters: {} });
     await expect(store.sessionRowExists("51999")).resolves.toBe(false);
-    await expect(store.findSession("51999")).resolves.toBeNull();
+    await expect(store.findSession("51999")).resolves.toBeUndefined();
   });
 
   it("keeps what was saved, stamped with the save time as updatedAt", async () => {

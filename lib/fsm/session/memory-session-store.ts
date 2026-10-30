@@ -53,9 +53,9 @@ export function createMemorySessionStore(options: { now?: () => number; ttlMs?: 
       return read(from) !== undefined;
     },
 
-    async findSession(from: string): Promise<{ state: string } | null> {
+    async findSession(from: string): Promise<{ state: string } | undefined> {
       const stored = read(from);
-      return stored ? { state: stored.state } : null;
+      return stored ? { state: stored.state } : undefined;
     },
 
     async saveSession(from: string, session: Session): Promise<void> {

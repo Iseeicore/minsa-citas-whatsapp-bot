@@ -4,6 +4,7 @@ import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import type { IdentidadConsulta } from "@/lib/recepcion/consulta-dto";
 import { SessionChannel } from "@/lib/enums/session-channel";
+import type { ConsentimientoStore } from "@/lib/types/consentimiento.types";
 
 export type DatosIncidencia = {
   waId: string;
@@ -17,11 +18,6 @@ export type DatosIncidencia = {
 export type DatosEvidencia = { mimeType: string; tamano: number; ruta: string };
 
 export type IncidenciaConsultada = { codigo: string; fechaCreacion: Date; estadoCodigo: string };
-
-export type ConsentimientoStore = {
-  tieneAceptado(waId: string): Promise<boolean>;
-  marcarAceptado(waId: string): Promise<void>;
-};
 
 export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvidencia[], actor: string) {
   return prisma.$transaction(async (tx) => {

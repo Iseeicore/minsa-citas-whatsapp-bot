@@ -181,10 +181,13 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
   const { page, totalPages } = establecimientoPaging(next.counters);
 
   const discarded = discardedEstablecimientos(next.slots);
-  const items = result.status === CatalogStatus.FOUND ? listAvailableEstablecimientos(result.items ?? [], discarded) : [];
+  const found = result.status === CatalogStatus.FOUND;
+  const items = found ? listAvailableEstablecimientos(result.items ?? [], discarded) : [];
 
-  const skipped = result.status === CatalogStatus.FOUND && items.length === 0 ? skipEmptyPage(next, page, totalPages) : undefined;
-  if (skipped) return skipped;
+  if (found && items.length === 0) {
+    const skipped = skipEmptyPage(next, page, totalPages);
+    if (skipped) return skipped;
+  }
   delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS];
   delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE];
 

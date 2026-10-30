@@ -48,7 +48,7 @@ vi.mock("@/lib/whatsapp/whatsapp-media", () => ({ downloadWhatsAppMediaAsDataUri
 vi.mock("@/lib/fsm/session/session-store", () => ({
   sessionRowExists: mocks.sessionRowExists,
   saveSession: mocks.saveSession,
-  findSession: () => mocks.sessionFindUnique(),
+  findSession: async () => (await mocks.sessionFindUnique()) ?? undefined,
 }));
 vi.mock("@/lib/fsm/core/executor", () => ({ runTurnUnlocked: mocks.runTurnUnlocked }));
 vi.mock("@/lib/whatsapp/inbound/inbound-policy", async (importOriginal) => ({
@@ -79,6 +79,7 @@ import { configureLogger } from "@/lib/observability/logger";
 import { MUTE_NOTICE_TEXT } from "@/lib/security/perimeter";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
+import { captureLogs } from "@/tests/support/capture-logs";
 
 const SECRET = "test-app-secret";
 const NOW_SECONDS = () => String(Math.floor(Date.now() / 1000));
@@ -325,6 +326,26 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
     expect(mocks.sendWhatsAppEffect).toHaveBeenCalledWith(waId, { kind: "send_text", text: MEDIA_WITHOUT_SESSION_TEXT });
     expect(mocks.downloadMedia).not.toHaveBeenCalled();
     expect(mocks.usuarioUpsert).not.toHaveBeenCalled();
+    expect(mocks.withTurnLock).not.toHaveBeenCalled();
+  });
+
+  it("an image whose session lookup fails is not treated as a citizen without a session: the failure is logged", async () => {
+    mocks.sessionFindUnique.mockRejectedValue(new Error("base caida"));
+    const lines = captureLogs();
+    const waId = freshWaId();
+    const message: Message = {
+      id: `wamid.${++messageCounter}`,
+      from_user_id: waId,
+      timestamp: NOW_SECONDS(),
+      type: "image",
+      image: { id: "media-1" },
+    };
+
+    await deliver([message]);
+
+    expect(lines.find((line) => line.event === "webhook.entry_failed")?.error).toMatchObject({ message: "base caida" });
+    expect(mocks.sendWhatsAppEffect).not.toHaveBeenCalledWith(waId, { kind: "send_text", text: MEDIA_WITHOUT_SESSION_TEXT });
+    expect(mocks.downloadMedia).not.toHaveBeenCalled();
     expect(mocks.withTurnLock).not.toHaveBeenCalled();
   });
 

@@ -18,6 +18,7 @@ import { Banner } from "@/app/components/ui/Banner";
 import { Button } from "@/app/components/ui/Button";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ChatOptionKind } from "@/lib/enums/chat-option-kind";
+import { InboundEventType as InboundEventTypeEnum } from "@/lib/enums/inbound-event-type";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
@@ -28,6 +29,11 @@ import { bytesToMegabytes } from "@/lib/utils/byte-size";
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
 const WELCOME_TRIGGER_TEXT = "Hola";
+
+const INBOUND_TYPE_BY_OPTION_KIND: Readonly<Record<ChatOptionKind, InboundEventType>> = {
+  [ChatOptionKind.LIST]: InboundEventTypeEnum.LIST,
+  [ChatOptionKind.BUTTONS]: InboundEventTypeEnum.BUTTON,
+};
 
 export default function Sandbox({
   imageMaxBytes,
@@ -139,7 +145,7 @@ export default function Sandbox({
   }
 
   function handleOptionClick(kind: ChatOptionKind, id: string, title: string, replyTo: string | undefined) {
-    sendTurn({ type: kind === ChatOptionKind.LIST ? "list" : "button", listId: id, replyTo }, title);
+    sendTurn({ type: INBOUND_TYPE_BY_OPTION_KIND[kind], listId: id, replyTo }, title);
   }
 
   function handleReset() {

@@ -16,7 +16,7 @@ const asksTheAi = (result: HandlerResult) =>
 function perimeter() {
   const hasSession = vi.fn(async () => false);
   const limiter = createRateLimiter();
-  const deps = { limiter, evidenceLimiter: createRateLimiter(), hasSession, sessionState: vi.fn(async () => null) };
+  const deps = { limiter, evidenceLimiter: createRateLimiter(), hasSession, sessionState: vi.fn(async () => undefined) };
   return { hasSession, screen: (body: string) => screenInbound({ waId: WA_ID, type: "text", text: body }, deps) };
 }
 

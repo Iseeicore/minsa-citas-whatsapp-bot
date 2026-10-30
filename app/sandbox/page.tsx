@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import Landing from "@/app/components/Landing";
-import SandboxWidgetDemo from "@/app/components/SandboxWidgetDemo";
+import LandingWithChat from "@/app/components/LandingWithChat";
 import { HEALTH_PATH, isSandboxPageEnabled } from "@/lib/config/sandbox-page";
 import { getEvidenceImageMaxBytes } from "@/lib/config/evidence";
 import {
@@ -26,9 +25,5 @@ export function generateMetadata() {
 export default function SandboxPage() {
   if (!isSandboxPageEnabled()) redirect(HEALTH_PATH);
 
-  return (
-    <SandboxWidgetDemo imageMaxBytes={getEvidenceImageMaxBytes()}>
-      <Landing loginUrl={getLoginUrl()} />
-    </SandboxWidgetDemo>
-  );
+  return <LandingWithChat loginUrl={getLoginUrl()} imageMaxBytes={getEvidenceImageMaxBytes()} />;
 }
