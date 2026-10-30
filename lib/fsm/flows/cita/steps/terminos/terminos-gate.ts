@@ -1,19 +1,33 @@
 import { isTerminosEnabled } from "@/lib/config/features";
 import { buildResult, cloneSession, sendText } from "@/lib/fsm/core/handlers-shared";
-import type { HandlerResult, SendTerminosEffect, Session } from "@/lib/fsm/core/types";
-import { TERMINOS_BUTTONS, TERMINOS_CONTENIDO, TERMINOS_PROMPT_TEXT, TERMINOS_TITULO_TEXT } from "@/lib/constants/textos/terminos";
+import type { HandlerResult, SendConsentEffect, Session } from "@/lib/fsm/core/types";
+import {
+  TERMINOS_ACCEPT_LABEL,
+  TERMINOS_BUTTONS,
+  TERMINOS_CHECKBOX_LABEL,
+  TERMINOS_CONTENIDO,
+  TERMINOS_PROMPT_TEXT,
+  TERMINOS_REOPEN_LABEL,
+  TERMINOS_TITULO_TEXT,
+  terminosWhatsappBodyText,
+} from "@/lib/constants/textos/terminos";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { TerminosResume } from "@/lib/enums/terminos-resume";
 
-export function buildTerminosEffect(): SendTerminosEffect {
+export function buildTerminosEffect(): SendConsentEffect {
   return {
-    kind: SendType.TERMINOS,
+    kind: SendType.CONSENT,
     title: TERMINOS_TITULO_TEXT,
     text: TERMINOS_PROMPT_TEXT,
     content: TERMINOS_CONTENIDO,
     buttons: TERMINOS_BUTTONS,
+    acceptLabel: TERMINOS_ACCEPT_LABEL,
+    checkboxLabel: TERMINOS_CHECKBOX_LABEL,
+    reopenLabel: TERMINOS_REOPEN_LABEL,
+    whatsappText: terminosWhatsappBodyText(TERMINOS_PROMPT_TEXT),
+    withTerminosLink: true,
   };
 }
 

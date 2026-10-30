@@ -15,7 +15,7 @@ import type {
   SendButtonsEffect,
   SendEffect,
   SendInteractiveListEffect,
-  SendTerminosEffect,
+  SendConsentEffect,
   Session,
 } from "@/lib/fsm/core/types";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -57,7 +57,7 @@ describe("isInteractiveEffect", () => {
     const effects: SendEffect[] = [BUTTONS, TEXT, LIST, CTA];
     const interactive = effects.filter(isInteractiveEffect);
 
-    expectTypeOf(interactive).toEqualTypeOf<(SendButtonsEffect | SendInteractiveListEffect | SendTerminosEffect)[]>();
+    expectTypeOf(interactive).toEqualTypeOf<(SendButtonsEffect | SendInteractiveListEffect | SendConsentEffect)[]>();
     expect(interactive.map((effect) => effect.kind)).toEqual([SendType.BUTTONS, SendType.INTERACTIVE_LIST]);
   });
 });

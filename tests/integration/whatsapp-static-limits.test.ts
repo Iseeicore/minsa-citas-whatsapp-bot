@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
+import { BUTTON_TITLE_MAX, WHATSAPP_INTERACTIVE_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 import { sendButtons, sendCtaUrl, sendList } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
@@ -224,6 +225,14 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
     const definitions = [...(await textosDefinitions()), ...PAIRED_DEFINITIONS];
 
     expect(violationsOf(definitions)).toEqual([]);
+  });
+
+  it("el efecto de consentimiento de los términos cabe en WhatsApp con su propio texto y sus botones", () => {
+    const consent = buildTerminosEffect();
+
+    expect(consent.whatsappText.length).toBeLessThanOrEqual(WHATSAPP_INTERACTIVE_BODY_MAX);
+    for (const button of consent.buttons) expect(button.title.length).toBeLessThanOrEqual(BUTTON_TITLE_MAX);
+    expect(findLimitViolations(consent)).toEqual([]);
   });
 
   it("revisa el menú real de whatsapp-bot, con la fila de las referencias", () => {

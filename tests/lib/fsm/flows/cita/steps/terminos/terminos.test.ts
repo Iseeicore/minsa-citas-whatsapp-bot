@@ -18,6 +18,7 @@ import {
   TERMINOS_RECHAZADOS_TEXT,
   TERMINOS_TITULO_TEXT,
   TERMINOS_VERSION,
+  terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { HandlerOutcome } from "@/lib/enums/handler-outcome";
@@ -114,11 +115,16 @@ afterEach(() => {
 describe("the terms message", () => {
   it("carries the title, a short question, the blank content and the Acepto / No acepto buttons", () => {
     expect(buildTerminosEffect()).toEqual({
-      kind: SendType.TERMINOS,
+      kind: SendType.CONSENT,
       title: TERMINOS_TITULO_TEXT,
       text: TERMINOS_PROMPT_TEXT,
       content: TERMINOS_CONTENIDO,
       buttons: TERMINOS_BUTTONS,
+      acceptLabel: "Continuar",
+      checkboxLabel: "Acepto los términos y condiciones",
+      reopenLabel: "Revisar términos y condiciones",
+      whatsappText: terminosWhatsappBodyText(TERMINOS_PROMPT_TEXT),
+      withTerminosLink: true,
     });
     expect(TERMINOS_CONTENIDO).toBe("");
     expect(TERMINOS_VERSION).toBe("2026-10-29");
@@ -272,7 +278,7 @@ describe("accepting", () => {
     const again = handle(backToMenu, tap(MenuChoice.AGENDAR_CITA));
 
     expect(again.session.state).toBe(SessionState.CITA_AWAITING_DNI);
-    expect(sent(again).some((effect) => effect.kind === SendType.TERMINOS)).toBe(false);
+    expect(sent(again).some((effect) => effect.kind === SendType.CONSENT)).toBe(false);
   });
 });
 

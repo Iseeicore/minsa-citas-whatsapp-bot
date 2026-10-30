@@ -13,7 +13,7 @@ import { isRecord } from "@/lib/utils/type-guards";
 import { readNumber, readString } from "@/lib/utils/record-readers";
 import { HTTP_BAD_REQUEST } from "@/lib/constants/http-status";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
-import { toWhatsAppEffects } from "@/lib/whatsapp/terminos-effects";
+import { toWhatsAppEffects } from "@/lib/whatsapp/consent-effects";
 
 function buildGraphBody(waId: string, effect: ChannelSendEffect): Record<string, unknown> {
   const base = {

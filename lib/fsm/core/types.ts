@@ -159,17 +159,24 @@ export type SendCtaUrlEffect = {
   url: string;
 };
 
-export type SendTerminosEffect = {
-  kind: SendType.TERMINOS;
+export type ConsentButtons = [accept: ButtonOption, decline: ButtonOption];
+
+export type SendConsentEffect = {
+  kind: SendType.CONSENT;
   title: string;
   text: string;
   content: string;
-  buttons: ButtonOption[];
+  buttons: ConsentButtons;
+  acceptLabel: string;
+  checkboxLabel?: string;
+  reopenLabel: string;
+  whatsappText: string;
+  withTerminosLink?: true;
 };
 
 export type ChannelSendEffect = SendTextEffect | SendInteractiveListEffect | SendButtonsEffect | SendCtaUrlEffect;
 
-export type SendEffect = ChannelSendEffect | SendTerminosEffect;
+export type SendEffect = ChannelSendEffect | SendConsentEffect;
 
 export type QueryEffectKind =
   | "incidencia_register"
