@@ -8,6 +8,7 @@ import { InboundMediaKind } from "@/lib/enums/inbound-media-kind";
 import { WhatsAppMessageType } from "@/lib/enums/whatsapp-message-type";
 import { SessionState } from "@/lib/enums/session-state";
 import { SessionChannel } from "@/lib/enums/session-channel";
+import { WhatsAppDeliveryStatus } from "@/lib/enums/whatsapp-delivery-status";
 
 export type WhatsAppContact = {
   user_id: string;
@@ -59,6 +60,34 @@ export type WhatsAppWebhookPayload = {
   entry?: WhatsAppEntry[];
 };
 
+type StoredContent = {
+  content: string | undefined;
+  mediaId: string | undefined;
+};
+
+const NO_STORED_CONTENT: StoredContent = { content: undefined, mediaId: undefined };
+
+const ESTADO_POR_STATUS: Record<WhatsAppDeliveryStatus, EstadoMensajeId> = {
+  [WhatsAppDeliveryStatus.SENT]: EstadoMensajeId.ENVIADO,
+  [WhatsAppDeliveryStatus.DELIVERED]: EstadoMensajeId.ENTREGADO,
+  [WhatsAppDeliveryStatus.READ]: EstadoMensajeId.LEIDO,
+  [WhatsAppDeliveryStatus.FAILED]: EstadoMensajeId.FALLIDO,
+};
+
+const STORED_CONTENT_BY_TYPE: Partial<Record<WhatsAppMessageType, (message: WhatsAppMessage) => StoredContent>> = {
+  [WhatsAppMessageType.TEXT]: (message) => ({ content: message.text?.body, mediaId: undefined }),
+  [WhatsAppMessageType.IMAGE]: (message) => ({ content: message.image?.caption, mediaId: message.image?.id }),
+  [WhatsAppMessageType.AUDIO]: (message) => ({ content: undefined, mediaId: message.audio?.id }),
+  [WhatsAppMessageType.DOCUMENT]: (message) => ({ content: message.document?.filename, mediaId: message.document?.id }),
+  [WhatsAppMessageType.LOCATION]: (message) => ({
+    content:
+      message.location?.latitude !== undefined && message.location?.longitude !== undefined
+        ? `${message.location.latitude},${message.location.longitude}`
+        : undefined,
+    mediaId: undefined,
+  }),
+};
+
 async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
   const downloaded = await Promise.all(mediaIds.slice(0, MAX_IMAGENES_POR_INCIDENCIA).map(downloadWhatsAppMediaAsDataUri));
   const overLimit = mediaIds
@@ -87,44 +116,14 @@ export function mapMessageType(type: string): TipoMensajeId {
 }
 
 export function mapStatus(status: string): EstadoMensajeId | undefined {
-  switch (status) {
-    case "sent":
-      return EstadoMensajeId.ENVIADO;
-    case "delivered":
-      return EstadoMensajeId.ENTREGADO;
-    case "read":
-      return EstadoMensajeId.LEIDO;
-    case "failed":
-      return EstadoMensajeId.FALLIDO;
-    default:
-      return undefined;
-  }
+  return Object.hasOwn(ESTADO_POR_STATUS, status) ? ESTADO_POR_STATUS[status as WhatsAppDeliveryStatus] : undefined;
 }
 
-export function extractContentAndMedia(message: WhatsAppMessage): {
-  content: string | undefined;
-  mediaId: string | undefined;
-} {
-  switch (message.type) {
-    case "text":
-      return { content: message.text?.body, mediaId: undefined };
-    case "image":
-      return { content: message.image?.caption, mediaId: message.image?.id };
-    case "audio":
-      return { content: undefined, mediaId: message.audio?.id };
-    case "document":
-      return { content: message.document?.filename, mediaId: message.document?.id };
-    case "location":
-      return {
-        content:
-          message.location?.latitude !== undefined && message.location?.longitude !== undefined
-            ? `${message.location.latitude},${message.location.longitude}`
-            : undefined,
-        mediaId: undefined,
-      };
-    default:
-      return { content: undefined, mediaId: undefined };
-  }
+export function extractContentAndMedia(message: WhatsAppMessage): StoredContent {
+  const extract = Object.hasOwn(STORED_CONTENT_BY_TYPE, message.type)
+    ? STORED_CONTENT_BY_TYPE[message.type as keyof typeof STORED_CONTENT_BY_TYPE]
+    : undefined;
+  return extract ? extract(message) : NO_STORED_CONTENT;
 }
 
 export function tapReplyTo(message: WhatsAppMessage): string | undefined {
