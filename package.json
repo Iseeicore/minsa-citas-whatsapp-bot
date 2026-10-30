@@ -21,6 +21,7 @@
     "db:seed:dev": "node scripts/db-seed-dev.mjs",
     "db:diccionario": "node docs/base-de-datos/generar-diccionario.mjs",
     "postinstall": "prisma generate",
+    "prepare": "node -e \"import('./scripts/instalar-hooks.mjs').then((m) => m.instalar(), () => {})\"",
     "docker:up": "docker compose up -d --build --wait --wait-timeout 180",
     "docker:logs": "docker compose logs -f",
     "docker:down": "docker compose down"
@@ -48,6 +49,10 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.7"
+  },
+  "lint-staged": {
+    "{lib,app,tests}/**/*.{ts,tsx}": "eslint --fix --no-warn-ignored",
+    "*": "prettier --write --ignore-unknown"
   },
   "allowScripts": {
     "unrs-resolver@1.12.2": true,

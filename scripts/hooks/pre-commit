@@ -1,0 +1,21 @@
+#!/bin/sh
+
+avisar() {
+  printf '[pre-commit] %s\n' "$1" >&2
+}
+
+raiz="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+lint_staged="$raiz/node_modules/.bin/lint-staged"
+
+if ! command -v node >/dev/null 2>&1; then
+  avisar "No se encontró node en el PATH: el commit sigue sin pasar por lint-staged."
+  exit 0
+fi
+
+if [ ! -f "$lint_staged" ]; then
+  avisar "Falta node_modules/.bin/lint-staged en $raiz (corre npm install): el commit sigue sin pasar por lint-staged."
+  exit 0
+fi
+
+cd "$raiz" || exit 0
+exec "$lint_staged" --concurrent false
