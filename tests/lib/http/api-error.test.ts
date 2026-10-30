@@ -16,6 +16,7 @@ describe("apiError", () => {
     expect(API_ERRORS.UNAUTHORIZED.status).toBe(401);
     expect(API_ERRORS.NOT_FOUND.status).toBe(404);
     expect(API_ERRORS.WINDOW_EXPIRED.status).toBe(422);
+    expect(API_ERRORS.TEXT_TOO_LONG.status).toBe(422);
     expect(API_ERRORS.PERSISTENCE_DISABLED.status).toBe(503);
     expect(API_ERRORS.BUSY.status).toBe(503);
   });

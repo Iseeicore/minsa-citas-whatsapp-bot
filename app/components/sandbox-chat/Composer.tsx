@@ -5,6 +5,8 @@ import { ButtonSize } from "@/lib/enums/button-size";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { TextInputVariant } from "@/lib/enums/text-input-variant";
 import { cn } from "@/lib/utils/cn";
+import { cutToLimit } from "@/lib/utils/text-limit";
+import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 
 export function Composer({
   from,
@@ -13,6 +15,7 @@ export function Composer({
   setInputText,
   handleSend,
   handleImageSelect,
+  onTooLong,
 }: {
   from: string | null;
   loading: boolean;
@@ -20,7 +23,14 @@ export function Composer({
   setInputText: (value: string) => void;
   handleSend: () => void;
   handleImageSelect: (fileList: FileList | null) => void;
+  onTooLong: () => void;
 }) {
+  function handleValueChange(value: string) {
+    const { text, cut } = cutToLimit(value, SANDBOX_TEXT_MAX_LENGTH);
+    setInputText(text);
+    if (cut) onTooLong();
+  }
+
   return (
     <div className="flex items-center gap-2 border-t border-gray-200 bg-white p-3">
       <label
@@ -45,7 +55,7 @@ export function Composer({
         <TextInput
           variant={TextInputVariant.INLINE}
           value={inputText}
-          onValueChange={setInputText}
+          onValueChange={handleValueChange}
           onEnter={handleSend}
           disabled={!from || loading}
           placeholder="Escribe un mensaje o consulta..."

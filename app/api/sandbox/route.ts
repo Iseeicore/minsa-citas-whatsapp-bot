@@ -28,6 +28,7 @@ import { verifySandboxSignature } from "@/lib/security/sandbox-signature";
 import { SANDBOX_SIGNATURE_HEADER, SANDBOX_TIMESTAMP_HEADER } from "@/lib/constants/sandbox-signature";
 import { SANDBOX_DISABLED_TEXT, SANDBOX_UNSIGNED_TEXT } from "@/lib/constants/textos/sandbox";
 import { SandboxSignatureResult } from "@/lib/enums/sandbox-signature-result";
+import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 
 const SANDBOX_TURN_HOOKS: TurnHooks = {
   onSend: async () => randomUuid(),
@@ -93,10 +94,16 @@ export async function OPTIONS(request: NextRequest) {
   });
 }
 
+const TEXT_FIELD = "text";
+
+function isTextTooLong(error: z.ZodError): boolean {
+  return error.issues.some((issue) => issue.code === "too_big" && issue.path[0] === TEXT_FIELD);
+}
+
 const sandboxEventSchema = z.object({
   from: z.string().min(1),
   type: z.enum(["text", "button", "list", "image", "document"]),
-  text: z.string().optional(),
+  text: z.string().max(SANDBOX_TEXT_MAX_LENGTH).optional(),
   listId: z.string().optional(),
   replyTo: z.string().optional(),
   mediaId: z.string().optional(),
@@ -125,6 +132,7 @@ export async function POST(request: NextRequest) {
   const parsed = sandboxEventSchema.safeParse(body);
 
   if (!parsed.success) {
+    if (isTextTooLong(parsed.error)) return apiError(ApiErrorCode.TEXT_TOO_LONG, { headers: cors });
     return apiError(ApiErrorCode.INVALID_BODY, { detail: parsed.error.message, headers: cors });
   }
 

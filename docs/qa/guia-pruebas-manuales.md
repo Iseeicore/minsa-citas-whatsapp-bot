@@ -159,6 +159,17 @@ Requiere un número **sin sesión** (ver 0.4).
 | 1.6a | Enviar un `POST` a `/webhook/whatsapp` **sin** la cabecera `x-hub-signature-256` (por ejemplo con `curl -X POST -d '{}' <url>`). | HTTP **403** `Forbidden`. Ningún mensaje al ciudadano. | No se crea conversación, mensaje ni sesión; no hay línea `turn.start` en los logs. | ☐ ☐ |
 | 1.6b | Repetir con una firma inventada (`sha256=` y 64 ceros). | HTTP **403**. | Igual que 1.6a. La comparación de la firma es en tiempo constante. | ☐ ☐ |
 
+### 1.7 Texto de más de 1000 caracteres — solo Chat-bot
+
+Vale con la sesión abierta en cualquier paso. Para generar 1000 y 1001 caracteres en PowerShell: `('a' * 1000) | clip` y `('a' * 1001) | clip`.
+
+| # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
+|---|---|---|---|---|
+| 1.7a | Pegar `('a' * 1000)` en la caja de texto y enviar. | **Sin** aviso. El mensaje sale completo y el bot responde como a cualquier texto. | El límite es «más de 1000», el mismo que la descripción de la incidencia. | ☐ ☐ |
+| 1.7b | Pegar `('a' * 1001)` en la caja de texto. | La caja se queda con 1000 caracteres y aparece el aviso rojo sobre la caja: `No podemos procesar tu mensaje: reduce la cantidad de caracteres (máximo 1000).` | El navegador no corta en silencio: el corte y el aviso salen del mismo cambio. El aviso se borra al enviar el siguiente mensaje. | ☐ ☐ |
+| 1.7c | Con 1000 caracteres escritos, teclear una letra más. | El mismo aviso; la caja sigue con 1000. | Igual que 1.7b. | ☐ ☐ |
+| 1.7d | **Con herramientas:** enviar un `POST` a `/api/sandbox` con `text` de 1001 caracteres (firmado si `SANDBOX_SHARED_SECRET` está definida). | HTTP **422** con `{ "error": "TEXT_TOO_LONG", "message": "No podemos procesar tu mensaje: reduce la cantidad de caracteres (máximo 1000)." }`. | El servidor valida aunque el cliente ya corte; no corre el turno ni escribe en la base. | ☐ ☐ |
+
 ---
 
 ## 2. Filtro léxico (los 3 caminos)
