@@ -15,7 +15,7 @@ import {
   BOOKING_RETRYING_TEXT,
   BOOKING_SERVICE_UNAVAILABLE_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
-import { BOOKING_RETRY_ANSWERS, BOOKING_RETRY_EXIT_ANSWERS } from "@/lib/constants/palabras-clave";
+import { BOOKING_EXIT_ANSWERS, BOOKING_RETRY_ANSWERS } from "@/lib/constants/palabras-clave";
 import { MAX_BOOKING_RETRIES } from "@/lib/constants/limits/cita";
 
 const retriesOf = (session: Session): number => session.counters[CounterKey.CITA_BOOKING_RETRIES] ?? 0;
@@ -57,7 +57,7 @@ function readAnswer(event: InboundEvent): Confirmation {
   const typed = readTypedText(event);
   const normalized = normalizeText(typed);
   if (BOOKING_RETRY_ANSWERS.has(normalized)) return Confirmation.YES;
-  if (BOOKING_RETRY_EXIT_ANSWERS.has(normalized)) return Confirmation.NO;
+  if (BOOKING_EXIT_ANSWERS.has(normalized)) return Confirmation.NO;
   return resolveConfirmation(typed);
 }
 

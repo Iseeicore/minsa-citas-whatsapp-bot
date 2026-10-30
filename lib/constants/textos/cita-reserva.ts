@@ -1,6 +1,7 @@
 import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
 import { AlreadyBookedButtonId } from "@/lib/enums/already-booked-button-id";
 import { BookingRetryButtonId } from "@/lib/enums/booking-retry-button-id";
+import { SALIR_BUTTON_TEXT } from "@/lib/constants/textos/cita-referencia";
 import { NO_SALIR_BUTTON_TEXT, SI_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
 import { ReferenciaEstadoCodigo } from "@/lib/enums/referencia-estado-codigo";
@@ -28,7 +29,6 @@ export const BOOKING_REJECTED_TEXT = "No pudimos agendar tu cita. Intenta de nue
 export const BOOKING_RETRYING_TEXT = "Estamos procesando tu cita, un momento…";
 export const BOOKING_RETRIES_EXHAUSTED_TEXT = "No pudimos agendar tu cita en este momento. Inténtalo más tarde.";
 export const BOOKING_RETRY_BUTTON_TEXT = "Reintentar";
-export const BOOKING_RETRY_EXIT_BUTTON_TEXT = "Salir";
 export const DUPLICATE_QUESTION_TEXT = "El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?";
 export const duplicateActiveText = (especialidad: string): string =>
   `Ya tienes una cita activa para ${especialidad}. ${DUPLICATE_QUESTION_TEXT}`;
@@ -108,7 +108,7 @@ export const DUPLICATE_BUTTONS = [
 
 export const BOOKING_RETRY_BUTTONS = [
   { id: BookingRetryButtonId.RETRY, title: BOOKING_RETRY_BUTTON_TEXT },
-  { id: BookingRetryButtonId.EXIT, title: BOOKING_RETRY_EXIT_BUTTON_TEXT },
+  { id: BookingRetryButtonId.EXIT, title: SALIR_BUTTON_TEXT },
 ];
 
 export const ALREADY_BOOKED_BUTTONS = [

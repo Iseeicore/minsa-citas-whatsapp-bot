@@ -19,7 +19,7 @@ import {
   ALREADY_BOOKED_ESPECIALIDAD_TEXT,
   ALREADY_BOOKED_QUESTION_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
-import { ALREADY_BOOKED_EXIT_ANSWERS, CHANGE_DATE_ANSWERS } from "@/lib/constants/palabras-clave";
+import { BOOKING_EXIT_ANSWERS, CHANGE_DATE_ANSWERS } from "@/lib/constants/palabras-clave";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
 const DATE_BOUND_SLOTS = [
@@ -77,7 +77,7 @@ function readAnswer(event: InboundEvent): Confirmation {
   const typed = readTypedText(event);
   const normalized = normalizeText(typed);
   if (CHANGE_DATE_ANSWERS.has(normalized)) return Confirmation.YES;
-  if (ALREADY_BOOKED_EXIT_ANSWERS.has(normalized)) return Confirmation.NO;
+  if (BOOKING_EXIT_ANSWERS.has(normalized)) return Confirmation.NO;
   return resolveConfirmation(typed);
 }
 

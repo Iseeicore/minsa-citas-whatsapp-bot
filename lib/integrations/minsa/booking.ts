@@ -80,7 +80,7 @@ export async function bookAppointment(params: BookAppointmentParams, bearer: str
     if (minsaMessage && isAlreadyHasAppointment(minsaMessage)) {
       logger.warn("minsa.booking_rejected", {
         endpoint: MinsaEndpoint.CITAS,
-        status: response.status,
+        httpStatus: response.status,
         minsaCode: minsaErrorCodeOf(minsaMessage),
         minsaMessage,
       });

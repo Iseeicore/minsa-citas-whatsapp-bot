@@ -91,7 +91,7 @@ describe("real MINSA — bookAppointment", () => {
     vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ success: false, data: null, message: minsaMessage }), 500));
 
     await expect(bookAppointment(params, "bearer-token")).resolves.toEqual({ status: "already_has_appointment", message: minsaMessage });
-    expect(warn).toHaveBeenCalledWith("minsa.booking_rejected", expect.objectContaining({ status: 500, minsaCode: "9000" }));
+    expect(warn).toHaveBeenCalledWith("minsa.booking_rejected", expect.objectContaining({ httpStatus: 500, minsaCode: "9000" }));
     expect(error).not.toHaveBeenCalled();
 
     vi.stubGlobal("fetch", minsaResponding(JSON.stringify({ message: "El paciente tiene una cita por atender" }), 500));
