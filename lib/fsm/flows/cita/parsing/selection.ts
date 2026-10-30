@@ -76,6 +76,14 @@ type SelectionOptions = {
 export type SelectionOutcome =
   { kind: SelectionOutcomeKind.SELECTED; replyId: string; typed?: string } | { kind: SelectionOutcomeKind.HANDLED; result: HandlerResult };
 
+function toHandled(result: HandlerResult): SelectionOutcome {
+  return { kind: SelectionOutcomeKind.HANDLED, result };
+}
+
+function toSelected(replyId: string, typed?: string): SelectionOutcome {
+  return typed === undefined ? { kind: SelectionOutcomeKind.SELECTED, replyId } : { kind: SelectionOutcomeKind.SELECTED, replyId, typed };
+}
+
 function referencePageSelection(
   session: Session,
   offered: OfferedList,
@@ -84,17 +92,13 @@ function referencePageSelection(
 ): SelectionOutcome {
   const hourPage = id === HoraPageButtonId.NEXT || id === HoraPageButtonId.PREV;
   const hours = session.state === SessionState.CITA_AWAITING_HORA_SELECT;
-  if (hourPage !== hours || (hourPage && !passthroughIds.includes(id)))
-    return { kind: SelectionOutcomeKind.HANDLED, result: reshowOffered(session, offered) };
+  if (hourPage !== hours || (hourPage && !passthroughIds.includes(id))) return toHandled(reshowOffered(session, offered));
   const current = session.counters[hourPage ? CounterKey.CITA_HORA_PAGE : CounterKey.CITA_LIST_PAGE] ?? 0;
   const count = hourPage ? unpackHoraSlots(session.slots[SlotKey.CITA_HORAS_DIA]).length : offered.rows.length;
   const next = id === HoraPageButtonId.NEXT || id === ListPageButtonId.NEXT;
   const target = current + (next ? 1 : -1);
-  if (target < 0 || target >= pageCount(count, session))
-    return { kind: SelectionOutcomeKind.HANDLED, result: reshowOffered(session, offered) };
-  return hourPage
-    ? { kind: SelectionOutcomeKind.SELECTED, replyId: id }
-    : { kind: SelectionOutcomeKind.HANDLED, result: turnPage(session, offered, id) };
+  if (target < 0 || target >= pageCount(count, session)) return toHandled(reshowOffered(session, offered));
+  return hourPage ? toSelected(id) : toHandled(turnPage(session, offered, id));
 }
 
 function referenceTextSelection(
@@ -112,9 +116,7 @@ function referenceTextSelection(
   const page = session.state === SessionState.CITA_AWAITING_HORA_SELECT ? 0 : (session.counters[CounterKey.CITA_LIST_PAGE] ?? 0);
   const rows = offered.rows.slice(page * size, (page + 1) * size);
   const row = OPTION_NUMBER.test(typed) ? rows[Number(typed) - 1] : undefined;
-  return row
-    ? { kind: SelectionOutcomeKind.SELECTED, replyId: row.id, typed }
-    : { kind: SelectionOutcomeKind.HANDLED, result: reshowOffered(session, offered) };
+  return row ? toSelected(row.id, typed) : toHandled(reshowOffered(session, offered));
 }
 
 export function resolveSelection(session: Session, event: InboundEvent, options: SelectionOptions = {}): SelectionOutcome {
@@ -122,34 +124,30 @@ export function resolveSelection(session: Session, event: InboundEvent, options:
 
   if (event.type === InboundEventType.LIST || event.type === InboundEventType.BUTTON) {
     const id = event.listId;
-    if (!id) return { kind: SelectionOutcomeKind.HANDLED, result: reshowOffered(session, offered) };
-    if (offered && (id === ListPageButtonId.NEXT || id === ListPageButtonId.PREV))
-      return { kind: SelectionOutcomeKind.HANDLED, result: turnPage(session, offered, id) };
+    if (!id) return toHandled(reshowOffered(session, offered));
+    if (offered && (id === ListPageButtonId.NEXT || id === ListPageButtonId.PREV)) return toHandled(turnPage(session, offered, id));
 
     const valid = !offered || offered.rows.some((row) => row.id === id) || options.passthroughIds?.includes(id);
-    return valid
-      ? { kind: SelectionOutcomeKind.SELECTED, replyId: id }
-      : { kind: SelectionOutcomeKind.HANDLED, result: reshowOffered(session, offered) };
+    return valid ? toSelected(id) : toHandled(reshowOffered(session, offered));
   }
 
   const typed = event.type === InboundEventType.TEXT ? readTrimmedText(event) : "";
   if (!typed || !offered) {
-    return { kind: SelectionOutcomeKind.HANDLED, result: reshowOffered(session, offered) };
+    return toHandled(reshowOffered(session, offered));
   }
 
   const referenceSelection = referenceTextSelection(session, typed, offered, options.passthroughIds);
   if (referenceSelection) return referenceSelection;
 
   const custom = options.customMatch?.(typed, offered.rows);
-  if (custom?.kind === MatchKind.MATCH) return { kind: SelectionOutcomeKind.SELECTED, replyId: custom.row.id, typed };
-  if (custom?.kind === MatchKind.AMBIGUOUS) return { kind: SelectionOutcomeKind.HANDLED, result: narrowOffered(session, custom.rows) };
-  if (custom?.kind === MatchKind.NOTICE)
-    return { kind: SelectionOutcomeKind.HANDLED, result: reshowOffered(session, offered, custom.text) };
-  if (custom?.kind === MatchKind.HANDLED) return { kind: SelectionOutcomeKind.HANDLED, result: custom.result };
+  if (custom?.kind === MatchKind.MATCH) return toSelected(custom.row.id, typed);
+  if (custom?.kind === MatchKind.AMBIGUOUS) return toHandled(narrowOffered(session, custom.rows));
+  if (custom?.kind === MatchKind.NOTICE) return toHandled(reshowOffered(session, offered, custom.text));
+  if (custom?.kind === MatchKind.HANDLED) return toHandled(custom.result);
 
   const match = matchSelection(typed, offered.rows, { includeDescription: options.includeDescription });
-  if (match.kind === MatchKind.MATCH) return { kind: SelectionOutcomeKind.SELECTED, replyId: match.row.id, typed };
-  if (match.kind === MatchKind.AMBIGUOUS) return { kind: SelectionOutcomeKind.HANDLED, result: narrowOffered(session, match.rows) };
+  if (match.kind === MatchKind.MATCH) return toSelected(match.row.id, typed);
+  if (match.kind === MatchKind.AMBIGUOUS) return toHandled(narrowOffered(session, match.rows));
 
-  return { kind: SelectionOutcomeKind.HANDLED, result: options.onNoMatchText?.(typed) ?? reshowOffered(session, offered) };
+  return toHandled(options.onNoMatchText?.(typed) ?? reshowOffered(session, offered));
 }

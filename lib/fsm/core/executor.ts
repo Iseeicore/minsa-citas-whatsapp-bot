@@ -45,9 +45,8 @@ import {
   acceptTap,
   consumeOnStateChange,
   isStaleTap,
-  isUndelivered,
   readInteractiveTracking,
-  trackSent,
+  trackDelivery,
   withInteractiveTracking,
 } from "@/lib/fsm/core/interactive-reply";
 
@@ -98,10 +97,7 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
       sent.push(...sends);
       if (hooks) {
         for (const effect of sends) {
-          const outcome = await hooks.onSend(effect);
-          if (isUndelivered(outcome))
-            trace.note({ kind: "send_failed", level: "warn", detail: { effect: effect.kind, outcome: outcome.kind } });
-          tracking = trackSent(tracking, effect, outcome);
+          tracking = trackDelivery(trace, tracking, effect, await hooks.onSend(effect));
         }
       }
 

@@ -7,6 +7,7 @@ import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
 import { isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
 import { SendType } from "@/lib/enums/send-type";
 import { GraphPostStatus } from "@/lib/enums/graph-post-status";
+import { WhatsAppSendOperation } from "@/lib/enums/whatsapp-send-operation";
 import { traceTurn } from "@/lib/observability/tracer";
 import { findSession, saveSession } from "@/lib/fsm/session/session-store";
 import { evaluateLexicalGuard } from "@/lib/security/lexical-guard";
@@ -20,7 +21,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
 import { TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
 import { MENSAJE_NO_SOPORTADO_TEXT } from "@/lib/constants/textos/seguridad";
-import { isUndelivered, trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
+import { trackDelivery, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
 
 const TYPING_DELAY_MS = 1000;
 
@@ -94,10 +95,7 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
     const deliver = deliverTo(message, conversationId, marks);
     let tracking: InteractiveTracking = { consumed: false };
     for (const effect of toSend) {
-      const outcome = await deliver(effect);
-      if (isUndelivered(outcome))
-        trace.note({ kind: "send_failed", level: "warn", detail: { effect: effect.kind, outcome: outcome.kind } });
-      tracking = trackSent(tracking, effect, outcome);
+      tracking = trackDelivery(trace, tracking, effect, await deliver(effect));
     }
 
     const session = withInteractiveTracking(first.session, tracking);
@@ -157,7 +155,8 @@ export async function answerMessage(
 export async function sendFixedReply(waId: string, text: string): Promise<void> {
   try {
     const post = await sendWhatsAppEffect(waId, { kind: SendType.TEXT, text });
-    if (post.status === GraphPostStatus.ANSWERED && !post.response.ok) await logSendFailure("fixed_reply", waId, post.response);
+    if (post.status === GraphPostStatus.ANSWERED && !post.response.ok)
+      await logSendFailure(WhatsAppSendOperation.FIXED_REPLY, waId, post.response);
   } catch (error) {
     logger.error("webhook.fixed_reply_failed", { waId: tail(waId), error });
   }
