@@ -25,6 +25,7 @@ import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 import { API_ERRORS } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { CUENTA_MINSA_AVISO_TEXT } from "@/lib/constants/textos/cita-identidad";
 
 async function send(body: Record<string, unknown>) {
   const request = new NextRequest("http://localhost/api/sandbox", {
@@ -86,14 +87,14 @@ describe("Sandbox mirrors the first-message perimeter of WhatsApp", () => {
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });
 
-  it("a first message asking for a cita goes straight to the DNI", async () => {
+  it("a first message asking for a cita goes straight to the MINSA Digital account warning", async () => {
     const { json } = await send({ type: "text", text: "Sabes quiero una cita para san Juan de Lurigancho para medicina general" });
 
     expect(json.sent).toHaveLength(1);
-    expect(json.sent[0].text).toContain("Medicina General en San Juan de Lurigancho");
+    expect(json.sent[0].text).toBe(CUENTA_MINSA_AVISO_TEXT);
     expect(mocks.saveSession).toHaveBeenCalledWith(
       "sandbox-2e5f8b01-3c4d-4e6f-9a71-8293a4b5c6d7",
-      expect.objectContaining({ state: "cita_awaiting_dni" }),
+      expect.objectContaining({ state: "cita_awaiting_cuenta_minsa" }),
     );
     expect(mocks.runTurn).not.toHaveBeenCalled();
   });

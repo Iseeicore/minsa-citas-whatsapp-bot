@@ -120,9 +120,9 @@ describe("with INCIDENCIAS_ENABLED off", () => {
     });
 
     it("typed 1 and the cita keywords still start the cita", () => {
-      expect(handle(menu(), text("1")).session.state).toBe("cita_awaiting_dni");
-      expect(handle(menu(), tap(MenuChoice.AGENDAR_CITA)).session.state).toBe("cita_awaiting_dni");
-      expect(handle(menu(), text("quiero una cita")).session.state).toBe("cita_awaiting_dni");
+      expect(handle(menu(), text("1")).session.state).toBe("cita_awaiting_cuenta_minsa");
+      expect(handle(menu(), tap(MenuChoice.AGENDAR_CITA)).session.state).toBe("cita_awaiting_cuenta_minsa");
+      expect(handle(menu(), text("quiero una cita")).session.state).toBe("cita_awaiting_cuenta_minsa");
     });
 
     it("a stale awaiting_flow_start that chose registrar answers with the notice", () => {
@@ -153,7 +153,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
     });
 
     it("typed 1 still starts the cita", () => {
-      expect(handleFirstContact("1", "whatsapp").session.state).toBe("cita_awaiting_dni");
+      expect(handleFirstContact("1", "whatsapp").session.state).toBe("cita_awaiting_cuenta_minsa");
     });
   });
 
@@ -250,7 +250,7 @@ describe("with INCIDENCIAS_ENABLED off", () => {
 
     it("a finished incident flow does not trap the person: the next message is a normal first contact", () => {
       for (const state of ["incidencia_confirmed", "incidencia_cancelled", "consulta_completed", "consulta_failed"]) {
-        expect(handle(sessionAt(state), text("1"), NOW).session.state).toBe("cita_awaiting_dni");
+        expect(handle(sessionAt(state), text("1"), NOW).session.state).toBe("cita_awaiting_cuenta_minsa");
       }
     });
 

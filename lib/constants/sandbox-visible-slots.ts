@@ -71,4 +71,5 @@ export const SANDBOX_WITHHELD_SLOT_KEYS = [
   SlotKey.INTERACTIVE_MESSAGE_ID,
   SlotKey.INTERACTIVE_MESSAGE_CONSUMED,
   SlotKey.TERMINOS_INTRO_TEXT,
+  SlotKey.CITA_DOCUMENTO_INTRO_TEXT,
 ] as const satisfies readonly SlotKey[];

@@ -64,7 +64,7 @@ function expectCitaStart(result: HandlerResult, channel: SessionChannel = Channe
 
   expect(result.session).toEqual(viaKeyword.session);
   expect(result.effects).toEqual(viaKeyword.effects);
-  expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+  expect(result.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
   expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
 }
 

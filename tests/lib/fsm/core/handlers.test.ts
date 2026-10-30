@@ -5,6 +5,7 @@ import type { InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { RESPECT_REMINDER_TEXT, INSTITUTIONAL_WARNING_TEXT } from "@/lib/constants/textos/seguridad";
 import { answerConsent } from "@/tests/support/incidencia-consent";
+import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
 
 const FROM = "sandbox-test";
 
@@ -58,7 +59,7 @@ describe("main_menu — lexical guard routing", () => {
   });
 
   it("aggression with cita intent: warns and continues into the Cita flow without AI", () => {
-    const result = handle(sessionAt("main_menu"), text("cojudos denme una cita"));
+    const result = confirmCuentaMinsa(handle(sessionAt("main_menu"), text("cojudos denme una cita")));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(hasQuery(result)).toBe(false);
@@ -130,7 +131,7 @@ describe("main_menu — deterministic greeting shortcut", () => {
   it("a clear cita word skips the AI entirely, even mixed with a greeting", () => {
     const result = handle(sessionAt("main_menu"), text("Buenas tarde, quiero agendar"));
 
-    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
     expect(hasQuery(result)).toBe(false);
   });
 
@@ -212,7 +213,7 @@ describe("bypass — states where the guard must never run", () => {
 
 describe("main_menu — numeric shortcut", () => {
   it.each(["1", " 1 ", "1\n"])("%j goes straight to the Cita flow without reprinting the menu", (message) => {
-    const result = handle(sessionAt("main_menu"), text(message));
+    const result = confirmCuentaMinsa(handle(sessionAt("main_menu"), text(message)));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(hasQuery(result)).toBe(false);

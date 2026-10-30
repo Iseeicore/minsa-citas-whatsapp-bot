@@ -5,6 +5,7 @@ import { beginIncidencia } from "@/lib/fsm/flows/incidencia/inicio";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { askReferenciaChoice, beginCita, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
 import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { reshowCuentaMinsa, reshowCuentaMinsaCreada } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
@@ -55,6 +56,8 @@ const BUTTON_STATE_REPROMPTS: Record<string, (session: Session) => HandlerResult
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
   [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: askOtherReference,
   [SessionState.CITA_AWAITING_TERMINOS]: reshowTerminos,
+  [SessionState.CITA_AWAITING_CUENTA_MINSA]: reshowCuentaMinsa,
+  [SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA]: reshowCuentaMinsaCreada,
   [SessionState.MAIN_MENU_REFERENCIA_CHOICE]: askReferenciaChoice,
 };
 

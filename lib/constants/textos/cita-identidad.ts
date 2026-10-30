@@ -1,4 +1,5 @@
 import { ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
 import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
 import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
 
@@ -35,4 +36,22 @@ export const CITA_REAUTH_BUTTONS = [
 export const REGISTRATION_BUTTONS = [
   { id: RegistrationButtonId.RETRY, title: REGISTRATION_RETRY_BUTTON_TEXT },
   { id: RegistrationButtonId.CANCEL, title: REGISTRATION_CANCEL_BUTTON_TEXT },
+];
+
+export const CUENTA_MINSA_AVISO_TEXT = "*Antes de continuar, debes tener una cuenta creada en MINSA Digital.*";
+export const CUENTA_MINSA_TIENE_BUTTON_TEXT = "Ya cuento con una";
+export const CUENTA_MINSA_NO_TIENE_BUTTON_TEXT = "No cuento con una";
+export const CUENTA_MINSA_NO_CONTINUAR_BUTTON_TEXT = "No deseo continuar";
+export const CUENTA_MINSA_CREAR_TEXT = "Crea tu cuenta en MINSA Digital y luego vuelve para agendar tu cita.";
+export const CUENTA_MINSA_CREAR_BUTTON_TEXT = "Crear mi cuenta";
+export const CUENTA_MINSA_CREADA_TEXT = "Cuando tengas tu cuenta, elige una opción para continuar.";
+
+export const CUENTA_MINSA_AVISO_BUTTONS = [
+  { id: CuentaMinsaButtonId.TIENE, title: CUENTA_MINSA_TIENE_BUTTON_TEXT },
+  { id: CuentaMinsaButtonId.NO_TIENE, title: CUENTA_MINSA_NO_TIENE_BUTTON_TEXT },
+];
+
+export const CUENTA_MINSA_CREADA_BUTTONS = [
+  { id: CuentaMinsaButtonId.TIENE, title: CUENTA_MINSA_TIENE_BUTTON_TEXT },
+  { id: CuentaMinsaButtonId.NO_CONTINUAR, title: CUENTA_MINSA_NO_CONTINUAR_BUTTON_TEXT },
 ];

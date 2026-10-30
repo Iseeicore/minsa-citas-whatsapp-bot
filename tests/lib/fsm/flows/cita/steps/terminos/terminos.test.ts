@@ -35,6 +35,7 @@ import { TerminosResume } from "@/lib/enums/terminos-resume";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { queries, queryResult, sent, tap, text, texts } from "@/tests/support/fsm-events";
 import { buildReferencia } from "@/tests/support/referencia";
+import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
 
 const DNI = "12345678";
 const CHANNELS = [SessionChannel.WHATSAPP, SessionChannel.WEB];
@@ -62,10 +63,14 @@ function expectTerminos(result: HandlerResult, resume: TerminosResume) {
   expect(queries(result)).toEqual([]);
 }
 
-function accept(result: HandlerResult, channel?: SessionChannel): HandlerResult {
+function acceptVerified(result: HandlerResult, channel?: SessionChannel): HandlerResult {
   const accepted = handle(result.session, tap(TerminosButtonId.ACCEPT, channel));
   expect(accepted.session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);
   return handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" }));
+}
+
+function accept(result: HandlerResult, channel?: SessionChannel): HandlerResult {
+  return confirmCuentaMinsa(acceptVerified(result, channel), channel);
 }
 
 beforeEach(() => {
@@ -158,7 +163,7 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
     expectTerminos(gated, TerminosResume.CONTINUE_VERIFIED);
     expect(gated.session.slots[SlotKey.CITA_BEARER]).toBe("synthetic-token");
 
-    const resumed = accept(gated, channel);
+    const resumed = acceptVerified(gated, channel);
     expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
     expect(texts(resumed)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
     expect(resumed.session.slots[SlotKey.CITA_BEARER]).toBe("synthetic-token");
@@ -222,7 +227,9 @@ describe("accepting", () => {
     const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
     const accepted = handle(gated.session, tap(TerminosButtonId.ACCEPT));
 
-    const resumed = handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "failed" }));
+    const resumed = confirmCuentaMinsa(
+      handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "failed" })),
+    );
 
     expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(resumed)).toEqual([ASK_DOCUMENTO_TEXT]);
@@ -240,7 +247,7 @@ describe("accepting", () => {
 
     const again = handle(backToMenu, tap(MenuChoice.AGENDAR_CITA));
 
-    expect(again.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+    expect(again.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
     expect(sent(again).some((effect) => effect.kind === SendType.CONSENT)).toBe(false);
   });
 });
@@ -315,8 +322,8 @@ describe("with TERMINOS_ENABLED off", () => {
   it.each(["false", "", undefined])("TERMINOS_ENABLED=%j goes straight to the document as before", (value) => {
     vi.stubEnv("TERMINOS_ENABLED", value);
 
-    const fromMenu = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
-    const fromFirstContact = handleFirstContact("cita", SessionChannel.WEB);
+    const fromMenu = confirmCuentaMinsa(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
+    const fromFirstContact = confirmCuentaMinsa(handleFirstContact("cita", SessionChannel.WEB), SessionChannel.WEB);
 
     expect(fromMenu.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(fromMenu)).toEqual([ASK_DOCUMENTO_TEXT]);
@@ -352,7 +359,7 @@ describe("a session saved without what to resume", () => {
     };
     const event: HandleEvent = queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" });
 
-    const result = handle(session, event);
+    const result = confirmCuentaMinsa(handle(session, event));
 
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(result)).toEqual([ASK_DOCUMENTO_TEXT]);

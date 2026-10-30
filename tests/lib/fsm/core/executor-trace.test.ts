@@ -15,7 +15,8 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 import { configureLogger } from "@/lib/observability/logger";
 import { deriveTraceId } from "@/lib/observability/tracer";
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
-
+
+
 type Line = Record<string, unknown> & { level: string; event: string; traceId?: string };
 
 let raw: string[] = [];
@@ -45,7 +46,7 @@ describe("what a turn leaves in the logs", () => {
     expect(event("turn.start")).toMatchObject({ waId: "...0111", stateBefore: "main_menu", eventType: "text" });
     expect(event("turn.note")).toMatchObject({ kind: "shortcut", name: "cita_request" });
     expect(event("turn.end")).toMatchObject({
-      stateAfter: "cita_awaiting_dni",
+      stateAfter: "cita_awaiting_cuenta_minsa",
       notes: ["shortcut"],
       externalCalls: 0,
       slots: { [SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]: "Medicina General", [SlotKey.CITA_DISTRITO_HINT_TEXT]: "San Juan de Lurigancho" },

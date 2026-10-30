@@ -42,6 +42,7 @@ import {
 } from "@/lib/fsm/flows/cita/steps/demo/demo-booking";
 import { handleAwaitingReferenciaConfirm, handleAwaitingReferenciaSelect } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { handleAwaitingTerminos, handleTerminosRegisterPending } from "@/lib/fsm/flows/cita/steps/terminos/terminos";
+import { handleAwaitingCuentaMinsa, handleAwaitingCuentaMinsaCreada } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import { SessionState } from "@/lib/enums/session-state";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 
@@ -51,6 +52,10 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleAwaitingTerminos(session, event as InboundEvent);
     case SessionState.CITA_TERMINOS_REGISTER_PENDING:
       return handleTerminosRegisterPending(session);
+    case SessionState.CITA_AWAITING_CUENTA_MINSA:
+      return handleAwaitingCuentaMinsa(session, event as InboundEvent);
+    case SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA:
+      return handleAwaitingCuentaMinsaCreada(session, event as InboundEvent);
     case SessionState.CITA_AWAITING_DNI:
       return handleAwaitingDni(session, event as InboundEvent);
     case SessionState.CITA_VALIDATE_PENDING:

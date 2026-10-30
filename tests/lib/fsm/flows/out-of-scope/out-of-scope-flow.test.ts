@@ -6,6 +6,7 @@ import { OosCategory } from "@/lib/enums/oos-category";
 import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
+import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
 
 const FROM = "sandbox-oos";
 const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
@@ -69,7 +70,7 @@ describe("the order: emergency, then the lexical guard, then the rest", () => {
   it("a request for a cita with what the flow needs is not taken for a consultation", () => {
     const result = handle(menu(), text("quiero una cita de odontología en Miraflores"));
 
-    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
   });
 
   it("a real complaint request still opens the complaint flow", () => {
@@ -123,10 +124,11 @@ describe("never inside a flow: each step reads what it asked for", () => {
 
 describe("the words the messages ask the citizen to type", () => {
   it.each(["CITAS", "citas", "Cita"])("%j opens the Cita flow, with no AI", (word) => {
-    const result = handle(menu(), text(word));
+    const warned = handle(menu(), text(word));
+    expect(queries(warned)).toHaveLength(0);
+    const result = confirmCuentaMinsa(warned);
 
     expect(result.session.state).toBe("cita_awaiting_dni");
-    expect(queries(result)).toHaveLength(0);
     expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("documento") });
   });
 
@@ -146,14 +148,14 @@ describe("the words the messages ask the citizen to type", () => {
     const second = handle(first.session, text("CITAS"));
 
     expect(sent(first)[0]).toMatchObject({ text: expect.stringContaining("escriba CITAS") });
-    expect(second.session.state).toBe("cita_awaiting_dni");
+    expect(second.session.state).toBe("cita_awaiting_cuenta_minsa");
   });
 
   it("a bare cita request now resolves deterministically, no AI needed", () => {
     const result = handle(menu(), text("quiero una cita"));
 
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
   });
 });
 
@@ -167,11 +169,11 @@ describe("first contact", () => {
   });
 
   it("«CITAS» as the first message opens the Cita flow", () => {
-    expect(handleFirstContact("CITAS", "whatsapp").session.state).toBe("cita_awaiting_dni");
+    expect(handleFirstContact("CITAS", "whatsapp").session.state).toBe("cita_awaiting_cuenta_minsa");
   });
 
   it("a greeting still gets the welcome, and a plain request its flow", () => {
     expect(sent(handleFirstContact("Hola", "whatsapp"))[0]).toMatchObject({ kind: "send_cta_url" });
-    expect(handleFirstContact("quiero una cita de odontología en Miraflores", "whatsapp").session.state).toBe("cita_awaiting_dni");
+    expect(handleFirstContact("quiero una cita de odontología en Miraflores", "whatsapp").session.state).toBe("cita_awaiting_cuenta_minsa");
   });
 });

@@ -7,7 +7,8 @@ import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { buildResult, cloneSession, sendText, withNote, readTappedId, readTypedText } from "@/lib/fsm/core/handlers-shared";
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
-import { abandonedText, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
+import { abandonCita, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
+import { reshowCuentaMinsa, reshowCuentaMinsaCreada } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
 import { reshowEstablecimientoConfirm } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
@@ -54,6 +55,8 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.REFERENCIA_AWAITING_CITA_OFFER,
   SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE,
   SessionState.CITA_AWAITING_TERMINOS,
+  SessionState.CITA_AWAITING_CUENTA_MINSA,
+  SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA,
 ]);
 
 const BUTTON_REPROMPTS: Readonly<Record<string, ((session: Session) => HandlerResult) | undefined>> = {
@@ -62,6 +65,8 @@ const BUTTON_REPROMPTS: Readonly<Record<string, ((session: Session) => HandlerRe
   [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
   [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: askOtherReference,
   [SessionState.CITA_AWAITING_TERMINOS]: reshowTerminos,
+  [SessionState.CITA_AWAITING_CUENTA_MINSA]: reshowCuentaMinsa,
+  [SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA]: reshowCuentaMinsaCreada,
 };
 
 const CHANGE_DISTRITO_STATES: ReadonlySet<string> = new Set<Session["state"]>([
@@ -108,10 +113,7 @@ export function handleExitConfirm(session: Session, event: InboundEvent): Handle
         : resolveConfirmation(typed);
 
   if (tapped === ExitButtonId.YES || answer === Confirmation.YES) {
-    return withNote(buildResult({ state: SessionState.CITA_ABANDONED, slots: {}, counters: {} }, [sendText(abandonedText(session))]), {
-      kind: "cita_closed",
-      detail: { reason: "abandoned", from: slotText(session.slots, SlotKey.CITA_EXIT_RESUME_STATE) },
-    });
+    return abandonCita(session, slotText(session.slots, SlotKey.CITA_EXIT_RESUME_STATE));
   }
 
   if (tapped === ExitButtonId.NO || answer === Confirmation.NO) return resume(session, event);

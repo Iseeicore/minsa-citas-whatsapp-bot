@@ -52,7 +52,10 @@ describe("typed Cita flow end to end (fake adapters)", () => {
     expect(greeting.sent[0].kind).toBe("send_interactive_list");
 
     const intent = await say("quiero una cita de odontología");
-    expect(intent.session.state).toBe("cita_awaiting_dni");
+    expect(intent.session.state).toBe("cita_awaiting_cuenta_minsa");
+
+    const cuenta = await say("sí");
+    expect(cuenta.session.state).toBe("cita_awaiting_dni");
 
     const dni = await say("12345678");
     expect(dni.session.state).toBe("cita_awaiting_otp");
@@ -83,6 +86,7 @@ describe("typed Cita flow end to end (fake adapters)", () => {
 
   it("garbage typed into every list step never books and never leaves the flow", async () => {
     await say("quiero una cita de odontología");
+    await say("sí");
     await say("12345678");
     await say("1234");
     await say("en Lurigancho");
@@ -99,10 +103,11 @@ describe("typed Cita flow end to end (fake adapters)", () => {
 
   it("an insulting request that names specialty and district reaches the establecimiento confirmation in the same OTP turn", async () => {
     const warning = await say("Apúrense cojudos quiero cita de odontología en Lurigancho");
-    expect(warning.session.state).toBe("cita_awaiting_dni");
+    expect(warning.session.state).toBe("cita_awaiting_cuenta_minsa");
     expect(warning.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Odontología");
     expect(warning.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("Lurigancho");
 
+    await say("sí");
     await say("12345678");
     const otp = await say("1234");
 
