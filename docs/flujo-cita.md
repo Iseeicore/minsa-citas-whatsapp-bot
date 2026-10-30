@@ -272,7 +272,7 @@ En referencias reales de ambos canales no se buscan otros establecimientos para 
 | **Salida voluntaria** ("quiero salir", "me aburrí"…) | documento, OTP, registro, distrito, modo manual y listas | pide confirmación; Sí termina la sesión, No vuelve al paso |
 | **Insultos** (guardia léxica) | menú, listas y pasos de texto libre del distrito | aviso de respeto y **conserva el paso** (vuelve a mostrar la lista o la pregunta) |
 | **Fuera de alcance** | solo en el primer contacto y en el menú | mensaje del canal oficial correspondiente |
-| **Mensajes demasiado rápidos** | antes del flujo | más de 5 en 10 s: *"Está enviando mensajes muy rápido…"* (2 min); más de 20 en 60 s: se ignoran por 1 h. El paso se conserva |
+| **Mensajes demasiado rápidos** | antes del flujo | más de 5 en 10 s: *"Está enviando mensajes muy rápido…"* (2 min); más de 20 en 60 s: se ignoran por 1 h. El paso se conserva. Las imágenes del paso de evidencia de la denuncia tienen su propio contador: más de 6 en 10 s se descartan sin aviso y sin silenciar el número; más de 20 en 60 s bloquean el número 1 h igual |
 | **Falla inesperada** | cualquier turno | *"Ocurrió un inconveniente temporal…"* (uno cada 30 s); el paso no avanza |
 
 ## Dónde interviene la IA

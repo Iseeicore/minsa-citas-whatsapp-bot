@@ -1,15 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 import { MUTE_NOTICE_TEXT, screenInbound } from "@/lib/security/perimeter";
-import { createRateLimiter } from "@/lib/security/rate-limiter";
+import { createEvidenceImageRateLimiter, createRateLimiter } from "@/lib/security/rate-limiter";
 import { FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { MAX_IMAGENES_POR_INCIDENCIA } from "@/lib/constants/limits/incidencia";
+import { EVIDENCE_IMAGE_BURST_LIMIT } from "@/lib/constants/limits/perimeter";
+import { SessionState } from "@/lib/enums/session-state";
 
-function setup(options: { hasSession?: boolean } = {}) {
+function setup(options: { hasSession?: boolean; state?: string | null } = {}) {
   const hasSession = vi.fn(async () => options.hasSession ?? false);
+  const state = options.state ?? (options.hasSession ? SessionState.MAIN_MENU : null);
+  const sessionState = vi.fn(async () => state);
   const limiter = createRateLimiter();
-  return { hasSession, limiter, deps: { limiter, hasSession } };
+  const evidenceLimiter = createEvidenceImageRateLimiter();
+  return { hasSession, sessionState, limiter, deps: { limiter, evidenceLimiter, hasSession, sessionState } };
 }
 
 const text = (body: string) => ({ waId: "wa-1", type: "text", text: body });
+const image = () => ({ waId: "wa-1", type: "image" });
+const tap = () => ({ waId: "wa-1", type: "interactive" });
 
 describe("screenInbound: the cheapest checks run first and touch no database", () => {
   it("a normal message continues and never asks about the session", async () => {
@@ -48,7 +56,7 @@ describe("screenInbound: the cheapest checks run first and touch no database", (
 
   it("without a mute (muteMs 0) there is nothing to announce: the flood is dropped in silence", async () => {
     const limiter = createRateLimiter({ muteMs: 0 });
-    const deps = { limiter, hasSession: vi.fn(async () => false) };
+    const deps = { ...setup().deps, limiter };
 
     const decisions = [];
     for (let i = 0; i < 7; i++) decisions.push(await screenInbound(text("hola"), deps));
@@ -108,13 +116,13 @@ describe("screenInbound: payload rules apply only to a first message", () => {
     ["a pile of emojis", text("🔥🔥🔥💰💰💰"), FIRST_MESSAGE_REJECTION_TEXT, "repeat"],
     ["a photo", { waId: "wa-1", type: "image" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
     ["a voice note", { waId: "wa-1", type: "audio" }, MEDIA_WITHOUT_SESSION_TEXT, "media"],
-  ])("%s without a session is answered with the fixed text", async (_name, message, reply, reason) => {
-    const { deps, hasSession } = setup({ hasSession: false });
+  ])("%s without a session is answered with the fixed text, after a single session lookup", async (_name, message, reply, reason) => {
+    const { deps, hasSession, sessionState } = setup({ hasSession: false });
 
     const decision = await screenInbound(message, deps);
 
     expect(decision).toEqual({ action: "reject", reason, reply });
-    expect(hasSession).toHaveBeenCalledTimes(1);
+    expect(hasSession.mock.calls.length + sessionState.mock.calls.length).toBe(1);
   });
 
   it.each([
@@ -126,5 +134,96 @@ describe("screenInbound: payload rules apply only to a first message", () => {
     const { deps } = setup({ hasSession: true });
 
     expect(await screenInbound(message, deps)).toEqual({ action: "continue" });
+  });
+});
+
+describe("screenInbound: the evidence images have their own limit and never silence the number", () => {
+  const evidence = () => setup({ hasSession: true, state: SessionState.INCIDENCIA_AWAITING_FOTO });
+  const album = async (deps: ReturnType<typeof setup>["deps"], count: number) => {
+    const decisions = [];
+    for (let i = 0; i < count; i++) decisions.push(await screenInbound(image(), deps));
+    return decisions;
+  };
+
+  it("the burst allows one more image than an incidencia can keep", () => {
+    expect(EVIDENCE_IMAGE_BURST_LIMIT).toBe(MAX_IMAGENES_POR_INCIDENCIA + 1);
+  });
+
+  it("an album of five images and the «Listo» tap all go through, with no mute", async () => {
+    const { deps } = evidence();
+
+    const decisions = await album(deps, MAX_IMAGENES_POR_INCIDENCIA);
+    const listo = await screenInbound(tap(), deps);
+
+    expect(decisions).toEqual(Array(MAX_IMAGENES_POR_INCIDENCIA).fill({ action: "continue" }));
+    expect(listo).toEqual({ action: "continue" });
+  });
+
+  it("the images do not consume the general budget: five texts still pass after the album", async () => {
+    const { deps } = evidence();
+    await album(deps, MAX_IMAGENES_POR_INCIDENCIA);
+
+    const texts = [];
+    for (let i = 0; i < 5; i++) texts.push(await screenInbound(text("Listo"), deps));
+
+    expect(texts).toEqual(Array(5).fill({ action: "continue" }));
+  });
+
+  it("an image over the burst is dropped in silence: no notice, and the number is not muted", async () => {
+    const { deps } = evidence();
+
+    const decisions = await album(deps, EVIDENCE_IMAGE_BURST_LIMIT + 1);
+
+    expect(decisions.slice(0, EVIDENCE_IMAGE_BURST_LIMIT)).toEqual(Array(EVIDENCE_IMAGE_BURST_LIMIT).fill({ action: "continue" }));
+    expect(decisions[EVIDENCE_IMAGE_BURST_LIMIT]).toEqual({ action: "drop", reason: "throttled" });
+    expect(decisions.some((decision) => decision.action === "reject")).toBe(false);
+    expect(await screenInbound(tap(), deps)).toEqual({ action: "continue" });
+  });
+
+  it("the images over the burst are not even looked up in the session", async () => {
+    const { deps, sessionState } = evidence();
+
+    await album(deps, EVIDENCE_IMAGE_BURST_LIMIT + 4);
+
+    expect(sessionState).toHaveBeenCalledTimes(EVIDENCE_IMAGE_BURST_LIMIT);
+  });
+
+  it("insisting with images still ends in the one-hour ban, and the ban covers texts too", async () => {
+    const { deps } = evidence();
+
+    const decisions = await album(deps, 21);
+
+    expect(decisions[20]).toEqual({ action: "drop", reason: "banned" });
+    expect(await screenInbound(tap(), deps)).toEqual({ action: "drop", reason: "banned" });
+    expect(await screenInbound(image(), deps)).toEqual({ action: "drop", reason: "banned" });
+  });
+
+  it("a muted number has its images dropped too, without asking the session", async () => {
+    const { deps, sessionState } = evidence();
+    for (let i = 0; i < 6; i++) await screenInbound(text("hola"), deps);
+
+    expect(await screenInbound(image(), deps)).toEqual({ action: "drop", reason: "throttled" });
+    expect(sessionState).not.toHaveBeenCalled();
+  });
+
+  it("outside the evidence step the images still count in the general limit", async () => {
+    const { deps, hasSession } = setup({ hasSession: true, state: SessionState.MAIN_MENU });
+
+    const decisions = await album(deps, 5);
+    const sixth = await screenInbound(text("hola"), deps);
+
+    expect(decisions).toEqual(Array(5).fill({ action: "continue" }));
+    expect(sixth).toEqual({ action: "reject", reason: "muted", reply: MUTE_NOTICE_TEXT });
+    expect(hasSession).not.toHaveBeenCalled();
+  });
+
+  it("a flood of texts in the evidence step still mutes as before", async () => {
+    const { deps, sessionState } = evidence();
+
+    const decisions = [];
+    for (let i = 0; i < 6; i++) decisions.push(await screenInbound(text("hola"), deps));
+
+    expect(decisions[5]).toEqual({ action: "reject", reason: "muted", reply: MUTE_NOTICE_TEXT });
+    expect(sessionState).not.toHaveBeenCalled();
   });
 });

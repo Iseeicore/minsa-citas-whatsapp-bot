@@ -310,6 +310,7 @@ describe("first-message payload filter (fixed reply, no transaction, no lock)", 
   });
 
   it.each(["image", "audio"])("a %s as the first message gets the text-only reminder and is never downloaded", async (type) => {
+    mocks.sessionFindUnique.mockResolvedValue(null);
     const waId = freshWaId();
     const message: Message = {
       id: `wamid.${++messageCounter}`,
