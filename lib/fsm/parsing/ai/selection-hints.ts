@@ -1,11 +1,16 @@
 import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
-import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { ANSWER_NOT_OBJECT_REASON, describeLlmFailure, logAiFallback, misconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
+import {
+  ANSWER_NOT_OBJECT_REASON,
+  describeLlmFailure,
+  logAiFallback,
+  buildMisconfiguredProviderReason,
+} from "@/lib/fsm/parsing/ai/ai-fallback";
 import { SELECTION_HINTS_SYSTEM_PROMPT } from "@/lib/constants/prompts/selection-hints";
 import { stringOrUndefined } from "@/lib/utils/text-values";
 import { isRecord } from "@/lib/utils/type-guards";
 import { AiTaskStatus } from "@/lib/enums/ai-task-status";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 export type SelectionHintsResult =
   | {
@@ -17,7 +22,7 @@ export type SelectionHintsResult =
     }
   | { status: AiTaskStatus.UNAVAILABLE };
 
-const OPERATION = "extract_selection_hints";
+const OPERATION = QueryKind.EXTRACT_SELECTION_HINTS;
 
 export const SELECTION_HINTS_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
@@ -36,14 +41,9 @@ function unavailable(reason: string): SelectionHintsResult {
   return { status: AiTaskStatus.UNAVAILABLE };
 }
 
-export async function extractSelectionHints(
-  _step: string,
-  text: string,
-  lookup: LlmClientLookup = lookupLlmClient(),
-): Promise<SelectionHintsResult> {
+export async function extractSelectionHints(_step: string, text: string, lookup: LlmClientLookup): Promise<SelectionHintsResult> {
   if (!text.trim()) return { status: AiTaskStatus.ANSWERED };
-  if (lookup.status === LlmClientStatus.DISABLED) return { status: AiTaskStatus.ANSWERED };
-  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unavailable(misconfiguredProviderReason(lookup.provider));
+  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unavailable(buildMisconfiguredProviderReason(lookup.provider));
 
   const outcome = await lookup.client.generateJson({
     operation: OPERATION,

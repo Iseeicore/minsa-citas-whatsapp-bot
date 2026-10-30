@@ -3,7 +3,7 @@ import { resolveFechaAi, type FechaAiOption } from "@/lib/fsm/parsing/ai/fecha";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractSelectionHints } from "@/lib/fsm/parsing/ai/selection-hints";
 import { analyzeFotoIntent } from "@/lib/fsm/parsing/ai/incidencia-foto-intent";
-import { configuredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
+import { configuredLlmProvider, lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { bookAppointment } from "@/lib/integrations/minsa/booking";
@@ -225,20 +225,25 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return verifyCode(required("twofaId"), required("code"));
 
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
-      return analyzeMainMenuIntent(payloadText(effect.payload, "text"));
+      return analyzeMainMenuIntent(payloadText(effect.payload, "text"), lookupLlmClient());
 
     case QueryKind.RESOLVE_DISTRITO_AI:
-      return resolveDistritoAiDetailed(payloadText(effect.payload, "distritoText"), effect.payload.contextText as string | undefined);
+      return resolveDistritoAiDetailed(
+        payloadText(effect.payload, "distritoText"),
+        effect.payload.contextText as string | undefined,
+        lookupLlmClient(),
+      );
 
     case QueryKind.RESOLVE_FECHA_AI:
       return resolveFechaAi(
         payloadText(effect.payload, "text"),
         payloadText(effect.payload, "today"),
         (effect.payload.options as FechaAiOption[] | undefined) ?? [],
+        lookupLlmClient(),
       );
 
     case QueryKind.EXTRACT_SELECTION_HINTS:
-      return extractSelectionHints(payloadText(effect.payload, "step"), payloadText(effect.payload, "text"));
+      return extractSelectionHints(payloadText(effect.payload, "step"), payloadText(effect.payload, "text"), lookupLlmClient());
 
     case QueryKind.SEARCH_UBIGEO:
       return searchUbigeo(required("departamento"), required("provincia"), required("distrito"), bearer());
@@ -272,7 +277,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return listReferences(required("numeroDocumento"), required("tipoDocumento"), bearer());
 
     case QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT:
-      return analyzeFotoIntent(payloadText(effect.payload, "text"));
+      return analyzeFotoIntent(payloadText(effect.payload, "text"), lookupLlmClient());
 
     case QueryKind.BUSCAR_ESTABLECIMIENTO: {
       const { buscarEstablecimiento } = await import("@/lib/establecimientos/buscar");

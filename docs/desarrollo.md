@@ -158,7 +158,7 @@ Convenciones (ESLint y las pruebas las hacen cumplir donde se indica):
 
 ## Cambiar de proveedor de IA
 
-Las tareas de IA no conocen al proveedor: piden un JSON a un `LlmClient` (`lib/fsm/parsing/ai/llm.ts`) con un JSON Schema estándar, y `lookupLlmClient()` (`llm-registry.ts`) decide cuál se usa según `AI_PROVIDER`. Devuelve una unión: `AVAILABLE` con el cliente, `DISABLED` si `SANDBOX_USE_REAL_AI` no es `true` (se usan los respaldos fijos) o `MISCONFIGURED` si el proveedor no está registrado (la tarea responde como no disponible).
+Las tareas de IA no conocen al proveedor: piden un JSON a un `LlmClient` (`lib/fsm/parsing/ai/llm.ts`) con un JSON Schema estándar, y `lookupLlmClient()` (`llm-registry.ts`) decide cuál se usa según `AI_PROVIDER`. Devuelve una unión: `AVAILABLE` con el cliente o `MISCONFIGURED` si el proveedor no está registrado (la tarea responde como no disponible). Si `SANDBOX_USE_REAL_AI` no es `true`, el cliente es el adaptador falso `providers/fake.ts`, que implementa el mismo puerto y responde cada tarea con sus respuestas fijas sin llamar a un modelo; las tareas no saben si hablan con el falso o con el real. Las tareas no buscan el cliente por su cuenta: lo recibe cada una del ejecutor (`resolveQuery` en `lib/fsm/core/executor.ts`), que llama a `lookupLlmClient()`.
 
 | Paso | Qué hacer |
 |---|---|

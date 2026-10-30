@@ -8,7 +8,8 @@ import type { LlmClient, LlmJsonOutcome, LlmJsonRequest } from "@/lib/fsm/parsin
 import { LlmFailure } from "@/lib/enums/llm-failure";
 import { AiTaskStatus } from "@/lib/enums/ai-task-status";
 import { logger } from "@/lib/observability/logger";
-import { LLM_DISABLED, LLM_MISCONFIGURED, llmAvailable } from "@/tests/support/llm-lookup";
+import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
+import { LLM_FAKE, LLM_MISCONFIGURED, llmAvailable } from "@/tests/support/llm-lookup";
 
 function modelSays(json: unknown): Response {
   return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(json) }] } }] }), { status: 200 });
@@ -44,19 +45,19 @@ describe("AI tasks in real-model mode", () => {
     it("keeps only well-formed candidates", async () => {
       const good = { departamento: "Lima", provincia: "Lima", distrito: "Comas" };
       fetchSpy.mockResolvedValueOnce(modelSays({ candidates: [good, { distrito: "Incompleto" }] }));
-      await expect(resolveDistritoAi("comas")).resolves.toEqual({ candidates: [good] });
+      await expect(resolveDistritoAi("comas", undefined, lookupLlmClient())).resolves.toEqual({ candidates: [good] });
     });
 
     it("sends the direct reply and the opening message in one user turn", async () => {
       fetchSpy.mockResolvedValueOnce(modelSays({ candidates: [] }));
-      await resolveDistritoAi("comas", "quiero una cita");
+      await resolveDistritoAi("comas", "quiero una cita", lookupLlmClient());
       const body = JSON.parse(String((fetchSpy.mock.calls[0] as [string, RequestInit])[1].body));
       expect(body.contents[0].parts[0].text).toBe("Respuesta directa: comas\nMensaje inicial: quiero una cita");
     });
 
     it.each(FAILURES)("fails open to no candidates on %s", async (_label, respond) => {
       fetchSpy.mockImplementationOnce(respond);
-      await expect(resolveDistritoAi("comas")).resolves.toEqual({ candidates: [] });
+      await expect(resolveDistritoAi("comas", undefined, lookupLlmClient())).resolves.toEqual({ candidates: [] });
     });
   });
 
@@ -68,7 +69,7 @@ describe("AI tasks in real-model mode", () => {
 
     it("returns an offered id", async () => {
       fetchSpy.mockResolvedValueOnce(modelSays({ id: "f2", detalle: "x" }));
-      await expect(resolveFechaAi("la próxima semana", "2026-09-20", options)).resolves.toEqual({
+      await expect(resolveFechaAi("la próxima semana", "2026-09-20", options, lookupLlmClient())).resolves.toEqual({
         status: AiTaskStatus.ANSWERED,
         id: "f2",
       });
@@ -76,24 +77,28 @@ describe("AI tasks in real-model mode", () => {
 
     it("discards an id that was not offered", async () => {
       fetchSpy.mockResolvedValueOnce(modelSays({ id: "f9", detalle: "x" }));
-      await expect(resolveFechaAi("la próxima semana", "2026-09-20", options)).resolves.toEqual({ status: AiTaskStatus.ANSWERED });
+      await expect(resolveFechaAi("la próxima semana", "2026-09-20", options, lookupLlmClient())).resolves.toEqual({
+        status: AiTaskStatus.ANSWERED,
+      });
     });
 
     it("never calls the model without options", async () => {
-      await expect(resolveFechaAi("mañana", "2026-09-20", [])).resolves.toEqual({ status: AiTaskStatus.ANSWERED });
+      await expect(resolveFechaAi("mañana", "2026-09-20", [], lookupLlmClient())).resolves.toEqual({ status: AiTaskStatus.ANSWERED });
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
     it.each(FAILURES)("reports the model as unavailable, not as no id, on %s", async (_label, respond) => {
       fetchSpy.mockImplementationOnce(respond);
-      await expect(resolveFechaAi("la próxima semana", "2026-09-20", options)).resolves.toEqual({ status: AiTaskStatus.UNAVAILABLE });
+      await expect(resolveFechaAi("la próxima semana", "2026-09-20", options, lookupLlmClient())).resolves.toEqual({
+        status: AiTaskStatus.UNAVAILABLE,
+      });
     });
   });
 
   describe("extractSelectionHints", () => {
     it("returns the string hints and drops anything else", async () => {
       fetchSpy.mockResolvedValueOnce(modelSays({ especialidad: "Odontología", establecimiento: null, detalle: "x" }));
-      await expect(extractSelectionHints("especialidad", "muelas")).resolves.toEqual({
+      await expect(extractSelectionHints("especialidad", "muelas", lookupLlmClient())).resolves.toEqual({
         status: AiTaskStatus.ANSWERED,
         especialidad: "Odontología",
         establecimiento: undefined,
@@ -101,13 +106,15 @@ describe("AI tasks in real-model mode", () => {
     });
 
     it("never calls the model for blank text", async () => {
-      await expect(extractSelectionHints("especialidad", "   ")).resolves.toEqual({ status: AiTaskStatus.ANSWERED });
+      await expect(extractSelectionHints("especialidad", "   ", lookupLlmClient())).resolves.toEqual({ status: AiTaskStatus.ANSWERED });
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
     it.each(FAILURES)("reports the model as unavailable, not as no hints, on %s", async (_label, respond) => {
       fetchSpy.mockImplementationOnce(respond);
-      await expect(extractSelectionHints("especialidad", "muelas")).resolves.toEqual({ status: AiTaskStatus.UNAVAILABLE });
+      await expect(extractSelectionHints("especialidad", "muelas", lookupLlmClient())).resolves.toEqual({
+        status: AiTaskStatus.UNAVAILABLE,
+      });
     });
   });
 });
@@ -225,7 +232,7 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
   });
 
   it("resolveDistritoAi with the AI disabled uses the fixed fallback", async () => {
-    const result = await resolveDistritoAi("miraflores", undefined, LLM_DISABLED);
+    const result = await resolveDistritoAi("miraflores", undefined, LLM_FAKE);
     expect(result.candidates).toHaveLength(2);
   });
 
@@ -257,9 +264,9 @@ describe("AI tasks with an injected LlmClient (no provider, no fetch)", () => {
   });
 
   it("analyzeFotoIntent con la IA apagada (modo fake): reconoce frases de rechazo fijas", async () => {
-    await expect(analyzeFotoIntent("no deseo", LLM_DISABLED)).resolves.toEqual({ status: AiTaskStatus.ANSWERED, quiereOmitir: true });
-    await expect(analyzeFotoIntent("prefiero no", LLM_DISABLED)).resolves.toEqual({ status: AiTaskStatus.ANSWERED, quiereOmitir: true });
-    await expect(analyzeFotoIntent("hola, buen día", LLM_DISABLED)).resolves.toEqual({
+    await expect(analyzeFotoIntent("no deseo", LLM_FAKE)).resolves.toEqual({ status: AiTaskStatus.ANSWERED, quiereOmitir: true });
+    await expect(analyzeFotoIntent("prefiero no", LLM_FAKE)).resolves.toEqual({ status: AiTaskStatus.ANSWERED, quiereOmitir: true });
+    await expect(analyzeFotoIntent("hola, buen día", LLM_FAKE)).resolves.toEqual({
       status: AiTaskStatus.ANSWERED,
       quiereOmitir: false,
     });
@@ -304,8 +311,8 @@ describe("resolveDistritoAiDetailed: tells a failure apart from 'no district fou
   });
 
   it("with the AI disabled reports found or not_found from the fixed fallback", async () => {
-    await expect(resolveDistritoAiDetailed("lurigancho", undefined, LLM_DISABLED)).resolves.toMatchObject({ outcome: "found" });
-    await expect(resolveDistritoAiDetailed("nada", undefined, LLM_DISABLED)).resolves.toEqual({
+    await expect(resolveDistritoAiDetailed("lurigancho", undefined, LLM_FAKE)).resolves.toMatchObject({ outcome: "found" });
+    await expect(resolveDistritoAiDetailed("nada", undefined, LLM_FAKE)).resolves.toEqual({
       outcome: "not_found",
       candidates: [],
     });

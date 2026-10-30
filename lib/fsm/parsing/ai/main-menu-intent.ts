@@ -1,12 +1,11 @@
-import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
-import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { describeLlmFailure, logAiFallback, misconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
+import { describeLlmFailure, logAiFallback, buildMisconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { mainMenuIntentSystemPrompt } from "@/lib/constants/prompts/main-menu-intent";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
+import { QueryKind } from "@/lib/enums/query-kind";
 import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
 
 export type MainMenuIntentResult = {
@@ -48,68 +47,38 @@ const WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
   MainMenuIntent.UNCLEAR,
 ]);
 
-const FAKE_ESPECIALIDAD_KEYWORDS: Record<string, string> = {
-  ODONTOLOG: "Odontología",
-  "MEDICINA GENERAL": "Medicina General",
-  PEDIATR: "Pediatría",
-  GINECOLOG: "Ginecología",
-};
-
-const FAKE_CITA_INTENT_KEYWORDS = ["CITA", "ATENCION", "CONSULTA", "TURNO", "MEDICO", "ATIENDAN"];
-const FAKE_INCIDENCIA_STEMS = ["INCIDENCI", "RECLAM", "QUEJ", "DENUNCI", "CORRUP", "COIMA", "SOBORN"];
-const FAKE_REFERENCIA_STEMS = ["REFERENCI", "DERIVACI"];
-const FAKE_CITA_WORD = "CITA";
-
 function unclearIntent(reason: string): MainMenuIntentResult {
-  logAiFallback("analyze_main_menu_intent", "menu", reason);
+  logAiFallback(QueryKind.ANALYZE_MAIN_MENU_INTENT, "menu", reason);
   return { intent: MainMenuIntent.UNCLEAR };
 }
 
-export async function analyzeMainMenuIntent(text: string, lookup: LlmClientLookup = lookupLlmClient()): Promise<MainMenuIntentResult> {
+export async function analyzeMainMenuIntent(text: string, lookup: LlmClientLookup): Promise<MainMenuIntentResult> {
   const incidencias = serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA);
 
-  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unclearIntent(misconfiguredProviderReason(lookup.provider));
+  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unclearIntent(buildMisconfiguredProviderReason(lookup.provider));
 
-  if (lookup.status === LlmClientStatus.AVAILABLE) {
-    const outcome = await lookup.client.generateJson({
-      operation: "analyze_main_menu_intent",
-      systemPrompt: mainMenuIntentSystemPrompt(incidencias),
-      userText: text,
-      schema: incidencias ? MAIN_MENU_INTENT_RESPONSE_SCHEMA : WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA,
-    });
-    if (!outcome.ok) return unclearIntent(describeLlmFailure(outcome));
+  const outcome = await lookup.client.generateJson({
+    operation: QueryKind.ANALYZE_MAIN_MENU_INTENT,
+    systemPrompt: mainMenuIntentSystemPrompt(incidencias),
+    userText: text,
+    schema: incidencias ? MAIN_MENU_INTENT_RESPONSE_SCHEMA : WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA,
+  });
+  if (!outcome.ok) return unclearIntent(describeLlmFailure(outcome));
 
-    try {
-      const parsed = outcome.json as MainMenuIntentJsonShape;
-      const intent = stringOr(parsed.intent).trim().toLowerCase();
-      if (intent === MainMenuIntent.FUERA_DE_ALCANCE) return { intent: MainMenuIntent.FUERA_DE_ALCANCE };
-      if (intent === MainMenuIntent.REFERENCIA) return { intent: MainMenuIntent.REFERENCIA };
-      if (intent === MainMenuIntent.INCIDENCIA && incidencias) return { intent: MainMenuIntent.INCIDENCIA };
-      if (intent !== MainMenuIntent.CITA) return { intent: MainMenuIntent.UNCLEAR };
+  try {
+    const parsed = outcome.json as MainMenuIntentJsonShape;
+    const intent = stringOr(parsed.intent).trim().toLowerCase();
+    if (intent === MainMenuIntent.FUERA_DE_ALCANCE) return { intent: MainMenuIntent.FUERA_DE_ALCANCE };
+    if (intent === MainMenuIntent.REFERENCIA) return { intent: MainMenuIntent.REFERENCIA };
+    if (intent === MainMenuIntent.INCIDENCIA && incidencias) return { intent: MainMenuIntent.INCIDENCIA };
+    if (intent !== MainMenuIntent.CITA) return { intent: MainMenuIntent.UNCLEAR };
 
-      return {
-        intent: MainMenuIntent.CITA,
-        especialidad: stringOrUndefined(parsed.especialidad),
-        distrito: stringOrUndefined(parsed.distrito),
-      };
-    } catch {
-      return unclearIntent("response was not valid JSON");
-    }
+    return {
+      intent: MainMenuIntent.CITA,
+      especialidad: stringOrUndefined(parsed.especialidad),
+      distrito: stringOrUndefined(parsed.distrito),
+    };
+  } catch {
+    return unclearIntent("response was not valid JSON");
   }
-
-  const normalized = normalizeText(text);
-  if (incidencias && FAKE_INCIDENCIA_STEMS.some((stem) => normalized.includes(stem))) return { intent: MainMenuIntent.INCIDENCIA };
-  if (FAKE_REFERENCIA_STEMS.some((stem) => normalized.includes(stem)) && !normalized.includes(FAKE_CITA_WORD)) {
-    return { intent: MainMenuIntent.REFERENCIA };
-  }
-  const looksLikeCita = FAKE_CITA_INTENT_KEYWORDS.some((keyword) => normalized.includes(keyword));
-  if (!looksLikeCita) return { intent: MainMenuIntent.UNCLEAR };
-
-  for (const [keyword, especialidad] of Object.entries(FAKE_ESPECIALIDAD_KEYWORDS)) {
-    if (normalized.includes(keyword)) {
-      return { intent: MainMenuIntent.CITA, especialidad };
-    }
-  }
-
-  return { intent: MainMenuIntent.CITA };
 }

@@ -9,9 +9,11 @@ describe("lookupLlmClient", () => {
     vi.restoreAllMocks();
   });
 
-  it("reports the real AI as disabled while it is switched off, so every task uses its fixed fallback", () => {
+  it("hands every task the fake adapter while the real AI is switched off", () => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "false");
-    expect(lookupLlmClient()).toEqual({ status: LlmClientStatus.DISABLED });
+    const lookup = lookupLlmClient();
+    expect(lookup.status).toBe(LlmClientStatus.AVAILABLE);
+    expect(lookup.status === LlmClientStatus.AVAILABLE && lookup.client.provider).toBe("fake");
   });
 
   it("defaults to Gemini when AI_PROVIDER is unset or empty", () => {

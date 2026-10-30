@@ -3,6 +3,8 @@ import type { LlmClientStatus } from "@/lib/enums/llm-client-status";
 
 export type LlmProvider = "gemini";
 
+export type LlmClientName = LlmProvider | "fake";
+
 type JsonScalarType = "string" | "number" | "boolean";
 
 export type JsonSchema =
@@ -25,11 +27,9 @@ export type LlmJsonOutcome =
   | { ok: false; failure: LlmFailure.INVALID_JSON };
 
 export interface LlmClient {
-  readonly provider: LlmProvider;
+  readonly provider: LlmClientName;
   generateJson(request: LlmJsonRequest): Promise<LlmJsonOutcome>;
 }
 
 export type LlmClientLookup =
-  | { status: LlmClientStatus.AVAILABLE; client: LlmClient }
-  | { status: LlmClientStatus.DISABLED }
-  | { status: LlmClientStatus.MISCONFIGURED; provider: string };
+  { status: LlmClientStatus.AVAILABLE; client: LlmClient } | { status: LlmClientStatus.MISCONFIGURED; provider: string };

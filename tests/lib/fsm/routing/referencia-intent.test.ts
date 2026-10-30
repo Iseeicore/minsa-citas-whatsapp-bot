@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LLM_DISABLED, llmAvailable } from "@/tests/support/llm-lookup";
+import { LLM_FAKE, llmAvailable } from "@/tests/support/llm-lookup";
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session, SessionChannel } from "@/lib/fsm/core/types";
@@ -125,10 +125,10 @@ describe("the boundary between a cita and a referencia", () => {
   });
 
   it("without the AI, a derivación is read as a referencia and a cita with a derivación as a cita", async () => {
-    await expect(analyzeMainMenuIntent("me dieron una derivación al hospital, ya la aprobaron?", LLM_DISABLED)).resolves.toEqual({
+    await expect(analyzeMainMenuIntent("me dieron una derivación al hospital, ya la aprobaron?", LLM_FAKE)).resolves.toEqual({
       intent: MainMenuIntent.REFERENCIA,
     });
-    await expect(analyzeMainMenuIntent("quiero una cita por mi derivación", LLM_DISABLED)).resolves.toMatchObject({
+    await expect(analyzeMainMenuIntent("quiero una cita por mi derivación", LLM_FAKE)).resolves.toMatchObject({
       intent: MainMenuIntent.CITA,
     });
   });

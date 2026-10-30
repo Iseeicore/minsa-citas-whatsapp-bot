@@ -1,6 +1,10 @@
 import type { JsonSchema, LlmClientLookup } from "@/lib/fsm/parsing/ai/llm";
-import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
-import { ANSWER_NOT_OBJECT_REASON, describeLlmFailure, logAiFallback, misconfiguredProviderReason } from "@/lib/fsm/parsing/ai/ai-fallback";
+import {
+  ANSWER_NOT_OBJECT_REASON,
+  describeLlmFailure,
+  logAiFallback,
+  buildMisconfiguredProviderReason,
+} from "@/lib/fsm/parsing/ai/ai-fallback";
 import {
   FECHA_AI_SYSTEM_PROMPT,
   FECHA_OPTIONS_HEADER,
@@ -11,11 +15,12 @@ import {
 import { isRecord, isString } from "@/lib/utils/type-guards";
 import { AiTaskStatus } from "@/lib/enums/ai-task-status";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
+import { QueryKind } from "@/lib/enums/query-kind";
 
 export type FechaAiOption = { id: string; label: string };
 export type FechaAiResult = { status: AiTaskStatus.ANSWERED; id?: string; quiereSalir?: true } | { status: AiTaskStatus.UNAVAILABLE };
 
-const OPERATION = "resolve_fecha_ai";
+const OPERATION = QueryKind.RESOLVE_FECHA_AI;
 
 export const FECHA_AI_RESPONSE_SCHEMA: JsonSchema = {
   type: "object",
@@ -36,11 +41,10 @@ export async function resolveFechaAi(
   text: string,
   today: string,
   options: FechaAiOption[],
-  lookup: LlmClientLookup = lookupLlmClient(),
+  lookup: LlmClientLookup,
 ): Promise<FechaAiResult> {
   if (options.length === 0) return { status: AiTaskStatus.ANSWERED };
-  if (lookup.status === LlmClientStatus.DISABLED) return { status: AiTaskStatus.ANSWERED };
-  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unavailable(misconfiguredProviderReason(lookup.provider));
+  if (lookup.status === LlmClientStatus.MISCONFIGURED) return unavailable(buildMisconfiguredProviderReason(lookup.provider));
 
   const userTurn = [
     fechaTodayLine(today),

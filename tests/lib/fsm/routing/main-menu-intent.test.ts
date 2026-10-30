@@ -10,6 +10,7 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { lookupLlmClient } from "@/lib/fsm/parsing/ai/llm-registry";
 
 const FROM = "sandbox-main-menu";
 const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
@@ -146,7 +147,7 @@ describe("analyzeMainMenuIntent against a real model", () => {
       geminiReplying(JSON.stringify({ intent: "CITA", especialidad: "Medicina General", distrito: "San Juan de Lurigancho", detalle: "" })),
     );
 
-    await expect(analyzeMainMenuIntent(FIELD_TEST_MESSAGE)).resolves.toEqual({
+    await expect(analyzeMainMenuIntent(FIELD_TEST_MESSAGE, lookupLlmClient())).resolves.toEqual({
       intent: "cita",
       especialidad: "Medicina General",
       distrito: "San Juan de Lurigancho",
@@ -158,7 +159,7 @@ describe("analyzeMainMenuIntent against a real model", () => {
     vi.stubGlobal("fetch", geminiReplying("", 403));
     const lines = captureLogs();
 
-    await expect(analyzeMainMenuIntent(FIELD_TEST_MESSAGE)).resolves.toEqual({ intent: "unclear" });
+    await expect(analyzeMainMenuIntent(FIELD_TEST_MESSAGE, lookupLlmClient())).resolves.toEqual({ intent: "unclear" });
 
     const fallbacks = lines.map((line) => JSON.parse(line)).filter((record) => record.event === "ai.fallback");
     expect(fallbacks).toHaveLength(1);
@@ -172,7 +173,7 @@ describe("analyzeMainMenuIntent against a real model", () => {
     vi.stubGlobal("fetch", geminiReplying(JSON.stringify({ intent: "unclear", detalle: "" })));
     const lines = captureLogs();
 
-    await expect(analyzeMainMenuIntent("hola")).resolves.toEqual({ intent: "unclear" });
+    await expect(analyzeMainMenuIntent("hola", lookupLlmClient())).resolves.toEqual({ intent: "unclear" });
     expect(lines.map((line) => JSON.parse(line)).some((record) => record.event === "ai.fallback")).toBe(false);
   });
 });
