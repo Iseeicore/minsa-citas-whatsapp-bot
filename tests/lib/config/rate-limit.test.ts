@@ -6,19 +6,13 @@ afterEach(() => {
 });
 
 describe("isInboundRateLimitEnabled", () => {
-  it("is on when INBOUND_RATE_LIMIT is not defined", () => {
-    vi.stubEnv("INBOUND_RATE_LIMIT", undefined);
-
-    expect(isInboundRateLimitEnabled()).toBe(true);
-  });
-
   it("turns off only with the exact value off", () => {
     vi.stubEnv("INBOUND_RATE_LIMIT", "off");
 
     expect(isInboundRateLimitEnabled()).toBe(false);
   });
 
-  it.each(["", "on", "OFF", "false", "0"])("stays on with %j", (value) => {
+  it.each([undefined, "", "on", "OFF", "false", "0"])("stays on with %j", (value) => {
     vi.stubEnv("INBOUND_RATE_LIMIT", value);
 
     expect(isInboundRateLimitEnabled()).toBe(true);

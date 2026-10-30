@@ -101,16 +101,6 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     expect(session).toEqual(before);
   });
 
-  it("al volver al listado la referencia sin programación ya no aparece ni se puede elegir", () => {
-    const asked = turn(pending(channel), query(QueryKind.LIST_FECHAS, { status: CatalogStatus.EMPTY }));
-    const listed = turn(asked.session, tap(OtherReferenciaButtonId.YES)).session;
-
-    expect(readOffered(listed.slots)?.rows.map((row) => row.id)).toEqual([REFERENCES[1].idReferencia]);
-    const retried = turn(listed, tap(REFERENCES[0].idReferencia));
-    expect(retried.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
-    expect(queries(retried)).toEqual([]);
-  });
-
   it.each([tap(OtherReferenciaButtonId.YES), text("sí"), text("1")])(
     "%j muestra el listado y limpia la selección anterior sin perder identidad",
     (event) => {
@@ -185,6 +175,7 @@ describe.each([SessionChannel.WHATSAPP, SessionChannel.WEB])("sin fechas con cup
     const listed = turn(asked.session, tap(OtherReferenciaButtonId.YES));
 
     expect(rowsOf(listed).map((row) => row.id)).toEqual([REFERENCES[1].idReferencia]);
+    expect(readOffered(listed.session.slots)?.rows.map((row) => row.id)).toEqual([REFERENCES[1].idReferencia]);
     const chosen = turn(listed.session, tap(REFERENCES[0].idReferencia));
     expect(queries(chosen)).toEqual([]);
     expect(chosen.session.state).toBe(SessionState.CITA_AWAITING_REFERENCIA_SELECT);

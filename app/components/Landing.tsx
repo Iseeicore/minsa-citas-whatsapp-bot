@@ -6,14 +6,14 @@ import { LandingServices } from "@/app/components/landing/LandingServices";
 
 const ACCESIBILIDAD_ALT_TEXT = "Accesibilidad";
 
-export default function Landing({ loginUrl }: { loginUrl: string }) {
+export default function Landing({ loginUrl, chatEnabled }: { loginUrl: string; chatEnabled: boolean }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-brand-sky bg-landing-fondo-mobile bg-cover font-poppins text-brand-navy md:bg-landing-fondo">
       <div className="mx-auto flex min-h-0 w-full max-w-landing flex-1 flex-col px-5 pb-28 md:px-10 md:pb-32">
-        <LandingHeader loginUrl={loginUrl} />
+        <LandingHeader loginUrl={loginUrl} chatEnabled={chatEnabled} />
         <LandingHero />
         <LandingLoginBanner loginUrl={loginUrl} />
-        <LandingServices loginUrl={loginUrl} />
+        <LandingServices loginUrl={loginUrl} chatEnabled={chatEnabled} />
       </div>
 
       <Image

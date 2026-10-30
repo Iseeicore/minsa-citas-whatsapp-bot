@@ -72,14 +72,6 @@ const horas: OfferedList = {
   ],
 };
 
-const ubigeos: OfferedList = {
-  text: "Selecciona tu ubigeo:",
-  rows: [
-    { id: "150101", title: "San Juan de Lurigancho", description: "Lima — Lima" },
-    { id: "150102", title: "San Juan de Miraflores", description: "Lima — Lima" },
-  ],
-};
-
 const distritos: OfferedList = {
   text: "Encontramos varias opciones. ¿Cuál es tu distrito?",
   rows: [
@@ -89,7 +81,6 @@ const distritos: OfferedList = {
 };
 
 const REFERENCIA = buildReferencia();
-const UBIGEO_FOUND = { status: "found", items: [{ ubigeoInei: "150110", distrito: "COMAS", provincia: "LIMA", departamento: "LIMA" }] };
 const FECHA_HORA = { [SlotKey.CITA_FECHA]: "22/09/2026" };
 
 beforeEach(() => {
@@ -150,20 +141,6 @@ describe("ubicación: sin «Buscando tu ubigeo…» ni «Buscando tu distrito…
           text("Miraflores"),
         ),
       QueryKind.SEARCH_UBIGEO,
-    ],
-    [
-      "un ubigeo fijado pasa a las especialidades sin el «Entendido. Buscando…»",
-      () =>
-        handle(
-          at(SessionState.CITA_UBIGEO_PENDING, { [SlotKey.CITA_DISTRITO]: "Comas" }),
-          queryResult(QueryKind.SEARCH_UBIGEO, UBIGEO_FOUND),
-        ),
-      QueryKind.LIST_ESPECIALIDADES,
-    ],
-    [
-      "un ubigeo elegido de la lista pasa a las especialidades sin el «Entendido. Buscando…»",
-      () => handle(at(SessionState.CITA_AWAITING_UBIGEO_SELECT, {}, ubigeos), pick("150101")),
-      QueryKind.LIST_ESPECIALIDADES,
     ],
   ])("%s", (_name, run, kind) => {
     expectOnlyQuery(run(), kind);

@@ -111,6 +111,7 @@ describe("botón 'No quiero continuar' en cita_registration_wait", () => {
     const result = handle(registrationWait(), tap("cita_registration_retry"));
 
     expect(result.session.state).toBe("cita_validate_pending");
-    expect(result.effects.some((e) => isQueryEffect(e) && e.kind === "validate_user")).toBe(true);
+    expect(result.effects.every(isQueryEffect)).toBe(true);
+    expect(result.effects.filter(isQueryEffect).map((e) => e.kind)).toEqual(["validate_user"]);
   });
 });

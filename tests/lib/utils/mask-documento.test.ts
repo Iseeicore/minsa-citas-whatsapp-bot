@@ -2,25 +2,15 @@ import { describe, expect, it } from "vitest";
 import { maskDocumento } from "@/lib/utils/mask-documento";
 
 describe("maskDocumento", () => {
-  it("deja a la vista solo los cuatro últimos dígitos de un DNI", () => {
-    expect(maskDocumento("12347453")).toBe("****7453");
-  });
-
-  it("enmascara igual un carnet de extranjería de 9 dígitos", () => {
-    expect(maskDocumento("123457453")).toBe("****7453");
-  });
-
-  it("ignora los separadores y deja solo los dígitos", () => {
-    expect(maskDocumento("12.345.678")).toBe("****5678");
-  });
-
-  it("un valor de cuatro dígitos o menos no deja nada a la vista", () => {
-    expect(maskDocumento("1234")).toBe("****");
-    expect(maskDocumento("12")).toBe("****");
-  });
-
-  it("no vuelve a enmascarar lo ya enmascarado", () => {
-    expect(maskDocumento("****5678")).toBe("****5678");
-    expect(maskDocumento("****")).toBe("****");
+  it.each([
+    ["deja a la vista solo los cuatro últimos dígitos de un DNI", "12347453", "****7453"],
+    ["enmascara igual un carnet de extranjería de 9 dígitos", "123457453", "****7453"],
+    ["ignora los separadores y deja solo los dígitos", "12.345.678", "****5678"],
+    ["un valor de cuatro dígitos no deja nada a la vista", "1234", "****"],
+    ["un valor de menos de cuatro dígitos no deja nada a la vista", "12", "****"],
+    ["no vuelve a enmascarar lo ya enmascarado", "****5678", "****5678"],
+    ["no vuelve a enmascarar una máscara vacía", "****", "****"],
+  ])("%s", (_caso, documento, esperado) => {
+    expect(maskDocumento(documento)).toBe(esperado);
   });
 });

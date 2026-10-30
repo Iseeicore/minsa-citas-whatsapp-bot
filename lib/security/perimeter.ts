@@ -17,13 +17,11 @@ export type PerimeterDecision =
   | { action: PerimeterAction.REJECT; reason: RejectReason | RateVerdict.MUTED; reply: string }
   | { action: PerimeterAction.CONTINUE };
 
-export const MUTE_NOTICE_TEXT = muteNoticeText(INBOUND_MUTE_MS / 60_000);
-
 export type PerimeterDeps = {
   limiter: RateLimiter;
   evidenceLimiter: RateLimiter;
   hasSession: (waId: string) => Promise<boolean>;
-  sessionState: (waId: string) => Promise<string | null>;
+  sessionState: (waId: string) => Promise<string | undefined>;
 };
 
 type InboundToScreen = { waId: string; type: string; text?: string; messageId?: string };
@@ -31,6 +29,8 @@ type InboundToScreen = { waId: string; type: string; text?: string; messageId?: 
 type ImageScreen = { decision: PerimeterDecision } | { sessionExists: boolean };
 
 const EVIDENCE_IMAGE_LIMIT_LABEL = `more than ${EVIDENCE_IMAGE_BURST_LIMIT} evidence images in ${EVIDENCE_IMAGE_BURST_WINDOW_MS / 1000} s`;
+
+export const MUTE_NOTICE_TEXT = muteNoticeText(INBOUND_MUTE_MS / 60_000);
 
 const traceOf = (message: { waId: string; messageId?: string }) =>
   message.messageId ? deriveTraceId(message.waId, message.messageId) : undefined;
@@ -53,7 +53,7 @@ async function screenImage(message: InboundToScreen, deps: PerimeterDeps): Promi
 
   const state = await deps.sessionState(message.waId);
   if (state === SessionState.INCIDENCIA_AWAITING_FOTO) return { decision: { action: PerimeterAction.CONTINUE } };
-  return { sessionExists: state !== null };
+  return { sessionExists: state !== undefined };
 }
 
 export async function screenInbound(message: InboundToScreen, deps: PerimeterDeps): Promise<PerimeterDecision> {

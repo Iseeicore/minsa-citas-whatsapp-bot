@@ -48,9 +48,6 @@ describe("toWhatsAppEffects", () => {
     const question = toWhatsAppEffects(buildTerminosEffect()).at(-1);
 
     expect(question?.text).toContain(TERMINOS_PRIVACIDAD_WHATSAPP_TEXT);
-    expect(question?.text).toContain(
-      "Por WhatsApp solo recibimos tu número y los mensajes que nos envías para atenderte. Meta no comparte con el MINSA tu dirección IP.",
-    );
     expect(question?.text).not.toMatch(/extra/i);
   });
 

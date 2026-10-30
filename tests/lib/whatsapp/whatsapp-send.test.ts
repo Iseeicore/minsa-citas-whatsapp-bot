@@ -10,6 +10,16 @@ import { TERMINOS_BUTTONS } from "@/lib/constants/textos/terminos";
 
 type Line = { level: string; event: string } & Record<string, unknown>;
 
+beforeEach(() => {
+  vi.stubEnv("META_PHONE_NUMBER_ID", "123");
+  vi.stubEnv("META_ACCESS_TOKEN", "token");
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
 describe("WhatsApp send failures reach the masked logger", () => {
   let lines: Line[];
   let restore: () => void;
@@ -17,14 +27,10 @@ describe("WhatsApp send failures reach the masked logger", () => {
   beforeEach(() => {
     lines = [];
     restore = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line) as Line), level: "info" });
-    vi.stubEnv("META_PHONE_NUMBER_ID", "123");
-    vi.stubEnv("META_ACCESS_TOKEN", "token");
   });
 
   afterEach(() => {
     restore();
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
   it("logs a Graph API rejection with its status and the masked Meta error code and message, never the rest of the body", async () => {
@@ -113,16 +119,12 @@ describe("safety net: the person always receives something Meta accepts", () => 
   beforeEach(() => {
     lines = [];
     restore = configureLogger({ sink: (_level, line) => lines.push(JSON.parse(line) as Line), level: "info" });
-    vi.stubEnv("META_PHONE_NUMBER_ID", "123");
-    vi.stubEnv("META_ACCESS_TOKEN", "token");
     fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => graphOk());
     vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     restore();
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
   it("sends an interactive message that breaks Meta limits as one plain text with numbered options", async () => {
@@ -238,16 +240,6 @@ describe("safety net: the person always receives something Meta accepts", () => 
 });
 
 describe("the terms message on WhatsApp", () => {
-  beforeEach(() => {
-    vi.stubEnv("META_PHONE_NUMBER_ID", "123");
-    vi.stubEnv("META_ACCESS_TOKEN", "token");
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
-  });
-
   it("sends the link and then the buttons, and remembers the buttons as the message to answer", async () => {
     vi.stubEnv("TERMINOS_URL", "https://bot.minsa.test/terminos");
     let sequence = 0;

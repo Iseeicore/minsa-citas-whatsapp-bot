@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
-import { BUTTON_TITLE_MAX, WHATSAPP_INTERACTIVE_BODY_MAX, WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
 import { buildResult, sendButtons, sendCtaUrl, sendList, sendText, withPrefixedFirstMessage } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
@@ -101,6 +100,7 @@ const BUTTON_TEXT_SUFFIX = "_BUTTON_TEXT";
 const RUNTIME_BODY = "Cuerpo armado al enviar";
 const RUNTIME_ROW: ListRow = { id: "fila", title: "Fila armada al enviar" };
 const URL = "https://example.org";
+const LEADS = ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT];
 
 const PAIRED_DEFINITIONS: StaticDefinition[] = [
   { origin: "INSTITUTIONAL_WARNING_TEXT + CONTINUE_BUTTONS", effect: sendButtons(INSTITUTIONAL_WARNING_TEXT, CONTINUE_BUTTONS) },
@@ -241,14 +241,7 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
   });
 
   it("el efecto de consentimiento de la denuncia cabe en WhatsApp con el saludo más largo delante", () => {
-    const leads = ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT];
-
-    for (const lead of leads) {
-      const consent = buildConsentimientoEffect(lead);
-      expect(consent.whatsappText.length, lead).toBeLessThanOrEqual(WHATSAPP_INTERACTIVE_BODY_MAX);
-      for (const button of consent.buttons) expect(button.title.length).toBeLessThanOrEqual(BUTTON_TITLE_MAX);
-      expect(findLimitViolations(consent)).toEqual([]);
-    }
+    for (const lead of LEADS) expect(findLimitViolations(buildConsentimientoEffect(lead)), lead).toEqual([]);
   });
 
   describe("los mensajes unidos de la denuncia, con el establecimiento de nombre más largo del padrón", () => {
@@ -269,7 +262,7 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
       const confirmacion = sendButtons(confirmUbicacionText(nombre, codigo, ubicacionDistritoLineText(distrito)), UBICACION_BUTTONS);
       const session = { state: "incidencia_confirm_ubicacion" as const, slots: {}, counters: {} };
 
-      for (const lead of ["", FIRST_CONTACT_LEAD_TEXT, FORCED_INCIDENCIA_LEAD_TEXT]) {
+      for (const lead of LEADS) {
         const [unido] = withPrefixedFirstMessage(buildResult(session, [confirmacion]), avisoDenunciaText(lead)).effects as SendEffect[];
         expect(findLimitViolations(unido), lead).toEqual([]);
       }
@@ -318,7 +311,6 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
       for (const identificado of [true, false]) {
         const cierre = incidenciaRegistradaText("MINSA-2026-A-1000000", nombre, identificado);
         expect(cierre).toContain(`*${nombre}*`);
-        expect(cierre.length).toBeLessThanOrEqual(WHATSAPP_TEXT_BODY_MAX);
         expect(findLimitViolations(sendText(cierre))).toEqual([]);
       }
     });

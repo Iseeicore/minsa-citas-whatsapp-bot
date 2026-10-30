@@ -1,10 +1,8 @@
 import { isDatabaseEnabled } from "@/lib/db/persistence";
-import { createMemoryConsentimientoStore, createPrismaConsentimientoStore, type ConsentimientoStore } from "@/lib/recepcion/repositorio";
-import {
-  createMemoryAceptacionTerminosStore,
-  createPrismaAceptacionTerminosStore,
-  type AceptacionTerminosStore,
-} from "@/lib/terminos/aceptacion-terminos";
+import { createMemoryConsentimientoStore, createPrismaConsentimientoStore } from "@/lib/recepcion/repositorio";
+import type { ConsentimientoStore } from "@/lib/types/consentimiento.types";
+import type { AceptacionTerminosStore } from "@/lib/types/aceptacion-terminos.types";
+import { createMemoryAceptacionTerminosStore, createPrismaAceptacionTerminosStore } from "@/lib/terminos/aceptacion-terminos";
 
 type MemoryStores = { consentimiento: ConsentimientoStore; aceptacionTerminos: AceptacionTerminosStore };
 

@@ -58,6 +58,19 @@ export type WhatsAppWebhookPayload = {
   entry?: WhatsAppEntry[];
 };
 
+function toInboundMedia(download: MediaDownload): InboundMedia {
+  if ("dataUri" in download) return { kind: InboundMediaKind.DATA, dataUri: download.dataUri };
+  return { kind: InboundMediaKind.FAILURE, failure: download.failure };
+}
+
+async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
+  const downloaded = await Promise.all(mediaIds.slice(0, MAX_IMAGENES_POR_INCIDENCIA).map(downloadWhatsAppMediaAsDataUri));
+  const overLimit = mediaIds
+    .slice(MAX_IMAGENES_POR_INCIDENCIA)
+    .map((): InboundMedia => ({ kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT }));
+  return [...downloaded.map(toInboundMedia), ...overLimit];
+}
+
 export function mapMessageType(type: string): TipoMensajeId {
   switch (type) {
     case "text":
@@ -124,19 +137,6 @@ export function extractContentAndMedia(message: WhatsAppMessage): {
 export function tapReplyTo(message: WhatsAppMessage): string | undefined {
   const tapped = message.type === "interactive" && (message.interactive?.button_reply || message.interactive?.list_reply);
   return tapped ? message.context?.id || undefined : undefined;
-}
-
-function toInboundMedia(download: MediaDownload): InboundMedia {
-  if ("dataUri" in download) return { kind: InboundMediaKind.DATA, dataUri: download.dataUri };
-  return { kind: InboundMediaKind.FAILURE, failure: download.failure };
-}
-
-async function downloadEvidence(mediaIds: string[]): Promise<InboundMedia[]> {
-  const downloaded = await Promise.all(mediaIds.slice(0, MAX_IMAGENES_POR_INCIDENCIA).map(downloadWhatsAppMediaAsDataUri));
-  const overLimit = mediaIds
-    .slice(MAX_IMAGENES_POR_INCIDENCIA)
-    .map((): InboundMedia => ({ kind: InboundMediaKind.FAILURE, failure: MediaFailure.OVER_LIMIT }));
-  return [...downloaded.map(toInboundMedia), ...overLimit];
 }
 
 export async function toInboundEvent(

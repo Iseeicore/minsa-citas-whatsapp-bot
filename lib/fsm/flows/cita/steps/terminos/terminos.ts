@@ -31,6 +31,11 @@ const RESUME_HANDLERS: Readonly<Record<TerminosResume, (session: Session, intro:
   [TerminosResume.CONTINUE_VERIFIED]: (session) => resumeCitaAfterVerification(session),
 };
 
+const ANSWER_HANDLERS: Readonly<Record<TerminosButtonId, (session: Session, event: InboundEvent) => HandlerResult>> = {
+  [TerminosButtonId.ACCEPT]: acceptTerminos,
+  [TerminosButtonId.DECLINE]: declineTerminos,
+};
+
 function findTerminosAnswer(event: InboundEvent): TerminosButtonId | undefined {
   const tapped = readTappedId(event);
   if (tapped) return TERMINOS_BUTTON_IDS.has(tapped) ? (tapped as TerminosButtonId) : undefined;
@@ -60,11 +65,6 @@ function declineTerminos(): HandlerResult {
     },
   );
 }
-
-const ANSWER_HANDLERS: Readonly<Record<TerminosButtonId, (session: Session, event: InboundEvent) => HandlerResult>> = {
-  [TerminosButtonId.ACCEPT]: acceptTerminos,
-  [TerminosButtonId.DECLINE]: declineTerminos,
-};
 
 export function handleAwaitingTerminos(session: Session, event: InboundEvent): HandlerResult {
   const answer = findTerminosAnswer(event);

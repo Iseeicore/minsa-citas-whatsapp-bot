@@ -112,7 +112,7 @@ async function stageInboundMessage(
   if (!(await claimInboundMessage(message, usuario.id, { content, mediaId, timestamp }))) return null;
 
   marks.mark("staged");
-  const windowMs = resolveWindowMs({ state: session?.state ?? null, type: message.type });
+  const windowMs = resolveWindowMs({ state: session?.state, type: message.type });
   return () => inboundCoalescer.handle({ message, usuarioId: usuario.id, windowMs, marks });
 }
 
@@ -136,7 +136,7 @@ export async function processValue(value: WhatsAppValue) {
         limiter: inboundRateLimiter,
         evidenceLimiter: evidenceImageRateLimiter,
         hasSession: sessionRowExists,
-        sessionState: async (waId) => (await findSession(waId))?.state ?? null,
+        sessionState: async (waId) => (await findSession(waId))?.state,
       },
     );
     if (decision.action === PerimeterAction.DROP) continue;

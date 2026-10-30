@@ -9,7 +9,7 @@ const store = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
-  findSession: async (from: string) => store.sessions.get(from) ?? null,
+  findSession: async (from: string) => store.sessions.get(from),
   getSession: async (from: string) => structuredClone(store.sessions.get(from) ?? { state: "main_menu", slots: {}, counters: {} }),
   saveSession: async (from: string, session: Session) => {
     store.sessions.set(from, structuredClone(session));

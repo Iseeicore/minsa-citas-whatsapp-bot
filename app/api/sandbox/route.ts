@@ -24,6 +24,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import { trackSent, withInteractiveTracking } from "@/lib/fsm/core/interactive-reply";
 import { randomUuid } from "@/lib/utils/random-uuid";
 import { parseJsonOr } from "@/lib/utils/safe-json";
+import { isSandboxEnabled } from "@/lib/config/sandbox";
 import { verifySandboxSignature } from "@/lib/security/sandbox-signature";
 import { SANDBOX_SIGNATURE_HEADER, SANDBOX_TIMESTAMP_HEADER } from "@/lib/constants/sandbox-signature";
 import { SANDBOX_DISABLED_TEXT, SANDBOX_UNSIGNED_TEXT } from "@/lib/constants/textos/sandbox";
@@ -57,10 +58,6 @@ function corsHeaders(request: NextRequest): HeadersInit {
     "Access-Control-Allow-Origin": origin,
     Vary: "Origin",
   };
-}
-
-function isSandboxEnabled(): boolean {
-  return process.env.SANDBOX_ENABLED === "true";
 }
 
 function rejectedSignature(request: NextRequest, rawBody: string): SandboxSignatureResult | undefined {

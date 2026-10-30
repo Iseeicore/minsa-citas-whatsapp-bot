@@ -2,17 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/observability/logger";
 import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
-import type { SessionChannel } from "@/lib/enums/session-channel";
-
-export type AceptacionTerminos = {
-  waId: string;
-  canal: SessionChannel;
-  version: string;
-};
-
-export type AceptacionTerminosStore = {
-  save(aceptacion: AceptacionTerminos): Promise<void>;
-};
+import type { AceptacionTerminos, AceptacionTerminosStore } from "@/lib/types/aceptacion-terminos.types";
 
 export type SaveAceptacionTerminosResult = { resultado: AceptacionTerminosStatus };
 

@@ -17,7 +17,7 @@ describe("resolveWindowMs", () => {
   });
 
   it("never waits on first contact: the welcome goes out as soon as the greeting arrives", () => {
-    expect(resolveWindowMs({ state: null, type: "text" })).toBe(0);
+    expect(resolveWindowMs({ state: undefined, type: "text" })).toBe(0);
   });
 
   it("never waits in states that expect a single exact answer such as DNI or OTP", () => {
@@ -44,7 +44,7 @@ describe("resolveWindowMs", () => {
     for (const type of ["text", "interactive", "document", "audio"]) {
       expect(resolveWindowMs({ state: SessionState.INCIDENCIA_AWAITING_FOTO, type })).toBe(0);
     }
-    for (const state of [SessionState.INCIDENCIA_AWAITING_DESCRIPCION, SessionState.INCIDENCIA_CONFIRM_REGISTRO, null]) {
+    for (const state of [SessionState.INCIDENCIA_AWAITING_DESCRIPCION, SessionState.INCIDENCIA_CONFIRM_REGISTRO, undefined]) {
       expect(resolveWindowMs({ state, type: "image" })).toBe(0);
     }
   });

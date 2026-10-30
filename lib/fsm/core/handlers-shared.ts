@@ -84,9 +84,10 @@ export function withLeadingText(result: HandlerResult, text: string): HandlerRes
 export function withPrefixedFirstMessage(result: HandlerResult, prefix: string): HandlerResult {
   const index = result.effects.findIndex((effect) => !isQueryEffect(effect));
   if (index < 0) return withLeadingText(result, prefix);
-  const effects = result.effects.map((effect, position) =>
-    position === index && !isQueryEffect(effect) ? { ...effect, text: `${prefix}\n\n${effect.text}` } : effect,
-  );
+  const effects = result.effects.map((effect, position) => {
+    if (position !== index || isQueryEffect(effect)) return effect;
+    return { ...effect, text: `${prefix}\n\n${effect.text}` };
+  });
   return { ...result, effects };
 }
 

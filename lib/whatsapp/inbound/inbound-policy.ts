@@ -23,9 +23,9 @@ const FREE_TEXT_STATES: ReadonlySet<string> = new Set<string>([
   SessionState.INCIDENCIA_AWAITING_DESCRIPCION,
 ]);
 
-export function resolveWindowMs(input: { state: string | null; type: string }): number {
+export function resolveWindowMs(input: { state: string | undefined; type: string }): number {
   if (input.type === WhatsAppMessageType.IMAGE) return input.state === SessionState.INCIDENCIA_AWAITING_FOTO ? INBOUND_MEDIA_WINDOW_MS : 0;
   if (input.type !== WhatsAppMessageType.TEXT) return 0;
-  if (input.state === null) return 0;
+  if (input.state === undefined) return 0;
   return FREE_TEXT_STATES.has(input.state) ? INBOUND_FREE_TEXT_WINDOW_MS : 0;
 }

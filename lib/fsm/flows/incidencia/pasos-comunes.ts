@@ -66,7 +66,7 @@ export function afterDescripcion(session: Session): HandlerResult {
   return buildResult(next, [askFoto()]);
 }
 
-function resumenRegistro(session: Session, lead?: string): string {
+function resumenRegistroText(session: Session, lead?: string): string {
   const descripcion = slotText(session.slots, SlotKey.DESCRIPCION_INCIDENCIA);
   const establecimiento = slotText(session.slots, SlotKey.INCIDENCIA_ESTABLECIMIENTO_NOMBRE);
   const documento = slotText(session.slots, SlotKey.DNI);
@@ -92,7 +92,7 @@ function resumenRegistro(session: Session, lead?: string): string {
 export function askConfirmRegistro(session: Session, lead?: string): HandlerResult {
   const next = cloneSession(session);
   next.state = SessionState.INCIDENCIA_CONFIRM_REGISTRO;
-  return buildResult(next, [sendButtons(resumenRegistro(next, lead), CONFIRM_REGISTRO_BUTTONS)]);
+  return buildResult(next, [sendButtons(resumenRegistroText(next, lead), CONFIRM_REGISTRO_BUTTONS)]);
 }
 
 export function handleConfirmRegistro(session: Session, event: InboundEvent): HandlerResult {
@@ -104,5 +104,5 @@ export function handleConfirmRegistro(session: Session, event: InboundEvent): Ha
     return buildResult({ state: SessionState.INCIDENCIA_CANCELLED, slots: {}, counters: {} }, [sendText(INCIDENCIA_CANCELADA_TEXT)]);
   }
 
-  return withRejectionNotice(buildResult(session, [sendButtons(resumenRegistro(session), CONFIRM_REGISTRO_BUTTONS)]));
+  return withRejectionNotice(buildResult(session, [sendButtons(resumenRegistroText(session), CONFIRM_REGISTRO_BUTTONS)]));
 }

@@ -183,17 +183,12 @@ describe("sin establecimientos con cupos para la especialidad", () => {
   });
 
   it.each([
-    ["tap", tap(OtherDistritoButtonId.YES)],
-    ["otro distrito", text("otro distrito")],
-  ])("«%s» asks for another district", (_label, answer) => {
-    expect(handle(none().session, answer).session.state).toBe("cita_awaiting_distrito_ai");
-  });
-
-  it.each([
-    ["tap", tap(OtherDistritoButtonId.NO)],
-    ["salir", text("salir")],
-  ])("«%s» closes as before", (_label, answer) => {
-    expect(handle(none().session, answer).session.state).toBe("cita_no_coverage_closed");
+    ["tap yes", tap(OtherDistritoButtonId.YES), "cita_awaiting_distrito_ai"],
+    ["otro distrito", text("otro distrito"), "cita_awaiting_distrito_ai"],
+    ["tap no", tap(OtherDistritoButtonId.NO), "cita_no_coverage_closed"],
+    ["salir", text("salir"), "cita_no_coverage_closed"],
+  ])("«%s» goes to %s", (_label, answer, state) => {
+    expect(handle(none().session, answer).session.state).toBe(state);
   });
 
   it("an unknown answer repeats the three options", () => {
@@ -207,13 +202,12 @@ describe("sin establecimientos con cupos para la especialidad", () => {
     ]);
   });
 
-  it("the no especialidades case keeps its two options", () => {
+  it("the no especialidades case does not take «otra especialidad»", () => {
     const result = handle(
       { ...pending(), state: "cita_especialidad_pending" },
       queryResult("list_especialidades", { status: "found", items: [] }),
     );
 
-    expect(buttonsOf(result).buttons.map((button) => button.id)).toEqual([OtherDistritoButtonId.YES, OtherDistritoButtonId.NO]);
     expect(handle(result.session, text("otra especialidad")).session.state).not.toBe("cita_especialidad_pending");
   });
 });

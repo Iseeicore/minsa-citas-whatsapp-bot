@@ -264,9 +264,8 @@ describe("handle — a handler that returns no result", () => {
     const { handle: handleWithoutResult } = await import("@/lib/fsm/core/handlers");
     const { MissingHandlerResultError } = await import("@/lib/errors/missing-handler-result-error");
 
-    expect(() => handleWithoutResult(sessionAt("cita_awaiting_dni"), text("12345678"))).toThrow(MissingHandlerResultError);
     expect(() => handleWithoutResult(sessionAt("cita_awaiting_dni"), text("12345678"))).toThrow(
-      'handle: no result for state "cita_awaiting_dni"',
+      expect.objectContaining({ constructor: MissingHandlerResultError, message: 'handle: no result for state "cita_awaiting_dni"' }),
     );
   });
 });

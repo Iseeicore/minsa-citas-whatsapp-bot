@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEvidenceImageMaxBytes } from "@/lib/config/evidence";
 import { API_ERRORS } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
@@ -53,41 +53,38 @@ function imageFileList(size: number): FileList {
   return [{ name: "foto.jpg", size }] as unknown as FileList;
 }
 
+function renderSandbox(imageMaxBytes = IMAGE_MAX_BYTES): void {
+  renderToStaticMarkup(createElement(Sandbox, { imageMaxBytes, showDebugPanel: false, active: false }));
+}
+
+beforeEach(() => {
+  captured.stateUpdates.length = 0;
+  captured.readFileAsDataUri.mockClear();
+});
+
 describe("Sandbox", () => {
   it("shows the same over-limit warning as the API when the composer reports a message too long", () => {
-    renderToStaticMarkup(createElement(Sandbox, { imageMaxBytes: IMAGE_MAX_BYTES, showDebugPanel: false, active: false }));
+    renderSandbox();
 
     captured.onTooLong?.();
 
     expect(captured.stateUpdates).toContain(TOO_LONG_TEXT);
   });
 
-  it("checks the image against the limit the server passes, not a value of its own", async () => {
-    captured.stateUpdates.length = 0;
-    captured.readFileAsDataUri.mockClear();
-    renderToStaticMarkup(createElement(Sandbox, { imageMaxBytes: 3 * MEGABYTE, showDebugPanel: false, active: false }));
+  it.each([
+    ["checks the image against the limit the server passes, not a value of its own", 3 * MEGABYTE, 4 * MEGABYTE, "La imagen supera el tamaño máximo permitido (3 MB). Envía una imagen más liviana."],
+    ["rejects an image over the limit with the size warning and does not read it", IMAGE_MAX_BYTES, IMAGE_MAX_BYTES + 1, IMAGE_TOO_LARGE_TEXT],
+  ])("%s", async (_case, imageMaxBytes, size, warning) => {
+    renderSandbox(imageMaxBytes);
 
-    await captured.handleImageSelect?.(imageFileList(4 * MEGABYTE));
+    await captured.handleImageSelect?.(imageFileList(size));
 
-    expect(captured.stateUpdates).toContain("La imagen supera el tamaño máximo permitido (3 MB). Envía una imagen más liviana.");
-    expect(captured.readFileAsDataUri).not.toHaveBeenCalled();
-  });
-
-  it("rejects an image over the limit with the size warning and does not read it", async () => {
-    captured.stateUpdates.length = 0;
-    captured.readFileAsDataUri.mockClear();
-    renderToStaticMarkup(createElement(Sandbox, { imageMaxBytes: IMAGE_MAX_BYTES, showDebugPanel: false, active: false }));
-
-    await captured.handleImageSelect?.(imageFileList(IMAGE_MAX_BYTES + 1));
-
-    expect(captured.stateUpdates).toContain(IMAGE_TOO_LARGE_TEXT);
+    expect(captured.stateUpdates).toContain(warning);
     expect(captured.readFileAsDataUri).not.toHaveBeenCalled();
   });
 
   it("accepts an image between 3 MB and 5 MB", () => {
-    captured.stateUpdates.length = 0;
-    captured.readFileAsDataUri.mockClear();
-    renderToStaticMarkup(createElement(Sandbox, { imageMaxBytes: IMAGE_MAX_BYTES, showDebugPanel: false, active: false }));
+    renderSandbox();
 
     void captured.handleImageSelect?.(imageFileList(4 * MEGABYTE));
 

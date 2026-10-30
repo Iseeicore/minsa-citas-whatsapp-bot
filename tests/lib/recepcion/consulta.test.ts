@@ -60,8 +60,9 @@ describe("consultarIncidencia", () => {
   });
 
   it.each(["MINSA-2026-A-000012", "MINSA-2026-1000000", "MINSA-2026-A-1000000"])("el código %s llega a la base", async (codigo) => {
-    await consultarIncidencia(codigo, { canal: "whatsapp", waId: "x" });
+    db.findFirst.mockResolvedValue({ ...fila, codigo });
 
+    await expect(consultarIncidencia(codigo, { canal: "whatsapp", waId: "x" })).resolves.toMatchObject({ status: "found", codigo });
     expect(db.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ codigo }) }));
   });
 

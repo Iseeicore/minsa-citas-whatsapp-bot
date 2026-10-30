@@ -70,26 +70,18 @@ describe("registering an incident directly in the database", () => {
     expect(db.evidenciaCreate).not.toHaveBeenCalled();
   });
 
-  it("stores the real channel of origin: the Chat-bot as web and whatsapp-bot as WhatsApp", async () => {
-    await registrarIncidencia({ ...base, canal: "web" }, crearAlmacenEvidencias());
-    await registrarIncidencia({ ...base, canal: "whatsapp" }, crearAlmacenEvidencias());
+  it.each([
+    ["the Chat-bot is stored as web", { ...base, canal: "web" }, CanalOrigenId.WEB],
+    ["whatsapp-bot is stored as WhatsApp", { ...base, canal: "whatsapp" }, CanalOrigenId.WHATSAPP],
+    ["a submission without a channel is stored as WhatsApp", base, CanalOrigenId.WHATSAPP],
+  ])("stores the real channel of origin: %s", async (_case, submission, canalOrigenId) => {
+    await registrarIncidencia(submission, crearAlmacenEvidencias());
 
-    expect(db.incidenciaCreate.mock.calls.map(([args]) => (args as { data: { canalOrigenId: number } }).data.canalOrigenId)).toEqual([
-      CanalOrigenId.WEB,
-      CanalOrigenId.WHATSAPP,
-    ]);
+    expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ canalOrigenId }) });
   });
 
-  it("a submission without a channel is stored as WhatsApp", async () => {
-    await registrarIncidencia(base, crearAlmacenEvidencias());
-
-    expect(db.incidenciaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ canalOrigenId: CanalOrigenId.WHATSAPP }) });
-  });
-
-  it("refuses an unknown channel before the database", async () => {
-    for (const canal of ["telegram", "WEB", 2, null]) {
-      await expect(registrarIncidencia({ ...base, canal }, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
-    }
+  it.each(["telegram", "WEB", 2, null])("refuses the unknown channel %j before the database", async (canal) => {
+    await expect(registrarIncidencia({ ...base, canal }, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
     expect(db.incidenciaCreate).not.toHaveBeenCalled();
   });
 
