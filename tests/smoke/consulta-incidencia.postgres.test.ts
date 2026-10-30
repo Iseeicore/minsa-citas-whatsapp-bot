@@ -48,6 +48,7 @@ describe.skipIf(!process.env.DATABASE_URL)("consultar una incidencia contra la b
     const result = await registrarIncidencia(
       {
         waId,
+        canal: "whatsapp",
         dni: null,
         descripcion: "El consultorio estaba cerrado sin aviso",
         ...extra,

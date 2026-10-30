@@ -20,7 +20,7 @@ describe.skipIf(!process.env.DATABASE_URL)("upload requests and received files a
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
     await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Reclamo con archivos adjuntos" }, crearAlmacenEvidencias()),
+      registrarIncidencia({ waId, canal: "whatsapp", descripcion: "Reclamo con archivos adjuntos" }, crearAlmacenEvidencias()),
     );
     const incidencia = await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } });
     const [, solicitud] = await prisma.$transaction([

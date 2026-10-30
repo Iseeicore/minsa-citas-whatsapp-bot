@@ -34,7 +34,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const traceId = `trace-${randomUUID()}`;
 
     const result = await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Me cobraron por una atencion gratuita" }, crearAlmacenEvidencias()),
+      registrarIncidencia({ waId, canal: "whatsapp", descripcion: "Me cobraron por una atencion gratuita" }, crearAlmacenEvidencias()),
     );
 
     expect(result).toEqual({ status: "accepted", codigo: expect.stringMatching(/^MINSA-\d{4}-A-\d{6,}$/) });
@@ -76,7 +76,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const traceId = `trace-${randomUUID()}`;
 
     await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, dni, descripcion: "El consultorio estaba cerrado" }, crearAlmacenEvidencias()),
+      registrarIncidencia({ waId, canal: "whatsapp", dni, descripcion: "El consultorio estaba cerrado" }, crearAlmacenEvidencias()),
     );
 
     expect(await prisma.incidenciaPaciente.findUniqueOrThrow({ where: { traceId } })).toMatchObject({
@@ -90,7 +90,9 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const waId = `smoke-${randomUUID()}`;
     const traceId = `trace-${randomUUID()}`;
     const submit = () =>
-      runWithTrace(traceId, {}, () => registrarIncidencia({ waId, descripcion: "Texto del reclamo" }, crearAlmacenEvidencias()));
+      runWithTrace(traceId, {}, () =>
+        registrarIncidencia({ waId, canal: "whatsapp", descripcion: "Texto del reclamo" }, crearAlmacenEvidencias()),
+      );
 
     const first = await submit();
     const second = await submit();
@@ -107,7 +109,10 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const dosDeMayo = await prisma.establecimientoSalud.findUniqueOrThrow({ where: { codigoRenipress: "6206" } });
     const submit = () =>
       runWithTrace(traceId, {}, () =>
-        registrarIncidencia({ waId, establecimientoId: dosDeMayo.id, descripcion: "Me cobraron sin recibo" }, crearAlmacenEvidencias()),
+        registrarIncidencia(
+          { waId, canal: "whatsapp", establecimientoId: dosDeMayo.id, descripcion: "Me cobraron sin recibo" },
+          crearAlmacenEvidencias(),
+        ),
       );
 
     const first = await submit();
@@ -125,7 +130,9 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const traceId = `trace-${randomUUID()}`;
 
     await expect(
-      runWithTrace(traceId, {}, () => registrarIncidencia({ waId, establecimientoId: 999999, descripcion: "x" }, crearAlmacenEvidencias())),
+      runWithTrace(traceId, {}, () =>
+        registrarIncidencia({ waId, canal: "whatsapp", establecimientoId: 999999, descripcion: "x" }, crearAlmacenEvidencias()),
+      ),
     ).resolves.toEqual({ status: "error" });
     expect(await prisma.incidenciaPaciente.count({ where: { traceId } })).toBe(0);
   });
@@ -133,9 +140,11 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
   it("refuses an invalid DNI before reaching the database", async () => {
     const waId = `smoke-${randomUUID()}`;
 
-    await expect(registrarIncidencia({ waId, dni: "abc", descripcion: "x" }, crearAlmacenEvidencias())).resolves.toEqual({
-      status: "error",
-    });
+    await expect(registrarIncidencia({ waId, canal: "whatsapp", dni: "abc", descripcion: "x" }, crearAlmacenEvidencias())).resolves.toEqual(
+      {
+        status: "error",
+      },
+    );
 
     expect(await prisma.incidenciaPaciente.count({ where: { waId } })).toBe(0);
   });
@@ -148,7 +157,10 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     const dataUri = `data:image/png;base64,${png.toString("base64")}`;
 
     const result = await runWithTrace(traceId, {}, () =>
-      registrarIncidencia({ waId, descripcion: "Mala atencion", mediaDataUris: [dataUri, dataUri] }, crearAlmacenEvidencias()),
+      registrarIncidencia(
+        { waId, canal: "whatsapp", descripcion: "Mala atencion", mediaDataUris: [dataUri, dataUri] },
+        crearAlmacenEvidencias(),
+      ),
     );
 
     expect(result.status).toBe("accepted");
@@ -170,7 +182,7 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
 
     const result = await runWithTrace(traceId, {}, () =>
       registrarIncidencia(
-        { waId, descripcion: "Mala atencion", mediaDataUris: [`data:image/png;base64,${png.toString("base64")}`] },
+        { waId, canal: "whatsapp", descripcion: "Mala atencion", mediaDataUris: [`data:image/png;base64,${png.toString("base64")}`] },
         crearAlmacenEvidencias(),
       ),
     );
