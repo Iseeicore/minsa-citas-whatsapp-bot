@@ -91,7 +91,7 @@ describe("the MINSA Digital account warning", () => {
     expectDocumento(handle(warned(), text(CUENTA_MINSA_TIENE_BUTTON_TEXT)));
     expect(handle(warned(), text(CUENTA_MINSA_NO_TIENE_BUTTON_TEXT)).session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA);
     expectDocumento(handle(invited(), text("listo")));
-    expect(handle(invited(), text("no")).session.state).toBe(SessionState.CITA_ABANDONED);
+    expect(sent(handle(invited(), text("no")))).toEqual([sendText(FALLBACK_TEXT), CREADA]);
     expect(handle(invited(), text(CUENTA_MINSA_NO_CONTINUAR_BUTTON_TEXT)).session.state).toBe(SessionState.CITA_ABANDONED);
 
     expect(sent(handle(warned(), text("tengo una pregunta")))).toEqual([sendText(FALLBACK_TEXT), cuentaMinsaAviso()]);

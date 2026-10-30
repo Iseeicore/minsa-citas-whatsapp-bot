@@ -16,7 +16,6 @@ import { configureLogger } from "@/lib/observability/logger";
 import { deriveTraceId } from "@/lib/observability/tracer";
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 
-
 type Line = Record<string, unknown> & { level: string; event: string; traceId?: string };
 
 let raw: string[] = [];

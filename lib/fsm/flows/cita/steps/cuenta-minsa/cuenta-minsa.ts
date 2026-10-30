@@ -29,10 +29,10 @@ import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 
-type CuentaAnswerIds = { yes: CuentaMinsaButtonId; no: CuentaMinsaButtonId };
+type CuentaAnswerIds = { yes: CuentaMinsaButtonId; no: CuentaMinsaButtonId; acceptsLooseNo: boolean };
 
-const AVISO_ANSWERS: CuentaAnswerIds = { yes: CuentaMinsaButtonId.TIENE, no: CuentaMinsaButtonId.NO_TIENE };
-const CREADA_ANSWERS: CuentaAnswerIds = { yes: CuentaMinsaButtonId.TIENE, no: CuentaMinsaButtonId.NO_CONTINUAR };
+const AVISO_ANSWERS: CuentaAnswerIds = { yes: CuentaMinsaButtonId.TIENE, no: CuentaMinsaButtonId.NO_TIENE, acceptsLooseNo: true };
+const CREADA_ANSWERS: CuentaAnswerIds = { yes: CuentaMinsaButtonId.TIENE, no: CuentaMinsaButtonId.NO_CONTINUAR, acceptsLooseNo: false };
 
 function readCuentaAnswer(event: InboundEvent, ids: CuentaAnswerIds): Confirmation {
   const tapped = readTappedId(event);
@@ -41,26 +41,12 @@ function readCuentaAnswer(event: InboundEvent, ids: CuentaAnswerIds): Confirmati
   if (chosen === ids.yes) return Confirmation.YES;
   if (chosen === ids.no) return Confirmation.NO;
   if (chosen) return Confirmation.UNKNOWN;
-  return resolveConfirmation(typed);
+  const loose = resolveConfirmation(typed);
+  return loose === Confirmation.NO && !ids.acceptsLooseNo ? Confirmation.UNKNOWN : loose;
 }
 
-export function askCitaDocumento(session: Session, intro: string): HandlerResult {
+function askCitaDocumento(session: Session, intro: string): HandlerResult {
   return buildResult({ ...session, state: SessionState.CITA_AWAITING_DNI }, [sendText(intro)]);
-}
-
-export function askCuentaMinsa(session: Session, intro: string): HandlerResult {
-  const next = cloneSession(session);
-  next.slots[SlotKey.CITA_DOCUMENTO_INTRO_TEXT] = intro;
-  next.state = SessionState.CITA_AWAITING_CUENTA_MINSA;
-  return reshowCuentaMinsa(next);
-}
-
-export function reshowCuentaMinsa(session: Session): HandlerResult {
-  return buildResult(session, [sendButtons(CUENTA_MINSA_AVISO_TEXT, CUENTA_MINSA_AVISO_BUTTONS)]);
-}
-
-export function reshowCuentaMinsaCreada(session: Session): HandlerResult {
-  return buildResult(session, [sendButtons(CUENTA_MINSA_CREADA_TEXT, CUENTA_MINSA_CREADA_BUTTONS)]);
 }
 
 function continueToDocumento(session: Session): HandlerResult {
@@ -77,6 +63,21 @@ function inviteToCreateCuenta(session: Session): HandlerResult {
     sendMinsaDigitalCta(CUENTA_MINSA_CREAR_TEXT, CUENTA_MINSA_CREAR_BUTTON_TEXT, MINSA_DIGITAL_LOGIN_PATH),
     sendButtons(CUENTA_MINSA_CREADA_TEXT, CUENTA_MINSA_CREADA_BUTTONS),
   ]);
+}
+
+export function reshowCuentaMinsa(session: Session): HandlerResult {
+  return buildResult(session, [sendButtons(CUENTA_MINSA_AVISO_TEXT, CUENTA_MINSA_AVISO_BUTTONS)]);
+}
+
+export function reshowCuentaMinsaCreada(session: Session): HandlerResult {
+  return buildResult(session, [sendButtons(CUENTA_MINSA_CREADA_TEXT, CUENTA_MINSA_CREADA_BUTTONS)]);
+}
+
+export function askCuentaMinsa(session: Session, intro: string): HandlerResult {
+  const next = cloneSession(session);
+  next.slots[SlotKey.CITA_DOCUMENTO_INTRO_TEXT] = intro;
+  next.state = SessionState.CITA_AWAITING_CUENTA_MINSA;
+  return reshowCuentaMinsa(next);
 }
 
 export function handleAwaitingCuentaMinsa(session: Session, event: InboundEvent): HandlerResult {
