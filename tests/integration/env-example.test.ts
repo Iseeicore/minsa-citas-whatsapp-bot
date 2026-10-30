@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), "utf8");
 
-const PLATFORM_VARIABLES = new Set(["NODE_ENV", "VERCEL", "NEXT_OUTPUT_STANDALONE"]);
+const PLATFORM_VARIABLES = new Set(["NODE_ENV", "NEXT_OUTPUT_STANDALONE"]);
 
 const SECTION_TITLE = /^##### \S/;
 const MINIMUM = [

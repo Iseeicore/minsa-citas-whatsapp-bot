@@ -59,7 +59,7 @@ function envLevel(): LogLevel | "silent" {
 }
 
 function defaultSink(): LogSink {
-  if (process.env.LOG_TO_FILE !== "true" || (process.env.VERCEL && !process.env.LOG_DIR)) return consoleSink;
+  if (process.env.LOG_TO_FILE !== "true") return consoleSink;
 
   const file = createDailyFileSink({ dir: process.env.LOG_DIR || "logs" });
   return (level, line) => {

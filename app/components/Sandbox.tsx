@@ -21,15 +21,13 @@ import { ButtonVariant } from "@/lib/enums/button-variant";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
-import { textoMuyLargoText } from "@/lib/constants/textos/sandbox";
+import { imagenMuyPesadaText, textoMuyLargoText } from "@/lib/constants/textos/sandbox";
+import { MAX_IMAGE_BYTES } from "@/lib/recepcion/imagenes/data-uri";
+import { bytesToMegabytes } from "@/lib/utils/byte-size";
 
 const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
 
 const WELCOME_TRIGGER_TEXT = "Hola";
-
-const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
-const IMAGE_TOO_LARGE_MESSAGE =
-  "La imagen es muy pesada para subirla en el entorno de Vercel. Por el momento estamos trabajando en la mejora.";
 
 export default function Sandbox({
   onBack,
@@ -158,7 +156,7 @@ export default function Sandbox({
     if (!file) return;
 
     if (file.size > MAX_IMAGE_BYTES) {
-      setError(IMAGE_TOO_LARGE_MESSAGE);
+      setError(imagenMuyPesadaText(bytesToMegabytes(MAX_IMAGE_BYTES)));
       return;
     }
 
