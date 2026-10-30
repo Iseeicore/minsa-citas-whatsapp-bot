@@ -7,10 +7,6 @@ export function signSandboxBody(secret: string, timestamp: string, body: string)
   return SANDBOX_SIGNATURE_PREFIX + crypto.createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
 }
 
-/**
- * Comprueba que la petición la firmó el servidor del portal con el secreto compartido: el HMAC cubre la marca de tiempo y el cuerpo,
- * y la marca debe ser reciente para que una petición copiada no se pueda repetir.
- */
 export function verifySandboxSignature(input: {
   secret: string;
   timestamp: string | null;
