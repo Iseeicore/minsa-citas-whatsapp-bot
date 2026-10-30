@@ -8,13 +8,8 @@ import { buildResult, cloneSession, sendText, withNote, readTappedId, readTypedT
 import { reshowOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import { handleRegistrationWait } from "@/lib/fsm/flows/cita/steps/identity/identity";
 import { abandonCita, askToLeave, exitButtons } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
-import { reshowCuentaMinsa, reshowCuentaMinsaCreada } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
-import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
-import { reshowEstablecimientoConfirm } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
-import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
-import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
 import { reauthPrompt } from "@/lib/fsm/session/reauth-prompt";
-import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { findButtonReprompt } from "@/lib/fsm/flows/shared/button-reprompts";
 import type { HandleEvent, HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
@@ -59,16 +54,6 @@ const LIST_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA,
 ]);
 
-const BUTTON_REPROMPTS: Readonly<Record<string, ((session: Session) => HandlerResult) | undefined>> = {
-  [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
-  [SessionState.CITA_AWAITING_ESTABLECIMIENTO_CONFIRM]: reshowEstablecimientoConfirm,
-  [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
-  [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: askOtherReference,
-  [SessionState.CITA_AWAITING_TERMINOS]: reshowTerminos,
-  [SessionState.CITA_AWAITING_CUENTA_MINSA]: reshowCuentaMinsa,
-  [SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA]: reshowCuentaMinsaCreada,
-};
-
 const CHANGE_DISTRITO_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_ESPECIALIDAD_SELECT,
   SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT,
@@ -96,7 +81,7 @@ function resume(session: Session, event: InboundEvent): HandlerResult {
   if (prompt) return buildResult(restored, [sendText(prompt)]);
   if (restored.state === SessionState.CITA_REGISTRATION_WAIT)
     return handleRegistrationWait(restored, { ...event, type: InboundEventType.TEXT, text: "" });
-  const reprompt = BUTTON_REPROMPTS[restored.state];
+  const reprompt = findButtonReprompt(restored.state);
   if (reprompt) return reprompt(restored);
   return reshowOffered(restored, readOffered(restored.slots));
 }
