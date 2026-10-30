@@ -10,7 +10,7 @@ description: Filtro 8 de 10 de revision-backend. Feature flags (un lector, apaga
 - Se preguntó al responsable si la función lleva bandera y con qué valor por defecto (120). Si no consta, preguntar; no decidir solo.
 - Un solo lector en `lib/config/features.ts`, con el literal `process.env.NOMBRE` en él; ningún otro archivo lo toca (121, 139).
 - Apagada por omisión, se enciende solo con `true` (normalizado: `trim`, minúsculas); nada de `!== "false"` salvo decisión escrita (122). Nombre `<ÁMBITO>_ENABLED`, en inglés, afirmativo (123, 129).
-- Documentada en el mismo cambio: `.env.example`, tabla de variables del README, qué ve la persona apagada, si se lee por petición o al arrancar, y valor por defecto (124, 140, 141).
+- Documentada en el mismo cambio: `.env.example`, bloque de variables del README y tabla de `docs/despliegue-minsa.md` (sección 3.6), qué ve la persona apagada, si se lee por petición o al arrancar, y valor por defecto (124, 140, 141).
 - Con la bandera apagada **todos** los puntos de entrada responden claro (125): menú/lista, texto escrito, botón de mensaje viejo, IA clasificadora, ejecutor, sesión a medias, páginas y API. Probado encendida, apagada y sin definir con `vi.stubEnv`, en archivos `*-disabled.test.ts` (126, 127).
 - Vocabulario de dominio en español, términos técnicos en inglés, sin partir palabras de dominio (130). No se renombra lo existente solo por consistencia (132); valores persistidos intactos (133).
 

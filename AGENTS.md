@@ -103,7 +103,8 @@ npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noE
 - Lógica pura sin hooks de React → `lib/utils/` con su prueba.
 - UI (`app/components`): sin valores arbitrarios de Tailwind (`bg-[#hex]`, `text-[10px]`), tokens en `@theme` de `app/globals.css`; sin emojis en las vistas (íconos de `app/components/icons/`); bloques de clases repetidos pasan a `app/components/ui/`. Lo hace cumplir `ui-design-rules.test.ts`.
 - Prettier: 140 columnas, comillas dobles, punto y coma, coma final. Cubre `lib/`, `tests/`, `scripts/` y la configuración de la raíz; `app/` aún no se formatea (`.prettierignore`).
-- `.env.example` es solo la lista de variables; `tests/integration/env-example.test.ts` falla si se desvía de lo que lee el código o de lo documentado en el README. Al agregar una variable se actualizan ambos.
+- `.env.example` es solo la lista de variables; `tests/integration/env-example.test.ts` falla si se desvía de lo que lee el código. Al agregar una variable se actualizan `.env.example`, el bloque de variables del `README.md` y la referencia de `docs/despliegue-minsa.md` (sección 3.6).
+- El `README.md` es breve, como el de GitLab: requisitos, variables, despliegue y enlaces. El detalle va en `docs/` (`docs/desarrollo.md` para desarrollo local, estructura, pruebas y build; `docs/despliegue-minsa.md` para infraestructura).
 - Agregar o cambiar un comando, opción o mensaje exige actualizar `README.md` y `docs/` (`docs/flujo-cita.md` refleja las ramas del FSM).
 
 # Ramas y remotos
