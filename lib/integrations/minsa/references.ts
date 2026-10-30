@@ -6,9 +6,13 @@ import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { isRecord } from "@/lib/utils/type-guards";
 import { readString, readNumber } from "@/lib/utils/record-readers";
+import { logger } from "@/lib/observability/logger";
+import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
 
 const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA: ListReferencesResult = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
+const NO_DISPONIBLE: ListReferencesResult = { statusReference: ReferenceStatus.UNAVAILABLE, message: "", data: [] };
+const SESION_VENCIDA: ListReferencesResult = { statusReference: ReferenceStatus.UNAUTHORIZED, message: "", data: [] };
 const referencesResponseSchema = z.array(z.unknown());
 
 function descripcionDe(value: unknown): string {
@@ -21,13 +25,15 @@ function codigoDe(value: unknown): string {
 
 function parseReferencia(row: RawRow): ReferenciaItem | undefined {
   const idReferencia = readString(row, "id_referencia");
+  const numero = readString(row, "nro_referencia");
+  const fechaInicio = readString(row, "fecha_inicio");
   const estado = isRecord(row.estado) ? readNumber(row.estado, "codigo") : undefined;
-  if (!idReferencia || estado === undefined) return undefined;
+  if (!idReferencia || !numero || !fechaInicio || estado === undefined) return undefined;
 
   return {
     idReferencia,
-    numero: readString(row, "nro_referencia") ?? "",
-    fechaInicio: readString(row, "fecha_inicio") ?? "",
+    numero,
+    fechaInicio,
     ipressOrigen: descripcionDe(row.ipress_origen),
     ipressDestino: descripcionDe(row.ipress_destino),
     upsOrigen: descripcionDe(row.ups_origen),
@@ -41,7 +47,10 @@ function parseReferencia(row: RawRow): ReferenciaItem | undefined {
 
 function readReferencesResponse(body: unknown): ListReferencesResult {
   const parsed = referencesResponseSchema.safeParse(body);
-  if (!parsed.success) return SIN_RESPUESTA;
+  if (!parsed.success) {
+    logger.error("minsa.catalog.contract_mismatch", { endpoint: MinsaEndpoint.REFERENCIAS, reason: "rows_missing" });
+    return SIN_RESPUESTA;
+  }
   if (parsed.data.length === 0) return SIN_REFERENCIAS;
 
   const data = parseRows(MinsaEndpoint.REFERENCIAS, parsed.data, parseReferencia);
@@ -54,7 +63,7 @@ function readReferencesResponse(body: unknown): ListReferencesResult {
 }
 
 export async function listReferences(numeroDocumento: string, tipoDocumento: string, bearer: string): Promise<ListReferencesResult> {
-  if (!isRealMinsaEnabled()) return SIN_REFERENCIAS;
+  if (!isRealMinsaEnabled()) return NO_DISPONIBLE;
 
   const response = await postWithBearer(
     MinsaEndpoint.REFERENCIAS,
@@ -64,8 +73,15 @@ export async function listReferences(numeroDocumento: string, tipoDocumento: str
     },
     bearer,
   );
+  if (response.status === HTTP_UNAUTHORIZED) return SESION_VENCIDA;
   if (!response.ok) return SIN_RESPUESTA;
 
-  const body: unknown = await response.json().catch(() => undefined);
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch (error: unknown) {
+    logger.error("minsa.catalog.contract_mismatch", { endpoint: MinsaEndpoint.REFERENCIAS, reason: "unreadable_body", error });
+    return SIN_RESPUESTA;
+  }
   return readReferencesResponse(body);
 }

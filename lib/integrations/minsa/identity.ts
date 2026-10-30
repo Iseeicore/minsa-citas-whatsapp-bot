@@ -7,27 +7,50 @@ import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { isString, isRecord } from "@/lib/utils/type-guards";
+import { logger } from "@/lib/observability/logger";
 
 const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
 
-function rootAndData(body: unknown): { root: RawRow; data: RawRow } {
-  const root = isRecord(body) ? body : {};
-  return { root, data: isRecord(root.data) ? root.data : {} };
+function rootAndData(endpoint: MinsaEndpoint, body: unknown): { root: RawRow; data: RawRow } | undefined {
+  if (!isRecord(body)) {
+    logger.error("minsa.identity.contract_mismatch", { endpoint, reason: "body_not_object" });
+    return undefined;
+  }
+  return { root: body, data: isRecord(body.data) ? body.data : {} };
+}
+
+function validityFlags(root: RawRow, data: RawRow): unknown[] {
+  return [root.valido, root.success, data.valido, root.is_valid];
 }
 
 function parseValidateUser(body: unknown): ValidateUserResult {
-  const { root, data } = rootAndData(body);
-  const valid = root.valido === true || root.success === true || data.valido === true || root.is_valid === true;
-  if (!valid) return { status: ValidateUserStatus.NOT_VALID };
+  const parts = rootAndData(MinsaEndpoint.VALIDAR_USUARIO, body);
+  if (!parts) return { status: ValidateUserStatus.ERROR };
 
-  const twofaId = root.twofa_id ?? data.twofa_id;
+  const flags = validityFlags(parts.root, parts.data);
+  if (!flags.includes(true)) {
+    if (flags.includes(false)) return { status: ValidateUserStatus.NOT_VALID };
+    logger.error("minsa.identity.contract_mismatch", { endpoint: MinsaEndpoint.VALIDAR_USUARIO, reason: "no_explicit_answer" });
+    return { status: ValidateUserStatus.ERROR };
+  }
+
+  const twofaId = parts.root.twofa_id ?? parts.data.twofa_id;
   return isString(twofaId) ? { status: ValidateUserStatus.VALID, twofaId } : { status: ValidateUserStatus.ERROR };
 }
 
 function parseVerifyCode(body: unknown): VerifyCodeResult {
-  const { root, data } = rootAndData(body);
-  const token = root.token ?? data.token;
-  return root.success === true && isString(token) ? { status: VerifyCodeStatus.VERIFIED, token } : { status: VerifyCodeStatus.INVALID };
+  const parts = rootAndData(MinsaEndpoint.VERIFICAR_CODIGO, body);
+  if (!parts) return { status: VerifyCodeStatus.ERROR };
+  if (parts.root.success === false) return { status: VerifyCodeStatus.INVALID };
+
+  const token = parts.root.token ?? parts.data.token;
+  if (parts.root.success === true && isString(token)) return { status: VerifyCodeStatus.VERIFIED, token };
+
+  logger.error("minsa.identity.contract_mismatch", {
+    endpoint: MinsaEndpoint.VERIFICAR_CODIGO,
+    reason: parts.root.success === true ? "token_missing" : "no_explicit_answer",
+  });
+  return { status: VerifyCodeStatus.ERROR };
 }
 
 export async function validateUser(numeroDocumento: string, tipoDocumento: TipoDocumento): Promise<ValidateUserResult> {

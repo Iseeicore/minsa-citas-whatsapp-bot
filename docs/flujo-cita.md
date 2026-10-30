@@ -165,6 +165,7 @@ Todos los pasos con 📋 siguen el mismo orden (`lib/fsm/flows/cita/selection.ts
 | Documento | no son 8 ni 9 dígitos | *"Documento inválido. Debe tener 8 dígitos (DNI) o 9 dígitos (carnet de extranjería). Intenta de nuevo."* (sin límite) | Documento |
 | OTP | formato inválido (letras, símbolos, mensaje muy corto o largo, o un toque de botón) | *"Código incorrecto. Te quedan {2\|1} intento(s)."* (cuenta como intento y no consulta a MINSA) | OTP; al 3.º ⛔ *"Superaste el número de intentos permitidos…"* |
 | OTP | código incorrecto | *"Código incorrecto. Te quedan {2\|1} intento(s)."* | OTP; al 3.º ⛔ *"Superaste el número de intentos permitidos…"* |
+| OTP | MINSA falla o responde sin una respuesta explícita | *"Ocurrió un inconveniente temporal al procesar tu solicitud…"* (no cuenta como intento) | OTP: la persona vuelve a escribir el código |
 | Distrito | texto sin sentido | *"No reconocimos ese distrito. Por favor escribe el nombre de tu distrito o comuna:"* | Distrito |
 | Distrito | la IA no lo encuentra | 1.ª vez: el mismo texto; 2.ª vez: modo manual | Distrito → modo manual |
 | Cualquier lista | no coincide con nada | *"Selecciona una opción de la lista."* + lista | la misma lista |

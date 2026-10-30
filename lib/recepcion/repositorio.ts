@@ -63,12 +63,15 @@ export async function contarDelDia(waId: string, excluirTraceId: string): Promis
   return Number(filas[0]?.total ?? 0);
 }
 
-export async function buscarCodigoPorTrace(traceId: string): Promise<string | null> {
+export async function findCodigoPorTrace(traceId: string): Promise<string | undefined> {
   const fila = await prisma.incidenciaPaciente.findUnique({ where: { traceId }, select: { codigo: true } });
-  return fila?.codigo ?? null;
+  return fila?.codigo;
 }
 
-export async function buscarIncidenciaDeQuienConsulta(codigo: string, identidad: IdentidadConsulta): Promise<IncidenciaConsultada | null> {
+export async function buscarIncidenciaDeQuienConsulta(
+  codigo: string,
+  identidad: IdentidadConsulta,
+): Promise<IncidenciaConsultada | undefined> {
   const fila = await prisma.incidenciaPaciente.findFirst({
     where: {
       codigo,
@@ -80,7 +83,8 @@ export async function buscarIncidenciaDeQuienConsulta(codigo: string, identidad:
     },
     select: { codigo: true, fechaCreacion: true, estadoIncidencia: { select: { codigo: true } } },
   });
-  return fila ? { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo } : null;
+  if (!fila) return undefined;
+  return { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo };
 }
 
 export async function listarIncidenciasDeQuienConsulta(identidad: IdentidadConsulta): Promise<IncidenciaConsultada[]> {

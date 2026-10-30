@@ -44,11 +44,6 @@ const IDIOMS: ReadonlyArray<{ name: string; pattern: RegExp; owners: string[] }>
 
 const ALLOWED_NUMBERS_OUTSIDE_LIMITS: ReadonlyArray<{ file: string; constant: string; reason: string }> = [
   {
-    file: "lib/integrations/minsa/catalog-pipeline.ts",
-    constant: "HTTP_UNAUTHORIZED",
-    reason: "código de estado HTTP, no un límite que se ajuste",
-  },
-  {
     file: "lib/integrations/minsa/fake-data.ts",
     constant: "SINGLE_HORARIO_DAYS_AHEAD",
     reason: "parámetro del juego de datos falso, que vive junto a esos datos",

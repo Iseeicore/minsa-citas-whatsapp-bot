@@ -163,7 +163,6 @@ export const CONFIRM_REGISTRO_BUTTONS = [
 ];
 
 export const DESPEDIDA_DENUNCIA_TEXT = "¡Hasta pronto!";
-export const INCIDENCIA_REGISTRADA_SIN_CODIGO_TEXT = `Gracias por tu denuncia, ya se registró. ${DESPEDIDA_DENUNCIA_TEXT}`;
 export const SEGUIMIENTO_IDENTIFICADO_TEXT = "Si el área responsable necesita información adicional, se comunicará contigo.";
 
 export const incidenciaRegistradaText = (codigo: string, establecimiento: string | undefined, identificado: boolean): string =>

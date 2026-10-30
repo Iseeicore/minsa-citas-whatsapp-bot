@@ -125,6 +125,17 @@ describe("the image storage service", () => {
       failure: ImageStorageFailure.MISSING_PATH,
     });
   });
+
+  it("fails with an unreadable body, not a missing path, when the service answers something that is not JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html>", { status: 200 })),
+    );
+
+    const rejected = await guardarImagenHttp(Buffer.from("a"), "image/png").catch((caught: unknown) => caught);
+
+    expect(rejected).toMatchObject({ failure: ImageStorageFailure.UNREADABLE_BODY, cause: expect.any(SyntaxError) });
+  });
 });
 
 describe("validating an evidence image before storing it", () => {

@@ -4,9 +4,13 @@ import { minsaDigitalUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integ
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { ACTIVE_CITA_MESSAGE } from "@/lib/constants/regex/integrations";
 import { BookingStatus } from "@/lib/enums/booking-status";
-import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
+import { stringOrUndefined } from "@/lib/utils/text-values";
 import { parseJsonOr } from "@/lib/utils/safe-json";
+import { isRecord } from "@/lib/utils/type-guards";
 import { BOOKING_LOG_BODY_LIMIT, HTTP_SERVER_ERROR_MIN_STATUS } from "@/lib/constants/limits/minsa";
+import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
+
+const UNPARSABLE_BODY = Symbol("unparsable_body");
 
 function minsaMessageOf(body: string): string | undefined {
   const parsed = parseJsonOr(body, null) as { message?: unknown } | null;
@@ -43,9 +47,15 @@ export async function bookAppointment(params: BookAppointmentParams, bearer: str
       },
       bearer,
     );
-    if (response.status === 401) return { status: BookingStatus.UNAUTHORIZED };
+    if (response.status === HTTP_UNAUTHORIZED) return { status: BookingStatus.UNAUTHORIZED };
 
-    const rawBody = await response.text().catch(() => "");
+    let rawBody: string;
+    try {
+      rawBody = await response.text();
+    } catch (error: unknown) {
+      logger.error("minsa.book_appointment.failed", { endpoint: MinsaEndpoint.CITAS, status: response.status, error });
+      return { status: BookingStatus.ERROR };
+    }
 
     const duplicateMessage = minsaMessageOf(rawBody);
     if (duplicateMessage && ACTIVE_CITA_MESSAGE.test(duplicateMessage)) {
@@ -62,12 +72,16 @@ export async function bookAppointment(params: BookAppointmentParams, bearer: str
       return { status: BookingStatus.ERROR };
     }
 
-    const body = parseJsonOr(rawBody, {}) as { data?: { url?: string }; message?: string } | null;
-    const message = stringOr(body?.message);
-
-    if (body?.data?.url) {
-      return { status: BookingStatus.BOOKED, url: body.data.url, message };
+    const body = parseJsonOr(rawBody, UNPARSABLE_BODY);
+    if (body === UNPARSABLE_BODY) {
+      logBookingFailure(params, response.status, rawBody);
+      return { status: BookingStatus.ERROR };
     }
+
+    const message = isRecord(body) ? stringOrUndefined(body.message) : undefined;
+    const url = isRecord(body) && isRecord(body.data) ? stringOrUndefined(body.data.url) : undefined;
+    if (url) return { status: BookingStatus.BOOKED, url, message };
+
     logBookingFailure(params, response.status, rawBody);
     return { status: BookingStatus.REJECTED, message };
   }

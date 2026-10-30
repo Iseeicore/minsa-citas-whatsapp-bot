@@ -80,9 +80,9 @@ export type BookAppointmentParams = {
 };
 
 export type BookAppointmentResult =
-  | { status: BookingStatus.BOOKED; url: string; message: string }
+  | { status: BookingStatus.BOOKED; url: string; message?: string }
   | { status: BookingStatus.DUPLICATE; message: string }
-  | { status: BookingStatus.REJECTED; message: string }
+  | { status: BookingStatus.REJECTED; message?: string }
   | { status: BookingStatus.ERROR }
   | { status: BookingStatus.UNAVAILABLE }
   | { status: BookingStatus.UNAUTHORIZED };

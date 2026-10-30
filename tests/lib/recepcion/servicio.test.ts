@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   usuarioUpsert: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({ id: "u-1" })),
-  incidenciaCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({ id: "i-1" })),
+  incidenciaCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({ id: "i-1", codigo: "MINSA-2026-A-000001" })),
+  incidenciaFindUnique: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({ codigo: "MINSA-2026-A-000001" })),
   evidenciaCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
   executeRaw: vi.fn<(...args: unknown[]) => Promise<number>>(async () => 1),
   queryRaw: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => [{ total: BigInt(0) }]),
@@ -13,6 +14,7 @@ vi.mock("@/lib/db/persistence", () => ({ isDatabaseEnabled: () => db.enabled }))
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     $queryRaw: db.queryRaw,
+    incidenciaPaciente: { findUnique: db.incidenciaFindUnique },
     $transaction: async (run: (tx: unknown) => Promise<unknown>) =>
       run({
         $executeRaw: db.executeRaw,
@@ -32,6 +34,8 @@ import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 
 const base = { waId: "wa-1", dni: null, descripcion: "Me cobraron de mas" };
+const ACEPTADA = { status: "accepted", codigo: "MINSA-2026-A-000001" };
+const violacionUnica = (target: unknown) => Object.assign(new Error("unique"), { code: "P2002", meta: { target } });
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const pngDataUri = `data:image/png;base64,${PNG.toString("base64")}`;
 const svgDataUri = `data:image/svg+xml;base64,${Buffer.from("<svg></svg>").toString("base64")}`;
@@ -51,7 +55,7 @@ describe("registering an incident directly in the database", () => {
   });
 
   it("stores an anonymous incident from WhatsApp with no identity, signed by the citizen", async () => {
-    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "accepted" });
+    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual(ACEPTADA);
 
     expect(db.executeRaw.mock.calls.map((call) => call[1])).toEqual(["ciudadano:wa-1"]);
     expect(db.usuarioUpsert).toHaveBeenCalledWith({ where: { waId: "wa-1" }, create: { waId: "wa-1" }, update: {} });
@@ -97,7 +101,7 @@ describe("registering an incident directly in the database", () => {
   it("one below the maximum still goes through", async () => {
     db.queryRaw.mockResolvedValueOnce([{ total: BigInt(4) }]);
 
-    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "accepted" });
+    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual(ACEPTADA);
   });
 
   it("the count leaves out the incident of this same turn, so a repeated delivery of the last allowed one is not refused", async () => {
@@ -151,10 +155,36 @@ describe("registering an incident directly in the database", () => {
     },
   );
 
-  it("treats a repeated trace id as already stored: one incident, answered as accepted", async () => {
-    db.incidenciaCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+  it.each([["trace_id"], ["uq_incidencia_paciente_trace_id"]])(
+    "a repeated trace id (%s) answers accepted with the code already stored",
+    async (target) => {
+      db.incidenciaCreate.mockRejectedValueOnce(violacionUnica([target]));
 
-    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "accepted" });
+      await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual(ACEPTADA);
+      expect(db.incidenciaFindUnique).toHaveBeenCalledWith({ where: { traceId: "trace-abc" }, select: { codigo: true } });
+    },
+  );
+
+  it("a unique violation on another column is an error, never an acceptance", async () => {
+    db.incidenciaCreate.mockRejectedValueOnce(violacionUnica(["codigo"]));
+
+    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
+  });
+
+  it("a repeated trace id whose code is not found is an error", async () => {
+    db.incidenciaCreate.mockRejectedValueOnce(violacionUnica(["trace_id"]));
+    db.incidenciaFindUnique.mockResolvedValueOnce(null);
+
+    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
+  });
+
+  it("a repeated trace id whose code cannot be read is an error, and the failure is logged", async () => {
+    const error = vi.spyOn(logger, "error");
+    db.incidenciaCreate.mockRejectedValueOnce(violacionUnica(["trace_id"]));
+    db.incidenciaFindUnique.mockRejectedValueOnce(new Error("connection reset"));
+
+    await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
+    expect(error).toHaveBeenCalledWith("incidencia.persist_failed", expect.objectContaining({ error: expect.any(Error) }));
   });
 
   it("reports an error, and never a fake acceptance, when the database fails", async () => {
@@ -193,7 +223,7 @@ describe("the photos that go with an incident", () => {
   it("stores the validated image first and its evidence in the same transaction as the incident", async () => {
     const { almacen, guardar } = almacenFalso();
 
-    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri] }, almacen)).resolves.toEqual({ status: "accepted" });
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri] }, almacen)).resolves.toEqual(ACEPTADA);
 
     expect(guardar).toHaveBeenCalledTimes(1);
     expect(guardar.mock.calls[0][0].bytes.equals(PNG)).toBe(true);
@@ -206,9 +236,7 @@ describe("the photos that go with an incident", () => {
   it("stores every image of the incident in the same transaction", async () => {
     const { almacen, guardar } = almacenFalso();
 
-    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri, pngDataUri, pngDataUri] }, almacen)).resolves.toEqual({
-      status: "accepted",
-    });
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri, pngDataUri, pngDataUri] }, almacen)).resolves.toEqual(ACEPTADA);
 
     expect(guardar).toHaveBeenCalledTimes(3);
     expect(db.evidenciaCreate).toHaveBeenCalledTimes(1);
@@ -264,9 +292,7 @@ describe("the photos that go with an incident", () => {
   it("without an image service the image is stored in the database itself, as base64 in the route", async () => {
     vi.stubEnv("MEDIA_STORAGE_BASE_URL", "");
 
-    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri] }, crearAlmacenEvidencias())).resolves.toEqual({
-      status: "accepted",
-    });
+    await expect(registrarIncidencia({ ...base, mediaDataUris: [pngDataUri] }, crearAlmacenEvidencias())).resolves.toEqual(ACEPTADA);
 
     expect(db.evidenciaCreate).toHaveBeenCalledWith({
       data: [{ incidenciaPacienteId: "i-1", tipoEvidenciaId: 1, mimeType: "image/png", tamano: PNG.length, ruta: pngDataUri }],

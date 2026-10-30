@@ -33,8 +33,10 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `external.http` | info / warn / error | `service`, `operation`, `method`, `path`, `status`, `durationMs` |
 | `turn.end` | info / **warn** | `stateBefore`, `stateAfter`, `durationMs`, `externalCalls`, `externalMs`, `sentCount`, `slots`, `slotsChanged`, `notes`, `friction` |
 | `turn.failed` | error | `stateBefore`, `durationMs`, `error` |
-| `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload` |
+| `minsa.book_appointment.failed` | error | `endpoint`, `status`, `minsaMessage`, `response`, `payload`; o `endpoint`, `status` y `error` si el cuerpo de la respuesta no se pudo leer. También un 2xx sin JSON legible, que se trata como error y no como rechazo |
 | `minsa.catalog.rows_discarded` | warn | `endpoint`, `discarded`, `total`. Filas de un catálogo o de las referencias médicas que no pasaron la validación de la frontera |
+| `minsa.catalog.contract_mismatch` | error | `endpoint`, `reason` (`unreadable_body` o `rows_missing`) y `error` si el cuerpo no se pudo leer. Un catálogo o las referencias médicas respondieron 2xx sin la lista esperada (otro sobre, un sobre de error o un cuerpo que no es JSON); se trata como falla, nunca como lista vacía |
+| `minsa.identity.contract_mismatch` | error | `endpoint`, `reason` (`body_not_object`, `no_explicit_answer` o `token_missing`). Validar usuario o verificar código respondió 2xx sin una respuesta explícita; se trata como falla del servicio, nunca como documento no válido ni código incorrecto |
 | `minsa.request_blocked` | error | `path`, `reason`. Una llamada autenticada al MINSA real no se envió porque falta `MINSA_DIGITAL_APP_URL` y no se puede armar `Origin` ni `Referer`; quien llamó recibe un 503 sin cuerpo y lo trata como error del MINSA |
 | `ai.fallback` | warn | `operation`, `fellBackTo`, `reason` |
 | `turn.lock_timeout` | warn | `waId` (últimos 4), `layer` (`process` o `database`). Un turno esperó demasiado el candado y no se contestó; el ciudadano recibe el texto fijo «Ocurrió un inconveniente temporal…», **como mucho una vez cada 30 s por número** (C4.2: una ráfaga que falla entera no manda un aviso por mensaje) |
@@ -58,8 +60,8 @@ El `traceId` es **determinístico**: sale del número y del id del mensaje de Wh
 | `whatsapp.media_failed` | warn | `error`. No se pudo descargar la foto; la incidencia sigue sin imagen |
 | `incidencia.invalid_submission` | error | `fields` (nombres de los campos inválidos, nunca sus valores). La incidencia llegó al servicio con datos que no pasan la validación; no se guarda |
 | `incidencia.not_persisted` | error | `reason`. No hay base de datos configurada (`DATABASE_ENABLED=false`): la incidencia no se puede guardar y se le responde error al ciudadano |
-| `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
-| `incidencia.persist_failed` | error | `error`. Falló el guardado de la incidencia en la base; el ciudadano recibe el aviso de que no se pudo registrar |
+| `incidencia.media_upload_failed` | error | `error`. El servicio de imágenes falló, respondió un cuerpo que no se pudo leer o no respondió una ruta; no se guarda nada y el ciudadano puede reintentar |
+| `incidencia.persist_failed` | error | `error` o `reason`. Falló el guardado de la incidencia en la base, o no se obtuvo su código (tampoco el de una reentrega); el ciudadano recibe el aviso de que no se pudo registrar |
 | `incidencia.daily_limit_reached` | warn | `limit`. Un teléfono quiso registrar más incidencias que el tope diario (día de Lima); no se guarda y se le avisa que podrá registrar otra mañana |
 | `incidencia.consulta_unavailable` | error | `reason`. Se quiso consultar una incidencia con la base apagada (`DATABASE_ENABLED=false`); la persona recibe «inténtalo más tarde» |
 | `incidencia.consulta_failed` | error | `error`. Falló la consulta de una incidencia en la base; la persona recibe «inténtalo más tarde» y la sesión termina |
