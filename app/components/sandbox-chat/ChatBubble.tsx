@@ -2,6 +2,7 @@ import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { PagerDirection } from "@/lib/enums/pager-direction";
+import { ChatOptionKind } from "@/lib/enums/chat-option-kind";
 import { ReplyButtons } from "@/app/components/ui/ReplyButtons";
 import { Card } from "@/app/components/ui/Card";
 import { CtaLink } from "@/app/components/ui/CtaLink";
@@ -19,7 +20,7 @@ export function ChatBubble({
 }: {
   entry: ChatEntry;
   disabled?: boolean;
-  onOptionClick: (kind: "list" | "buttons", id: string, title: string) => void;
+  onOptionClick: (kind: ChatOptionKind, id: string, title: string) => void;
 }) {
   if (entry.from === ChatEntryAuthor.USER) {
     return (
@@ -45,15 +46,15 @@ export function ChatBubble({
             rows={effect.rows}
             actions={effect.actions}
             disabled={disabled}
-            onSelect={(id, label) => onOptionClick("list", id, label)}
-            onActionSelect={(id, label) => onOptionClick("buttons", id, label)}
+            onSelect={(id, label) => onOptionClick(ChatOptionKind.LIST, id, label)}
+            onActionSelect={(id, label) => onOptionClick(ChatOptionKind.BUTTONS, id, label)}
           />
         )}
 
         {effect.kind === SendType.CTA_URL && <CtaLink href={effect.url} label={effect.buttonText} />}
 
         {effect.kind === SendType.CONSENT && (
-          <ConsentMessage effect={effect} disabled={disabled} onSelect={(id, title) => onOptionClick("buttons", id, title)} />
+          <ConsentMessage effect={effect} disabled={disabled} onSelect={(id, title) => onOptionClick(ChatOptionKind.BUTTONS, id, title)} />
         )}
 
         {effect.kind === SendType.BUTTONS &&
@@ -63,11 +64,11 @@ export function ChatBubble({
                 prev={effect.buttons.find((button) => pagerDirection(button.id) === PagerDirection.PREV)}
                 next={effect.buttons.find((button) => pagerDirection(button.id) === PagerDirection.NEXT)}
                 disabled={disabled}
-                onSelect={(id, title) => onOptionClick("buttons", id, title)}
+                onSelect={(id, title) => onOptionClick(ChatOptionKind.BUTTONS, id, title)}
               />
             </Card>
           ) : (
-            <ReplyButtons buttons={effect.buttons} disabled={disabled} onSelect={(id, title) => onOptionClick("buttons", id, title)} />
+            <ReplyButtons buttons={effect.buttons} disabled={disabled} onSelect={(id, title) => onOptionClick(ChatOptionKind.BUTTONS, id, title)} />
           ))}
       </div>
     </BotMessageRow>

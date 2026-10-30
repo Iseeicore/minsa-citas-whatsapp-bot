@@ -1,6 +1,10 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
 
+const ASISTENTE_ALT_TEXT = "Asistente virtual";
+const TITULO_TEXT = "Soy tu asistente";
+const SUBTITULO_TEXT = "¿En qué podemos ayudarte?";
+
 const FLUID_BUBBLE_SPACING = "mb-2 ml-2 py-3 pl-4 pr-3 @md:mb-3 @md:ml-3 @md:py-4 @md:pl-6 @xl:mb-4 @xl:ml-4 @xl:py-5 @xl:pl-7 @xl:pr-4";
 
 const FLUID_BUBBLE_TAIL =
@@ -35,15 +39,15 @@ export function AssistantCard({
       <span className={cn("flex items-end", !fluid && "whitespace-nowrap")}>
         <Image
           src="/landing/asistente.webp"
-          alt="Asistente virtual"
+          alt={ASISTENTE_ALT_TEXT}
           width={300}
           height={345}
           className={cn("relative z-10 w-auto shrink-0", sizes.image)}
           priority
         />
         <span className={cn("rounded-3xl bg-white shadow-lg", !fluid && "shrink-0", sizes.panel)}>
-          <span className={cn("block font-extrabold text-brand-navy", sizes.title, "leading-tight")}>Soy tu asistente</span>
-          <span className={cn("block text-gray-500", sizes.subtitle)}>¿En qué podemos ayudarte?</span>
+          <span className={cn("block font-extrabold text-brand-navy", sizes.title, "leading-tight")}>{TITULO_TEXT}</span>
+          <span className={cn("block text-gray-500", sizes.subtitle)}>{SUBTITULO_TEXT}</span>
         </span>
       </span>
     </span>
