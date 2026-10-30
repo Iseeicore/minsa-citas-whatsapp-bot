@@ -52,11 +52,6 @@ const ALLOWED_INSIDE_FSM: ReadonlyArray<{ file: string; snippet: string; reason:
     reason: "motivo que va al log ai.fallback, no al ciudadano",
   },
   {
-    file: "lib/fsm/parsing/ai/main-menu-intent.ts",
-    snippet: "response was not valid JSON",
-    reason: "motivo que va al log ai.fallback, no al ciudadano",
-  },
-  {
     file: "lib/fsm/session/turn-lock-db.ts",
     snippet: "WITH cfg AS (SELECT set_config('lock_timeout', $2, true)) SE",
     reason: "sentencia SQL del candado de turno",
