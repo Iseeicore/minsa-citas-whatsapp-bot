@@ -6,7 +6,7 @@ SELECT json_build_object(
       JOIN pg_namespace n ON n.nspname = c.table_schema
       JOIN pg_class cl ON cl.relname = c.table_name AND cl.relnamespace = n.oid
       JOIN pg_attribute a ON a.attrelid = cl.oid AND a.attname = c.column_name
-     WHERE c.table_schema IN ('catalogo', 'chatbot', 'gestion', 'ia')
+     WHERE c.table_schema IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia')
      ORDER BY 1, 2, 4) x),
   'restricciones', (SELECT json_agg(x) FROM (
     SELECT n.nspname AS esquema, cl.relname AS tabla, co.conname AS nombre, co.contype AS tipo,
@@ -20,11 +20,11 @@ SELECT json_build_object(
       FROM pg_constraint co
       JOIN pg_class cl ON cl.oid = co.conrelid
       JOIN pg_namespace n ON n.oid = cl.relnamespace
-     WHERE n.nspname IN ('catalogo', 'chatbot', 'gestion', 'ia')
+     WHERE n.nspname IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia')
      ORDER BY 1, 2, 3) x),
   'indices', (SELECT json_agg(x) FROM (
     SELECT schemaname AS esquema, tablename AS tabla, indexname AS nombre, indexdef AS definicion
-      FROM pg_indexes WHERE schemaname IN ('catalogo', 'chatbot', 'gestion', 'ia') ORDER BY 1, 2, 3) x),
+      FROM pg_indexes WHERE schemaname IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia') ORDER BY 1, 2, 3) x),
   'disparadores', (SELECT json_agg(x) FROM (
     SELECT n.nspname AS esquema, cl.relname AS tabla, t.tgname AS nombre, p.proname AS funcion,
            pg_get_triggerdef(t.oid) AS definicion
@@ -32,6 +32,6 @@ SELECT json_build_object(
       JOIN pg_class cl ON cl.oid = t.tgrelid
       JOIN pg_namespace n ON n.oid = cl.relnamespace
       JOIN pg_proc p ON p.oid = t.tgfoid
-     WHERE NOT t.tgisinternal AND n.nspname IN ('catalogo', 'chatbot', 'gestion', 'ia')
+     WHERE NOT t.tgisinternal AND n.nspname IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia')
      ORDER BY 1, 2, 3) x)
 );

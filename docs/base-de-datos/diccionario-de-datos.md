@@ -11,11 +11,15 @@
 | `chatbot` | Plataforma 1: recepción de incidencias del paciente por WhatsApp o web. Registra al usuario, sus mensajes, lo que reporta y las evidencias. |
 | `gestion` | Plataforma 2: gestión de pacientes inconformes. Es la única que necesita usuarios internos y roles. |
 | `ia` | Plataforma 3: aprendizaje de la IA. Recibe una copia de cada categoría que una persona revisó, ya sea corrigiéndola o confirmándola. |
+| `auditoria` | Evidencia de auditoría de solo inserción: eventos de las acciones, cambios de las filas de negocio y recursos entregados en cada respuesta. Nada se modifica ni se borra; una corrección es un evento nuevo. |
 
 ## Resumen de tablas
 
 | Tabla | Descripción |
 |---|---|
+| `auditoria.cambio_fila` | Cambio de una fila de negocio, guardado en la misma transacción que el cambio. |
+| `auditoria.evento` | Hecho observado e inmutable: cada fase, resultado o rectificación es un registro nuevo. |
+| `auditoria.recurso_accedido` | Recurso incluido en una respuesta de la API. |
 | `catalogo.area` | Área que atiende incidencias: cada establecimiento de salud tiene la suya, y existen además áreas como OTRANS o la sede central. |
 | `catalogo.canal_origen` | Canal por el que llegó la incidencia (WhatsApp o web). |
 | `catalogo.categoria_incidencia` | Categoría que asigna la IA a una incidencia del paciente: denuncia por corrupción, queja, reclamo u otro (cuando el texto no encaja o la IA no puede clasificarlo con seguridad y decide una persona). |
@@ -45,12 +49,157 @@
 | `chatbot.sesion_conversacion` | Estado temporal del flujo conversacional de cada usuario (en qué paso va y qué datos ha dado). |
 | `chatbot.solicitud_carga` | Permiso temporal para que el ciudadano suba archivos de una incidencia desde la página de carga. |
 | `chatbot.usuario` | Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. |
+| `gestion.control_acceso_clave` | Estado compartido del bloqueo por credenciales incorrectas del inicio de sesión y del cambio de clave, por cuenta. |
 | `gestion.rol` | Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y atiende los casos de su establecimiento), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). |
 | `gestion.rol_categoria` | Qué categorías de incidencia puede ver cada rol. |
 | `gestion.sesion_usuario` | Sesión abierta por un usuario interno. |
 | `gestion.usuario_interno` | Persona de la institución que gestiona los casos. |
 | `gestion.usuario_rol` | Relación entre usuarios internos y roles: un usuario puede tener varios roles y un rol lo tienen varios usuarios. |
 | `ia.entrenamiento_categoria` | Copia de cada categoría que una persona revisó (corrigiéndola o confirmándola): lo que dijo la IA, lo que se decidió y el texto del caso. |
+
+### `auditoria.cambio_fila`
+
+Cambio de una fila de negocio, guardado en la misma transacción que el cambio. Copia solo los valores de la lista permitida de cada tabla; del resto guarda el nombre del campo que cambió.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador de este cambio. |
+| `evento_id` | uuid | No |  | FK | Evento al que pertenece el cambio: el de la operación de la API o uno de la conexión si nadie lo declaró. |
+| `esquema` | text | No |  |  | Esquema de la tabla modificada. |
+| `tabla` | text | No |  |  | Tabla modificada. |
+| `clave_fila` | jsonb | No |  |  | Clave simple o compuesta de la fila; el id de una sesión se guarda como su huella SHA256. |
+| `operacion` | text | No |  |  | INSERT, UPDATE o DELETE sobre la tabla de negocio. |
+| `campos_modificados` | text[] | No |  |  | Nombres de los campos que cambiaron, incluidos los que no se copian. |
+| `valores_anteriores` | jsonb | No | `'{}'::jsonb` |  | Valores previos de los campos permitidos que cambiaron; sin datos personales, textos libres ni secretos. |
+| `valores_nuevos` | jsonb | No | `'{}'::jsonb` |  | Valores nuevos de los campos permitidos que cambiaron; sin datos personales, textos libres ni secretos. |
+| `version_resultante` | integer | Sí |  |  | Versión de la fila después del cambio, si la tabla la lleva. |
+| `politica_redaccion` | text | No |  |  | Versión de la lista de campos permitidos aplicada. |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_auditoria_cambio_evento` | `evento_id` | `auditoria.evento` | Cada cambio de fila pertenece a un evento; así se sabe quién y en qué operación lo hizo. |
+
+**Restricciones**
+
+- `ck_auditoria_cambio_json`: `CHECK (((jsonb_typeof(clave_fila) = 'object'::text) AND (octet_length((clave_fila)::text) <= 4096) AND (jsonb_typeof(valores_anteriores) = 'object'::text) AND (octet_length((valores_anteriores)::text) <= 16384) AND (jsonb_typeof(valores_nuevos) = 'object'::text) AND (octet_length((valores_nuevos)::text) <= 16384)))`.
+- `ck_auditoria_cambio_operacion`: `CHECK ((operacion = ANY (ARRAY['INSERT'::text, 'UPDATE'::text, 'DELETE'::text])))`.
+
+**Índices**
+
+- `ix_auditoria_cambio_evento`: `USING btree (evento_id)`.
+- `ix_auditoria_cambio_recurso`: `USING btree (esquema, tabla, evento_id)`.
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_cambio_fila_bloqueo` (Antes de borrar o modificar): Tabla de auditoría de solo inserción: rechaza modificar, borrar y vaciar.
+
+### `auditoria.evento`
+
+Hecho observado e inmutable: cada fase, resultado o rectificación es un registro nuevo. Se inserta solo con auditoria.registrar_evento, que valida las claves permitidas y calcula la huella del contenido.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | No |  | PK | Identificador estable del evento; un reintento con el mismo id y el mismo contenido devuelve el original. |
+| `version_formato` | integer | No | `1` |  | Versión del contrato de evidencia. |
+| `operacion_id` | uuid | No |  |  | Correlación entre los hechos de una misma operación. |
+| `peticion_id` | uuid | Sí |  |  | Identificador técnico de la petición, sin datos de autenticación. |
+| `evento_padre_id` | uuid | Sí |  | FK | Hecho previo que originó este evento. |
+| `evento_autorizacion_id` | uuid | Sí |  | FK | Decisión de autorización relacionada, si existe. |
+| `rectifica_evento_id` | uuid | Sí |  | FK | Evento original que este rectifica sin modificarlo. |
+| `ocurrido_en` | timestamp(3) with time zone | No |  |  | Fecha y hora (UTC) en que ocurrió el hecho en su origen. |
+| `registrado_en` | timestamp(3) with time zone | No | `clock_timestamp()` |  | Fecha y hora (UTC) en que la base recibió el evento; la pone PostgreSQL. |
+| `origen` | text | No |  |  | Componente que produjo el hecho. |
+| `servicio` | text | No |  |  | Servicio responsable del hecho. |
+| `modulo` | text | No |  |  | Módulo funcional o esquema de origen. |
+| `accion` | text | No |  |  | Acción observada. |
+| `fase` | text | No |  |  | Solicitud, autorización, ejecución, entrega u observación. |
+| `resultado` | text | No |  |  | Resultado observado en esta fase: iniciado, permitido, denegado, completado, fallido o interrumpido. |
+| `actor_tipo` | text | No |  |  | Usuario autenticado, sistema, no autenticado o conexión de la base. |
+| `actor_id` | text | Sí |  |  | Identificador confirmado del actor; nunca se atribuye al titular de un correo no autenticado. |
+| `actor_contexto` | jsonb | No | `'{}'::jsonb` |  | Roles, área y referencia no reutilizable de la sesión; sin credenciales. |
+| `sujeto_id` | text | Sí |  |  | Cuenta cuya autorización se evaluó. |
+| `tipo_autorizacion` | text | Sí |  |  | Política aplicada o aprobación humana real. |
+| `regla_autorizacion` | text | Sí |  |  | Regla y versión de la decisión de autorización. |
+| `contexto_autorizacion` | jsonb | No | `'{}'::jsonb` |  | Roles y alcance evaluados, sin datos personales. |
+| `recurso_tipo` | text | Sí |  |  | Tipo de recurso afectado. |
+| `recurso_id` | text | Sí |  |  | Identificador no secreto del recurso afectado. |
+| `contexto_tecnico` | jsonb | No | `'{}'::jsonb` |  | Contexto HTTP acotado y usuario de PostgreSQL que registró el evento (lo pone la base). |
+| `motivo_codigo` | text | Sí |  |  | Causa codificada, sin mensajes libres ni datos personales. |
+| `politica_aplicada` | jsonb | No | `'{}'::jsonb` |  | Parámetros efectivos de seguridad, límite o bloqueo. |
+| `detalle` | jsonb | No | `'{}'::jsonb` |  | Campos permitidos por el contrato, sin cuerpos, claves ni huellas de claves. |
+| `huella_contenido` | bytea | No |  |  | SHA256 del contenido recibido, para detectar un reintento con contenido distinto; no es una firma ni una cadena antimanipulación. |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_auditoria_evento_autorizacion` | `evento_autorizacion_id` | `auditoria.evento` | Une el evento con la decisión de autorización que lo permitió o lo negó. |
+| `fk_auditoria_evento_padre` | `evento_padre_id` | `auditoria.evento` | Une el evento con el hecho previo que lo originó. |
+| `fk_auditoria_evento_rectificado` | `rectifica_evento_id` | `auditoria.evento` | Une la rectificación con el evento que corrige, que no se modifica. |
+
+**Restricciones**
+
+- `ck_auditoria_evento_actor`: `CHECK ((actor_tipo = ANY (ARRAY['USUARIO'::text, 'SISTEMA'::text, 'NO_AUTENTICADO'::text, 'BASE_DATOS'::text])))`.
+- `ck_auditoria_evento_autorizacion`: `CHECK (((tipo_autorizacion IS NULL) OR (tipo_autorizacion = ANY (ARRAY['POLITICA'::text, 'HUMANA'::text]))))`.
+- `ck_auditoria_evento_codigos`: `CHECK ((((length(origen) >= 1) AND (length(origen) <= 80)) AND ((length(servicio) >= 1) AND (length(servicio) <= 80)) AND ((length(modulo) >= 1) AND (length(modulo) <= 80)) AND ((length(accion) >= 1) AND (length(accion) <= 120))))`.
+- `ck_auditoria_evento_contextos`: `CHECK (((jsonb_typeof(actor_contexto) = 'object'::text) AND (octet_length((actor_contexto)::text) <= 4096) AND (jsonb_typeof(contexto_autorizacion) = 'object'::text) AND (octet_length((contexto_autorizacion)::text) <= 4096) AND (jsonb_typeof(contexto_tecnico) = 'object'::text) AND (octet_length((contexto_tecnico)::text) <= 4096) AND (jsonb_typeof(politica_aplicada) = 'object'::text) AND (octet_length((politica_aplicada)::text) <= 4096) AND (jsonb_typeof(detalle) = 'object'::text) AND (octet_length((detalle)::text) <= 4096)))`.
+- `ck_auditoria_evento_fase`: `CHECK ((fase = ANY (ARRAY['SOLICITUD'::text, 'AUTORIZACION'::text, 'EJECUCION'::text, 'ENTREGA'::text, 'OBSERVACION'::text])))`.
+- `ck_auditoria_evento_huella`: `CHECK ((octet_length(huella_contenido) = 32))`.
+- `ck_auditoria_evento_resultado`: `CHECK ((resultado = ANY (ARRAY['INICIADO'::text, 'PERMITIDO'::text, 'DENEGADO'::text, 'COMPLETADO'::text, 'FALLIDO'::text, 'INTERRUMPIDO'::text])))`.
+- `ck_auditoria_evento_version`: `CHECK ((version_formato = 1))`.
+
+**Índices**
+
+- `ix_auditoria_evento_actor_fecha`: `USING btree (actor_id, registrado_en)`.
+- `ix_auditoria_evento_operacion`: `USING btree (operacion_id, registrado_en)`.
+- `ix_auditoria_evento_recurso_fecha`: `USING btree (recurso_tipo, recurso_id, registrado_en)`.
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_evento_bloqueo` (Antes de borrar o modificar): Tabla de auditoría de solo inserción: rechaza modificar, borrar y vaciar.
+
+### `auditoria.recurso_accedido`
+
+Recurso incluido en una respuesta de la API. Prueba que se entregó, no que una persona lo leyó.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | uuid | No | `gen_random_uuid()` | PK | Identificador de este registro. |
+| `evento_id` | uuid | No |  | FK | Evento de consulta o entrega al que pertenece. |
+| `recurso_tipo` | text | No |  |  | Tipo de recurso incluido. |
+| `recurso_id` | text | No |  |  | Identificador del recurso, sin datos personales. |
+| `version_recurso` | text | Sí |  |  | Versión o referencia del contenido entregado, si existe. |
+| `modalidad` | text | No |  |  | Listado, detalle, historial, descarga o exportación. |
+| `grupos_datos` | text[] | No |  |  | Categorías de información incluidas, no sus valores. |
+| `manifiesto_id` | text | Sí |  |  | Referencia protegida para conjuntos grandes, si existe. |
+
+**Llaves foráneas** (qué relaciona y para qué)
+
+| Restricción | Columna | Apunta a | Por qué y para qué |
+|---|---|---|---|
+| `fk_auditoria_recurso_evento` | `evento_id` | `auditoria.evento` | Cada recurso entregado pertenece al evento de la consulta o entrega. |
+
+**Restricciones**
+
+- `ck_auditoria_recurso_limites`: `CHECK ((((length(recurso_tipo) >= 1) AND (length(recurso_tipo) <= 80)) AND ((length(recurso_id) >= 1) AND (length(recurso_id) <= 256)) AND ((cardinality(grupos_datos) >= 1) AND (cardinality(grupos_datos) <= 30)) AND ((version_recurso IS NULL) OR (length(version_recurso) <= 128)) AND ((manifiesto_id IS NULL) OR (length(manifiesto_id) <= 256))))`.
+- `ck_auditoria_recurso_modalidad`: `CHECK ((modalidad = ANY (ARRAY['LISTADO'::text, 'DETALLE'::text, 'HISTORIAL'::text, 'DESCARGA'::text, 'EXPORTACION'::text])))`.
+
+**Índices**
+
+- `ix_auditoria_recurso_evento`: `USING btree (evento_id)`.
+- `ix_auditoria_recurso_identidad`: `USING btree (recurso_tipo, recurso_id, evento_id)`.
+
+**Reglas que aplica la base (disparadores)**
+
+- `trg_recurso_accedido_bloqueo` (Antes de borrar o modificar): Tabla de auditoría de solo inserción: rechaza modificar, borrar y vaciar.
 
 ### `catalogo.area`
 
@@ -675,6 +824,7 @@ Archivo que el paciente adjunta a su reporte (imagen, video, documento o audio).
 
 - `trg_evidencia_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
 - `trg_evidencia_bloqueo` (Antes de borrar o modificar): Tabla de solo inserción: bloquea modificar y borrar.
+- `trg_evidencia_f_auditoria_cambio` (Después de insertar o borrar o modificar): Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.
 
 ### `chatbot.incidencia_analisis`
 
@@ -705,6 +855,7 @@ Análisis automático de una incidencia (puntaje y señales de las reglas, y lo 
 
 - `trg_incidencia_analisis_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
 - `trg_incidencia_analisis_bloqueo` (Antes de borrar o modificar): Tabla de solo inserción: bloquea modificar y borrar.
+- `trg_incidencia_analisis_f_auditoria_cambio` (Después de insertar o borrar o modificar): Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.
 
 ### `chatbot.incidencia_etiqueta`
 
@@ -748,6 +899,7 @@ Asignación de una etiqueta a una incidencia. Cada fila es un periodo en que la 
 - `trg_incidencia_etiqueta_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_etiqueta_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_etiqueta_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
+- `trg_incidencia_etiqueta_f_auditoria_cambio` (Después de insertar o borrar o modificar): Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.
 
 ### `chatbot.incidencia_paciente`
 
@@ -804,6 +956,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 | `reabierto_por` | text | Sí |  |  | Quién reabrió el caso la última vez. La llena la base con el actor declarado. |
 | `reabierto_motivo` | text | Sí |  |  | Por qué se reabrió el caso (10 caracteres o más). Obligatorio al reabrir. Solo se reabre un caso archivado por datos insuficientes, no corresponde o vencido sin atender, nunca uno archivado por vigencia de la resolución. El historial de reaperturas queda en la auditoría. |
 | `derivacion_descripcion` | text | Sí |  |  | Descripción de la última derivación manual, de 10 a 2000 caracteres sin espacios en los extremos. Nula en registros anteriores o sin derivación descrita; los motivos anteriores se conservan en la auditoría. |
+| `habilitado_gestores` | boolean | No | `false` |  | Indica que el responsable delegó el caso a la bandeja común de gestores del área de destino. Nace en falso y la base lo vuelve a falso al cambiar la categoría o el área; tomar, resolver, archivar y reabrir lo conservan. Habilitarlo firma la fecha y el actor de la derivación. |
 
 **Llaves foráneas** (qué relaciona y para qué)
 
@@ -855,7 +1008,7 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 
 **Reglas que aplica la base (disparadores)**
 
-- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar; asignada sola a OTRANS para los casos sensibles y al establecimiento de origen para los demás al clasificarse), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.
+- `trg_incidencia_paciente_a_reglas` (Antes de modificar): Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez (salvo la devolución de OTRANS al establecimiento de origen: de denuncia por corrupción a queja, reclamo u otro, en DERIVADO, con la descripción de la derivación y sin tocar la primera revisión), resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar; asignada sola a OTRANS para los casos sensibles y al establecimiento de origen para los demás al clasificarse), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.
 - `trg_incidencia_paciente_a_reglas_ins` (Antes de insertar): Al crear una incidencia valida que el establecimiento de origen exista y esté activo, y que nazca sin área de destino ni fechas de derivación, toma, archivado o reapertura.
 - `trg_incidencia_paciente_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_incidencia_paciente_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
@@ -864,6 +1017,8 @@ Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o
 - `trg_incidencia_paciente_c_historial` (Después de insertar o modificar): Después de insertar o modificar, guarda el cambio en el historial.
 - `trg_incidencia_paciente_d_entrenamiento` (Después de modificar): Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.
 - `trg_incidencia_paciente_e_entrenamiento_archivo` (Después de modificar): Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.
+- `trg_incidencia_paciente_f_auditoria_cambio` (Después de insertar o borrar o modificar): Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.
+- `trg_incidencia_paciente_z_bandeja_gestores` (Antes de insertar o modificar): Después de las demás reglas: el caso nace sin habilitar para la bandeja común de gestores, cambiar la categoría o el área le quita la habilitación y habilitarlo firma la fecha y el actor de la derivación.
 
 ### `chatbot.incidencia_paciente_auditoria`
 
@@ -1063,6 +1218,29 @@ Persona que escribe al chatbot, identificada por el id de su chat de WhatsApp. R
 - `trg_usuario_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_usuario_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
 
+### `gestion.control_acceso_clave`
+
+Estado compartido del bloqueo por credenciales incorrectas del inicio de sesión y del cambio de clave, por cuenta. Es un dato operativo, no evidencia de auditoría: la API lo lee y lo actualiza en cada intento.
+
+**Columnas**
+
+| Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---|---|---|---|---|---|
+| `clave` | text | No |  | PK | Huella SHA256 (64 caracteres hexadecimales) de la identidad normalizada. No guarda el correo ni la clave, pero no anonimiza una identidad predecible. |
+| `ventana_desde` | timestamp(3) with time zone | No |  |  | Fecha y hora (UTC) en que empezó la ventana en la que se cuentan los fallos. |
+| `fallos` | integer | No | `0` |  | Fallos de credenciales dentro de la ventana; el umbral lo aplica la API con su política vigente. |
+| `bloqueado_hasta` | timestamp(3) with time zone | Sí |  |  | Fecha y hora (UTC) en que termina el bloqueo, fijada al llegar al umbral; los reintentos no la extienden. Nulo si la cuenta no está bloqueada. |
+
+**Restricciones**
+
+- `ck_control_acceso_clave_bloqueo`: `CHECK (((bloqueado_hasta IS NULL) OR ((fallos > 0) AND (bloqueado_hasta >= ventana_desde))))`.
+- `ck_control_acceso_clave_fallos`: `CHECK ((fallos >= 0))`.
+- `ck_control_acceso_clave_huella`: `CHECK ((clave ~ '^[a-f0-9]{64}$'::text))`.
+
+**Índices**
+
+- `ix_control_acceso_clave_bloqueado_hasta`: `USING btree (bloqueado_hasta) WHERE (bloqueado_hasta IS NOT NULL)`.
+
 ### `gestion.rol`
 
 Rol que puede tener un usuario interno de la plataforma de gestión: administrador, gestor (revisa y atiende los casos de su establecimiento), OTRANS (denuncias por corrupción), establecimiento y DIRIS (esta última desactivada). Un rol desactivado no se asigna a nadie. Si el rol tiene tipo de área (todos menos el administrador), solo lo puede tener un usuario de un área de ese tipo. Es la única plataforma con roles. Los valores son provisionales hasta que el área usuaria los confirme.
@@ -1156,6 +1334,8 @@ Sesión abierta por un usuario interno. Su id es lo único que viaja en la cooki
 - `trg_sesion_usuario_b_auditoria_ins` (Antes de insertar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_sesion_usuario_b_auditoria_upd` (Antes de modificar): Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.
 - `trg_sesion_usuario_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
+- `trg_sesion_usuario_f_auditoria_cambio` (Después de insertar o borrar o modificar): Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.
+- `trg_sesion_usuario_g_notificar_revocacion` (Después de modificar): Al revocarse la sesión avisa por el canal minsa_sesiones_revocadas con la huella de su id, para cerrar sus conexiones en vivo.
 
 ### `gestion.usuario_interno`
 
@@ -1206,6 +1386,7 @@ Persona de la institución que gestiona los casos. Es distinta del usuario de Wh
 - `trg_usuario_interno_bloqueo_borrado` (Antes de borrar): Bloquea el borrado físico; se debe usar el borrado lógico.
 - `trg_usuario_interno_c_cerrar_sesiones` (Después de modificar): Al desactivar un usuario interno o cambiarle el área, revoca todas sus sesiones abiertas.
 - `trg_usuario_interno_c_cerrar_sesiones_area` (Después de modificar): Al desactivar un usuario interno o cambiarle el área, revoca todas sus sesiones abiertas.
+- `trg_usuario_interno_f_auditoria_cambio` (Después de insertar o borrar o modificar): Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.
 
 ### `gestion.usuario_rol`
 
@@ -1231,6 +1412,7 @@ Relación entre usuarios internos y roles: un usuario puede tener varios roles y
 
 - `trg_usuario_rol_a_reglas_ins` (Antes de insertar): Impide asignar un rol desactivado a un usuario interno y un rol con tipo de área a un usuario sin área o con un área de otro tipo.
 - `trg_usuario_rol_b_auditoria_ins` (Antes de insertar): Al insertar: llena la fecha y el usuario de creación.
+- `trg_usuario_rol_f_auditoria_cambio` (Después de insertar o borrar o modificar): Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.
 
 ### `ia.entrenamiento_categoria`
 

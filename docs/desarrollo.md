@@ -31,7 +31,7 @@ Los dos canales usan la misma máquina de estados (`lib/fsm/`); cambia cómo lle
    npm run db:aplicar
    ```
 
-   Las migraciones crean solo la estructura: cuatro esquemas (`catalogo`, `chatbot`, `gestion` e `ia`), tablas, columnas, índices y restricciones. `npm run db:aplicar` carga después las funciones, los disparadores, los comentarios y las semillas de catálogo (`prisma/sql` y `prisma/seeds/catalogos`). Cómo se cambia una regla de la base y la carga inicial están en [`prisma/README.md`](../prisma/README.md).
+   Las migraciones crean solo la estructura: cinco esquemas (`auditoria`, `catalogo`, `chatbot`, `gestion` e `ia`), tablas, columnas, índices y restricciones. `npm run db:aplicar` carga después las funciones, los disparadores, los comentarios y las semillas de catálogo (`prisma/sql` y `prisma/seeds/catalogos`). Cómo se cambia una regla de la base y la carga inicial están en [`prisma/README.md`](../prisma/README.md).
 
 4. (Opcional) Carga datos de arranque. Solo corren contra una base cuyo nombre termine en `_desechable`, `_dev` o `_local`, y necesitan `psql` y `DATABASE_URL`:
 

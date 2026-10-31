@@ -8,7 +8,7 @@ BEGIN
     INTO faltantes
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
-   WHERE n.nspname IN ('catalogo', 'chatbot', 'gestion', 'ia')
+   WHERE n.nspname IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia')
      AND c.relkind = 'r'
      AND obj_description(c.oid, 'pg_class') IS NULL;
   ASSERT faltantes IS NULL, 'K01 tablas sin descripcion: ' || coalesce(faltantes, '');
@@ -18,7 +18,7 @@ BEGIN
     FROM pg_attribute a
     JOIN pg_class c ON c.oid = a.attrelid
     JOIN pg_namespace n ON n.oid = c.relnamespace
-   WHERE n.nspname IN ('catalogo', 'chatbot', 'gestion', 'ia')
+   WHERE n.nspname IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia')
      AND c.relkind = 'r'
      AND a.attnum > 0
      AND NOT a.attisdropped

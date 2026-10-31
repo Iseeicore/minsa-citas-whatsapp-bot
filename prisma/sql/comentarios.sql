@@ -2,6 +2,69 @@ COMMENT ON SCHEMA catalogo IS 'Catálogos compartidos por todas las plataformas.
 COMMENT ON SCHEMA chatbot IS 'Plataforma 1: recepción de incidencias del paciente por WhatsApp o web. Registra al usuario, sus mensajes, lo que reporta y las evidencias.';
 COMMENT ON SCHEMA gestion IS 'Plataforma 2: gestión de pacientes inconformes. Es la única que necesita usuarios internos y roles.';
 COMMENT ON SCHEMA ia IS 'Plataforma 3: aprendizaje de la IA. Recibe una copia de cada categoría que una persona revisó, ya sea corrigiéndola o confirmándola.';
+COMMENT ON SCHEMA auditoria IS 'Evidencia de auditoría de solo inserción: eventos de las acciones, cambios de las filas de negocio y recursos entregados en cada respuesta. Nada se modifica ni se borra; una corrección es un evento nuevo.';
+COMMENT ON COLUMN auditoria.cambio_fila.id IS 'Identificador de este cambio.';
+COMMENT ON COLUMN auditoria.cambio_fila.evento_id IS 'Evento al que pertenece el cambio: el de la operación de la API o uno de la conexión si nadie lo declaró.';
+COMMENT ON COLUMN auditoria.cambio_fila.esquema IS 'Esquema de la tabla modificada.';
+COMMENT ON COLUMN auditoria.cambio_fila.tabla IS 'Tabla modificada.';
+COMMENT ON COLUMN auditoria.cambio_fila.clave_fila IS 'Clave simple o compuesta de la fila; el id de una sesión se guarda como su huella SHA256.';
+COMMENT ON COLUMN auditoria.cambio_fila.operacion IS 'INSERT, UPDATE o DELETE sobre la tabla de negocio.';
+COMMENT ON COLUMN auditoria.cambio_fila.campos_modificados IS 'Nombres de los campos que cambiaron, incluidos los que no se copian.';
+COMMENT ON COLUMN auditoria.cambio_fila.valores_anteriores IS 'Valores previos de los campos permitidos que cambiaron; sin datos personales, textos libres ni secretos.';
+COMMENT ON COLUMN auditoria.cambio_fila.valores_nuevos IS 'Valores nuevos de los campos permitidos que cambiaron; sin datos personales, textos libres ni secretos.';
+COMMENT ON COLUMN auditoria.cambio_fila.version_resultante IS 'Versión de la fila después del cambio, si la tabla la lleva.';
+COMMENT ON COLUMN auditoria.cambio_fila.politica_redaccion IS 'Versión de la lista de campos permitidos aplicada.';
+COMMENT ON TABLE auditoria.cambio_fila IS 'Cambio de una fila de negocio, guardado en la misma transacción que el cambio. Copia solo los valores de la lista permitida de cada tabla; del resto guarda el nombre del campo que cambió.
+
+Relaciones:
+- evento_id → auditoria.evento: Cada cambio de fila pertenece a un evento; así se sabe quién y en qué operación lo hizo.';
+COMMENT ON COLUMN auditoria.evento.id IS 'Identificador estable del evento; un reintento con el mismo id y el mismo contenido devuelve el original.';
+COMMENT ON COLUMN auditoria.evento.version_formato IS 'Versión del contrato de evidencia.';
+COMMENT ON COLUMN auditoria.evento.operacion_id IS 'Correlación entre los hechos de una misma operación.';
+COMMENT ON COLUMN auditoria.evento.peticion_id IS 'Identificador técnico de la petición, sin datos de autenticación.';
+COMMENT ON COLUMN auditoria.evento.evento_padre_id IS 'Hecho previo que originó este evento.';
+COMMENT ON COLUMN auditoria.evento.evento_autorizacion_id IS 'Decisión de autorización relacionada, si existe.';
+COMMENT ON COLUMN auditoria.evento.rectifica_evento_id IS 'Evento original que este rectifica sin modificarlo.';
+COMMENT ON COLUMN auditoria.evento.ocurrido_en IS 'Fecha y hora (UTC) en que ocurrió el hecho en su origen.';
+COMMENT ON COLUMN auditoria.evento.registrado_en IS 'Fecha y hora (UTC) en que la base recibió el evento; la pone PostgreSQL.';
+COMMENT ON COLUMN auditoria.evento.origen IS 'Componente que produjo el hecho.';
+COMMENT ON COLUMN auditoria.evento.servicio IS 'Servicio responsable del hecho.';
+COMMENT ON COLUMN auditoria.evento.modulo IS 'Módulo funcional o esquema de origen.';
+COMMENT ON COLUMN auditoria.evento.accion IS 'Acción observada.';
+COMMENT ON COLUMN auditoria.evento.fase IS 'Solicitud, autorización, ejecución, entrega u observación.';
+COMMENT ON COLUMN auditoria.evento.resultado IS 'Resultado observado en esta fase: iniciado, permitido, denegado, completado, fallido o interrumpido.';
+COMMENT ON COLUMN auditoria.evento.actor_tipo IS 'Usuario autenticado, sistema, no autenticado o conexión de la base.';
+COMMENT ON COLUMN auditoria.evento.actor_id IS 'Identificador confirmado del actor; nunca se atribuye al titular de un correo no autenticado.';
+COMMENT ON COLUMN auditoria.evento.actor_contexto IS 'Roles, área y referencia no reutilizable de la sesión; sin credenciales.';
+COMMENT ON COLUMN auditoria.evento.sujeto_id IS 'Cuenta cuya autorización se evaluó.';
+COMMENT ON COLUMN auditoria.evento.tipo_autorizacion IS 'Política aplicada o aprobación humana real.';
+COMMENT ON COLUMN auditoria.evento.regla_autorizacion IS 'Regla y versión de la decisión de autorización.';
+COMMENT ON COLUMN auditoria.evento.contexto_autorizacion IS 'Roles y alcance evaluados, sin datos personales.';
+COMMENT ON COLUMN auditoria.evento.recurso_tipo IS 'Tipo de recurso afectado.';
+COMMENT ON COLUMN auditoria.evento.recurso_id IS 'Identificador no secreto del recurso afectado.';
+COMMENT ON COLUMN auditoria.evento.contexto_tecnico IS 'Contexto HTTP acotado y usuario de PostgreSQL que registró el evento (lo pone la base).';
+COMMENT ON COLUMN auditoria.evento.motivo_codigo IS 'Causa codificada, sin mensajes libres ni datos personales.';
+COMMENT ON COLUMN auditoria.evento.politica_aplicada IS 'Parámetros efectivos de seguridad, límite o bloqueo.';
+COMMENT ON COLUMN auditoria.evento.detalle IS 'Campos permitidos por el contrato, sin cuerpos, claves ni huellas de claves.';
+COMMENT ON COLUMN auditoria.evento.huella_contenido IS 'SHA256 del contenido recibido, para detectar un reintento con contenido distinto; no es una firma ni una cadena antimanipulación.';
+COMMENT ON TABLE auditoria.evento IS 'Hecho observado e inmutable: cada fase, resultado o rectificación es un registro nuevo. Se inserta solo con auditoria.registrar_evento, que valida las claves permitidas y calcula la huella del contenido.
+
+Relaciones:
+- evento_autorizacion_id → auditoria.evento: Une el evento con la decisión de autorización que lo permitió o lo negó.
+- evento_padre_id → auditoria.evento: Une el evento con el hecho previo que lo originó.
+- rectifica_evento_id → auditoria.evento: Une la rectificación con el evento que corrige, que no se modifica.';
+COMMENT ON COLUMN auditoria.recurso_accedido.id IS 'Identificador de este registro.';
+COMMENT ON COLUMN auditoria.recurso_accedido.evento_id IS 'Evento de consulta o entrega al que pertenece.';
+COMMENT ON COLUMN auditoria.recurso_accedido.recurso_tipo IS 'Tipo de recurso incluido.';
+COMMENT ON COLUMN auditoria.recurso_accedido.recurso_id IS 'Identificador del recurso, sin datos personales.';
+COMMENT ON COLUMN auditoria.recurso_accedido.version_recurso IS 'Versión o referencia del contenido entregado, si existe.';
+COMMENT ON COLUMN auditoria.recurso_accedido.modalidad IS 'Listado, detalle, historial, descarga o exportación.';
+COMMENT ON COLUMN auditoria.recurso_accedido.grupos_datos IS 'Categorías de información incluidas, no sus valores.';
+COMMENT ON COLUMN auditoria.recurso_accedido.manifiesto_id IS 'Referencia protegida para conjuntos grandes, si existe.';
+COMMENT ON TABLE auditoria.recurso_accedido IS 'Recurso incluido en una respuesta de la API. Prueba que se entregó, no que una persona lo leyó.
+
+Relaciones:
+- evento_id → auditoria.evento: Cada recurso entregado pertenece al evento de la consulta o entrega.';
 COMMENT ON COLUMN catalogo.area.id IS 'Identificador numérico de la fila, generado por la base.';
 COMMENT ON COLUMN catalogo.area.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.area.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';
@@ -341,6 +404,7 @@ COMMENT ON COLUMN chatbot.incidencia_paciente.reabierto_en IS 'Fecha y hora (UTC
 COMMENT ON COLUMN chatbot.incidencia_paciente.reabierto_por IS 'Quién reabrió el caso la última vez. La llena la base con el actor declarado.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.reabierto_motivo IS 'Por qué se reabrió el caso (10 caracteres o más). Obligatorio al reabrir. Solo se reabre un caso archivado por datos insuficientes, no corresponde o vencido sin atender, nunca uno archivado por vigencia de la resolución. El historial de reaperturas queda en la auditoría.';
 COMMENT ON COLUMN chatbot.incidencia_paciente.derivacion_descripcion IS 'Descripción de la última derivación manual, de 10 a 2000 caracteres sin espacios en los extremos. Nula en registros anteriores o sin derivación descrita; los motivos anteriores se conservan en la auditoría.';
+COMMENT ON COLUMN chatbot.incidencia_paciente.habilitado_gestores IS 'Indica que el responsable delegó el caso a la bandeja común de gestores del área de destino. Nace en falso y la base lo vuelve a falso al cambiar la categoría o el área; tomar, resolver, archivar y reabrir lo conservan. Habilitarlo firma la fecha y el actor de la derivación.';
 COMMENT ON TABLE chatbot.incidencia_paciente IS 'Incidencia que el paciente reporta al chatbot: denuncia por corrupción, queja o reclamo. Es el registro central. Nace con la categoría vacía y datos mínimos; luego la IA asigna la categoría y una persona la corrige o la confirma, una sola vez. Los datos de origen no se pueden modificar. Cada incidencia lleva un código legible (MINSA-AAAA-NNNNNN) que asigna la base. Puede llevar el establecimiento de origen (que no cambia) y el área de destino; la derivación, la toma en gestión, el archivado y la reapertura registran con quién y cuándo, y lo llena la base. La resolución son tres campos (medidas tomadas, fundamento y resultado) que se registran juntos, una sola vez. Un caso de categoría sensible solo puede estar en un área que reciba casos sensibles. Nunca se borra: se desactiva.
 
 Relaciones:
@@ -435,6 +499,11 @@ COMMENT ON TABLE chatbot.usuario IS 'Persona que escribe al chatbot, identificad
 
 Relaciones:
 - estado_conversacion_id → catalogo.estado_conversacion: Garantiza que el estado de la conversación sea uno del catálogo. Sirve para saber si el usuario tiene una conversación abierta.';
+COMMENT ON COLUMN gestion.control_acceso_clave.clave IS 'Huella SHA256 (64 caracteres hexadecimales) de la identidad normalizada. No guarda el correo ni la clave, pero no anonimiza una identidad predecible.';
+COMMENT ON COLUMN gestion.control_acceso_clave.ventana_desde IS 'Fecha y hora (UTC) en que empezó la ventana en la que se cuentan los fallos.';
+COMMENT ON COLUMN gestion.control_acceso_clave.fallos IS 'Fallos de credenciales dentro de la ventana; el umbral lo aplica la API con su política vigente.';
+COMMENT ON COLUMN gestion.control_acceso_clave.bloqueado_hasta IS 'Fecha y hora (UTC) en que termina el bloqueo, fijada al llegar al umbral; los reintentos no la extienden. Nulo si la cuenta no está bloqueada.';
+COMMENT ON TABLE gestion.control_acceso_clave IS 'Estado compartido del bloqueo por credenciales incorrectas del inicio de sesión y del cambio de clave, por cuenta. Es un dato operativo, no evidencia de auditoría: la API lo lee y lo actualiza en cada intento.';
 COMMENT ON COLUMN gestion.rol.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN gestion.rol.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN gestion.rol.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';

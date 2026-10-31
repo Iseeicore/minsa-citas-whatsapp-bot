@@ -3,7 +3,8 @@
     "catalogo": "Catálogos compartidos por todas las plataformas. Cada fila es un valor permitido; se usan con llave foránea en lugar de enumerados para poder agregar valores sin cambiar la estructura.",
     "chatbot": "Plataforma 1: recepción de incidencias del paciente por WhatsApp o web. Registra al usuario, sus mensajes, lo que reporta y las evidencias.",
     "gestion": "Plataforma 2: gestión de pacientes inconformes. Es la única que necesita usuarios internos y roles.",
-    "ia": "Plataforma 3: aprendizaje de la IA. Recibe una copia de cada categoría que una persona revisó, ya sea corrigiéndola o confirmándola."
+    "ia": "Plataforma 3: aprendizaje de la IA. Recibe una copia de cada categoría que una persona revisó, ya sea corrigiéndola o confirmándola.",
+    "auditoria": "Evidencia de auditoría de solo inserción: eventos de las acciones, cambios de las filas de negocio y recursos entregados en cada respuesta. Nada se modifica ni se borra; una corrección es un evento nuevo."
   },
   "comunes": {
     "id": "Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().",
@@ -126,7 +127,8 @@
         "reabierto_en": "Fecha y hora (UTC) en que el caso se reabrió por última vez (de ARCHIVADO a EN_GESTION). La llena la base. Nulo si nunca se reabrió.",
         "reabierto_por": "Quién reabrió el caso la última vez. La llena la base con el actor declarado.",
         "reabierto_motivo": "Por qué se reabrió el caso (10 caracteres o más). Obligatorio al reabrir. Solo se reabre un caso archivado por datos insuficientes, no corresponde o vencido sin atender, nunca uno archivado por vigencia de la resolución. El historial de reaperturas queda en la auditoría.",
-        "derivacion_descripcion": "Descripción de la última derivación manual, de 10 a 2000 caracteres sin espacios en los extremos. Nula en registros anteriores o sin derivación descrita; los motivos anteriores se conservan en la auditoría."
+        "derivacion_descripcion": "Descripción de la última derivación manual, de 10 a 2000 caracteres sin espacios en los extremos. Nula en registros anteriores o sin derivación descrita; los motivos anteriores se conservan en la auditoría.",
+        "habilitado_gestores": "Indica que el responsable delegó el caso a la bandeja común de gestores del área de destino. Nace en falso y la base lo vuelve a falso al cambiar la categoría o el área; tomar, resolver, archivar y reabrir lo conservan. Habilitarlo firma la fecha y el actor de la derivación."
       }
     },
     "chatbot.contador_codigo_incidencia": {
@@ -353,6 +355,78 @@
         "eliminado_en": "Fecha y hora (UTC) en que se quitó la etiqueta. La llena la base al poner activo en falso. Nulo mientras la asignación está vigente.",
         "eliminado_por": "Quién quitó la etiqueta. La llena la base con el actor declarado al poner activo en falso. Nulo mientras la asignación está vigente."
       }
+    },
+    "gestion.control_acceso_clave": {
+      "descripcion": "Estado compartido del bloqueo por credenciales incorrectas del inicio de sesión y del cambio de clave, por cuenta. Es un dato operativo, no evidencia de auditoría: la API lo lee y lo actualiza en cada intento.",
+      "columnas": {
+        "clave": "Huella SHA256 (64 caracteres hexadecimales) de la identidad normalizada. No guarda el correo ni la clave, pero no anonimiza una identidad predecible.",
+        "ventana_desde": "Fecha y hora (UTC) en que empezó la ventana en la que se cuentan los fallos.",
+        "fallos": "Fallos de credenciales dentro de la ventana; el umbral lo aplica la API con su política vigente.",
+        "bloqueado_hasta": "Fecha y hora (UTC) en que termina el bloqueo, fijada al llegar al umbral; los reintentos no la extienden. Nulo si la cuenta no está bloqueada."
+      }
+    },
+    "auditoria.evento": {
+      "descripcion": "Hecho observado e inmutable: cada fase, resultado o rectificación es un registro nuevo. Se inserta solo con auditoria.registrar_evento, que valida las claves permitidas y calcula la huella del contenido.",
+      "columnas": {
+        "id": "Identificador estable del evento; un reintento con el mismo id y el mismo contenido devuelve el original.",
+        "version_formato": "Versión del contrato de evidencia.",
+        "operacion_id": "Correlación entre los hechos de una misma operación.",
+        "peticion_id": "Identificador técnico de la petición, sin datos de autenticación.",
+        "evento_padre_id": "Hecho previo que originó este evento.",
+        "evento_autorizacion_id": "Decisión de autorización relacionada, si existe.",
+        "rectifica_evento_id": "Evento original que este rectifica sin modificarlo.",
+        "ocurrido_en": "Fecha y hora (UTC) en que ocurrió el hecho en su origen.",
+        "registrado_en": "Fecha y hora (UTC) en que la base recibió el evento; la pone PostgreSQL.",
+        "origen": "Componente que produjo el hecho.",
+        "servicio": "Servicio responsable del hecho.",
+        "modulo": "Módulo funcional o esquema de origen.",
+        "accion": "Acción observada.",
+        "fase": "Solicitud, autorización, ejecución, entrega u observación.",
+        "resultado": "Resultado observado en esta fase: iniciado, permitido, denegado, completado, fallido o interrumpido.",
+        "actor_tipo": "Usuario autenticado, sistema, no autenticado o conexión de la base.",
+        "actor_id": "Identificador confirmado del actor; nunca se atribuye al titular de un correo no autenticado.",
+        "actor_contexto": "Roles, área y referencia no reutilizable de la sesión; sin credenciales.",
+        "sujeto_id": "Cuenta cuya autorización se evaluó.",
+        "tipo_autorizacion": "Política aplicada o aprobación humana real.",
+        "regla_autorizacion": "Regla y versión de la decisión de autorización.",
+        "contexto_autorizacion": "Roles y alcance evaluados, sin datos personales.",
+        "recurso_tipo": "Tipo de recurso afectado.",
+        "recurso_id": "Identificador no secreto del recurso afectado.",
+        "contexto_tecnico": "Contexto HTTP acotado y usuario de PostgreSQL que registró el evento (lo pone la base).",
+        "motivo_codigo": "Causa codificada, sin mensajes libres ni datos personales.",
+        "politica_aplicada": "Parámetros efectivos de seguridad, límite o bloqueo.",
+        "detalle": "Campos permitidos por el contrato, sin cuerpos, claves ni huellas de claves.",
+        "huella_contenido": "SHA256 del contenido recibido, para detectar un reintento con contenido distinto; no es una firma ni una cadena antimanipulación."
+      }
+    },
+    "auditoria.cambio_fila": {
+      "descripcion": "Cambio de una fila de negocio, guardado en la misma transacción que el cambio. Copia solo los valores de la lista permitida de cada tabla; del resto guarda el nombre del campo que cambió.",
+      "columnas": {
+        "id": "Identificador de este cambio.",
+        "evento_id": "Evento al que pertenece el cambio: el de la operación de la API o uno de la conexión si nadie lo declaró.",
+        "esquema": "Esquema de la tabla modificada.",
+        "tabla": "Tabla modificada.",
+        "clave_fila": "Clave simple o compuesta de la fila; el id de una sesión se guarda como su huella SHA256.",
+        "operacion": "INSERT, UPDATE o DELETE sobre la tabla de negocio.",
+        "campos_modificados": "Nombres de los campos que cambiaron, incluidos los que no se copian.",
+        "valores_anteriores": "Valores previos de los campos permitidos que cambiaron; sin datos personales, textos libres ni secretos.",
+        "valores_nuevos": "Valores nuevos de los campos permitidos que cambiaron; sin datos personales, textos libres ni secretos.",
+        "version_resultante": "Versión de la fila después del cambio, si la tabla la lleva.",
+        "politica_redaccion": "Versión de la lista de campos permitidos aplicada."
+      }
+    },
+    "auditoria.recurso_accedido": {
+      "descripcion": "Recurso incluido en una respuesta de la API. Prueba que se entregó, no que una persona lo leyó.",
+      "columnas": {
+        "id": "Identificador de este registro.",
+        "evento_id": "Evento de consulta o entrega al que pertenece.",
+        "recurso_tipo": "Tipo de recurso incluido.",
+        "recurso_id": "Identificador del recurso, sin datos personales.",
+        "version_recurso": "Versión o referencia del contenido entregado, si existe.",
+        "modalidad": "Listado, detalle, historial, descarga o exportación.",
+        "grupos_datos": "Categorías de información incluidas, no sus valores.",
+        "manifiesto_id": "Referencia protegida para conjuntos grandes, si existe."
+      }
     }
   },
   "llaves_foraneas": {
@@ -399,14 +473,19 @@
     "fk_rol_tipo_area": "Garantiza que el tipo de área del rol sea uno del catálogo. Sirve para exigir que el área del usuario sea de ese tipo.",
     "fk_usuario_interno_area": "Ubica al usuario interno en un área del catálogo. Sirve para dirigirle los casos de su área.",
     "fk_incidencia_etiqueta_incidencia_paciente": "Cada asignación pertenece a una incidencia. Sirve para listar las etiquetas de un caso.",
-    "fk_incidencia_etiqueta_etiqueta": "Garantiza que la etiqueta sea una del catálogo. Sirve para listar y contar las incidencias que llevan una etiqueta."
+    "fk_incidencia_etiqueta_etiqueta": "Garantiza que la etiqueta sea una del catálogo. Sirve para listar y contar las incidencias que llevan una etiqueta.",
+    "fk_auditoria_evento_padre": "Une el evento con el hecho previo que lo originó.",
+    "fk_auditoria_evento_autorizacion": "Une el evento con la decisión de autorización que lo permitió o lo negó.",
+    "fk_auditoria_evento_rectificado": "Une la rectificación con el evento que corrige, que no se modifica.",
+    "fk_auditoria_cambio_evento": "Cada cambio de fila pertenece a un evento; así se sabe quién y en qué operación lo hizo.",
+    "fk_auditoria_recurso_evento": "Cada recurso entregado pertenece al evento de la consulta o entrega."
   },
   "disparadores_por_funcion": {
     "fn_auditoria_mutable": "Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.",
     "fn_auditoria_creacion": "Al insertar: llena la fecha y el usuario de creación.",
     "fn_fecha_modificacion": "Al modificar: actualiza la fecha de modificación.",
     "fn_bloquear_operacion": "Impide operaciones: en tablas de solo inserción bloquea modificar y borrar; en tablas con borrado lógico bloquea el borrado físico.",
-    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar; asignada sola a OTRANS para los casos sensibles y al establecimiento de origen para los demás al clasificarse), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.",
+    "fn_reglas_incidencia": "Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez (salvo la devolución de OTRANS al establecimiento de origen: de denuncia por corrupción a queja, reclamo u otro, en DERIVADO, con la descripción de la derivación y sin tocar la primera revisión), resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar; asignada sola a OTRANS para los casos sensibles y al establecimiento de origen para los demás al clasificarse), motivo y justificación del archivado (automático o manual) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.",
     "fn_historial_incidencia": "Después de insertar o modificar, guarda el cambio en el historial.",
     "fn_replicar_categoria_entrenamiento": "Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.",
     "fn_reglas_solicitud_carga": "Hace cumplir las reglas de la solicitud de carga: los datos de emisión (incidencia, usuario, huella del token, vencimiento y límites) no cambian y la solicitud se cierra una sola vez, con la fecha de la base.",
@@ -422,6 +501,10 @@
     "fn_marcar_entrenamiento_archivo": "Cuando un caso se archiva con un motivo manual (datos insuficientes o no corresponde) marca sus filas de entrenamiento como no aptas; cuando se reabre, vuelven a ser aptas.",
     "fn_reglas_entrenamiento_categoria": "Hace de solo inserción la tabla de entrenamiento: impide borrar y modificar, salvo apto_entrenamiento, que solo cambia desde el disparador de la incidencia al archivar o reabrir el caso.",
     "fn_limitar_usuarios_establecimiento": "Al insertar un usuario interno, reactivarlo o cambiarle el área, impide que un establecimiento tenga más de 3 usuarios activos (de cualquier rol). Las áreas que no son de un establecimiento, como OTRANS, no tienen tope.",
-    "fn_reglas_incidencia_etiqueta": "Hace cumplir las reglas de la asignación de etiquetas: no se asigna una etiqueta retirada ni a una incidencia eliminada, una incidencia tiene como máximo 10 etiquetas vigentes, la incidencia y la etiqueta de la asignación no cambian, quién y cuándo la quitó lo llena la base y una asignación quitada no se modifica ni se reactiva."
+    "fn_reglas_incidencia_etiqueta": "Hace cumplir las reglas de la asignación de etiquetas: no se asigna una etiqueta retirada ni a una incidencia eliminada, una incidencia tiene como máximo 10 etiquetas vigentes, la incidencia y la etiqueta de la asignación no cambian, quién y cuándo la quitó lo llena la base y una asignación quitada no se modifica ni se reactiva.",
+    "fn_bandeja_gestores": "Después de las demás reglas: el caso nace sin habilitar para la bandeja común de gestores, cambiar la categoría o el área le quita la habilitación y habilitarlo firma la fecha y el actor de la derivación.",
+    "registrar_cambio_fila": "Guarda el cambio en auditoria.cambio_fila, con los valores de los campos permitidos y el nombre de todos los que cambiaron.",
+    "notificar_revocacion_sesion": "Al revocarse la sesión avisa por el canal minsa_sesiones_revocadas con la huella de su id, para cerrar sus conexiones en vivo.",
+    "rechazar_mutacion": "Tabla de auditoría de solo inserción: rechaza modificar, borrar y vaciar."
   }
 }

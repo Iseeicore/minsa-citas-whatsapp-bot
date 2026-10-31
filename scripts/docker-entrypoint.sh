@@ -31,9 +31,9 @@ if [ -n "${RESET_DATABASE_CONFIRM:-}" ]; then
     log "ERROR: RESET_DATABASE_CONFIRM no coincide con el nombre de la base de DATABASE_URL. No se borró nada y el servicio no se inicia."
     exit 1
   fi
-  log "ADVERTENCIA: RESET_DATABASE_CONFIRM activo. Borrando los esquemas catalogo, chatbot, gestion e ia, las funciones fn_* de public y el historial de migraciones."
+  log "ADVERTENCIA: RESET_DATABASE_CONFIRM activo. Borrando los esquemas auditoria, catalogo, chatbot, gestion e ia, las funciones fn_* de public y el historial de migraciones."
   if ! node "$PRISMA_CLI" db execute --schema "$PRISMA_SCHEMA" --stdin <<'SQL'
-DROP SCHEMA IF EXISTS "catalogo", "chatbot", "gestion", "ia" CASCADE;
+DROP SCHEMA IF EXISTS "auditoria", "catalogo", "chatbot", "gestion", "ia" CASCADE;
 DO $$
 DECLARE r record;
 BEGIN
