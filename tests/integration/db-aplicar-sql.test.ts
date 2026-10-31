@@ -85,9 +85,31 @@ describe("the SQL files of prisma/", () => {
 
   it("only call functions that have their own file", () => {
     for (const file of triggers) {
-      const called = [...read(`sql/triggers/${file}`).matchAll(/EXECUTE FUNCTION\s+(\w+)\(/g)].map((m) => kebab(m[1]));
+      const called = [...read(`sql/triggers/${file}`).matchAll(/EXECUTE FUNCTION\s+(?:\w+\.)?(\w+)\(/g)].map((m) => kebab(m[1]));
       expect(called.length, file).toBeGreaterThan(0);
       for (const name of called) expect(functions, `${file} llama a ${name}`).toContain(`${name}.sql`);
+    }
+  });
+
+  it("declare every trigger statically, one CREATE OR REPLACE TRIGGER per line", () => {
+    for (const file of triggers) {
+      const lines = read(`sql/triggers/${file}`)
+        .split("\n")
+        .filter((line) => line.trim() !== "");
+      expect(
+        lines.filter((line) => !line.startsWith("CREATE OR REPLACE TRIGGER ")),
+        file,
+      ).toEqual([]);
+    }
+  });
+
+  it("leave roles, owners and privileges to the DBA script, outside the migrations and db:aplicar", () => {
+    const migrations = fs.readdirSync(path.join(PRISMA, "migrations")).filter((d) => /^\d{14}_/.test(d));
+    for (const file of [
+      ...migrations.map((d) => `migrations/${d}/migration.sql`),
+      ...archivosEnOrden(PRISMA).map((file: string) => path.relative(PRISMA, file)),
+    ]) {
+      expect(read(file), file).not.toMatch(/\b(GRANT|REVOKE|CREATE ROLE|ALTER ROLE)\b|OWNER TO/);
     }
   });
 
@@ -97,6 +119,7 @@ describe("the SQL files of prisma/", () => {
     expect(read("sql/triggers/fn-reglas-incidencia.sql")).toContain("fn_reglas_incidencia(10)");
     expect(read("sql/functions/fn-limitar-usuarios-establecimiento.sql")).not.toMatch(/:=\s*3\b/);
     expect(read("sql/functions/fn-reglas-incidencia-etiqueta.sql")).not.toMatch(/:=\s*10\b/);
+    expect(read("sql/functions/fn-reglas-incidencia.sql")).not.toMatch(/\b2000\b/);
   });
 
   it("keep the archiving days and the purge hours as parameters without a business default", () => {
