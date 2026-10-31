@@ -11,6 +11,7 @@ DECLARE
   v_motivo_codigo text;
   v_archiva boolean := NEW.estado_incidencia_id = 7 AND OLD.estado_incidencia_id <> 7;
   v_reabre boolean := OLD.estado_incidencia_id = 7 AND NEW.estado_incidencia_id <> 7;
+  v_devolucion_otrans boolean := false;
 BEGIN
   IF v_minimo IS NULL OR v_minimo < 1 THEN
     RAISE EXCEPTION 'fn_reglas_incidencia: el disparador debe recibir como argumento el mínimo de caracteres de los textos obligatorios'
@@ -104,16 +105,42 @@ BEGIN
       RAISE EXCEPTION 'incidencia_paciente: la categoria no se puede quitar'
         USING ERRCODE = 'check_violation';
     END IF;
-    IF OLD.categoria_confirmada_en IS NOT NULL THEN
+    IF OLD.categoria_confirmada_en IS NOT NULL OR OLD.categoria_corregida_en IS NOT NULL THEN
+      SELECT EXISTS (
+        SELECT 1
+          FROM gestion.usuario_interno u
+          JOIN gestion.usuario_rol ur ON ur.usuario_interno_id = u.id
+          JOIN gestion.rol r ON r.id = ur.rol_id AND r.activo AND r.codigo = 'OTRANS'
+          JOIN catalogo.area actual ON actual.id = OLD.area_destino_id AND actual.activo
+          JOIN catalogo.tipo_area tipo_actual ON tipo_actual.id = actual.tipo_area_id
+            AND tipo_actual.activo AND tipo_actual.codigo = 'OTRANS'
+          JOIN catalogo.establecimiento_salud es ON es.id = OLD.establecimiento_id AND es.activo
+          JOIN catalogo.area origen ON origen.id = es.area_id AND origen.activo
+          JOIN catalogo.tipo_area tipo_origen ON tipo_origen.id = origen.tipo_area_id
+            AND tipo_origen.activo AND tipo_origen.codigo = 'ESTABLECIMIENTO'
+          JOIN catalogo.categoria_incidencia anterior ON anterior.id = OLD.categoria_id
+            AND anterior.codigo = 'DENUNCIA_CORRUPCION' AND anterior.es_sensible
+          JOIN catalogo.categoria_incidencia siguiente ON siguiente.id = NEW.categoria_id
+            AND siguiente.activo AND NOT siguiente.es_sensible AND siguiente.codigo IN ('QUEJA', 'RECLAMO', 'OTRO')
+         WHERE v_actor = 'usuario:' || u.correo AND u.activo AND u.eliminado_en IS NULL
+           AND u.area_id = actual.id AND OLD.activo AND OLD.eliminado_en IS NULL
+           AND OLD.estado_incidencia_id IN (2, 6) AND NEW.estado_incidencia_id = 6
+           AND NEW.area_destino_id IN (actual.id, origen.id)
+           AND NEW.derivacion_descripcion IS NOT NULL
+      ) INTO v_devolucion_otrans;
+    END IF;
+    IF OLD.categoria_confirmada_en IS NOT NULL AND NOT v_devolucion_otrans THEN
       RAISE EXCEPTION 'incidencia_paciente: la categoria ya se confirmo y no se puede corregir'
         USING ERRCODE = 'check_violation';
     END IF;
-    IF OLD.categoria_corregida_en IS NOT NULL THEN
+    IF OLD.categoria_corregida_en IS NOT NULL AND NOT v_devolucion_otrans THEN
       RAISE EXCEPTION 'incidencia_paciente: la categoria ya se corrigio una vez'
         USING ERRCODE = 'check_violation';
     END IF;
-    NEW.categoria_corregida_en := now();
-    NEW.categoria_corregida_por := v_actor;
+    IF NOT v_devolucion_otrans THEN
+      NEW.categoria_corregida_en := now();
+      NEW.categoria_corregida_por := v_actor;
+    END IF;
   END IF;
 
   IF NEW.categoria_confirmada_en IS DISTINCT FROM OLD.categoria_confirmada_en THEN
@@ -296,4 +323,4 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.fn_reglas_incidencia() IS 'Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez, resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar; asignada sola a OTRANS para los casos sensibles y al establecimiento de origen para los demás al clasificarse), motivo y justificación del archivado (automático o manual, con el mínimo de caracteres que recibe como argumento) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.';
+COMMENT ON FUNCTION public.fn_reglas_incidencia() IS 'Hace cumplir las reglas de la incidencia: datos de origen (incluido el establecimiento) que no cambian, categoría de la IA y su revisión una sola vez salvo la devolución de OTRANS al establecimiento de origen (de denuncia por corrupción a queja, reclamo u otro, en DERIVADO y con la descripción de la derivación, sin tocar la primera revisión), resolución (medidas, fundamento y resultado) una sola vez, máquina de estados, área de destino (obligatoria al derivar o tomar; asignada sola a OTRANS para los casos sensibles y al establecimiento de origen para los demás al clasificarse), motivo y justificación del archivado (automático o manual, con el mínimo de caracteres que recibe como argumento) y reapertura de un caso archivado (con su motivo). Llena las fechas y actores que son de la base.';
