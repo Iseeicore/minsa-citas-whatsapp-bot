@@ -1,0 +1,1 @@
+CREATE OR REPLACE TRIGGER trg_sesion_usuario_g_notificar_revocacion AFTER UPDATE OF revocada_en ON gestion.sesion_usuario FOR EACH ROW WHEN (((old.revocada_en IS NULL) AND (new.revocada_en IS NOT NULL))) EXECUTE FUNCTION auditoria.notificar_revocacion_sesion();

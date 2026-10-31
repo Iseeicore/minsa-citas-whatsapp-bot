@@ -97,7 +97,7 @@ Para usar la base de datos se necesitan `DATABASE_ENABLED=true` y `DATABASE_URL`
 
 ## Borrar la base y migrar desde cero
 
-`RESET_DATABASE_CONFIRM` **borra datos**. Si vale lo mismo que el nombre de la base de `DATABASE_URL`, el arranque borra los esquemas `catalogo`, `chatbot`, `gestion` e `ia`, las funciones `fn_*` de `public` y el historial de migraciones, y después migra desde cero. Si no coincide, no borra nada y el contenedor no se inicia. Con la variable puesta, cada reinicio vuelve a borrar todo: se usa una sola vez y se quita antes del siguiente arranque. Detalle en [docs/despliegue-minsa.md](docs/despliegue-minsa.md#92-borrar-la-base-y-migrar-desde-cero).
+`RESET_DATABASE_CONFIRM` **borra datos**. Si vale lo mismo que el nombre de la base de `DATABASE_URL`, el arranque borra los esquemas `auditoria`, `catalogo`, `chatbot`, `gestion` e `ia`, las funciones `fn_*` de `public` y el historial de migraciones, y después migra desde cero. Si no coincide, no borra nada y el contenedor no se inicia. Con la variable puesta, cada reinicio vuelve a borrar todo: se usa una sola vez y se quita antes del siguiente arranque. Detalle en [docs/despliegue-minsa.md](docs/despliegue-minsa.md#92-borrar-la-base-y-migrar-desde-cero).
 
 ## Documentación
 

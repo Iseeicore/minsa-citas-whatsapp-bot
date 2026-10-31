@@ -397,6 +397,7 @@ model IncidenciaPaciente {
   reabiertoPor           String?   @map("reabierto_por")
   reabiertoMotivo        String?   @map("reabierto_motivo")
   derivacionDescripcion  String?   @map("derivacion_descripcion")
+  habilitadoGestores     Boolean   @default(false) @map("habilitado_gestores")
 
   canalOrigen         CanalOrigen                   @relation(fields: [canalOrigenId], references: [id], map: "fk_incidencia_paciente_canal_origen")
   usuario             Usuario                       @relation(fields: [usuarioId], references: [id], map: "fk_incidencia_paciente_usuario")
@@ -635,6 +636,16 @@ model UsuarioRol {
 
   @@id([usuarioInternoId, rolId], map: "pk_usuario_rol")
   @@map("usuario_rol")
+  @@schema("gestion")
+}
+
+model ControlAccesoClave {
+  clave          String    @id(map: "pk_control_acceso_clave")
+  ventanaDesde   DateTime  @map("ventana_desde") @db.Timestamptz(3)
+  fallos         Int       @default(0)
+  bloqueadoHasta DateTime? @map("bloqueado_hasta") @db.Timestamptz(3)
+
+  @@map("control_acceso_clave")
   @@schema("gestion")
 }
 

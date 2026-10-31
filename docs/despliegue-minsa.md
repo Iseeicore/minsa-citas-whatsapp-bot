@@ -324,7 +324,7 @@ El contenedor arranca con `scripts/docker-entrypoint.sh`, que decide según `DAT
 RESET_DATABASE_CONFIRM=<nombre exacto de la base de DATABASE_URL>
 ```
 
-- **Qué borra:** los esquemas `catalogo`, `chatbot`, `gestion` e `ia`, las funciones `fn_*` de `public` y el historial de migraciones (`_prisma_migrations`). Después aplica todas las migraciones desde cero. Se pierden las incidencias, los usuarios y todo lo demás.
+- **Qué borra:** los esquemas `auditoria`, `catalogo`, `chatbot`, `gestion` e `ia`, las funciones `fn_*` de `public` y el historial de migraciones (`_prisma_migrations`). Después aplica todas las migraciones desde cero. Se pierden las incidencias, los usuarios y todo lo demás.
 - **Cuándo no borra:** sin la variable, nunca. Si su valor no coincide con el nombre de la base, el servicio no arranca y no borra nada.
 - **Úsenla una sola vez y quítenla del ambiente antes del siguiente despliegue.** Mientras siga puesta, **cada reinicio vuelve a borrar todo**: no hay ninguna marca que impida repetirlo.
 - **No la usen con incidencias reales.**
