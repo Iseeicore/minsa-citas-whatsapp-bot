@@ -157,6 +157,7 @@ Hecho observado e inmutable: cada fase, resultado o rectificación es un registr
 **Índices**
 
 - `ix_auditoria_evento_actor_fecha`: `USING btree (actor_id, registrado_en)`.
+- `ix_auditoria_evento_iniciado`: `USING btree (registrado_en) WHERE (resultado = 'INICIADO'::text)`.
 - `ix_auditoria_evento_operacion`: `USING btree (operacion_id, registrado_en)`.
 - `ix_auditoria_evento_recurso_fecha`: `USING btree (recurso_tipo, recurso_id, registrado_en)`.
 

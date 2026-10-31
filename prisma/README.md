@@ -76,6 +76,7 @@ El esquema `auditoria` guarda evidencia de solo inserción: `evento` (cada hecho
 
 - La API de gestión registra sus eventos solo con `auditoria.registrar_evento(evento, recursos)` y declara el evento de la operación con `set_config('app.auditoria', '{"evento_id":"..."}', true)`; los cambios de fila de esa transacción se cuelgan de él.
 - Las escrituras del bot también se auditan: sin `app.auditoria`, el disparador crea un evento de la conexión (`BASE_DATOS`) sin inventar un autor.
+- Una operación que quedó con su evento `INICIADO` y sin cierre se cierra agregando un evento `INTERRUMPIDO` (motivo `SIN_CIERRE`), nunca borrando: lo hace `auditoria.cerrar_operaciones_interrumpidas(antigüedad, lote)`. El bot la llama al arrancar y después cada hora, con una hora de antigüedad (`lib/constants/limits/auditoria.ts`) y deja `auditoria.operaciones_interrumpidas` en el log. Tiene su propio candado, así que varias instancias o un cron de Infraestructura pueden llamarla a la vez sin cerrar dos veces. Cuánto tiempo se guarda la auditoría (retención por antigüedad o volumen) está por decidir con Infraestructura.
 - Modificar, borrar o vaciar una tabla de auditoría falla con `42501`, aunque la sentencia no toque filas. PostgreSQL no impide que el dueño de las tablas o un superusuario quite el disparador: la custodia real depende de quién tiene esas cuentas.
 
 ## Roles y permisos (paso del DBA)

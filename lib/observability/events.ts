@@ -21,6 +21,8 @@ export const LOG_EVENTS = [
   "session.slot_corrupt",
   "inbound.expired_on_boot",
   "inbound.expire_failed",
+  "auditoria.operaciones_interrumpidas",
+  "auditoria.cierre_failed",
   "inbound.latency",
   "inbound.stale_tap",
   "sandbox.latency",

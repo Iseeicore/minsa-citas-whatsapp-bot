@@ -3,6 +3,8 @@ import { configureLogger } from "@/lib/observability/logger";
 import { register } from "@/instrumentation";
 
 vi.mock("@/lib/whatsapp/inbound/expire-stale-inbound", () => ({ expireStaleInbound: vi.fn(async () => undefined) }));
+const cierre = vi.hoisted(() => ({ programarCierreOperaciones: vi.fn() }));
+vi.mock("@/lib/auditoria/cierre-operaciones", () => cierre);
 
 describe("instrumentation register()", () => {
   afterEach(() => {
@@ -24,6 +26,15 @@ describe("instrumentation register()", () => {
     expect(lines.filter((line) => line.event === "config.invalid")).toEqual([
       expect.objectContaining({ level: "error", issue: "AI_PROVIDER_UNKNOWN" }),
     ]);
+  });
+
+  it("schedules the hourly closing of half-finished audit operations on the Node.js runtime", async () => {
+    cierre.programarCierreOperaciones.mockClear();
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+
+    await register();
+
+    expect(cierre.programarCierreOperaciones).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing on the Edge runtime", async () => {

@@ -4,4 +4,6 @@ export async function register() {
   reportConfigIssues();
   const { expireStaleInbound } = await import("@/lib/whatsapp/inbound/expire-stale-inbound");
   await expireStaleInbound();
+  const { programarCierreOperaciones } = await import("@/lib/auditoria/cierre-operaciones");
+  programarCierreOperaciones();
 }

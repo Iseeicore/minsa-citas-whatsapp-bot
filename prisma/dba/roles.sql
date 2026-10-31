@@ -41,6 +41,7 @@ ALTER FUNCTION auditoria.registrar_evento(jsonb, jsonb) OWNER TO chatbot_auditor
 ALTER FUNCTION auditoria.registrar_cambio_fila() OWNER TO chatbot_auditoria_propietario;
 ALTER FUNCTION auditoria.rechazar_mutacion() OWNER TO chatbot_auditoria_propietario;
 ALTER FUNCTION auditoria.notificar_revocacion_sesion() OWNER TO chatbot_auditoria_propietario;
+ALTER FUNCTION auditoria.cerrar_operaciones_interrumpidas(interval, integer) OWNER TO chatbot_auditoria_propietario;
 GRANT chatbot_auditoria_propietario TO :"dueno";
 
 REVOKE ALL ON SCHEMA auditoria FROM PUBLIC;
@@ -49,6 +50,7 @@ REVOKE ALL ON ALL TABLES IN SCHEMA auditoria FROM PUBLIC, chatbot_auditoria_inge
 GRANT SELECT ON ALL TABLES IN SCHEMA auditoria TO chatbot_auditoria_lector;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA auditoria FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION auditoria.registrar_evento(jsonb, jsonb) TO chatbot_auditoria_ingesta;
+GRANT EXECUTE ON FUNCTION auditoria.cerrar_operaciones_interrumpidas(interval, integer) TO chatbot_app_crud, chatbot_app_admin;
 ALTER DEFAULT PRIVILEGES FOR ROLE chatbot_auditoria_propietario IN SCHEMA auditoria REVOKE ALL ON TABLES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE chatbot_auditoria_propietario IN SCHEMA auditoria REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE chatbot_auditoria_propietario IN SCHEMA auditoria GRANT SELECT ON TABLES TO chatbot_auditoria_lector;
