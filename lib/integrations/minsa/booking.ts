@@ -2,12 +2,13 @@ import { logger } from "@/lib/observability/logger";
 import type { BookAppointmentParams, BookAppointmentResult } from "@/lib/integrations/minsa/types";
 import { minsaDigitalUrl, postWithBearer, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
-import { ACTIVE_CITA_MESSAGE } from "@/lib/constants/regex/integrations";
+import { ACTIVE_CITA_MESSAGE, ALREADY_HAS_APPOINTMENT_MESSAGE, MINSA_ERROR_CODE } from "@/lib/constants/regex/integrations";
+import { MINSA_ALREADY_HAS_APPOINTMENT_CODE } from "@/lib/constants/minsa-error-codes";
 import { BookingStatus } from "@/lib/enums/booking-status";
 import { stringOrUndefined } from "@/lib/utils/text-values";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isRecord } from "@/lib/utils/type-guards";
-import { BOOKING_LOG_BODY_LIMIT, HTTP_SERVER_ERROR_MIN_STATUS } from "@/lib/constants/limits/minsa";
+import { BOOKING_LOG_BODY_LIMIT, HTTP_SERVER_ERROR_MIN_STATUS, NETWORK_FAILURE_STATUS } from "@/lib/constants/limits/minsa";
 import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
 
 const UNPARSABLE_BODY = Symbol("unparsable_body");
@@ -15,6 +16,14 @@ const UNPARSABLE_BODY = Symbol("unparsable_body");
 function minsaMessageOf(body: string): string | undefined {
   const parsed = parseJsonOr(body, null) as { message?: unknown } | null;
   return stringOrUndefined(parsed?.message);
+}
+
+function minsaErrorCodeOf(message: string): string | undefined {
+  return MINSA_ERROR_CODE.exec(message)?.[1];
+}
+
+function isAlreadyHasAppointment(message: string): boolean {
+  return minsaErrorCodeOf(message) === MINSA_ALREADY_HAS_APPOINTMENT_CODE || ALREADY_HAS_APPOINTMENT_MESSAGE.test(message);
 }
 
 function logBookingFailure(params: BookAppointmentParams, httpStatus: number, body: string): void {
@@ -33,20 +42,30 @@ function logBookingFailure(params: BookAppointmentParams, httpStatus: number, bo
   });
 }
 
+function postBooking(params: BookAppointmentParams, bearer: string): Promise<Response> {
+  return postWithBearer(
+    MinsaEndpoint.CITAS,
+    {
+      codigo_renipress: params.codigoRenipress,
+      codigo_ups: params.codigoUps,
+      fecha_cita: params.fechaCita,
+      hora_cita: params.horaCita,
+      numero_documento_paciente: params.numeroDocumentoPaciente,
+      ...(params.referenciaId ? { referencia_id: params.referenciaId } : {}),
+    },
+    bearer,
+  );
+}
+
 export async function bookAppointment(params: BookAppointmentParams, bearer: string): Promise<BookAppointmentResult> {
   if (isRealMinsaEnabled()) {
-    const response = await postWithBearer(
-      MinsaEndpoint.CITAS,
-      {
-        codigo_renipress: params.codigoRenipress,
-        codigo_ups: params.codigoUps,
-        fecha_cita: params.fechaCita,
-        hora_cita: params.horaCita,
-        numero_documento_paciente: params.numeroDocumentoPaciente,
-        ...(params.referenciaId ? { referencia_id: params.referenciaId } : {}),
-      },
-      bearer,
-    );
+    let response: Response;
+    try {
+      response = await postBooking(params, bearer);
+    } catch (error: unknown) {
+      logger.error("minsa.book_appointment.failed", { endpoint: MinsaEndpoint.CITAS, status: NETWORK_FAILURE_STATUS, error });
+      return { status: BookingStatus.UNAVAILABLE };
+    }
     if (response.status === HTTP_UNAUTHORIZED) return { status: BookingStatus.UNAUTHORIZED };
 
     let rawBody: string;
@@ -57,9 +76,19 @@ export async function bookAppointment(params: BookAppointmentParams, bearer: str
       return { status: BookingStatus.ERROR };
     }
 
-    const duplicateMessage = minsaMessageOf(rawBody);
-    if (duplicateMessage && ACTIVE_CITA_MESSAGE.test(duplicateMessage)) {
-      return { status: BookingStatus.DUPLICATE, message: duplicateMessage };
+    const minsaMessage = minsaMessageOf(rawBody);
+    if (minsaMessage && isAlreadyHasAppointment(minsaMessage)) {
+      logger.warn("minsa.booking_rejected", {
+        endpoint: MinsaEndpoint.CITAS,
+        httpStatus: response.status,
+        minsaCode: minsaErrorCodeOf(minsaMessage),
+        minsaMessage,
+      });
+      return { status: BookingStatus.ALREADY_HAS_APPOINTMENT, message: minsaMessage };
+    }
+
+    if (minsaMessage && ACTIVE_CITA_MESSAGE.test(minsaMessage)) {
+      return { status: BookingStatus.DUPLICATE, message: minsaMessage };
     }
 
     if (response.status >= HTTP_SERVER_ERROR_MIN_STATUS) {

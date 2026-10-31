@@ -13,6 +13,7 @@ export type SlotValue = string | number | boolean | null;
 
 export type SlotTypes = {
   [SlotKey.CITA_HORA_CONFIRM_ID]: string;
+  [SlotKey.CITA_HORA_RESERVA]: string;
   [SlotKey.CITA_ESPECIALIDAD_ID]: string;
   [SlotKey.CITA_BEARER]: string;
   [SlotKey.CITA_DISTRITO]: string;

@@ -33,6 +33,8 @@ import { handleHoraConfirm } from "@/lib/fsm/flows/cita/steps/hora/confirm";
 import { handleHoraChoice } from "@/lib/fsm/flows/cita/steps/hora/choice";
 import { handleBookingPending } from "@/lib/fsm/flows/cita/steps/booking/booking";
 import { handleDuplicateChoice } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
+import { handleAlreadyBookedChoice } from "@/lib/fsm/flows/cita/steps/booking/already-booked";
+import { handleBookingRetryChoice } from "@/lib/fsm/flows/cita/steps/booking/booking-retry";
 import { handleOtherEstablecimiento } from "@/lib/fsm/flows/cita/steps/catalog/other-establecimiento";
 import { handleExitConfirm } from "@/lib/fsm/flows/cita/steps/exit/exit";
 import {
@@ -118,6 +120,10 @@ export function handleCita(session: Session, event: HandleEvent): HandlerResult 
       return handleBookingPending(session, event as QueryResultEvent);
     case SessionState.CITA_AWAITING_DUPLICATE_CHOICE:
       return handleDuplicateChoice(session, event as InboundEvent);
+    case SessionState.CITA_AWAITING_ALREADY_BOOKED_CHOICE:
+      return handleAlreadyBookedChoice(session, event as InboundEvent);
+    case SessionState.CITA_AWAITING_BOOKING_RETRY:
+      return handleBookingRetryChoice(session, event as InboundEvent);
     case SessionState.CITA_AWAITING_OTHER_ESTABLECIMIENTO:
       return handleOtherEstablecimiento(session, event as InboundEvent);
     case SessionState.CITA_AWAITING_EXIT_CONFIRM:

@@ -7,6 +7,7 @@ import { configuredLlmProvider, lookupLlmClient } from "@/lib/fsm/parsing/ai/llm
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { bookAppointment } from "@/lib/integrations/minsa/booking";
+import { waitBeforeBookingRetry } from "@/lib/integrations/minsa/booking-retry";
 import { listEspecialidades, listEstablecimientos, listFechas, listHoras, searchUbigeo } from "@/lib/integrations/minsa/catalog";
 import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
@@ -288,6 +289,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
       return listHoras(required("codEess"), required("especialidadId"), formatFechaForApi(required("fecha")), bearer());
 
     case QueryKind.BOOK_APPOINTMENT:
+      if (isFiniteNumber(effect.payload.retryAttempt)) await waitBeforeBookingRetry(effect.payload.retryAttempt);
       return bookAppointment(
         {
           codigoRenipress: required("codigoRenipress"),

@@ -69,20 +69,25 @@ export function withDiscardedEspecialidad(slots: Session["slots"]): Session["slo
   };
 }
 
-export function offerOtherEspecialidad(session: Session): HandlerResult {
-  if (isReferenceAppointment(session)) {
-    return withLeadingText(startNewAppointment(session), REFERENCIA_DUPLICATE_TEXT);
-  }
+export function toOtherEspecialidadChoice(session: Session): Session {
   const next = cloneSession(session);
-  const name = next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]
-    ? `*${String(next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*`
-    : THAT_ESPECIALIDAD_TEXT;
-
   next.slots = withDiscardedEspecialidad(next.slots);
   for (const slot of BOOKING_BOUND_SLOTS) delete next.slots[slot];
   delete next.counters[CounterKey.CITA_HORA_PAGE];
   delete next.counters[CounterKey.CITA_BOOKING_FAILURES];
+  delete next.counters[CounterKey.CITA_ALREADY_BOOKED_REJECTIONS];
   next.state = SessionState.CITA_AWAITING_DUPLICATE_CHOICE;
+  return next;
+}
+
+export function offerOtherEspecialidad(session: Session): HandlerResult {
+  if (isReferenceAppointment(session)) {
+    return withLeadingText(startNewAppointment(session), REFERENCIA_DUPLICATE_TEXT);
+  }
+  const name = session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE]
+    ? `*${String(session.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE])}*`
+    : THAT_ESPECIALIDAD_TEXT;
+  const next = toOtherEspecialidadChoice(session);
 
   return withNote(buildResult(next, [questionButtons(duplicateActiveText(name))]), {
     kind: "booking_rejected",

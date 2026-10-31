@@ -20,6 +20,7 @@ const minsa = vi.hoisted(() => ({
   countIntentosDelDia: vi.fn(async () => ({ statusCupo: "counted", total: 0 })),
   saveIntentoConsulta: vi.fn(async () => ({ statusCupo: "saved" })),
   saveAceptacionTerminos: vi.fn(async () => ({ ok: true })),
+  waitBeforeBookingRetry: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
@@ -34,6 +35,7 @@ vi.mock("@/lib/integrations/minsa/catalog", () => ({
   listHoras: minsa.listHoras,
 }));
 vi.mock("@/lib/integrations/minsa/booking", () => ({ bookAppointment: minsa.bookAppointment }));
+vi.mock("@/lib/integrations/minsa/booking-retry", () => ({ waitBeforeBookingRetry: minsa.waitBeforeBookingRetry }));
 vi.mock("@/lib/integrations/minsa/references", () => ({ listReferences: minsa.listReferences }));
 vi.mock("@/lib/integrations/minsa/identity", () => ({ validateUser: minsa.validateUser, verifyCode: minsa.verifyCode }));
 vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: minsa.consultarIncidencia }));
@@ -104,6 +106,19 @@ describe("the executor refuses to call MINSA with a missing required value", () 
   ])("fails the %s turn without calling MINSA when a value is missing", async (kind, payload, client) => {
     await expect(runTurnUnlocked(FROM, event, undefined, startWith(kind, payload))).rejects.toThrow(MissingSlotError);
     expect(client).not.toHaveBeenCalled();
+  });
+});
+
+describe("a booking retry waits before calling MINSA again", () => {
+  it("waits only when the payload carries the retry attempt, and always before booking", async () => {
+    const [, booking] = CASES.find(([kind]) => kind === QueryKind.BOOK_APPOINTMENT) ?? [];
+
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.BOOK_APPOINTMENT, { ...booking }, BEARER));
+    expect(minsa.waitBeforeBookingRetry).not.toHaveBeenCalled();
+
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.BOOK_APPOINTMENT, { ...booking, retryAttempt: 2 }, BEARER));
+    expect(minsa.waitBeforeBookingRetry).toHaveBeenCalledWith(2);
+    expect(minsa.waitBeforeBookingRetry.mock.invocationCallOrder[0]).toBeLessThan(minsa.bookAppointment.mock.invocationCallOrder[1]);
   });
 });
 
