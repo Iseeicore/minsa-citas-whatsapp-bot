@@ -3,11 +3,8 @@ import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/inicio";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
-import { askReferenciaChoice, beginCita, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
-import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
-import { reshowReferenciaConfirmation } from "@/lib/fsm/flows/cita/steps/booking/references";
-import { askCitaOffer } from "@/lib/fsm/flows/referencia/handlers-referencia";
-import { askOtherReference } from "@/lib/fsm/flows/referencia/other-reference";
+import { beginCita, disabledServiceReply } from "@/lib/fsm/routing/flow-entry";
+import { findButtonReprompt } from "@/lib/fsm/flows/shared/button-reprompts";
 import { channelOf } from "@/lib/fsm/core/channel";
 import { serviceCatalog } from "@/lib/services/service-catalog";
 import { evaluateLexicalGuard, type LexicalAction } from "@/lib/security/lexical-guard";
@@ -50,14 +47,6 @@ const SELECTION_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_AWAITING_REFERENCIA_SELECT,
 ]);
 
-const BUTTON_STATE_REPROMPTS: Record<string, (session: Session) => HandlerResult> = {
-  [SessionState.CITA_AWAITING_REFERENCIA_CONFIRM]: reshowReferenciaConfirmation,
-  [SessionState.REFERENCIA_AWAITING_CITA_OFFER]: askCitaOffer,
-  [SessionState.REFERENCIA_AWAITING_OTHER_REFERENCE]: askOtherReference,
-  [SessionState.CITA_AWAITING_TERMINOS]: reshowTerminos,
-  [SessionState.MAIN_MENU_REFERENCIA_CHOICE]: askReferenciaChoice,
-};
-
 function institutionalWarningText(): string {
   return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA) ? INSTITUTIONAL_WARNING_TEXT : RESPECT_REMINDER_TEXT;
 }
@@ -88,7 +77,7 @@ export function applyLexicalGuard(session: Session, event: HandleEvent): Handler
   const isMenuLevel = session.state === SessionState.MAIN_MENU || TERMINAL_STATES.has(session.state);
   const midFlowPrompt = FREE_TEXT_STATE_PROMPTS[session.state];
   const isSelection = SELECTION_STATES.has(session.state);
-  const buttonReprompt = BUTTON_STATE_REPROMPTS[session.state];
+  const buttonReprompt = findButtonReprompt(session.state);
   if (!isMenuLevel && midFlowPrompt === undefined && !isSelection && buttonReprompt === undefined) return undefined;
 
   const { action } = evaluateLexicalGuard(textoDeLaPersona(event.text));

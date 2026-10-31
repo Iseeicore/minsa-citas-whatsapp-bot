@@ -101,7 +101,7 @@ describe("the boundary between a cita and a referencia", () => {
 
     const result = handle(pending, aiAnswer({ intent: "cita", especialidad: "Cardiología" }, channel));
 
-    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
     expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
     expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Cardiología");
   });
@@ -112,7 +112,7 @@ describe("the boundary between a cita and a referencia", () => {
       const result = handle(menu(), typed(message, Channel.WHATSAPP));
 
       expect(queries(result)).toHaveLength(0);
-      expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+      expect(result.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
       expect(result.session.slots[SlotKey.POST_LOGIN_FLOW]).toBeUndefined();
     },
   );

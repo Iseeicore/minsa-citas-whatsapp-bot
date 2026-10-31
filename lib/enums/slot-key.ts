@@ -66,4 +66,6 @@ export enum SlotKey {
   TERMINOS_ACEPTADOS = "terminosAceptados",
   TERMINOS_RESUME = "terminosResume",
   TERMINOS_INTRO_TEXT = "terminosIntroText",
+  CITA_DOCUMENTO_INTRO_TEXT = "citaDocumentoIntroText",
+  CITA_ESTABLECIMIENTOS_RETENIDOS = "citaEstablecimientosRetenidos",
 }

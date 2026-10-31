@@ -7,12 +7,12 @@ import {
   omitSlot,
   query,
   sendButtons,
+  sendList,
   sendText,
   withNote,
   readTappedId,
   readTypedText,
 } from "@/lib/fsm/core/handlers-shared";
-import { withDiscardedEspecialidad } from "@/lib/fsm/flows/cita/steps/booking/duplicate";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
@@ -35,8 +35,9 @@ import {
   NO_ESTABLECIMIENTOS_QUESTION_TEXT,
   noEstablecimientosText,
   OTHER_DISTRITO_BUTTONS,
-  NO_ESTABLECIMIENTOS_BUTTONS,
+  NO_ESTABLECIMIENTOS_ROWS,
 } from "@/lib/constants/textos/cita-ubicacion";
+import { searchEstablecimientosPage } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { CHANGE_DISTRICT_ANSWERS, NO_ESTABLECIMIENTOS_ANSWERS } from "@/lib/constants/palabras-clave";
 import { stringOr } from "@/lib/utils/text-values";
 import { slotText } from "@/lib/fsm/core/slot-readers";
@@ -84,10 +85,12 @@ const ESTABLECIMIENTO_PAGING_COUNTERS = [
   CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES,
   CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS,
   CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE,
+  CounterKey.CITA_ESTABLECIMIENTOS_FIRST_PAGE,
+  CounterKey.CITA_ESTABLECIMIENTOS_NEXT_PAGE,
 ];
 
 const questionButtons = (text: string) => sendButtons(text, OTHER_DISTRITO_BUTTONS);
-const noEstablecimientosButtons = (text: string) => sendButtons(text, NO_ESTABLECIMIENTOS_BUTTONS);
+const noEstablecimientosOptions = (text: string) => sendList(text, NO_ESTABLECIMIENTOS_ROWS);
 
 const isMissingEstablecimientos = (slots: Session["slots"]): boolean =>
   slots[SlotKey.CITA_NO_COVERAGE_SUBJECT] === SearchSubject.ESTABLECIMIENTOS;
@@ -107,7 +110,7 @@ export function offerOtherDistrito(
     next.slots[SlotKey.CITA_NO_COVERAGE_SUBJECT] = SearchSubject.ESTABLECIMIENTOS;
     const nombre = slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_NOMBRE);
     const especialidad = nombre ? `*${nombre}*` : THAT_ESPECIALIDAD_TEXT;
-    return withNote(buildResult(next, [noEstablecimientosButtons(noEstablecimientosText(especialidad, where))]), note);
+    return withNote(buildResult(next, [noEstablecimientosOptions(noEstablecimientosText(especialidad, where))]), note);
   }
 
   delete next.slots[SlotKey.CITA_NO_COVERAGE_SUBJECT];
@@ -133,10 +136,22 @@ export function askOtherDistrito(session: Session): HandlerResult {
 
 function searchOtherEspecialidad(session: Session): HandlerResult {
   const next = cloneSession(session);
-  next.slots = ESPECIALIDAD_BOUND_SLOTS.reduce(omitSlot, withDiscardedEspecialidad(next.slots));
+  next.slots = ESPECIALIDAD_BOUND_SLOTS.reduce(omitSlot, next.slots);
   for (const counter of ESTABLECIMIENTO_PAGING_COUNTERS) delete next.counters[counter];
   next.state = SessionState.CITA_ESPECIALIDAD_PENDING;
   return buildResult(next, [query(QueryKind.LIST_ESPECIALIDADES, { ubigeo: slotText(next.slots, SlotKey.CITA_UBIGEO) })]);
+}
+
+function returnToPreviousList(session: Session): HandlerResult {
+  const first = session.counters[CounterKey.CITA_ESTABLECIMIENTOS_FIRST_PAGE];
+  if (first === undefined) return searchOtherEspecialidad(session);
+
+  const next = cloneSession(session);
+  delete next.slots[SlotKey.CITA_NO_COVERAGE_SUBJECT];
+  delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS];
+  delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE];
+  delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_NEXT_PAGE];
+  return searchEstablecimientosPage(next, first);
 }
 
 export function handleOtherDistrito(session: Session, event: InboundEvent): HandlerResult {
@@ -146,6 +161,7 @@ export function handleOtherDistrito(session: Session, event: InboundEvent): Hand
   const answer = typed && CHANGE_DISTRICT_ANSWERS.has(normalizeText(typed)) ? Confirmation.YES : resolveConfirmation(typed);
 
   if (choice === OtherDistritoButtonId.OTHER_ESPECIALIDAD) return searchOtherEspecialidad(session);
+  if (missingEstablecimientos && choice === OtherDistritoButtonId.BACK) return returnToPreviousList(session);
 
   if (choice === OtherDistritoButtonId.YES || answer === Confirmation.YES) return askOtherDistrito(session);
 
@@ -160,7 +176,7 @@ export function handleOtherDistrito(session: Session, event: InboundEvent): Hand
   }
 
   const reprompt = missingEstablecimientos
-    ? noEstablecimientosButtons(NO_ESTABLECIMIENTOS_QUESTION_TEXT)
+    ? noEstablecimientosOptions(NO_ESTABLECIMIENTOS_QUESTION_TEXT)
     : questionButtons(OTHER_DISTRITO_QUESTION_TEXT);
   return withNote(buildResult(session, [reprompt]), {
     kind: "confirmation_unknown",

@@ -73,7 +73,7 @@ const same = (a: Outcome, b: Outcome) =>
   JSON.stringify(a.slots) === JSON.stringify(b.slots) &&
   JSON.stringify(a.counters) === JSON.stringify(b.counters);
 
-const DEPENDENT_CHAIN = ["Hola", "quiero una cita de odontología", "12345678", "1234"];
+const DEPENDENT_CHAIN = ["Hola", "quiero una cita de odontología", "sí", "12345678", "1234"];
 const BRIEF_CHAIN = ["Hola", "1", "Medicina general", "1"];
 
 const RUNS = 6;
@@ -172,7 +172,7 @@ describe("B.2 the messages from the brief", () => {
     "'1' in the main menu selects 'Agendar una cita médica'",
     async () => {
       const outcome = await sequential("wa-brief-1", ["Hola", "1"]);
-      expect(outcome.state).toBe("cita_awaiting_dni");
+      expect(outcome.state).toBe("cita_awaiting_cuenta_minsa");
     },
     LONG,
   );

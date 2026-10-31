@@ -31,11 +31,17 @@ import {
   establecimientoFullName,
   establecimientoPageRows,
   establecimientoPaging,
+  forgetEstablecimientoPaging,
+  hasMoreEstablecimientos,
+  hasPreviousEstablecimientos,
+  holdEstablecimientos,
   offerEstablecimientos,
   proposeEstablecimiento,
   reshowEstablecimientoConfirm,
+  readHeldEstablecimientos,
   searchEstablecimientosPage,
   type EstablecimientoResultItem,
+  type HeldEstablecimientos,
 } from "@/lib/fsm/flows/cita/steps/catalog/establecimiento-offer";
 import { searchFailureGate } from "@/lib/fsm/flows/cita/steps/catalog/search-failure-gate";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -140,6 +146,7 @@ export function handleAwaitingEspecialidadSelect(session: Session, event: Inboun
   }
   next.slots[SlotKey.CITA_ESPECIALIDAD_ID] = replyId;
   if (chosen) next.slots[SlotKey.CITA_ESPECIALIDAD_NOMBRE] = offeredFullName(session.slots, chosen);
+  forgetEstablecimientoPaging(next);
   next.state = SessionState.CITA_ESTABLECIMIENTO_PENDING;
   return buildResult(next, [
     query(QueryKind.LIST_ESTABLECIMIENTOS, {
@@ -160,35 +167,32 @@ function skipEmptyPage(next: Session, page: number, totalPages: number): Handler
   return searchEstablecimientosPage(next, jump.page);
 }
 
-export function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { status: string; items?: EstablecimientoResultItem[]; page?: number; totalPages?: number };
-  const next = cloneSession(session);
+function probeNextPage(next: Session, page: number, totalPages: number): HandlerResult | undefined {
+  const probes = next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS] ?? 0;
+  if (page >= totalPages || probes >= ESTABLECIMIENTOS_MAX_EMPTY_PAGE_SKIPS) return undefined;
+  next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS] = probes + 1;
+  return searchEstablecimientosPage(next, page + 1);
+}
 
-  const hint = next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
-  delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
-
-  const failure = searchFailureGate(next, result.status, SessionState.CITA_ESTABLECIMIENTO_PENDING, SearchSubject.ESTABLECIMIENTOS);
-  if (failure) return failure;
-
-  if (result.page !== undefined && result.totalPages !== undefined) {
-    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] = result.page;
-    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES] = result.totalPages;
-  } else {
-    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE];
-    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES];
-  }
-  const { page, totalPages } = establecimientoPaging(next.counters);
-
-  const discarded = discardedEstablecimientos(next.slots);
-  const found = result.status === CatalogStatus.FOUND;
-  const items = found ? listAvailableEstablecimientos(result.items ?? [], discarded) : [];
-
-  if (found && items.length === 0) {
-    const skipped = skipEmptyPage(next, page, totalPages);
-    if (skipped) return skipped;
-  }
+function showEstablecimientos(
+  next: Session,
+  shown: HeldEstablecimientos,
+  nextPage: number | undefined,
+  hint: string | undefined,
+): HandlerResult {
+  delete next.slots[SlotKey.CITA_ESTABLECIMIENTOS_RETENIDOS];
   delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS];
   delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE];
+  delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_NEXT_PAGE];
+  if (next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES] !== undefined) {
+    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] = shown.page;
+    if (shown.items.length > 0) {
+      const first = next.counters[CounterKey.CITA_ESTABLECIMIENTOS_FIRST_PAGE] ?? shown.page;
+      next.counters[CounterKey.CITA_ESTABLECIMIENTOS_FIRST_PAGE] = Math.min(first, shown.page);
+    }
+    if (nextPage !== undefined) next.counters[CounterKey.CITA_ESTABLECIMIENTOS_NEXT_PAGE] = nextPage;
+  }
+  const { items } = shown;
 
   if (items.length > 0) {
     rememberFullNames(
@@ -209,8 +213,55 @@ export function handleEstablecimientoPending(session: Session, event: QueryResul
 
   const detected = detectEstablecimiento(hint, items);
   if (detected) return chooseEstablecimiento(next, detected);
-  if (items.length === 1 && totalPages <= 1) return proposeEstablecimiento(next, items[0]);
+  const onlyPage = !hasPreviousEstablecimientos(next.counters) && !hasMoreEstablecimientos(next.counters);
+  if (items.length === 1 && onlyPage) return proposeEstablecimiento(next, items[0]);
   return offerEstablecimientos(next, items);
+}
+
+export function handleEstablecimientoPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { status: string; items?: EstablecimientoResultItem[]; page?: number; totalPages?: number };
+  const next = cloneSession(session);
+  const held = readHeldEstablecimientos(next.slots);
+
+  const hint = next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
+  delete next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT];
+
+  if (held && result.status === CatalogStatus.ERROR) return showEstablecimientos(next, held, undefined, hint);
+  const failure = searchFailureGate(next, result.status, SessionState.CITA_ESTABLECIMIENTO_PENDING, SearchSubject.ESTABLECIMIENTOS);
+  if (failure) return failure;
+
+  if (result.page !== undefined && result.totalPages !== undefined) {
+    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE] = result.page;
+    next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES] = result.totalPages;
+  } else {
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_PAGE];
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_TOTAL_PAGES];
+  }
+  const { page, totalPages } = establecimientoPaging(next.counters);
+
+  const discarded = discardedEstablecimientos(next.slots);
+  const found = result.status === CatalogStatus.FOUND;
+  const items = found ? listAvailableEstablecimientos(result.items ?? [], discarded) : [];
+
+  if (held) {
+    if (items.length > 0) return showEstablecimientos(next, held, page, hint);
+    return (found && probeNextPage(next, page, totalPages)) || showEstablecimientos(next, held, undefined, hint);
+  }
+
+  if (found && items.length === 0) {
+    const skipped = skipEmptyPage(next, page, totalPages);
+    if (skipped) return skipped;
+  }
+
+  if (items.length > 0 && page < totalPages) {
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS];
+    delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE];
+    holdEstablecimientos(next, { page, items });
+    if (hint) next.slots[SlotKey.CITA_ESTABLECIMIENTO_HINT_TEXT] = hint;
+    return probeNextPage(next, page, totalPages) ?? showEstablecimientos(next, { page, items }, undefined, hint);
+  }
+
+  return showEstablecimientos(next, { page, items }, undefined, hint);
 }
 
 export function handleAwaitingEstablecimientoConfirm(session: Session, event: InboundEvent): HandlerResult {
@@ -244,7 +295,7 @@ export function handleAwaitingEstablecimientoSelect(session: Session, event: Inb
     delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_EMPTY_SKIPS];
     if (replyId === EstablecimientoPageRowId.NEXT) {
       delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE];
-      return searchEstablecimientosPage(next, current + 1);
+      return searchEstablecimientosPage(next, session.counters[CounterKey.CITA_ESTABLECIMIENTOS_NEXT_PAGE] ?? current + 1);
     }
     next.counters[CounterKey.CITA_ESTABLECIMIENTOS_BACK_FROM_PAGE] = current;
     return searchEstablecimientosPage(next, Math.max(1, current - 1));

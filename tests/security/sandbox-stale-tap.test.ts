@@ -28,6 +28,9 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-id";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
+import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
+import { MenuChoice } from "@/lib/enums/menu-choice";
+import { cuentaMinsaAviso } from "@/tests/support/cuenta-minsa";
 
 const FROM = "sandbox-6c9d2f45-7081-42a3-9eb5-c6d7e8f90a1b";
 const RESUMEN_ID = "web-resumen";
@@ -154,7 +157,22 @@ describe("the Sandbox answers a referencia that is not a plain request with the 
 
     const reply = await send({ type: "text", text: "2" });
 
-    expect(reply.sent).toEqual([{ kind: SendType.TEXT, text: ASK_DOCUMENTO_TEXT }]);
-    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+    expect(reply.sent).toEqual([cuentaMinsaAviso()]);
+    expect(reply.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
+  });
+});
+
+describe("the Chat-bot asks for the MINSA Digital account before the document", () => {
+  it("«No cuento con una» sends the link and the buttons, and «Ya cuento con una» on them asks for the document", async () => {
+    const menu = await send({ type: "text", text: "Hola", reset: true });
+    const warned = await send({ type: "list", listId: MenuChoice.AGENDAR_CITA, replyTo: menu.interactiveId });
+    expect(warned.sent).toEqual([cuentaMinsaAviso()]);
+
+    const invited = await send({ type: "button", listId: CuentaMinsaButtonId.NO_TIENE, replyTo: warned.interactiveId });
+    expect(invited.sent.map((effect) => effect.kind)).toEqual([SendType.CTA_URL, SendType.BUTTONS]);
+
+    const documento = await send({ type: "button", listId: CuentaMinsaButtonId.TIENE, replyTo: invited.interactiveId });
+    expect(documento.sent).toEqual([{ kind: SendType.TEXT, text: ASK_DOCUMENTO_TEXT }]);
+    expect(documento.session.state).toBe(SessionState.CITA_AWAITING_DNI);
   });
 });

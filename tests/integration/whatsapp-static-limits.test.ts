@@ -32,7 +32,16 @@ import {
   REFERENCIA_CITA_OFFER_QUESTION_TEXT,
 } from "@/lib/constants/textos/referencia";
 import { LIST_PAGE_NEXT_BUTTON_TEXT, LIST_PAGE_PREV_BUTTON_TEXT, NARROWED_LIST_TEXT } from "@/lib/constants/textos/comunes";
-import { CITA_REAUTH_BUTTONS, CITA_REAUTH_PROMPT_TEXT } from "@/lib/constants/textos/cita-identidad";
+import {
+  CITA_REAUTH_BUTTONS,
+  CITA_REAUTH_PROMPT_TEXT,
+  CUENTA_MINSA_AVISO_BUTTONS,
+  CUENTA_MINSA_AVISO_TEXT,
+  CUENTA_MINSA_CREADA_BUTTONS,
+  CUENTA_MINSA_CREADA_TEXT,
+  CUENTA_MINSA_CREAR_BUTTON_TEXT,
+  CUENTA_MINSA_CREAR_TEXT,
+} from "@/lib/constants/textos/cita-identidad";
 import { EXIT_BUTTONS, EXIT_QUESTION_TEXT, REFERENCIA_EXIT_QUESTION_TEXT } from "@/lib/constants/textos/cita-salida";
 import {
   DEMO_ANALYZING_TEXT,
@@ -40,7 +49,13 @@ import {
   DEMO_CONFIRM_QUESTION_TEXT,
   DEMO_HORAS_LIST_TEXT,
 } from "@/lib/constants/textos/cita-demo";
-import { DISTRITO_DISAMBIGUATION_TEXT, SELECT_UBIGEO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
+import {
+  DISTRITO_DISAMBIGUATION_TEXT,
+  NO_ESTABLECIMIENTOS_ROWS,
+  SELECT_UBIGEO_TEXT,
+  noCoverageInPlaceText,
+  noEstablecimientosText,
+} from "@/lib/constants/textos/cita-ubicacion";
 import {
   APPOINTMENT_BUTTON_TEXT,
   APPOINTMENT_CTA_TEXT,
@@ -193,6 +208,22 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
     effect: sendCtaUrl(APPOINTMENT_CTA_TEXT, APPOINTMENT_BUTTON_TEXT, URL),
   },
   { origin: "términos y condiciones en whatsapp-bot", effect: buildTerminosEffect() },
+  {
+    origin: "noEstablecimientosText + NO_ESTABLECIMIENTOS_ROWS",
+    effect: sendList(noEstablecimientosText(`*${"x".repeat(120)}*`, noCoverageInPlaceText("x".repeat(60))), NO_ESTABLECIMIENTOS_ROWS),
+  },
+  {
+    origin: "CUENTA_MINSA_AVISO_TEXT + CUENTA_MINSA_AVISO_BUTTONS",
+    effect: sendButtons(CUENTA_MINSA_AVISO_TEXT, CUENTA_MINSA_AVISO_BUTTONS),
+  },
+  {
+    origin: "CUENTA_MINSA_CREADA_TEXT + CUENTA_MINSA_CREADA_BUTTONS",
+    effect: sendButtons(CUENTA_MINSA_CREADA_TEXT, CUENTA_MINSA_CREADA_BUTTONS),
+  },
+  {
+    origin: "CUENTA_MINSA_CREAR_TEXT + CUENTA_MINSA_CREAR_BUTTON_TEXT",
+    effect: sendCtaUrl(CUENTA_MINSA_CREAR_TEXT, CUENTA_MINSA_CREAR_BUTTON_TEXT, URL),
+  },
 ];
 
 function textosModuleNames(): string[] {

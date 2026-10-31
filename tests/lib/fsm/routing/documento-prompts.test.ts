@@ -12,6 +12,7 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
+import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
 
 const FROM = "sandbox-documento-prompts";
 const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
@@ -19,7 +20,7 @@ const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, ty
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const firstText = (result: HandlerResult): string => {
-  const [effect] = sent(result);
+  const [effect] = sent(result.session.state === SessionState.CITA_AWAITING_CUENTA_MINSA ? confirmCuentaMinsa(result) : result);
   return effect.kind === "send_text" ? effect.text : "";
 };
 

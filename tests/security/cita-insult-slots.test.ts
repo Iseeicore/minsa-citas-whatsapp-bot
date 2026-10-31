@@ -4,6 +4,7 @@ import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
+import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
 
 const FROM = "sandbox-slots";
 const MESSAGE = "Apúrense cojudos quiero cita de odontología en San Borja";
@@ -23,7 +24,7 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
   it("the guard routes to the Cita flow with a respect reminder and no AI call", () => {
     const routed = handle(menu(), text(MESSAGE));
 
-    expect(routed.session.state).toBe("cita_awaiting_dni");
+    expect(routed.session.state).toBe("cita_awaiting_cuenta_minsa");
     expect(queries(routed)).toHaveLength(0);
   });
 
@@ -41,14 +42,14 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
   });
 
   it("an insult with no specialty or district leaves no hints behind", () => {
-    const routed = handle(menu(), text("cojudos denme una cita"));
+    const routed = confirmCuentaMinsa(handle(menu(), text("cojudos denme una cita")));
 
     expect(routed.session.state).toBe("cita_awaiting_dni");
     expect(routed.session.slots).toEqual({});
   });
 
   it("resolves San Borja without another location question right after the OTP", () => {
-    let step = handle(menu(), text(MESSAGE));
+    let step = confirmCuentaMinsa(handle(menu(), text(MESSAGE)));
     step = handle(step.session, text("12345678"));
     step = handle(step.session, result("validate_user", { status: "valid", twofaId: "tw" }));
     step = handle(step.session, text("1234"));

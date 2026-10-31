@@ -3,6 +3,7 @@ import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
 import { TerminosButtonId } from "@/lib/enums/terminos-button-id";
+import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
 
 export const REFERENCE_PAGE_ANSWERS: ReadonlyMap<string, ListPageButtonId | HoraPageButtonId> = new Map<
   string,
@@ -35,6 +36,12 @@ export const TERMINOS_ANSWERS: ReadonlyMap<string, TerminosButtonId> = new Map<s
   ["NO ACEPTO.", TerminosButtonId.DECLINE],
   ["NO, NO ACEPTO", TerminosButtonId.DECLINE],
   ["NO ACEPTAR", TerminosButtonId.DECLINE],
+]);
+
+export const CUENTA_MINSA_ANSWERS: ReadonlyMap<string, CuentaMinsaButtonId> = new Map<string, CuentaMinsaButtonId>([
+  ["YA CUENTO CON UNA", CuentaMinsaButtonId.TIENE],
+  ["NO CUENTO CON UNA", CuentaMinsaButtonId.NO_TIENE],
+  ["NO DESEO CONTINUAR", CuentaMinsaButtonId.NO_CONTINUAR],
 ]);
 
 export const CITA_KEYWORD = "CITA";
@@ -199,7 +206,11 @@ export const NO_ESTABLECIMIENTOS_ANSWERS: ReadonlyMap<string, OtherDistritoButto
   ["OTRA", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
   ["OTRA ESPECIALIDAD", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
   ["ELEGIR OTRA ESPECIALIDAD", OtherDistritoButtonId.OTHER_ESPECIALIDAD],
-  ["3", OtherDistritoButtonId.NO],
+  ["3", OtherDistritoButtonId.BACK],
+  ["ATRAS", OtherDistritoButtonId.BACK],
+  ["VOLVER", OtherDistritoButtonId.BACK],
+  ["REGRESAR", OtherDistritoButtonId.BACK],
+  ["4", OtherDistritoButtonId.NO],
 ]);
 
 export const CHANGE_DATE_ANSWERS = new Set([

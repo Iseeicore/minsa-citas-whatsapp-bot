@@ -9,7 +9,8 @@ import {
   withRejectionNotice,
 } from "@/lib/fsm/core/handlers-shared";
 import { channelOf } from "@/lib/fsm/core/channel";
-import { askCitaDocumento, reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { askCuentaMinsa } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import { resumeCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/continuation";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { slotText } from "@/lib/fsm/core/slot-readers";
@@ -27,7 +28,7 @@ const TERMINOS_BUTTON_IDS: ReadonlySet<string> = new Set(Object.values(TerminosB
 const TERMINOS_RESUMES: ReadonlySet<string> = new Set(Object.values(TerminosResume));
 
 const RESUME_HANDLERS: Readonly<Record<TerminosResume, (session: Session, intro: string) => HandlerResult>> = {
-  [TerminosResume.ASK_DOCUMENTO]: askCitaDocumento,
+  [TerminosResume.ASK_DOCUMENTO]: askCuentaMinsa,
   [TerminosResume.CONTINUE_VERIFIED]: (session) => resumeCitaAfterVerification(session),
 };
 

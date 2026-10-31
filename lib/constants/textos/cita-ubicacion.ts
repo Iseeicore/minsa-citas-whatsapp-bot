@@ -51,8 +51,10 @@ export const OTHER_DISTRITO_BUTTONS = [
 
 export const OTRO_DISTRITO_BUTTON_TEXT = "Otro distrito";
 export const OTRA_ESPECIALIDAD_BUTTON_TEXT = "Otra especialidad";
-export const NO_ESTABLECIMIENTOS_BUTTONS = [
+export const ATRAS_BUTTON_TEXT = "Atrás";
+export const NO_ESTABLECIMIENTOS_ROWS = [
   { id: OtherDistritoButtonId.YES, title: OTRO_DISTRITO_BUTTON_TEXT },
   { id: OtherDistritoButtonId.OTHER_ESPECIALIDAD, title: OTRA_ESPECIALIDAD_BUTTON_TEXT },
+  { id: OtherDistritoButtonId.BACK, title: ATRAS_BUTTON_TEXT },
   { id: OtherDistritoButtonId.NO, title: SALIR_BUTTON_TEXT },
 ];

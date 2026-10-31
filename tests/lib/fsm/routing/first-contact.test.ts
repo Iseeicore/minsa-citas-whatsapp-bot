@@ -7,6 +7,7 @@ import type { HandlerResult, InboundEvent, SendEffect, Session } from "@/lib/fsm
 import { SlotKey } from "@/lib/enums/slot-key";
 import { AVISO_EMERGENCIA_DENUNCIA_TEXT, ASK_UBICACION_DENUNCIA_TEXT } from "@/lib/constants/textos/incidencia";
 import { answerConsent } from "@/tests/support/incidencia-consent";
+import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
 
 const FROM = "sandbox-first-contact";
 const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
@@ -51,7 +52,7 @@ describe("first contact: a greeting", () => {
 
     const step = handle(waiting, text("quiero una cita de odontología en Miraflores"));
 
-    expect(step.session.state).toBe("cita_awaiting_dni");
+    expect(step.session.state).toBe("cita_awaiting_cuenta_minsa");
     expect(step.effects.some(isQueryEffect)).toBe(false);
   });
 
@@ -65,7 +66,7 @@ describe("first contact: a greeting", () => {
 
 describe("first contact: a clear request for a cita", () => {
   it("goes straight to the DNI with the specialty and district already loaded", () => {
-    const result = handleFirstContact(CITA_FIRST_MESSAGE, "whatsapp");
+    const result = confirmCuentaMinsa(handleFirstContact(CITA_FIRST_MESSAGE, "whatsapp"));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(normalizeText(String(result.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]))).toBe("SAN JUAN DE LURIGANCHO");
@@ -81,16 +82,16 @@ describe("first contact: a clear request for a cita", () => {
   });
 
   it("names only what it understood", () => {
-    expect(sent(handleFirstContact("quiero una cita de odontología", "whatsapp"))[0]).toMatchObject({
+    expect(sent(confirmCuentaMinsa(handleFirstContact("quiero una cita de odontología", "whatsapp")))[0]).toMatchObject({
       text: expect.stringContaining("tu cita de Odontología. Para comenzar"),
     });
-    expect(sent(handleFirstContact("necesito agendar en Miraflores", "whatsapp"))[0]).toMatchObject({
+    expect(sent(confirmCuentaMinsa(handleFirstContact("necesito agendar en Miraflores", "whatsapp")))[0]).toMatchObject({
       text: expect.stringContaining("tu cita en Miraflores. Para comenzar"),
     });
   });
 
   it("understands a short request that only names the specialty", () => {
-    expect(sent(handleFirstContact("Quiero cita en SJL para medicina general", "whatsapp"))[0]).toMatchObject({
+    expect(sent(confirmCuentaMinsa(handleFirstContact("Quiero cita en SJL para medicina general", "whatsapp")))[0]).toMatchObject({
       text: expect.stringContaining("tu cita de Medicina General. Para comenzar"),
     });
   });
@@ -106,12 +107,12 @@ describe("first contact: a clear request for a cita", () => {
   it("recognizes plain cita intent even without a specialty or district (no AI needed)", () => {
     for (const message of ["quiero una cita", "Si claro deseo una cita"]) {
       const result = handleFirstContact(message, "whatsapp");
-      expect(result.session.state).toBe("cita_awaiting_dni");
+      expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
     }
   });
 
   it("continues with the DNI as any Cita flow does", () => {
-    const started = handleFirstContact(CITA_FIRST_MESSAGE, "whatsapp").session;
+    const started = confirmCuentaMinsa(handleFirstContact(CITA_FIRST_MESSAGE, "whatsapp")).session;
 
     const next = handle(started, text("12345678"));
 
@@ -131,7 +132,7 @@ describe("first contact: the welcome names the emergency line", () => {
 
 describe("first contact: answering the [1] / [2] / [3] the rejection text offers", () => {
   it("«1» opens the Cita flow and asks for the DNI", () => {
-    const result = handleFirstContact("1", "whatsapp");
+    const result = confirmCuentaMinsa(handleFirstContact("1", "whatsapp"));
 
     expect(result.session.state).toBe("cita_awaiting_dni");
     expect(sent(result)).toHaveLength(1);
@@ -163,7 +164,7 @@ describe("first contact: answering the [1] / [2] / [3] the rejection text offers
   it("works the same for a citizen returning after a finished flow", () => {
     const finished: Session = { state: "cita_booked", slots: {}, counters: {} };
 
-    expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_dni");
+    expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_cuenta_minsa");
     expect(handle(finished, text("2")).session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
     expect(handle(finished, text("3")).session.state).toBe("incidencia_consent_check_pending");
   });
@@ -231,7 +232,7 @@ describe("returning after a finished cita or reclamo", () => {
   it("does not lose a clear request typed on the way back", () => {
     const result = handle(finished("cita_booking_rejected"), text(CITA_FIRST_MESSAGE));
 
-    expect(result.session.state).toBe("cita_awaiting_dni");
+    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBeUndefined();
     expect(normalizeText(String(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]))).toBe("MEDICINA GENERAL");
   });

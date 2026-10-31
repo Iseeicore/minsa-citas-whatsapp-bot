@@ -88,7 +88,7 @@ function createFakePostgres(): AdvisoryLockClient {
   };
 }
 
-const CHAIN = ["Hola", "quiero una cita de odontología", "12345678", "1234", "en Lurigancho"];
+const CHAIN = ["Hola", "quiero una cita de odontología", "sí", "12345678", "1234", "en Lurigancho"];
 
 async function sequentialFinal(waId: string): Promise<Session> {
   db.sessions.delete(waId);

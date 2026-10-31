@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
@@ -17,13 +18,21 @@ import {
   ESTABLECIMIENTOS_FOUND_TEXT,
   SELECT_ESTABLECIMIENTO_TEXT,
 } from "@/lib/constants/textos/cita-catalogo";
-import { slotText } from "@/lib/fsm/core/slot-readers";
+import { readSlotJson, slotText } from "@/lib/fsm/core/slot-readers";
+import { SlotJsonStatus } from "@/lib/enums/slot-json-status";
 
 export type EstablecimientoResultItem = {
   renipressCode: string;
   establishmentName: string;
   quotasOnline: number;
 };
+
+const HELD_ESTABLECIMIENTOS_SCHEMA = z.object({
+  page: z.number(),
+  items: z.array(z.object({ renipressCode: z.string(), establishmentName: z.string(), quotasOnline: z.number() })),
+});
+
+export type HeldEstablecimientos = z.infer<typeof HELD_ESTABLECIMIENTOS_SCHEMA>;
 
 export function establecimientoRows(items: EstablecimientoResultItem[]): ListRow[] {
   return items.map((item) => {
@@ -39,12 +48,35 @@ export function establecimientoPaging(counters: Session["counters"]): { page: nu
   };
 }
 
+export function hasPreviousEstablecimientos(counters: Session["counters"]): boolean {
+  const { page } = establecimientoPaging(counters);
+  return page > (counters[CounterKey.CITA_ESTABLECIMIENTOS_FIRST_PAGE] ?? page);
+}
+
+export function hasMoreEstablecimientos(counters: Session["counters"]): boolean {
+  return counters[CounterKey.CITA_ESTABLECIMIENTOS_NEXT_PAGE] !== undefined;
+}
+
 export function establecimientoPageRows(items: EstablecimientoResultItem[], counters: Session["counters"]): ListRow[] {
-  const { page, totalPages } = establecimientoPaging(counters);
   const rows = establecimientoRows(items);
-  if (page > 1) rows.push({ id: EstablecimientoPageRowId.PREV, title: ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT });
-  if (page < totalPages) rows.push({ id: EstablecimientoPageRowId.NEXT, title: ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT });
+  if (hasPreviousEstablecimientos(counters)) rows.push({ id: EstablecimientoPageRowId.PREV, title: ESTABLECIMIENTO_PAGE_PREV_TITLE_TEXT });
+  if (hasMoreEstablecimientos(counters)) rows.push({ id: EstablecimientoPageRowId.NEXT, title: ESTABLECIMIENTO_PAGE_NEXT_TITLE_TEXT });
   return rows;
+}
+
+export function forgetEstablecimientoPaging(next: Session): void {
+  delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_FIRST_PAGE];
+  delete next.counters[CounterKey.CITA_ESTABLECIMIENTOS_NEXT_PAGE];
+  delete next.slots[SlotKey.CITA_ESTABLECIMIENTOS_RETENIDOS];
+}
+
+export function readHeldEstablecimientos(slots: Session["slots"]): HeldEstablecimientos | undefined {
+  const held = readSlotJson(slots, SlotKey.CITA_ESTABLECIMIENTOS_RETENIDOS, HELD_ESTABLECIMIENTOS_SCHEMA);
+  return held.status === SlotJsonStatus.OK ? held.value : undefined;
+}
+
+export function holdEstablecimientos(next: Session, held: HeldEstablecimientos): void {
+  next.slots[SlotKey.CITA_ESTABLECIMIENTOS_RETENIDOS] = JSON.stringify(held);
 }
 
 export function searchEstablecimientosPage(next: Session, page: number, announcement?: string): HandlerResult {
@@ -84,7 +116,7 @@ export function chooseEstablecimiento(next: Session, item: EstablecimientoResult
 
 export function offerEstablecimientos(next: Session, items: EstablecimientoResultItem[]): HandlerResult {
   next.state = SessionState.CITA_AWAITING_ESTABLECIMIENTO_SELECT;
-  const text = establecimientoPaging(next.counters).page > 1 ? SELECT_ESTABLECIMIENTO_TEXT : ESTABLECIMIENTOS_FOUND_TEXT;
+  const text = hasPreviousEstablecimientos(next.counters) ? SELECT_ESTABLECIMIENTO_TEXT : ESTABLECIMIENTOS_FOUND_TEXT;
   return buildResult(next, offerPagedList(next, text, establecimientoPageRows(items, next.counters)));
 }
 

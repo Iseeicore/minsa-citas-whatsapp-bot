@@ -1,5 +1,6 @@
 import { isTerminosEnabled } from "@/lib/config/features";
-import { buildResult, cloneSession, sendText } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession } from "@/lib/fsm/core/handlers-shared";
+import { askCuentaMinsa } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import type { HandlerResult, SendConsentEffect, Session } from "@/lib/fsm/core/types";
 import {
   TERMINOS_ACCEPT_LABEL,
@@ -46,11 +47,7 @@ export function reshowTerminos(session: Session): HandlerResult {
   return buildResult(session, [buildTerminosEffect()]);
 }
 
-export function askCitaDocumento(session: Session, intro: string): HandlerResult {
-  return buildResult({ ...session, state: SessionState.CITA_AWAITING_DNI }, [sendText(intro)]);
-}
-
 export function startCitaIdentity(session: Session, intro: string): HandlerResult {
-  if (!isTerminosRequired(session)) return askCitaDocumento(session, intro);
+  if (!isTerminosRequired(session)) return askCuentaMinsa(session, intro);
   return askTerminos({ ...session, slots: { ...session.slots, [SlotKey.TERMINOS_INTRO_TEXT]: intro } }, TerminosResume.ASK_DOCUMENTO);
 }

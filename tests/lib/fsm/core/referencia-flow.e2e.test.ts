@@ -75,7 +75,7 @@ function describeEffect(effect: SendEffect): string {
 async function login(entry: string = "quiero una cita de odontología") {
   await say(text("Hola"));
   const intent = await say(text(entry));
-  expect(intent.session.state).toBe("cita_awaiting_dni");
+  if (intent.session.state === "cita_awaiting_cuenta_minsa") await say(text("sí"));
   const withDni = await say(text(DOCUMENTO));
   expect(withDni.session.state).toBe("cita_awaiting_otp");
   return say(text("1234"));
