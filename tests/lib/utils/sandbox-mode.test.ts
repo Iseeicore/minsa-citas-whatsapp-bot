@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { initialModeFromQuery } from "@/lib/utils/sandbox-mode";
+import { SandboxMode } from "@/lib/enums/sandbox-mode";
 
 describe("initialModeFromQuery", () => {
-  it("returns 'real' outside the browser", () => {
-    expect(initialModeFromQuery()).toBe("real");
+  it("returns the real panel outside the browser", () => {
+    expect(initialModeFromQuery()).toBe(SandboxMode.REAL);
   });
 });
