@@ -1,13 +1,10 @@
-import fs from "node:fs";
-import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { decidirCandidatos } from "@/lib/establecimientos/decidir";
 import { buscarPorCodigo, buscarPorNombre } from "@/lib/establecimientos/repositorio";
+import { leerPadronEess } from "@/tests/support/padron-eess";
 
-const PADRON: { nombre: string; codigo_renipress: string }[] = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), "prisma", "seeds", "eess", "establecimientos.json"), "utf8"),
-);
+const PADRON = leerPadronEess();
 
 const decidir = async (texto: string) => {
   const result = await buscarPorNombre(texto);

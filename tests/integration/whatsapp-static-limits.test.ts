@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { leerPadronEess } from "@/tests/support/padron-eess";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import { buildResult, sendButtons, sendCtaUrl, sendList, sendText, withPrefixedFirstMessage } from "@/lib/fsm/core/handlers-shared";
 import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
@@ -284,9 +285,7 @@ describe("límites de WhatsApp en los mensajes interactivos fijos", () => {
   });
 
   describe("los mensajes unidos de la denuncia, con el establecimiento de nombre más largo del padrón", () => {
-    const padron: { nombre: string; distrito: string | null; codigo_renipress: string }[] = JSON.parse(
-      fs.readFileSync(path.join(ROOT, "prisma", "seeds", "eess", "establecimientos.json"), "utf8"),
-    );
+    const padron = leerPadronEess();
     const longest = <T>(items: T[], size: (item: T) => number): T => items.reduce((a, b) => (size(b) > size(a) ? b : a));
     const nombre = longest(padron, (fila) => fila.nombre.length).nombre;
     const distrito = longest(padron, (fila) => (fila.distrito ?? "").length).distrito ?? "";

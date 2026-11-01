@@ -10,7 +10,7 @@ PostgreSQL 16. Cada cosa vive en un solo sitio:
 | `sql/triggers/` | Los disparadores, agrupados por la función que llaman |
 | `sql/comentarios.sql` | Descripción (`COMMENT ON`) de esquemas, tablas, columnas y llaves foráneas; se edita a mano y es la única fuente |
 | `seeds/catalogos/` | Datos de referencia que el sistema necesita (estados, motivos, categorías con sus plazos, roles) |
-| `seeds/eess/`, `seeds/dev/` | Padrón completo y datos de desarrollo; no van en la imagen |
+| `seeds/eess/`, `seeds/dev/` | Padrón completo (`seeds/eess/establecimientos.sql`: datos y carga en un solo archivo) y datos de desarrollo; no van en la imagen |
 | `tests/` | Pruebas SQL |
 | `dba/` | Lo que corre solo un DBA, a mano (roles y permisos); ni el arranque ni `db:aplicar` ni `db:test` lo leen |
 
@@ -163,4 +163,5 @@ Pasos:
 | `npm run db:aplicar` | Aplica `sql/` y `seeds/catalogos/` |
 | `npm run db:test` | Arma una base desechable con todo lo anterior y corre `tests/` (necesita `psql`) |
 | `npm run db:diccionario` | Regenera `docs/base-de-datos/diccionario-de-datos.md` leyendo los comentarios de una base con `db:aplicar`; falla si falta alguno y no escribe en `prisma/` (necesita `psql` y `DATABASE_URL`) |
+| `npm run db:seed:eess` | Carga el padrón de establecimientos ejecutando `seeds/eess/establecimientos.sql` en una sola transacción; repetirlo no crea nada nuevo. Solo en bases que terminan en `_desechable`, `_dev` o `_local`, o con `--base-real=<base>` (necesita `psql`) |
 | `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base armada |

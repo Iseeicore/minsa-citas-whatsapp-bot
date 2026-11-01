@@ -1,6 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { leerPadronEess } from "@/tests/support/padron-eess";
 
 import { handle } from "@/lib/fsm/core/handlers";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
@@ -162,9 +161,7 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
   });
 
   it("the QR message of every one of the 434 establecimientos goes to the lookup by its own code", () => {
-    const padron: { nombre: string; codigo_renipress: string }[] = JSON.parse(
-      fs.readFileSync(path.join(process.cwd(), "prisma", "seeds", "eess", "establecimientos.json"), "utf8"),
-    );
+    const padron = leerPadronEess();
     for (const fila of padron) {
       const message = `Hola quiero presentar una incidencia ${fila.nombre} - CODIGO-IPRESS ${fila.codigo_renipress}`;
       expect(isEmergency(textoDeLaPersona(message)), fila.nombre).toBe(false);

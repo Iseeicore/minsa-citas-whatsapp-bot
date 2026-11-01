@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { archivosEnOrden, armarScript } from "@/scripts/db-aplicar-sql.mjs";
+import { leerPadronEess } from "@/tests/support/padron-eess";
 
 const PRISMA = path.join(process.cwd(), "prisma");
 const read = (file: string) => fs.readFileSync(path.join(PRISMA, file), "utf8");
@@ -151,6 +152,15 @@ describe("the SQL files of prisma/", () => {
     expect(fs.existsSync(path.join(docs, "diccionario.json"))).toBe(false);
     expect(generator.match(/writeFileSync\(/g)).toHaveLength(1);
     expect(generator).toContain('writeFileSync(join(CARPETA, "diccionario-de-datos.md")');
+  });
+
+  it("install the establecimientos padron from one SQL file with 434 unique codes, outside db:aplicar", () => {
+    const codes = leerPadronEess().map((fila) => fila.codigo_renipress);
+
+    expect(codes).toHaveLength(434);
+    expect(new Set(codes).size).toBe(434);
+    expect(fs.readdirSync(path.join(PRISMA, "seeds", "eess"))).toEqual(["establecimientos.sql"]);
+    expect(archivosEnOrden(PRISMA).some((file: string) => file.includes("eess"))).toBe(false);
   });
 
   it("keep the migrations to structure only", () => {
