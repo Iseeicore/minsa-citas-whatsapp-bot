@@ -107,3 +107,23 @@ export type ListReferencesResult = {
   message: string;
   data: ReferenciaItem[];
 };
+
+export type EessItem = {
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  disa: string;
+  distrito: string;
+  provincia: string;
+  departamento: string;
+  horario: string;
+  latitud: number | null;
+  longitud: number | null;
+};
+
+export type EessPage = {
+  items: EessItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+};

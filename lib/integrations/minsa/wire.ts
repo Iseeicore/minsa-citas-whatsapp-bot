@@ -66,6 +66,13 @@ export async function postSigned(path: string, body: Record<string, unknown>): P
   });
 }
 
+export async function getPublic(path: string, query: URLSearchParams): Promise<Response> {
+  const host = findMinsaApiHost();
+  if (host === undefined) return toBlockedResponse(path, ConfigErrorCode.MINSA_API_HOST_MISSING);
+
+  return timedFetch("minsa", path, `${host}${path}?${query}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+}
+
 export async function postWithBearer(path: string, body: Record<string, unknown>, bearer: string): Promise<Response> {
   if (isRealMinsaEnabled() && minsaDigitalOrigin() === null) return toBlockedResponse(path, ConfigErrorCode.MINSA_DIGITAL_APP_URL_MISSING);
   const host = findMinsaApiHost();

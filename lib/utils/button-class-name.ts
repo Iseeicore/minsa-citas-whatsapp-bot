@@ -27,6 +27,11 @@ const VARIANT_CLASS_NAME: Record<ButtonVariant, string> = {
   [ButtonVariant.ICON_SOLID_WHATSAPP]: cn(ICON_SOLID_SHAPE, "bg-wa-accent"),
   [ButtonVariant.SWITCH_TRACK]: "h-10 rounded-full bg-gray-200 p-1 transition-colors",
   [ButtonVariant.UNSTYLED]: "",
+  [ButtonVariant.NAV]: "text-base font-semibold text-gray-600 uppercase hover:text-brand-navy",
+  [ButtonVariant.PILL_TEAL]: "rounded-full bg-brand-teal font-gotham font-bold text-white transition hover:scale-105",
+  [ButtonVariant.PILL_OUTLINE]:
+    "rounded-full border-2 border-brand-navy font-gotham font-bold text-brand-navy transition hover:bg-brand-sky",
+  [ButtonVariant.GRADIENT_BLUE]: "rounded-lg bg-landing-dni-boton bg-cover font-bold text-white uppercase",
 };
 
 const VARIANT_LAYOUT_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
@@ -43,6 +48,7 @@ const VARIANT_LAYOUT_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
 
 const SELECTED_CLASS_NAME: Partial<Record<ButtonVariant, string>> = {
   [ButtonVariant.ROW]: "bg-teal-50",
+  [ButtonVariant.NAV]: "border-b-2 border-brand-navy text-brand-navy",
 };
 
 const SIZE_CLASS_NAME: Record<ButtonSize, string> = {
@@ -86,6 +92,10 @@ const DEFAULT_SIZE: Record<ButtonVariant, ButtonSize> = {
   [ButtonVariant.ICON_SOLID_WHATSAPP]: ButtonSize.ICON_MD,
   [ButtonVariant.SWITCH_TRACK]: ButtonSize.NONE,
   [ButtonVariant.UNSTYLED]: ButtonSize.NONE,
+  [ButtonVariant.NAV]: ButtonSize.NONE,
+  [ButtonVariant.PILL_TEAL]: ButtonSize.NONE,
+  [ButtonVariant.PILL_OUTLINE]: ButtonSize.NONE,
+  [ButtonVariant.GRADIENT_BLUE]: ButtonSize.NONE,
 };
 
 export function defaultButtonSize(variant: ButtonVariant): ButtonSize {

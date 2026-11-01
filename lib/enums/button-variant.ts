@@ -13,4 +13,8 @@ export enum ButtonVariant {
   ICON_SOLID_WHATSAPP = "icon_solid_whatsapp",
   SWITCH_TRACK = "switch_track",
   UNSTYLED = "unstyled",
+  NAV = "nav",
+  PILL_TEAL = "pill_teal",
+  PILL_OUTLINE = "pill_outline",
+  GRADIENT_BLUE = "gradient_blue",
 }
