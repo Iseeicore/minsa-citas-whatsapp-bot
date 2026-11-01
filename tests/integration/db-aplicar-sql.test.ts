@@ -137,7 +137,7 @@ describe("the SQL files of prisma/", () => {
     }
   });
 
-  it("describe every trigger function with its own COMMENT ON FUNCTION, which the data dictionary reads from the database", () => {
+  it("describe every trigger function with its own COMMENT ON FUNCTION, the only documentation of the function", () => {
     for (const file of triggers) {
       for (const [, name] of read(`sql/triggers/${file}`).matchAll(/EXECUTE FUNCTION\s+(?:\w+\.)?(\w+)\(/g)) {
         expect(read(`sql/functions/${kebab(name)}.sql`), name).toMatch(new RegExp(`COMMENT ON FUNCTION \\w+\\.${name}\\(`));
@@ -145,13 +145,11 @@ describe("the SQL files of prisma/", () => {
     }
   });
 
-  it("keep sql/comentarios.sql as the only source of the comments: the dictionary in docs/ is written from the database, never the other way", () => {
-    const docs = path.join(process.cwd(), "docs", "base-de-datos");
-    const generator = fs.readFileSync(path.join(docs, "generar-diccionario.mjs"), "utf8");
+  it("keep the COMMENT ON as the only documentation of the database: no dictionary in docs/ and an install that never reads docs/", () => {
+    const install = ["scripts/db-aplicar-sql.mjs", "scripts/docker-entrypoint.sh", "Dockerfile", "package.json"];
 
-    expect(fs.existsSync(path.join(docs, "diccionario.json"))).toBe(false);
-    expect(generator.match(/writeFileSync\(/g)).toHaveLength(1);
-    expect(generator).toContain('writeFileSync(join(CARPETA, "diccionario-de-datos.md")');
+    expect(fs.existsSync(path.join(process.cwd(), "docs", "base-de-datos"))).toBe(false);
+    for (const file of install) expect(fs.readFileSync(path.join(process.cwd(), file), "utf8"), file).not.toMatch(/docs\//);
   });
 
   it("install the establecimientos padron from one SQL file with 434 unique codes, outside db:aplicar", () => {

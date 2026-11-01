@@ -206,7 +206,6 @@ Para agregar un error nuevo: sumar su entrada al catálogo que corresponde, o su
 | `npm run smoke:postgres` | Pruebas de humo contra una base PostgreSQL real (hay que definir `DATABASE_URL` y `DATABASE_ENABLED=true`) |
 | `npm run db:aplicar` | Aplica `prisma/sql` y `prisma/seeds/catalogos` a la base de `DATABASE_URL` (se puede repetir) |
 | `npm run db:test` | Arma una base desechable con las migraciones y los archivos SQL y corre las pruebas SQL de `prisma/tests/` (necesita `psql` y un `DATABASE_URL`) |
-| `npm run db:diccionario` | Regenera `docs/base-de-datos/diccionario-de-datos.md` leyendo los `COMMENT ON` de una base ya armada; falla si falta la descripción de una tabla, columna, llave foránea o función de disparador |
 | `npm run format` | Aplica el formato de Prettier al código |
 | `npm run format:check` | Verifica el formato sin modificar archivos; es lo que corre el CI |
 
