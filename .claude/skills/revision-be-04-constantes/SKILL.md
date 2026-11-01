@@ -3,7 +3,7 @@ name: revision-be-04-constantes
 description: Filtro 4 de 10 de revision-backend. Textos, regex, prompts, límites, palabras clave y estados fuera de la lógica; enums sin strings sueltos. Úsalo solo dentro de revision-backend.
 ---
 
-# Filtro BE-04 · Constantes (reglas 18-24, 65-76)
+# Filtro BE-04 · Constantes (R38-R51, R129-R131, R194, R201-R202; G03, G76)
 
 ## Verifica
 
@@ -14,13 +14,17 @@ description: Filtro 4 de 10 de revision-backend. Textos, regex, prompts, límite
 - Prompts de IA en `lib/constants/prompts/`, uno por tarea (71).
 - Sin alias que solo renombran un valor (72). Estados, motivos y discriminantes son enums de `lib/enums/` (uno por archivo), tipos con el enum directo, `switch` sin `default` salvo error de programación (73-75).
 - Valores persistidos (estados de sesión, claves de slots, ids de botón) no se renombran (76).
+- Literales de librerías que el código compara (el `code` de un issue de zod, un código de error de Prisma) son constantes con nombre en `lib/constants/`, atadas al tipo de la librería con `satisfies` (R38).
+- Un enum se importa una sola vez y con su propio nombre, sin `as XEnum` (G76).
 - Configuración tipada y centralizada; `.env.example` sincronizado; sin secretos en código (21-24).
 
 ## Comandos
 
 ```bash
 npx vitest run tests/integration/textos-location.test.ts tests/integration/regex-location.test.ts
-rg -n "=== \"[a-z_]+\"|!== \"[a-z_]+\"" lib/fsm lib/whatsapp
+rg -n "=== \"[a-z_]+\"|!== \"[a-z_]+\"" lib app
+rg -n '\.code === "[a-z_]+"' app lib
+rg -n "import \{ \w+ as \w+Enum \}" app lib
 rg -n "\b(const|let) \w+ = (\w+\.)+\w+;$" lib | rg "Id\.|Button"
 ```
 
