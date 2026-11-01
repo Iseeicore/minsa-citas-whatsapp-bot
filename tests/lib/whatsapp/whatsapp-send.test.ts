@@ -68,6 +68,26 @@ describe("WhatsApp send failures reach the masked logger", () => {
     });
   });
 
+  it("logs each Graph call as external.http with its status and duration, never the token", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: "wamid.1" }] }), { status: 200 })),
+    );
+
+    await sendAndRecordEffect(undefined, "51987654321", { kind: SendType.TEXT, text: "hola" });
+
+    const call = lines.find((line) => line.event === "external.http");
+    expect(call).toMatchObject({
+      level: "info",
+      service: "meta",
+      method: "POST",
+      path: expect.stringMatching(/\/123\/messages$/),
+      status: 200,
+    });
+    expect(typeof call?.durationMs).toBe("number");
+    expect(JSON.stringify(call)).not.toContain("token");
+  });
+
   it("labels the list opener with the shared list button text", async () => {
     const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
