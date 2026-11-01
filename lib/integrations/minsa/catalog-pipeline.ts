@@ -4,7 +4,7 @@ import type { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { isRecord } from "@/lib/utils/type-guards";
 import { logger } from "@/lib/observability/logger";
-import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
+import { HttpStatus } from "@/lib/enums/http-status";
 
 export type CatalogFetchResult<T> =
   | { status: CatalogStatus.FOUND; items: T[]; page?: number; totalPages?: number }
@@ -32,7 +32,7 @@ function rowsAt(body: unknown, path: readonly string[]): unknown {
 
 export async function fetchCatalogItems<T>(params: CatalogFetchParams<T>): Promise<CatalogFetchResult<T>> {
   const response = await postWithBearer(params.endpoint, params.body, params.bearer);
-  if (response.status === HTTP_UNAUTHORIZED) return { status: CatalogStatus.UNAUTHORIZED };
+  if (response.status === HttpStatus.UNAUTHORIZED) return { status: CatalogStatus.UNAUTHORIZED };
   if (!response.ok) return { status: CatalogStatus.ERROR };
 
   let body: unknown;

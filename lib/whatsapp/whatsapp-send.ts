@@ -15,7 +15,7 @@ import { toNumberedTextEffect } from "@/lib/whatsapp/message-fallback";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isRecord } from "@/lib/utils/type-guards";
 import { readNumber, readString } from "@/lib/utils/record-readers";
-import { HTTP_BAD_REQUEST } from "@/lib/constants/http-status";
+import { HttpStatus } from "@/lib/enums/http-status";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
 import { toWhatsAppEffects } from "@/lib/whatsapp/consent-effects";
 
@@ -182,7 +182,7 @@ async function sendAndRecordMessage(conversationId: string | undefined, waId: st
   if (response.ok) return recordDelivered(conversationId, outbound.text, response);
 
   await logRejection(waId, outbound, response);
-  if (outbound.kind === SendType.TEXT || response.status !== HTTP_BAD_REQUEST) return toRejectedOutcome(response);
+  if (outbound.kind === SendType.TEXT || response.status !== HttpStatus.BAD_REQUEST) return toRejectedOutcome(response);
 
   const fallback = toNumberedTextEffect(outbound);
   const retry = await trySend(waId, fallback);

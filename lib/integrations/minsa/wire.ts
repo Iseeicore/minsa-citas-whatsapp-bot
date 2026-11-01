@@ -6,12 +6,11 @@ import { TRAILING_SLASHES } from "@/lib/constants/regex/integrations";
 import { findMinsaApiHost } from "@/lib/config/integrations";
 import { ConfigErrorCode } from "@/lib/enums/config-error-code";
 import { MinsaSignatureStatus } from "@/lib/enums/minsa-signature-status";
-
-const HTTP_SERVICE_UNAVAILABLE = 503;
+import { HttpStatus } from "@/lib/enums/http-status";
 
 function toBlockedResponse(path: string, reason: ConfigErrorCode): Response {
   logger.error("minsa.request_blocked", { path, reason });
-  return new Response(null, { status: HTTP_SERVICE_UNAVAILABLE });
+  return new Response(null, { status: HttpStatus.SERVICE_UNAVAILABLE });
 }
 
 export const MINSA_DIGITAL_LOGIN_PATH = "/login";

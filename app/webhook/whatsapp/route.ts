@@ -4,6 +4,7 @@ import { processValue } from "@/lib/whatsapp/webhook/process";
 import { logger } from "@/lib/observability/logger";
 import { apiError } from "@/lib/http/api-error";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { HttpStatus } from "@/lib/enums/http-status";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isValidMetaSignature } from "@/lib/security/meta-signature";
 import { isValidMetaVerifyToken } from "@/lib/security/meta-verify-token";
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   const challenge = searchParams.get("hub.challenge");
 
   if (mode === "subscribe" && isValidMetaVerifyToken(verifyToken)) {
-    return new NextResponse(challenge ?? "", { status: 200 });
+    return new NextResponse(challenge ?? "", { status: HttpStatus.OK });
   }
 
   return apiError(ApiErrorCode.FORBIDDEN);
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
   if (!isValidMetaSignature(rawBody, request.headers.get(META_SIGNATURE_HEADER))) {
-    return new NextResponse("Forbidden", { status: 403 });
+    return apiError(ApiErrorCode.FORBIDDEN);
   }
 
   const parsed = parseJsonOr(rawBody, undefined);
@@ -51,5 +52,5 @@ export async function POST(request: NextRequest) {
     }
   });
 
-  return NextResponse.json({ received: true }, { status: 200 });
+  return NextResponse.json({ received: true }, { status: HttpStatus.OK });
 }

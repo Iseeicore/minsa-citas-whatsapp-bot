@@ -48,11 +48,6 @@ const ALLOWED_NUMBERS_OUTSIDE_LIMITS: ReadonlyArray<{ file: string; constant: st
     constant: "SINGLE_HORARIO_DAYS_AHEAD",
     reason: "parámetro del juego de datos falso, que vive junto a esos datos",
   },
-  {
-    file: "lib/integrations/minsa/wire.ts",
-    constant: "HTTP_SERVICE_UNAVAILABLE",
-    reason: "código de estado HTTP, no un límite que se ajuste",
-  },
 ];
 
 function toPosix(file: string): string {

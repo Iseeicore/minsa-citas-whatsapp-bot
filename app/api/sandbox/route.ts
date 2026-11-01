@@ -21,6 +21,7 @@ import { apiError } from "@/lib/http/api-error";
 import { toSandboxTurnFailureResponse } from "@/lib/http/sandbox-turn-failure";
 import { buildSandboxReply } from "@/lib/utils/sandbox-reply";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
+import { HttpStatus } from "@/lib/enums/http-status";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
@@ -90,11 +91,11 @@ export async function OPTIONS(request: NextRequest) {
 
   const origin = request.headers.get("origin");
   if (!origin || !allowedOrigins().includes(origin)) {
-    return new NextResponse(null, { status: 204 });
+    return new NextResponse(null, { status: HttpStatus.NO_CONTENT });
   }
 
   return new NextResponse(null, {
-    status: 204,
+    status: HttpStatus.NO_CONTENT,
     headers: {
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
