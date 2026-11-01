@@ -1,8 +1,9 @@
 import Image from "next/image";
+import EessSearch from "@/app/components/EessSearch";
 import { LandingHeader } from "@/app/components/landing/LandingHeader";
 import { LandingHero } from "@/app/components/landing/LandingHero";
-import { LandingLoginBanner } from "@/app/components/landing/LandingLoginBanner";
 import { LandingServices } from "@/app/components/landing/LandingServices";
+import { mapsDirectionsUrl } from "@/lib/config/maps";
 
 const ACCESIBILIDAD_ALT_TEXT = "Accesibilidad";
 
@@ -12,7 +13,9 @@ export default function Landing({ loginUrl, chatEnabled }: { loginUrl: string | 
       <div className="mx-auto flex min-h-0 w-full max-w-landing flex-1 flex-col px-5 pb-28 md:px-10 md:pb-32">
         <LandingHeader loginUrl={loginUrl} chatEnabled={chatEnabled} />
         <LandingHero />
-        <LandingLoginBanner loginUrl={loginUrl} />
+        <div className="mt-3 md:mx-landing-search-gutter">
+          <EessSearch directionsUrl={mapsDirectionsUrl()} />
+        </div>
         <LandingServices loginUrl={loginUrl} chatEnabled={chatEnabled} />
       </div>
 

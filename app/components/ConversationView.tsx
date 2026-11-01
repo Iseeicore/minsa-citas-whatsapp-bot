@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ConversationMessages, Message } from "@/app/components/types";
+import type { Conversation, ConversationMessages, Message } from "@/app/components/types";
 import {
   BackArrowIcon,
   CameraIcon,
@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
 import { readRequestData, useConversationPolling } from "@/app/components/hooks/use-conversation-polling";
+import { useApi } from "@/app/hooks/use-api";
+import { ApiRequestStatus } from "@/lib/enums/api-request-status";
 import { RequestStatus } from "@/lib/enums/request-status";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonSize } from "@/lib/enums/button-size";
@@ -50,10 +52,12 @@ export default function ConversationView({
   const windowExpiresAt = data?.windowExpiresAt ?? null;
   const status = data?.status ?? ConversationStatus.OPEN;
   const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [closing, setClosing] = useState(false);
-  const [closeError, setCloseError] = useState<string | null>(null);
+  const sendApi = useApi<Message>("No se pudo enviar el mensaje.");
+  const closeApi = useApi<Conversation>("No se pudo cerrar la conversación.");
+  const sending = sendApi.state.status === ApiRequestStatus.LOADING;
+  const sendError = sendApi.state.status === ApiRequestStatus.ERROR ? sendApi.state.message : undefined;
+  const closing = closeApi.state.status === ApiRequestStatus.LOADING;
+  const closeError = closeApi.state.status === ApiRequestStatus.ERROR ? closeApi.state.message : undefined;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,51 +66,20 @@ export default function ConversationView({
 
   async function handleSend() {
     if (!text.trim()) return;
-    setSending(true);
-    setSendError(null);
+    const result = await sendApi.post("/api/messages/send", { conversationId, text });
+    if (result.status !== ApiRequestStatus.DATA) return;
 
-    try {
-      const res = await fetch("/api/messages/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId, text }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setSendError(data.message ?? "No se pudo enviar el mensaje.");
-        return;
-      }
-
-      const created = (await res.json()) as Message;
-      update((current) => ({ ...current, messages: [...current.messages, created] }));
-      setText("");
-    } catch {
-      setSendError("No se pudo enviar el mensaje.");
-    } finally {
-      setSending(false);
-    }
+    const { data: created } = result;
+    update((current) => ({ ...current, messages: [...current.messages, created] }));
+    setText("");
   }
 
   async function handleClose() {
-    setClosing(true);
-    setCloseError(null);
+    const result = await closeApi.post(`/api/conversations/${conversationId}/close`);
+    if (result.status !== ApiRequestStatus.DATA) return;
 
-    try {
-      const res = await fetch(`/api/conversations/${conversationId}/close`, { method: "POST" });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setCloseError(data.message ?? "No se pudo cerrar la conversación.");
-        return;
-      }
-
-      update((current) => ({ ...current, status: ConversationStatus.CLOSED }));
-    } catch {
-      setCloseError("No se pudo cerrar la conversación.");
-    } finally {
-      setClosing(false);
-    }
+    const { data: conversation } = result;
+    update((current) => ({ ...current, status: conversation.status }));
   }
 
   const displayName = profileName ?? waId ?? "Contacto";

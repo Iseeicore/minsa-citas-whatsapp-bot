@@ -1,11 +1,11 @@
 ---
 name: revision-backend
-description: Revisión secuencial del backend (app/api, app/webhook, lib/, prisma/) contra "Reglas de Desarrollo — Backend". Úsala al revisar o antes de abrir un PR que toque backend. Corre 10 filtros en orden; un filtro en FALLA detiene la revisión.
+description: Revisión secuencial del backend (app/api, app/webhook, lib/, prisma/) contra "Reglas del Backend — Calidad de Código" (R01-R203) y las generales (G01-G76). Úsala al revisar o antes de abrir un PR que toque backend. Corre 10 filtros en orden; un filtro en FALLA detiene la revisión.
 ---
 
 # Revisión secuencial — Backend
 
-Fuente de las reglas: `Obsidian Vault/Minsa/Minsa_code/Reglas de Desarrollo — Backend.md`. Cada filtro cita los números de regla de ese archivo.
+Fuente de las reglas: `Obsidian Vault/Documentacion-Chatbot/Reglas/Reglas del Backend — Calidad de Código.md` (R) y `Obsidian Vault/Documentacion-Chatbot/Reglas/Generales/Reglas Generales — Calidad y Entrega.md` (G). La numeración vieja (1-141) es la de `Reglas/Retirados/` y ya no rige.
 
 ## Procedimiento
 
@@ -14,19 +14,19 @@ Fuente de las reglas: `Obsidian Vault/Minsa/Minsa_code/Reglas de Desarrollo — 
 
 | # | Skill | Reglas |
 |---|---|---|
-| 1 | `revision-be-01-arquitectura` | 1-6, 52 |
-| 2 | `revision-be-02-errores-http` | 7-13 |
-| 3 | `revision-be-03-validacion-datos-externos` | 14-17, 88-92 |
-| 4 | `revision-be-04-constantes` | 18-24, 65-76 |
-| 5 | `revision-be-05-utilitarias-errores` | 77-87 |
-| 6 | `revision-be-06-seguridad-fiabilidad` | 29-42, 100 |
-| 7 | `revision-be-07-datos-migraciones` | 25-28, 93-99, 101 |
-| 8 | `revision-be-08-banderas-entorno` | 120-141 |
-| 9 | `revision-be-09-comentarios-formato` | 43-47, 64, 102-110 |
-| 10 | `revision-be-10-git-entrega` | 54-58, 111-119 |
+| 1 | `revision-be-01-arquitectura` | R01-R12, R163-R177, R203 (sección 1) |
+| 2 | `revision-be-02-errores-http` | R13-R24, R196 (sección 2), R42 para los códigos HTTP |
+| 3 | `revision-be-03-validacion-datos-externos` | R25-R37, R128 (sección 3), G09-G11 |
+| 4 | `revision-be-04-constantes` | R38-R51, R129-R131, R194, R201-R202 (sección 4), G03, G76 |
+| 5 | `revision-be-05-utilitarias-errores` | R52-R55 (sección 5), R56-R66 (sección 6), G45-G47 |
+| 6 | `revision-be-06-seguridad-fiabilidad` | R84-R100, R140-R142, R158-R161, R190, R199-R200 (secciones 10 y 11) |
+| 7 | `revision-be-07-datos-migraciones` | R70-R83, R132-R139, R178-R189, R191 (secciones 8 y 9) |
+| 8 | `revision-be-08-banderas-entorno` | R115-R122 (sección 15), G49-G63 |
+| 9 | `revision-be-09-comentarios-formato` | R101-R104, R143-R144, R198 (sección 12), R113-R114 (sección 14) |
+| 10 | `revision-be-10-git-entrega` | G16-G18, G33-G40 (generales sección 5), R123-R127 (sección 16) |
 
 3. Cada filtro termina en **PASA** o **FALLA** (con `archivo:línea` y la regla violada).
-4. **FALLA detiene la secuencia.** No se evalúa el filtro siguiente hasta corregir y repetir el mismo filtro hasta PASA. Los hallazgos de filtros posteriores que se noten de paso se anotan como "pendiente", no se corrigen (regla 112).
+4. **FALLA detiene la secuencia.** No se evalúa el filtro siguiente hasta corregir y repetir el mismo filtro hasta PASA. Los hallazgos de filtros posteriores que se noten de paso se anotan como "pendiente", no se corrigen (G64 a G74).
 5. Al terminar los 10 en PASA, correr el cierre: `npx next typegen && npx tsc --noEmit && npx eslint lib app tests && npm run format:check && npx vitest run`, y `npm run test:perf` por separado.
 
 ## Reporte final

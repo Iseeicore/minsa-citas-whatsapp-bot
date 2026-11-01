@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { findMinsaIntegrationSecret } from "@/lib/config/integrations";
 import { MinsaSignatureStatus } from "@/lib/enums/minsa-signature-status";
+import { toUnixSeconds } from "@/lib/time/epoch-seconds";
 
 export type SignedRequestHeaders = {
   "X-WhatsApp-Timestamp": string;
@@ -15,7 +16,7 @@ export function signMinsaRequest(bodyJson: string): MinsaSignature {
   const secret = findMinsaIntegrationSecret();
   if (secret === undefined) return { status: MinsaSignatureStatus.SECRET_MISSING };
 
-  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const timestamp = toUnixSeconds(Date.now()).toString();
   const requestId = crypto.randomUUID();
   const message = `${timestamp}.${requestId}.${bodyJson}`;
 

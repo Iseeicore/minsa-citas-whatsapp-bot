@@ -8,8 +8,9 @@ import { BookingStatus } from "@/lib/enums/booking-status";
 import { stringOrUndefined } from "@/lib/utils/text-values";
 import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isRecord } from "@/lib/utils/type-guards";
-import { BOOKING_LOG_BODY_LIMIT, HTTP_SERVER_ERROR_MIN_STATUS, NETWORK_FAILURE_STATUS } from "@/lib/constants/limits/minsa";
-import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
+import { BOOKING_LOG_BODY_LIMIT, NETWORK_FAILURE_STATUS } from "@/lib/constants/limits/minsa";
+import { HttpStatus } from "@/lib/enums/http-status";
+import { isServerErrorStatus } from "@/lib/utils/http-status";
 
 const UNPARSABLE_BODY = Symbol("unparsable_body");
 
@@ -66,7 +67,7 @@ export async function bookAppointment(params: BookAppointmentParams, bearer: str
       logger.error("minsa.book_appointment.failed", { endpoint: MinsaEndpoint.CITAS, status: NETWORK_FAILURE_STATUS, error });
       return { status: BookingStatus.UNAVAILABLE };
     }
-    if (response.status === HTTP_UNAUTHORIZED) return { status: BookingStatus.UNAUTHORIZED };
+    if (response.status === HttpStatus.UNAUTHORIZED) return { status: BookingStatus.UNAUTHORIZED };
 
     let rawBody: string;
     try {
@@ -91,7 +92,7 @@ export async function bookAppointment(params: BookAppointmentParams, bearer: str
       return { status: BookingStatus.DUPLICATE, message: minsaMessage };
     }
 
-    if (response.status >= HTTP_SERVER_ERROR_MIN_STATUS) {
+    if (isServerErrorStatus(response.status)) {
       logBookingFailure(params, response.status, rawBody);
       return { status: BookingStatus.UNAVAILABLE };
     }

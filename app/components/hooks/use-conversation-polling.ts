@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { RequestState } from "@/app/components/types";
+import type { RequestState } from "@/lib/types/request-state.types";
 import { fetchJson } from "@/app/components/http/fetch-json";
 import { FetchJsonStatus } from "@/lib/enums/fetch-json-status";
 import { RequestStatus } from "@/lib/enums/request-status";

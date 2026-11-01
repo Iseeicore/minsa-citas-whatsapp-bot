@@ -3,11 +3,11 @@ name: revision-fe-03-datos-backend
 description: Filtro 3 de 5 de revision-frontend. HTTP por un solo cliente, errores por errorCode, sesión y rol decididos por el servidor, cliente transparente con el backend. Úsalo solo dentro de revision-frontend.
 ---
 
-# Filtro FE-03 · Datos y red (reglas 9-16, 60-64)
+# Filtro FE-03 · Datos y red (F20-F34, F77-F78, F87)
 
 ## Verifica
 
-- Todo HTTP de la UI pasa por el cliente central; ningún `fetch` suelto que se salte cabeceras, credenciales o manejo de errores (9).
+- Todo HTTP de la UI pasa por el cliente central (`lib/http/api-client.ts`, mediante el hook `useApi` de `app/hooks/use-api.ts`); `fetch(` solo aparece en ese cliente (F22). Un `fetch` suelto en un componente es FALLA aunque maneje sus errores.
 - Filtros de consulta con el helper central que descarta `undefined`/`null`/`""` (10).
 - Errores del servidor leídos por `errorCode`, con `error` como respaldo; un solo extractor de mensajes para toda la app (11, 12).
 - Sin secretos con prefijo `NEXT_PUBLIC_` (13); sesión no guardada en `localStorage` (14).
@@ -18,7 +18,8 @@ description: Filtro 3 de 5 de revision-frontend. HTTP por un solo cliente, error
 ## Comandos
 
 ```bash
-rg -n "fetch\(|localStorage|sessionStorage" app
+rg -n "fetch\(" app
+rg -n "localStorage|sessionStorage" app
 rg -n "NEXT_PUBLIC_" app lib .env.example
 rg -n "\?\? *\w+(\.\w+|\?\.\w+)* *\?\?" app
 ```

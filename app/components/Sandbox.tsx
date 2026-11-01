@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { InboundEventType } from "@/lib/fsm/core/types";
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import type { SandboxReply, SandboxSessionView } from "@/lib/types/sandbox-reply.types";
 import { randomUuid } from "@/lib/utils/random-uuid";
@@ -18,7 +17,7 @@ import { Banner } from "@/app/components/ui/Banner";
 import { Button } from "@/app/components/ui/Button";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ChatOptionKind } from "@/lib/enums/chat-option-kind";
-import { InboundEventType as InboundEventTypeEnum } from "@/lib/enums/inbound-event-type";
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
@@ -35,8 +34,8 @@ const RESET_CONFIRM_TEXT = "Esto reiniciará esta conversación de prueba. ¿Con
 const RESET_BUTTON_TEXT = "Reiniciar esta prueba";
 
 const INBOUND_TYPE_BY_OPTION_KIND: Readonly<Record<ChatOptionKind, InboundEventType>> = {
-  [ChatOptionKind.LIST]: InboundEventTypeEnum.LIST,
-  [ChatOptionKind.BUTTONS]: InboundEventTypeEnum.BUTTON,
+  [ChatOptionKind.LIST]: InboundEventType.LIST,
+  [ChatOptionKind.BUTTONS]: InboundEventType.BUTTON,
 };
 
 export default function Sandbox({
@@ -78,7 +77,7 @@ export default function Sandbox({
   useEffect(() => {
     if (!active || !from || entries.length > 0 || welcomeRequestedRef.current) return;
     welcomeRequestedRef.current = true;
-    sendTurn({ type: "text", text: WELCOME_TRIGGER_TEXT, reset: true });
+    sendTurn({ type: InboundEventType.TEXT, text: WELCOME_TRIGGER_TEXT, reset: true });
   });
 
   async function sendTurn(
@@ -144,7 +143,7 @@ export default function Sandbox({
     const text = inputText.trim();
     if (!text) return;
     setInputText("");
-    sendTurn({ type: "text", text }, text);
+    sendTurn({ type: InboundEventType.TEXT, text }, text);
   }
 
   function handleOptionClick(kind: ChatOptionKind, id: string, title: string, replyTo: string | undefined) {
@@ -159,7 +158,7 @@ export default function Sandbox({
     setSession(null);
     setCurrentInteractiveId(undefined);
     setDniValue("");
-    sendTurn({ type: "text", reset: true });
+    sendTurn({ type: InboundEventType.TEXT, reset: true });
   }
 
   async function handleImageSelect(fileList: FileList | null) {
@@ -173,14 +172,14 @@ export default function Sandbox({
 
     setError(null);
     const dataUri = await readFileAsDataUri(file);
-    sendTurn({ type: "image", mediaDataUri: dataUri }, `Imagen: ${file.name}`);
+    sendTurn({ type: InboundEventType.IMAGE, mediaDataUri: dataUri }, `Imagen: ${file.name}`);
   }
 
   function handleDniSubmit() {
     const value = dniValue.trim();
     if (!value) return;
     setDniValue("");
-    sendTurn({ type: "text", text: value }, value);
+    sendTurn({ type: InboundEventType.TEXT, text: value }, value);
   }
 
   const showDniCard = session?.state === DNI_AWAITING_STATE;

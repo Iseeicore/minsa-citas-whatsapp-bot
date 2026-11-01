@@ -7,7 +7,7 @@ import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { isRecord } from "@/lib/utils/type-guards";
 import { readString, readNumber } from "@/lib/utils/record-readers";
 import { logger } from "@/lib/observability/logger";
-import { HTTP_UNAUTHORIZED } from "@/lib/constants/http-status";
+import { HttpStatus } from "@/lib/enums/http-status";
 
 const SIN_REFERENCIAS: ListReferencesResult = { statusReference: ReferenceStatus.EMPTY, message: "", data: [] };
 const SIN_RESPUESTA: ListReferencesResult = { statusReference: ReferenceStatus.ERROR, message: "", data: [] };
@@ -73,7 +73,7 @@ export async function listReferences(numeroDocumento: string, tipoDocumento: str
     },
     bearer,
   );
-  if (response.status === HTTP_UNAUTHORIZED) return SESION_VENCIDA;
+  if (response.status === HttpStatus.UNAUTHORIZED) return SESION_VENCIDA;
   if (!response.ok) return SIN_RESPUESTA;
 
   let body: unknown;

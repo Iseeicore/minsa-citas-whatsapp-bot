@@ -9,9 +9,11 @@ const VARIANT_CLASS_NAME: Record<TextInputVariant, string> = {
   [TextInputVariant.BOXED]:
     "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-sb-accent",
   [TextInputVariant.SEARCH]: "w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400",
+  [TextInputVariant.PILL]:
+    "h-9 w-full min-w-0 rounded-full bg-white px-4 text-sm text-brand-navy outline-none placeholder:text-gray-400 md:h-12 md:px-6 md:text-lg",
 };
 
-type TextInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "onChange" | "onKeyDown" | "value"> & {
+export type TextInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "onChange" | "onKeyDown" | "value"> & {
   variant: TextInputVariant;
   type?: "text" | "search";
   value: string;

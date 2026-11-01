@@ -8,4 +8,5 @@ export enum MinsaEndpoint {
   HORAS = "/whatsapp/api/v1/quotas/times",
   REFERENCIAS = "/whatsapp/api/v1/references",
   CITAS = "/whatsapp/api/v1/appointments",
+  EESS = "/api/v1/eess/",
 }

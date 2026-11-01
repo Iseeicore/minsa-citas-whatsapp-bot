@@ -74,6 +74,7 @@ SANDBOX_SHARED_SECRET=
 INCIDENCIAS_ENABLED=false
 TERMINOS_ENABLED=false
 TERMINOS_URL=
+MAPS_DIRECTIONS_URL=
 MEDIA_STORAGE_BASE_URL=
 MEDIA_STORAGE_TOKEN=
 MEDIA_STORAGE_TIMEOUT_MS=
@@ -141,6 +142,7 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 | `INCIDENCIAS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) ofrece **Registrar una incidencia** y **Consultar una incidencia** en el menú de whatsapp-bot y del Chat-bot. Para guardarlas hacen falta también `DATABASE_ENABLED=true` y `DATABASE_URL`. **Para usar incidencias, pónganla en `true`** | Apagada (también vacía o con cualquier otro valor): el menú ofrece solo **Agendar una cita médica** y **Cita con referencia**. Ni el `3` o `4` escritos, ni las palabras clave, ni un código `MINSA-AAAA-NNNNNN` (o `MINSA-AAAA-A-NNNNNN`), ni una sesión que quedó a medias llegan a esos flujos: el bot responde que por ahora solo agenda citas y consulta referencias, y muestra el menú |
 | `TERMINOS_ENABLED` | `true` (sin distinguir mayúsculas ni espacios) muestra los términos y condiciones antes de agendar una cita médica, en los dos canales; **Cita con referencia** no los pide. En el Chat-bot salen en una ventana con la casilla «Acepto los términos y condiciones»; en WhatsApp, con los botones **Acepto** y **No acepto**. Cada aceptación se guarda en `chatbot.aceptacion_terminos` (sin base, solo en la memoria del proceso) | Apagada: la cita empieza sin términos |
 | `TERMINOS_URL` | Página de los términos que enlaza el botón **Ver términos** de WhatsApp, por ejemplo `https://<host-del-bot>/terminos` (el bot publica el mismo texto en `/terminos`) | Sin valor por defecto: WhatsApp muestra solo **Acepto** y **No acepto** y queda el aviso `terminos.url_missing` en el log |
+| `MAPS_DIRECTIONS_URL` | Dirección base del servicio de mapas que abre el botón **Cómo llegar** de la búsqueda de establecimientos de la portada; la búsqueda consulta los establecimientos en `MINSA_API_HOST` | Usa `https://www.google.com/maps/dir/` |
 
 **Imágenes de evidencia.** Hasta 5 por incidencia, de hasta `EVIDENCE_IMAGE_MAX_MB` cada una. Las que llegan juntas en WhatsApp reciben **una sola respuesta** que dice cuántas se guardaron y por qué no las otras; al llegar a 5 esa respuesta ya trae el resumen para registrar, y la persona toca **Listo** cuando termina. Los PDF y demás documentos todavía no se guardan: el bot lo dice. Detalle en [flujo-incidencia.md](flujo-incidencia.md).
 

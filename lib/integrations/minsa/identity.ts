@@ -3,6 +3,7 @@ import { FAKE_BEARER, FAKE_CARNET_EXTRANJERIA, FAKE_DNI, FAKE_OTP, FAKE_TWOFA_ID
 import type { RawRow } from "@/lib/integrations/minsa/row-readers";
 import { postSigned, isRealMinsaEnabled } from "@/lib/integrations/minsa/wire";
 import { MinsaEndpoint } from "@/lib/enums/minsa-endpoint";
+import { HttpStatus } from "@/lib/enums/http-status";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
@@ -10,6 +11,17 @@ import { isString, isRecord } from "@/lib/utils/type-guards";
 import { logger } from "@/lib/observability/logger";
 
 const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
+
+const DOCUMENT_NOT_VALID_STATUSES: ReadonlySet<number> = new Set([
+  HttpStatus.BAD_REQUEST,
+  HttpStatus.NOT_FOUND,
+  HttpStatus.UNPROCESSABLE_CONTENT,
+]);
+const CODE_INVALID_STATUSES: ReadonlySet<number> = new Set([
+  HttpStatus.BAD_REQUEST,
+  HttpStatus.UNAUTHORIZED,
+  HttpStatus.UNPROCESSABLE_CONTENT,
+]);
 
 function rootAndData(endpoint: MinsaEndpoint, body: unknown): { root: RawRow; data: RawRow } | undefined {
   if (!isRecord(body)) {
@@ -61,7 +73,7 @@ export async function validateUser(numeroDocumento: string, tipoDocumento: TipoD
       conversation_id: process.env.MINSA_CONVERSATION_ID_PLACEHOLDER,
     });
 
-    if ([400, 404, 422].includes(response.status)) {
+    if (DOCUMENT_NOT_VALID_STATUSES.has(response.status)) {
       return { status: ValidateUserStatus.NOT_VALID };
     }
     if (!response.ok) {
@@ -85,7 +97,7 @@ export async function verifyCode(twofaId: string, code: string): Promise<VerifyC
       code,
     });
 
-    if ([400, 401, 422].includes(response.status)) {
+    if (CODE_INVALID_STATUSES.has(response.status)) {
       return { status: VerifyCodeStatus.INVALID };
     }
     if (!response.ok) {

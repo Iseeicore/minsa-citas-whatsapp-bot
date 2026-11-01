@@ -37,14 +37,14 @@ Si una sesión no carga este archivo (versión de Claude Code anterior, subagent
 
 # Revisión secuencial por filtros
 
-Las reglas de desarrollo viven en `Obsidian Vault/Minsa/Minsa_code/` (`Reglas de Desarrollo — Backend.md` y `Reglas de Desarrollo — Frontend.md`). Cada filtro es una skill de `.claude/skills/`.
+Las reglas de desarrollo viven en `Obsidian Vault/Documentacion-Chatbot/Reglas/`: `Reglas del Backend — Calidad de Código.md` (R01-R203), `Reglas del Frontend — Calidad de Código.md` (F01-F88) y `Generales/Reglas Generales — Calidad y Entrega.md` (G01-G76). Las versiones anteriores, con la numeración vieja, están en `Reglas/Retirados/`. Cada filtro es una skill de `.claude/skills/`.
 
 - Código en `app/api`, `app/webhook`, `lib/` o `prisma/` → skill `revision-backend` (filtros `revision-be-01` a `revision-be-10`).
-- Código en `app/` (UI) → skill `revision-frontend` (filtros `revision-fe-01` a `revision-fe-05`). La Parte B de las reglas (Angular) no aplica a este repo.
+- Código en `app/` (UI) → skill `revision-frontend` (filtros `revision-fe-01` a `revision-fe-05`). La sección 10 de las reglas del frontend (Angular) no aplica a este repo.
 - Los filtros se corren **en orden**. Un filtro en FALLA detiene la revisión: se corrige y se repite ese filtro antes de pasar al siguiente. Lo que se note de otros filtros se anota como pendiente, no se corrige de paso.
 - Una regla que depende de decisión del responsable (bandera, redacción de textos, contrato de otro equipo) se pregunta; no se decide solo.
-- **Al generar código nuevo**, antes de escribirlo se aplican las instrucciones «no generes esto, implementa así» y se responde la confirmación previa de los manuales: backend sección 20 (P1-P8) y frontend sección 19 (PF1-PF4). Los patrones que aún tiene el código y no se han corregido están en `Obsidian Vault/Minsa/Correcciones_detectadas/Correcciones detectadas.md`.
-- `AGENTS.md` y `.claude/skills/` se versionan en GitHub. **No** deben llegar al repositorio institucional de GitLab: verificar el diff antes de preparar cualquier envío hacia allá (regla 118).
+- **Al generar código nuevo**, antes de escribirlo se aplican las instrucciones para un agente de IA de cada manual (backend sección 19, frontend sección 14, generales sección 9) y su checklist antes de entregar (backend 18, frontend 13, generales 8).
+- `AGENTS.md` y `.claude/skills/` se versionan en GitHub. **No** deben llegar al repositorio institucional de GitLab: verificar el diff antes de preparar cualquier envío hacia allá (G35 y G37).
 
 # Idioma de la documentación
 
