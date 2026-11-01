@@ -13,6 +13,7 @@ export default defineConfig({
     setupFiles: ["tests/smoke/load-env.ts"],
     env: {
       INCIDENCIAS_ENABLED: "true",
+      REFERENCIAS_ENABLED: "true",
     },
     testTimeout: 60_000,
     hookTimeout: 60_000,
