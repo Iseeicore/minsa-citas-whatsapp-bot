@@ -1,14 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const CARPETA = dirname(fileURLToPath(import.meta.url));
-const SALIDA_COMENTARIOS = process.env.SALIDA_COMENTARIOS ?? join(CARPETA, "..", "..", "prisma", "sql", "comentarios.sql");
 const PSQL = process.env.PSQL_PATH || "psql";
+const SEPARADOR_RELACIONES = "\n\nRelaciones:\n";
 
 if (!process.env.DATABASE_URL) {
-  console.error("Falta DATABASE_URL: una base ya migrada (npx prisma migrate deploy).");
+  console.error("Falta DATABASE_URL: una base ya migrada y con npm run db:aplicar.");
   process.exit(2);
 }
 const conexion = new URL(process.env.DATABASE_URL);
@@ -29,39 +29,42 @@ function psql(args, entrada) {
   }).trim();
 }
 
-const diccionario = JSON.parse(readFileSync(join(CARPETA, "diccionario.json"), "utf8"));
 const estructura = JSON.parse(psql([], readFileSync(join(CARPETA, "estructura.sql"), "utf8")));
 const versionPg = psql(["-c", "select split_part(version(), ' ', 2)"]);
 
 const errores = [];
 const clave = (esquema, tabla) => `${esquema}.${tabla}`;
-const esCatalogo = (k) => k.startsWith("catalogo.") || k === "gestion.rol";
 const escapar = (s) => String(s).replaceAll("|", "\\|").replaceAll("\n", " ");
-const sql = (s) => `'${String(s).replaceAll("'", "''")}'`;
+
+for (const e of estructura.esquemas) {
+  if (!e.descripcion) errores.push(`Falta el COMMENT ON SCHEMA de ${e.nombre}`);
+}
 
 const tablas = new Map();
 for (const c of estructura.columnas) {
   const k = clave(c.esquema, c.tabla);
-  if (!tablas.has(k)) tablas.set(k, { esquema: c.esquema, nombre: c.tabla, columnas: [], restricciones: [], indices: [], disparadores: [] });
+  if (!tablas.has(k)) {
+    const [descripcion, relaciones] = (c.descripcion_tabla ?? "").split(SEPARADOR_RELACIONES);
+    if (!descripcion) errores.push(`Falta el COMMENT ON TABLE de ${k}`);
+    tablas.set(k, { esquema: c.esquema, nombre: c.tabla, descripcion, relaciones: relaciones ? relaciones.split("\n") : [], columnas: [], restricciones: [], indices: [], disparadores: [] });
+  }
+  if (!c.descripcion) errores.push(`Falta el COMMENT ON COLUMN de ${k}.${c.columna}`);
   tablas.get(k).columnas.push(c);
 }
 for (const r of estructura.restricciones) tablas.get(clave(r.esquema, r.tabla)).restricciones.push(r);
 for (const i of estructura.indices) tablas.get(clave(i.esquema, i.tabla)).indices.push(i);
 for (const d of estructura.disparadores) tablas.get(clave(d.esquema, d.tabla)).disparadores.push(d);
 
-function descripcionColumna(k, columna) {
-  const propia = diccionario.tablas[k]?.columnas?.[columna];
-  if (propia) return propia;
-  if (esCatalogo(k) && diccionario.catalogo_columnas[columna]) return diccionario.catalogo_columnas[columna];
-  if (diccionario.comunes[columna]) return diccionario.comunes[columna];
-  errores.push(`Falta la descripción de la columna ${k}.${columna}`);
-  return "";
+function textoFk(t, r) {
+  const prefijo = `- ${r.columnas.join(", ")} → ${r.tabla_ref}: `;
+  const linea = t.relaciones.find((l) => l.startsWith(prefijo));
+  if (!linea) errores.push(`Falta la explicación de la llave foránea ${r.nombre} en el COMMENT ON TABLE de ${clave(t.esquema, t.nombre)}`);
+  return linea ? linea.slice(prefijo.length) : "";
 }
 
 function descripcionDisparador(d) {
-  const base = diccionario.disparadores_por_funcion[d.funcion];
-  if (!base) {
-    errores.push(`Falta la descripción de la función ${d.funcion} (disparador ${d.nombre})`);
+  if (!d.descripcion_funcion) {
+    errores.push(`Falta el COMMENT ON FUNCTION de ${d.funcion} (disparador ${d.nombre})`);
     return "";
   }
   if (d.funcion === "fn_bloquear_operacion") {
@@ -69,7 +72,7 @@ function descripcionDisparador(d) {
       ? "Tabla de solo inserción: bloquea modificar y borrar."
       : "Bloquea el borrado físico; se debe usar el borrado lógico.";
   }
-  return base;
+  return d.descripcion_funcion;
 }
 
 function momento(def) {
@@ -78,45 +81,25 @@ function momento(def) {
 }
 
 const listaTablas = [...tablas.keys()].sort();
-for (const k of listaTablas) {
-  if (!diccionario.tablas[k]?.descripcion) errores.push(`Falta la descripción de la tabla ${k}`);
-}
-for (const k of Object.keys(diccionario.tablas)) {
-  if (!tablas.has(k)) errores.push(`diccionario.json describe una tabla que no existe: ${k}`);
-}
-for (const t of tablas.values()) {
-  for (const col of Object.keys(diccionario.tablas[clave(t.esquema, t.nombre)]?.columnas ?? {})) {
-    if (!t.columnas.some((c) => c.columna === col)) errores.push(`diccionario.json describe una columna que no existe: ${t.esquema}.${t.nombre}.${col}`);
-  }
-}
-
-const textoFk = (r) => {
-  const t = diccionario.llaves_foraneas[r.nombre];
-  if (!t) errores.push(`Falta la explicación de la llave foránea ${r.nombre}`);
-  return t ?? "";
-};
 
 const md = [];
 md.push("# Diccionario de datos");
 md.push("");
-md.push(`> **Generado automáticamente** por \`generar-diccionario.mjs\` desde la base real (PostgreSQL ${versionPg}). **No se edita a mano**: se cambia \`diccionario.json\` y se vuelve a generar. El script falla si falta la descripción de una tabla, una columna o una llave foránea.`);
+md.push(`> **Generado automáticamente** por \`generar-diccionario.mjs\` leyendo la base real (PostgreSQL ${versionPg}). **No se edita a mano**: las descripciones son los \`COMMENT ON\` de \`prisma/sql/comentarios.sql\` y de cada función en \`prisma/sql/functions/\`; se cambian allí, se aplican con \`npm run db:aplicar\` y se vuelve a generar. El script falla si falta la descripción de un esquema, una tabla, una columna, una llave foránea o la función de un disparador.`);
 md.push("> Convención: tablas y columnas en español y en singular; lo que viene de Meta en inglés. Fechas en UTC. Detalle del diseño en [[Base De Datos]].");
 md.push("");
 md.push("## Esquemas");
 md.push("");
 md.push("| Esquema | Para qué sirve |");
 md.push("|---|---|");
-for (const [e, d] of Object.entries(diccionario.esquemas)) md.push(`| \`${e}\` | ${escapar(d)} |`);
+for (const e of estructura.esquemas) md.push(`| \`${e.nombre}\` | ${escapar(e.descripcion ?? "")} |`);
 md.push("");
 md.push("## Resumen de tablas");
 md.push("");
 md.push("| Tabla | Descripción |");
 md.push("|---|---|");
-for (const k of listaTablas) md.push(`| \`${k}\` | ${escapar(diccionario.tablas[k].descripcion.split(". ")[0].replace(/\.$/, ""))}. |`);
+for (const k of listaTablas) md.push(`| \`${k}\` | ${escapar((tablas.get(k).descripcion ?? "").split(". ")[0].replace(/\.$/, ""))}. |`);
 md.push("");
-
-const comentarios = [];
-for (const [e, d] of Object.entries(diccionario.esquemas)) comentarios.push(`COMMENT ON SCHEMA ${e} IS ${sql(d)};`);
 
 for (const k of listaTablas) {
   const t = tablas.get(k);
@@ -127,7 +110,7 @@ for (const k of listaTablas) {
 
   md.push(`### \`${k}\``);
   md.push("");
-  md.push(diccionario.tablas[k].descripcion);
+  md.push(t.descripcion ?? "");
   md.push("");
   md.push("**Columnas**");
   md.push("");
@@ -135,9 +118,7 @@ for (const k of listaTablas) {
   md.push("|---|---|---|---|---|---|");
   for (const c of t.columnas) {
     const claves = [pk.has(c.columna) ? "PK" : null, fk.has(c.columna) ? "FK" : null, uq.has(c.columna) ? "UQ" : null].filter(Boolean).join(", ");
-    const desc = descripcionColumna(k, c.columna);
-    md.push(`| \`${c.columna}\` | ${escapar(c.tipo)} | ${c.nulo ? "Sí" : "No"} | ${c.defecto ? "`" + escapar(c.defecto) + "`" : ""} | ${claves} | ${escapar(desc)} |`);
-    comentarios.push(`COMMENT ON COLUMN ${k}.${c.columna} IS ${sql(desc)};`);
+    md.push(`| \`${c.columna}\` | ${escapar(c.tipo)} | ${c.nulo ? "Sí" : "No"} | ${c.defecto ? "`" + escapar(c.defecto) + "`" : ""} | ${claves} | ${escapar(c.descripcion ?? "")} |`);
   }
   md.push("");
 
@@ -146,9 +127,10 @@ for (const k of listaTablas) {
     md.push("");
     md.push("| Restricción | Columna | Apunta a | Por qué y para qué |");
     md.push("|---|---|---|---|");
-    for (const r of fks) md.push(`| \`${r.nombre}\` | \`${r.columnas.join(", ")}\` | \`${r.tabla_ref}\` | ${escapar(textoFk(r))} |`);
+    for (const r of fks) md.push(`| \`${r.nombre}\` | \`${r.columnas.join(", ")}\` | \`${r.tabla_ref}\` | ${escapar(textoFk(t, r))} |`);
     md.push("");
   }
+  if (t.relaciones.length !== fks.length) errores.push(`El COMMENT ON TABLE de ${k} explica ${t.relaciones.length} relaciones y la tabla tiene ${fks.length} llaves foráneas`);
 
   const checks = t.restricciones.filter((r) => r.tipo === "c");
   const unicas = t.restricciones.filter((r) => r.tipo === "u");
@@ -174,10 +156,6 @@ for (const k of listaTablas) {
     for (const d of t.disparadores) md.push(`- \`${d.nombre}\` (${momento(d.definicion)}): ${descripcionDisparador(d)}`);
     md.push("");
   }
-
-  let comentarioTabla = diccionario.tablas[k].descripcion;
-  if (fks.length) comentarioTabla += "\n\nRelaciones:\n" + fks.map((r) => `- ${r.columnas.join(", ")} → ${r.tabla_ref}: ${textoFk(r)}`).join("\n");
-  comentarios.push(`COMMENT ON TABLE ${k} IS ${sql(comentarioTabla)};`);
 }
 
 if (errores.length) {
@@ -185,7 +163,5 @@ if (errores.length) {
   process.exit(1);
 }
 
-mkdirSync(dirname(SALIDA_COMENTARIOS), { recursive: true });
 writeFileSync(join(CARPETA, "diccionario-de-datos.md"), md.join("\n") + "\n");
-writeFileSync(SALIDA_COMENTARIOS, comentarios.join("\n") + "\n");
 console.log(`OK: ${listaTablas.length} tablas, ${estructura.columnas.length} columnas, ${estructura.restricciones.filter((r) => r.tipo === "f").length} llaves foráneas, ${estructura.disparadores.length} disparadores (PostgreSQL ${versionPg})`);

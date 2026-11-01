@@ -14,7 +14,7 @@ LANGUAGE sql AS $$
       || '|' || (SELECT string_agg(codigo || ':' || version_fila || ':' || fecha_modificacion::text, ',' ORDER BY codigo) FROM catalogo.area)
 $$;
 
-\ir ../seeds/eess/cargar_establecimientos.sql
+\ir ../seeds/eess/establecimientos.sql
 
 DO $$
 DECLARE e catalogo.establecimiento_salud; a catalogo.area;
@@ -38,14 +38,14 @@ END $$;
 
 CREATE TEMP TABLE huella_1 AS SELECT pg_temp.huella() AS h;
 SELECT pg_sleep(0.05);
-\ir ../seeds/eess/cargar_establecimientos.sql
+\ir ../seeds/eess/establecimientos.sql
 DO $$
 BEGIN
   ASSERT pg_temp.huella() = (SELECT h FROM huella_1), 'L09 cargar dos veces lo mismo no cambia nada (ni versiones ni fechas)';
 END $$;
 
 UPDATE eess_fuente SET nombre = 'CENTRO DE SALUD SEMILLA DOS RENOMBRADO', categoria = 'I-4' WHERE codigo_renipress = '16207';
-\ir ../seeds/eess/cargar_establecimientos.sql
+\ir ../seeds/eess/establecimientos.sql
 DO $$
 BEGIN
   ASSERT (SELECT nombre || '/' || categoria || '/' || version_fila FROM catalogo.establecimiento_salud WHERE codigo_renipress = '16207') = 'CENTRO DE SALUD SEMILLA DOS RENOMBRADO/I-4/2',
@@ -56,7 +56,7 @@ BEGIN
 END $$;
 
 UPDATE eess_fuente SET codigo_renipress = '0016207' WHERE codigo_renipress = '16207';
-\ir ../seeds/eess/cargar_establecimientos.sql
+\ir ../seeds/eess/establecimientos.sql
 DO $$
 BEGIN
   ASSERT (SELECT count(*) FROM catalogo.establecimiento_salud WHERE codigo_renipress LIKE '162%') = 4, 'L13 el mismo codigo con ceros no crea un establecimiento nuevo';

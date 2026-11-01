@@ -6,7 +6,7 @@ INSERT INTO eess_fuente VALUES
   ('6206', 'HOSPITAL NACIONAL DOS DE MAYO', 'III', NULL, 'DIRIS Lima Centro', NULL, NULL, NULL),
   ('5946', 'Hospital Nacional Hipólito Unanue', 'III', NULL, 'DIRIS Lima Este', NULL, NULL, NULL),
   ('5614', 'CENTRO DE SALUD BAYOVAR', 'I', 'I-3', 'DIRIS Lima Centro', 'Lima', 'Lima', 'San Juan de Lurigancho');
-\ir ../seeds/eess/cargar_establecimientos.sql
+\ir ../seeds/eess/establecimientos.sql
 
 \ir ../seeds/dev/incidencias_sinteticas.sql
 

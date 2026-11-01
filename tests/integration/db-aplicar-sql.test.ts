@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { archivosEnOrden, armarScript } from "@/scripts/db-aplicar-sql.mjs";
+import { leerPadronEess } from "@/tests/support/padron-eess";
 
 const PRISMA = path.join(process.cwd(), "prisma");
 const read = (file: string) => fs.readFileSync(path.join(PRISMA, file), "utf8");
@@ -134,6 +135,32 @@ describe("the SQL files of prisma/", () => {
       expect(text, file).toContain("set_config('app.actor', 'sistema:semilla', true)");
       expect(text, file).not.toMatch(/usuario_interno|establecimiento_salud/);
     }
+  });
+
+  it("describe every trigger function with its own COMMENT ON FUNCTION, which the data dictionary reads from the database", () => {
+    for (const file of triggers) {
+      for (const [, name] of read(`sql/triggers/${file}`).matchAll(/EXECUTE FUNCTION\s+(?:\w+\.)?(\w+)\(/g)) {
+        expect(read(`sql/functions/${kebab(name)}.sql`), name).toMatch(new RegExp(`COMMENT ON FUNCTION \\w+\\.${name}\\(`));
+      }
+    }
+  });
+
+  it("keep sql/comentarios.sql as the only source of the comments: the dictionary in docs/ is written from the database, never the other way", () => {
+    const docs = path.join(process.cwd(), "docs", "base-de-datos");
+    const generator = fs.readFileSync(path.join(docs, "generar-diccionario.mjs"), "utf8");
+
+    expect(fs.existsSync(path.join(docs, "diccionario.json"))).toBe(false);
+    expect(generator.match(/writeFileSync\(/g)).toHaveLength(1);
+    expect(generator).toContain('writeFileSync(join(CARPETA, "diccionario-de-datos.md")');
+  });
+
+  it("install the establecimientos padron from one SQL file with 434 unique codes, outside db:aplicar", () => {
+    const codes = leerPadronEess().map((fila) => fila.codigo_renipress);
+
+    expect(codes).toHaveLength(434);
+    expect(new Set(codes).size).toBe(434);
+    expect(fs.readdirSync(path.join(PRISMA, "seeds", "eess"))).toEqual(["establecimientos.sql"]);
+    expect(archivosEnOrden(PRISMA).some((file: string) => file.includes("eess"))).toBe(false);
   });
 
   it("keep the migrations to structure only", () => {

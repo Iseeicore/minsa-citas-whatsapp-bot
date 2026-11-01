@@ -6,3 +6,5 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+COMMENT ON FUNCTION public.fn_auditoria_creacion() IS 'Al insertar: llena la fecha y el usuario de creación.';

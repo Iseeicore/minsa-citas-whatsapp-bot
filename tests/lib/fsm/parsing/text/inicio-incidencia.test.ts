@@ -1,12 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { checkFirstMessagePayload } from "@/lib/security/payload-filter";
+import { leerPadronEess } from "@/tests/support/padron-eess";
 
-const PADRON: { nombre: string; codigo_renipress: string }[] = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), "prisma", "seeds", "eess", "establecimientos.json"), "utf8"),
-);
+const PADRON = leerPadronEess();
 
 const qr = (nombre: string, codigo: string) => `Hola quiero presentar una incidencia ${nombre} - CODIGO-IPRESS ${codigo}`;
 
