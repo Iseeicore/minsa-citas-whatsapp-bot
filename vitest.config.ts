@@ -33,6 +33,7 @@ export default defineConfig({
       DATABASE_ENABLED: "true",
       MINSA_DIGITAL_APP_URL: "https://fake-minsa-digital.test",
       INCIDENCIAS_ENABLED: "true",
+      REFERENCIAS_ENABLED: "true",
     },
     coverage: {
       provider: "v8",

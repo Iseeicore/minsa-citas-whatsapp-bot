@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { DisabledServiceQueryError } from "@/lib/errors/disabled-service-query-error";
 import { QueryKind } from "@/lib/enums/query-kind";
-import { IncidenciaService } from "@/lib/services/incidencia-service";
+import { SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
 
 const store = vi.hoisted(() => ({
   sessions: new Map<string, Session>(),
@@ -85,6 +85,14 @@ describe("the executor, as the last defense", () => {
     expect(store.tieneConsentimiento).toHaveBeenCalledWith(FROM, expect.anything());
   });
 
+  it("rejects the list of referencias when the referencias are off", async () => {
+    vi.stubEnv("REFERENCIAS_ENABLED", "false");
+
+    await expect(
+      runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.LIST_REFERENCES, { numeroDocumento: "12345678", tipoDocumento: "1" })),
+    ).rejects.toThrow('resolveQuery: query "list_references" belongs to the disabled service "consultar_referencia"');
+  });
+
   it("does not block a query the cita shares with the rest (the document lookup runs)", async () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "false");
 
@@ -95,7 +103,7 @@ describe("the executor, as the last defense", () => {
 });
 
 describe("a stored incident session while the incidencias are off", () => {
-  const NOTICE = new IncidenciaService().disabledReply();
+  const NOTICE = SERVICE_DISABLED_TEXT;
 
   it.each(["consulta_awaiting_codigo", "consulta_query_pending", "incidencia_awaiting_descripcion", "incidencia_awaiting_foto"])(
     "%s comes back as the main menu with the notice, and the new state is what gets stored",

@@ -65,6 +65,7 @@ describe("the texts that list what the bot offers follow the incidencias flag, t
   it.each([new IncidenciaService(), new ConsultaService()])(
     "the disabled reply of the %# service names the cita and the referencia",
     (service) => {
+      vi.stubEnv("INCIDENCIAS_ENABLED", FLAG_OFF);
       expect(service.disabledReply()).toBe(SERVICE_DISABLED_TEXT);
     },
   );

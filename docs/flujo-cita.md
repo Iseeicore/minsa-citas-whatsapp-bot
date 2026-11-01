@@ -21,17 +21,19 @@ Primer mensaje
 ├─ "1" / "cita" ───────────────► [términos] 💬 pide documento
 ├─ "referencia" / "cita con referencia"
 │                               ► 💬 pide iniciar sesión (Cita con referencia: flujo-referencias.md)
+│                                 con REFERENCIAS_ENABLED apagada: 💬 aviso + 📋 menú
 ├─ pide cita con especialidad o distrito ("cita de pediatría en SJL")
 │                               ► [términos] 💬 pide documento (guarda las pistas)
 ├─ urgencia ───────────────────► ⛔ corte de emergencia (106 / 116)
 ├─ menciona la referencia sin pedirla ("¿Ya aceptaron mi referencia?", OOS-03)
 │                               ► 🔘 [Cita con referencia] (pide iniciar sesión) / [Agendar cita] ([términos] y pide documento)
+│                                 con REFERENCIAS_ENABLED apagada: 💬 aviso + 📋 menú
 ├─ fuera de alcance ───────────► 💬 mensaje del canal oficial
-└─ otro texto ─────────────────► 📋 menú (Agendar una cita médica / Cita con referencia / incidencias con la bandera)
+└─ otro texto ─────────────────► 📋 menú (Agendar una cita médica / Cita con referencia e incidencias, cada una con su bandera)
 
 main_menu 📋 ── texto libre sin coincidencia ──► 🤖 intención
                                                 ├─ cita ─────────► [términos] pide documento
-                                                ├─ referencia ───► Cita con referencia (pide iniciar sesión)
+                                                ├─ referencia ───► Cita con referencia (pide iniciar sesión; solo con REFERENCIAS_ENABLED)
                                                 ├─ fuera_de_alcance ─► 💬 texto fijo + 📋 menú
                                                 └─ no claro / IA caída ─► 📋 menú
 

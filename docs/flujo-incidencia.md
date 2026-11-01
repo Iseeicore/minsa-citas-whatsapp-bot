@@ -4,7 +4,7 @@ Cómo empieza y avanza una incidencia (reclamo, queja, denuncia o corrupción: e
 
 ## Entradas
 
-Todas llegan al mismo primer paso: la autorización de datos. Existen solo con `INCIDENCIAS_ENABLED=true` (apagada por defecto): sin ella ninguna entrada abre el flujo y el bot responde que por ahora solo agenda citas y consulta referencias, con el menú de dos filas.
+Todas llegan al mismo primer paso: la autorización de datos. Existen solo con `INCIDENCIAS_ENABLED=true` (apagada por defecto): sin ella ninguna entrada abre el flujo y el bot responde que por ahora solo agenda citas (y citas con referencia, si `REFERENCIAS_ENABLED=true`), con el menú.
 
 | Entrada | Cómo se reconoce | Dónde |
 |---|---|---|

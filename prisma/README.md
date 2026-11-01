@@ -14,7 +14,7 @@ PostgreSQL 16. Cada cosa vive en un solo sitio:
 | `tests/` | Pruebas SQL |
 | `dba/` | Lo que corre solo un DBA, a mano (roles y permisos); ni el arranque ni `db:aplicar` ni `db:test` lo leen |
 
-El diccionario de datos está en `docs/base-de-datos/`: se genera leyendo la base, nunca al revés.
+La documentación de la base es la propia base: los `COMMENT ON` de `sql/comentarios.sql` y de cada función. No se mantiene un diccionario en Markdown; para leerla se consulta el catálogo (`obj_description`, `col_description`) de una base ya aplicada.
 
 ## Instalación
 
@@ -153,7 +153,7 @@ Pasos:
 
 ## Mantenimiento
 
-- Toda tabla y columna nueva lleva su `COMMENT ON` en `sql/comentarios.sql`, que se edita a mano; una llave foránea se explica en la línea `- columna → tabla: motivo` bajo `Relaciones:` del comentario de su tabla, y una función lleva su `COMMENT ON FUNCTION` en su propio archivo de `sql/functions/`. El arranque aplica ese archivo y no depende de nada en `docs/`. Después, `npm run db:diccionario` regenera `docs/base-de-datos/diccionario-de-datos.md` leyendo la base.
+- Toda tabla y columna nueva lleva su `COMMENT ON` en `sql/comentarios.sql`, que se edita a mano; una llave foránea se explica en la línea `- columna → tabla: motivo` bajo `Relaciones:` del comentario de su tabla, y una función lleva su `COMMENT ON FUNCTION` en su propio archivo de `sql/functions/`. El arranque aplica ese archivo y no depende de nada en `docs/`; `tests/04_comentarios.sql` falla si a una tabla o columna le falta su descripción.
 - Un rol o un valor de catálogo no se borra: se retira con `activo = false`.
 - Cada alta, cambio o borrado de negocio de una incidencia avisa por el canal `minsa_incidencias_cambio` (`chatbot.fn_notificar_cambio_incidencia`, disparador `trg_incidencia_paciente_notificar_cambio`), después del commit y solo con el área y la categoría de antes y de después; lo escucha la API de gestión, que comprueba la marca `minsa-incidencias:eventos-v3` del comentario de la función.
 - La purga de sesiones (`chatbot.purgar_sesiones_inactivas`) la programa Infraestructura (`pg_cron` o el cron del servidor); hoy nadie la llama.
@@ -163,6 +163,5 @@ Pasos:
 | `npx prisma migrate deploy` | Aplica las migraciones pendientes |
 | `npm run db:aplicar` | Aplica `sql/` y `seeds/catalogos/` |
 | `npm run db:test` | Arma una base desechable con todo lo anterior y corre `tests/` (necesita `psql`) |
-| `npm run db:diccionario` | Regenera `docs/base-de-datos/diccionario-de-datos.md` leyendo los comentarios de una base con `db:aplicar`; falla si falta alguno y no escribe en `prisma/` (necesita `psql` y `DATABASE_URL`) |
 | `npm run db:seed:eess` | Carga el padrón de establecimientos ejecutando `seeds/eess/establecimientos.sql` en una sola transacción; repetirlo no crea nada nuevo. Solo en bases que terminan en `_desechable`, `_dev` o `_local`, o con `--base-real=<base>` (necesita `psql`) |
 | `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base armada |

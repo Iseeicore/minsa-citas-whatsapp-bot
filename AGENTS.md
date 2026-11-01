@@ -12,17 +12,19 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 | Campo | Valor |
 |---|---|
-| Fase | **Piloto: solo cita médica, incidencias apagadas** |
-| Actualizado | 2026-10-14 |
-| Último hito | PR #83: servicio **Consultar referencia**, sin bandera (fila solo en el Chat-bot; la palabra «referencia» funciona en whatsapp-bot y en el Chat-bot). Antes, PR #82: bandera `INCIDENCIAS_ENABLED` |
+| Fase | **Piloto: solo cita médica, referencias e incidencias apagadas** |
+| Actualizado | 2026-11-01 |
+| Último hito | Bandera `REFERENCIAS_ENABLED` para **Cita con referencia**, apagada por defecto, en los dos canales. Antes, PR #82: bandera `INCIDENCIAS_ENABLED` |
 | Sincronía con GitLab | `develop` d67f443 (PR #81) |
 
-**Qué gestiona la fase:** la variable de entorno `INCIDENCIAS_ENABLED`, leída en `lib/config/features.ts`.
+**Qué gestiona la fase:** las variables de entorno `INCIDENCIAS_ENABLED` y `REFERENCIAS_ENABLED`, leídas en `lib/config/features.ts`. Las dos se encienden con `true` (sin distinguir mayúsculas ni espacios); sin definir, vacías o con cualquier otro valor quedan apagadas.
 
-- Apagada (sin definir, vacía o con cualquier valor distinto de `true`): el menú ofrece solo **Agendar una cita médica** y **Cita con referencia** (la referencia no lleva bandera y su fila está en los dos canales). El código `MINSA-AAAA-NNNNNN`, las palabras clave, el `3`/`4` escritos y las sesiones que quedaron a medias en incidencia no llegan a esos flujos: el bot responde que por ahora solo agenda citas y consulta referencias, y muestra el menú.
-- Encendida (`true`, sin distinguir mayúsculas ni espacios): ofrece también **Registrar una incidencia** y **Consultar una incidencia**.
-- Se lee en cada mensaje: cambiarla exige reiniciar el proceso, no recompilar. Vitest la fuerza a `true` para probar los dos flujos.
-- Cambiar de fase = cambiar esta variable (con aviso a infraestructura, regla 100 de las reglas de backend) y actualizar esta tabla en el mismo PR.
+- Las dos apagadas (la fase actual): el menú ofrece solo **Agendar una cita médica**. Las sesiones que quedaron a medias, el número escrito, las palabras clave («referencia», «incidencia», el código `MINSA-AAAA-NNNNNN`), la intención de la IA y la pregunta sobre una referencia (OOS-03) no llegan a esos flujos: el bot responde «Por ahora solo puedo ayudarte a agendar una cita médica.» y muestra el menú.
+- `REFERENCIAS_ENABLED` encendida: ofrece también **Cita con referencia**, en los dos canales.
+- `INCIDENCIAS_ENABLED` encendida: ofrece también **Denuncia anticorrupción** y **Consultar mi denuncia**.
+- Los textos que enumeran lo que ofrece el bot (aviso, fuera de alcance, rechazo del primer mensaje, descripción de la portada y prompt de intención de la IA) tienen una versión por combinación de banderas (`ServiceOffer` en `lib/services/service-offer.ts`).
+- Se leen en cada mensaje: cambiarlas exige reiniciar el proceso, no recompilar. Vitest las fuerza a `true` para probar los flujos.
+- Cambiar de fase = cambiar estas variables (con aviso a infraestructura, regla 100 de las reglas de backend) y actualizar esta tabla en el mismo PR.
 
 ## Cómo se carga este archivo
 
@@ -83,7 +85,7 @@ npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noE
 
 `npm install` instala un hook de pre-commit (lint-staged: ESLint y Prettier sobre lo que está en stage) en `$(git rev-parse --git-common-dir)/hooks`, sin tocar `core.hooksPath`; ver `docs/desarrollo.md#hook-de-pre-commit`.
 
-`npx next typegen` es necesario en un checkout limpio antes de `tsc`. Vitest fija `DATABASE_URL=""`, `DATABASE_ENABLED=true`, `INCIDENCIAS_ENABLED=true` (`vitest.config.ts`); nunca correr la suite principal con un `DATABASE_URL` real.
+`npx next typegen` es necesario en un checkout limpio antes de `tsc`. Vitest fija `DATABASE_URL=""`, `DATABASE_ENABLED=true`, `INCIDENCIAS_ENABLED=true`, `REFERENCIAS_ENABLED=true` (`vitest.config.ts`); nunca correr la suite principal con un `DATABASE_URL` real.
 
 # Arquitectura
 
@@ -95,7 +97,7 @@ npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noE
 
 **Integraciones (`lib/integrations/`).** Cliente del MINSA separado por endpoint (identidad, catálogo, reserva) con fakes. `SANDBOX_USE_REAL_MINSA` alterna fake y real; el webhook real también lee la del MINSA. `MINSA_DIGITAL_APP_URL` no tiene valor por defecto en el código (de ella salen los botones al portal y las cabeceras `Origin`/`Referer`); una prueba prohíbe escribir esa URL a mano.
 
-**Base de datos (`prisma/`).** Cinco esquemas (`auditoria`, `catalogo`, `chatbot`, `gestion`, `ia`); `auditoria` no está en `schema.prisma`: la app no la lee con Prisma. Las migraciones (`prisma/migrations`) son solo estructura: tablas, columnas, índices y restricciones. Funciones y disparadores viven en `prisma/sql/` (un archivo por función, `CREATE OR REPLACE`), las semillas de catálogo en `prisma/seeds/catalogos/` y todo se aplica después de migrar con `npm run db:aplicar`; los números de negocio (topes, mínimos, días) llegan por parámetro o como argumento del disparador, no escritos en el cuerpo. Nunca se edita una migración aplicada: se crea una nueva (`prisma migrate dev --create-only`). Toda tabla y columna lleva `COMMENT ON`, que se agrega en `prisma/sql/comentarios.sql` (única fuente, se edita a mano; el arranque no depende de nada en `docs/`); `npm run db:diccionario` solo regenera `docs/base-de-datos/diccionario-de-datos.md` leyendo la base; cada regla nueva lleva su prueba SQL en `prisma/tests/`. Roles y valores de catálogo se retiran con `activo = false`, no se borran. Detalle: `prisma/README.md`.
+**Base de datos (`prisma/`).** Cinco esquemas (`auditoria`, `catalogo`, `chatbot`, `gestion`, `ia`); `auditoria` no está en `schema.prisma`: la app no la lee con Prisma. Las migraciones (`prisma/migrations`) son solo estructura: tablas, columnas, índices y restricciones. Funciones y disparadores viven en `prisma/sql/` (un archivo por función, `CREATE OR REPLACE`), las semillas de catálogo en `prisma/seeds/catalogos/` y todo se aplica después de migrar con `npm run db:aplicar`; los números de negocio (topes, mínimos, días) llegan por parámetro o como argumento del disparador, no escritos en el cuerpo. Nunca se edita una migración aplicada: se crea una nueva (`prisma migrate dev --create-only`). Toda tabla y columna lleva `COMMENT ON`, que se agrega en `prisma/sql/comentarios.sql` (única fuente, se edita a mano; el arranque no depende de nada en `docs/`). La documentación de la base es la propia base: no se mantiene un diccionario en Markdown; cada regla nueva lleva su prueba SQL en `prisma/tests/`. Roles y valores de catálogo se retiran con `activo = false`, no se borran. Detalle: `prisma/README.md`.
 
 # Convenciones que hacen cumplir ESLint y las pruebas
 

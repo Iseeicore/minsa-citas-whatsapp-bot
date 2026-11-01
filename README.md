@@ -1,6 +1,6 @@
 # Bot de citas MINSA
 
-Bot de WhatsApp (whatsapp-bot) y de chat web (Chat-bot) que atiende a la ciudadanía para agendar citas médicas en el MINSA, consultar referencias y, con la bandera, registrar y consultar incidencias. Está hecho con Next.js, Prisma y PostgreSQL, y se despliega con Docker. El detalle para infraestructura está en [docs/despliegue-minsa.md](docs/despliegue-minsa.md) y el de desarrollo en [docs/desarrollo.md](docs/desarrollo.md).
+Bot de WhatsApp (whatsapp-bot) y de chat web (Chat-bot) que atiende a la ciudadanía para agendar citas médicas en el MINSA y, cada una con su bandera, agendar citas con referencia y registrar y consultar incidencias. Está hecho con Next.js, Prisma y PostgreSQL, y se despliega con Docker. El detalle para infraestructura está en [docs/despliegue-minsa.md](docs/despliegue-minsa.md) y el de desarrollo en [docs/desarrollo.md](docs/desarrollo.md).
 
 ## Requisitos
 
@@ -46,6 +46,7 @@ SANDBOX_PAGE_ENABLED=
 
 # Banderas
 INCIDENCIAS_ENABLED=false
+REFERENCIAS_ENABLED=false
 TERMINOS_ENABLED=false
 TERMINOS_URL=
 

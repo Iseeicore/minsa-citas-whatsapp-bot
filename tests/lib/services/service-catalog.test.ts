@@ -11,6 +11,9 @@ import { MenuChoice } from "@/lib/enums/menu-choice";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SessionChannel } from "@/lib/enums/session-channel";
+import { SlotKey } from "@/lib/enums/slot-key";
+import { PostLoginFlow } from "@/lib/enums/post-login-flow";
+import type { Session } from "@/lib/fsm/core/types";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -77,6 +80,7 @@ describe("the services", () => {
   });
 
   it("the disabled reply says that only the citas and the referencias remain, the same in both channels", () => {
+    vi.stubEnv("INCIDENCIAS_ENABLED", "false");
     for (const service of [new IncidenciaService(), new ConsultaService()]) {
       expect(service.disabledReply()).toBe(SERVICE_DISABLED_TEXT);
     }
@@ -119,12 +123,18 @@ describe("the ServiceCatalog", () => {
     expect(() => new ServiceCatalog([new CitaService()]).byId(MenuChoice.REGISTRAR_INCIDENCIA)).toThrow(UnknownServiceError);
   });
 
-  it("finds the owner of a session state, or nothing for the menu states", () => {
-    expect(serviceCatalog.forState(SessionState.CONSULTA_AWAITING_DNI)).toBeInstanceOf(ConsultaService);
-    expect(serviceCatalog.forState(SessionState.INCIDENCIA_CONFIRM_REGISTRO)).toBeInstanceOf(IncidenciaService);
-    expect(serviceCatalog.forState(SessionState.CITA_AWAITING_DNI)).toBeInstanceOf(CitaService);
-    expect(serviceCatalog.forState(SessionState.MAIN_MENU)).toBeUndefined();
-    expect(serviceCatalog.forState(SessionState.AWAITING_FLOW_START)).toBeUndefined();
+  it("finds the disabled owner of a session, and nothing for the menu states or while every service is on", () => {
+    const at = (state: Session["state"]): Session => ({ state, slots: {}, counters: {} });
+    vi.stubEnv("INCIDENCIAS_ENABLED", "false");
+    vi.stubEnv("REFERENCIAS_ENABLED", "false");
+    expect(serviceCatalog.disabledOwnerOf(at(SessionState.CONSULTA_AWAITING_DNI))).toBeInstanceOf(ConsultaService);
+    expect(serviceCatalog.disabledOwnerOf(at(SessionState.INCIDENCIA_CONFIRM_REGISTRO))).toBeInstanceOf(IncidenciaService);
+    expect(serviceCatalog.disabledOwnerOf(at(SessionState.CITA_AWAITING_DNI))).toBeUndefined();
+    expect(serviceCatalog.disabledOwnerOf(at(SessionState.MAIN_MENU))).toBeUndefined();
+
+    vi.stubEnv("INCIDENCIAS_ENABLED", "true");
+    vi.stubEnv("REFERENCIAS_ENABLED", "true");
+    expect(serviceCatalog.disabledOwnerOf(at(SessionState.CONSULTA_AWAITING_DNI))).toBeUndefined();
   });
 
   it("finds the owner of the incident-only queries, and nothing for the shared ones", () => {
@@ -168,9 +178,30 @@ describe("the ServiceCatalog", () => {
     expect(serviceCatalog.disabledByMenuNumber("3", channel)).toBeUndefined();
   });
 
-  it("finds the owner of the referencia states and no owner for its queries", () => {
-    expect(serviceCatalog.forState(SessionState.REFERENCIA_LOOKUP_PENDING)).toBeInstanceOf(ReferenciaService);
-    expect(serviceCatalog.forQuery(QueryKind.LIST_REFERENCES)).toBeUndefined();
+  it("with the referencias off, owns the referencia states, the cita taken for a referencia and the list of referencias", () => {
+    vi.stubEnv("REFERENCIAS_ENABLED", "false");
+    const owner = (state: Session["state"], slots: Session["slots"] = {}) => serviceCatalog.disabledOwnerOf({ state, slots, counters: {} });
+
+    expect(owner(SessionState.REFERENCIA_LOOKUP_PENDING)).toBeInstanceOf(ReferenciaService);
+    expect(owner(SessionState.MAIN_MENU_REFERENCIA_CHOICE)).toBeInstanceOf(ReferenciaService);
+    expect(owner(SessionState.CITA_AWAITING_REFERENCIA_SELECT)).toBeInstanceOf(ReferenciaService);
+    expect(owner(SessionState.CITA_AWAITING_DNI, { [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS })).toBeInstanceOf(
+      ReferenciaService,
+    );
+    expect(owner(SessionState.CITA_AWAITING_FECHA_SELECT, { [SlotKey.CITA_REFERENCIA_SELECCIONADA_ID]: "R1" })).toBeInstanceOf(
+      ReferenciaService,
+    );
+    expect(owner(SessionState.MAIN_MENU, { [SlotKey.POST_LOGIN_FLOW]: PostLoginFlow.REFERENCIAS })).toBeUndefined();
+    expect(owner(SessionState.CITA_AWAITING_DNI)).toBeUndefined();
+    expect(serviceCatalog.forQuery(QueryKind.LIST_REFERENCES)).toBeInstanceOf(ReferenciaService);
+  });
+
+  it.each(CHANNELS)("with only the referencias off, the typed numbers follow the rows shown in the %s channel", (channel) => {
+    vi.stubEnv("REFERENCIAS_ENABLED", "false");
+
+    expect(serviceCatalog.menuRows(channel)).toEqual([ROW_CITA, ROW_INCIDENCIA, ROW_CONSULTA]);
+    expect(serviceCatalog.disabledByMenuNumber("2", channel)).toBeUndefined();
+    expect(serviceCatalog.byMenuNumber("2", channel)?.id).toBe(MenuChoice.REGISTRAR_INCIDENCIA);
   });
 
   it("hides whatever its services say is disabled, without knowing about the flag", () => {

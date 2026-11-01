@@ -122,3 +122,23 @@ describe("analyzeMainMenuIntent with INCIDENCIAS_ENABLED off", () => {
     });
   });
 });
+
+describe("analyzeMainMenuIntent with REFERENCIAS_ENABLED off", () => {
+  it("does not offer the referencia: not in the schema, not in the prompt, and maps that answer to unclear", async () => {
+    vi.stubEnv("INCIDENCIAS_ENABLED", "false");
+    vi.stubEnv("REFERENCIAS_ENABLED", "false");
+    const { client, requests } = recordingClient({ intent: "referencia", detalle: "x" });
+
+    await expect(analyzeMainMenuIntent("quiero ver mi referencia", llmAvailable(client))).resolves.toEqual({ intent: "unclear" });
+
+    expect(intents(requests[0])).toEqual(["cita", "fuera_de_alcance", "unclear"]);
+    expect(requests[0].systemPrompt).not.toMatch(/referencia|derivaci/i);
+    expect(requests[0].systemPrompt).toContain("una sola opción: agendar una cita médica");
+  });
+
+  it("the offline stand-in does not turn a referencia into its intent", async () => {
+    vi.stubEnv("REFERENCIAS_ENABLED", "false");
+
+    await expect(analyzeMainMenuIntent("estado de mi derivación", LLM_FAKE)).resolves.toEqual({ intent: "unclear" });
+  });
+});

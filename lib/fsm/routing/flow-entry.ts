@@ -3,7 +3,7 @@ import { startCitaIdentity } from "@/lib/fsm/flows/cita/steps/terminos/terminos-
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import type { HandlerResult, Session, SessionChannel } from "@/lib/fsm/core/types";
 import type { BotService } from "@/lib/services/bot-service";
-import { serviceCatalog } from "@/lib/services/service-catalog";
+import { referenciaService, serviceCatalog } from "@/lib/services/service-catalog";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { MENU_PROMPT_TEXT } from "@/lib/constants/textos/menu";
@@ -18,6 +18,14 @@ export function disabledServiceReply(service: BotService, channel: SessionChanne
     buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(service.disabledReply()), buildMenuEffect(channel)]),
     { kind: "shortcut", detail: { name: "service_disabled", service: service.id } },
   );
+}
+
+export function enterReferencias(
+  slots: Session["slots"],
+  channel: SessionChannel,
+  begin: (slots: Session["slots"]) => HandlerResult,
+): HandlerResult {
+  return referenciaService.isEnabled() ? begin(slots) : disabledServiceReply(referenciaService, channel, slots);
 }
 
 export function beginCita(slots: Session["slots"], hints: CitaHints, intro: string): HandlerResult {
@@ -41,8 +49,7 @@ export function offerReferenciaChoice(slots: Session["slots"]): HandlerResult {
   return askReferenciaChoice({ state: SessionState.MAIN_MENU_REFERENCIA_CHOICE, slots, counters: {} });
 }
 
-export function outOfScopeReply(category: OosCategory, slots: Session["slots"] = {}): HandlerResult {
-  return category === OosCategory.OOS_03
-    ? offerReferenciaChoice(slots)
-    : buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(oosMessage(category))]);
+export function outOfScopeReply(category: OosCategory, channel: SessionChannel, slots: Session["slots"] = {}): HandlerResult {
+  if (category === OosCategory.OOS_03) return enterReferencias(slots, channel, offerReferenciaChoice);
+  return buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(oosMessage(category))]);
 }

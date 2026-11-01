@@ -19,7 +19,6 @@
     "db:aplicar": "node scripts/db-aplicar-sql.mjs",
     "db:seed:eess": "node scripts/db-seed-eess.mjs",
     "db:seed:dev": "node scripts/db-seed-dev.mjs",
-    "db:diccionario": "node docs/base-de-datos/generar-diccionario.mjs",
     "postinstall": "prisma generate",
     "prepare": "node -e \"import('./scripts/instalar-hooks.mjs').then((m) => m.instalar(), () => {})\"",
     "docker:up": "docker compose up -d --build --wait --wait-timeout 180",
