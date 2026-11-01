@@ -67,6 +67,9 @@ TURN_LOCK_TIMEOUT_MS=10000
 TURN_LOCK_MAX_CONCURRENCY=4
 TURN_DB_LOCK=
 HOST_PORT=3000
+
+# Búsqueda de establecimientos (landing)
+MAPS_DIRECTIONS_URL=
 ```
 
 Llena los valores vacíos según el ambiente donde se despliegue; una variable vacía equivale a no definirla. Qué hace cada una, su valor por defecto y su rango están en [docs/despliegue-minsa.md](docs/despliegue-minsa.md#36-referencia-de-todas-las-variables).
