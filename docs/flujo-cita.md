@@ -84,6 +84,9 @@ fila Agendar / "1" / "cita" / pedido con especialidad o distrito / IA cita / cit
   → [términos] → pide documento (con el mismo texto de entrada y las pistas guardadas)
 «Cita sin referencia» / «Sí» a la oferta de cita / cita duplicada con referencia
   → [términos] → pide el distrito con la identidad ya verificada
+[términos] busca si el chat ya aceptó la versión vigente (cita_terminos_lookup_pending)
+  ├─ ya aceptó ─► sigue donde iba la entrada, sin mostrar los términos
+  └─ no aceptó o la búsqueda falló ─► muestra los términos (cita_awaiting_terminos)
 [términos] estado cita_awaiting_terminos
   ├─ Acepto ─► guarda la aceptación (cita_terminos_register_pending) ─► sigue donde iba la entrada
   ├─ No acepto ─► 💬 «Lo sentimos. Muchas gracias por usar nuestros servicios.» + despedida ⛔ cita_terminos_declined
@@ -95,7 +98,9 @@ fila Agendar / "1" / "cita" / pedido con especialidad o distrito / IA cita / cit
 | Chat-bot | Una ventana con el título, el contenido de los términos con desplazamiento, la casilla «Acepto los términos y condiciones», **Continuar** (deshabilitado hasta marcar la casilla) y **No acepto**. Escape la cierra sin responder; el botón «Revisar términos y condiciones» del mensaje la abre otra vez |
 | whatsapp-bot | 🔗 «Términos y condiciones» con **Ver términos** hacia `TERMINOS_URL`, y después 🔘 la pregunta con la frase de privacidad de WhatsApp y **Acepto** / **No acepto**. Sin `TERMINOS_URL`, solo los botones y el aviso `terminos.url_missing` en el log |
 
-- La aceptación se guarda una vez por sesión en `chatbot.aceptacion_terminos` (chat, canal, versión `TERMINOS_VERSION` y fecha) y deja el dato de sesión `terminosAceptados`: en la misma sesión no se vuelve a preguntar. Si el guardado falla, queda `terminos.persist_failed` en el log y la cita sigue. Sin base de datos, la aceptación queda en la memoria del proceso.
+- La aceptación se guarda en `chatbot.aceptacion_terminos` (chat, canal, servicio `CITA`, versión `TERMINOS_VERSION` y fecha) y deja el dato de sesión `terminosAceptados`. Si el guardado falla, queda `terminos.persist_failed` en el log y la cita sigue. Sin base de datos, la aceptación queda en la memoria del proceso.
+- Se pregunta una sola vez por versión: antes de mostrar los términos se busca una aceptación del mismo chat (número de WhatsApp o conversación del Chat-bot) y de la versión vigente, de cualquier servicio. Si existe, no se muestran. Al publicar una versión nueva de `TERMINOS_VERSION` se vuelven a preguntar. Si la búsqueda falla, se muestran los términos y queda `terminos.lookup_failed` en el log. Cuando WhatsApp cambia el identificador de la persona, sus aceptaciones pasan al identificador nuevo.
+- Después de que el MINSA verifica el código, el DNI se guarda en `chatbot.usuario.dni` del chat (el carné de extranjería no). Si el guardado falla, queda `usuario.dni_persist_failed` en el log y la cita sigue.
 - Se entiende escrito: «acepto», «sí, acepto», «aceptar» / «no acepto», «no aceptar» (`TERMINOS_ANSWERS`). Una frase de salida («quiero salir») pide confirmación y, si la persona se queda, repite los términos; un insulto recibe el recordatorio de respeto y los términos.
 - El contenido sale de `TERMINOS_CONTENIDO` (vacío por ahora) en `lib/constants/textos/terminos.ts`; la página `/terminos` muestra el mismo texto.
 

@@ -51,6 +51,7 @@ export enum SessionState {
   CITA_REGISTRATION_WAIT = "cita_registration_wait",
   CITA_SELECTION_HINTS_PENDING = "cita_selection_hints_pending",
   CITA_TERMINOS_DECLINED = "cita_terminos_declined",
+  CITA_TERMINOS_LOOKUP_PENDING = "cita_terminos_lookup_pending",
   CITA_TERMINOS_REGISTER_PENDING = "cita_terminos_register_pending",
   CITA_UBIGEO_PENDING = "cita_ubigeo_pending",
   CITA_VALIDATE_PENDING = "cita_validate_pending",

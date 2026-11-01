@@ -56,7 +56,9 @@ describe("the MINSA Digital account warning", () => {
     }
 
     vi.stubEnv("TERMINOS_ENABLED", "true");
-    const accepted = handle(handle(MAIN_MENU, tap(MenuChoice.AGENDAR_CITA)).session, tap(TerminosButtonId.ACCEPT));
+    const lookup = handle(MAIN_MENU, tap(MenuChoice.AGENDAR_CITA));
+    const shown = handle(lookup.session, queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: "not_found" }));
+    const accepted = handle(shown.session, tap(TerminosButtonId.ACCEPT));
     const afterTerms = handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" }));
     expect(sent(afterTerms)).toEqual([cuentaMinsaAviso()]);
     expectDocumento(handle(afterTerms.session, tap(CuentaMinsaButtonId.TIENE)));

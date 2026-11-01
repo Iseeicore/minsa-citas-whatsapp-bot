@@ -262,11 +262,12 @@ COMMENT ON COLUMN catalogo.tipo_mensaje.fecha_modificacion IS 'Fecha y hora (UTC
 COMMENT ON COLUMN catalogo.tipo_mensaje.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
 COMMENT ON TABLE catalogo.tipo_mensaje IS 'Tipo de contenido de un mensaje (texto, imagen, audio, documento, ubicación, plantilla).';
 COMMENT ON COLUMN chatbot.aceptacion_terminos.id IS 'Identificador único de la fila: UUID versión 4, generado por la base con gen_random_uuid().';
-COMMENT ON COLUMN chatbot.aceptacion_terminos.wa_id IS 'Id del chat que aceptó: el número de WhatsApp o el identificador de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque la aceptación puede ocurrir antes de que exista el usuario.';
+COMMENT ON COLUMN chatbot.aceptacion_terminos.wa_id IS 'Id del chat que aceptó: el número de WhatsApp o el identificador de la conversación del Chat-bot web. No tiene llave foránea hacia usuario porque la aceptación puede ocurrir antes de que exista el usuario. Es lo único que cambia: pasa al identificador nuevo cuando WhatsApp se lo cambia a la persona.';
 COMMENT ON COLUMN chatbot.aceptacion_terminos.canal_origen_id IS 'Canal por el que se aceptó (WhatsApp o web).';
 COMMENT ON COLUMN chatbot.aceptacion_terminos.version IS 'Versión del texto de los términos y condiciones que se mostró y se aceptó, por ejemplo 2026-10-29.';
 COMMENT ON COLUMN chatbot.aceptacion_terminos.aceptado_en IS 'Fecha y hora (UTC) en que la persona aceptó los términos y condiciones.';
-COMMENT ON TABLE chatbot.aceptacion_terminos IS 'Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. Guarda el chat, el canal, la versión del texto aceptado y el momento. Es de solo inserción: no se modifica ni se borra.
+COMMENT ON COLUMN chatbot.aceptacion_terminos.flujo IS 'Servicio en el que la persona aceptó los términos y condiciones: CITA (agendar una cita médica) o DENUNCIA (registrar una incidencia). Las filas anteriores a esta columna quedan como CITA. Una aceptación de la versión vigente vale para los dos servicios.';
+COMMENT ON TABLE chatbot.aceptacion_terminos IS 'Registro de cada vez que una persona aceptó los términos y condiciones antes de agendar una cita médica en el chatbot. Guarda el chat, el canal, el servicio, la versión del texto aceptado y el momento. Antes de mostrar los términos se busca por chat y versión: si ya aceptó la versión vigente, no se le vuelven a preguntar. Es de solo inserción: no se modifica ni se borra, salvo el chat, que sigue a la persona cuando WhatsApp le cambia su identificador.
 
 Relaciones:
 - canal_origen_id → catalogo.canal_origen: Garantiza que el canal sea uno del catálogo. Sirve para saber por qué canal se aceptaron los términos.';

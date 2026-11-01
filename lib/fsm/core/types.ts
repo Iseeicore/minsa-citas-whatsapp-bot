@@ -215,6 +215,7 @@ export type QueryEffectKind =
   | "consulta_reintentos_agotados"
   | "verificar_consentimiento"
   | "registrar_consentimiento"
+  | "consultar_aceptacion_terminos"
   | "registrar_aceptacion_terminos";
 
 export type QueryEffect = {

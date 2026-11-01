@@ -123,7 +123,13 @@ export function handleAwaitingOtp(session: Session, event: InboundEvent): Handle
 
   const next = cloneSession(session);
   next.state = SessionState.CITA_VERIFY_PENDING;
-  return buildResult(next, [query(QueryKind.VERIFY_CODE, { twofaId: slotText(next.slots, SlotKey.CITA_TWOFA_ID), code })]);
+  return buildResult(next, [
+    query(QueryKind.VERIFY_CODE, {
+      twofaId: slotText(next.slots, SlotKey.CITA_TWOFA_ID),
+      code,
+      numeroDocumento: slotText(next.slots, SlotKey.CITA_DNI_PENDING),
+    }),
+  ]);
 }
 
 export { continueCitaAfterVerification };
