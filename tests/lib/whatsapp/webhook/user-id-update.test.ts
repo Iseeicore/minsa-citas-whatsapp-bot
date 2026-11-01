@@ -7,6 +7,7 @@ const db = vi.hoisted(() => ({
   usuarios: [] as Array<{ id: string; waId: string }>,
   sesiones: [] as Array<{ id: string; waId: string }>,
   intentos: [] as Array<{ id: string; identificador: string }>,
+  aceptaciones: [] as Array<{ id: string; waId: string }>,
   actores: [] as string[],
   fallar: false,
   warn: vi.fn(),
@@ -52,6 +53,7 @@ vi.mock("@/lib/db/prisma", () => ({
         usuario: tabla(db.usuarios),
         sesionConversacion: tabla(db.sesiones),
         consultaIncidenciaIntento: tablaIntentos(db.intentos),
+        aceptacionTerminos: tabla(db.aceptaciones),
       });
     },
   },
@@ -113,6 +115,7 @@ describe("applyBsuidChange", () => {
     db.usuarios.splice(0, db.usuarios.length, { id: "u-ana", waId: OLD });
     db.sesiones.splice(0, db.sesiones.length, { id: "s-ana", waId: OLD });
     db.intentos.splice(0, db.intentos.length, { id: "i-1", identificador: OLD }, { id: "i-2", identificador: OLD });
+    db.aceptaciones.splice(0, db.aceptaciones.length, { id: "a-1", waId: OLD });
     db.actores.length = 0;
   });
 
@@ -125,6 +128,7 @@ describe("applyBsuidChange", () => {
       { id: "i-1", identificador: NEW },
       { id: "i-2", identificador: NEW },
     ]);
+    expect(db.aceptaciones).toEqual([{ id: "a-1", waId: NEW }]);
     expect(db.actores).toEqual(["externo:meta"]);
     expect(db.info).toHaveBeenCalledWith("webhook.bsuid_updated", { previous: "...1111", current: "...2222" });
   });
@@ -173,6 +177,20 @@ describe("applyBsuidChange", () => {
 
     expect(db.intentos.map((intento) => intento.identificador)).toEqual([NEW, NEW]);
   });
+
+  it.each([
+    ["sin usuario anterior", () => (db.usuarios.length = 0), "unchanged"],
+    ["con el identificador nuevo ya ocupado", () => db.usuarios.push({ id: "u-nuevo", waId: NEW }), "conflict"],
+  ])(
+    "la aceptación de los términos pasa al identificador nuevo también %s, para no volver a preguntarlos",
+    async (_caso, preparar, esperado) => {
+      preparar();
+
+      await expect(applyBsuidChange({ previous: OLD, current: NEW })).resolves.toBe(esperado);
+
+      expect(db.aceptaciones).toEqual([{ id: "a-1", waId: NEW }]);
+    },
+  );
 });
 
 describe("processBsuidChanges", () => {
@@ -182,6 +200,7 @@ describe("processBsuidChanges", () => {
     db.usuarios.splice(0, db.usuarios.length, { id: "u-ana", waId: OLD });
     db.sesiones.splice(0, db.sesiones.length);
     db.intentos.splice(0, db.intentos.length);
+    db.aceptaciones.splice(0, db.aceptaciones.length);
   });
 
   it("aplica cada cambio del valor del webhook", async () => {

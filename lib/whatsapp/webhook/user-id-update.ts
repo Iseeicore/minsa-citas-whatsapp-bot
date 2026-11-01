@@ -33,6 +33,7 @@ export async function applyBsuidChange({ previous, current }: BsuidChange): Prom
   return prisma.$transaction(async (tx) => {
     await declararActorEn(tx, ACTOR_EXTERNO_META);
     await tx.consultaIncidenciaIntento.updateMany({ where: { identificador: previous }, data: { identificador: current } });
+    await tx.aceptacionTerminos.updateMany({ where: { waId: previous }, data: { waId: current } });
 
     const anterior = await tx.usuario.findUnique({ where: { waId: previous }, select: { id: true } });
     if (!anterior) return "unchanged";

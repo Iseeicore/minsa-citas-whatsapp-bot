@@ -20,5 +20,6 @@ export enum QueryKind {
   CONSULTA_REINTENTOS_AGOTADOS = "consulta_reintentos_agotados",
   VERIFICAR_CONSENTIMIENTO = "verificar_consentimiento",
   REGISTRAR_CONSENTIMIENTO = "registrar_consentimiento",
+  CONSULTAR_ACEPTACION_TERMINOS = "consultar_aceptacion_terminos",
   REGISTRAR_ACEPTACION_TERMINOS = "registrar_aceptacion_terminos",
 }

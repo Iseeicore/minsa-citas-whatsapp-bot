@@ -32,7 +32,10 @@ import type {
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { payloadText, requirePayloadChannel, requirePayloadText, requireSlotText } from "@/lib/fsm/core/slot-readers";
+import { payloadText, requirePayloadChannel, requirePayloadFlujo, requirePayloadText, requireSlotText } from "@/lib/fsm/core/slot-readers";
+import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
+import { saveDniVerificado } from "@/lib/usuario/dni-verificado";
+import { getDniVerificadoStore } from "@/lib/composition/stores";
 import type { ConsultaIncidencia } from "@/lib/types/consulta-incidencia.types";
 import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";
@@ -145,6 +148,7 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case QueryKind.BUSCAR_ESTABLECIMIENTO:
     case QueryKind.VERIFICAR_CONSENTIMIENTO:
     case QueryKind.REGISTRAR_CONSENTIMIENTO:
+    case QueryKind.CONSULTAR_ACEPTACION_TERMINOS:
     case QueryKind.REGISTRAR_ACEPTACION_TERMINOS:
       return "database";
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
@@ -241,16 +245,29 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
           waId: from,
           canal: requirePayloadChannel(effect.payload, effect.kind),
           version: payloadText(effect.payload, "version"),
+          flujo: requirePayloadFlujo(effect.payload, effect.kind),
         },
         getAceptacionTerminosStore(),
       );
     }
 
+    case QueryKind.CONSULTAR_ACEPTACION_TERMINOS: {
+      const [{ findAceptacionTerminos }, { getAceptacionTerminosStore }] = await Promise.all([
+        import("@/lib/terminos/aceptacion-terminos"),
+        import("@/lib/composition/stores"),
+      ]);
+      return findAceptacionTerminos(from, required("version"), getAceptacionTerminosStore());
+    }
+
     case QueryKind.VALIDATE_USER:
       return validateUser(required("numeroDocumento"), effect.payload.tipoDocumento as TipoDocumento);
 
-    case QueryKind.VERIFY_CODE:
-      return verifyCode(required("twofaId"), required("code"));
+    case QueryKind.VERIFY_CODE: {
+      const verified = await verifyCode(required("twofaId"), required("code"));
+      if (verified.status === VerifyCodeStatus.VERIFIED)
+        await saveDniVerificado(from, payloadText(effect.payload, "numeroDocumento"), getDniVerificadoStore());
+      return verified;
+    }
 
     case QueryKind.ANALYZE_MAIN_MENU_INTENT:
       return analyzeMainMenuIntent(payloadText(effect.payload, "text"), lookupLlmClient());

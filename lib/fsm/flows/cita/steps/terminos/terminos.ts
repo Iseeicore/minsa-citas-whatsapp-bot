@@ -9,15 +9,17 @@ import {
   withRejectionNotice,
 } from "@/lib/fsm/core/handlers-shared";
 import { channelOf } from "@/lib/fsm/core/channel";
-import { reshowTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
+import { reshowTerminos, showTerminos } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { askCuentaMinsa } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import { resumeCitaAfterVerification } from "@/lib/fsm/flows/cita/steps/identity/continuation";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { slotText } from "@/lib/fsm/core/slot-readers";
-import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { TERMINOS_ANSWERS } from "@/lib/constants/palabras-clave";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import { TERMINOS_RECHAZADOS_TEXT, TERMINOS_VERSION } from "@/lib/constants/textos/terminos";
+import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -53,7 +55,11 @@ function acceptTerminos(session: Session, event: InboundEvent): HandlerResult {
   next.slots[SlotKey.TERMINOS_ACEPTADOS] = true;
   next.state = SessionState.CITA_TERMINOS_REGISTER_PENDING;
   return buildResult(next, [
-    query(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { canal: channelOf(session, event), version: TERMINOS_VERSION }),
+    query(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, {
+      canal: channelOf(session, event),
+      version: TERMINOS_VERSION,
+      flujo: FlujoAceptacion.CITA,
+    }),
   ]);
 }
 
@@ -71,6 +77,14 @@ export function handleAwaitingTerminos(session: Session, event: InboundEvent): H
   const answer = findTerminosAnswer(event);
   if (!answer) return withRejectionNotice(reshowTerminos(session));
   return ANSWER_HANDLERS[answer](session, event);
+}
+
+export function handleTerminosLookupPending(session: Session, event: QueryResultEvent): HandlerResult {
+  const result = event.result as { resultado?: string } | undefined;
+  if (result?.resultado !== AceptacionTerminosLookup.FOUND) return showTerminos(session);
+  const next = cloneSession(session);
+  next.slots[SlotKey.TERMINOS_ACEPTADOS] = true;
+  return handleTerminosRegisterPending(next);
 }
 
 export function handleTerminosRegisterPending(session: Session): HandlerResult {

@@ -18,7 +18,9 @@ import {
   TERMINOS_VERSION,
   terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
+import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import { HandlerOutcome } from "@/lib/enums/handler-outcome";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { MenuChoice } from "@/lib/enums/menu-choice";
@@ -35,7 +37,7 @@ import { TerminosResume } from "@/lib/enums/terminos-resume";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { queries, queryResult, sent, tap, text, texts } from "@/tests/support/fsm-events";
 import { buildReferencia } from "@/tests/support/referencia";
-import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
+import { confirmCuentaMinsa, cuentaMinsaAviso } from "@/tests/support/cuenta-minsa";
 
 const DNI = "12345678";
 const CHANNELS = [SessionChannel.WHATSAPP, SessionChannel.WEB];
@@ -54,6 +56,15 @@ function verifiedReferencias(state: Session["state"], slots: Session["slots"] = 
     },
     counters: {},
   };
+}
+
+const notAccepted = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: AceptacionTerminosLookup.NOT_FOUND });
+
+function shown(result: HandlerResult, lookup: HandleEvent = notAccepted): HandlerResult {
+  expect(result.session.state).toBe(SessionState.CITA_TERMINOS_LOOKUP_PENDING);
+  expect(sent(result)).toEqual([]);
+  expect(queries(result)).toEqual([{ kind: QueryKind.CONSULTAR_ACEPTACION_TERMINOS, payload: { version: TERMINOS_VERSION } }]);
+  return handle(result.session, lookup);
 }
 
 function expectTerminos(result: HandlerResult, resume: TerminosResume) {
@@ -102,7 +113,7 @@ describe("the terms message", () => {
 
 describe("every entry into «Agendar una cita médica» shows the terms first", () => {
   it.each(CHANNELS)("the menu row (%s) and then the document question after accepting", (channel) => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel)));
     expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
 
     const resumed = accept(gated, channel);
@@ -115,14 +126,14 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
   });
 
   it.each(CHANNELS)("the «cita» keyword at first contact (%s)", (channel) => {
-    const gated = handleFirstContact("cita", channel);
+    const gated = shown(handleFirstContact("cita", channel));
     expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
 
     expect(texts(accept(gated, channel))).toEqual([FIRST_CONTACT_CITA_TEXT]);
   });
 
   it("a first-contact request keeps the specialty and the district for after the terms", () => {
-    const gated = handleFirstContact("quiero cita de pediatría en San Borja", SessionChannel.WHATSAPP);
+    const gated = shown(handleFirstContact("quiero cita de pediatría en San Borja", SessionChannel.WHATSAPP));
     expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
     expect(gated.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Pediatría");
     expect(gated.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("San Borja");
@@ -138,9 +149,8 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
   it("the cita detected by the AI keeps what it understood", () => {
     const pending: Session = { state: SessionState.MAIN_MENU_INTENT_PENDING, slots: {}, counters: {} };
 
-    const gated = handle(
-      pending,
-      queryResult(QueryKind.ANALYZE_MAIN_MENU_INTENT, { intent: MainMenuIntent.CITA, especialidad: "Odontología" }),
+    const gated = shown(
+      handle(pending, queryResult(QueryKind.ANALYZE_MAIN_MENU_INTENT, { intent: MainMenuIntent.CITA, especialidad: "Odontología" })),
     );
     expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
 
@@ -150,7 +160,7 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
   });
 
   it("a cita asked with an insult keeps the warning for after the terms", () => {
-    const gated = handle(mainMenu(), text("Apúrense cojudos quiero cita de odontología en San Borja"));
+    const gated = shown(handle(mainMenu(), text("Apúrense cojudos quiero cita de odontología en San Borja")));
     expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
 
     expect(texts(accept(gated))).toEqual([CITA_WITH_WARNING_TEXT]);
@@ -159,7 +169,7 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
   it.each(CHANNELS)("«Cita sin referencia» in the references list (%s) shows the terms before the district", (channel) => {
     const listed = verifiedReferencias(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
 
-    const gated = handle(listed, tap(ReferenciaActionButtonId.NEW_APPOINTMENT, channel));
+    const gated = shown(handle(listed, tap(ReferenciaActionButtonId.NEW_APPOINTMENT, channel)));
     expectTerminos(gated, TerminosResume.CONTINUE_VERIFIED);
     expect(gated.session.slots[SlotKey.CITA_BEARER]).toBe("synthetic-token");
 
@@ -172,7 +182,7 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
   it("«Sí» to the cita offer of the references flow also shows the terms first", () => {
     const offer = verifiedReferencias(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
 
-    expectTerminos(handle(offer, tap(ReferenciaCitaOfferButtonId.YES)), TerminosResume.CONTINUE_VERIFIED);
+    expectTerminos(shown(handle(offer, tap(ReferenciaCitaOfferButtonId.YES))), TerminosResume.CONTINUE_VERIFIED);
   });
 
   it("the code check of a cita whose terms were not accepted yet shows them before the district", () => {
@@ -182,7 +192,7 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
       counters: {},
     };
 
-    const gated = handle(verifyPending, queryResult(QueryKind.VERIFY_CODE, { status: VerifyCodeStatus.VERIFIED, token: "token" }));
+    const gated = shown(handle(verifyPending, queryResult(QueryKind.VERIFY_CODE, { status: VerifyCodeStatus.VERIFIED, token: "token" })));
 
     expectTerminos(gated, TerminosResume.CONTINUE_VERIFIED);
     expect(gated.session.slots[SlotKey.CITA_DNI]).toBe(DNI);
@@ -212,19 +222,22 @@ describe("«Cita con referencia» does not ask for the terms", () => {
 
 describe("accepting", () => {
   it.each(CHANNELS)("records the acceptance with the channel (%s) and the version", (channel) => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel)));
 
     const accepted = handle(gated.session, tap(TerminosButtonId.ACCEPT, channel));
 
     expect(accepted.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
     expect(sent(accepted)).toEqual([]);
     expect(queries(accepted)).toEqual([
-      { kind: QueryKind.REGISTRAR_ACEPTACION_TERMINOS, payload: { canal: channel, version: TERMINOS_VERSION } },
+      {
+        kind: QueryKind.REGISTRAR_ACEPTACION_TERMINOS,
+        payload: { canal: channel, version: TERMINOS_VERSION, flujo: FlujoAceptacion.CITA },
+      },
     ]);
   });
 
   it("continues the cita even when the record could not be saved", () => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
     const accepted = handle(gated.session, tap(TerminosButtonId.ACCEPT));
 
     const resumed = confirmCuentaMinsa(
@@ -236,13 +249,13 @@ describe("accepting", () => {
   });
 
   it.each(["acepto", "Sí, acepto", "si acepto", "ACEPTO", "1"])("understands %j written", (answer) => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
     expect(handle(gated.session, text(answer)).session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);
   });
 
   it("does not ask again in the same session", () => {
-    const resumed = accept(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
+    const resumed = accept(shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA))));
     const backToMenu = { ...resumed.session, state: SessionState.MAIN_MENU };
 
     const again = handle(backToMenu, tap(MenuChoice.AGENDAR_CITA));
@@ -252,11 +265,44 @@ describe("accepting", () => {
   });
 });
 
+describe("terms accepted in an earlier conversation", () => {
+  it.each(CHANNELS)("the same chat (%s) with the current version goes on without the terms", (channel) => {
+    const found = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: AceptacionTerminosLookup.FOUND });
+
+    const resumed = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel)), found);
+
+    expect(sent(resumed)).toEqual([cuentaMinsaAviso()]);
+    expect(resumed.session.slots[SlotKey.TERMINOS_ACEPTADOS]).toBe(true);
+    expect(resumed.session.slots[SlotKey.TERMINOS_RESUME]).toBeUndefined();
+  });
+
+  it("with the identity verified it goes on to the district", () => {
+    const found = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: AceptacionTerminosLookup.FOUND });
+
+    const resumed = shown(
+      handle(verifiedReferencias(SessionState.CITA_AWAITING_REFERENCIA_SELECT), tap(ReferenciaActionButtonId.NEW_APPOINTMENT)),
+      found,
+    );
+
+    expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+    expect(texts(resumed)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
+  });
+
+  it.each([AceptacionTerminosLookup.NOT_FOUND, AceptacionTerminosLookup.FAILED])(
+    "an answer %j (another version, never accepted or the lookup failed) shows the terms",
+    (resultado) => {
+      const lookup = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado });
+
+      expectTerminos(shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)), lookup), TerminosResume.ASK_DOCUMENTO);
+    },
+  );
+});
+
 describe("declining", () => {
   it.each([tap(TerminosButtonId.DECLINE), text("no acepto"), text("No acepto."), text("2")])(
     "%j says goodbye and closes the session",
     (event) => {
-      const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+      const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
       const result = handle(gated.session, event);
 
@@ -268,7 +314,9 @@ describe("declining", () => {
   );
 
   it("drops the verified identity when it closes", () => {
-    const gated = handle(verifiedReferencias(SessionState.CITA_AWAITING_REFERENCIA_SELECT), tap(ReferenciaActionButtonId.NEW_APPOINTMENT));
+    const gated = shown(
+      handle(verifiedReferencias(SessionState.CITA_AWAITING_REFERENCIA_SELECT), tap(ReferenciaActionButtonId.NEW_APPOINTMENT)),
+    );
 
     const result = handle(gated.session, tap(TerminosButtonId.DECLINE));
 
@@ -276,10 +324,10 @@ describe("declining", () => {
   });
 
   it("the next message after closing starts again from the first contact", () => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
     const closed = handle(gated.session, tap(TerminosButtonId.DECLINE));
 
-    const next = handle(closed.session, text("cita"));
+    const next = shown(handle(closed.session, text("cita")));
 
     expectTerminos(next, TerminosResume.ASK_DOCUMENTO);
   });
@@ -287,7 +335,7 @@ describe("declining", () => {
 
 describe("anything else while the terms are shown", () => {
   it.each(["no entiendo", "12345678", "hola"])("%j shows the terms again with the usual notice", (answer) => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
     const result = handle(gated.session, text(answer));
 
@@ -297,7 +345,7 @@ describe("anything else while the terms are shown", () => {
   });
 
   it("a wish to leave asks for confirmation and «No» shows the terms again", () => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
     const leaving = handle(gated.session, text("quiero salir"));
     expect(leaving.session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
@@ -308,7 +356,7 @@ describe("anything else while the terms are shown", () => {
   });
 
   it("an insult gets the respect reminder and the terms again", () => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
     const result = handle(gated.session, text("cojudos"));
 
@@ -341,7 +389,7 @@ describe("with TERMINOS_ENABLED off", () => {
   });
 
   it("a session left waiting for the terms still resumes when the flag is turned off", () => {
-    const gated = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA));
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
     vi.stubEnv("TERMINOS_ENABLED", "false");
 
     const resumed = accept(gated);

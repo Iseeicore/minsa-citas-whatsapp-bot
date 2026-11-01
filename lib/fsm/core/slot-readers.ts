@@ -4,6 +4,7 @@ import type { Slots } from "@/lib/fsm/core/types";
 import { toText } from "@/lib/utils/text-values";
 import { isNonEmptyString, isString } from "@/lib/utils/type-guards";
 import { SessionChannel } from "@/lib/enums/session-channel";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";
 import { SlotJsonStatus } from "@/lib/enums/slot-json-status";
 import { logger } from "@/lib/observability/logger";
@@ -11,6 +12,7 @@ import { logger } from "@/lib/observability/logger";
 export type SlotJson<T> = { status: SlotJsonStatus.OK; value: T } | { status: SlotJsonStatus.ABSENT } | { status: SlotJsonStatus.CORRUPT };
 
 const SESSION_CHANNELS: readonly string[] = Object.values(SessionChannel);
+const FLUJOS_ACEPTACION: readonly string[] = Object.values(FlujoAceptacion);
 
 function isSessionChannel(value: unknown): value is SessionChannel {
   return isString(value) && SESSION_CHANNELS.includes(value);
@@ -42,6 +44,12 @@ export function requirePayloadChannel(payload: Record<string, unknown>, queryKin
   const canal = payload.canal;
   if (!isSessionChannel(canal)) throw new MissingSlotError("canal", queryKind);
   return canal;
+}
+
+export function requirePayloadFlujo(payload: Record<string, unknown>, queryKind: string): FlujoAceptacion {
+  const flujo = payload.flujo;
+  if (!isString(flujo) || !FLUJOS_ACEPTACION.includes(flujo)) throw new MissingSlotError("flujo", queryKind);
+  return flujo as FlujoAceptacion;
 }
 
 export function requirePayloadText(payload: Record<string, unknown>, key: string, queryKind: string): string {

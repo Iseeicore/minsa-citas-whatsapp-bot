@@ -11,6 +11,7 @@ const ARCHIVOS_SOLO_TIPOS = [
   "lib/types/aceptacion-terminos.types.ts",
   "lib/types/almacen-evidencias.types.ts",
   "lib/types/consentimiento.types.ts",
+  "lib/types/dni-verificado.types.ts",
   "lib/types/referencia-lista-detalle.ts",
   "lib/types/sandbox-reply.types.ts",
   "lib/types/whatsapp-limit.types.ts",

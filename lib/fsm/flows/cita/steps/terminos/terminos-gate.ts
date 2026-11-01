@@ -1,5 +1,5 @@
 import { isTerminosEnabled } from "@/lib/config/features";
-import { buildResult, cloneSession } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, cloneSession, query } from "@/lib/fsm/core/handlers-shared";
 import { askCuentaMinsa } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import type { HandlerResult, SendConsentEffect, Session } from "@/lib/fsm/core/types";
 import {
@@ -10,8 +10,10 @@ import {
   TERMINOS_PROMPT_TEXT,
   TERMINOS_REOPEN_LABEL,
   TERMINOS_TITULO_TEXT,
+  TERMINOS_VERSION,
   terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
+import { QueryKind } from "@/lib/enums/query-kind";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
@@ -39,6 +41,12 @@ export function isTerminosRequired(session: Session): boolean {
 export function askTerminos(session: Session, resume: TerminosResume): HandlerResult {
   const next = cloneSession(session);
   next.slots[SlotKey.TERMINOS_RESUME] = resume;
+  next.state = SessionState.CITA_TERMINOS_LOOKUP_PENDING;
+  return buildResult(next, [query(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { version: TERMINOS_VERSION })]);
+}
+
+export function showTerminos(session: Session): HandlerResult {
+  const next = cloneSession(session);
   next.state = SessionState.CITA_AWAITING_TERMINOS;
   return buildResult(next, [buildTerminosEffect()]);
 }

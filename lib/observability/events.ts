@@ -59,6 +59,8 @@ export const LOG_EVENTS = [
   "consulta.cupo_count_failed",
   "consulta.daily_limit_reached",
   "terminos.persist_failed",
+  "terminos.lookup_failed",
+  "usuario.dni_persist_failed",
   "terminos.url_missing",
   "sandbox.cors_invalid_origin",
   "sandbox.signature_rejected",
