@@ -6,9 +6,8 @@ import { buildMenuEffect } from "@/lib/fsm/routing/flow-entry";
 import { handleMainMenuIntentPending } from "@/lib/fsm/routing/main-menu";
 import { oosMessage } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
 import { OOS_MESSAGES } from "@/lib/constants/textos/fuera-de-alcance";
-import { OUT_OF_SCOPE_REQUEST_TEXT } from "@/lib/constants/textos/menu";
+import { OUT_OF_SCOPE_REQUEST_TEXT, SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
 import { INSTITUTIONAL_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
-import { IncidenciaService } from "@/lib/services/incidencia-service";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { MenuChoice } from "@/lib/enums/menu-choice";
@@ -31,7 +30,7 @@ const sessionAt = (state: string, slots: Session["slots"] = {}, idleMs = 0): Ses
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
-const NOTICE = new IncidenciaService().disabledReply();
+const NOTICE = SERVICE_DISABLED_TEXT;
 const CITA_AND_REFERENCIA = ["agendar_cita", "consultar_referencia"];
 
 const QR = "Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206";

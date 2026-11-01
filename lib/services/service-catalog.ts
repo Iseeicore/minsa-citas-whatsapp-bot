@@ -5,7 +5,7 @@ import { IncidenciaService } from "@/lib/services/incidencia-service";
 import { ReferenciaService } from "@/lib/services/referencia-service";
 import { UnknownServiceError } from "@/lib/errors/unknown-service-error";
 import { POSITIVE_INTEGER } from "@/lib/constants/regex/text";
-import type { ListRow, QueryEffectKind, SessionChannel } from "@/lib/fsm/core/types";
+import type { ListRow, QueryEffectKind, Session, SessionChannel } from "@/lib/fsm/core/types";
 import type { MenuChoice } from "@/lib/enums/menu-choice";
 
 function menuIndex(typed: string): number | undefined {
@@ -40,8 +40,8 @@ export class ServiceCatalog {
     return this.byId(id).isEnabled();
   }
 
-  forState(state: string): BotService | undefined {
-    return this.services.find((service) => service.matchesState(state));
+  disabledOwnerOf(session: Session): BotService | undefined {
+    return this.services.find((service) => !service.isEnabled() && service.ownsSession(session));
   }
 
   forQuery(kind: QueryEffectKind): BotService | undefined {
@@ -57,7 +57,7 @@ export class ServiceCatalog {
 
   disabledByMenuNumber(typed: string, channel: SessionChannel): BotService | undefined {
     const index = menuIndex(typed);
-    if (index === undefined) return undefined;
+    if (index === undefined || this.byMenuNumber(typed, channel)) return undefined;
     const service = this.visibleIn(channel)[index];
     return service && !service.isEnabled() ? service : undefined;
   }
@@ -65,5 +65,6 @@ export class ServiceCatalog {
 
 export const incidenciaService = new IncidenciaService();
 export const consultaService = new ConsultaService();
+export const referenciaService = new ReferenciaService();
 
-export const serviceCatalog = new ServiceCatalog([new CitaService(), new ReferenciaService(), incidenciaService, consultaService]);
+export const serviceCatalog = new ServiceCatalog([new CitaService(), referenciaService, incidenciaService, consultaService]);

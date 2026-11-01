@@ -36,6 +36,8 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
     return emergencyCut(session.state);
   }
   const current: Session = { ...session, channel: event.channel };
+  const owner = serviceCatalog.disabledOwnerOf(current);
+  if (owner && !TERMINAL_STATES.has(current.state)) return disabledServiceReply(owner, channelOf(current, event));
   const closed = handleOtherReferenceClose(current, event) ?? handleConsultaReferenciasClose(current, event);
   if (closed) return closed;
 
@@ -46,9 +48,6 @@ export function handle(session: Session, event: HandleEvent, now: number = Date.
 }
 
 function handleTurn(session: Session, event: HandleEvent, now: number): HandlerResult {
-  const owner = serviceCatalog.forState(session.state);
-  if (owner && !owner.isEnabled() && !TERMINAL_STATES.has(session.state)) return disabledServiceReply(owner, channelOf(session, event));
-
   if (session.state === SessionState.CITA_AWAITING_REAUTH && event.type !== InternalEventType.QUERY_RESULT) {
     return handleAwaitingReauth(session, event as InboundEvent);
   }

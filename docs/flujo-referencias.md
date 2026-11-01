@@ -4,7 +4,7 @@ Cómo agenda la persona una cita con una de sus referencias médicas con el serv
 
 ## Entradas
 
-No lleva bandera: está siempre disponible. Es la única forma de agendar con una referencia: «Agendar una cita médica» ya no consulta referencias después del OTP. Este servicio no pide los términos y condiciones; sí los pide la cita médica que se abre desde aquí (**Cita sin referencia**, **Sí** a la oferta de cita) cuando `TERMINOS_ENABLED=true`. La entrada, la fila del menú y la numeración son las mismas en whatsapp-bot y en el Chat-bot. La selección de una referencia real avanza directamente a fechas en ambos canales; las demos conservan sus pasos anteriores.
+Depende de la bandera `REFERENCIAS_ENABLED`, apagada por defecto y leída en `lib/config/features.ts` (`true` sin distinguir mayúsculas ni espacios la enciende). Apagada, el menú no muestra la fila y ninguna de las entradas de abajo abre el flujo: el número escrito, la palabra clave, el botón de la elección OOS-03 (que ya no se ofrece), la intención de la IA (que el modelo ya no recibe) y las sesiones que quedaron a medias en un estado `referencia_*`, en `main_menu_referencia_choice`, en la selección de referencia, en la demo o en una cita abierta para una referencia responden el aviso de lo que sigue encendido y muestran el menú. El ejecutor rechaza además la consulta `list_references` con `DisabledServiceQueryError`. Encendida, es la única forma de agendar con una referencia: «Agendar una cita médica» ya no consulta referencias después del OTP. Este servicio no pide los términos y condiciones; sí los pide la cita médica que se abre desde aquí (**Cita sin referencia**, **Sí** a la oferta de cita) cuando `TERMINOS_ENABLED=true`. La entrada, la fila del menú y la numeración son las mismas en whatsapp-bot y en el Chat-bot. La selección de una referencia real avanza directamente a fechas en ambos canales; las demos conservan sus pasos anteriores.
 
 | Entrada | Canal | Cómo se reconoce | Dónde |
 |---|---|---|---|
@@ -13,7 +13,7 @@ No lleva bandera: está siempre disponible. Es la única forma de agendar con un
 | Botón «Cita con referencia» | whatsapp-bot y Chat-bot | Respuesta a la elección que reciben los mensajes OOS-03 (ver abajo) | `handleReferenciaChoice` en `main-menu.ts` |
 | Intención de la IA | whatsapp-bot y Chat-bot | Texto libre del menú principal que no reconoció ningún atajo y que la IA lee como un pedido de ver la referencia o la derivación (por ejemplo, con la palabra mal escrita: «quiero ver mi refrencia del hospital») | intención `referencia` en `lib/fsm/parsing/ai/main-menu-intent.ts`; el prompt, en `lib/constants/prompts/main-menu-intent.ts`; la entrada, en `handleMainMenuIntentPending` |
 
-La fila ocupa el segundo lugar en los dos canales, y los números escritos apuntan a lo mismo en whatsapp-bot y en el Chat-bot:
+Con la bandera encendida, la fila ocupa el segundo lugar en los dos canales, y los números escritos apuntan a lo mismo en whatsapp-bot y en el Chat-bot (con la bandera apagada los números siguen a las filas que se ven: con las incidencias encendidas, `2` es Registrar una incidencia):
 
 | Número escrito | Con incidencias encendidas | Con incidencias apagadas |
 |---|---|---|

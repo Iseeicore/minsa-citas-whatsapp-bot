@@ -6,6 +6,10 @@ export function isIncidenciasEnabled(): boolean {
   return isFlagOn(process.env.INCIDENCIAS_ENABLED);
 }
 
+export function isReferenciasEnabled(): boolean {
+  return isFlagOn(process.env.REFERENCIAS_ENABLED);
+}
+
 export function isTerminosEnabled(): boolean {
   return isFlagOn(process.env.TERMINOS_ENABLED);
 }

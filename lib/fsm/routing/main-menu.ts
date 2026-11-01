@@ -9,7 +9,14 @@ import {
   withRejectionNotice,
 } from "@/lib/fsm/core/handlers-shared";
 import { detectCitaRequest, isContinueReply, isGreeting, isIncidenciaKeyword, isReferenciaKeyword } from "@/lib/fsm/routing/menu-shortcuts";
-import { askReferenciaChoice, beginCita, buildMenuEffect, disabledServiceReply, outOfScopeReply } from "@/lib/fsm/routing/flow-entry";
+import {
+  askReferenciaChoice,
+  beginCita,
+  buildMenuEffect,
+  disabledServiceReply,
+  enterReferencias,
+  outOfScopeReply,
+} from "@/lib/fsm/routing/flow-entry";
 import { matchExactOption } from "@/lib/fsm/parsing/selection/selection-matchers";
 import { consultaService, incidenciaService, serviceCatalog } from "@/lib/services/service-catalog";
 import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
@@ -30,12 +37,8 @@ import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
-import {
-  OUT_OF_SCOPE_REQUEST_TEXT,
-  OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT,
-  CITA_INTENT_DETECTED_TEXT,
-  CONTINUE_BUTTON_ID,
-} from "@/lib/constants/textos/menu";
+import { OUT_OF_SCOPE_REQUEST_TEXTS, CITA_INTENT_DETECTED_TEXT, CONTINUE_BUTTON_ID } from "@/lib/constants/textos/menu";
+import { currentServiceOffer } from "@/lib/services/service-offer";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 
 export function enterMainMenu(channel: SessionChannel, preservedSlots: Session["slots"] = {}): HandlerResult {
@@ -130,7 +133,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     return beginConsulta(event.channel);
   }
 
-  if (replyId === MenuChoice.CONSULTAR_REFERENCIA) return beginReferencias(session.slots);
+  if (replyId === MenuChoice.CONSULTAR_REFERENCIA) return enterReferencias(session.slots, channel, beginReferencias);
 
   if (replyId !== MenuChoice.AGENDAR_CITA && replyId !== MenuChoice.REGISTRAR_INCIDENCIA) {
     if (event.text && isIncidenciaKeyword(event.text)) {
@@ -149,7 +152,10 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     }
 
     if (event.text && isReferenciaKeyword(event.text)) {
-      return withNote(beginReferencias(session.slots), { kind: "shortcut", detail: { name: "referencia_keyword" } });
+      return withNote(enterReferencias(session.slots, channel, beginReferencias), {
+        kind: "shortcut",
+        detail: { name: "referencia_keyword" },
+      });
     }
 
     if (event.text && isGreeting(event.text)) {
@@ -175,7 +181,9 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
     }
 
     const outOfScope = event.text ? detectOutOfScope(event.text) : undefined;
-    if (outOfScope) return withNote(outOfScopeReply(outOfScope, session.slots), { kind: "out_of_scope", detail: { category: outOfScope } });
+    if (outOfScope) {
+      return withNote(outOfScopeReply(outOfScope, channel, session.slots), { kind: "out_of_scope", detail: { category: outOfScope } });
+    }
 
     const preservedSlots =
       !session.slots[SlotKey.INITIAL_MESSAGE_TEXT] && event.text ? { [SlotKey.INITIAL_MESSAGE_TEXT]: event.text } : session.slots;
@@ -211,10 +219,6 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
   return handleAwaitingFlowStart(next, channel);
 }
 
-function outOfScopeRequestText(): string {
-  return incidenciaService.isEnabled() ? OUT_OF_SCOPE_REQUEST_TEXT : OUT_OF_SCOPE_REQUEST_CITA_REFERENCIA_TEXT;
-}
-
 export function handleMainMenuIntentPending(session: Session, event: QueryResultEvent): HandlerResult {
   const channel = channelOf(session, event);
   const result = event.result as { intent?: string; especialidad?: string; distrito?: string };
@@ -229,14 +233,17 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
   }
 
   if (result.intent === MainMenuIntent.REFERENCIA) {
-    return withNote(beginReferencias(slots), { kind: "shortcut", detail: { name: "referencia_ai" } });
+    return withNote(enterReferencias(slots, channel, beginReferencias), { kind: "shortcut", detail: { name: "referencia_ai" } });
   }
 
   if (result.intent === MainMenuIntent.CITA) return beginCitaFromIntent(slots, result);
 
   if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
-      buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [sendText(outOfScopeRequestText()), buildMenuEffect(channel)]),
+      buildResult({ state: SessionState.MAIN_MENU, slots, counters: {} }, [
+        sendText(OUT_OF_SCOPE_REQUEST_TEXTS[currentServiceOffer()]),
+        buildMenuEffect(channel),
+      ]),
       { kind: "out_of_scope", detail: { reason: "ai_request" } },
     );
   }

@@ -1,4 +1,5 @@
 import { CONTINUE_BUTTON_ID } from "@/lib/constants/textos/menu";
+import { ServiceOffer } from "@/lib/enums/service-offer";
 
 export const RESPECT_REMINDER_TEXT =
   "Le recordamos que este es un canal institucional oficial del MINSA y mantenemos una política de respeto.";
@@ -10,6 +11,16 @@ export const FIRST_MESSAGE_REJECTION_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas, consulta de referencias y registro de denuncias. Por favor elija una opción: [1] Citas [2] Referencia [3] Denuncias anticorrupción.";
 export const FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT =
   "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y consulta de referencias. Por favor elija una opción: [1] Citas [2] Referencia.";
+export const FIRST_MESSAGE_REJECTION_CITA_TEXT =
+  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas. Por favor elija una opción: [1] Citas.";
+export const FIRST_MESSAGE_REJECTION_CITA_INCIDENCIA_TEXT =
+  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y registro de denuncias. Por favor elija una opción: [1] Citas [2] Denuncias anticorrupción.";
+export const FIRST_MESSAGE_REJECTION_TEXTS: Readonly<Record<ServiceOffer, string>> = {
+  [ServiceOffer.CITA]: FIRST_MESSAGE_REJECTION_CITA_TEXT,
+  [ServiceOffer.CITA_REFERENCIA]: FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT,
+  [ServiceOffer.CITA_INCIDENCIA]: FIRST_MESSAGE_REJECTION_CITA_INCIDENCIA_TEXT,
+  [ServiceOffer.COMPLETA]: FIRST_MESSAGE_REJECTION_TEXT,
+};
 export const MEDIA_WITHOUT_SESSION_TEXT =
   "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.";
 export const MENSAJE_NO_SOPORTADO_TEXT = "Por ahora solo puedo leer texto e imágenes. Escríbeme tu mensaje, por favor.";

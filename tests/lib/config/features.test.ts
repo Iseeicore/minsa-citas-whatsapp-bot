@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isIncidenciasEnabled, isTerminosEnabled } from "@/lib/config/features";
+import { isIncidenciasEnabled, isReferenciasEnabled, isTerminosEnabled } from "@/lib/config/features";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -8,6 +8,7 @@ afterEach(() => {
 describe.each([
   ["INCIDENCIAS_ENABLED", isIncidenciasEnabled],
   ["TERMINOS_ENABLED", isTerminosEnabled],
+  ["REFERENCIAS_ENABLED", isReferenciasEnabled],
 ])("the %s flag", (variable, isEnabled) => {
   it.each(["true", "TRUE", "True", " true ", "\ttrue\n"])("turns on when the value is %j", (value) => {
     vi.stubEnv(variable, value);

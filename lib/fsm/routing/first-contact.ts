@@ -1,6 +1,6 @@
 import type { CitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { beginCita, buildMenuEffect, disabledServiceReply, outOfScopeReply } from "@/lib/fsm/routing/flow-entry";
-import { consultaService, incidenciaService, serviceCatalog } from "@/lib/services/service-catalog";
+import { consultaService, incidenciaService, referenciaService, serviceCatalog } from "@/lib/services/service-catalog";
 import { beginConsulta } from "@/lib/fsm/flows/consulta/handlers-consulta";
 import { beginReferencias } from "@/lib/fsm/flows/referencia/handlers-referencia";
 import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/text/codigo-incidencia";
@@ -59,12 +59,18 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
     return routed("welcome", buildResult({ state: SessionState.MAIN_MENU, slots: {}, counters: {} }, buildWelcomeEffects(channel)));
   }
 
-  if (isReferenciaKeyword(message)) return routed("referencia", beginReferencias({}));
+  if (isReferenciaKeyword(message)) {
+    if (!referenciaService.isEnabled()) return routed("menu", disabledServiceReply(referenciaService, channel));
+    return routed("referencia", beginReferencias({}));
+  }
 
   const outOfScope = detectOutOfScope(message);
   if (outOfScope === OosCategory.OOS_01) return routed("out_of_scope", emergencyCut("first_contact"));
   if (outOfScope) {
-    return withNote(routed("out_of_scope", outOfScopeReply(outOfScope)), { kind: "out_of_scope", detail: { category: outOfScope } });
+    return withNote(routed("out_of_scope", outOfScopeReply(outOfScope, channel)), {
+      kind: "out_of_scope",
+      detail: { category: outOfScope },
+    });
   }
 
   if (inicio) {

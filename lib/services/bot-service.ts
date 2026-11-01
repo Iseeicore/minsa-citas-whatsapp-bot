@@ -1,7 +1,8 @@
-import type { ListRow, QueryEffectKind, SessionChannel } from "@/lib/fsm/core/types";
+import type { ListRow, QueryEffectKind, Session, SessionChannel } from "@/lib/fsm/core/types";
 import type { MenuChoice } from "@/lib/enums/menu-choice";
 import { SessionChannel as SessionChannelEnum } from "@/lib/enums/session-channel";
-import { SERVICE_DISABLED_TEXT } from "@/lib/constants/textos/menu";
+import { SERVICE_DISABLED_TEXTS } from "@/lib/constants/textos/menu";
+import { currentServiceOffer } from "@/lib/services/service-offer";
 
 export abstract class BotService {
   abstract readonly id: MenuChoice;
@@ -11,11 +12,15 @@ export abstract class BotService {
 
   abstract matchesState(state: string): boolean;
 
+  ownsSession(session: Session): boolean {
+    return this.matchesState(session.state);
+  }
+
   isEnabled(): boolean {
     return true;
   }
 
   disabledReply(): string {
-    return SERVICE_DISABLED_TEXT;
+    return SERVICE_DISABLED_TEXTS[currentServiceOffer()];
   }
 }

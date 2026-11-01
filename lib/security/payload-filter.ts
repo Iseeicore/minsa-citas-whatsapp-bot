@@ -1,13 +1,8 @@
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { RejectReason } from "@/lib/enums/reject-reason";
 import { BARE_DOMAIN, LINK_MARKERS, NOT_EMOJI_NOR_SPACE, PICTOGRAPH, REPEATED_CHARACTER } from "@/lib/constants/regex/security";
-import {
-  FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT,
-  FIRST_MESSAGE_REJECTION_TEXT,
-  MEDIA_WITHOUT_SESSION_TEXT,
-} from "@/lib/constants/textos/seguridad";
-import { serviceCatalog } from "@/lib/services/service-catalog";
-import { MenuChoice } from "@/lib/enums/menu-choice";
+import { FIRST_MESSAGE_REJECTION_TEXTS, MEDIA_WITHOUT_SESSION_TEXT } from "@/lib/constants/textos/seguridad";
+import { currentServiceOffer } from "@/lib/services/service-offer";
 import { PayloadVerdictKind } from "@/lib/enums/payload-verdict-kind";
 
 export const MAX_FIRST_MESSAGE_LENGTH = 300;
@@ -22,9 +17,7 @@ const MEDIA_TYPES = new Set(["image", "audio", "video", "document"]);
 const MIN_EMOJIS_WITHOUT_WORDS = 6;
 
 function firstMessageRejectionText(): string {
-  return serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA)
-    ? FIRST_MESSAGE_REJECTION_TEXT
-    : FIRST_MESSAGE_REJECTION_CITA_REFERENCIA_TEXT;
+  return FIRST_MESSAGE_REJECTION_TEXTS[currentServiceOffer()];
 }
 
 function isRepetitionSpam(body: string): boolean {

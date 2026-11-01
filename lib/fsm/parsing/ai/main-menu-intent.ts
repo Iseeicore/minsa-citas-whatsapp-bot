@@ -7,8 +7,8 @@ import {
 } from "@/lib/fsm/parsing/ai/ai-fallback";
 import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { mainMenuIntentSystemPrompt } from "@/lib/constants/prompts/main-menu-intent";
-import { serviceCatalog } from "@/lib/services/service-catalog";
-import { MenuChoice } from "@/lib/enums/menu-choice";
+import { currentServiceOffer } from "@/lib/services/service-offer";
+import { ServiceOffer } from "@/lib/enums/service-offer";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { stringOr, stringOrUndefined } from "@/lib/utils/text-values";
@@ -31,20 +31,21 @@ const buildResponseSchema = (intents: readonly MainMenuIntent[]): JsonSchema => 
   required: ["intent", "detalle"],
 });
 
-export const MAIN_MENU_INTENT_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
-  MainMenuIntent.CITA,
-  MainMenuIntent.REFERENCIA,
-  MainMenuIntent.INCIDENCIA,
-  MainMenuIntent.FUERA_DE_ALCANCE,
-  MainMenuIntent.UNCLEAR,
-]);
+const OFFERED_INTENTS: Readonly<Record<ServiceOffer, readonly MainMenuIntent[]>> = {
+  [ServiceOffer.COMPLETA]: [MainMenuIntent.REFERENCIA, MainMenuIntent.INCIDENCIA],
+  [ServiceOffer.CITA_REFERENCIA]: [MainMenuIntent.REFERENCIA],
+  [ServiceOffer.CITA_INCIDENCIA]: [MainMenuIntent.INCIDENCIA],
+  [ServiceOffer.CITA]: [],
+};
 
-const WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema([
+const intentsFor = (offer: ServiceOffer): readonly MainMenuIntent[] => [
   MainMenuIntent.CITA,
-  MainMenuIntent.REFERENCIA,
+  ...OFFERED_INTENTS[offer],
   MainMenuIntent.FUERA_DE_ALCANCE,
   MainMenuIntent.UNCLEAR,
-]);
+];
+
+export const MAIN_MENU_INTENT_RESPONSE_SCHEMA: JsonSchema = buildResponseSchema(intentsFor(ServiceOffer.COMPLETA));
 
 function unclearIntent(reason: string): MainMenuIntentResult {
   logAiFallback(QueryKind.ANALYZE_MAIN_MENU_INTENT, "menu", reason);
@@ -52,15 +53,16 @@ function unclearIntent(reason: string): MainMenuIntentResult {
 }
 
 export async function analyzeMainMenuIntent(text: string, lookup: LlmClientLookup): Promise<MainMenuIntentResult> {
-  const incidencias = serviceCatalog.isEnabled(MenuChoice.REGISTRAR_INCIDENCIA);
+  const offer = currentServiceOffer();
+  const intents = intentsFor(offer);
 
   if (lookup.status === LlmClientStatus.MISCONFIGURED) return unclearIntent(buildMisconfiguredProviderReason(lookup.provider));
 
   const outcome = await lookup.client.generateJson({
     operation: QueryKind.ANALYZE_MAIN_MENU_INTENT,
-    systemPrompt: mainMenuIntentSystemPrompt(incidencias),
+    systemPrompt: mainMenuIntentSystemPrompt(offer, intents),
     userText: text,
-    schema: incidencias ? MAIN_MENU_INTENT_RESPONSE_SCHEMA : WITHOUT_INCIDENCIAS_RESPONSE_SCHEMA,
+    schema: buildResponseSchema(intents),
   });
   if (!outcome.ok) return unclearIntent(describeLlmFailure(outcome));
   if (!isRecord(outcome.json)) return unclearIntent(ANSWER_NOT_OBJECT_REASON);
@@ -68,8 +70,8 @@ export async function analyzeMainMenuIntent(text: string, lookup: LlmClientLooku
   const parsed = outcome.json;
   const intent = stringOr(parsed.intent).trim().toLowerCase();
   if (intent === MainMenuIntent.FUERA_DE_ALCANCE) return { intent: MainMenuIntent.FUERA_DE_ALCANCE };
-  if (intent === MainMenuIntent.REFERENCIA) return { intent: MainMenuIntent.REFERENCIA };
-  if (intent === MainMenuIntent.INCIDENCIA && incidencias) return { intent: MainMenuIntent.INCIDENCIA };
+  const offered = intents.find((candidate) => candidate === intent);
+  if (offered === MainMenuIntent.REFERENCIA || offered === MainMenuIntent.INCIDENCIA) return { intent: offered };
   if (intent !== MainMenuIntent.CITA) return { intent: MainMenuIntent.UNCLEAR };
 
   return {

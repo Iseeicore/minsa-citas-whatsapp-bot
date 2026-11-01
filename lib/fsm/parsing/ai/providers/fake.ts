@@ -50,7 +50,8 @@ function answerMainMenuIntent(request: LlmJsonRequest): Record<string, unknown> 
   const incidencias = offersIntent(request.schema, MainMenuIntent.INCIDENCIA);
   if (incidencias && FAKE_INCIDENCIA_STEMS.some((stem) => normalized.includes(stem)))
     return { intent: MainMenuIntent.INCIDENCIA, detalle: "" };
-  if (FAKE_REFERENCIA_STEMS.some((stem) => normalized.includes(stem)) && !normalized.includes(FAKE_CITA_WORD)) {
+  const referencias = offersIntent(request.schema, MainMenuIntent.REFERENCIA);
+  if (referencias && FAKE_REFERENCIA_STEMS.some((stem) => normalized.includes(stem)) && !normalized.includes(FAKE_CITA_WORD)) {
     return { intent: MainMenuIntent.REFERENCIA, detalle: "" };
   }
   if (!FAKE_CITA_INTENT_KEYWORDS.some((keyword) => normalized.includes(keyword))) return { intent: MainMenuIntent.UNCLEAR, detalle: "" };

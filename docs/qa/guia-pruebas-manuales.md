@@ -18,7 +18,7 @@ Marca cada caso: ☐ Aprobado  ☐ Rechazado. Anota la hora y, si falla, la capt
 
 > Los términos y condiciones antes de la cita dependen de `TERMINOS_ENABLED=true` (por defecto apagada). Con ella encendida, toda entrada a **Agendar una cita médica** los muestra antes de pedir el documento (casos de la sección 3.20); apagada, la cita empieza como en el resto de esta guía.
 
-> **Cita con referencia** no lleva bandera: está siempre disponible, con su fila en el menú de los dos canales (segunda, número `2`). También se entra escribiendo `referencia`, `cita con referencia` o `quiero consultar mi referencia`, o con un texto libre que la IA lea como un pedido de la referencia. Las referencias reales dependen de `SANDBOX_USE_REAL_MINSA=true` y del endpoint de MINSA; en modo fake la consulta siempre responde `No pudimos consultar tus referencias en este momento. Inténtalo de nuevo más tarde.` (ver la sección 3.18).
+> **Cita con referencia** depende de `REFERENCIAS_ENABLED=true` (por defecto apagada). Los casos de esta guía que la usan suponen la variable en `true`. Con ella apagada, `referencia`, el `2` escrito (si las incidencias también están apagadas) o una pregunta sobre una referencia responden `Por ahora solo puedo ayudarte a agendar una cita médica.` y muestran el menú de una fila. Encendida, tiene su fila en el menú de los dos canales (segunda, número `2`). También se entra escribiendo `referencia`, `cita con referencia` o `quiero consultar mi referencia`, o con un texto libre que la IA lea como un pedido de la referencia. Las referencias reales dependen de `SANDBOX_USE_REAL_MINSA=true` y del endpoint de MINSA; en modo fake la consulta siempre responde `No pudimos consultar tus referencias en este momento. Inténtalo de nuevo más tarde.` (ver la sección 3.18).
 
 | Entorno | Cómo entrar | Para qué sirve |
 |---|---|---|
@@ -463,7 +463,7 @@ Chat-bot con el catálogo fake: en la lista de fechas elige la **tercera** fila 
 
 ### 3.18 Cita con referencia (ver [flujo-referencias.md](../flujo-referencias.md))
 
-Servicio propio, sin bandera. Las referencias reales vienen de MINSA (`SANDBOX_USE_REAL_MINSA=true` y el endpoint `/whatsapp/api/v1/references`); en modo fake siempre hay «sin referencias». Los casos con referencias se prueban con MINSA real o con los DNI de demostración `10308523` y `47391441` (piloto comercial), que además exigen que MINSA valide el documento. La fila **Cita con referencia** está en el menú de los dos canales.
+Servicio propio, detrás de `REFERENCIAS_ENABLED=true`. Las referencias reales vienen de MINSA (`SANDBOX_USE_REAL_MINSA=true` y el endpoint `/whatsapp/api/v1/references`); en modo fake siempre hay «sin referencias». Los casos con referencias se prueban con MINSA real o con los DNI de demostración `10308523` y `47391441` (piloto comercial), que además exigen que MINSA valide el documento. La fila **Cita con referencia** está en el menú de los dos canales.
 
 | # | Acción del usuario | Respuesta esperada | Comportamiento interno | Aprobado / Rechazado |
 |---|---|---|---|---|
