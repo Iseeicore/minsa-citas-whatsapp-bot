@@ -1,5 +1,6 @@
 export enum SlotKey {
   CITA_HORA_CONFIRM_ID = "citaHoraConfirmId",
+  CITA_HORA_RESERVA = "citaHoraReserva",
   CITA_ESPECIALIDAD_ID = "citaEspecialidadId",
   CITA_BEARER = "citaBearer",
   CITA_DISTRITO = "citaDistrito",

@@ -435,20 +435,12 @@ describe("booking pending — raw HTTP errors are not the same as a real rejecti
     expect(shown).not.toContain("otra persona");
   });
 
-  it("an unavailable service closes the flow at once with the outage message, no list of hours and no retry", () => {
+  it("an unavailable service shows the outage message with a retry button, never the list of hours again", () => {
     const result = handle(bookingState(), queryResult("book_appointment", { status: "unavailable" }));
 
-    expect(result.session.state).toBe("cita_booking_rejected");
+    expect(result.session.state).toBe("cita_awaiting_booking_retry");
     expect(queries(result)).toHaveLength(0);
     expect((sent(result)[0] as { text: string }).text).toBe("En este momento el servicio tiene problemas. Por favor, inténtalo más tarde.");
-    expect(result.notes).toEqual([
-      { kind: "booking_rejected", level: "warn", detail: { status: "unavailable", reason: "service_unavailable" } },
-    ]);
-  });
-
-  it("an unavailable service does not wait for the 3rd failure: it closes even on the first", () => {
-    const result = handle(bookingState(), queryResult("book_appointment", { status: "unavailable" }));
-
     expect(result.session.counters[CounterKey.CITA_BOOKING_FAILURES]).toBeUndefined();
   });
 

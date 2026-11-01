@@ -1,4 +1,6 @@
 export const ACTIVE_CITA_MESSAGE = /ya tiene una cita activa/i;
+export const ALREADY_HAS_APPOINTMENT_MESSAGE = /tiene una cita por atender/i;
+export const MINSA_ERROR_CODE = /(\d+)\s*\|/;
 
 export const TRAILING_SLASHES = /\/+$/;
 

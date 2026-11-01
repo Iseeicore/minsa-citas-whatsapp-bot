@@ -1,5 +1,5 @@
 import { buildResult, cloneSession, query, sendText, sendButtons } from "@/lib/fsm/core/handlers-shared";
-import type { HandlerResult, Session } from "@/lib/fsm/core/types";
+import type { HandlerResult, QueryEffect, Session } from "@/lib/fsm/core/types";
 import { clearOffered } from "@/lib/fsm/flows/cita/parsing/selection";
 import {
   isReferenceAppointment,
@@ -9,6 +9,7 @@ import {
 import { formatHoraRange, ONLY_HORA_FLAG } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import {
   onlyHoraConfirmText,
@@ -64,16 +65,21 @@ export function startBooking(session: Session, horaInicio: string): HandlerResul
   delete next.slots[SlotKey.CITA_HORA_CONFIRM_ONLY];
   delete next.slots[SlotKey.CITA_HORA_CHOICE_A];
   delete next.slots[SlotKey.CITA_HORA_CHOICE_B];
+  delete next.counters[CounterKey.CITA_BOOKING_RETRIES];
+  next.slots[SlotKey.CITA_HORA_RESERVA] = horaInicio;
   next.state = SessionState.CITA_BOOKING_PENDING;
-  const referenciaId = referenciaSeleccionadaId(next.slots);
-  return buildResult(next, [
-    query(QueryKind.BOOK_APPOINTMENT, {
-      codigoRenipress: slotText(next.slots, SlotKey.CITA_COD_EESS),
-      codigoUps: slotText(next.slots, SlotKey.CITA_ESPECIALIDAD_ID),
-      fechaCita: slotText(next.slots, SlotKey.CITA_FECHA),
-      horaInicio,
-      numeroDocumentoPaciente: slotText(next.slots, SlotKey.CITA_DNI),
-      ...(referenciaId ? { referenciaId } : {}),
-    }),
-  ]);
+  return buildResult(next, [bookingQuery(next)]);
+}
+
+export function bookingQuery(session: Session, extra: Record<string, unknown> = {}): QueryEffect {
+  const referenciaId = referenciaSeleccionadaId(session.slots);
+  return query(QueryKind.BOOK_APPOINTMENT, {
+    codigoRenipress: slotText(session.slots, SlotKey.CITA_COD_EESS),
+    codigoUps: slotText(session.slots, SlotKey.CITA_ESPECIALIDAD_ID),
+    fechaCita: slotText(session.slots, SlotKey.CITA_FECHA),
+    horaInicio: slotText(session.slots, SlotKey.CITA_HORA_RESERVA),
+    numeroDocumentoPaciente: slotText(session.slots, SlotKey.CITA_DNI),
+    ...(referenciaId ? { referenciaId } : {}),
+    ...extra,
+  });
 }
