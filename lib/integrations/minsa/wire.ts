@@ -7,6 +7,7 @@ import { findMinsaApiHost } from "@/lib/config/integrations";
 import { ConfigErrorCode } from "@/lib/enums/config-error-code";
 import { MinsaSignatureStatus } from "@/lib/enums/minsa-signature-status";
 import { HttpStatus } from "@/lib/enums/http-status";
+import { isFlagEnabled } from "@/lib/utils/env-flags";
 
 function toBlockedResponse(path: string, reason: ConfigErrorCode): Response {
   logger.error("minsa.request_blocked", { path, reason });
@@ -44,7 +45,7 @@ function minsaDigitalBrowserHeaders(): Record<string, string> {
 }
 
 export function isRealMinsaEnabled(): boolean {
-  return process.env.SANDBOX_USE_REAL_MINSA === "true";
+  return isFlagEnabled(process.env.SANDBOX_USE_REAL_MINSA);
 }
 
 export async function postSigned(path: string, body: Record<string, unknown>): Promise<Response> {

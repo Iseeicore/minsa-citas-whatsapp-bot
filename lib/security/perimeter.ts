@@ -10,6 +10,7 @@ import { muteNoticeText } from "@/lib/constants/textos/seguridad";
 import { PayloadVerdictKind } from "@/lib/enums/payload-verdict-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
+import { describeLimit } from "@/lib/utils/describe-limit";
 import { EVIDENCE_IMAGE_BURST_LIMIT, EVIDENCE_IMAGE_BURST_WINDOW_MS, INBOUND_MUTE_MS } from "@/lib/constants/limits/perimeter";
 
 export type PerimeterDecision =
@@ -28,7 +29,7 @@ type InboundToScreen = { waId: string; type: string; text?: string; messageId?: 
 
 type ImageScreen = { decision: PerimeterDecision } | { sessionExists: boolean };
 
-const EVIDENCE_IMAGE_LIMIT_LABEL = `more than ${EVIDENCE_IMAGE_BURST_LIMIT} evidence images in ${EVIDENCE_IMAGE_BURST_WINDOW_MS / 1000} s`;
+const EVIDENCE_IMAGE_LIMIT_LABEL = describeLimit(EVIDENCE_IMAGE_BURST_LIMIT, EVIDENCE_IMAGE_BURST_WINDOW_MS, "evidence images");
 
 export const MUTE_NOTICE_TEXT = muteNoticeText(INBOUND_MUTE_MS / 60_000);
 

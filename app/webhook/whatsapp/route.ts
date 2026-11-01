@@ -9,6 +9,8 @@ import { parseJsonOr } from "@/lib/utils/safe-json";
 import { isValidMetaSignature } from "@/lib/security/meta-signature";
 import { isValidMetaVerifyToken } from "@/lib/security/meta-verify-token";
 import { META_SIGNATURE_HEADER } from "@/lib/constants/meta-signature";
+import { META_HUB_CHALLENGE_PARAM, META_HUB_MODE_PARAM, META_HUB_VERIFY_TOKEN_PARAM } from "@/lib/constants/meta-webhook-params";
+import { MetaWebhookMode } from "@/lib/enums/meta-webhook-mode";
 
 export const runtime = "nodejs";
 
@@ -16,11 +18,11 @@ export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const mode = searchParams.get("hub.mode");
-  const verifyToken = searchParams.get("hub.verify_token");
-  const challenge = searchParams.get("hub.challenge");
+  const mode = searchParams.get(META_HUB_MODE_PARAM);
+  const verifyToken = searchParams.get(META_HUB_VERIFY_TOKEN_PARAM);
+  const challenge = searchParams.get(META_HUB_CHALLENGE_PARAM);
 
-  if (mode === "subscribe" && isValidMetaVerifyToken(verifyToken)) {
+  if (mode === MetaWebhookMode.SUBSCRIBE && isValidMetaVerifyToken(verifyToken)) {
     return new NextResponse(challenge ?? "", { status: HttpStatus.OK });
   }
 

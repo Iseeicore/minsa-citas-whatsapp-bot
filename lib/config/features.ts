@@ -1,6 +1,6 @@
-const ENABLED_VALUE = "true";
+import { isFlagEnabled } from "@/lib/utils/env-flags";
 
-const isFlagOn = (value: string | undefined): boolean => value?.trim().toLowerCase() === ENABLED_VALUE;
+const isFlagOn = (value: string | undefined): boolean => isFlagEnabled(value?.trim().toLowerCase());
 
 export function isIncidenciasEnabled(): boolean {
   return isFlagOn(process.env.INCIDENCIAS_ENABLED);

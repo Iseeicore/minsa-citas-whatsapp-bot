@@ -3,6 +3,7 @@ import type { LlmClient, LlmClientLookup, LlmProvider } from "@/lib/fsm/parsing/
 import { createGeminiClient } from "@/lib/fsm/parsing/ai/providers/gemini";
 import { createFakeLlmClient } from "@/lib/fsm/parsing/ai/providers/fake";
 import { LlmClientStatus } from "@/lib/enums/llm-client-status";
+import { isFlagEnabled } from "@/lib/utils/env-flags";
 
 const DEFAULT_PROVIDER: LlmProvider = "gemini";
 
@@ -24,7 +25,7 @@ export function configuredLlmProvider(): LlmProvider {
 }
 
 export function lookupLlmClient(): LlmClientLookup {
-  if (process.env.SANDBOX_USE_REAL_AI !== "true") return { status: LlmClientStatus.AVAILABLE, client: createFakeLlmClient() };
+  if (!isFlagEnabled(process.env.SANDBOX_USE_REAL_AI)) return { status: LlmClientStatus.AVAILABLE, client: createFakeLlmClient() };
 
   const requested = requestedProvider();
   const create = PROVIDERS.get(requested);

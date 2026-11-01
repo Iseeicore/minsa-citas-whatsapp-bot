@@ -8,6 +8,7 @@ import type { ChannelSendEffect, SendEffect, SendOutcome } from "@/lib/fsm/core/
 import { SendType } from "@/lib/enums/send-type";
 import { SendOutcomeKind } from "@/lib/enums/send-outcome-kind";
 import { logger } from "@/lib/observability/logger";
+import { timedFetch } from "@/lib/observability/http";
 import { tail } from "@/lib/observability/mask";
 import { LIST_OPEN_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
@@ -102,7 +103,7 @@ function withinLimits(waId: string, effect: ChannelSendEffect): ChannelSendEffec
 async function postGraphMessage(body: Record<string, unknown>): Promise<GraphPost> {
   const target = findGraphMessagesTarget();
   if (target.status === GraphTargetStatus.MISSING_VARIABLE) return { status: GraphPostStatus.NOT_CONFIGURED };
-  const response = await fetch(target.url, {
+  const response = await timedFetch("meta", "messages", target.url, {
     method: "POST",
     headers: { ...target.headers, "Content-Type": "application/json" },
     body: JSON.stringify(body),

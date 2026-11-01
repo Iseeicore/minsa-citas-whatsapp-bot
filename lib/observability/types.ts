@@ -12,4 +12,4 @@ export type TurnNote = {
   detail?: Record<string, string | number | boolean>;
 };
 
-export type ExternalService = "minsa" | "gemini" | "database" | "media";
+export type ExternalService = "minsa" | "gemini" | "database" | "media" | "meta";

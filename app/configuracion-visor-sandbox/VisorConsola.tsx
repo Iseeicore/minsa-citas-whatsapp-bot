@@ -12,7 +12,8 @@ import { EmptyState } from "@/app/components/ui/EmptyState";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
 import { cn } from "@/lib/utils/cn";
-import { type SandboxMode as Mode, initialModeFromQuery } from "@/lib/utils/sandbox-mode";
+import { initialModeFromQuery } from "@/lib/utils/sandbox-mode";
+import { SandboxMode } from "@/lib/enums/sandbox-mode";
 
 const SANDBOX_AVATAR_TEXT = "MD";
 const SANDBOX_ROW_TITLE_TEXT = "Asistente MINSA Responde";
@@ -20,7 +21,7 @@ const SANDBOX_ROW_HINT_TEXT = "Toca para iniciar una conversación de prueba";
 
 export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [mode, setMode] = useState<Mode>(initialModeFromQuery);
+  const [mode, setMode] = useState<SandboxMode>(initialModeFromQuery);
   const [mobileShowingDetail, setMobileShowingDetail] = useState(false);
 
   return (
@@ -37,7 +38,7 @@ export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
         </aside>
 
         <main className="h-full overflow-hidden">
-          {mode === "real" ? <ConversationPane conversation={selectedConversation} /> : <Sandbox imageMaxBytes={imageMaxBytes} />}
+          {mode === SandboxMode.REAL ? <ConversationPane conversation={selectedConversation} /> : <Sandbox imageMaxBytes={imageMaxBytes} />}
         </main>
       </div>
 
@@ -48,7 +49,7 @@ export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
               <ModeToggle mode={mode} onChange={setMode} />
             </div>
             <div className="flex-1 overflow-hidden bg-white">
-              {mode === "real" ? (
+              {mode === SandboxMode.REAL ? (
                 <ConversationList
                   selectedId={selectedConversation?.id ?? null}
                   onSelect={(conversation) => {
@@ -63,7 +64,7 @@ export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
           </>
         ) : (
           <div className="flex-1 overflow-hidden">
-            {mode === "real" ? (
+            {mode === SandboxMode.REAL ? (
               <ConversationPane conversation={selectedConversation} onBack={() => setMobileShowingDetail(false)} />
             ) : (
               <Sandbox imageMaxBytes={imageMaxBytes} onBack={() => setMobileShowingDetail(false)} />
@@ -109,8 +110,8 @@ function SandboxListRow({ onSelect }: { onSelect: () => void }) {
   );
 }
 
-function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => void }) {
-  const isSandbox = mode === "sandbox";
+function ModeToggle({ mode, onChange }: { mode: SandboxMode; onChange: (mode: SandboxMode) => void }) {
+  const isSandbox = mode === SandboxMode.SANDBOX;
 
   return (
     <div className="flex flex-col gap-2">
@@ -120,7 +121,7 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => 
         width={ButtonWidth.FULL}
         role="switch"
         aria-checked={isSandbox}
-        onClick={() => onChange(isSandbox ? "real" : "sandbox")}
+        onClick={() => onChange(isSandbox ? SandboxMode.REAL : SandboxMode.SANDBOX)}
       >
         <span
           className={cn(
