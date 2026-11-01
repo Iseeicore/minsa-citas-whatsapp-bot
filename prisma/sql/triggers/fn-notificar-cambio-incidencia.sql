@@ -1,0 +1,1 @@
+CREATE OR REPLACE TRIGGER trg_incidencia_paciente_notificar_cambio AFTER INSERT OR UPDATE OR DELETE ON chatbot.incidencia_paciente FOR EACH ROW EXECUTE FUNCTION chatbot.fn_notificar_cambio_incidencia();
