@@ -40,6 +40,11 @@ const IDIOMS: ReadonlyArray<{ name: string; pattern: RegExp; owners: string[] }>
     pattern: /\.normalize\("NFD"\)/,
     owners: ["lib/utils/text-values.ts", "lib/fsm/parsing/text/inicio-incidencia.ts"],
   },
+  {
+    name: 'env.X === "true" o === "off"',
+    pattern: /[!=]==\s*"(true|off)"/,
+    owners: [],
+  },
 ];
 
 const ALLOWED_NUMBERS_OUTSIDE_LIMITS: ReadonlyArray<{ file: string; constant: string; reason: string }> = [

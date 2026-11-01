@@ -3,6 +3,7 @@ import { tail as maskWaId } from "@/lib/observability/mask";
 import { isDatabaseEnabled } from "@/lib/db/persistence";
 import { TurnLockLayer } from "@/lib/enums/turn-lock-layer";
 import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
+import { isFlagDisabled } from "@/lib/utils/env-flags";
 
 export type { TurnLockLayer };
 
@@ -78,7 +79,7 @@ function numberFromEnv(name: string): number | undefined {
 }
 
 export function defaultDbLock(): DbTurnLock | undefined {
-  if (!process.env.DATABASE_URL || process.env.TURN_DB_LOCK === "off" || !isDatabaseEnabled()) return undefined;
+  if (!process.env.DATABASE_URL || isFlagDisabled(process.env.TURN_DB_LOCK) || !isDatabaseEnabled()) return undefined;
 
   let lock: DbTurnLock | undefined;
 

@@ -1,9 +1,11 @@
+import { isFlagEnabled } from "@/lib/utils/env-flags";
+
 type Env = Record<string, string | undefined>;
 
 const DEFAULT_LOG_DIR = "logs";
 
 export function isLogToFileEnabled(env: Env = process.env): boolean {
-  return env.LOG_TO_FILE === "true";
+  return isFlagEnabled(env.LOG_TO_FILE);
 }
 
 export function getLogDir(env: Env = process.env): string {

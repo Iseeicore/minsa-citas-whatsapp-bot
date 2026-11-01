@@ -2,6 +2,7 @@ import { isRegisteredLlmProvider } from "@/lib/fsm/parsing/ai/llm-registry";
 import { logger } from "@/lib/observability/logger";
 import { parseAllowedOrigins } from "@/lib/security/allowed-origins";
 import { ConfigErrorCode } from "@/lib/enums/config-error-code";
+import { isFlagEnabled } from "@/lib/utils/env-flags";
 import { findInvalidEvidenceImageMaxMb } from "@/lib/config/evidence";
 import { EVIDENCE_IMAGE_MAX_MB_DEFAULT, EVIDENCE_IMAGE_MAX_MB_MIN, META_IMAGE_MAX_MB } from "@/lib/constants/limits/incidencia";
 import {
@@ -75,7 +76,7 @@ type Env = Record<string, string | undefined>;
 
 function severityOf(code: ConfigErrorCode, env: Env): Severity {
   const entry: ConfigErrorEntry = CONFIG_ERRORS[code];
-  return env.SANDBOX_USE_REAL_MINSA === "true" && entry.severityWithRealMinsa ? entry.severityWithRealMinsa : entry.severity;
+  return isFlagEnabled(env.SANDBOX_USE_REAL_MINSA) && entry.severityWithRealMinsa ? entry.severityWithRealMinsa : entry.severity;
 }
 
 const issue = (code: ConfigErrorCode, value: string): ConfigIssue => ({ code, value, message: CONFIG_ERRORS[code].message });
@@ -98,8 +99,8 @@ const REQUIRED_WITH_REAL_AI: RequiredVariable[] = [{ code: ConfigErrorCode.GOOGL
 function findMissingVariables(env: Env): ConfigIssue[] {
   const required = [
     ...REQUIRED_ALWAYS,
-    ...(env.SANDBOX_USE_REAL_MINSA === "true" ? REQUIRED_WITH_REAL_MINSA : []),
-    ...(env.SANDBOX_USE_REAL_AI === "true" ? REQUIRED_WITH_REAL_AI : []),
+    ...(isFlagEnabled(env.SANDBOX_USE_REAL_MINSA) ? REQUIRED_WITH_REAL_MINSA : []),
+    ...(isFlagEnabled(env.SANDBOX_USE_REAL_AI) ? REQUIRED_WITH_REAL_AI : []),
   ];
   return required.filter((variable) => variable.find(env) === undefined).map((variable) => issue(variable.code, ""));
 }

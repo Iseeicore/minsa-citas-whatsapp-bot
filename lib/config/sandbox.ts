@@ -1,5 +1,7 @@
+import { isFlagEnabled } from "@/lib/utils/env-flags";
+
 type Env = Record<string, string | undefined>;
 
 export function isSandboxEnabled(env: Env = process.env): boolean {
-  return env.SANDBOX_ENABLED === "true";
+  return isFlagEnabled(env.SANDBOX_ENABLED);
 }
