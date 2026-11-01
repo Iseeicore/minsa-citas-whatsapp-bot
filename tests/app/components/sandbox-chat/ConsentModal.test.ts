@@ -29,7 +29,7 @@ describe("ConsentModal", () => {
   it("is a modal dialog with the title of the terms", () => {
     const markup = render();
 
-    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain("<dialog");
     expect(markup).toContain("Términos y condiciones");
   });
 

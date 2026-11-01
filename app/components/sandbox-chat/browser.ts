@@ -1,3 +1,5 @@
+import { InboundEventType } from "@/lib/enums/inbound-event-type";
+
 export function readFileAsDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -15,7 +17,7 @@ export function closePreviousConversation(from: string): void {
   void fetch("/api/sandbox", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ from, type: "text", close: true }),
+    body: JSON.stringify({ from, type: InboundEventType.TEXT, close: true }),
     keepalive: true,
   }).catch(() => undefined);
 }

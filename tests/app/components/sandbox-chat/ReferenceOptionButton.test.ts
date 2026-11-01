@@ -25,6 +25,13 @@ describe("ReferenceOptionButton", () => {
     expect(markup).toContain('type="button"');
   });
 
+  it("muestra destino, origen y fecha en ese orden", () => {
+    const markup = render();
+
+    expect(markup.indexOf(reference.destino)).toBeLessThan(markup.indexOf(reference.origen));
+    expect(markup.indexOf(reference.origen)).toBeLessThan(markup.indexOf(reference.fecha));
+  });
+
   it("impide seleccionar referencias de un mensaje antiguo mediante el boton nativo deshabilitado", () => {
     expect(render(true)).toContain('disabled=""');
     expect(render()).not.toContain('disabled=""');

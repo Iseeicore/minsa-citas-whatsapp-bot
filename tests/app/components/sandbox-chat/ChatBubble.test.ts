@@ -65,7 +65,7 @@ describe("ChatBubble", () => {
 
     const markup = renderToStaticMarkup(createElement(ChatBubble, { entry, onOptionClick: () => {} }));
 
-    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain("<dialog");
     expect(markup).toContain(buildTerminosEffect().text);
   });
 
@@ -74,7 +74,7 @@ describe("ChatBubble", () => {
 
     const markup = renderToStaticMarkup(createElement(ChatBubble, { entry, disabled: true, onOptionClick: () => {} }));
 
-    expect(markup).not.toContain('role="dialog"');
+    expect(markup).not.toContain("<dialog");
     expect((markup.match(BUTTON_TAG) ?? []).every((tag) => tag.includes('disabled=""'))).toBe(true);
   });
 });

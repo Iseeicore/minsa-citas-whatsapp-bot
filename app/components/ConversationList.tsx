@@ -7,6 +7,7 @@ import { Button } from "@/app/components/ui/Button";
 import { avatarColor, initials } from "@/lib/utils/avatar";
 import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
+import { placeholderFor } from "@/lib/utils/placeholder-for";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
@@ -29,8 +30,7 @@ export default function ConversationList({
 }) {
   const { state } = useConversationPolling<Conversation[]>(CONVERSATIONS_URL, LOAD_ERROR_TEXT);
   const conversations = readRequestData(state) ?? [];
-  const placeholder =
-    state.status === RequestStatus.LOADING ? LOADING_TEXT : state.status === RequestStatus.DATA && state.data.length === 0 ? EMPTY_TEXT : undefined;
+  const placeholder = placeholderFor(state, { loading: LOADING_TEXT, empty: EMPTY_TEXT });
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
