@@ -10,3 +10,5 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+COMMENT ON FUNCTION public.fn_bloquear_operacion() IS 'Impide operaciones: en tablas de solo inserción bloquea modificar y borrar; en tablas con borrado lógico bloquea el borrado físico.';

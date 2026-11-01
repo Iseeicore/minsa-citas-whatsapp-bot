@@ -5,3 +5,5 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+COMMENT ON FUNCTION public.fn_fecha_modificacion() IS 'Al modificar: actualiza la fecha de modificación.';

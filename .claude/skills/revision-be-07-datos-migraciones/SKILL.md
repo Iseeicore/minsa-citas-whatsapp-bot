@@ -9,7 +9,7 @@ description: Filtro 7 de 10 de revision-backend. Transacciones, N+1, consultas p
 
 - Escrituras relacionadas en una transacción (25); sin consultas dentro de `for`/`map` (26); SQL siempre parametrizado, sin concatenar entrada del usuario (28).
 - Ninguna migración ya aplicada fue editada: `git diff --stat <destino>...HEAD -- prisma/migrations` solo muestra carpetas **nuevas** (27, 93). Si hubo que corregir una ya aplicada, se hizo con migración puente idempotente (94).
-- Toda tabla/columna nueva con `COMMENT ON` (diccionario regenerado con `npm run db:diccionario`) y su prueba SQL en `prisma/tests/` que falla al apagar la regla.
+- Toda tabla/columna nueva con `COMMENT ON` en `prisma/sql/comentarios.sql` (única fuente, editada a mano; nada aplicado en el arranque depende de `docs/`; el `.md` del diccionario se regenera con `npm run db:diccionario` leyendo la base) y su prueba SQL en `prisma/tests/` que falla al apagar la regla.
 - Una migración que mueve datos se detiene con error claro si no puede convertir; no inventa valores; la decisión es del responsable (98).
 - Datos que las migraciones no cargan (p. ej. padrón de establecimientos) quedan escritos como requisito de despliegue (96).
 - Orden de entrega: la base va antes que el código que la usa (101); se sabe qué dispara el despliegue antes de fusionar (99).

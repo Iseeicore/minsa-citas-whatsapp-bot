@@ -40,3 +40,5 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+COMMENT ON FUNCTION public.fn_reglas_archivo_recibido() IS 'Hace cumplir el recorrido del archivo: recibido, verificando y verificado o rechazado, sin saltos; los datos de lo recibido no cambian, los estados finales no se modifican y la fecha de verificación la fija la base.';

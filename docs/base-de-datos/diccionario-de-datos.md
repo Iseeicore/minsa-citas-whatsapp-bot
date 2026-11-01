@@ -1,6 +1,6 @@
 # Diccionario de datos
 
-> **Generado automáticamente** por `generar-diccionario.mjs` desde la base real (PostgreSQL 16.15). **No se edita a mano**: se cambia `diccionario.json` y se vuelve a generar. El script falla si falta la descripción de una tabla, una columna o una llave foránea.
+> **Generado automáticamente** por `generar-diccionario.mjs` leyendo la base real (PostgreSQL 16.15). **No se edita a mano**: las descripciones son los `COMMENT ON` de `prisma/sql/comentarios.sql` y de cada función en `prisma/sql/functions/`; se cambian allí, se aplican con `npm run db:aplicar` y se vuelve a generar. El script falla si falta la descripción de un esquema, una tabla, una columna, una llave foránea o la función de un disparador.
 > Convención: tablas y columnas en español y en singular; lo que viene de Meta en inglés. Fechas en UTC. Detalle del diseño en [[Base De Datos]].
 
 ## Esquemas

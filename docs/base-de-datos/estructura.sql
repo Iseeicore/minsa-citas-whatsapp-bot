@@ -1,7 +1,13 @@
 SELECT json_build_object(
+  'esquemas', (SELECT json_agg(x) FROM (
+    SELECT n.nspname AS nombre, obj_description(n.oid, 'pg_namespace') AS descripcion
+      FROM pg_namespace n
+     WHERE n.nspname IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia')
+     ORDER BY 1) x),
   'columnas', (SELECT json_agg(x) FROM (
     SELECT c.table_schema AS esquema, c.table_name AS tabla, c.column_name AS columna, c.ordinal_position AS orden,
-           format_type(a.atttypid, a.atttypmod) AS tipo, (c.is_nullable = 'YES') AS nulo, c.column_default AS defecto
+           format_type(a.atttypid, a.atttypmod) AS tipo, (c.is_nullable = 'YES') AS nulo, c.column_default AS defecto,
+           col_description(cl.oid, a.attnum) AS descripcion, obj_description(cl.oid, 'pg_class') AS descripcion_tabla
       FROM information_schema.columns c
       JOIN pg_namespace n ON n.nspname = c.table_schema
       JOIN pg_class cl ON cl.relname = c.table_name AND cl.relnamespace = n.oid
@@ -27,7 +33,7 @@ SELECT json_build_object(
       FROM pg_indexes WHERE schemaname IN ('auditoria', 'catalogo', 'chatbot', 'gestion', 'ia') ORDER BY 1, 2, 3) x),
   'disparadores', (SELECT json_agg(x) FROM (
     SELECT n.nspname AS esquema, cl.relname AS tabla, t.tgname AS nombre, p.proname AS funcion,
-           pg_get_triggerdef(t.oid) AS definicion
+           obj_description(p.oid, 'pg_proc') AS descripcion_funcion, pg_get_triggerdef(t.oid) AS definicion
       FROM pg_trigger t
       JOIN pg_class cl ON cl.oid = t.tgrelid
       JOIN pg_namespace n ON n.oid = cl.relnamespace

@@ -136,6 +136,23 @@ describe("the SQL files of prisma/", () => {
     }
   });
 
+  it("describe every trigger function with its own COMMENT ON FUNCTION, which the data dictionary reads from the database", () => {
+    for (const file of triggers) {
+      for (const [, name] of read(`sql/triggers/${file}`).matchAll(/EXECUTE FUNCTION\s+(?:\w+\.)?(\w+)\(/g)) {
+        expect(read(`sql/functions/${kebab(name)}.sql`), name).toMatch(new RegExp(`COMMENT ON FUNCTION \\w+\\.${name}\\(`));
+      }
+    }
+  });
+
+  it("keep sql/comentarios.sql as the only source of the comments: the dictionary in docs/ is written from the database, never the other way", () => {
+    const docs = path.join(process.cwd(), "docs", "base-de-datos");
+    const generator = fs.readFileSync(path.join(docs, "generar-diccionario.mjs"), "utf8");
+
+    expect(fs.existsSync(path.join(docs, "diccionario.json"))).toBe(false);
+    expect(generator.match(/writeFileSync\(/g)).toHaveLength(1);
+    expect(generator).toContain('writeFileSync(join(CARPETA, "diccionario-de-datos.md")');
+  });
+
   it("keep the migrations to structure only", () => {
     for (const dir of fs.readdirSync(path.join(PRISMA, "migrations")).filter((d) => /^\d{14}_/.test(d))) {
       const sql = read(`migrations/${dir}/migration.sql`);

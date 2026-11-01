@@ -21,3 +21,5 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
+COMMENT ON FUNCTION public.fn_historial_incidencia() IS 'Después de insertar o modificar, guarda el cambio en el historial.';

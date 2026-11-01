@@ -19,3 +19,5 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
+COMMENT ON FUNCTION public.fn_replicar_categoria_entrenamiento() IS 'Cuando una persona corrige o confirma la categoría, copia el caso a la tabla de entrenamiento marcando cuál de las dos fue.';

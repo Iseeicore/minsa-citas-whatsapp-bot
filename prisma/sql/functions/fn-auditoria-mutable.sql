@@ -19,3 +19,5 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+COMMENT ON FUNCTION public.fn_auditoria_mutable() IS 'Al insertar o modificar: llena fecha y usuario de creación y de modificación y sube la versión de la fila.';
