@@ -10,13 +10,14 @@ import { HttpStatus } from "@/lib/enums/http-status";
 import { CONVERSACION_NO_ENCONTRADA_TEXT } from "@/lib/constants/textos/bandeja";
 import { sendOperatorMessage } from "@/lib/whatsapp/operator-send";
 import { OperatorSendStatus } from "@/lib/enums/operator-send-status";
+import { DAY_MS } from "@/lib/constants/limits/time-units";
 
 const sendMessageSchema = z.object({
   conversationId: z.string().min(1),
   text: z.string().min(1),
 });
 
-const WINDOW_MS = 24 * 60 * 60 * 1000;
+const WINDOW_MS = DAY_MS;
 
 export async function POST(request: NextRequest) {
   const closed = consoleDisabledResponse();
@@ -52,5 +53,6 @@ export async function POST(request: NextRequest) {
   const result = await sendOperatorMessage(usuario, text);
   if (result.status === OperatorSendStatus.FAILED) return apiError(result.errorCode);
 
-  return NextResponse.json(toMessageDto(result.message), { status: HttpStatus.CREATED });
+  const { message } = result;
+  return NextResponse.json(toMessageDto(message), { status: HttpStatus.CREATED });
 }

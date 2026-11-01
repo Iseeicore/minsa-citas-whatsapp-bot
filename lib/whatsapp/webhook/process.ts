@@ -31,6 +31,7 @@ import { isObject } from "@/lib/utils/type-guards";
 import { hasSandboxPrefix } from "@/lib/utils/session-ids";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
+import { fromUnixSeconds } from "@/lib/time/epoch-seconds";
 
 type StagedTurn = { waId: string; messageId: string; respond: () => Promise<void>; marks: LatencyMarks };
 
@@ -90,7 +91,7 @@ async function stageInboundMessage(
 
   const profileName = contact?.profile?.name;
   const phoneNumber = message.from ?? contact?.wa_id;
-  const timestamp = new Date(Number(message.timestamp) * 1000);
+  const timestamp = fromUnixSeconds(message.timestamp);
   const { content, mediaId } = extractContentAndMedia(message);
 
   const [[, usuario], session] = await Promise.all([

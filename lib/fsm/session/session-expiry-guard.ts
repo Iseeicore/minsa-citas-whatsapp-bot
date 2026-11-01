@@ -7,6 +7,7 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { isString, isFiniteNumber, isRecord } from "@/lib/utils/type-guards";
 import { JwtExpiryStatus } from "@/lib/enums/jwt-expiry-status";
 import { logger } from "@/lib/observability/logger";
+import { fromUnixSeconds } from "@/lib/time/epoch-seconds";
 
 export type JwtExpiry =
   { status: JwtExpiryStatus.FOUND; exp: number } | { status: JwtExpiryStatus.ABSENT } | { status: JwtExpiryStatus.MALFORMED };
@@ -88,7 +89,8 @@ export function detectSessionExpiry(session: Session, event: HandleEvent, now: n
     logger.warn("session.token_unreadable", { state: session.state });
     return null;
   }
-  if (expiry.status === JwtExpiryStatus.FOUND && expiry.exp * 1000 - now < TOKEN_EXPIRY_MARGIN_MS) return SessionExpiryReason.TOKEN_EXPIRED;
+  if (expiry.status === JwtExpiryStatus.FOUND && fromUnixSeconds(expiry.exp).getTime() - now < TOKEN_EXPIRY_MARGIN_MS)
+    return SessionExpiryReason.TOKEN_EXPIRED;
 
   return null;
 }

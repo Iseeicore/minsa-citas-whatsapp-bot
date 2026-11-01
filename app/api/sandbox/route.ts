@@ -34,6 +34,8 @@ import { SANDBOX_SIGNATURE_HEADER, SANDBOX_TIMESTAMP_HEADER } from "@/lib/consta
 import { SANDBOX_DISABLED_TEXT, SANDBOX_UNSIGNED_TEXT } from "@/lib/constants/textos/sandbox";
 import { SandboxSignatureResult } from "@/lib/enums/sandbox-signature-result";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
+import { ZOD_TOO_BIG_ISSUE_CODE } from "@/lib/constants/zod-issue-codes";
+import { toUnixSeconds } from "@/lib/time/epoch-seconds";
 
 const SANDBOX_TURN_HOOKS: TurnHooks = {
   onSend: async () => buildSandboxSentOutcome(),
@@ -77,13 +79,13 @@ function rejectedSignature(request: NextRequest, rawBody: string): SandboxSignat
     timestamp: request.headers.get(SANDBOX_TIMESTAMP_HEADER),
     signature: request.headers.get(SANDBOX_SIGNATURE_HEADER),
     body: rawBody,
-    nowSeconds: Math.floor(Date.now() / 1000),
+    nowSeconds: toUnixSeconds(Date.now()),
   });
   return result === SandboxSignatureResult.VALID ? undefined : result;
 }
 
 function isTextTooLong(error: z.ZodError): boolean {
-  return error.issues.some((issue) => issue.code === "too_big" && issue.path[0] === TEXT_FIELD);
+  return error.issues.some((issue) => issue.code === ZOD_TOO_BIG_ISSUE_CODE && issue.path[0] === TEXT_FIELD);
 }
 
 export async function OPTIONS(request: NextRequest) {

@@ -3,6 +3,7 @@ import { WhatsAppMessageType } from "@/lib/enums/whatsapp-message-type";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
 import type { InboundBuffer, PendingInbound } from "@/lib/whatsapp/inbound/inbound-buffer";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
+import { fromUnixSeconds, toUnixSeconds } from "@/lib/time/epoch-seconds";
 import {
   INBOUND_MAX_AGE_MS,
   INBOUND_MAX_BATCH,
@@ -37,7 +38,7 @@ function buildBaseMessage(row: PendingInbound, own: WhatsAppMessage, type: Whats
     id: row.waMessageId,
     from_user_id: own.from_user_id,
     ...(own.from ? { from: own.from } : {}),
-    timestamp: String(Math.floor(row.fechaHora.getTime() / 1000)),
+    timestamp: String(toUnixSeconds(row.fechaHora)),
     type,
   };
 }
@@ -103,7 +104,7 @@ export function createInboundCoalescer(deps: InboundCoalescerDeps) {
     const { message, usuarioId, windowMs } = input;
     const nowMs = deps.now();
 
-    if (nowMs - Number(message.timestamp) * 1000 > INBOUND_MAX_AGE_MS) {
+    if (nowMs - fromUnixSeconds(message.timestamp).getTime() > INBOUND_MAX_AGE_MS) {
       await buffer.discard(message.id);
       await deps.notifyStale(message.from_user_id);
       return;
