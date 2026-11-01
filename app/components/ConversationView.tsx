@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Conversation, ConversationMessages, Message } from "@/app/components/types";
+import type { ConversationMessages } from "@/app/components/types";
 import {
   BackArrowIcon,
   CameraIcon,
@@ -21,8 +21,7 @@ import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
 import { readRequestData, useConversationPolling } from "@/app/components/hooks/use-conversation-polling";
-import { useApi } from "@/app/hooks/use-api";
-import { ApiRequestStatus } from "@/lib/enums/api-request-status";
+import { useConversationActions } from "@/app/components/hooks/use-conversation-actions";
 import { RequestStatus } from "@/lib/enums/request-status";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonSize } from "@/lib/enums/button-size";
@@ -46,40 +45,23 @@ export default function ConversationView({
   onBack?: () => void;
 }) {
   const { state, update } = useConversationPolling<ConversationMessages>(`/api/conversations/${conversationId}/messages`, LOAD_ERROR_TEXT);
-  const data = readRequestData(state);
-  const messages = data?.messages ?? [];
-  const windowOpen = data?.windowOpen ?? true;
-  const windowExpiresAt = data?.windowExpiresAt ?? null;
-  const status = data?.status ?? ConversationStatus.OPEN;
+  const {
+    messages = [],
+    windowOpen = true,
+    windowExpiresAt = null,
+    status = ConversationStatus.OPEN,
+  }: Partial<ConversationMessages> = readRequestData(state) ?? {};
   const [text, setText] = useState("");
-  const sendApi = useApi<Message>("No se pudo enviar el mensaje.");
-  const closeApi = useApi<Conversation>("No se pudo cerrar la conversación.");
-  const sending = sendApi.state.status === ApiRequestStatus.LOADING;
-  const sendError = sendApi.state.status === ApiRequestStatus.ERROR ? sendApi.state.message : undefined;
-  const closing = closeApi.state.status === ApiRequestStatus.LOADING;
-  const closeError = closeApi.state.status === ApiRequestStatus.ERROR ? closeApi.state.message : undefined;
+  const { send, close, sending, sendError, closing, closeError } = useConversationActions(conversationId, update);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastMessageId = messages.at(-1)?.id;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [data]);
+  }, [lastMessageId]);
 
   async function handleSend() {
-    if (!text.trim()) return;
-    const result = await sendApi.post("/api/messages/send", { conversationId, text });
-    if (result.status !== ApiRequestStatus.DATA) return;
-
-    const { data: created } = result;
-    update((current) => ({ ...current, messages: [...current.messages, created] }));
-    setText("");
-  }
-
-  async function handleClose() {
-    const result = await closeApi.post(`/api/conversations/${conversationId}/close`);
-    if (result.status !== ApiRequestStatus.DATA) return;
-
-    const { data: conversation } = result;
-    update((current) => ({ ...current, status: conversation.status }));
+    if (await send(text)) setText("");
   }
 
   const displayName = profileName ?? waId ?? "Contacto";
@@ -107,7 +89,7 @@ export default function ConversationView({
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
           {status === ConversationStatus.OPEN ? (
-            <Button variant={ButtonVariant.PILL_ON_DARK} onClick={handleClose} loading={closing} loadingLabel="Cerrando…">
+            <Button variant={ButtonVariant.PILL_ON_DARK} onClick={close} loading={closing} loadingLabel="Cerrando…">
               Cerrar conversación
             </Button>
           ) : (
