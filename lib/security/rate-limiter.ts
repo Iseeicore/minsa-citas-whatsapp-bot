@@ -2,12 +2,14 @@ import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { RateVerdict } from "@/lib/enums/rate-verdict";
 import { isInboundRateLimitEnabled } from "@/lib/config/rate-limit";
+import { describeLimit } from "@/lib/utils/describe-limit";
 import {
   EVIDENCE_IMAGE_BAN_MS,
   EVIDENCE_IMAGE_BAN_THRESHOLD,
   EVIDENCE_IMAGE_BAN_WINDOW_MS,
   EVIDENCE_IMAGE_BURST_LIMIT,
   EVIDENCE_IMAGE_BURST_WINDOW_MS,
+  EVIDENCE_IMAGE_MUTE_MS,
   INBOUND_BAN_MS,
   INBOUND_BAN_THRESHOLD,
   INBOUND_BAN_WINDOW_MS,
@@ -134,13 +136,13 @@ export const inboundRateLimiter: RateLimiter = createRateLimiter({
     logger.warn("perimeter.banned", {
       waId: tail(key),
       durationMs: INBOUND_BAN_MS,
-      limit: `more than ${INBOUND_BAN_THRESHOLD} messages in ${INBOUND_BAN_WINDOW_MS / 1000} s`,
+      limit: describeLimit(INBOUND_BAN_THRESHOLD, INBOUND_BAN_WINDOW_MS, "messages"),
     }),
   onMute: (key) =>
     logger.warn("perimeter.muted", {
       waId: tail(key),
       durationMs: INBOUND_MUTE_MS,
-      limit: `more than ${INBOUND_BURST_LIMIT} messages in ${INBOUND_BURST_WINDOW_MS / 1000} s`,
+      limit: describeLimit(INBOUND_BURST_LIMIT, INBOUND_BURST_WINDOW_MS, "messages"),
     }),
 });
 
@@ -151,7 +153,7 @@ export function createEvidenceImageRateLimiter(options: RateLimiterOptions = {})
     banThreshold: EVIDENCE_IMAGE_BAN_THRESHOLD,
     windowMs: EVIDENCE_IMAGE_BAN_WINDOW_MS,
     banMs: EVIDENCE_IMAGE_BAN_MS,
-    muteMs: 0,
+    muteMs: EVIDENCE_IMAGE_MUTE_MS,
     ...options,
   });
 }
@@ -162,6 +164,6 @@ export const evidenceImageRateLimiter: RateLimiter = createEvidenceImageRateLimi
     logger.warn("perimeter.banned", {
       waId: tail(key),
       durationMs: EVIDENCE_IMAGE_BAN_MS,
-      limit: `more than ${EVIDENCE_IMAGE_BAN_THRESHOLD} evidence images in ${EVIDENCE_IMAGE_BAN_WINDOW_MS / 1000} s`,
+      limit: describeLimit(EVIDENCE_IMAGE_BAN_THRESHOLD, EVIDENCE_IMAGE_BAN_WINDOW_MS, "evidence images"),
     }),
 });
