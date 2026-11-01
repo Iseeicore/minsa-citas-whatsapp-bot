@@ -69,13 +69,13 @@ SELECT pg_temp.recoger('recategorizacion');
 
 DO $$
 DECLARE
-  carga jsonb;
+  v_alta jsonb;
 BEGIN
   ASSERT (SELECT count(*) FROM aviso WHERE paso = 'alta') = 1, 'N07 el alta de una incidencia avisa una vez';
-  SELECT a.carga INTO carga FROM aviso a WHERE a.paso = 'alta';
-  ASSERT carga ? 'areaAntes' AND carga -> 'areaAntes' = 'null'::jsonb AND carga -> 'categoriaAntes' = 'null'::jsonb,
+  SELECT a.carga INTO v_alta FROM aviso a WHERE a.paso = 'alta';
+  ASSERT v_alta ? 'areaAntes' AND v_alta -> 'areaAntes' = 'null'::jsonb AND v_alta -> 'categoriaAntes' = 'null'::jsonb,
     'N08 en el alta no hay area ni categoria anteriores';
-  ASSERT (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(carga) k) = ARRAY['areaAntes', 'areaDespues', 'categoriaAntes', 'categoriaDespues'],
+  ASSERT (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(v_alta) k) = ARRAY['areaAntes', 'areaDespues', 'categoriaAntes', 'categoriaDespues'],
     'N09 el aviso lleva solo el area y la categoria, nunca datos del ciudadano';
 
   ASSERT (SELECT count(*) FROM aviso WHERE paso = 'clasificacion' AND (carga ->> 'categoriaDespues')::integer = 2) = 1,
