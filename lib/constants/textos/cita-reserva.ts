@@ -29,7 +29,7 @@ export const BOOKING_REJECTED_TEXT = "No pudimos agendar tu cita. Intenta de nue
 export const BOOKING_RETRYING_TEXT = "Estamos procesando tu cita, un momento…";
 export const BOOKING_RETRIES_EXHAUSTED_TEXT = "No pudimos agendar tu cita en este momento. Inténtalo más tarde.";
 export const BOOKING_RETRY_BUTTON_TEXT = "Reintentar";
-export const DUPLICATE_QUESTION_TEXT = "El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?";
+export const DUPLICATE_QUESTION_TEXT = "El Minsa permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?";
 export const duplicateActiveText = (especialidad: string): string =>
   `Ya tienes una cita activa para ${especialidad}. ${DUPLICATE_QUESTION_TEXT}`;
 export const DUPLICATE_YES_BUTTON_TEXT = "Otra especialidad";
@@ -64,7 +64,7 @@ export const REFERENCIA_NO_DISPONIBLE_TEXT =
   "La referencia seleccionada ya no está en el listado de esta conversación. Vuelve a elegir cómo deseas agendar tu cita.";
 export const REFERENCIA_SIN_FECHAS_TEXT = "No encontramos cupos disponibles para esta referencia. ¿Deseas seleccionar otra referencia?";
 export const REFERENCIA_DUPLICATE_TEXT =
-  "MINSA informa que ya tienes una cita activa para esta especialidad. Continuemos con una cita sin referencia.";
+  "Minsa informa que ya tienes una cita activa para esta especialidad. Continuemos con una cita sin referencia.";
 export const referenciaListDescriptionText = (destino: string, numero: string, fecha: string, estado: string): string =>
   `${destino} · N° ${numero} · ${fecha} · ${estado}`;
 export const referenciaReservaResumenText = (

@@ -15,7 +15,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const LIMA_ONLY_TEXT =
-  "Por ahora estamos en una etapa inicial y el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en MINSA Responde.";
+  "Por ahora estamos en una etapa inicial y el agendamiento automático por este canal solo está disponible en Lima. Para tu distrito, continúa tu cita a nivel nacional en Minsa Responde.";
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
@@ -69,7 +69,7 @@ describe("CITA_ALLOWED_DEPARTAMENTOS", () => {
 });
 
 describe("the district search honors the configured scope", () => {
-  it("with LIMA, a district only found outside Lima is redirected to MINSA Responde", () => {
+  it("with LIMA, a district only found outside Lima is redirected to Minsa Responde", () => {
     vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
     const result = resolveDistritoCandidates(session("cita_distrito_ai_pending"), [arequipa]);
 
@@ -125,7 +125,7 @@ describe("el departamento escrito a mano también honra el alcance", () => {
   const typedDepartamento = (value: string): InboundEvent => ({ channel: "whatsapp", from: "wa-1", type: "text", text: value });
   const awaitingDepartamento = (): Session => session("cita_awaiting_departamento");
 
-  it("con LIMA, escribir «Cusco» avisa de la etapa inicial y redirige sin consultar a MINSA", () => {
+  it("con LIMA, escribir «Cusco» avisa de la etapa inicial y redirige sin consultar a Minsa", () => {
     vi.stubEnv("CITA_ALLOWED_DEPARTAMENTOS", "LIMA");
     const result = handle(awaitingDepartamento(), typedDepartamento("Cusco"));
 

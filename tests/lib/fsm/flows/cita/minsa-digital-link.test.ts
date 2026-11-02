@@ -21,7 +21,7 @@ const kinds = (result: HandlerResult): string[] => sent(result).map((effect) => 
 
 const base: Session = { state: "cita_validate_pending", slots: { [SlotKey.CITA_DNI_PENDING]: "12345678" }, counters: {} };
 
-describe("salto a MINSA Digital desde el alcance del piloto", () => {
+describe("salto a Minsa Digital desde el alcance del piloto", () => {
   it("con la variable definida el botón apunta a /login del portal configurado", () => {
     vi.stubEnv("MINSA_DIGITAL_APP_URL", PORTAL);
 
@@ -45,7 +45,7 @@ describe("salto a MINSA Digital desde el alcance del piloto", () => {
   });
 });
 
-describe("registro en MINSA Digital cuando el documento no se encuentra", () => {
+describe("registro en Minsa Digital cuando el documento no se encuentra", () => {
   const notValid: QueryResultEvent = {
     channel: "whatsapp",
     from: FROM,
@@ -60,7 +60,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
 
     const result = handle(firstAttempt, notValid);
 
-    expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", buttonText: "Ir a MINSA RESPONDE", url: `${PORTAL}/login` });
+    expect(sent(result)[0]).toMatchObject({ kind: "send_cta_url", buttonText: "Ir a Minsa Responde", url: `${PORTAL}/login` });
     expect(kinds(result)).toEqual(["send_cta_url", "send_buttons"]);
   });
 
@@ -70,7 +70,7 @@ describe("registro en MINSA Digital cuando el documento no se encuentra", () => 
     const result = handle(firstAttempt, notValid);
 
     expect(kinds(result)).toEqual(["send_text", "send_buttons"]);
-    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No encontramos tu documento en MINSA Responde") });
+    expect(sent(result)[0]).toMatchObject({ text: expect.stringContaining("No encontramos tu documento en Minsa Responde") });
     expect(sent(result)[0]).not.toHaveProperty("url");
   });
 });

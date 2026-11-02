@@ -16,7 +16,7 @@ import { initialModeFromQuery } from "@/lib/utils/sandbox-mode";
 import { SandboxMode } from "@/lib/enums/sandbox-mode";
 
 const SANDBOX_AVATAR_TEXT = "MD";
-const SANDBOX_ROW_TITLE_TEXT = "Asistente MINSA Responde";
+const SANDBOX_ROW_TITLE_TEXT = "Asistente Minsa Responde";
 const SANDBOX_ROW_HINT_TEXT = "Toca para iniciar una conversación de prueba";
 
 export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
