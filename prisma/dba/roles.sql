@@ -31,6 +31,7 @@ BEGIN
 END;
 $$;
 
+GRANT chatbot_auditoria_propietario TO :"dueno";
 ALTER SCHEMA auditoria OWNER TO chatbot_auditoria_propietario;
 ALTER TABLE auditoria.evento OWNER TO chatbot_auditoria_propietario;
 ALTER TABLE auditoria.cambio_fila OWNER TO chatbot_auditoria_propietario;
@@ -42,7 +43,6 @@ ALTER FUNCTION auditoria.registrar_cambio_fila() OWNER TO chatbot_auditoria_prop
 ALTER FUNCTION auditoria.rechazar_mutacion() OWNER TO chatbot_auditoria_propietario;
 ALTER FUNCTION auditoria.notificar_revocacion_sesion() OWNER TO chatbot_auditoria_propietario;
 ALTER FUNCTION auditoria.cerrar_operaciones_interrumpidas(interval, integer) OWNER TO chatbot_auditoria_propietario;
-GRANT chatbot_auditoria_propietario TO :"dueno";
 
 REVOKE ALL ON SCHEMA auditoria FROM PUBLIC;
 GRANT USAGE ON SCHEMA auditoria TO chatbot_auditoria_ingesta, chatbot_auditoria_lector;

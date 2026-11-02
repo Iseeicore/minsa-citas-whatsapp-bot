@@ -114,6 +114,14 @@ describe("the SQL files of prisma/", () => {
     }
   });
 
+  it("let a CREATEROLE owner without superuser run the DBA script: it joins the audit owner role before handing it the objects", () => {
+    const roles = read("dba/roles.sql");
+    const joins = roles.indexOf('GRANT chatbot_auditoria_propietario TO :"dueno";');
+
+    expect(joins).toBeGreaterThan(-1);
+    expect(joins).toBeLessThan(roles.indexOf("OWNER TO chatbot_auditoria_propietario"));
+  });
+
   it("pass the business quantities to the triggers instead of writing them inside the function", () => {
     expect(read("sql/triggers/fn-limitar-usuarios-establecimiento.sql")).toContain("fn_limitar_usuarios_establecimiento(3)");
     expect(read("sql/triggers/fn-reglas-incidencia-etiqueta.sql")).toContain("fn_reglas_incidencia_etiqueta(10)");
