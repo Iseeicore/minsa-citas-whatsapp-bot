@@ -10,7 +10,6 @@ const ARCHIVOS_SOLO_TIPOS = [
   "lib/observability/types.ts",
   "lib/types/aceptacion-terminos.types.ts",
   "lib/types/almacen-evidencias.types.ts",
-  "lib/types/consentimiento.types.ts",
   "lib/types/dni-verificado.types.ts",
   "lib/types/referencia-lista-detalle.ts",
   "lib/types/sandbox-reply.types.ts",

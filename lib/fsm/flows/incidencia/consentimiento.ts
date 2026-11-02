@@ -8,6 +8,7 @@ import { buildResult, cloneSession, query, sendButtons, sendText, withRejectionN
 import { channelOf } from "@/lib/fsm/core/channel";
 import { DOCUMENTOS_DENUNCIA } from "@/lib/constants/documentos-aceptacion";
 import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import type { FindAceptacionTerminosResult } from "@/lib/terminos/aceptacion-terminos";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendConsentEffect, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
@@ -43,7 +44,7 @@ export function buildConsentimientoEffect(lead: string): SendConsentEffect {
 }
 
 export function handleConsentCheckPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { resultado?: string } | undefined;
+  const result = event.result as FindAceptacionTerminosResult | undefined;
   const next = cloneSession(session);
 
   if (result?.resultado === AceptacionTerminosLookup.FOUND) return startUbicacion(next);
