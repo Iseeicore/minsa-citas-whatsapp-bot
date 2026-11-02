@@ -170,6 +170,11 @@ export type SendCtaUrlEffect = {
 
 export type ConsentButtons = [accept: ButtonOption, decline: ButtonOption];
 
+export type ConsentCheck = {
+  id: string;
+  label: string;
+};
+
 export type SendConsentEffect = {
   kind: SendType.CONSENT;
   title: string;
@@ -177,7 +182,7 @@ export type SendConsentEffect = {
   content: string;
   buttons: ConsentButtons;
   acceptLabel: string;
-  checkboxLabel?: string;
+  checks: readonly ConsentCheck[];
   reopenLabel: string;
   whatsappText: string;
   withTerminosLink?: true;

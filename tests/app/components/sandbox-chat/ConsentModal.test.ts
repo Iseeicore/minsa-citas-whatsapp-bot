@@ -18,6 +18,7 @@ const WITHOUT_CHECKBOX: SendConsentEffect = {
     { id: "no", title: "No autorizo" },
   ],
   acceptLabel: "Acepto, autorizo mis datos",
+  checks: [],
   reopenLabel: "Revisar la autorización",
   whatsappText: "¿Nos autorizas?",
 };
@@ -26,19 +27,20 @@ const render = (effect: SendConsentEffect = buildTerminosEffect()) =>
   renderToStaticMarkup(createElement(ConsentModal, { effect, onSelect: () => {}, onClose: () => {} }));
 
 describe("ConsentModal", () => {
-  it("is a modal dialog with the title of the terms", () => {
+  it("is a modal dialog with the title of both documents", () => {
     const markup = render();
 
     expect(markup).toContain("<dialog");
-    expect(markup).toContain("Términos y condiciones");
+    expect(markup).toContain("Términos y protección de datos personales");
   });
 
-  it("asks to tick «Acepto los términos y condiciones» and keeps «Continuar» disabled until then", () => {
+  it("shows one box per document and keeps «Continuar» disabled until both are ticked", () => {
     const markup = render();
     const continuar = markup.match(BUTTON_TAG)?.find((tag) => tag.includes("Continuar"));
 
-    expect(markup).toContain('type="checkbox"');
+    expect(markup.match(/type="checkbox"/g)).toHaveLength(2);
     expect(markup).toContain("Acepto los términos y condiciones");
+    expect(markup).toContain("Autorizo el tratamiento de mis datos personales");
     expect(continuar).toContain('disabled=""');
   });
 
@@ -51,7 +53,7 @@ describe("ConsentModal", () => {
     expect(noAcepto).not.toContain('disabled=""');
   });
 
-  it("without a checkbox label shows no checkbox and leaves the accept button enabled with its own label", () => {
+  it("without boxes shows no checkbox and leaves the accept button enabled with its own label", () => {
     const markup = render(WITHOUT_CHECKBOX);
     const accept = markup.match(BUTTON_TAG)?.find((tag) => tag.includes("Acepto, autorizo mis datos"));
     const decline = markup.match(BUTTON_TAG)?.find((tag) => tag.includes("No autorizo"));

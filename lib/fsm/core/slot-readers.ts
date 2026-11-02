@@ -1,10 +1,12 @@
-import type { z } from "zod";
+import { z } from "zod";
 import type { SlotKey } from "@/lib/enums/slot-key";
 import type { Slots } from "@/lib/fsm/core/types";
 import { toText } from "@/lib/utils/text-values";
 import { isNonEmptyString, isString } from "@/lib/utils/type-guards";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
+import type { DocumentoVigente } from "@/lib/types/aceptacion-terminos.types";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";
 import { SlotJsonStatus } from "@/lib/enums/slot-json-status";
 import { logger } from "@/lib/observability/logger";
@@ -13,6 +15,7 @@ export type SlotJson<T> = { status: SlotJsonStatus.OK; value: T } | { status: Sl
 
 const SESSION_CHANNELS: readonly string[] = Object.values(SessionChannel);
 const FLUJOS_ACEPTACION: readonly string[] = Object.values(FlujoAceptacion);
+const DOCUMENTOS_VIGENTES = z.array(z.object({ documento: z.enum(DocumentoAceptacion), version: z.string().trim().min(1) })).min(1);
 
 function isSessionChannel(value: unknown): value is SessionChannel {
   return isString(value) && SESSION_CHANNELS.includes(value);
@@ -50,6 +53,12 @@ export function requirePayloadFlujo(payload: Record<string, unknown>, queryKind:
   const flujo = payload.flujo;
   if (!isString(flujo) || !FLUJOS_ACEPTACION.includes(flujo)) throw new MissingSlotError("flujo", queryKind);
   return flujo as FlujoAceptacion;
+}
+
+export function requirePayloadDocumentos(payload: Record<string, unknown>, queryKind: string): DocumentoVigente[] {
+  const documentos = DOCUMENTOS_VIGENTES.safeParse(payload.documentos);
+  if (!documentos.success) throw new MissingSlotError("documentos", queryKind);
+  return documentos.data;
 }
 
 export function requirePayloadText(payload: Record<string, unknown>, key: string, queryKind: string): string {

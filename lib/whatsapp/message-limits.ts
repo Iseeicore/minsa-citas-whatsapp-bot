@@ -5,7 +5,7 @@ import { WhatsAppLimitField } from "@/lib/enums/whatsapp-limit-field";
 import { WhatsAppLimitRule } from "@/lib/enums/whatsapp-limit-rule";
 import { whatsappListRows } from "@/lib/utils/whatsapp-list-rows";
 import { LIST_OPEN_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
-import { TERMINOS_TITULO_TEXT, TERMINOS_VER_BUTTON_TEXT } from "@/lib/constants/textos/terminos";
+import { DOCUMENTOS_TITULO_TEXT, TERMINOS_VER_BUTTON_TEXT } from "@/lib/constants/textos/terminos";
 import {
   BUTTON_TITLE_MAX,
   WHATSAPP_BUTTON_ID_MAX,
@@ -75,7 +75,7 @@ const interactiveBodyViolations = (text: string): WhatsAppLimitViolation[] =>
   lengthViolations(WhatsAppLimitField.BODY_TEXT, text, WHATSAPP_INTERACTIVE_BODY_MAX);
 
 const terminosLinkViolations = (): WhatsAppLimitViolation[] => [
-  ...interactiveBodyViolations(TERMINOS_TITULO_TEXT),
+  ...interactiveBodyViolations(DOCUMENTOS_TITULO_TEXT),
   ...lengthViolations(WhatsAppLimitField.CTA_DISPLAY_TEXT, TERMINOS_VER_BUTTON_TEXT, WHATSAPP_CTA_DISPLAY_TEXT_MAX),
 ];
 

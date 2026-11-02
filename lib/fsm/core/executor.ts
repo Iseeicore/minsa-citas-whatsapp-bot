@@ -32,7 +32,14 @@ import type {
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { payloadText, requirePayloadChannel, requirePayloadFlujo, requirePayloadText, requireSlotText } from "@/lib/fsm/core/slot-readers";
+import {
+  payloadText,
+  requirePayloadChannel,
+  requirePayloadDocumentos,
+  requirePayloadFlujo,
+  requirePayloadText,
+  requireSlotText,
+} from "@/lib/fsm/core/slot-readers";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { saveDniVerificado } from "@/lib/usuario/dni-verificado";
 import { getDniVerificadoStore } from "@/lib/composition/stores";
@@ -244,8 +251,8 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
         {
           waId: from,
           canal: requirePayloadChannel(effect.payload, effect.kind),
-          version: payloadText(effect.payload, "version"),
           flujo: requirePayloadFlujo(effect.payload, effect.kind),
+          documentos: requirePayloadDocumentos(effect.payload, effect.kind),
         },
         getAceptacionTerminosStore(),
       );
@@ -256,7 +263,14 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
         import("@/lib/terminos/aceptacion-terminos"),
         import("@/lib/composition/stores"),
       ]);
-      return findAceptacionTerminos(from, required("version"), getAceptacionTerminosStore());
+      return findAceptacionTerminos(
+        {
+          waId: from,
+          flujo: requirePayloadFlujo(effect.payload, effect.kind),
+          documentos: requirePayloadDocumentos(effect.payload, effect.kind),
+        },
+        getAceptacionTerminosStore(),
+      );
     }
 
     case QueryKind.VALIDATE_USER:

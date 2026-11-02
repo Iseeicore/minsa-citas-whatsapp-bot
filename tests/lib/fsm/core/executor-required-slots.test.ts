@@ -128,7 +128,7 @@ describe("the executor refuses to guess the channel of a query", () => {
   it.each<[QueryKind, Record<string, unknown>, ReturnType<typeof vi.fn>]>([
     [QueryKind.CONSULTAR_INCIDENCIA, CONSULTA, minsa.consultarIncidencia],
     [QueryKind.CONSULTA_REINTENTOS_AGOTADOS, {}, minsa.saveIntentoConsulta],
-    [QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { version: "1" }, minsa.saveAceptacionTerminos],
+    [QueryKind.REGISTRAR_ACEPTACION_TERMINOS, {}, minsa.saveAceptacionTerminos],
     [QueryKind.CONSULTAR_INCIDENCIA, { ...CONSULTA, canal: "sms" }, minsa.consultarIncidencia],
   ])("fails the %s turn when the payload has no valid channel, never assuming whatsapp", async (kind, payload, client) => {
     await expect(runTurnUnlocked(FROM, event, undefined, startWith(kind, payload))).rejects.toThrow(

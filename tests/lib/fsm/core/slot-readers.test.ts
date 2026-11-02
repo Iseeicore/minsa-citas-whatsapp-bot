@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { payloadText, readSlotJson, requirePayloadText, requireSlotText, slotText } from "@/lib/fsm/core/slot-readers";
+import {
+  payloadText,
+  readSlotJson,
+  requirePayloadDocumentos,
+  requirePayloadText,
+  requireSlotText,
+  slotText,
+} from "@/lib/fsm/core/slot-readers";
+import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
 import { SlotJsonStatus } from "@/lib/enums/slot-json-status";
 import { logger } from "@/lib/observability/logger";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";
@@ -108,6 +116,25 @@ describe("requireSlotText y requirePayloadText", () => {
   it("el error nombra el dato y la consulta, sin su valor", () => {
     expect(() => requirePayloadText({ codEess: "" }, "codEess", QueryKind.LIST_FECHAS)).toThrow(
       expect.objectContaining({ field: "codEess", queryKind: QueryKind.LIST_FECHAS }),
+    );
+  });
+});
+
+describe("requirePayloadDocumentos", () => {
+  const TERMINOS = { documento: DocumentoAceptacion.TERMINOS, version: "2026-10-29" };
+
+  it("devuelve los documentos con su versión", () => {
+    expect(requirePayloadDocumentos({ documentos: [TERMINOS] }, QueryKind.REGISTRAR_ACEPTACION_TERMINOS)).toEqual([TERMINOS]);
+  });
+
+  it.each<[string, unknown]>([
+    ["sin documentos", undefined],
+    ["una lista vacía", []],
+    ["un documento fuera de la lista", [{ documento: "OTRO", version: "1" }]],
+    ["una versión en blanco", [{ ...TERMINOS, version: " " }]],
+  ])("lanza MissingSlotError con %s", (_label, documentos) => {
+    expect(() => requirePayloadDocumentos({ documentos }, QueryKind.REGISTRAR_ACEPTACION_TERMINOS)).toThrow(
+      expect.objectContaining({ field: "documentos", queryKind: QueryKind.REGISTRAR_ACEPTACION_TERMINOS }),
     );
   });
 });

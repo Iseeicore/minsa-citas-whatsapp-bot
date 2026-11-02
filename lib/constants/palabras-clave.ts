@@ -27,6 +27,7 @@ export const CONSULTA_REFERENCIAS_ACTION_ANSWERS: ReadonlyMap<string, Referencia
 export const TERMINOS_ANSWERS: ReadonlyMap<string, TerminosButtonId> = new Map<string, TerminosButtonId>([
   ["1", TerminosButtonId.ACCEPT],
   ["ACEPTO", TerminosButtonId.ACCEPT],
+  ["ACEPTO AMBOS", TerminosButtonId.ACCEPT],
   ["SI ACEPTO", TerminosButtonId.ACCEPT],
   ["SI, ACEPTO", TerminosButtonId.ACCEPT],
   ["ACEPTO.", TerminosButtonId.ACCEPT],

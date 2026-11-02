@@ -75,36 +75,37 @@ Reserva 💬 "Agendando tu cita…"
 
 Un error 5xx de MINSA al reservar significa que el servicio no está respondiendo, así que reintentar no sirve: el bot cierra con el aviso y no vuelve a mostrar los horarios. Un 4xx o un cupo tomado sí reintenta, porque otra hora puede funcionar. Un duplicado se reconoce por el mensaje de MINSA aunque llegue como 500.
 
-`[términos]`: con `TERMINOS_ENABLED=true`, la cita muestra primero los términos y condiciones (ver [Términos y condiciones antes de la cita](#términos-y-condiciones-antes-de-la-cita)). Apagada, sigue directo al documento.
+`[términos]`: con `TERMINOS_ENABLED=true`, la cita muestra primero los términos y condiciones y la protección de datos personales (ver [Términos y condiciones antes de la cita](#términos-y-condiciones-antes-de-la-cita)). Apagada, sigue directo al documento.
 
 ### Términos y condiciones antes de la cita
 
-Con `TERMINOS_ENABLED=true`, toda entrada a «Agendar una cita médica» muestra primero los términos y condiciones; «Cita con referencia» no los pide. La puerta está en dos funciones que usan todas las entradas: `startCitaIdentity` (antes del documento) y `continueCitaAfterVerification` (con la identidad ya verificada), en `lib/fsm/flows/cita/steps/terminos/` y `lib/fsm/flows/cita/steps/identity/continuation.ts`.
+Con `TERMINOS_ENABLED=true`, toda entrada a «Agendar una cita médica» muestra primero un solo consentimiento con dos documentos: los términos y condiciones y la protección de datos personales; «Cita con referencia» no los pide. La puerta está en dos funciones que usan todas las entradas: `startCitaIdentity` (antes del documento) y `continueCitaAfterVerification` (con la identidad ya verificada), en `lib/fsm/flows/cita/steps/terminos/` y `lib/fsm/flows/cita/steps/identity/continuation.ts`.
 
 ```text
 fila Agendar / "1" / "cita" / pedido con especialidad o distrito / IA cita / cita con insulto
   → [términos] → pide documento (con el mismo texto de entrada y las pistas guardadas)
 «Cita sin referencia» / «Sí» a la oferta de cita / cita duplicada con referencia
   → [términos] → pide el distrito con la identidad ya verificada
-[términos] busca si el chat ya aceptó la versión vigente (cita_terminos_lookup_pending)
-  ├─ ya aceptó ─► sigue donde iba la entrada, sin mostrar los términos
-  └─ no aceptó o la búsqueda falló ─► muestra los términos (cita_awaiting_terminos)
+[términos] busca si el chat ya aceptó la versión vigente de cada documento en la cita (cita_terminos_lookup_pending)
+  ├─ aceptó los dos ─► sigue donde iba la entrada, sin mostrar los documentos
+  └─ falta uno, no aceptó o la búsqueda falló ─► muestra los dos documentos (cita_awaiting_terminos)
 [términos] estado cita_awaiting_terminos
-  ├─ Acepto ─► guarda la aceptación (cita_terminos_register_pending) ─► sigue donde iba la entrada
+  ├─ Acepto ambos ─► guarda una fila por documento (cita_terminos_register_pending) ─► sigue donde iba la entrada
   ├─ No acepto ─► 💬 «Lo sentimos. Muchas gracias por usar nuestros servicios.» + despedida ⛔ cita_terminos_declined
   └─ otro texto ─► aviso de respuesta no reconocida + los términos otra vez
 ```
 
 | Canal | Qué ve la persona |
 |---|---|
-| Chat-bot | Una ventana con el título, el contenido de los términos con desplazamiento, la casilla «Acepto los términos y condiciones», **Continuar** (deshabilitado hasta marcar la casilla) y **No acepto**. Escape la cierra sin responder; el botón «Revisar términos y condiciones» del mensaje la abre otra vez |
-| whatsapp-bot | 🔗 «Términos y condiciones» con **Ver términos** hacia `TERMINOS_URL`, y después 🔘 la pregunta con la frase de privacidad de WhatsApp y **Acepto** / **No acepto**. Sin `TERMINOS_URL`, solo los botones y el aviso `terminos.url_missing` en el log |
+| Chat-bot | Una ventana «Términos y protección de datos personales» con el contenido de los dos documentos con desplazamiento, las casillas «Acepto los términos y condiciones» y «Autorizo el tratamiento de mis datos personales», **Continuar** (deshabilitado hasta marcar las dos) y **No acepto**. Escape la cierra sin responder; el botón «Revisar términos y datos personales» del mensaje la abre otra vez |
+| whatsapp-bot | 🔗 «Términos y protección de datos personales» con **Ver documentos** hacia `TERMINOS_URL`, y después 🔘 la pregunta que nombra los dos documentos, con la frase de privacidad de WhatsApp y **Acepto ambos** / **No acepto**. Sin `TERMINOS_URL`, solo los botones y el aviso `terminos.url_missing` en el log |
 
-- La aceptación se guarda en `chatbot.aceptacion_terminos` (chat, canal, servicio `CITA`, versión `TERMINOS_VERSION` y fecha) y deja el dato de sesión `terminosAceptados`. Si el guardado falla, queda `terminos.persist_failed` en el log y la cita sigue. Sin base de datos, la aceptación queda en la memoria del proceso.
-- Se pregunta una sola vez por versión: antes de mostrar los términos se busca una aceptación del mismo chat (número de WhatsApp o conversación del Chat-bot) y de la versión vigente, de cualquier servicio. Si existe, no se muestran. Al publicar una versión nueva de `TERMINOS_VERSION` se vuelven a preguntar. Si la búsqueda falla, se muestran los términos y queda `terminos.lookup_failed` en el log. Cuando WhatsApp cambia el identificador de la persona, sus aceptaciones pasan al identificador nuevo.
+- La aceptación guarda dos filas en `chatbot.aceptacion_terminos`, una por documento (`TERMINOS` con `TERMINOS_VERSION` y `DATOS_PERSONALES` con `DATOS_PERSONALES_VERSION`), con el chat, el canal, el servicio `CITA` y la fecha, en una sola consulta; deja el dato de sesión `terminosAceptados`. Si el guardado falla, queda `terminos.persist_failed` en el log y la cita sigue. Sin base de datos, la aceptación queda en la memoria del proceso.
+- Se pregunta una sola vez por versión: antes de mostrar los documentos se busca, para el mismo chat (número de WhatsApp o conversación del Chat-bot) y el servicio `CITA`, una aceptación de cada documento en su versión vigente. Si están las dos, no se muestran. Al publicar una versión nueva de cualquiera de los dos se vuelve a preguntar por ambos. Si la búsqueda falla, se muestran los documentos y queda `terminos.lookup_failed` en el log. Cuando WhatsApp cambia el identificador de la persona, sus aceptaciones pasan al identificador nuevo.
 - Después de que el MINSA verifica el código, el DNI se guarda en `chatbot.usuario.dni` del chat (el carné de extranjería no). Si el guardado falla, queda `usuario.dni_persist_failed` en el log y la cita sigue.
-- Se entiende escrito: «acepto», «sí, acepto», «aceptar» / «no acepto», «no aceptar» (`TERMINOS_ANSWERS`). Una frase de salida («quiero salir») pide confirmación y, si la persona se queda, repite los términos; un insulto recibe el recordatorio de respeto y los términos.
-- El contenido sale de `TERMINOS_CONTENIDO` (vacío por ahora) en `lib/constants/textos/terminos.ts`; la página `/terminos` muestra el mismo texto.
+- Se entiende escrito: «acepto», «acepto ambos», «sí, acepto», «aceptar» / «no acepto», «no aceptar» (`TERMINOS_ANSWERS`). Una frase de salida («quiero salir») pide confirmación y, si la persona se queda, repite los términos; un insulto recibe el recordatorio de respeto y los términos.
+- El contenido sale de `TERMINOS_CONTENIDO` (`lib/constants/textos/terminos.ts`) y de `DATOS_PERSONALES_CONTENIDO` (`lib/constants/textos/datos-personales.ts`), vacíos por ahora. La página `/terminos` muestra los dos documentos en dos secciones con ancla (`#terminos` y `#datos-personales`); la ventana del Chat-bot muestra los que tengan texto, cada uno bajo su título.
+- «No acepto» cierra la cita como antes, con un mensaje que dice que hacen falta las dos aceptaciones.
 
 ### Cita con referencia
 
@@ -131,7 +132,7 @@ La referencia aporta destino y especialidad; la API de reserva sigue necesitando
 
 | Paso | El bot envía | Texto libre que entiende | Varias coincidencias | IA |
 |---|---|---|---|---|
-| Términos y condiciones (con `TERMINOS_ENABLED=true`) | Chat-bot: ventana con casilla, **Continuar** y **No acepto**. whatsapp-bot: 🔗 **Ver términos** (con `TERMINOS_URL`) + 🔘 [Acepto] [No acepto] | «acepto», «sí, acepto» / «no acepto» | — | no |
+| Términos y datos personales (con `TERMINOS_ENABLED=true`) | Chat-bot: ventana con dos casillas, **Continuar** y **No acepto**. whatsapp-bot: 🔗 **Ver documentos** (con `TERMINOS_URL`) + 🔘 [Acepto ambos] [No acepto] | «acepto», «acepto ambos», «sí, acepto» / «no acepto» | — | no |
 | Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
 | Menú principal | 📋 filas de los servicios (Agendar una cita médica; Cita con referencia; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
 | Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |

@@ -10,14 +10,17 @@ import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referenci
 import { CITA_WITH_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
 import {
+  DOCUMENTOS_TITULO_TEXT,
   TERMINOS_BUTTONS,
-  TERMINOS_CONTENIDO,
   TERMINOS_PROMPT_TEXT,
   TERMINOS_RECHAZADOS_TEXT,
-  TERMINOS_TITULO_TEXT,
   TERMINOS_VERSION,
   terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
+import { DATOS_PERSONALES_VERSION } from "@/lib/constants/textos/datos-personales";
+import { DOCUMENTOS_CITA, DOCUMENTOS_SECCIONES } from "@/lib/constants/documentos-aceptacion";
+import { documentSectionsText } from "@/lib/utils/document-sections-text";
+import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
 import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
 import { ExitButtonId } from "@/lib/enums/exit-button-id";
 import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
@@ -63,7 +66,9 @@ const notAccepted = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resul
 function shown(result: HandlerResult, lookup: HandleEvent = notAccepted): HandlerResult {
   expect(result.session.state).toBe(SessionState.CITA_TERMINOS_LOOKUP_PENDING);
   expect(sent(result)).toEqual([]);
-  expect(queries(result)).toEqual([{ kind: QueryKind.CONSULTAR_ACEPTACION_TERMINOS, payload: { version: TERMINOS_VERSION } }]);
+  expect(queries(result)).toEqual([
+    { kind: QueryKind.CONSULTAR_ACEPTACION_TERMINOS, payload: { flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA } },
+  ]);
   return handle(result.session, lookup);
 }
 
@@ -93,21 +98,28 @@ afterEach(() => {
 });
 
 describe("the terms message", () => {
-  it("carries the title, a short question, the blank content and the Acepto / No acepto buttons", () => {
+  it("carries the title, a short question, both documents, one box per document and the Acepto ambos / No acepto buttons", () => {
     expect(buildTerminosEffect()).toEqual({
       kind: SendType.CONSENT,
-      title: TERMINOS_TITULO_TEXT,
+      title: DOCUMENTOS_TITULO_TEXT,
       text: TERMINOS_PROMPT_TEXT,
-      content: TERMINOS_CONTENIDO,
+      content: documentSectionsText(DOCUMENTOS_SECCIONES),
       buttons: TERMINOS_BUTTONS,
       acceptLabel: "Continuar",
-      checkboxLabel: "Acepto los términos y condiciones",
-      reopenLabel: "Revisar términos y condiciones",
+      checks: [
+        { id: DocumentoAceptacion.TERMINOS, label: "Acepto los términos y condiciones" },
+        { id: DocumentoAceptacion.DATOS_PERSONALES, label: "Autorizo el tratamiento de mis datos personales" },
+      ],
+      reopenLabel: "Revisar términos y datos personales",
       whatsappText: terminosWhatsappBodyText(TERMINOS_PROMPT_TEXT),
       withTerminosLink: true,
     });
-    expect(TERMINOS_VERSION).toBe("2026-10-29");
-    expect(TERMINOS_BUTTONS.map((button) => button.title)).toEqual(["Acepto", "No acepto"]);
+    expect(DOCUMENTOS_CITA).toEqual([
+      { documento: DocumentoAceptacion.TERMINOS, version: TERMINOS_VERSION },
+      { documento: DocumentoAceptacion.DATOS_PERSONALES, version: DATOS_PERSONALES_VERSION },
+    ]);
+    expect([TERMINOS_VERSION, DATOS_PERSONALES_VERSION]).toEqual(["2026-10-29", "2026-11-01"]);
+    expect(TERMINOS_BUTTONS.map((button) => button.title)).toEqual(["Acepto ambos", "No acepto"]);
   });
 });
 
@@ -221,7 +233,7 @@ describe("«Cita con referencia» does not ask for the terms", () => {
 });
 
 describe("accepting", () => {
-  it.each(CHANNELS)("records the acceptance with the channel (%s) and the version", (channel) => {
+  it.each(CHANNELS)("records both documents with the channel (%s), the service and each version in one query", (channel) => {
     const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel)));
 
     const accepted = handle(gated.session, tap(TerminosButtonId.ACCEPT, channel));
@@ -231,7 +243,7 @@ describe("accepting", () => {
     expect(queries(accepted)).toEqual([
       {
         kind: QueryKind.REGISTRAR_ACEPTACION_TERMINOS,
-        payload: { canal: channel, version: TERMINOS_VERSION, flujo: FlujoAceptacion.CITA },
+        payload: { canal: channel, flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA },
       },
     ]);
   });
@@ -248,7 +260,7 @@ describe("accepting", () => {
     expect(texts(resumed)).toEqual([ASK_DOCUMENTO_TEXT]);
   });
 
-  it.each(["acepto", "Sí, acepto", "si acepto", "ACEPTO", "1"])("understands %j written", (answer) => {
+  it.each(["acepto", "Acepto ambos", "Sí, acepto", "si acepto", "ACEPTO", "1"])("understands %j written", (answer) => {
     const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
     expect(handle(gated.session, text(answer)).session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);

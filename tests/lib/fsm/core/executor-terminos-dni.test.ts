@@ -7,12 +7,14 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { TerminosResume } from "@/lib/enums/terminos-resume";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
-import { TERMINOS_VERSION } from "@/lib/constants/textos/terminos";
+import { DOCUMENTOS_CITA } from "@/lib/constants/documentos-aceptacion";
+import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 
 const fakes = vi.hoisted(() => ({
   verifyCode: vi.fn(),
   saveDni: vi.fn(async () => undefined),
-  findAceptacion: vi.fn(async () => undefined as { aceptadoEn: Date } | undefined),
+  findAceptacion: vi.fn(async (): Promise<DocumentoAceptacion[]> => []),
   saveAceptacion: vi.fn(async () => undefined),
 }));
 
@@ -23,7 +25,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 vi.mock("@/lib/integrations/minsa/identity", () => ({ validateUser: vi.fn(), verifyCode: fakes.verifyCode }));
 vi.mock("@/lib/composition/stores", () => ({
   getDniVerificadoStore: () => ({ save: fakes.saveDni }),
-  getAceptacionTerminosStore: () => ({ save: fakes.saveAceptacion, find: fakes.findAceptacion }),
+  getAceptacionTerminosStore: () => ({ save: fakes.saveAceptacion, findAceptados: fakes.findAceptacion }),
 }));
 
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
@@ -84,26 +86,54 @@ describe("after MINSA verifies the code", () => {
 });
 
 describe("the terms of the cita", () => {
-  it("are looked up for the sender and the version, and an earlier acceptance skips them", async () => {
-    fakes.findAceptacion.mockResolvedValueOnce({ aceptadoEn: new Date() });
-    const lookup = startWith(
+  const lookup = () =>
+    startWith(
       SessionState.CITA_TERMINOS_LOOKUP_PENDING,
       { [SlotKey.TERMINOS_RESUME]: TerminosResume.ASK_DOCUMENTO },
       QueryKind.CONSULTAR_ACEPTACION_TERMINOS,
-      { version: TERMINOS_VERSION },
+      { flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA },
     );
 
-    const result = await runTurnUnlocked(FROM, event, undefined, lookup);
+  it("are looked up for the sender, the service and each document, and skip only when both were accepted", async () => {
+    fakes.findAceptacion.mockResolvedValueOnce([DocumentoAceptacion.TERMINOS, DocumentoAceptacion.DATOS_PERSONALES]);
 
-    expect(fakes.findAceptacion).toHaveBeenCalledWith(FROM, TERMINOS_VERSION);
+    const result = await runTurnUnlocked(FROM, event, undefined, lookup());
+
+    expect(fakes.findAceptacion).toHaveBeenCalledWith({ waId: FROM, flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA });
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
+  });
+
+  it("are shown again when only the terms were accepted before", async () => {
+    fakes.findAceptacion.mockResolvedValueOnce([DocumentoAceptacion.TERMINOS]);
+
+    const result = await runTurnUnlocked(FROM, event, undefined, lookup());
+
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_TERMINOS);
+  });
+
+  it("save both documents of the sender in one call", async () => {
+    const accept = startWith(SessionState.CITA_TERMINOS_REGISTER_PENDING, {}, QueryKind.REGISTRAR_ACEPTACION_TERMINOS, {
+      canal: SessionChannel.WEB,
+      flujo: FlujoAceptacion.CITA,
+      documentos: DOCUMENTOS_CITA,
+    });
+
+    await runTurnUnlocked(FROM, event, undefined, accept);
+
+    expect(fakes.saveAceptacion).toHaveBeenCalledOnce();
+    expect(fakes.saveAceptacion).toHaveBeenCalledWith({
+      waId: FROM,
+      canal: SessionChannel.WEB,
+      flujo: FlujoAceptacion.CITA,
+      documentos: DOCUMENTOS_CITA,
+    });
   });
 
   it("are not saved without the service they were accepted in", async () => {
     const accept = startWith(SessionState.CITA_TERMINOS_REGISTER_PENDING, {}, QueryKind.REGISTRAR_ACEPTACION_TERMINOS, {
       canal: SessionChannel.WHATSAPP,
-      version: TERMINOS_VERSION,
       flujo: "OTRO",
+      documentos: DOCUMENTOS_CITA,
     });
 
     await expect(runTurnUnlocked(FROM, event, undefined, accept)).rejects.toThrow(MissingSlotError);
