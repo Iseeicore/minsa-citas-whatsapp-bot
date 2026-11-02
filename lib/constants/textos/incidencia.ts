@@ -98,7 +98,7 @@ export const INCIDENCIA_IDENTIDAD_BUTTONS = [
 export const CONTINUAR_ANONIMO_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, title: "Continuar anónimo" }];
 export const AUTORIZACION_DENUNCIA_VERSION = "2026-11-01";
 export const AVISO_PRIVACIDAD_TEXT =
-  "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu denuncia.";
+  "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del Minsa, únicamente para evaluar, derivar, investigar y dar seguimiento a tu denuncia.";
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
 export const CONSENT_TITULO_TEXT = "Autorización de datos";
 export const CONSENT_PROMPT_TEXT = "Para registrar tu denuncia necesitamos tu autorización.";
@@ -131,18 +131,18 @@ export const descripcionTooShortText = (minimo: number): string =>
 export const UNREADABLE_TEXT_RETRY = "No pudimos leer eso — ¿podrías escribirlo de nuevo?";
 
 export const BORRADOR_BUTTONS = [
-  { id: IncidenciaButtonId.BORRADOR_USAR, title: "Usar así" },
   { id: IncidenciaButtonId.BORRADOR_AGREGAR, title: "Agregar más" },
+  { id: IncidenciaButtonId.BORRADOR_USAR, title: "Usar así" },
 ];
 
 export const borradorConfirmText = (borrador: string): string =>
-  `Esto es lo que escribiste:\n\n«${borrador}»\n\n¿Lo usamos tal cual o quieres agregar más?`;
+  `Recibimos este texto al inicio:\n\n«${borrador}»\n\n¿Quieres agregar más detalles? Si es así, toca *Agregar más*; si no, *Usar así*.`;
 
 export const borradorTooLongText = (actual: number, maximo: number): string =>
   `Con lo que agregaste, tu denuncia tendría ${actual} caracteres; el máximo es ${maximo}. Resúmelo y envíalo de nuevo.`;
 
 export const ASK_BORRADOR_EXTRA_TEXT = "Escribe lo que quieras agregar.";
-export const BORRADOR_QUESTION_TEXT = "¿Usamos tu texto tal cual o quieres agregar más?";
+export const BORRADOR_QUESTION_TEXT = "¿Quieres agregar más detalles o usamos tu texto así?";
 export const fotoRequestText = (tamano: string, cantidad: number): string =>
   [
     "¿Quieres enviar *imágenes* como evidencia? Es *opcional*.",

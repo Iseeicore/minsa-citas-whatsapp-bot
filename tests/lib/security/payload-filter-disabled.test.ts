@@ -12,7 +12,7 @@ const TOO_LONG = { type: "text", text: "a".repeat(301) };
 const LINK = { type: "text", text: "visita https://ofertas.com" };
 const REPEAT = { type: "text", text: "a".repeat(48) };
 const CITA_REFERENCIA_REJECTION =
-  "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas y consulta de referencias. Por favor elija una opción: [1] Citas [2] Referencia.";
+  "Mensaje no reconocido. El asistente del Minsa solo atiende solicitudes de citas médicas y consulta de referencias. Por favor elija una opción: [1] Citas [2] Referencia.";
 
 describe("the first-message rejection with INCIDENCIAS_ENABLED off", () => {
   it.each([

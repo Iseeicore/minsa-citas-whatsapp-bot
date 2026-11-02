@@ -1,8 +1,8 @@
 import { ServiceOffer } from "@/lib/enums/service-offer";
 
-export const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (MINSA)* 🇵🇪.
+export const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (Minsa)* 🇵🇪.
 
-Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *MINSA Responde*.
+Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *Minsa Responde*.
 
 Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.
 
@@ -52,7 +52,7 @@ export const OUT_OF_SCOPE_REQUEST_TEXTS: Readonly<Record<ServiceOffer, string>> 
   [ServiceOffer.CITA_INCIDENCIA]: OUT_OF_SCOPE_REQUEST_CITA_INCIDENCIA_TEXT,
   [ServiceOffer.COMPLETA]: OUT_OF_SCOPE_REQUEST_TEXT,
 };
-export const SANDBOX_PAGE_TITLE_TEXT = "MINSA Responde";
+export const SANDBOX_PAGE_TITLE_TEXT = "Minsa Responde";
 export const SANDBOX_PAGE_DESCRIPTION_TEXT = "Agenda tu cita o registra una denuncia anticorrupción con el Ministerio de Salud del Perú.";
 export const SANDBOX_PAGE_DESCRIPTION_CITA_REFERENCIA_TEXT = "Agenda tu cita, con o sin referencia, con el Ministerio de Salud del Perú.";
 export const SANDBOX_PAGE_DESCRIPTION_CITA_TEXT = "Agenda tu cita con el Ministerio de Salud del Perú.";

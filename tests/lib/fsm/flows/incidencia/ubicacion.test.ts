@@ -440,12 +440,12 @@ describe("what the person already wrote: use it or add more", () => {
   const story = "Me cobraron sin recibo en la ventanilla de admisión.";
   const withDraft = (state: Session["state"]) => at(state, { [SlotKey.INCIDENCIA_BORRADOR]: story });
 
-  it("when the relato is asked, a usable draft is shown with «Usar así» and «Agregar más»", () => {
+  it("when the relato is asked, the first message is shown as received with «Agregar más» first and «Usar así»", () => {
     const afterIdentity = handle(withDraft("incidencia_identity_choice"), tap("incidencia_anonimo"));
 
     expect(afterIdentity.session.state).toBe("incidencia_confirm_borrador");
-    expect((sent(afterIdentity)[0] as { text: string }).text).toContain(`«${story}»`);
-    expect(sent(afterIdentity)[0]).toMatchObject({ buttons: [{ id: "incidencia_borrador_usar" }, { id: "incidencia_borrador_agregar" }] });
+    expect((sent(afterIdentity)[0] as { text: string }).text).toContain(`Recibimos este texto al inicio:\n\n«${story}»`);
+    expect(sent(afterIdentity)[0]).toMatchObject({ buttons: [{ id: "incidencia_borrador_agregar" }, { id: "incidencia_borrador_usar" }] });
   });
 
   it("a draft that is too short or is noise is dropped and the relato is asked", () => {

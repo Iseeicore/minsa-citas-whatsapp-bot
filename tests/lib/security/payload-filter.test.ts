@@ -123,20 +123,20 @@ describe("media without a session", () => {
 describe("fixed texts", () => {
   it("are institutional, in Spanish, plain text, and short enough to read at a glance", () => {
     for (const reply of [FIRST_MESSAGE_REJECTION_TEXT, MEDIA_WITHOUT_SESSION_TEXT]) {
-      expect(reply).toContain("MINSA");
+      expect(reply).toContain("Minsa");
       expect(reply.length).toBeLessThan(300);
     }
   });
 
   it("media without a session: asks for a text message with HOLA or a menu option", () => {
     expect(MEDIA_WITHOUT_SESSION_TEXT).toBe(
-      "Hola. Para iniciar su atención con el asistente del MINSA, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.",
+      "Hola. Para iniciar su atención con el asistente del Minsa, por favor escriba un mensaje de texto con la palabra HOLA o seleccione una opción del menú.",
     );
   });
 
   it("a first message that is too long, has links or is spam: says what the channel attends and offers [1] / [2] / [3]", () => {
     expect(FIRST_MESSAGE_REJECTION_TEXT).toBe(
-      "Mensaje no reconocido. El asistente del MINSA solo atiende solicitudes de citas médicas, consulta de referencias y registro de denuncias. Por favor elija una opción: [1] Citas [2] Referencia [3] Denuncias anticorrupción.",
+      "Mensaje no reconocido. El asistente del Minsa solo atiende solicitudes de citas médicas, consulta de referencias y registro de denuncias. Por favor elija una opción: [1] Citas [2] Referencia [3] Denuncias anticorrupción.",
     );
   });
 });

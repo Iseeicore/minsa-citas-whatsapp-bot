@@ -3,15 +3,15 @@ import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
 import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
 import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
 
-export const MINSADIGITAL_BUTTON_TEXT = "Ir a MINSA RESPONDE";
+export const MINSADIGITAL_BUTTON_TEXT = "Ir a Minsa Responde";
 export const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
 export const REGISTRATION_CANCEL_BUTTON_TEXT = "No quiero continuar";
 export const REGISTRATION_REJECTED_TEXT =
-  "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en MINSA Responde.\n\nSi el problema continúa, puedes revisar el portal de MINSA para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.";
+  "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en Minsa Responde.\n\nSi el problema continúa, puedes revisar el portal de Minsa para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.";
 export const REGISTRATION_FIRST_MISS_TEXT =
-  "No encontramos tu documento en MINSA Responde. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.";
+  "No encontramos tu documento en Minsa Responde. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.";
 export const REGISTRATION_SECOND_MISS_TEXT =
-  "Qué raro, seguimos sin encontrar tu registro — esta ya es la segunda vez. Si aún no te registraste, hazlo en MINSA Responde; este será tu último intento antes de cerrar el proceso.";
+  "Qué raro, seguimos sin encontrar tu registro — esta ya es la segunda vez. Si aún no te registraste, hazlo en Minsa Responde; este será tu último intento antes de cerrar el proceso.";
 export const REGISTRATION_WAIT_TEXT =
   "Cuando termines, toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo.";
 export const REGISTRATION_RETRY_PROMPT_TEXT = "Toca el botón para que volvamos a intentarlo, o si prefieres no continuar, dínoslo.";
@@ -38,11 +38,11 @@ export const REGISTRATION_BUTTONS = [
   { id: RegistrationButtonId.CANCEL, title: REGISTRATION_CANCEL_BUTTON_TEXT },
 ];
 
-export const CUENTA_MINSA_AVISO_TEXT = "*Antes de continuar, debes tener una cuenta creada en MINSA Digital.*";
+export const CUENTA_MINSA_AVISO_TEXT = "*Antes de continuar, debes tener una cuenta creada en Minsa Digital.*";
 export const CUENTA_MINSA_TIENE_BUTTON_TEXT = "Ya cuento con una";
 export const CUENTA_MINSA_NO_TIENE_BUTTON_TEXT = "No cuento con una";
 export const CUENTA_MINSA_NO_CONTINUAR_BUTTON_TEXT = "No deseo continuar";
-export const CUENTA_MINSA_CREAR_TEXT = "Crea tu cuenta en MINSA Digital y luego vuelve para agendar tu cita.";
+export const CUENTA_MINSA_CREAR_TEXT = "Crea tu cuenta en Minsa Digital y luego vuelve para agendar tu cita.";
 export const CUENTA_MINSA_CREAR_BUTTON_TEXT = "Crear mi cuenta";
 export const CUENTA_MINSA_CREADA_TEXT = "Cuando tengas tu cuenta, elige una opción para continuar.";
 

@@ -52,7 +52,7 @@ describe("a duplicate booking means one active cita per especialidad", () => {
     expect(sent(result)).toEqual([
       {
         kind: "send_buttons",
-        text: "Ya tienes una cita activa para *Pediatría*. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?",
+        text: "Ya tienes una cita activa para *Pediatría*. El Minsa permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?",
         buttons: [
           { id: "cita_duplicada_otra_especialidad", title: "Otra especialidad" },
           { id: "cita_duplicada_salir", title: "No, salir" },
@@ -65,7 +65,7 @@ describe("a duplicate booking means one active cita per especialidad", () => {
     const result = duplicate(booking({ [SlotKey.CITA_ESPECIALIDAD_NOMBRE]: undefined as unknown as string }));
 
     expect(sent(result)[0]).toMatchObject({
-      text: "Ya tienes una cita activa para esa especialidad. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?",
+      text: "Ya tienes una cita activa para esa especialidad. El Minsa permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?",
     });
   });
 
