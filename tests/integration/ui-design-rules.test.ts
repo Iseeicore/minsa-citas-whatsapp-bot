@@ -9,12 +9,16 @@ const ARBITRARY_HEX_COLOR = /\b[\w-]+-\[#[0-9a-fA-F]{3,8}\]/g;
 const ARBITRARY_PX_TEXT_SIZE = /\btext-\[\d+px\]/g;
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu;
 const NATIVE_BUTTON_TAG = /<button\b/g;
+const NATIVE_ANCHOR_TAG = /<a(?:\s|>|$)/gm;
+const NATIVE_DIALOG_TAG = /<dialog\b/g;
 const INLINE_REGEX_ARGUMENT = /\.(?:test|exec|match|matchAll|replace|replaceAll|split|search)\(\s*\/(?![/*])[^\n]*/g;
 const DYNAMIC_REGEX = /new RegExp\([^\n]*/g;
 
 const ARBITRARY_VALUE = /[\w-]+-\[[^\]\s]+\]|\[@[^\]]+\]:/g;
 
 const BASE_BUTTON_FILE = path.join("app", "components", "ui", "Button.tsx");
+const BASE_ANCHOR_FILE = path.join("app", "components", "ui", "AnchorLink.tsx");
+const BASE_DIALOG_FILE = path.join("app", "components", "ui", "Dialog.tsx");
 const LANDING_FILE = path.join("app", "components", "Landing.tsx");
 const LANDING_FOLDER = path.join("app", "components", "landing") + path.sep;
 
@@ -62,6 +66,16 @@ describe("reglas de arquitectura de UI", () => {
 
     expect(outside).toEqual([]);
     expect(matches(BASE_BUTTON_FILE, NATIVE_BUTTON_TAG)).toHaveLength(1);
+  });
+
+  it.each([
+    [BASE_ANCHOR_FILE, NATIVE_ANCHOR_TAG],
+    [BASE_DIALOG_FILE, NATIVE_DIALOG_TAG],
+  ])("solo %s escribe su elemento nativo, y lo escribe una vez", (baseFile, nativeTag) => {
+    const outside = files.filter((file) => file !== baseFile).flatMap((file) => matches(file, nativeTag));
+
+    expect(outside).toEqual([]);
+    expect(matches(baseFile, nativeTag)).toHaveLength(1);
   });
 
   it("la landing usa tokens de @theme y no valores arbitrarios de Tailwind", () => {
