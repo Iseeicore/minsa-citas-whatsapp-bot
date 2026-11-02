@@ -8,7 +8,6 @@ const store = vi.hoisted(() => ({
   sessions: new Map<string, Session>(),
   registrar: vi.fn<(submission: unknown) => Promise<unknown>>(),
   consultar: vi.fn<(codigo: string) => Promise<unknown>>(),
-  tieneConsentimiento: vi.fn<(from: string) => Promise<boolean>>(),
 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
@@ -20,10 +19,6 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 vi.mock("@/lib/recepcion/servicio", () => ({ registrarIncidencia: store.registrar }));
 vi.mock("@/lib/recepcion/consulta", () => ({ consultarIncidencia: store.consultar }));
 vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
-vi.mock("@/lib/recepcion/repositorio", () => ({
-  tieneConsentimientoAceptado: store.tieneConsentimiento,
-  marcarConsentimientoAceptado: vi.fn(),
-}));
 
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 
@@ -41,8 +36,6 @@ const INCIDENT_ONLY = [
   QueryKind.CONSULTAR_INCIDENCIA,
   QueryKind.CONSULTA_CUPO_DIARIO,
   QueryKind.CONSULTA_REINTENTOS_AGOTADOS,
-  QueryKind.VERIFICAR_CONSENTIMIENTO,
-  QueryKind.REGISTRAR_CONSENTIMIENTO,
   QueryKind.BUSCAR_ESTABLECIMIENTO,
   QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT,
 ];
@@ -63,7 +56,6 @@ describe("the executor, as the last defense", () => {
 
     expect(store.registrar).not.toHaveBeenCalled();
     expect(store.consultar).not.toHaveBeenCalled();
-    expect(store.tieneConsentimiento).not.toHaveBeenCalled();
   });
 
   it("rejects them too when the variable is not defined", async () => {
@@ -78,11 +70,11 @@ describe("the executor, as the last defense", () => {
 
   it("still resolves the incident queries when they are on", async () => {
     vi.stubEnv("INCIDENCIAS_ENABLED", "true");
-    store.tieneConsentimiento.mockResolvedValue(true);
+    store.registrar.mockResolvedValue({ status: "accepted", codigo: "MINSA-2026-A-000001" });
 
-    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.VERIFICAR_CONSENTIMIENTO));
+    await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.INCIDENCIA_REGISTER, { submission: {} }));
 
-    expect(store.tieneConsentimiento).toHaveBeenCalledWith(FROM, expect.anything());
+    expect(store.registrar).toHaveBeenCalledOnce();
   });
 
   it("rejects the list of referencias when the referencias are off", async () => {

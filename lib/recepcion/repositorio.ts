@@ -4,7 +4,6 @@ import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
 import type { SessionChannel } from "@/lib/enums/session-channel";
 import type { ConsultaIncidencia } from "@/lib/types/consulta-incidencia.types";
-import type { ConsentimientoStore } from "@/lib/types/consentimiento.types";
 
 export type DatosIncidencia = {
   waId: string;
@@ -82,38 +81,4 @@ export async function findIncidenciaParaConsulta(consulta: ConsultaIncidencia): 
   });
   if (!fila) return undefined;
   return { codigo: fila.codigo, fechaCreacion: fila.fechaCreacion, estadoCodigo: fila.estadoIncidencia.codigo };
-}
-
-export function createPrismaConsentimientoStore(): ConsentimientoStore {
-  return {
-    tieneAceptado: async (waId) => {
-      const usuario = await prisma.usuario.findUnique({ where: { waId }, select: { consentimientoAceptadoEn: true } });
-      return usuario?.consentimientoAceptadoEn != null;
-    },
-    marcarAceptado: async (waId) => {
-      await prisma.usuario.upsert({
-        where: { waId },
-        create: { waId, consentimientoAceptadoEn: new Date() },
-        update: { consentimientoAceptadoEn: new Date() },
-      });
-    },
-  };
-}
-
-export function createMemoryConsentimientoStore(): ConsentimientoStore {
-  const aceptados = new Set<string>();
-  return {
-    tieneAceptado: async (waId) => aceptados.has(waId),
-    marcarAceptado: async (waId) => {
-      aceptados.add(waId);
-    },
-  };
-}
-
-export function tieneConsentimientoAceptado(waId: string, store: ConsentimientoStore): Promise<boolean> {
-  return store.tieneAceptado(waId);
-}
-
-export function marcarConsentimientoAceptado(waId: string, store: ConsentimientoStore): Promise<void> {
-  return store.marcarAceptado(waId);
 }

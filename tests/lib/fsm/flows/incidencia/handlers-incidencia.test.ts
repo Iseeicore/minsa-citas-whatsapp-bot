@@ -14,6 +14,7 @@ import {
   AVISO_PRIVACIDAD_TEXT,
   INCIDENCIA_CANCELADA_TEXT,
 } from "@/lib/constants/textos/incidencia";
+import { AUTORIZACION_DENUNCIA_DOCUMENTOS, consentChecked, consentRegistered } from "@/tests/support/incidencia-consent";
 
 const FROM = "51999999999";
 
@@ -32,20 +33,12 @@ const fotoIntentResult = (quiereOmitir: boolean): QueryResultEvent => ({
   queryKind: "analyze_incidencia_foto_intent",
   result: { quiereOmitir },
 });
-const consentCheckResult = (aceptado: boolean): QueryResultEvent => ({
-  channel: "whatsapp",
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind: "verificar_consentimiento",
-  result: { aceptado },
-});
-const consentRegisterResult = (): QueryResultEvent => ({
-  channel: "whatsapp",
-  from: FROM,
-  type: InternalEventType.QUERY_RESULT,
-  queryKind: "registrar_consentimiento",
-  result: { ok: true },
-});
+const consentCheckResult = (aceptado: boolean): QueryResultEvent => consentChecked(aceptado, FROM);
+const consentRegisterResult = (): QueryResultEvent => consentRegistered(FROM);
+const REGISTRO_AUTORIZACION_DENUNCIA = {
+  kind: "registrar_aceptacion_terminos",
+  payload: { canal: "whatsapp", flujo: "DENUNCIA", documentos: AUTORIZACION_DENUNCIA_DOCUMENTOS },
+};
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const texts = (result: HandlerResult): string[] => sent(result).map((effect) => ("text" in effect ? effect.text : ""));
@@ -663,7 +656,7 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
           { id: "incidencia_consent_no", title: "No autorizo" },
         ],
         acceptLabel: "Acepto, autorizo mis datos",
-        checks: [],
+        checks: [{ id: "DATOS_PERSONALES", label: "Autorizo el tratamiento de mis datos personales" }],
         reopenLabel: "Revisar autorización",
         whatsappText: `${AVISO_PRIVACIDAD_TEXT}\n\n¿Autorizas el tratamiento de tus datos?`,
       },
@@ -683,7 +676,7 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
       const result = handleIncidencia(choice(), text(typed));
 
       expect(result.session.state).toBe("incidencia_consent_register_pending");
-      expect(queries(result)).toEqual([{ kind: "registrar_consentimiento", payload: {} }]);
+      expect(queries(result)).toEqual([REGISTRO_AUTORIZACION_DENUNCIA]);
     },
   );
 
@@ -698,7 +691,13 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
     const result = handleIncidencia(choice(), tap("incidencia_consent_si"));
 
     expect(result.session.state).toBe("incidencia_consent_register_pending");
-    expect(queries(result)).toEqual([{ kind: "registrar_consentimiento", payload: {} }]);
+    expect(queries(result)).toEqual([REGISTRO_AUTORIZACION_DENUNCIA]);
+  });
+
+  it("si no se pudo consultar la autorización, la vuelve a pedir en lugar de saltarla", () => {
+    const result = handleIncidencia(checkPending(), { ...consentCheckResult(true), result: { resultado: "failed" } });
+
+    expect(result.session.state).toBe("incidencia_consent_choice");
   });
 
   it("tras registrar el consentimiento, pide el establecimiento", () => {

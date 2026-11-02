@@ -13,7 +13,7 @@ import type {
 
 export type SaveAceptacionTerminosResult = { resultado: AceptacionTerminosStatus };
 
-export type FindAceptacionTerminosResult = { resultado: AceptacionTerminosLookup; pendientes: DocumentoAceptacion[] };
+export type FindAceptacionTerminosResult = { resultado: AceptacionTerminosLookup };
 
 type FilaAceptacion = DocumentoVigente & Pick<ConsultaAceptacionTerminos, "waId" | "flujo">;
 
@@ -72,13 +72,12 @@ export async function findAceptacionTerminos(
   consulta: ConsultaAceptacionTerminos,
   store: AceptacionTerminosStore,
 ): Promise<FindAceptacionTerminosResult> {
-  const todos = consulta.documentos.map(({ documento }) => documento);
   try {
     const aceptados = await store.findAceptados(consulta);
-    const pendientes = todos.filter((documento) => !aceptados.includes(documento));
-    return { resultado: pendientes.length === 0 ? AceptacionTerminosLookup.FOUND : AceptacionTerminosLookup.NOT_FOUND, pendientes };
+    const todosAceptados = consulta.documentos.every(({ documento }) => aceptados.includes(documento));
+    return { resultado: todosAceptados ? AceptacionTerminosLookup.FOUND : AceptacionTerminosLookup.NOT_FOUND };
   } catch (error) {
     logger.error("terminos.lookup_failed", { flujo: consulta.flujo, documentos: consulta.documentos, error });
-    return { resultado: AceptacionTerminosLookup.FAILED, pendientes: todos };
+    return { resultado: AceptacionTerminosLookup.FAILED };
   }
 }

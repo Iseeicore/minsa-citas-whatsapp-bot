@@ -1,6 +1,8 @@
 import { buildResult, query } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
+import { DOCUMENTOS_DENUNCIA } from "@/lib/constants/documentos-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
@@ -29,5 +31,7 @@ export function beginIncidencia(slots: Session["slots"], lead: string, inicio?: 
   next.slots[SlotKey.INCIDENCIA_ORIGEN] = inicio?.origen ?? IncidenciaOrigen.MENU;
   if (inicio?.resto) next.slots[SlotKey.INCIDENCIA_BORRADOR] = inicio.resto;
   writeInicio(next.slots, { codigoRenipress: inicio?.codigoRenipress, nombre: inicio?.nombre, lead: lead || undefined });
-  return buildResult(next, [query(QueryKind.VERIFICAR_CONSENTIMIENTO, {})]);
+  return buildResult(next, [
+    query(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { flujo: FlujoAceptacion.DENUNCIA, documentos: DOCUMENTOS_DENUNCIA }),
+  ]);
 }

@@ -486,7 +486,7 @@ COMMENT ON COLUMN chatbot.usuario.profile_name IS 'Nombre de perfil de WhatsApp 
 COMMENT ON COLUMN chatbot.usuario.phone_number IS 'Teléfono (dato de Meta). Casi siempre vacío porque la cuenta usa identificadores BSUID. Nunca se usa como clave.';
 COMMENT ON COLUMN chatbot.usuario.dni IS 'DNI del usuario, cuando lo da y se valida. No es único: una misma persona puede escribir desde dos chats.';
 COMMENT ON COLUMN chatbot.usuario.nombre_completo IS 'Nombre completo devuelto por RENIEC al validar el DNI.';
-COMMENT ON COLUMN chatbot.usuario.consentimiento_aceptado_en IS 'Momento en que la persona autorizo el tratamiento de datos para reportar una incidencia. NULL significa que nunca lo acepto (o lo rechazo): se le vuelve a preguntar.';
+COMMENT ON COLUMN chatbot.usuario.consentimiento_aceptado_en IS 'Histórica: momento en que la persona autorizó el tratamiento de datos para reportar una incidencia, antes de guardarla como documento. El bot ya no la lee ni la escribe: la reemplaza chatbot.aceptacion_terminos con flujo DENUNCIA y documento DATOS_PERSONALES.';
 COMMENT ON COLUMN chatbot.usuario.estado_conversacion_id IS 'Estado de la conversación (abierta o cerrada).';
 COMMENT ON COLUMN chatbot.usuario.ultimo_mensaje_en IS 'Fecha y hora (UTC) del último mensaje, entrante o saliente. Ordena la bandeja de conversaciones.';
 COMMENT ON COLUMN chatbot.usuario.activo IS 'Indica si la fila está vigente. Falso significa desactivada o eliminada de forma lógica.';

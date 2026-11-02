@@ -3,25 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ConsentModal } from "@/app/components/sandbox-chat/ConsentModal";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
-import { SendType } from "@/lib/enums/send-type";
+import { buildConsentimientoEffect } from "@/lib/fsm/flows/incidencia/consentimiento";
 import type { SendConsentEffect } from "@/lib/fsm/core/types";
 
 const BUTTON_TAG = /<button\b[^>]*>[^<]*<\/button>/g;
-
-const WITHOUT_CHECKBOX: SendConsentEffect = {
-  kind: SendType.CONSENT,
-  title: "Autorización",
-  text: "Necesitamos tu autorización.",
-  content: "Detalle de la autorización.",
-  buttons: [
-    { id: "si", title: "Sí, autorizo" },
-    { id: "no", title: "No autorizo" },
-  ],
-  acceptLabel: "Acepto, autorizo mis datos",
-  checks: [],
-  reopenLabel: "Revisar la autorización",
-  whatsappText: "¿Nos autorizas?",
-};
 
 const render = (effect: SendConsentEffect = buildTerminosEffect()) =>
   renderToStaticMarkup(createElement(ConsentModal, { effect, onSelect: () => {}, onClose: () => {} }));
@@ -53,14 +38,14 @@ describe("ConsentModal", () => {
     expect(noAcepto).not.toContain('disabled=""');
   });
 
-  it("without boxes shows no checkbox and leaves the accept button enabled with its own label", () => {
-    const markup = render(WITHOUT_CHECKBOX);
+  it("the denuncia authorization shows one box and keeps «Acepto, autorizo mis datos» disabled until it is ticked", () => {
+    const markup = render(buildConsentimientoEffect(""));
     const accept = markup.match(BUTTON_TAG)?.find((tag) => tag.includes("Acepto, autorizo mis datos"));
     const decline = markup.match(BUTTON_TAG)?.find((tag) => tag.includes("No autorizo"));
 
-    expect(markup).not.toContain('type="checkbox"');
-    expect(accept).toBeDefined();
-    expect(accept).not.toContain('disabled=""');
-    expect(decline).toBeDefined();
+    expect(markup.match(/type="checkbox"/g)).toHaveLength(1);
+    expect(markup).toContain("Autorizo el tratamiento de mis datos personales");
+    expect(accept).toContain('disabled=""');
+    expect(decline).not.toContain('disabled=""');
   });
 });

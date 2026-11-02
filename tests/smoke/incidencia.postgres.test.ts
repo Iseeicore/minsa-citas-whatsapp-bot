@@ -5,7 +5,11 @@ import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { runWithTrace } from "@/lib/observability/context";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
-import { createPrismaConsentimientoStore, marcarConsentimientoAceptado, tieneConsentimientoAceptado } from "@/lib/recepcion/repositorio";
+import { createPrismaAceptacionTerminosStore, findAceptacionTerminos, saveAceptacionTerminos } from "@/lib/terminos/aceptacion-terminos";
+import { DOCUMENTOS_DENUNCIA } from "@/lib/constants/documentos-aceptacion";
+import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { SessionChannel } from "@/lib/enums/session-channel";
 
 describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a real PostgreSQL", () => {
   afterAll(async () => {
@@ -17,16 +21,14 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     vi.unstubAllGlobals();
   });
 
-  it("the consent of a new citizen is stored on the usuario and is read back on the next denuncia", async () => {
-    const waId = `smoke-${randomUUID()}`;
+  it("the denuncia authorization of a new citizen is stored as an acceptance and is read back on the next denuncia", async () => {
+    const consulta = { waId: `smoke-${randomUUID()}`, flujo: FlujoAceptacion.DENUNCIA, documentos: DOCUMENTOS_DENUNCIA };
+    const store = createPrismaAceptacionTerminosStore();
 
-    const store = createPrismaConsentimientoStore();
-    await expect(tieneConsentimientoAceptado(waId, store)).resolves.toBe(false);
-    await marcarConsentimientoAceptado(waId, store);
+    await expect(findAceptacionTerminos(consulta, store)).resolves.toEqual({ resultado: AceptacionTerminosLookup.NOT_FOUND });
+    await saveAceptacionTerminos({ ...consulta, canal: SessionChannel.WHATSAPP }, store);
 
-    await expect(tieneConsentimientoAceptado(waId, store)).resolves.toBe(true);
-    const usuario = await prisma.usuario.findUniqueOrThrow({ where: { waId } });
-    expect(usuario.consentimientoAceptadoEn).toBeInstanceOf(Date);
+    await expect(findAceptacionTerminos(consulta, store)).resolves.toEqual({ resultado: AceptacionTerminosLookup.FOUND });
   });
 
   it("stores an anonymous incident: registered, uncategorized, signed by the citizen, with its creation history", async () => {

@@ -1,5 +1,7 @@
 import { handle } from "@/lib/fsm/core/handlers";
 import type { HandlerResult, QueryResultEvent } from "@/lib/fsm/core/types";
+import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
@@ -8,20 +10,27 @@ import { SessionState } from "@/lib/enums/session-state";
 
 const FROM = "sandbox-incidencia-consent";
 
+export const AUTORIZACION_DENUNCIA_DOCUMENTOS = [{ documento: "DATOS_PERSONALES", version: "2026-11-01" }];
+
+export const CONSULTA_AUTORIZACION_DENUNCIA = {
+  kind: QueryKind.CONSULTAR_ACEPTACION_TERMINOS,
+  payload: { flujo: "DENUNCIA", documentos: AUTORIZACION_DENUNCIA_DOCUMENTOS },
+};
+
 export const consentChecked = (aceptado: boolean, from: string = FROM): QueryResultEvent => ({
   channel: "whatsapp",
   from,
   type: InternalEventType.QUERY_RESULT,
-  queryKind: QueryKind.VERIFICAR_CONSENTIMIENTO,
-  result: { aceptado },
+  queryKind: QueryKind.CONSULTAR_ACEPTACION_TERMINOS,
+  result: { resultado: aceptado ? AceptacionTerminosLookup.FOUND : AceptacionTerminosLookup.NOT_FOUND },
 });
 
 export const consentRegistered = (from: string = FROM): QueryResultEvent => ({
   channel: "whatsapp",
   from,
   type: InternalEventType.QUERY_RESULT,
-  queryKind: QueryKind.REGISTRAR_CONSENTIMIENTO,
-  result: { ok: true },
+  queryKind: QueryKind.REGISTRAR_ACEPTACION_TERMINOS,
+  result: { resultado: AceptacionTerminosStatus.SAVED },
 });
 
 export function answerConsent(

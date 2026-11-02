@@ -16,7 +16,7 @@ import { EstablecimientoSearchStatus } from "@/lib/enums/establecimiento-search-
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { AVISO_EMERGENCIA_DENUNCIA_TEXT, ASK_UBICACION_DENUNCIA_TEXT } from "@/lib/constants/textos/incidencia";
-import { answerConsent, consentChecked } from "@/tests/support/incidencia-consent";
+import { CONSULTA_AUTORIZACION_DENUNCIA, answerConsent, consentChecked } from "@/tests/support/incidencia-consent";
 
 const FROM = "sandbox-ubicacion";
 const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
@@ -59,7 +59,7 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
     const begun = handleFirstContact("Hola quiero presentar una incidencia HOSPITAL NACIONAL DOS DE MAYO - CODIGO-IPRESS 6206", "whatsapp");
 
     expect(begun.session.state).toBe("incidencia_consent_check_pending");
-    expect(queries(begun)).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
+    expect(queries(begun)).toEqual([CONSULTA_AUTORIZACION_DENUNCIA]);
     expect(sent(begun)).toEqual([]);
 
     const result = answerConsent(begun);
@@ -167,7 +167,7 @@ describe("the way in: QR, text that announces an incidencia, menu and shortcuts"
       expect(isEmergency(textoDeLaPersona(message)), fila.nombre).toBe(false);
       expect(evaluateLexicalGuard(textoDeLaPersona(message)).action, fila.nombre).toBe("ALLOW");
       const begun = handleFirstContact(message, "whatsapp");
-      expect(queries(begun), fila.nombre).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
+      expect(queries(begun), fila.nombre).toEqual([CONSULTA_AUTORIZACION_DENUNCIA]);
       expect(queries(answerConsent(begun)), fila.nombre).toEqual([
         { kind: "buscar_establecimiento", payload: { codigo: fila.codigo_renipress } },
       ]);

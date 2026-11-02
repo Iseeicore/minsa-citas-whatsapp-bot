@@ -1,9 +1,11 @@
+import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { EvidenceRejection } from "@/lib/enums/evidence-rejection";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 import { CHANNELS } from "@/lib/constants/textos/canales-oficiales";
 import { MENU_ROW_CONSULTAR_INCIDENCIA_TITLE } from "@/lib/constants/textos/menu";
-import type { ConsentButtons } from "@/lib/fsm/core/types";
+import { DATOS_PERSONALES_CHECKBOX_LABEL } from "@/lib/constants/textos/datos-personales";
+import type { ConsentButtons, ConsentCheck } from "@/lib/fsm/core/types";
 
 export type ImagenesRecibidas = {
   recibidas: number;
@@ -94,6 +96,7 @@ export const INCIDENCIA_IDENTIDAD_BUTTONS = [
 ];
 
 export const CONTINUAR_ANONIMO_BUTTONS = [{ id: IncidenciaButtonId.ANONIMO, title: "Continuar anónimo" }];
+export const AUTORIZACION_DENUNCIA_VERSION = "2026-11-01";
 export const AVISO_PRIVACIDAD_TEXT =
   "Antes de continuar, necesitamos tu autorización para tratar la información que envíes por este canal. El texto, las imágenes y los datos personales que proporciones podrán ser revisados por el personal autorizado del establecimiento o del MINSA, únicamente para evaluar, derivar, investigar y dar seguimiento a tu denuncia.";
 export const CONSENT_QUESTION_TEXT = "¿Autorizas el tratamiento de tus datos?";
@@ -109,6 +112,10 @@ export const consentimientoWhatsappText = (lead: string): string =>
 export const CONSENT_BUTTONS: ConsentButtons = [
   { id: IncidenciaButtonId.CONSENT_SI, title: "Sí, autorizo" },
   { id: IncidenciaButtonId.CONSENT_NO, title: "No autorizo" },
+];
+
+export const AUTORIZACION_DENUNCIA_CHECKS: readonly ConsentCheck[] = [
+  { id: DocumentoAceptacion.DATOS_PERSONALES, label: DATOS_PERSONALES_CHECKBOX_LABEL },
 ];
 
 export const ASK_DESCRIPCION_ANONIMO_TEXT = `Entendemos tu preferencia por el anonimato. Cuéntame tu denuncia ${HASTA_MAXIMO_TEXT}.`;

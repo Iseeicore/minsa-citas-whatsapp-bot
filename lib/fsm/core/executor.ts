@@ -153,8 +153,6 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case QueryKind.CONSULTA_CUPO_DIARIO:
     case QueryKind.CONSULTA_REINTENTOS_AGOTADOS:
     case QueryKind.BUSCAR_ESTABLECIMIENTO:
-    case QueryKind.VERIFICAR_CONSENTIMIENTO:
-    case QueryKind.REGISTRAR_CONSENTIMIENTO:
     case QueryKind.CONSULTAR_ACEPTACION_TERMINOS:
     case QueryKind.REGISTRAR_ACEPTACION_TERMINOS:
       return "database";
@@ -223,23 +221,6 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
         { identificador: from, canal, resultado: ResultadoIntentoConsulta.REINTENTOS_AGOTADOS },
         getCupoDiarioStore(),
       );
-    }
-
-    case QueryKind.VERIFICAR_CONSENTIMIENTO: {
-      const [{ tieneConsentimientoAceptado }, { getConsentimientoStore }] = await Promise.all([
-        import("@/lib/recepcion/repositorio"),
-        import("@/lib/composition/stores"),
-      ]);
-      return { aceptado: await tieneConsentimientoAceptado(from, getConsentimientoStore()) };
-    }
-
-    case QueryKind.REGISTRAR_CONSENTIMIENTO: {
-      const [{ marcarConsentimientoAceptado }, { getConsentimientoStore }] = await Promise.all([
-        import("@/lib/recepcion/repositorio"),
-        import("@/lib/composition/stores"),
-      ]);
-      await marcarConsentimientoAceptado(from, getConsentimientoStore());
-      return { ok: true };
     }
 
     case QueryKind.REGISTRAR_ACEPTACION_TERMINOS: {
