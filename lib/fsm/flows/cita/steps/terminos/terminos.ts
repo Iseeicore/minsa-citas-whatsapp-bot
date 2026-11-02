@@ -17,7 +17,8 @@ import { slotText } from "@/lib/fsm/core/slot-readers";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { TERMINOS_ANSWERS } from "@/lib/constants/palabras-clave";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
-import { TERMINOS_RECHAZADOS_TEXT, TERMINOS_VERSION } from "@/lib/constants/textos/terminos";
+import { TERMINOS_RECHAZADOS_TEXT } from "@/lib/constants/textos/terminos";
+import { DOCUMENTOS_CITA } from "@/lib/constants/documentos-aceptacion";
 import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
 import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import { QueryKind } from "@/lib/enums/query-kind";
@@ -57,8 +58,8 @@ function acceptTerminos(session: Session, event: InboundEvent): HandlerResult {
   return buildResult(next, [
     query(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, {
       canal: channelOf(session, event),
-      version: TERMINOS_VERSION,
       flujo: FlujoAceptacion.CITA,
+      documentos: DOCUMENTOS_CITA,
     }),
   ]);
 }

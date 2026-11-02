@@ -3,34 +3,55 @@ import { logger } from "@/lib/observability/logger";
 import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
-import type { AceptacionTerminos, AceptacionTerminosRegistrada, AceptacionTerminosStore } from "@/lib/types/aceptacion-terminos.types";
+import type { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
+import type {
+  AceptacionTerminos,
+  AceptacionTerminosStore,
+  ConsultaAceptacionTerminos,
+  DocumentoVigente,
+} from "@/lib/types/aceptacion-terminos.types";
 
 export type SaveAceptacionTerminosResult = { resultado: AceptacionTerminosStatus };
 
-export type FindAceptacionTerminosResult = { resultado: AceptacionTerminosLookup };
+export type FindAceptacionTerminosResult = { resultado: AceptacionTerminosLookup; pendientes: DocumentoAceptacion[] };
+
+type FilaAceptacion = DocumentoVigente & Pick<ConsultaAceptacionTerminos, "waId" | "flujo">;
+
+function aceptadosEntre(
+  documentos: readonly DocumentoVigente[],
+  esAceptado: (documento: DocumentoVigente) => boolean,
+): DocumentoAceptacion[] {
+  return documentos.filter(esAceptado).map(({ documento }) => documento);
+}
 
 export function createPrismaAceptacionTerminosStore(): AceptacionTerminosStore {
   return {
-    save: async ({ waId, canal, version, flujo }) => {
-      await prisma.aceptacionTerminos.create({ data: { waId, canalOrigenId: CANAL_ORIGEN_POR_CANAL[canal], version, flujo } });
+    save: async ({ waId, canal, flujo, documentos }) => {
+      const canalOrigenId = CANAL_ORIGEN_POR_CANAL[canal];
+      await prisma.aceptacionTerminos.createMany({
+        data: documentos.map(({ documento, version }) => ({ waId, canalOrigenId, flujo, documento, version })),
+      });
     },
-    find: async (waId, version) => {
-      const fila = await prisma.aceptacionTerminos.findFirst({ where: { waId, version }, select: { aceptadoEn: true } });
-      return fila ?? undefined;
+    findAceptados: async ({ waId, flujo, documentos }) => {
+      const filas = await prisma.aceptacionTerminos.findMany({
+        where: { waId, flujo, OR: documentos.map(({ documento, version }) => ({ documento, version })) },
+        select: { documento: true },
+      });
+      return aceptadosEntre(documentos, ({ documento }) => filas.some((fila) => fila.documento === documento));
     },
   };
 }
 
 export function createMemoryAceptacionTerminosStore(): AceptacionTerminosStore {
-  const aceptaciones: Array<AceptacionTerminos & AceptacionTerminosRegistrada> = [];
+  const filas: FilaAceptacion[] = [];
   return {
-    save: async (aceptacion) => {
-      aceptaciones.push({ ...aceptacion, aceptadoEn: new Date() });
+    save: async ({ waId, flujo, documentos }) => {
+      filas.push(...documentos.map(({ documento, version }) => ({ waId, flujo, documento, version })));
     },
-    find: async (waId, version) => {
-      const fila = aceptaciones.find((aceptacion) => aceptacion.waId === waId && aceptacion.version === version);
-      return fila ? { aceptadoEn: fila.aceptadoEn } : undefined;
-    },
+    findAceptados: async ({ waId, flujo, documentos }) =>
+      aceptadosEntre(documentos, ({ documento, version }) =>
+        filas.some((fila) => fila.waId === waId && fila.flujo === flujo && fila.documento === documento && fila.version === version),
+      ),
   };
 }
 
@@ -42,21 +63,22 @@ export async function saveAceptacionTerminos(
     await store.save(aceptacion);
     return { resultado: AceptacionTerminosStatus.SAVED };
   } catch (error) {
-    logger.error("terminos.persist_failed", { canal: aceptacion.canal, version: aceptacion.version, flujo: aceptacion.flujo, error });
+    logger.error("terminos.persist_failed", { canal: aceptacion.canal, flujo: aceptacion.flujo, documentos: aceptacion.documentos, error });
     return { resultado: AceptacionTerminosStatus.FAILED };
   }
 }
 
 export async function findAceptacionTerminos(
-  waId: string,
-  version: string,
+  consulta: ConsultaAceptacionTerminos,
   store: AceptacionTerminosStore,
 ): Promise<FindAceptacionTerminosResult> {
+  const todos = consulta.documentos.map(({ documento }) => documento);
   try {
-    const aceptacion = await store.find(waId, version);
-    return { resultado: aceptacion ? AceptacionTerminosLookup.FOUND : AceptacionTerminosLookup.NOT_FOUND };
+    const aceptados = await store.findAceptados(consulta);
+    const pendientes = todos.filter((documento) => !aceptados.includes(documento));
+    return { resultado: pendientes.length === 0 ? AceptacionTerminosLookup.FOUND : AceptacionTerminosLookup.NOT_FOUND, pendientes };
   } catch (error) {
-    logger.error("terminos.lookup_failed", { version, error });
-    return { resultado: AceptacionTerminosLookup.FAILED };
+    logger.error("terminos.lookup_failed", { flujo: consulta.flujo, documentos: consulta.documentos, error });
+    return { resultado: AceptacionTerminosLookup.FAILED, pendientes: todos };
   }
 }

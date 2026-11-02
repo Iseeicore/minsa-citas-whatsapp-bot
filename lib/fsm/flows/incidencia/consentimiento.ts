@@ -31,6 +31,7 @@ export function buildConsentimientoEffect(lead: string): SendConsentEffect {
     content: AVISO_PRIVACIDAD_TEXT,
     buttons: CONSENT_BUTTONS,
     acceptLabel: CONSENT_ACCEPT_LABEL,
+    checks: [],
     reopenLabel: CONSENT_REOPEN_LABEL,
     whatsappText: consentimientoWhatsappText(lead),
   };

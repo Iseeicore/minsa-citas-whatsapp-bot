@@ -3,10 +3,10 @@ import { toWhatsAppEffects } from "@/lib/whatsapp/consent-effects";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import {
+  DOCUMENTOS_TITULO_TEXT,
   TERMINOS_BUTTONS,
   TERMINOS_PRIVACIDAD_WHATSAPP_TEXT,
   TERMINOS_PROMPT_TEXT,
-  TERMINOS_TITULO_TEXT,
   TERMINOS_VER_BUTTON_TEXT,
   terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
@@ -21,14 +21,20 @@ afterEach(() => {
 });
 
 describe("toWhatsAppEffects", () => {
-  it("with TERMINOS_URL sends the «Ver términos» link and then the Acepto / No acepto buttons", () => {
+  it("with TERMINOS_URL sends one «Ver documentos» link and then one question naming both documents with Acepto ambos / No acepto", () => {
     vi.stubEnv("TERMINOS_URL", URL);
 
     const effects = toWhatsAppEffects(buildTerminosEffect());
 
     expect(effects).toEqual([
-      { kind: SendType.CTA_URL, text: TERMINOS_TITULO_TEXT, buttonText: TERMINOS_VER_BUTTON_TEXT, url: URL },
+      { kind: SendType.CTA_URL, text: DOCUMENTOS_TITULO_TEXT, buttonText: TERMINOS_VER_BUTTON_TEXT, url: URL },
       { kind: SendType.BUTTONS, text: terminosWhatsappBodyText(TERMINOS_PROMPT_TEXT), buttons: TERMINOS_BUTTONS },
+    ]);
+    expect(effects[1]?.text).toContain("los términos y condiciones y la protección de datos personales");
+    expect([TERMINOS_VER_BUTTON_TEXT, ...TERMINOS_BUTTONS.map((button) => button.title)]).toEqual([
+      "Ver documentos",
+      "Acepto ambos",
+      "No acepto",
     ]);
   });
 

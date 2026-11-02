@@ -663,6 +663,7 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
           { id: "incidencia_consent_no", title: "No autorizo" },
         ],
         acceptLabel: "Acepto, autorizo mis datos",
+        checks: [],
         reopenLabel: "Revisar autorización",
         whatsappText: `${AVISO_PRIVACIDAD_TEXT}\n\n¿Autorizas el tratamiento de tus datos?`,
       },

@@ -8,7 +8,7 @@ export const getConsentimientoStore = (): ConsentimientoStore => ({
   marcarAceptado: async () => undefined,
 });
 
-export const getAceptacionTerminosStore = (): AceptacionTerminosStore => ({ save: async () => undefined, find: async () => undefined });
+export const getAceptacionTerminosStore = (): AceptacionTerminosStore => ({ save: async () => undefined, findAceptados: async () => [] });
 
 export const getCupoDiarioStore = (): CupoDiarioStore => ({ save: async () => undefined, countDelDia: async () => 0 });
 

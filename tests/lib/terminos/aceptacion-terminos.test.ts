@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const db = vi.hoisted(() => ({ create: vi.fn(), findFirst: vi.fn() }));
+const db = vi.hoisted(() => ({ createMany: vi.fn(), findMany: vi.fn() }));
 
 vi.mock("@/lib/db/prisma", () => ({
-  prisma: { aceptacionTerminos: { create: db.create, findFirst: db.findFirst } },
+  prisma: { aceptacionTerminos: { createMany: db.createMany, findMany: db.findMany } },
 }));
 
 import {
@@ -13,6 +13,7 @@ import {
   saveAceptacionTerminos,
 } from "@/lib/terminos/aceptacion-terminos";
 import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
 import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import type { AceptacionTerminos, AceptacionTerminosStore } from "@/lib/types/aceptacion-terminos.types";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
@@ -20,22 +21,27 @@ import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { captureLogs } from "@/tests/support/capture-logs";
 
+const TERMINOS = { documento: DocumentoAceptacion.TERMINOS, version: "2026-10-29" };
+const DATOS_PERSONALES = { documento: DocumentoAceptacion.DATOS_PERSONALES, version: "2026-11-01" };
+
 const ACEPTACION: AceptacionTerminos = {
   waId: "51999000111",
   canal: SessionChannel.WHATSAPP,
-  version: "2026-10-29",
   flujo: FlujoAceptacion.CITA,
+  documentos: [TERMINOS, DATOS_PERSONALES],
 };
 
+const CONSULTA = { waId: ACEPTACION.waId, flujo: ACEPTACION.flujo, documentos: ACEPTACION.documentos };
+
 afterEach(() => {
-  db.create.mockReset();
-  db.findFirst.mockReset();
+  db.createMany.mockReset();
+  db.findMany.mockReset();
 });
 
 describe("saveAceptacionTerminos", () => {
   it("keeps the acceptance in the store it receives", async () => {
     const saved: AceptacionTerminos[] = [];
-    const store: AceptacionTerminosStore = { save: async (aceptacion) => void saved.push(aceptacion), find: async () => undefined };
+    const store: AceptacionTerminosStore = { save: async (aceptacion) => void saved.push(aceptacion), findAceptados: async () => [] };
 
     const result = await saveAceptacionTerminos(ACEPTACION, store);
 
@@ -45,66 +51,88 @@ describe("saveAceptacionTerminos", () => {
 
   it("does not break the conversation when the store fails: it logs the failure without the chat id and answers FAILED", async () => {
     const lines = captureLogs();
-    const broken: AceptacionTerminosStore = { save: () => Promise.reject(new Error("conexion caida")), find: async () => undefined };
+    const broken: AceptacionTerminosStore = { save: () => Promise.reject(new Error("conexion caida")), findAceptados: async () => [] };
 
     const result = await saveAceptacionTerminos(ACEPTACION, broken);
 
     expect(result).toEqual({ resultado: AceptacionTerminosStatus.FAILED });
     expect(lines).toEqual([
-      expect.objectContaining({ level: "error", event: "terminos.persist_failed", canal: SessionChannel.WHATSAPP, version: "2026-10-29" }),
+      expect.objectContaining({
+        level: "error",
+        event: "terminos.persist_failed",
+        canal: SessionChannel.WHATSAPP,
+        flujo: FlujoAceptacion.CITA,
+      }),
     ]);
     expect(JSON.stringify(lines)).not.toContain(ACEPTACION.waId);
   });
 });
 
 describe("createPrismaAceptacionTerminosStore", () => {
-  it.each([
-    [SessionChannel.WHATSAPP, CanalOrigenId.WHATSAPP],
-    [SessionChannel.WEB, CanalOrigenId.WEB],
-  ])("saves the %s channel with its catalog id", async (canal, canalOrigenId) => {
-    db.create.mockResolvedValue({});
+  it("saves one row per document, each with its version, in a single insert with the channel catalog id", async () => {
+    db.createMany.mockResolvedValue({ count: 2 });
 
-    await createPrismaAceptacionTerminosStore().save({ ...ACEPTACION, canal });
+    await createPrismaAceptacionTerminosStore().save({ ...ACEPTACION, canal: SessionChannel.WEB });
 
-    expect(db.create).toHaveBeenCalledWith({
-      data: { waId: ACEPTACION.waId, canalOrigenId, version: ACEPTACION.version, flujo: FlujoAceptacion.CITA },
+    expect(db.createMany).toHaveBeenCalledOnce();
+    expect(db.createMany).toHaveBeenCalledWith({
+      data: [
+        { waId: ACEPTACION.waId, canalOrigenId: CanalOrigenId.WEB, flujo: FlujoAceptacion.CITA, ...TERMINOS },
+        { waId: ACEPTACION.waId, canalOrigenId: CanalOrigenId.WEB, flujo: FlujoAceptacion.CITA, ...DATOS_PERSONALES },
+      ],
     });
   });
 
-  it("looks for an acceptance of the chat and the version, of any service", async () => {
-    db.findFirst.mockResolvedValueOnce({ aceptadoEn: new Date("2026-10-30T15:00:00Z") }).mockResolvedValueOnce(null);
-    const store = createPrismaAceptacionTerminosStore();
+  it("looks for the chat, the service and each document at its version, and answers the accepted documents", async () => {
+    db.findMany.mockResolvedValue([{ documento: DocumentoAceptacion.TERMINOS }]);
 
-    await expect(store.find(ACEPTACION.waId, ACEPTACION.version)).resolves.toEqual({ aceptadoEn: new Date("2026-10-30T15:00:00Z") });
-    await expect(store.find(ACEPTACION.waId, "2027-01-01")).resolves.toBeUndefined();
-    expect(db.findFirst).toHaveBeenCalledWith({
-      where: { waId: ACEPTACION.waId, version: ACEPTACION.version },
-      select: { aceptadoEn: true },
+    await expect(createPrismaAceptacionTerminosStore().findAceptados(CONSULTA)).resolves.toEqual([DocumentoAceptacion.TERMINOS]);
+    expect(db.findMany).toHaveBeenCalledWith({
+      where: { waId: ACEPTACION.waId, flujo: FlujoAceptacion.CITA, OR: [TERMINOS, DATOS_PERSONALES] },
+      select: { documento: true },
     });
   });
 });
 
 describe("findAceptacionTerminos", () => {
-  it("answers FOUND for the accepted version and NOT_FOUND for a new one, whatever the service it was accepted in", async () => {
+  it("answers FOUND only when every document was accepted at its current version in the same service", async () => {
     const store = createMemoryAceptacionTerminosStore();
-    await store.save({ ...ACEPTACION, flujo: FlujoAceptacion.DENUNCIA });
+    await store.save(ACEPTACION);
+    await store.save({ ...ACEPTACION, waId: "otro", flujo: FlujoAceptacion.DENUNCIA });
 
-    await expect(findAceptacionTerminos(ACEPTACION.waId, ACEPTACION.version, store)).resolves.toEqual({
-      resultado: AceptacionTerminosLookup.FOUND,
-    });
-    await expect(findAceptacionTerminos(ACEPTACION.waId, "2027-01-01", store)).resolves.toEqual({
+    await expect(findAceptacionTerminos(CONSULTA, store)).resolves.toEqual({ resultado: AceptacionTerminosLookup.FOUND, pendientes: [] });
+    await expect(findAceptacionTerminos({ ...CONSULTA, waId: "otro" }, store)).resolves.toEqual({
       resultado: AceptacionTerminosLookup.NOT_FOUND,
+      pendientes: [DocumentoAceptacion.TERMINOS, DocumentoAceptacion.DATOS_PERSONALES],
+    });
+  });
+
+  it("answers NOT_FOUND with the document whose version changed or that was never accepted", async () => {
+    const store = createMemoryAceptacionTerminosStore();
+    await store.save({ ...ACEPTACION, documentos: [TERMINOS] });
+
+    await expect(findAceptacionTerminos(CONSULTA, store)).resolves.toEqual({
+      resultado: AceptacionTerminosLookup.NOT_FOUND,
+      pendientes: [DocumentoAceptacion.DATOS_PERSONALES],
+    });
+    await expect(findAceptacionTerminos({ ...CONSULTA, documentos: [{ ...TERMINOS, version: "2027-01-01" }] }, store)).resolves.toEqual({
+      resultado: AceptacionTerminosLookup.NOT_FOUND,
+      pendientes: [DocumentoAceptacion.TERMINOS],
     });
   });
 
   it("answers FAILED when the store fails and logs it without the chat id", async () => {
     const lines = captureLogs();
-    const broken: AceptacionTerminosStore = { save: async () => undefined, find: () => Promise.reject(new Error("conexion caida")) };
+    const broken: AceptacionTerminosStore = {
+      save: async () => undefined,
+      findAceptados: () => Promise.reject(new Error("conexion caida")),
+    };
 
-    await expect(findAceptacionTerminos(ACEPTACION.waId, ACEPTACION.version, broken)).resolves.toEqual({
+    await expect(findAceptacionTerminos(CONSULTA, broken)).resolves.toEqual({
       resultado: AceptacionTerminosLookup.FAILED,
+      pendientes: [DocumentoAceptacion.TERMINOS, DocumentoAceptacion.DATOS_PERSONALES],
     });
-    expect(lines).toEqual([expect.objectContaining({ level: "error", event: "terminos.lookup_failed", version: ACEPTACION.version })]);
+    expect(lines).toEqual([expect.objectContaining({ level: "error", event: "terminos.lookup_failed", flujo: FlujoAceptacion.CITA })]);
     expect(JSON.stringify(lines)).not.toContain(ACEPTACION.waId);
   });
 });
