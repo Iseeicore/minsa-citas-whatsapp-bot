@@ -504,9 +504,10 @@ model AceptacionTerminos {
   version       String
   aceptadoEn    DateTime    @default(now()) @map("aceptado_en") @db.Timestamptz(3)
   flujo         String      @default("CITA")
+  documento     String      @default("TERMINOS")
   canalOrigen   CanalOrigen @relation(fields: [canalOrigenId], references: [id], map: "fk_aceptacion_terminos_canal_origen")
 
-  @@index([waId, version], map: "ix_aceptacion_terminos_wa_id_version")
+  @@index([waId, flujo, documento, version], map: "ix_aceptacion_terminos_wa_id_flujo_documento_version")
   @@map("aceptacion_terminos")
   @@schema("chatbot")
 }

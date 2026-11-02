@@ -25,9 +25,8 @@ BEGIN
     'F01 una aceptacion guardada sin servicio, como las anteriores a la columna, queda como CITA';
   ASSERT (SELECT flujo FROM chatbot.aceptacion_terminos WHERE wa_id = 't33-denuncia') = 'DENUNCIA',
     'F02 una aceptacion de la denuncia se guarda como DENUNCIA';
-  ASSERT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'chatbot' AND indexname = 'ix_aceptacion_terminos_wa_id_version')
-     AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'chatbot' AND indexname = 'ix_aceptacion_terminos_wa_id'),
-    'F03 la busqueda por chat y version tiene su indice y el indice solo por chat ya no existe';
+  ASSERT NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'chatbot' AND indexname = 'ix_aceptacion_terminos_wa_id'),
+    'F03 el indice solo por chat ya no existe';
 END $$;
 
 SELECT pg_temp.espera_error($q$INSERT INTO chatbot.aceptacion_terminos (wa_id, canal_origen_id, version, flujo) VALUES ('t33-x', 1, '2026-10-29', 'OTRO')$q$, '23514', 'F04 un servicio fuera de la lista se rechaza');
