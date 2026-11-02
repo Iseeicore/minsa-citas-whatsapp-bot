@@ -10,9 +10,9 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
   },
 }));
 vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
-vi.mock("@/lib/recepcion/repositorio", () => ({
-  tieneConsentimientoAceptado: async () => true,
-  marcarConsentimientoAceptado: async () => undefined,
+vi.mock("@/lib/terminos/aceptacion-terminos", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/terminos/aceptacion-terminos")>()),
+  findAceptacionTerminos: async () => ({ resultado: "found" }),
 }));
 import { runTurn } from "@/lib/fsm/core/executor";
 import { SlotKey } from "@/lib/enums/slot-key";

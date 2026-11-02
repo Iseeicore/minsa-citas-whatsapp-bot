@@ -89,7 +89,7 @@ describe("what the menu does with that answer", () => {
     const asked = handle(menu(), text(STORY));
     const begun = handle(asked.session, answer({ intent: "incidencia" }));
     expect(begun.session.state).toBe("incidencia_consent_check_pending");
-    expect(queries(begun).map((effect) => effect.kind)).toEqual(["verificar_consentimiento"]);
+    expect(queries(begun).map((effect) => effect.kind)).toEqual(["consultar_aceptacion_terminos"]);
 
     const result = answerConsent(begun, { from: FROM });
     expect(result.session.state).toBe("incidencia_awaiting_ubicacion");
@@ -119,7 +119,7 @@ describe("what the menu does with that answer", () => {
   it("explicit words still skip the AI, as before", () => {
     const result = handle(menu(), text("quiero hacer un reclamo"));
 
-    expect(queries(result).map((effect) => effect.kind)).toEqual(["verificar_consentimiento"]);
+    expect(queries(result).map((effect) => effect.kind)).toEqual(["consultar_aceptacion_terminos"]);
     expect(result.session.state).toBe("incidencia_consent_check_pending");
   });
 });

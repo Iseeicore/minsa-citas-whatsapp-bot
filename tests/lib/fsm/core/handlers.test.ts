@@ -39,7 +39,7 @@ function hasQuery(result: ReturnType<typeof handle>): boolean {
 
 function onlyChecksConsent(result: ReturnType<typeof handle>): boolean {
   const kinds = result.effects.filter(isQueryEffect).map((effect) => effect.kind);
-  return kinds.length === 1 && kinds[0] === "verificar_consentimiento";
+  return kinds.length === 1 && kinds[0] === "consultar_aceptacion_terminos";
 }
 
 describe("main_menu — lexical guard routing", () => {

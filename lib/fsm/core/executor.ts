@@ -18,12 +18,14 @@ import type { ExternalService } from "@/lib/observability/types";
 import { getSession, saveSession } from "@/lib/fsm/session/session-store";
 import { withTurnLock, type TurnLock } from "@/lib/fsm/session/turn-lock";
 import { serviceCatalog } from "@/lib/services/service-catalog";
+import type { BotService } from "@/lib/services/bot-service";
 import { QueryKind } from "@/lib/enums/query-kind";
 import type {
   HandleEvent,
   HandlerResult,
   InboundEvent,
   QueryEffect,
+  QueryEffectKind,
   QueryResultEvent,
   SendEffect,
   SendOutcome,
@@ -146,6 +148,16 @@ export async function runTurnUnlocked(from: string, event: InboundEvent, hooks?:
   });
 }
 
+const ACEPTACION_QUERY_KINDS: ReadonlySet<QueryEffectKind> = new Set([
+  QueryKind.CONSULTAR_ACEPTACION_TERMINOS,
+  QueryKind.REGISTRAR_ACEPTACION_TERMINOS,
+]);
+
+function ownerOf(effect: QueryEffect): BotService | undefined {
+  if (!ACEPTACION_QUERY_KINDS.has(effect.kind)) return serviceCatalog.forQuery(effect.kind);
+  return serviceCatalog.forFlujoAceptacion(requirePayloadFlujo(effect.payload, effect.kind));
+}
+
 function serviceFor(kind: QueryEffect["kind"]): ExternalService {
   switch (kind) {
     case QueryKind.INCIDENCIA_REGISTER:
@@ -153,8 +165,6 @@ function serviceFor(kind: QueryEffect["kind"]): ExternalService {
     case QueryKind.CONSULTA_CUPO_DIARIO:
     case QueryKind.CONSULTA_REINTENTOS_AGOTADOS:
     case QueryKind.BUSCAR_ESTABLECIMIENTO:
-    case QueryKind.VERIFICAR_CONSENTIMIENTO:
-    case QueryKind.REGISTRAR_CONSENTIMIENTO:
     case QueryKind.CONSULTAR_ACEPTACION_TERMINOS:
     case QueryKind.REGISTRAR_ACEPTACION_TERMINOS:
       return "database";
@@ -183,7 +193,7 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
   const bearer = () => requireSlotText(session.slots, SlotKey.CITA_BEARER, effect.kind);
   const required = (key: string) => requirePayloadText(effect.payload, key, effect.kind);
 
-  const owner = serviceCatalog.forQuery(effect.kind);
+  const owner = ownerOf(effect);
   if (owner && !owner.isEnabled()) throw new DisabledServiceQueryError(effect.kind, owner.id);
 
   switch (effect.kind) {
@@ -223,23 +233,6 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
         { identificador: from, canal, resultado: ResultadoIntentoConsulta.REINTENTOS_AGOTADOS },
         getCupoDiarioStore(),
       );
-    }
-
-    case QueryKind.VERIFICAR_CONSENTIMIENTO: {
-      const [{ tieneConsentimientoAceptado }, { getConsentimientoStore }] = await Promise.all([
-        import("@/lib/recepcion/repositorio"),
-        import("@/lib/composition/stores"),
-      ]);
-      return { aceptado: await tieneConsentimientoAceptado(from, getConsentimientoStore()) };
-    }
-
-    case QueryKind.REGISTRAR_CONSENTIMIENTO: {
-      const [{ marcarConsentimientoAceptado }, { getConsentimientoStore }] = await Promise.all([
-        import("@/lib/recepcion/repositorio"),
-        import("@/lib/composition/stores"),
-      ]);
-      await marcarConsentimientoAceptado(from, getConsentimientoStore());
-      return { ok: true };
     }
 
     case QueryKind.REGISTRAR_ACEPTACION_TERMINOS: {

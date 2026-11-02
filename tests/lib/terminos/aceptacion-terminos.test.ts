@@ -100,24 +100,19 @@ describe("findAceptacionTerminos", () => {
     await store.save(ACEPTACION);
     await store.save({ ...ACEPTACION, waId: "otro", flujo: FlujoAceptacion.DENUNCIA });
 
-    await expect(findAceptacionTerminos(CONSULTA, store)).resolves.toEqual({ resultado: AceptacionTerminosLookup.FOUND, pendientes: [] });
+    await expect(findAceptacionTerminos(CONSULTA, store)).resolves.toEqual({ resultado: AceptacionTerminosLookup.FOUND });
     await expect(findAceptacionTerminos({ ...CONSULTA, waId: "otro" }, store)).resolves.toEqual({
       resultado: AceptacionTerminosLookup.NOT_FOUND,
-      pendientes: [DocumentoAceptacion.TERMINOS, DocumentoAceptacion.DATOS_PERSONALES],
     });
   });
 
-  it("answers NOT_FOUND with the document whose version changed or that was never accepted", async () => {
+  it("answers NOT_FOUND when a document changed its version or was never accepted", async () => {
     const store = createMemoryAceptacionTerminosStore();
     await store.save({ ...ACEPTACION, documentos: [TERMINOS] });
 
-    await expect(findAceptacionTerminos(CONSULTA, store)).resolves.toEqual({
-      resultado: AceptacionTerminosLookup.NOT_FOUND,
-      pendientes: [DocumentoAceptacion.DATOS_PERSONALES],
-    });
+    await expect(findAceptacionTerminos(CONSULTA, store)).resolves.toEqual({ resultado: AceptacionTerminosLookup.NOT_FOUND });
     await expect(findAceptacionTerminos({ ...CONSULTA, documentos: [{ ...TERMINOS, version: "2027-01-01" }] }, store)).resolves.toEqual({
       resultado: AceptacionTerminosLookup.NOT_FOUND,
-      pendientes: [DocumentoAceptacion.TERMINOS],
     });
   });
 
@@ -128,10 +123,7 @@ describe("findAceptacionTerminos", () => {
       findAceptados: () => Promise.reject(new Error("conexion caida")),
     };
 
-    await expect(findAceptacionTerminos(CONSULTA, broken)).resolves.toEqual({
-      resultado: AceptacionTerminosLookup.FAILED,
-      pendientes: [DocumentoAceptacion.TERMINOS, DocumentoAceptacion.DATOS_PERSONALES],
-    });
+    await expect(findAceptacionTerminos(CONSULTA, broken)).resolves.toEqual({ resultado: AceptacionTerminosLookup.FAILED });
     expect(lines).toEqual([expect.objectContaining({ level: "error", event: "terminos.lookup_failed", flujo: FlujoAceptacion.CITA })]);
     expect(JSON.stringify(lines)).not.toContain(ACEPTACION.waId);
   });

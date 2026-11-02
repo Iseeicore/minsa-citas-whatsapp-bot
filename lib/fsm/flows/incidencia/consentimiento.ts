@@ -5,13 +5,19 @@ import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
 import { readInicio, writeInicio } from "@/lib/fsm/flows/incidencia/inicio";
 import { startUbicacion } from "@/lib/fsm/flows/incidencia/ubicacion";
 import { buildResult, cloneSession, query, sendButtons, sendText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
+import { channelOf } from "@/lib/fsm/core/channel";
+import { DOCUMENTOS_DENUNCIA } from "@/lib/constants/documentos-aceptacion";
+import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import type { FindAceptacionTerminosResult } from "@/lib/terminos/aceptacion-terminos";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendConsentEffect, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
 import {
+  AUTORIZACION_DENUNCIA_CHECKS,
   AVISO_PRIVACIDAD_TEXT,
   CONSENT_ACCEPT_LABEL,
   CONSENT_BUTTONS,
@@ -31,17 +37,17 @@ export function buildConsentimientoEffect(lead: string): SendConsentEffect {
     content: AVISO_PRIVACIDAD_TEXT,
     buttons: CONSENT_BUTTONS,
     acceptLabel: CONSENT_ACCEPT_LABEL,
-    checks: [],
+    checks: AUTORIZACION_DENUNCIA_CHECKS,
     reopenLabel: CONSENT_REOPEN_LABEL,
     whatsappText: consentimientoWhatsappText(lead),
   };
 }
 
 export function handleConsentCheckPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { aceptado?: boolean };
+  const result = event.result as FindAceptacionTerminosResult | undefined;
   const next = cloneSession(session);
 
-  if (result.aceptado === true) return startUbicacion(next);
+  if (result?.resultado === AceptacionTerminosLookup.FOUND) return startUbicacion(next);
 
   const { lead, ...resto } = readInicio(next.slots);
   writeInicio(next.slots, resto);
@@ -68,7 +74,13 @@ export function handleConsentimiento(session: Session, event: InboundEvent): Han
   if (answer === Confirmation.YES) {
     const next = cloneSession(session);
     next.state = SessionState.INCIDENCIA_CONSENT_REGISTER_PENDING;
-    return buildResult(next, [query(QueryKind.REGISTRAR_CONSENTIMIENTO, {})]);
+    return buildResult(next, [
+      query(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, {
+        canal: channelOf(session, event),
+        flujo: FlujoAceptacion.DENUNCIA,
+        documentos: DOCUMENTOS_DENUNCIA,
+      }),
+    ]);
   }
 
   if (answer === Confirmation.NO) {

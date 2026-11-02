@@ -5,13 +5,14 @@ import type { Session } from "@/lib/fsm/core/types";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { logger } from "@/lib/observability/logger";
+import { CONSULTA_AUTORIZACION_DENUNCIA } from "@/tests/support/incidencia-consent";
 
 describe("beginIncidencia: the consent is the first step of every way in", () => {
   it("asks only whether the consent was already given, and sends nothing yet", () => {
     const result = beginIncidencia({}, "¡Hola!");
 
     expect(result.session.state).toBe("incidencia_consent_check_pending");
-    expect(result.effects).toEqual([{ kind: "verificar_consentimiento", payload: {} }]);
+    expect(result.effects).toEqual([CONSULTA_AUTORIZACION_DENUNCIA]);
     expect(result.effects.every(isQueryEffect)).toBe(true);
   });
 

@@ -139,14 +139,18 @@ describe("the ServiceCatalog", () => {
 
   it("finds the owner of the incident-only queries, and nothing for the shared ones", () => {
     expect(serviceCatalog.forQuery(QueryKind.INCIDENCIA_REGISTER)).toBeInstanceOf(IncidenciaService);
-    expect(serviceCatalog.forQuery(QueryKind.VERIFICAR_CONSENTIMIENTO)).toBeInstanceOf(IncidenciaService);
-    expect(serviceCatalog.forQuery(QueryKind.REGISTRAR_CONSENTIMIENTO)).toBeInstanceOf(IncidenciaService);
     expect(serviceCatalog.forQuery(QueryKind.BUSCAR_ESTABLECIMIENTO)).toBeInstanceOf(IncidenciaService);
     expect(serviceCatalog.forQuery(QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT)).toBeInstanceOf(IncidenciaService);
     expect(serviceCatalog.forQuery(QueryKind.CONSULTAR_INCIDENCIA)).toBeInstanceOf(ConsultaService);
     expect(serviceCatalog.forQuery(QueryKind.CONSULTA_CUPO_DIARIO)).toBeInstanceOf(ConsultaService);
     expect(serviceCatalog.forQuery(QueryKind.CONSULTA_REINTENTOS_AGOTADOS)).toBeInstanceOf(ConsultaService);
-    for (const shared of [QueryKind.VALIDATE_USER, QueryKind.VERIFY_CODE, QueryKind.LIST_ESTABLECIMIENTOS]) {
+    for (const shared of [
+      QueryKind.VALIDATE_USER,
+      QueryKind.VERIFY_CODE,
+      QueryKind.LIST_ESTABLECIMIENTOS,
+      QueryKind.CONSULTAR_ACEPTACION_TERMINOS,
+      QueryKind.REGISTRAR_ACEPTACION_TERMINOS,
+    ]) {
       expect(serviceCatalog.forQuery(shared)).toBeUndefined();
     }
   });

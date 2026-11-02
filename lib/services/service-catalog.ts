@@ -5,6 +5,8 @@ import { IncidenciaService } from "@/lib/services/incidencia-service";
 import { ReferenciaService } from "@/lib/services/referencia-service";
 import { UnknownServiceError } from "@/lib/errors/unknown-service-error";
 import { POSITIVE_INTEGER } from "@/lib/constants/regex/text";
+import { SERVICIO_POR_FLUJO_ACEPTACION } from "@/lib/constants/documentos-aceptacion";
+import type { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import type { ListRow, QueryEffectKind, Session, SessionChannel } from "@/lib/fsm/core/types";
 import type { MenuChoice } from "@/lib/enums/menu-choice";
 
@@ -46,6 +48,10 @@ export class ServiceCatalog {
 
   forQuery(kind: QueryEffectKind): BotService | undefined {
     return this.services.find((service) => service.queryKinds.includes(kind));
+  }
+
+  forFlujoAceptacion(flujo: FlujoAceptacion): BotService {
+    return this.byId(SERVICIO_POR_FLUJO_ACEPTACION[flujo]);
   }
 
   byMenuNumber(typed: string, channel: SessionChannel): BotService | undefined {

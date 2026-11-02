@@ -4,7 +4,7 @@ import type { Session } from "@/lib/fsm/core/types";
 const store = vi.hoisted(() => ({
   sessions: new Map<string, Session>(),
   buscar: vi.fn<(payload: unknown) => Promise<unknown>>(),
-  consentimiento: vi.fn<(from: string) => Promise<boolean>>(),
+  aceptacion: vi.fn<(consulta: { waId: string; flujo: string }) => Promise<{ resultado: string }>>(),
 }));
 
 vi.mock("@/lib/fsm/session/session-store", () => ({
@@ -15,10 +15,7 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 }));
 vi.mock("@/lib/establecimientos/buscar", () => ({ buscarEstablecimiento: store.buscar }));
 vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"));
-vi.mock("@/lib/recepcion/repositorio", () => ({
-  tieneConsentimientoAceptado: store.consentimiento,
-  marcarConsentimientoAceptado: async () => undefined,
-}));
+vi.mock("@/lib/terminos/aceptacion-terminos", () => ({ findAceptacionTerminos: store.aceptacion }));
 
 import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
@@ -31,8 +28,8 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
   beforeEach(() => {
     store.sessions.clear();
     store.buscar.mockReset();
-    store.consentimiento.mockReset();
-    store.consentimiento.mockResolvedValue(true);
+    store.aceptacion.mockReset();
+    store.aceptacion.mockResolvedValue({ resultado: "found" });
   });
 
   it("the consent check and the lookup run in the same turn and the person is asked to confirm the place, with the notice on top", async () => {
@@ -41,7 +38,7 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
 
     const turn = await runTurnUnlocked(FROM, { channel: "whatsapp", from: FROM, type: "text", text: QR }, undefined, first);
 
-    expect(store.consentimiento).toHaveBeenCalledWith(FROM, expect.anything());
+    expect(store.aceptacion).toHaveBeenCalledWith(expect.objectContaining({ waId: FROM, flujo: "DENUNCIA" }), expect.anything());
     expect(store.buscar).toHaveBeenCalledWith({ codigo: "6206" });
     expect(turn.session.state).toBe("incidencia_confirm_ubicacion");
     expect(turn.sent).toHaveLength(1);
@@ -65,7 +62,7 @@ describe("a first contact whose answer needs a lookup (the QR)", () => {
   });
 
   it("without a consent given, the turn stops at the authorization and the lookup waits for it", async () => {
-    store.consentimiento.mockResolvedValueOnce(false);
+    store.aceptacion.mockResolvedValueOnce({ resultado: "not_found" });
     const turn = await runTurnUnlocked(
       FROM,
       { channel: "whatsapp", from: FROM, type: "text", text: QR },

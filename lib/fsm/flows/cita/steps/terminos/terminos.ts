@@ -20,6 +20,7 @@ import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import { TERMINOS_RECHAZADOS_TEXT } from "@/lib/constants/textos/terminos";
 import { DOCUMENTOS_CITA } from "@/lib/constants/documentos-aceptacion";
 import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import type { FindAceptacionTerminosResult } from "@/lib/terminos/aceptacion-terminos";
 import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
@@ -81,7 +82,7 @@ export function handleAwaitingTerminos(session: Session, event: InboundEvent): H
 }
 
 export function handleTerminosLookupPending(session: Session, event: QueryResultEvent): HandlerResult {
-  const result = event.result as { resultado?: string } | undefined;
+  const result = event.result as FindAceptacionTerminosResult | undefined;
   if (result?.resultado !== AceptacionTerminosLookup.FOUND) return showTerminos(session);
   const next = cloneSession(session);
   next.slots[SlotKey.TERMINOS_ACEPTADOS] = true;

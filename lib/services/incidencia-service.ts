@@ -10,8 +10,6 @@ export class IncidenciaService extends BotService {
   readonly menuRow = { id: MenuChoice.REGISTRAR_INCIDENCIA, title: MENU_ROW_REGISTRAR_INCIDENCIA_TITLE };
   override readonly queryKinds = [
     QueryKind.INCIDENCIA_REGISTER,
-    QueryKind.VERIFICAR_CONSENTIMIENTO,
-    QueryKind.REGISTRAR_CONSENTIMIENTO,
     QueryKind.BUSCAR_ESTABLECIMIENTO,
     QueryKind.ANALYZE_INCIDENCIA_FOTO_INTENT,
   ];
