@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { AnchorLink } from "@/app/components/ui/AnchorLink";
 import { buildChatLinkProps } from "@/lib/utils/chat-link";
 import { cn } from "@/lib/utils/cn";
 
@@ -37,7 +38,7 @@ export function LandingServices({ loginUrl, chatEnabled }: { loginUrl: string | 
       <ul className="mt-3 grid min-h-0 flex-1 grid-rows-3 gap-2 md:max-h-36 md:grid-cols-3 md:grid-rows-1 md:gap-7">
         {SERVICES.map(({ title, detail, icon, bg, color, chat }) => (
           <li key={title} className="min-h-0">
-            <a
+            <AnchorLink
               {...buildChatLinkProps(Boolean(chat) && chatEnabled, loginUrl)}
               className={cn(
                 "flex h-full items-center gap-3 rounded-2xl bg-cover bg-right py-2 pl-4 max-md:pr-landing-card-art md:gap-4 md:pr-landing-card-art-md md:pl-10",
@@ -49,7 +50,7 @@ export function LandingServices({ loginUrl, chatEnabled }: { loginUrl: string | 
                 <span className="block font-gotham text-base leading-tight font-bold md:text-xl lg:text-2xl">{title}</span>
                 {detail && <span className="hidden text-xs md:text-base lg:block">{detail}</span>}
               </span>
-            </a>
+            </AnchorLink>
           </li>
         ))}
       </ul>

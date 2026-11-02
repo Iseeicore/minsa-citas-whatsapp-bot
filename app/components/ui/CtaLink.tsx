@@ -1,8 +1,9 @@
 import { CalendarIcon } from "@/app/components/icons";
+import { AnchorLink } from "@/app/components/ui/AnchorLink";
 
 export function CtaLink({ href, label }: { href: string; label: string }) {
   return (
-    <a
+    <AnchorLink
       href={href}
       target="_blank"
       rel="noreferrer"
@@ -12,6 +13,6 @@ export function CtaLink({ href, label }: { href: string; label: string }) {
         <CalendarIcon className="h-5 w-5" />
         {label}
       </span>
-    </a>
+    </AnchorLink>
   );
 }
