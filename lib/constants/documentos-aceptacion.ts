@@ -1,4 +1,6 @@
 import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 import { TERMINOS_CONTENIDO, TERMINOS_TITULO_TEXT, TERMINOS_VERSION } from "@/lib/constants/textos/terminos";
 import {
   DATOS_PERSONALES_CONTENIDO,
@@ -16,6 +18,11 @@ export const DOCUMENTOS_CITA: readonly DocumentoVigente[] = [
 export const DOCUMENTOS_DENUNCIA: readonly DocumentoVigente[] = [
   { documento: DocumentoAceptacion.DATOS_PERSONALES, version: AUTORIZACION_DENUNCIA_VERSION },
 ];
+
+export const SERVICIO_POR_FLUJO_ACEPTACION: Readonly<Record<FlujoAceptacion, MenuChoice>> = {
+  [FlujoAceptacion.CITA]: MenuChoice.AGENDAR_CITA,
+  [FlujoAceptacion.DENUNCIA]: MenuChoice.REGISTRAR_INCIDENCIA,
+};
 
 export const DOCUMENTOS_SECCIONES: readonly DocumentoSeccion[] = [
   { ancla: "terminos", titulo: TERMINOS_TITULO_TEXT, contenido: TERMINOS_CONTENIDO },

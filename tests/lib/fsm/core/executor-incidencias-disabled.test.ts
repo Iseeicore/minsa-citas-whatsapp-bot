@@ -24,6 +24,7 @@ import { runTurnUnlocked } from "@/lib/fsm/core/executor";
 
 const FROM = "51999000222";
 const event = { from: FROM, type: "text" as const, text: "hola", channel: "whatsapp" as const };
+const DOCUMENTOS = [{ documento: "DATOS_PERSONALES", version: "2026-11-01" }];
 
 const startWith = (kind: QueryKind, payload: Record<string, unknown> = {}): HandlerResult => ({
   session: { state: "main_menu", slots: {}, counters: {} },
@@ -75,6 +76,30 @@ describe("the executor, as the last defense", () => {
     await runTurnUnlocked(FROM, event, undefined, startWith(QueryKind.INCIDENCIA_REGISTER, { submission: {} }));
 
     expect(store.registrar).toHaveBeenCalledOnce();
+  });
+
+  it.each([QueryKind.CONSULTAR_ACEPTACION_TERMINOS, QueryKind.REGISTRAR_ACEPTACION_TERMINOS])(
+    "rejects the %s query of the denuncia when the incidencias are off",
+    async (kind) => {
+      vi.stubEnv("INCIDENCIAS_ENABLED", "false");
+
+      await expect(
+        runTurnUnlocked(FROM, event, undefined, startWith(kind, { canal: "whatsapp", flujo: "DENUNCIA", documentos: DOCUMENTOS })),
+      ).rejects.toThrow(DisabledServiceQueryError);
+    },
+  );
+
+  it("still resolves the acceptance of the cita when the incidencias are off", async () => {
+    vi.stubEnv("INCIDENCIAS_ENABLED", "false");
+
+    await expect(
+      runTurnUnlocked(
+        FROM,
+        event,
+        undefined,
+        startWith(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { flujo: "CITA", documentos: DOCUMENTOS }),
+      ),
+    ).resolves.toBeDefined();
   });
 
   it("rejects the list of referencias when the referencias are off", async () => {
