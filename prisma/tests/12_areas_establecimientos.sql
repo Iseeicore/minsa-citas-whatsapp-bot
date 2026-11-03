@@ -19,7 +19,7 @@ $$;
 DO $$
 BEGIN
   ASSERT (SELECT string_agg(codigo, ',' ORDER BY id) FROM catalogo.tipo_area WHERE recibe_sensibles) = 'OTRANS', 'A01 solo el tipo OTRANS recibe casos sensibles';
-  ASSERT (SELECT count(*) FROM catalogo.tipo_area WHERE activo) = 5 AND (SELECT count(*) FROM catalogo.nivel_atencion WHERE activo) = 3
+  ASSERT (SELECT count(*) FROM catalogo.tipo_area WHERE activo) = 6 AND (SELECT count(*) FROM catalogo.nivel_atencion WHERE activo) = 3
          AND (SELECT count(*) FROM catalogo.motivo_archivo WHERE activo) = 4, 'A01 los tres catalogos nuevos nacen activos y completos';
   ASSERT (SELECT usuario_creacion FROM catalogo.motivo_archivo WHERE codigo = 'DATOS_INSUFICIENTES') = 'sistema:semilla', 'A01 la semilla firma los catalogos';
   ASSERT (SELECT a.id || ':' || a.nombre || ':' || ta.codigo || ':' || coalesce(a.padre_id::text, '-') || ':' || a.activo

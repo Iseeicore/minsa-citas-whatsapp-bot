@@ -7,8 +7,11 @@ SELECT (SELECT count(*) FROM catalogo.area) AS areas,
        (SELECT count(*) FROM catalogo.establecimiento_salud) AS establecimientos,
        (SELECT coalesce(sum(version_fila), 0) FROM catalogo.establecimiento_salud) AS versiones;
 
-CREATE TEMP TABLE IF NOT EXISTS eess_fuente (codigo_renipress text, nombre text, nivel text, categoria text, diris text, departamento text, provincia text, distrito text) ON COMMIT DROP;
-INSERT INTO eess_fuente (codigo_renipress, nombre, nivel, categoria, diris, departamento, provincia, distrito)
+CREATE TEMP TABLE IF NOT EXISTS eess_modo (padron_completo boolean NOT NULL) ON COMMIT DROP;
+CREATE TEMP TABLE eess_carga ON COMMIT DROP AS SELECT EXISTS (SELECT 1 FROM eess_modo WHERE padron_completo) AS padron_completo;
+
+CREATE TEMP TABLE IF NOT EXISTS eess_fuente (codigo_renipress text, nombre text, nivel text, categoria text, autoridad_sanitaria text, departamento text, provincia text, distrito text, estado text) ON COMMIT DROP;
+INSERT INTO eess_fuente (codigo_renipress, nombre, nivel, categoria, autoridad_sanitaria, departamento, provincia, distrito)
 SELECT padron.* FROM (VALUES
   ('5946', 'Hospital Nacional Hipólito Unanue', 'III', NULL, 'DIRIS Lima Este', NULL, NULL, NULL),
   ('6206', 'HOSPITAL NACIONAL DOS DE MAYO', 'III', NULL, 'DIRIS Lima Centro', NULL, NULL, NULL),
@@ -444,19 +447,27 @@ SELECT padron.* FROM (VALUES
   ('38122', 'CENTRO DE SALUD MENTAL COMUNITARIO REYNALDO ALARCON', 'I', 'I-3', 'DIRIS Lima Sur', NULL, NULL, NULL),
   ('38137', 'C.S.M. COMUNITARIO LINCE', 'I', 'I-3', 'DIRIS Lima Centro', NULL, NULL, NULL),
   ('38543', 'FORTALEZA', 'I', 'I-3', 'DIRIS Lima Este', 'Lima', 'Lima', 'Ate')
-) AS padron (codigo_renipress, nombre, nivel, categoria, diris, departamento, provincia, distrito)
-WHERE NOT EXISTS (SELECT 1 FROM eess_fuente);
+) AS padron (codigo_renipress, nombre, nivel, categoria, autoridad_sanitaria, departamento, provincia, distrito)
+WHERE NOT EXISTS (SELECT 1 FROM eess_fuente) AND NOT (SELECT padron_completo FROM eess_carga);
+
+CREATE OR REPLACE FUNCTION pg_temp.eess_clave_autoridad(p_nombre text) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT btrim(regexp_replace(upper(public.f_unaccent(p_nombre)), '[^A-Z0-9]+', '-', 'g'), '-')
+$$;
 
 CREATE TEMP TABLE eess_normalizado ON COMMIT DROP AS
 SELECT regexp_replace(btrim(f.codigo_renipress), '^0+', '') AS codigo_renipress,
        btrim(f.nombre) AS nombre,
        btrim(f.nivel) AS nivel,
        nullif(btrim(f.categoria), '') AS categoria,
-       btrim(f.diris) AS diris,
+       btrim(f.autoridad_sanitaria) AS autoridad_sanitaria,
+       coalesce(pg_temp.eess_clave_autoridad(f.autoridad_sanitaria), '') AS clave_autoridad,
        nullif(btrim(f.departamento), '') AS departamento,
        nullif(btrim(f.provincia), '') AS provincia,
-       nullif(btrim(f.distrito), '') AS distrito
+       nullif(btrim(f.distrito), '') AS distrito,
+       upper(nullif(btrim(f.estado), '')) AS estado
   FROM eess_fuente f;
+ANALYZE eess_normalizado;
 
 CREATE TEMP TABLE eess_diris (codigo text PRIMARY KEY, nombre text NOT NULL UNIQUE) ON COMMIT DROP;
 INSERT INTO eess_diris (codigo, nombre) VALUES
@@ -465,26 +476,47 @@ INSERT INTO eess_diris (codigo, nombre) VALUES
   ('DIRIS-LC', 'DIRIS Lima Centro'),
   ('DIRIS-LS', 'DIRIS Lima Sur');
 
+CREATE TEMP TABLE eess_autoridad ON COMMIT DROP AS
+SELECT n.clave_autoridad AS clave,
+       coalesce(d.codigo, 'AUT-' || n.clave_autoridad) AS codigo,
+       coalesce(d.nombre, min(n.autoridad_sanitaria)) AS nombre,
+       d.codigo IS NULL AS regional
+  FROM eess_normalizado n
+  LEFT JOIN eess_diris d ON pg_temp.eess_clave_autoridad(d.nombre) = n.clave_autoridad
+ GROUP BY n.clave_autoridad, d.codigo, d.nombre;
+
 DO $$
 DECLARE
   v_malas text;
 BEGIN
+  IF (SELECT padron_completo FROM eess_carga) AND NOT EXISTS (SELECT 1 FROM eess_normalizado) THEN
+    RAISE EXCEPTION 'eess: el padron completo llego vacio; no se desactiva ningun establecimiento';
+  END IF;
+
   SELECT string_agg(coalesce(n.codigo_renipress, '?'), ', ') INTO v_malas FROM eess_normalizado n
-   WHERE n.codigo_renipress !~ '^[1-9][0-9]{0,7}$' OR n.nombre = '';
+   WHERE coalesce(n.codigo_renipress, '') !~ '^[1-9][0-9]{0,7}$' OR coalesce(n.nombre, '') = '';
   IF v_malas IS NOT NULL THEN
     RAISE EXCEPTION 'eess: codigo RENIPRESS o nombre invalido en: %', v_malas;
   END IF;
 
-  SELECT string_agg(DISTINCT n.nivel, ', ') INTO v_malas FROM eess_normalizado n
+  SELECT string_agg(DISTINCT coalesce(n.nivel, '(vacio)'), ', ') INTO v_malas FROM eess_normalizado n
    WHERE NOT EXISTS (SELECT 1 FROM catalogo.nivel_atencion na WHERE na.codigo = n.nivel);
   IF v_malas IS NOT NULL THEN
     RAISE EXCEPTION 'eess: nivel de atencion desconocido: %', v_malas;
   END IF;
 
-  SELECT string_agg(DISTINCT n.diris, ', ') INTO v_malas FROM eess_normalizado n
-   WHERE NOT EXISTS (SELECT 1 FROM eess_diris d WHERE d.nombre = n.diris);
+  SELECT string_agg(n.codigo_renipress, ', ') INTO v_malas FROM eess_normalizado n WHERE n.clave_autoridad = '';
   IF v_malas IS NOT NULL THEN
-    RAISE EXCEPTION 'eess: DIRIS desconocida: %', v_malas;
+    RAISE EXCEPTION 'eess: autoridad sanitaria vacia en: %', v_malas;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM eess_autoridad WHERE regional) AND NOT EXISTS (SELECT 1 FROM catalogo.tipo_area WHERE codigo = 'DIRESA') THEN
+    RAISE EXCEPTION 'eess: falta el tipo de area DIRESA; aplique las semillas de catalogo (npm run db:aplicar) antes';
+  END IF;
+
+  SELECT string_agg(DISTINCT n.estado, ', ') INTO v_malas FROM eess_normalizado n WHERE n.estado NOT IN ('ACTIVO', 'INACTIVO');
+  IF v_malas IS NOT NULL THEN
+    RAISE EXCEPTION 'eess: estado desconocido (se espera ACTIVO o INACTIVO): %', v_malas;
   END IF;
 
   SELECT string_agg(n.codigo_renipress, ', ') INTO v_malas FROM (
@@ -501,33 +533,52 @@ SELECT d.codigo, d.nombre, (SELECT id FROM catalogo.tipo_area WHERE codigo = 'DI
 ON CONFLICT (codigo) DO UPDATE SET nombre = EXCLUDED.nombre, tipo_area_id = EXCLUDED.tipo_area_id
  WHERE (catalogo.area.nombre, catalogo.area.tipo_area_id) IS DISTINCT FROM (EXCLUDED.nombre, EXCLUDED.tipo_area_id);
 
+INSERT INTO catalogo.area (codigo, nombre, tipo_area_id)
+SELECT au.codigo, au.nombre, (SELECT id FROM catalogo.tipo_area WHERE codigo = 'DIRESA')
+  FROM eess_autoridad au
+ WHERE au.regional
+ON CONFLICT (codigo) DO UPDATE SET nombre = EXCLUDED.nombre, tipo_area_id = EXCLUDED.tipo_area_id
+ WHERE (catalogo.area.nombre, catalogo.area.tipo_area_id) IS DISTINCT FROM (EXCLUDED.nombre, EXCLUDED.tipo_area_id);
+
 INSERT INTO catalogo.area (codigo, nombre, tipo_area_id, padre_id)
 SELECT 'EESS-' || n.codigo_renipress, n.nombre, (SELECT id FROM catalogo.tipo_area WHERE codigo = 'ESTABLECIMIENTO'), padre.id
   FROM eess_normalizado n
-  JOIN eess_diris d ON d.nombre = n.diris
-  JOIN catalogo.area padre ON padre.codigo = d.codigo
+  JOIN eess_autoridad au ON au.clave = n.clave_autoridad
+  JOIN catalogo.area padre ON padre.codigo = au.codigo
 ON CONFLICT (codigo) DO UPDATE SET nombre = EXCLUDED.nombre, tipo_area_id = EXCLUDED.tipo_area_id, padre_id = EXCLUDED.padre_id
  WHERE (catalogo.area.nombre, catalogo.area.tipo_area_id, catalogo.area.padre_id)
        IS DISTINCT FROM (EXCLUDED.nombre, EXCLUDED.tipo_area_id, EXCLUDED.padre_id);
 
-INSERT INTO catalogo.establecimiento_salud (codigo_renipress, nombre, nivel_atencion_id, categoria, departamento, provincia, distrito, area_id)
-SELECT n.codigo_renipress, n.nombre, na.id, n.categoria, n.departamento, n.provincia, n.distrito, a.id
+INSERT INTO catalogo.establecimiento_salud (codigo_renipress, nombre, nivel_atencion_id, categoria, departamento, provincia, distrito, area_id, activo)
+SELECT n.codigo_renipress, n.nombre, na.id, n.categoria, n.departamento, n.provincia, n.distrito, a.id,
+       CASE WHEN n.estado IS NOT NULL THEN n.estado = 'ACTIVO'
+            WHEN c.padron_completo THEN true
+            ELSE coalesce(actual.activo, true) END
   FROM eess_normalizado n
+  CROSS JOIN eess_carga c
   JOIN catalogo.nivel_atencion na ON na.codigo = n.nivel
   JOIN catalogo.area a ON a.codigo = 'EESS-' || n.codigo_renipress
+  LEFT JOIN catalogo.establecimiento_salud actual ON actual.codigo_renipress = n.codigo_renipress
 ON CONFLICT (codigo_renipress) DO UPDATE
    SET nombre = EXCLUDED.nombre, nivel_atencion_id = EXCLUDED.nivel_atencion_id, categoria = EXCLUDED.categoria,
-       departamento = EXCLUDED.departamento, provincia = EXCLUDED.provincia, distrito = EXCLUDED.distrito, area_id = EXCLUDED.area_id
+       departamento = EXCLUDED.departamento, provincia = EXCLUDED.provincia, distrito = EXCLUDED.distrito, area_id = EXCLUDED.area_id,
+       activo = EXCLUDED.activo
  WHERE (catalogo.establecimiento_salud.nombre, catalogo.establecimiento_salud.nivel_atencion_id, catalogo.establecimiento_salud.categoria,
         catalogo.establecimiento_salud.departamento, catalogo.establecimiento_salud.provincia, catalogo.establecimiento_salud.distrito,
-        catalogo.establecimiento_salud.area_id)
+        catalogo.establecimiento_salud.area_id, catalogo.establecimiento_salud.activo)
        IS DISTINCT FROM (EXCLUDED.nombre, EXCLUDED.nivel_atencion_id, EXCLUDED.categoria,
-                         EXCLUDED.departamento, EXCLUDED.provincia, EXCLUDED.distrito, EXCLUDED.area_id);
+                         EXCLUDED.departamento, EXCLUDED.provincia, EXCLUDED.distrito, EXCLUDED.area_id, EXCLUDED.activo);
 
-SELECT 'Establecimientos: ' || e.n || ' (nuevos: ' || (e.n - a.establecimientos) || ', actualizados: ' || ((e.v - a.versiones) - (e.n - a.establecimientos)) || ')'
+UPDATE catalogo.establecimiento_salud es SET activo = false
+ WHERE es.activo
+   AND (SELECT padron_completo FROM eess_carga)
+   AND NOT EXISTS (SELECT 1 FROM eess_normalizado n WHERE n.codigo_renipress = es.codigo_renipress);
+
+SELECT 'Establecimientos: ' || e.n || ' (nuevos: ' || (e.n - a.establecimientos) || ', actualizados: ' || ((e.v - a.versiones) - (e.n - a.establecimientos))
+       || ', inactivos: ' || e.inactivos || ')'
        || E'\nAreas: ' || ar.n || ' (nuevas: ' || (ar.n - a.areas) || ')'
   FROM eess_antes a,
-       (SELECT count(*) AS n, coalesce(sum(version_fila), 0) AS v FROM catalogo.establecimiento_salud) e,
+       (SELECT count(*) AS n, count(*) FILTER (WHERE NOT activo) AS inactivos, coalesce(sum(version_fila), 0) AS v FROM catalogo.establecimiento_salud) e,
        (SELECT count(*) AS n FROM catalogo.area) ar;
 
 COMMIT;

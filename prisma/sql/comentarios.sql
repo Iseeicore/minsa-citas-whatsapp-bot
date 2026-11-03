@@ -238,7 +238,7 @@ COMMENT ON COLUMN catalogo.tipo_area.fecha_creacion IS 'Fecha y hora (UTC) en qu
 COMMENT ON COLUMN catalogo.tipo_area.usuario_creacion IS 'Quién creó la fila, con el formato tipo:detalle (por ejemplo ciudadano:{waId} o sistema:bot). La llena un disparador con el actor que declaró la aplicación o, si no declaró, con el rol de la base.';
 COMMENT ON COLUMN catalogo.tipo_area.fecha_modificacion IS 'Fecha y hora (UTC) de la última modificación. La llena un disparador.';
 COMMENT ON COLUMN catalogo.tipo_area.usuario_modificacion IS 'Quién hizo la última modificación, con el mismo formato que usuario_creacion. La llena un disparador.';
-COMMENT ON TABLE catalogo.tipo_area IS 'Tipo de área a la que se puede derivar una incidencia: establecimiento, OTRANS, DIRIS, instituto o sede central. Define además qué tipos reciben denuncias sensibles y a qué tipo pertenece cada rol de gestión.';
+COMMENT ON TABLE catalogo.tipo_area IS 'Tipo de área a la que se puede derivar una incidencia: establecimiento, OTRANS, DIRIS, DIRESA o GERESA, instituto o sede central. Define además qué tipos reciben denuncias sensibles y a qué tipo pertenece cada rol de gestión.';
 COMMENT ON COLUMN catalogo.tipo_evidencia.id IS 'Identificador numérico pequeño y fijo del valor. Es el que referencian las demás tablas.';
 COMMENT ON COLUMN catalogo.tipo_evidencia.codigo IS 'Código estable y único del valor. Es el que usa el código de la aplicación.';
 COMMENT ON COLUMN catalogo.tipo_evidencia.nombre IS 'Nombre legible del valor, para mostrar en pantalla.';

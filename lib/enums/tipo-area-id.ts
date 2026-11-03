@@ -4,4 +4,5 @@ export enum TipoAreaId {
   DIRIS = 3,
   INSTITUTO = 4,
   ORGANISMO = 5,
+  DIRESA = 6,
 }

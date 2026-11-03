@@ -10,7 +10,7 @@ PostgreSQL 16. Cada cosa vive en un solo sitio:
 | `sql/triggers/` | Los disparadores, agrupados por la función que llaman |
 | `sql/comentarios.sql` | Descripción (`COMMENT ON`) de esquemas, tablas, columnas y llaves foráneas; se edita a mano y es la única fuente |
 | `seeds/catalogos/` | Datos de referencia que el sistema necesita (estados, motivos, categorías con sus plazos, roles) |
-| `seeds/eess/`, `seeds/dev/` | Padrón completo (`seeds/eess/establecimientos.sql`: datos y carga en un solo archivo) y datos de desarrollo; no van en la imagen |
+| `seeds/eess/`, `seeds/dev/` | Padrón de establecimientos (`seeds/eess/establecimientos.sql`: los 434 de Lima y la carga en un solo archivo, que también carga un CSV completo) y datos de desarrollo; no van en la imagen |
 | `tests/` | Pruebas SQL |
 | `dba/` | Lo que corre solo un DBA, a mano (roles y permisos); ni el arranque ni `db:aplicar` ni `db:test` lo leen |
 
@@ -69,6 +69,41 @@ La ejecuta un DBA con el usuario dueño de la base, una sola vez, después de qu
    ```
 
 Los pasos 1 y 3 se pueden repetir sin riesgo.
+
+## Padrón de establecimientos
+
+`npm run db:seed:eess` carga el padrón con `seeds/eess/establecimientos.sql`, en una sola transacción: si una fila no pasa la validación, no cambia nada. Repetir la misma carga no crea filas ni sube `version_fila`. Nunca borra un establecimiento.
+
+- **Sin `--archivo`**: carga los 434 establecimientos de Lima que trae el archivo y no toca `activo`.
+- **Con `--archivo=<ruta.csv>`**: carga el padrón completo desde el CSV con `\copy` (`COPY` del lado de `psql`). Cada fila crea o actualiza su establecimiento con el `activo` que dice su `estado`, y todo establecimiento que no viene en el archivo queda con `activo = false`.
+
+```bash
+DATABASE_URL=postgresql://<usuario>:<clave>@<host>:5432/<base> npm run db:seed:eess -- --archivo=/ruta/padron.csv --base-real=<base>
+```
+
+Formato del CSV: UTF-8 sin BOM, separado por comas, valores con comas o comillas entre comillas dobles. La primera línea es esta cabecera exacta, en este orden (si no coincide, la carga se niega):
+
+```text
+codigo_renipress,nombre,nivel,categoria,autoridad_sanitaria,departamento,provincia,distrito,estado
+```
+
+| Columna | Obligatoria | Regla |
+|---|---|---|
+| `codigo_renipress` | Sí | Solo dígitos; se quitan los ceros a la izquierda (`00005946` = `5946`). No se puede repetir en el archivo |
+| `nombre` | Sí | Nombre del establecimiento |
+| `nivel` | Sí | `I`, `II` o `III` |
+| `categoria` | No | Por ejemplo `I-3`; vacía queda nula |
+| `autoridad_sanitaria` | Sí | DIRIS, DIRESA o GERESA de la que depende |
+| `departamento`, `provincia`, `distrito` | No | Vacías quedan nulas |
+| `estado` | No | `ACTIVO` o `INACTIVO`, sin importar mayúsculas ni espacios; vacío es `ACTIVO` |
+
+Autoridad sanitaria:
+
+- Las cuatro DIRIS de Lima (`DIRIS Lima Centro`, `Este`, `Norte` y `Sur`, con o sin tildes ni mayúsculas) conservan sus áreas `DIRIS-LC`, `DIRIS-LE`, `DIRIS-LN` y `DIRIS-LS`.
+- Cualquier otra autoridad crea o actualiza un área de tipo `DIRESA` con código `AUT-<nombre normalizado>`: sin tildes, en mayúsculas y con guiones en lugar de lo que no es letra ni número (`GERESA La Libertad` → `AUT-GERESA-LA-LIBERTAD`).
+- Cada establecimiento tiene su área `EESS-<renipress>`, hija de su autoridad.
+
+La carga se niega, sin cambiar nada, si el archivo no tiene filas, si un código o un nombre no es válido, si el nivel no existe, si la autoridad está vacía, si el estado no es `ACTIVO` ni `INACTIVO` o si un código se repite. Con 30 000 filas tarda unos 4 segundos.
 
 ## Auditoría
 
@@ -163,5 +198,5 @@ Pasos:
 | `npx prisma migrate deploy` | Aplica las migraciones pendientes |
 | `npm run db:aplicar` | Aplica `sql/` y `seeds/catalogos/` |
 | `npm run db:test` | Arma una base desechable con todo lo anterior y corre `tests/` (necesita `psql`) |
-| `npm run db:seed:eess` | Carga el padrón de establecimientos ejecutando `seeds/eess/establecimientos.sql` en una sola transacción; repetirlo no crea nada nuevo. Solo en bases que terminan en `_desechable`, `_dev` o `_local`, o con `--base-real=<base>` (necesita `psql`) |
+| `npm run db:seed:eess` | Carga el padrón de establecimientos ejecutando `seeds/eess/establecimientos.sql` en una sola transacción; repetirlo no crea nada nuevo. Con `--archivo=<ruta.csv>` carga el padrón completo y desactiva lo que no viene en el archivo (ver [Padrón de establecimientos](#padrón-de-establecimientos)). Solo en bases que terminan en `_desechable`, `_dev` o `_local`, o con `--base-real=<base>` (necesita `psql`) |
 | `npm run smoke:postgres` | Pruebas de humo con Prisma Client contra una base armada |

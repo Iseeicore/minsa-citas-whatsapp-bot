@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 \set QUIET on
 
-CREATE TEMP TABLE eess_fuente (codigo_renipress text, nombre text, nivel text, categoria text, diris text, departamento text, provincia text, distrito text);
+CREATE TEMP TABLE eess_fuente (codigo_renipress text, nombre text, nivel text, categoria text, autoridad_sanitaria text, departamento text, provincia text, distrito text, estado text);
 INSERT INTO eess_fuente VALUES
   ('00016206', ' HOSPITAL SEMILLA UNO ', 'III', NULL, 'DIRIS Lima Centro', NULL, NULL, NULL),
   ('16207', 'CENTRO DE SALUD SEMILLA DOS', 'I', 'I-3', 'DIRIS Lima Sur', 'Lima', 'Lima', 'Chorrillos'),

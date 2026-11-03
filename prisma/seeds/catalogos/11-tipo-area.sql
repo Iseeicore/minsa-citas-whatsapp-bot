@@ -5,7 +5,8 @@ INSERT INTO catalogo.tipo_area (id, codigo, nombre, descripcion, recibe_sensible
   (2, 'OTRANS', 'Oficina de transparencia', 'Área que atiende las denuncias sensibles (corrupción)', true, true),
   (3, 'DIRIS', 'DIRIS', 'Dirección de Redes Integradas de Salud', false, true),
   (4, 'INSTITUTO', 'Instituto', 'Instituto especializado', false, true),
-  (5, 'ORGANISMO', 'Organismo o programa', 'Organismo público adscrito o programa nacional del MINSA (SIS, SUSALUD, INS, FISSAL, CENARES, PRONIS)', false, true)
+  (5, 'ORGANISMO', 'Organismo o programa', 'Organismo público adscrito o programa nacional del MINSA (SIS, SUSALUD, INS, FISSAL, CENARES, PRONIS)', false, true),
+  (6, 'DIRESA', 'DIRESA o GERESA', 'Dirección o Gerencia Regional de Salud', false, true)
 ON CONFLICT (id) DO UPDATE SET
   codigo = EXCLUDED.codigo,
   nombre = EXCLUDED.nombre,

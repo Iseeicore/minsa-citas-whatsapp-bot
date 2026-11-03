@@ -249,7 +249,7 @@ Las funciones `catalogo.cargar_hospitales_fase_1`, `catalogo.retirar_hospitales_
 
    - Crea o corrige las áreas `DIRIS-LC` y `DIRIS-LE`, el área `EESS-<código>` de cada hospital (hija de su DIRIS) y su fila en `catalogo.establecimiento_salud` con nivel de atención III. Todo ocurre en una sola transacción: o queda completo o no cambia nada.
    - Devuelve cuántos hospitales **creó o corrigió**: `4` la primera vez y `0` si ya estaban iguales. Se puede ejecutar más de una vez sin duplicar filas ni dejar registros de auditoría.
-   - Si el padrón completo se carga después con `npm run db:seed:eess`, no cambia estos 4 hospitales.
+   - Si el padrón de Lima se carga después con `npm run db:seed:eess`, no cambia estos 4 hospitales. La carga del padrón completo con `--archivo=<ruta.csv>` los actualiza con los datos del archivo y desactiva los que no vengan en él.
 
 2. Verificar que quedaron los 4 hospitales (deben salir 4 filas):
 
