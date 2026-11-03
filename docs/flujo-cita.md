@@ -17,7 +17,8 @@ Mapa de cada paso del flujo de cita: qué envía el bot (lista, botones o texto)
 
 ```
 Primer mensaje
-├─ saludo o vacío ─────────────► 🔗 bienvenida ─► main_menu
+├─ saludo o vacío ─────────────► 🔘 bienvenida [Continuar mi cita] / [Cita con referencia] ─► main_menu
+│                                 (el enlace al portal va en el texto; sin REFERENCIAS_ENABLED, solo [Continuar mi cita])
 ├─ "1" / "cita" ───────────────► [términos] 💬 pide documento
 ├─ "referencia" / "cita con referencia"
 │                               ► 💬 pide iniciar sesión (Cita con referencia: flujo-referencias.md)
@@ -133,7 +134,7 @@ La referencia aporta destino y especialidad; la API de reserva sigue necesitando
 | Paso | El bot envía | Texto libre que entiende | Varias coincidencias | IA |
 |---|---|---|---|---|
 | Términos y datos personales (con `TERMINOS_ENABLED=true`) | Chat-bot: ventana con dos casillas, **Continuar** y **No acepto**. whatsapp-bot: 🔗 **Ver documentos** (con `TERMINOS_URL`) + 🔘 [Acepto ambos] [No acepto] | «acepto», «acepto ambos», «sí, acepto» / «no acepto» | — | no |
-| Bienvenida | 🔗 CTA "Continuar mi cita" | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
+| Bienvenida | 🔘 "Continuar mi cita" (agendar cita) y "Cita con referencia" (solo con `REFERENCIAS_ENABLED`); el enlace al portal va en el texto | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
 | Menú principal | 📋 filas de los servicios (Agendar una cita médica; Cita con referencia; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
 | Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |
 | Registro pendiente | 🔗 + 🔘 [Ya me registré] | nada (solo el botón) | — | no |

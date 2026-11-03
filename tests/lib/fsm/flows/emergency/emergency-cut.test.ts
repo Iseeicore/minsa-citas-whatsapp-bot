@@ -150,7 +150,7 @@ describe("the conversation can start again after the cut", () => {
 
     const next = handle(closed, text("Hola"));
 
-    expect(sent(next)[0]).toMatchObject({ kind: "send_cta_url" });
+    expect(sent(next)[0]).toMatchObject({ kind: "send_buttons" });
     expect(next.session.state).toBe("main_menu");
   });
 

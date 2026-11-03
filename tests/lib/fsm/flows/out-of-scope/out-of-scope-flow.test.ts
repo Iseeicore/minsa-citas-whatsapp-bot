@@ -173,7 +173,7 @@ describe("first contact", () => {
   });
 
   it("a greeting still gets the welcome, and a plain request its flow", () => {
-    expect(sent(handleFirstContact("Hola", "whatsapp"))[0]).toMatchObject({ kind: "send_cta_url" });
+    expect(sent(handleFirstContact("Hola", "whatsapp"))[0]).toMatchObject({ kind: "send_buttons" });
     expect(handleFirstContact("quiero una cita de odontología en Miraflores", "whatsapp").session.state).toBe("cita_awaiting_cuenta_minsa");
   });
 });
