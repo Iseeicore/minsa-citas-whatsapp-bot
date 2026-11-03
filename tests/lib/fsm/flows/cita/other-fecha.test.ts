@@ -272,7 +272,7 @@ describe("«no, salir»: an apology and a goodbye, and the session is closed", (
     const closed = handle(askedForAnotherDate(), tap("cita_otra_fecha_no"));
     const next = handle(closed.session, text("Hola"));
 
-    expect(sent(next)[0]).toMatchObject({ kind: "send_cta_url" });
+    expect(sent(next)[0]).toMatchObject({ kind: "send_buttons" });
     expect(next.session.slots[SlotKey.CITA_BEARER]).toBeUndefined();
   });
 });
