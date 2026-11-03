@@ -1,6 +1,6 @@
-import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
-import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { EstablecimientoPageRowId } from "@/lib/enums/botones/establecimiento-page-row-id";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
+import { ListPageButtonId } from "@/lib/enums/botones/list-page-button-id";
 import { PagerDirection } from "@/lib/enums/pager-direction";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import type { ListRow } from "@/lib/fsm/core/types";

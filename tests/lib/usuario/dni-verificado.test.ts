@@ -7,7 +7,7 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import { createMemoryDniVerificadoStore, createPrismaDniVerificadoStore, saveDniVerificado } from "@/lib/usuario/dni-verificado";
-import { DniVerificadoStatus } from "@/lib/enums/dni-verificado-status";
+import { DniVerificadoStatus } from "@/lib/enums/cita/dni-verificado-status";
 import type { DniVerificadoStore } from "@/lib/types/dni-verificado.types";
 import { captureLogs } from "@/tests/support/capture-logs";
 

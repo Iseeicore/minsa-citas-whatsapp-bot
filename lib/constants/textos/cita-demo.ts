@@ -1,5 +1,5 @@
 import { ANALYZING_CUENTA_TEXT } from "@/lib/constants/textos/cita-identidad";
-import { DemoConfirmButtonId } from "@/lib/enums/demo-confirm-button-id";
+import { DemoConfirmButtonId } from "@/lib/enums/botones/demo-confirm-button-id";
 import { SI_CONFIRMAR_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 
 export const DEMO_ANALYZING_TEXT = `${ANALYZING_CUENTA_TEXT} cuenta con referencias:`;

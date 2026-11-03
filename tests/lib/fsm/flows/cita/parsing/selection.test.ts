@@ -4,7 +4,7 @@ import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers
 import { packHoraSlots } from "@/lib/fsm/parsing/date/time-parser";
 import type { InboundEvent, Session } from "@/lib/fsm/core/types";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";

@@ -1,5 +1,5 @@
-import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { EvidenceRejection } from "@/lib/enums/evidence-rejection";
 import { MAX_DESCRIPCION_LENGTH } from "@/lib/constants/limits/incidencia";
 import { CHANNELS } from "@/lib/constants/textos/canales-oficiales";

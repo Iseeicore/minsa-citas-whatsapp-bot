@@ -1,5 +1,5 @@
-import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { TERMINOS_CONTENIDO, TERMINOS_TITULO_TEXT, TERMINOS_VERSION } from "@/lib/constants/textos/terminos";
 import {

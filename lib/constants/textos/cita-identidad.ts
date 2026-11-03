@@ -1,7 +1,7 @@
 import { ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-ubicacion";
-import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
-import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
-import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
+import { CuentaMinsaButtonId } from "@/lib/enums/botones/cuenta-minsa-button-id";
+import { ReauthButtonId } from "@/lib/enums/botones/reauth-button-id";
+import { RegistrationButtonId } from "@/lib/enums/botones/registration-button-id";
 
 export const MINSADIGITAL_BUTTON_TEXT = "Ir a Minsa Responde";
 export const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";

@@ -1,5 +1,5 @@
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
-import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
+import { OtherReferenciaButtonId } from "@/lib/enums/botones/other-referencia-button-id";
 import { SI_BUTTON_TEXT, NO_SALIR_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 
 export const CITA_REFERENCIA_OTHER_BUTTONS = [

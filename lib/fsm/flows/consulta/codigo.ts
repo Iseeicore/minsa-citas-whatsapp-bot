@@ -18,7 +18,7 @@ import {
 } from "@/lib/constants/textos/consulta";
 import { MAX_INTENTOS_CODIGO } from "@/lib/constants/limits/consulta";
 import { Confirmation } from "@/lib/enums/confirmation";
-import { ConsultaTipoButtonId } from "@/lib/enums/consulta-tipo-button-id";
+import { ConsultaTipoButtonId } from "@/lib/enums/botones/consulta-tipo-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";

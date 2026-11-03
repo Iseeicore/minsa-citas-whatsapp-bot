@@ -6,11 +6,11 @@ import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
-import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
+import { HoraConfirmButtonId } from "@/lib/enums/botones/hora-confirm-button-id";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
 import { REFERENCIA_DUPLICATE_TEXT, REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-reserva";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { OtherReferenciaButtonId } from "@/lib/enums/botones/other-referencia-button-id";
 
 const WEB_REFERENCIAS: ReferenciaItem[] = [
   { id: "1364486", destino: "5987", ups: "222800", especialidad: "GASTROENTEROLOGÍA" },

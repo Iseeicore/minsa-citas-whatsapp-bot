@@ -27,7 +27,7 @@ import { extractCodigoIncidencia, isConsultaKeyword } from "@/lib/fsm/parsing/te
 import { beginIncidencia } from "@/lib/fsm/flows/incidencia/inicio";
 import { parseInicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { detectOutOfScope, isCitaKeyword, isContinueKeyword } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-id";
+import { ReferenciaChoiceButtonId } from "@/lib/enums/botones/referencia-choice-button-id";
 import { REFERENCIA_CHOICE_BUTTONS } from "@/lib/constants/textos/referencia";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session, SessionChannel } from "@/lib/fsm/core/types";

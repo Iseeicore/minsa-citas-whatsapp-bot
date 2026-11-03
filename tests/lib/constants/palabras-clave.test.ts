@@ -10,9 +10,9 @@ import { TERMINOS_BUTTONS } from "@/lib/constants/textos/terminos";
 import { OTRA_SEDE_BUTTON_TEXT } from "@/lib/constants/textos/cita-catalogo";
 import { OTRA_ESPECIALIDAD_BUTTON_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
-import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
-import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { ListPageButtonId } from "@/lib/enums/botones/list-page-button-id";
+import { OtherDistritoButtonId } from "@/lib/enums/botones/other-distrito-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
 
 describe("mapas de palabras clave", () => {
   it("son mapas con claves de texto y responden igual que antes", () => {

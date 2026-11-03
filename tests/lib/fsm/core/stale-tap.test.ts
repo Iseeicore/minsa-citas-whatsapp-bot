@@ -22,7 +22,7 @@ vi.mock("@/lib/composition/stores", () => import("@/tests/support/memory-stores"
 
 import { runTurn, runTurnUnlocked, type TurnHooks } from "@/lib/fsm/core/executor";
 import { configureLogger } from "@/lib/observability/logger";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { SessionState } from "@/lib/enums/session-state";
@@ -32,7 +32,7 @@ import { HandlerOutcome } from "@/lib/enums/handler-outcome";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
-import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-id";
+import { ReferenciaChoiceButtonId } from "@/lib/enums/botones/referencia-choice-button-id";
 
 const FROM = "51999000444";
 const RESUMEN_WAMID = "wamid.resumen";

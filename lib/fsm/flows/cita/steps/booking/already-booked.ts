@@ -6,7 +6,7 @@ import { isReferenceAppointment } from "@/lib/fsm/flows/cita/steps/booking/refer
 import { discardedDates } from "@/lib/fsm/flows/cita/steps/fecha/other-fecha";
 import { abandonCita } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { AlreadyBookedButtonId } from "@/lib/enums/already-booked-button-id";
+import { AlreadyBookedButtonId } from "@/lib/enums/botones/already-booked-button-id";
 import { BookingStatus } from "@/lib/enums/booking-status";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";

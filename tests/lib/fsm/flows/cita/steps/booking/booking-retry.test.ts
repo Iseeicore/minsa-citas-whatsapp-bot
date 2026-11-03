@@ -3,7 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { startBooking } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { findButtonReprompt } from "@/lib/fsm/flows/shared/button-reprompts";
 import type { Session } from "@/lib/fsm/core/types";
-import { BookingRetryButtonId } from "@/lib/enums/booking-retry-button-id";
+import { BookingRetryButtonId } from "@/lib/enums/botones/booking-retry-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";

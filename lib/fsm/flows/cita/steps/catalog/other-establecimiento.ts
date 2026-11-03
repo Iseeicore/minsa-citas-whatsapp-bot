@@ -12,7 +12,7 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import { offerOtherDistrito } from "@/lib/fsm/flows/cita/steps/catalog/no-coverage";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
-import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
+import { OtherEstablecimientoButtonId } from "@/lib/enums/botones/other-establecimiento-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { QueryKind } from "@/lib/enums/query-kind";

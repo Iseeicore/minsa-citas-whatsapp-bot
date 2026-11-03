@@ -3,7 +3,7 @@ import { toNumberedTextEffect } from "@/lib/whatsapp/message-fallback";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import { SendType } from "@/lib/enums/send-type";
 import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
 
 describe("toNumberedTextEffect: a message Meta would refuse becomes a plain text with numbered options", () => {
   it("writes the body and then the buttons as a numbered list", () => {

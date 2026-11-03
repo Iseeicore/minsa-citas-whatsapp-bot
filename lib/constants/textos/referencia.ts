@@ -1,7 +1,7 @@
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import { NO_BUTTON_TEXT, SI_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
-import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
-import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-id";
+import { ReferenciaCitaOfferButtonId } from "@/lib/enums/botones/referencia-cita-offer-button-id";
+import { ReferenciaChoiceButtonId } from "@/lib/enums/botones/referencia-choice-button-id";
 
 export const REFERENCIA_LOGIN_REQUIRED_TEXT = `Para agendar una cita con referencia debes iniciar sesión. ${ASK_DOCUMENTO_TEXT}`;
 export const REFERENCIA_NONE_TEXT = "No cuentas con referencias registradas.";

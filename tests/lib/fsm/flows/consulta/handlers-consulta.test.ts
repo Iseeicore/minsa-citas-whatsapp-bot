@@ -29,8 +29,8 @@ import {
 } from "@/lib/constants/textos/consulta";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
-import { ConsultaTipoButtonId } from "@/lib/enums/consulta-tipo-button-id";
-import { ConsultaEstablecimientoButtonId } from "@/lib/enums/consulta-establecimiento-button-id";
+import { ConsultaTipoButtonId } from "@/lib/enums/botones/consulta-tipo-button-id";
+import { ConsultaEstablecimientoButtonId } from "@/lib/enums/botones/consulta-establecimiento-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { CupoDiarioStatus } from "@/lib/enums/cupo-diario-status";
 import { EstablecimientoSearchBy } from "@/lib/enums/establecimiento-search-by";

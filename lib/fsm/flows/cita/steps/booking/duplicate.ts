@@ -14,7 +14,7 @@ import {
 import { isReferenceAppointment } from "@/lib/fsm/flows/cita/steps/booking/referencia-seleccionada";
 import { startNewAppointment } from "@/lib/fsm/flows/referencia/new-appointment";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
+import { DuplicateButtonId } from "@/lib/enums/botones/duplicate-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";

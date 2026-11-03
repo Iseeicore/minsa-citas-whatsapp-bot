@@ -12,7 +12,7 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { OfferOtherFechaReason } from "@/lib/enums/offer-other-fecha-reason";
-import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
+import { OtherFechaButtonId } from "@/lib/enums/botones/other-fecha-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";

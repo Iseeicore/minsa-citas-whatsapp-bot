@@ -1,8 +1,8 @@
 import { handle } from "@/lib/fsm/core/handlers";
 import type { HandlerResult, QueryResultEvent } from "@/lib/fsm/core/types";
-import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-terminos-lookup";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { QueryKind } from "@/lib/enums/query-kind";

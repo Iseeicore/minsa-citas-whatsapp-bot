@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/observability/logger";
 import { isValidDniFormat } from "@/lib/fsm/parsing/text/identity-format";
-import { DniVerificadoStatus } from "@/lib/enums/dni-verificado-status";
+import { DniVerificadoStatus } from "@/lib/enums/cita/dni-verificado-status";
 import type { DniVerificadoStore } from "@/lib/types/dni-verificado.types";
 
 export function createPrismaDniVerificadoStore(): DniVerificadoStore {

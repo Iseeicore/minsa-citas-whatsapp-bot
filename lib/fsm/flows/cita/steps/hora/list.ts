@@ -28,7 +28,7 @@ import {
   HORA_PAGE_QUESTION_TEXT,
 } from "@/lib/constants/textos/cita-fecha-hora";
 import { searchFailureText } from "@/lib/constants/textos/fallas";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { WHATSAPP_ROW_TITLE_MAX, WHATSAPP_ROW_DESCRIPTION_MAX } from "@/lib/constants/limits/whatsapp";

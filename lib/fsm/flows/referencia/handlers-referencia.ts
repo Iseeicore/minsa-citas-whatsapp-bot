@@ -31,7 +31,7 @@ import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
-import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
+import { ReferenciaCitaOfferButtonId } from "@/lib/enums/botones/referencia-cita-offer-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";

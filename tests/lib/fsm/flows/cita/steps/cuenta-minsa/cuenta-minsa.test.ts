@@ -17,15 +17,15 @@ import {
   CUENTA_MINSA_NO_TIENE_BUTTON_TEXT,
   CUENTA_MINSA_TIENE_BUTTON_TEXT,
 } from "@/lib/constants/textos/cita-identidad";
-import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { CuentaMinsaButtonId } from "@/lib/enums/botones/cuenta-minsa-button-id";
+import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 import { HandlerOutcome } from "@/lib/enums/handler-outcome";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { TerminosButtonId } from "@/lib/enums/terminos-button-id";
+import { TerminosButtonId } from "@/lib/enums/botones/terminos-button-id";
 import { cuentaMinsaAviso } from "@/tests/support/cuenta-minsa";
 import { queryResult, sent, tap, text, texts } from "@/tests/support/fsm-events";
 

@@ -1,9 +1,9 @@
-import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
-import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
-import { TerminosButtonId } from "@/lib/enums/terminos-button-id";
-import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
+import { ListPageButtonId } from "@/lib/enums/botones/list-page-button-id";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
+import { OtherDistritoButtonId } from "@/lib/enums/botones/other-distrito-button-id";
+import { TerminosButtonId } from "@/lib/enums/botones/terminos-button-id";
+import { CuentaMinsaButtonId } from "@/lib/enums/botones/cuenta-minsa-button-id";
 
 export const REFERENCE_PAGE_ANSWERS: ReadonlyMap<string, ListPageButtonId | HoraPageButtonId> = new Map<
   string,

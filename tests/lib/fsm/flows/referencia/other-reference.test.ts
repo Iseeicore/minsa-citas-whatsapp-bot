@@ -14,17 +14,17 @@ import {
   REFERENCIA_GOODBYE_TEXT,
   REFERENCIA_SIN_AGENDABLES_TEXT,
 } from "@/lib/constants/textos/referencia";
-import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
+import { ReferenciaCitaOfferButtonId } from "@/lib/enums/botones/referencia-cita-offer-button-id";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { CatalogStatus } from "@/lib/enums/catalog-status";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { OtherReferenciaButtonId } from "@/lib/enums/botones/other-referencia-button-id";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { QueryKind } from "@/lib/enums/query-kind";
-import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
+import { ReauthButtonId } from "@/lib/enums/botones/reauth-button-id";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";

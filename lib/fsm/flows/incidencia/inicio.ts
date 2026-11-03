@@ -2,7 +2,7 @@ import { buildResult, query } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import type { InicioIncidencia } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { DOCUMENTOS_DENUNCIA } from "@/lib/constants/documentos-aceptacion";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";

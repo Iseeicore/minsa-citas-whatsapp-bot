@@ -19,13 +19,13 @@ import { TERMINOS_ANSWERS } from "@/lib/constants/palabras-clave";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import { TERMINOS_RECHAZADOS_TEXT } from "@/lib/constants/textos/terminos";
 import { DOCUMENTOS_CITA } from "@/lib/constants/documentos-aceptacion";
-import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-terminos-lookup";
 import type { FindAceptacionTerminosResult } from "@/lib/terminos/aceptacion-terminos";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { TerminosButtonId } from "@/lib/enums/terminos-button-id";
+import { TerminosButtonId } from "@/lib/enums/botones/terminos-button-id";
 import { TerminosResume } from "@/lib/enums/terminos-resume";
 
 const TERMINOS_BUTTON_IDS: ReadonlySet<string> = new Set(Object.values(TerminosButtonId));

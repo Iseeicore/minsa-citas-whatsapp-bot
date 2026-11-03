@@ -9,10 +9,10 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
-import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
-import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
-import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
+import { EstablecimientoPageRowId } from "@/lib/enums/botones/establecimiento-page-row-id";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
+import { OtherEstablecimientoButtonId } from "@/lib/enums/botones/other-establecimiento-button-id";
+import { OtherFechaButtonId } from "@/lib/enums/botones/other-fecha-button-id";
 import { pick, queries, queryResult, sent, tap, text } from "@/tests/support/fsm-events";
 import { buildReferencia } from "@/tests/support/referencia";
 

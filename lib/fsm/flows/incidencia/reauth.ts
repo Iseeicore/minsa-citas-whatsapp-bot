@@ -6,7 +6,7 @@ import { askIdentityChoice, askUbicacionAgain, offerOmitir, resendConfirmUbicaci
 import { buildResult, cloneSession, sendButtons, sendText, withLeadingText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";

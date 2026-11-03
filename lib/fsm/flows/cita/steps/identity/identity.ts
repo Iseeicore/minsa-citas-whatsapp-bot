@@ -10,7 +10,7 @@ import { sendMinsaDigitalCta } from "@/lib/fsm/core/minsa-digital-cta";
 import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/lib/fsm/core/types";
 import { resumeAfterReverification } from "@/lib/fsm/flows/cita/steps/identity/reverification";
 import { MINSA_DIGITAL_LOGIN_PATH } from "@/lib/integrations/minsa/wire";
-import { RegistrationButtonId } from "@/lib/enums/registration-button-id";
+import { RegistrationButtonId } from "@/lib/enums/botones/registration-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";

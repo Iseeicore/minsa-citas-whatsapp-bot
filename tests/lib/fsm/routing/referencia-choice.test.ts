@@ -9,7 +9,7 @@ import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { IN_FLOW_MAX_CHARS } from "@/lib/constants/limits/out-of-scope";
 import type { HandlerResult, InboundEvent, SendEffect, Session, SessionChannel } from "@/lib/fsm/core/types";
-import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-id";
+import { ReferenciaChoiceButtonId } from "@/lib/enums/botones/referencia-choice-button-id";
 import { OosCategory } from "@/lib/enums/oos-category";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { SessionChannel as Channel } from "@/lib/enums/session-channel";

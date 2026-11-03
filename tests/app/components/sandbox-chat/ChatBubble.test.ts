@@ -5,7 +5,7 @@ import { ChatBubble } from "@/app/components/sandbox-chat/ChatBubble";
 import type { ChatEntry } from "@/app/components/sandbox-chat/types";
 import { SendType } from "@/lib/enums/send-type";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
 
 const BUTTON_TAG = /<button\b[^>]*>/g;

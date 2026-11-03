@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { filterRows, isPagerButtonSet, pagerDirection, paginateRows, splitPagerRows } from "@/lib/utils/list-rows";
-import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
-import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { EstablecimientoPageRowId } from "@/lib/enums/botones/establecimiento-page-row-id";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
+import { ListPageButtonId } from "@/lib/enums/botones/list-page-button-id";
 import { PagerDirection } from "@/lib/enums/pager-direction";
 import type { ListRow } from "@/lib/fsm/core/types";
 

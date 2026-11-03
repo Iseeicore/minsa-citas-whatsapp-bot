@@ -1,5 +1,5 @@
 import { noPudimosLeerText, NO_SALIR_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
-import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
+import { OtherDistritoButtonId } from "@/lib/enums/botones/other-distrito-button-id";
 import { SALIR_BUTTON_TEXT } from "@/lib/constants/textos/cita-referencia";
 
 export const ASK_DISTRITO_TEXT = 'Cuéntanos en qué distrito buscas atención (ej. "Miraflores").';

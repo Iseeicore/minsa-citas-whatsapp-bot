@@ -4,9 +4,9 @@ import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import type { HandlerResult, Session } from "@/lib/fsm/core/types";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { EstablecimientoConfirmButtonId } from "@/lib/enums/establecimiento-confirm-button-id";
-import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { EstablecimientoConfirmButtonId } from "@/lib/enums/botones/establecimiento-confirm-button-id";
+import { OtherDistritoButtonId } from "@/lib/enums/botones/other-distrito-button-id";
+import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 import { queries, queryResult, sent, tap, text } from "@/tests/support/fsm-events";
 
 const buttonsOf = (result: HandlerResult) => {

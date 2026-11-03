@@ -20,7 +20,7 @@ import {
 import { closeReferencia } from "@/lib/fsm/flows/referencia/close-reference";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { CONSULTA_REFERENCIAS_ACTION_ANSWERS } from "@/lib/constants/palabras-clave";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
 import { SendType } from "@/lib/enums/send-type";
 import { clearOffered, reshowOffered, resolveSelection } from "@/lib/fsm/flows/cita/parsing/selection";
 import { readOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
@@ -39,7 +39,7 @@ import { referenceRowDescription } from "@/lib/utils/reference-row-description";
 import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
 import type { HandleEvent, HandlerAttempt, HandlerResult, InboundEvent, ListRow, Session, UnhandledTurn } from "@/lib/fsm/core/types";
 import type { ReferenciaItem } from "@/lib/integrations/minsa/types";
-import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
+import { ReferenciaConfirmButtonId } from "@/lib/enums/botones/referencia-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { QueryKind } from "@/lib/enums/query-kind";

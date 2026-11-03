@@ -1,5 +1,5 @@
-import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
-import { TerminosButtonId } from "@/lib/enums/terminos-button-id";
+import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
+import { TerminosButtonId } from "@/lib/enums/botones/terminos-button-id";
 import { DATOS_PERSONALES_CHECKBOX_LABEL } from "@/lib/constants/textos/datos-personales";
 import type { ConsentButtons, ConsentCheck } from "@/lib/fsm/core/types";
 
