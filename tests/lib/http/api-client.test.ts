@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createApiClient } from "@/lib/http/api-client";
+import { createApiClient, getApi, postApi } from "@/lib/http/api-client";
 import { ApiRequestStatus } from "@/lib/enums/api-request-status";
 import { ApiErrorCode } from "@/lib/enums/api-error-code";
 import type { ApiState } from "@/lib/types/api-client.types";
@@ -60,6 +60,7 @@ describe("createApiClient", () => {
   it.each([
     ["an error without a message", respond(JSON.stringify({ error: ApiErrorCode.NOT_FOUND }), 404)],
     ["an error that is not JSON", respond("<html>", 500)],
+    ["an error without a body", respond("", 503)],
     ["a success that is not JSON", respond("<html>", 200)],
     [
       "a network failure",
@@ -72,5 +73,37 @@ describe("createApiClient", () => {
     const { client } = recorder();
 
     await expect(client.get("/api/x")).resolves.toEqual({ status: ApiRequestStatus.ERROR, message: ERROR_TEXT });
+  });
+
+  it("getApi and postApi answer without passing through a state", async () => {
+    const fetchMock = respond(JSON.stringify({ id: "m-1" }), 200);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getApi("/api/conversations", { failed: ERROR_TEXT })).resolves.toEqual({
+      status: ApiRequestStatus.DATA,
+      data: { id: "m-1" },
+    });
+    await expect(postApi("/api/sandbox", { from: "u-1" }, { failed: ERROR_TEXT })).resolves.toEqual({
+      status: ApiRequestStatus.DATA,
+      data: { id: "m-1" },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/sandbox", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "u-1" }),
+    });
+  });
+
+  it.each([
+    ["a network failure", vi.fn(async () => Promise.reject(new TypeError("fetch failed"))), "Sin conexión."],
+    ["a success that is not JSON", respond("<html>", 200), "Sin conexión."],
+    ["an error that is not JSON", respond("<html>", 503), ERROR_TEXT],
+  ])("%s uses the matching text when an unreachable text is given", async (_caso, fetchMock, message) => {
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(postApi("/api/sandbox", {}, { failed: ERROR_TEXT, unreachable: "Sin conexión." })).resolves.toEqual({
+      status: ApiRequestStatus.ERROR,
+      message,
+    });
   });
 });

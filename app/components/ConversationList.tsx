@@ -13,8 +13,9 @@ import { ButtonWidth } from "@/lib/enums/button-width";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { Banner } from "@/app/components/ui/Banner";
-import { readRequestData, useConversationPolling } from "@/app/components/hooks/use-conversation-polling";
-import { RequestStatus } from "@/lib/enums/request-status";
+import { useConversationPolling } from "@/app/hooks/use-conversation-polling";
+import { readRequestData } from "@/lib/utils/read-request-data";
+import { ApiRequestStatus } from "@/lib/enums/api-request-status";
 
 const CONVERSATIONS_URL = "/api/conversations";
 
@@ -37,7 +38,7 @@ export default function ConversationList({
       <h2 className="border-b border-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
         Conversaciones
       </h2>
-      {state.status === RequestStatus.ERROR && <Banner tone={BannerTone.ERROR}>{state.message}</Banner>}
+      {state.status === ApiRequestStatus.ERROR && <Banner tone={BannerTone.ERROR}>{state.message}</Banner>}
       {placeholder && <p className="px-4 py-6 text-center text-sm text-gray-400">{placeholder}</p>}
       <ul>
         {conversations.map((conversation) => {
