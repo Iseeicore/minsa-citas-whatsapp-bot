@@ -36,6 +36,7 @@ META_GRAPH_API_VERSION=v21.0
 AI_PROVIDER=gemini
 GOOGLE_CLIENT_API=
 GOOGLE_AI_MODEL=gemini-3.6-flash
+GOOGLE_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 SANDBOX_USE_REAL_AI=true
 
 # Chat-bot (Sandbox)
@@ -77,7 +78,7 @@ Llena los valores vacíos según el ambiente donde se despliegue; una variable v
 
 Para usar la base de datos se necesitan `DATABASE_ENABLED=true` y `DATABASE_URL`. Con `DATABASE_ENABLED=false` el servicio arranca sin base de datos y sin aplicar migraciones: la conversación vive en memoria y las incidencias no se guardan. En producción deja `SANDBOX_PAGE_ENABLED` sin definir (abre la bandeja web sin autenticación) y define `SANDBOX_SHARED_SECRET` para que solo el servidor del portal pueda llamar al Chat-bot.
 
-Con `SANDBOX_USE_REAL_AI=true` son obligatorias `GOOGLE_CLIENT_API` y `GOOGLE_AI_MODEL`. El código no trae un modelo por defecto porque Google los cambia y los retira: `gemini-3.6-flash` es solo el valor de referencia. Sin `GOOGLE_AI_MODEL`, el bot no consulta a Gemini y usa los respaldos fijos.
+Con `SANDBOX_USE_REAL_AI=true` son obligatorias `GOOGLE_CLIENT_API`, `GOOGLE_AI_MODEL` y `GOOGLE_AI_BASE_URL`. El código no trae un modelo ni una URL por defecto porque Google los cambia y los retira: `gemini-3.6-flash` y `https://generativelanguage.googleapis.com/v1beta` (la URL base con la versión de la API) son solo los valores de referencia. Sin `GOOGLE_AI_MODEL` o sin `GOOGLE_AI_BASE_URL`, el bot no consulta a Gemini y usa los respaldos fijos.
 
 ## Despliegue con pocos pasos
 

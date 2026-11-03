@@ -18,6 +18,7 @@ describe("requestGeminiJson", () => {
 
   beforeEach(() => {
     vi.stubEnv("GOOGLE_AI_MODEL", "test-model");
+    vi.stubEnv("GOOGLE_AI_BASE_URL", "https://ai.example.test/v1");
     vi.stubEnv("GOOGLE_CLIENT_API", "test-key");
     fetchSpy = vi.fn(async () => envelope('{"answer":42}'));
     vi.stubGlobal("fetch", fetchSpy);
@@ -28,12 +29,12 @@ describe("requestGeminiJson", () => {
     vi.unstubAllEnvs();
   });
 
-  it("POSTs the prompt, the user turn and the schema to the configured model", async () => {
+  it("POSTs the prompt, the user turn and the schema to the configured model under the configured base URL", async () => {
     await requestGeminiJson(REQUEST);
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/test-model:generateContent");
+    expect(url).toBe("https://ai.example.test/v1/models/test-model:generateContent");
     expect(init.method).toBe("POST");
     expect(init.headers).toEqual({ "Content-Type": "application/json", "x-goog-api-key": "test-key" });
     expect(init.signal).toBeInstanceOf(AbortSignal);
@@ -56,6 +57,13 @@ describe("requestGeminiJson", () => {
     vi.stubEnv("GOOGLE_AI_MODEL", model);
 
     await expect(requestGeminiJson(REQUEST)).resolves.toEqual({ ok: false, failure: "model_not_configured" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it.each(["", "   "])("makes no request and reports base_url_not_configured when GOOGLE_AI_BASE_URL is %j", async (baseUrl) => {
+    vi.stubEnv("GOOGLE_AI_BASE_URL", baseUrl);
+
+    await expect(requestGeminiJson(REQUEST)).resolves.toEqual({ ok: false, failure: "base_url_not_configured" });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -141,6 +149,7 @@ describe("createGeminiClient", () => {
 
   beforeEach(() => {
     vi.stubEnv("GOOGLE_AI_MODEL", "test-model");
+    vi.stubEnv("GOOGLE_AI_BASE_URL", "https://ai.example.test/v1");
     vi.stubEnv("GOOGLE_CLIENT_API", "test-key");
     fetchSpy = vi.fn(async () => envelope('{"answer":42}'));
     vi.stubGlobal("fetch", fetchSpy);

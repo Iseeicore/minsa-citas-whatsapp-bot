@@ -46,6 +46,7 @@ CITA_ALLOWED_DEPARTAMENTOS=LIMA
 AI_PROVIDER=gemini
 GOOGLE_CLIENT_API=
 GOOGLE_AI_MODEL=gemini-3.6-flash
+GOOGLE_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 SANDBOX_USE_REAL_AI=true
 
 SANDBOX_ENABLED=true
@@ -163,6 +164,7 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 | `AI_PROVIDER` | Proveedor de IA; vacía o `gemini` es Gemini, hoy el único. Cómo sumar otro: [desarrollo.md](desarrollo.md#cambiar-de-proveedor-de-ia) | Gemini. Un valor desconocido deja la IA como no disponible (sin respaldo fijo de demostración: cada mensaje libre registra `ai.fallback`), se registra al arrancar como `config.invalid` (`AI_PROVIDER_UNKNOWN`) y `/api/health` responde `degraded` |
 | `GOOGLE_CLIENT_API` | API key de Google AI. Viaja en la cabecera `x-goog-api-key`, nunca en la URL | Vacía o inválida: Gemini falla y el mensaje libre vuelve al menú (log `ai.fallback`). Con `SANDBOX_USE_REAL_AI=true`, si falta se registra al arrancar como `config.invalid` (`GOOGLE_CLIENT_API_MISSING`) y `/api/health` responde `degraded` |
 | `GOOGLE_AI_MODEL` | Modelo de Gemini, obligatorio con `SANDBOX_USE_REAL_AI=true`. El código no trae uno por defecto porque los modelos cambian; `gemini-3.6-flash` es el valor de referencia. Un nombre que no existe da HTTP 404 | El bot no consulta a Gemini y el mensaje libre vuelve al menú (log `ai.fallback` con `no model configured`). Con `SANDBOX_USE_REAL_AI=true` se registra al arrancar como `config.invalid` (`GOOGLE_AI_MODEL_MISSING`) y `/api/health` responde `degraded` |
+| `GOOGLE_AI_BASE_URL` | URL base de Gemini con la versión de la API, obligatoria con `SANDBOX_USE_REAL_AI=true`. El código no trae una por defecto porque puede cambiar, igual que el modelo; `https://generativelanguage.googleapis.com/v1beta` es el valor de referencia. El bot le agrega `/models/<modelo>:generateContent` y quita la barra final si la trae | El bot no consulta a Gemini y el mensaje libre vuelve al menú (log `ai.fallback` con `no base URL configured`). Con `SANDBOX_USE_REAL_AI=true` se registra al arrancar como `config.invalid` (`GOOGLE_AI_BASE_URL_MISSING`) y `/api/health` responde `degraded` |
 
 **Chat-bot** (variables `SANDBOX_*`)
 
@@ -197,7 +199,7 @@ Una fila por variable: qué hace y qué pasa sin definirla. El bloque para copia
 |---|---|---|
 | WhatsApp | las 4 `META_*` | El compose se detiene y nombra la que falta |
 | Citas con datos reales | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` | Datos simulados |
-| IA del bot | `SANDBOX_USE_REAL_AI=true`, `GOOGLE_CLIENT_API` y `GOOGLE_AI_MODEL` | Respuestas fijas; no entiende texto libre ni distritos mal escritos |
+| IA del bot | `SANDBOX_USE_REAL_AI=true`, `GOOGLE_CLIENT_API`, `GOOGLE_AI_MODEL` y `GOOGLE_AI_BASE_URL` | Respuestas fijas; no entiende texto libre ni distritos mal escritos |
 | Cita con referencia | `SANDBOX_USE_REAL_MINSA=true`, `MINSA_API_HOST`, `MINSA_INTEGRATION_SECRET`, `MINSA_DIGITAL_APP_URL` y que el backend de MINSA publique `/whatsapp/api/v1/references`, y `REFERENCIAS_ENABLED=true` | Siempre responde «No pudimos consultar tus referencias en este momento. Inténtalo de nuevo más tarde.» y ofrece agendar una cita. Los DNI de demostración `10308523` y `47391441` son la excepción, solo en este servicio |
 | Incidencias | `INCIDENCIAS_ENABLED=true`, `DATABASE_ENABLED=true` y `DATABASE_URL` | Sin la primera, no aparecen en el menú; sin las otras dos, no se guardan |
 | Términos antes de la cita | `TERMINOS_ENABLED=true`; para el enlace de WhatsApp, `TERMINOS_URL` | Sin la primera, la cita no los muestra; sin base de datos, la aceptación solo queda en la memoria del proceso |

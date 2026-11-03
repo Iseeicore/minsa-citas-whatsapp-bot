@@ -1,3 +1,5 @@
+import { TRAILING_SLASHES } from "@/lib/constants/regex/integrations";
+
 type Env = Record<string, string | undefined>;
 
 function findPresent(value: string | undefined): string | undefined {
@@ -34,4 +36,8 @@ export function findGoogleClientApi(env: Env = process.env): string | undefined 
 
 export function findGoogleAiModel(env: Env = process.env): string | undefined {
   return findPresent(env.GOOGLE_AI_MODEL);
+}
+
+export function findGoogleAiBaseUrl(env: Env = process.env): string | undefined {
+  return findPresent(env.GOOGLE_AI_BASE_URL?.trim().replace(TRAILING_SLASHES, ""));
 }

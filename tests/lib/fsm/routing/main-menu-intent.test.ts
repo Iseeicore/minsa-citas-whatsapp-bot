@@ -129,6 +129,7 @@ describe("analyzeMainMenuIntent against a real model", () => {
 
   beforeEach(() => {
     vi.stubEnv("GOOGLE_AI_MODEL", "test-model");
+    vi.stubEnv("GOOGLE_AI_BASE_URL", "https://ai.example.test/v1");
   });
 
   afterEach(() => {
