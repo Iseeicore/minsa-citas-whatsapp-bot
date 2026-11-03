@@ -16,7 +16,7 @@ const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, ty
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const EXIT_QUESTION = "Parece que prefieres no continuar con tu cita. Entiendo que pueda ser frustrante. ¿Deseas salir?";
-const GOODBYE = "Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋";
+const GOODBYE = "Entendido. Si más adelante deseas retomar tu cita, escríbenos de nuevo. ¡Que tengas un buen día! 👋";
 const REAUTH_PROMPT =
   "⏳ Tu sesión ha expirado por inactividad. Por tu seguridad, necesitamos confirmar nuevamente tu identidad para continuar con tu cita. ¿Deseas solicitar un nuevo código de verificación?\n\n[1] Sí, enviar código\n[2] Cancelar";
 

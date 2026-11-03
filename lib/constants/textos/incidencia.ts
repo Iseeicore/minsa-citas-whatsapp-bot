@@ -204,6 +204,6 @@ export const INCIDENCIA_REAUTH_BUTTONS = [
 
 export const INCIDENCIA_RETOMADA_TEXT = "¡Listo! Continuemos donde quedaste.";
 export const INCIDENCIA_CANCELADA_TEXT =
-  "Entendido, no se registró ninguna denuncia. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+  "Entendido, no se registró ninguna denuncia. Si más adelante deseas registrar una, escríbenos de nuevo. ¡Que tengas un buen día! 👋";
 export const NO_AUTORIZO_TEXT =
-  "Entendido. No se registrará tu denuncia por este canal. Cuando quieras registrar una, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+  "Entendido. No se registrará tu denuncia por este canal. Si más adelante deseas registrar una, escríbenos de nuevo. ¡Que tengas un buen día! 👋";

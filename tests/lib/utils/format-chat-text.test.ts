@@ -46,14 +46,25 @@ describe("tokenizeChatText", () => {
     expect(tokenizeChatText("2 * 3 y snake_case_word")).toEqual([{ kind: ChatTokenKind.TEXT, value: "2 * 3 y snake_case_word" }]);
   });
 
+  it("reemplaza la mano que saluda y el reloj de arena por sus iconos", () => {
+    expect(tokenizeChatText("¡Buen día! 👋")).toEqual([
+      { kind: ChatTokenKind.TEXT, value: "¡Buen día! " },
+      { kind: ChatTokenKind.ICON, icon: ChatIconName.WAVING_HAND },
+    ]);
+    expect(tokenizeChatText("⏳ Tu sesión expiró")).toEqual([
+      { kind: ChatTokenKind.ICON, icon: ChatIconName.HOURGLASS },
+      { kind: ChatTokenKind.TEXT, value: " Tu sesión expiró" },
+    ]);
+  });
+
   it("deja intactos los emojis que no tienen icono propio", () => {
-    expect(tokenizeChatText("¡Hola! 👋")).toEqual([{ kind: ChatTokenKind.TEXT, value: "¡Hola! 👋" }]);
+    expect(tokenizeChatText("¡Hola! 🙂")).toEqual([{ kind: ChatTokenKind.TEXT, value: "¡Hola! 🙂" }]);
   });
 });
 
 describe("CHAT_FORMAT_MARK", () => {
   const ORIGINAL =
-    /\*([^\s*](?:[^*\n]*[^\s*])?)\*|(?<![\p{L}\p{N}_])_([^\s_](?:[^_\n]*[^\s_])?)_(?![\p{L}\p{N}_])|(\u{1F1F5}\u{1F1EA})|(\u26A0\uFE0F?)/gu;
+    /\*([^\s*](?:[^*\n]*[^\s*])?)\*|(?<![\p{L}\p{N}_])_([^\s_](?:[^_\n]*[^\s_])?)_(?![\p{L}\p{N}_])|(\u{1F1F5}\u{1F1EA})|(\u26A0\uFE0F?)|(\u{1F44B})|(\u23F3\uFE0F?)/gu;
 
   it("armado por partes tiene la misma fuente y las mismas banderas que el patrón único de antes", () => {
     expect(CHAT_FORMAT_MARK.source).toBe(ORIGINAL.source);
@@ -61,13 +72,15 @@ describe("CHAT_FORMAT_MARK", () => {
     expect(CHAT_FORMAT_MARK.source).toContain("\\u26A0\\uFE0F?");
   });
 
-  it("cada alternativa conserva su grupo: negrita, cursiva, bandera y advertencia, en ese orden", () => {
-    const match = [..."*a* _b_ 🇵🇪 ⚠️".matchAll(CHAT_FORMAT_MARK)];
-    expect(match.map((found) => [found[1], found[2], found[3], found[4]])).toEqual([
-      ["a", undefined, undefined, undefined],
-      [undefined, "b", undefined, undefined],
-      [undefined, undefined, "🇵🇪", undefined],
-      [undefined, undefined, undefined, "⚠️"],
+  it("cada alternativa conserva su grupo: negrita, cursiva, bandera, advertencia, saludo y reloj, en ese orden", () => {
+    const match = [..."*a* _b_ 🇵🇪 ⚠️ 👋 ⏳".matchAll(CHAT_FORMAT_MARK)];
+    expect(match.map((found) => found.slice(1))).toEqual([
+      ["a", undefined, undefined, undefined, undefined, undefined],
+      [undefined, "b", undefined, undefined, undefined, undefined],
+      [undefined, undefined, "🇵🇪", undefined, undefined, undefined],
+      [undefined, undefined, undefined, "⚠️", undefined, undefined],
+      [undefined, undefined, undefined, undefined, "👋", undefined],
+      [undefined, undefined, undefined, undefined, undefined, "⏳"],
     ]);
   });
 

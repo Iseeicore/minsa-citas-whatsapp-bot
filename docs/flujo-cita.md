@@ -206,7 +206,7 @@ En los pasos de términos y condiciones, documento, OTP, registro pendiente, dis
 | Respuesta | Resultado |
 |---|---|
 | (se detecta) | 🔘 *"Parece que prefieres no continuar con tu cita. Entiendo que pueda ser frustrante. ¿Deseas salir?"* [Sí, salir] [No, continuar] |
-| Sí | ⛔ *"Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋"* La sesión termina (`cita_abandoned`) y el siguiente mensaje es un primer contacto. |
+| Sí | ⛔ *"Entendido. Si más adelante deseas retomar tu cita, escríbenos de nuevo. ¡Que tengas un buen día! 👋"* La sesión termina (`cita_abandoned`) y el siguiente mensaje es un primer contacto. |
 | No | vuelve al mismo paso y repite su pregunta (o la lista) |
 
 Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero** aparece la alerta de sesión expirada (ver abajo); al reverificar, vuelve al paso donde estaba antes de preguntarle si quería salir.

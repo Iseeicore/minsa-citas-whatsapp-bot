@@ -6,6 +6,8 @@ export type ChatToken =
   | { kind: ChatTokenKind.TEXT | ChatTokenKind.BOLD | ChatTokenKind.ITALIC; value: string }
   | { kind: ChatTokenKind.ICON; icon: ChatIconName };
 
+const ICON_BY_MARK_GROUP = [ChatIconName.PERU_FLAG, ChatIconName.WARNING, ChatIconName.WAVING_HAND, ChatIconName.HOURGLASS];
+
 export function tokenizeChatText(text: string): ChatToken[] {
   const tokens: ChatToken[] = [];
   let cursor = 0;
@@ -13,10 +15,10 @@ export function tokenizeChatText(text: string): ChatToken[] {
   for (const match of text.matchAll(CHAT_FORMAT_MARK)) {
     if (match.index > cursor) tokens.push({ kind: ChatTokenKind.TEXT, value: text.slice(cursor, match.index) });
 
-    const [, bold, italic, flag] = match;
+    const [, bold, italic, ...icons] = match;
     if (bold !== undefined) tokens.push({ kind: ChatTokenKind.BOLD, value: bold });
     else if (italic !== undefined) tokens.push({ kind: ChatTokenKind.ITALIC, value: italic });
-    else tokens.push({ kind: ChatTokenKind.ICON, icon: flag ? ChatIconName.PERU_FLAG : ChatIconName.WARNING });
+    else tokens.push({ kind: ChatTokenKind.ICON, icon: ICON_BY_MARK_GROUP[icons.findIndex((icon) => icon !== undefined)] });
 
     cursor = match.index + match[0].length;
   }
