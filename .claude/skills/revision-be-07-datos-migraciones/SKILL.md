@@ -7,7 +7,7 @@ description: Filtro 7 de 10 de revision-backend. Prisma Client antes que SQL cru
 
 ## Verifica
 
-- Una lectura o escritura simple usa Prisma Client (`count`, `findFirst`, `findMany`, `updateMany`, `aggregate`). `$queryRaw` y `$executeRaw` solo para candados consultivos, `FOR UPDATE`, `UPDATE … LIMIT … RETURNING`, la llamada a una función de la base, `set_config` o `pg_trgm`, con el motivo en el nombre del método del repositorio (R03). Un conteo o una lectura simple en SQL crudo es FALLA.
+- Una lectura o escritura simple usa Prisma Client (`count`, `findFirst`, `findMany`, `updateMany`, `aggregate`). `$queryRaw` y `$executeRaw` solo para candados consultivos, `FOR UPDATE`, `UPDATE … LIMIT … RETURNING`, la llamada a una función de la base, `set_config`, `pg_trgm`, una agregación por día en la zona IANA (`date_trunc('day', … AT TIME ZONE $1)`, R83) o `LISTEN/NOTIFY` (R195), con el motivo en el nombre del método del repositorio (R03). Un conteo o una lectura simple en SQL crudo es FALLA.
 - Escrituras relacionadas en una transacción (R74); sin consultas dentro de `for`/`map` (R75); SQL siempre parametrizado, sin concatenar entrada del usuario (R76).
 - Ninguna migración ya aplicada fue editada: `git diff --name-status <destino>...HEAD -- prisma/migrations` solo muestra carpetas **nuevas** (R77). Si hubo que corregir una ya aplicada, se hizo con una migración puente idempotente (R78, R134).
 - Las migraciones llevan solo estructura; funciones y disparadores en `prisma/sql/` y semillas en `prisma/seeds/` (R181, R182, R184).
@@ -25,7 +25,7 @@ npm run db:test
 npm run smoke:postgres
 ```
 
-Cada coincidencia de la segunda búsqueda se etiqueta con su caso de R03 (candado, `FOR UPDATE`, `UPDATE … LIMIT … RETURNING`, función de la base, `set_config` o `pg_trgm`); la que no tiene caso es FALLA, y una `Unsafe` con datos de entrada también lo es (R76).
+Cada coincidencia de la segunda búsqueda se etiqueta con su caso de R03 (candado, `FOR UPDATE`, `UPDATE … LIMIT … RETURNING`, función de la base, `set_config`, `pg_trgm`, corte por día en la zona IANA o `LISTEN/NOTIFY`); la que no tiene caso es FALLA, y una `Unsafe` con datos de entrada también lo es (R76).
 
 `db:test` y `smoke:postgres` requieren PostgreSQL y `DATABASE_URL`; si no hay entorno, declararlo como «no verificado», nunca PASA implícito (R111).
 

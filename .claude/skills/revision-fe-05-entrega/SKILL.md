@@ -8,7 +8,7 @@ description: Filtro 5 de 5 de revision-frontend. Git y entrega: commit convencio
 ## Verifica
 
 - Los archivos de higiene del repo están (`.gitignore` cubre `.vscode/`, `.idea/`, `.DS_Store`, `.env.local`) (F66).
-- Commits convencionales, en español, con el autor del usuario y **sin** atribución de IA (G35); mensaje corto: título y pocas líneas, sin describir pruebas (sin regla vigente que lo cubra: era la regla 69 de las reglas retiradas del frontend).
+- Commits convencionales, en español, con el autor del usuario y **sin** atribución de IA (G35); mensaje corto: título y pocas líneas, sin describir pruebas (G74).
 - En GitLab va un solo commit, enmendado y subido con `--force-with-lease` atado al commit esperado; en GitHub, uno por corrección (G18, G74). La rama es la esperada y el PR o MR sigue abierto antes de subir (G16, G17).
 - Una observación de revisión empieza por el inventario completo del patrón, y la corrección se limita al diff del MR; lo de afuera se informa como pendiente (F58, G22, G65). «No cambia el comportamiento» se demuestra (F59); lo que no se pidió se reporta y no se arregla de paso (F60).
 

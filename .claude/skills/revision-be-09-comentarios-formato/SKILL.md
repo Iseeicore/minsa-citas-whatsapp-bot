@@ -11,7 +11,7 @@ description: Filtro 9 de 10 de revision-backend. Cero comentarios o docstrings e
 - Sin código muerto (R64); imports con alias `@/` (R65); bloques repetidos como mapa o helper (R63).
 - Código sin cobertura que se toca tiene antes su prueba de caracterización (R106).
 - Formato por Prettier, sin reordenar clases ni tocar contenido de textos; solo se formatea lo del cambio (R113).
-- Sin cambio espurio de finales de línea (R137).
+- Sin cambio espurio de finales de línea (R113).
 
 ## Comandos
 
