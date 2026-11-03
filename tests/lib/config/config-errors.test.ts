@@ -40,11 +40,24 @@ describe("checkConfig: missing secrets and hosts", () => {
     ).toEqual([]);
   });
 
-  it("asks for GOOGLE_CLIENT_API and GOOGLE_AI_MODEL only when the real AI is on", () => {
+  it("asks for GOOGLE_CLIENT_API, GOOGLE_AI_MODEL and GOOGLE_AI_BASE_URL only when the real AI is on", () => {
     expect(codesOf(HEALTHY_ENV)).toEqual([]);
-    expect(codesOf({ ...HEALTHY_ENV, SANDBOX_USE_REAL_AI: "true" })).toEqual(["GOOGLE_CLIENT_API_MISSING", "GOOGLE_AI_MODEL_MISSING"]);
-    expect(codesOf({ ...HEALTHY_ENV, SANDBOX_USE_REAL_AI: "true", GOOGLE_CLIENT_API: "clave", GOOGLE_AI_MODEL: "modelo" })).toEqual([]);
+    expect(codesOf({ ...HEALTHY_ENV, SANDBOX_USE_REAL_AI: "true" })).toEqual([
+      "GOOGLE_CLIENT_API_MISSING",
+      "GOOGLE_AI_MODEL_MISSING",
+      "GOOGLE_AI_BASE_URL_MISSING",
+    ]);
+    expect(
+      codesOf({
+        ...HEALTHY_ENV,
+        SANDBOX_USE_REAL_AI: "true",
+        GOOGLE_CLIENT_API: "clave",
+        GOOGLE_AI_MODEL: "modelo",
+        GOOGLE_AI_BASE_URL: "https://ai.example.test/v1",
+      }),
+    ).toEqual([]);
     expect(CONFIG_ERRORS.GOOGLE_AI_MODEL_MISSING.severity).toBe("error");
+    expect(CONFIG_ERRORS.GOOGLE_AI_BASE_URL_MISSING.severity).toBe("error");
   });
 });
 

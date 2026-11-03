@@ -215,7 +215,7 @@ Si la sesión venció mientras el ciudadano estaba en esta pregunta, **primero**
 
 ### La IA se cayó o tardó más de 8 s
 
-También aplica si la respuesta no es un objeto JSON, si falta `GOOGLE_AI_MODEL` o si `AI_PROVIDER` nombra un proveedor no registrado. En todos los casos la tarea responde «no disponible» (nunca «no encontró nada») y se registra `ai.fallback` con el motivo.
+También aplica si la respuesta no es un objeto JSON, si falta `GOOGLE_AI_MODEL` o `GOOGLE_AI_BASE_URL`, o si `AI_PROVIDER` nombra un proveedor no registrado. En todos los casos la tarea responde «no disponible» (nunca «no encontró nada») y se registra `ai.fallback` con el motivo.
 
 | Punto | Qué ve el ciudadano |
 |---|---|

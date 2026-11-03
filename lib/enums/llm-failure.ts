@@ -4,4 +4,5 @@ export enum LlmFailure {
   NO_TEXT = "no_text",
   INVALID_JSON = "invalid_json",
   MODEL_NOT_CONFIGURED = "model_not_configured",
+  BASE_URL_NOT_CONFIGURED = "base_url_not_configured",
 }

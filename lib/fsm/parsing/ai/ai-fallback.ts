@@ -20,6 +20,8 @@ export function describeLlmFailure(outcome: FailedLlmOutcome): string {
       return "response was not valid JSON";
     case LlmFailure.MODEL_NOT_CONFIGURED:
       return "no model configured";
+    case LlmFailure.BASE_URL_NOT_CONFIGURED:
+      return "no base URL configured";
   }
 }
 

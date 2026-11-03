@@ -3,7 +3,7 @@ import type { JsonSchema, LlmClient, LlmJsonOutcome } from "@/lib/fsm/parsing/ai
 import { LlmFailure } from "@/lib/enums/llm-failure";
 import { isString } from "@/lib/utils/type-guards";
 import { REQUEST_TIMEOUT_MS } from "@/lib/constants/limits/ai";
-import { findGoogleAiModel, findGoogleClientApi } from "@/lib/config/integrations";
+import { findGoogleAiBaseUrl, findGoogleAiModel, findGoogleClientApi } from "@/lib/config/integrations";
 
 export type GeminiGenerateContentBody = {
   candidates?: Array<{
@@ -23,7 +23,9 @@ export type GeminiJsonOutcome = LlmJsonOutcome;
 export async function requestGeminiJson(request: GeminiJsonRequest): Promise<GeminiJsonOutcome> {
   const model = findGoogleAiModel();
   if (model === undefined) return { ok: false, failure: LlmFailure.MODEL_NOT_CONFIGURED };
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const baseUrl = findGoogleAiBaseUrl();
+  if (baseUrl === undefined) return { ok: false, failure: LlmFailure.BASE_URL_NOT_CONFIGURED };
+  const url = `${baseUrl}/models/${model}:generateContent`;
 
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: request.systemPrompt }] },

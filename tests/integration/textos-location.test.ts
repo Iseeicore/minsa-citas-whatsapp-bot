@@ -53,6 +53,11 @@ const ALLOWED_INSIDE_FSM: ReadonlyArray<{ file: string; snippet: string; reason:
   },
   {
     file: "lib/fsm/parsing/ai/ai-fallback.ts",
+    snippet: "no base URL configured",
+    reason: "motivo que va al log ai.fallback, no al ciudadano",
+  },
+  {
+    file: "lib/fsm/parsing/ai/ai-fallback.ts",
     snippet: "provider  is not registered",
     reason: "motivo que va al log ai.fallback, no al ciudadano",
   },
