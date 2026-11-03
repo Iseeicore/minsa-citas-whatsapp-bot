@@ -27,7 +27,7 @@ const EXIT_QUESTION = {
     { id: "cita_salir_no", title: "No, continuar" },
   ],
 };
-const GOODBYE = "Entendido. Cuando quieras retomar tu cita, escríbenos. ¡Que tengas un buen día! 👋";
+const GOODBYE = "Entendido. Si más adelante deseas retomar tu cita, escríbenos de nuevo. ¡Que tengas un buen día! 👋";
 
 const especialidades: OfferedList = {
   text: "Selecciona la especialidad:",

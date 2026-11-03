@@ -21,7 +21,7 @@ const queries = (result: HandlerResult) => result.effects.filter(isQueryEffect);
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 
 const FAREWELL =
-  "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Cuando quieras volver a intentarlo, escríbenos nuevamente. ¡Que tengas un buen día! 👋";
+  "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si más adelante deseas volver a intentarlo, escríbenos de nuevo. ¡Que tengas un buen día! 👋";
 
 function booking(extra: Session["slots"] = {}): Session {
   return {
