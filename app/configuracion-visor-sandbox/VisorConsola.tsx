@@ -106,6 +106,11 @@ function SandboxListRow({ onSelect }: { onSelect: () => void }) {
   );
 }
 
+const MODE_OPTIONS = [
+  { value: SandboxMode.REAL, label: "Chat real", Icon: WhatsAppGlyph, activeClassName: "text-wa-header" },
+  { value: SandboxMode.SANDBOX, label: "Sandbox", Icon: SandboxGlyph, activeClassName: "text-sb-accent" },
+];
+
 function ModeToggle({ mode, onChange }: { mode: SandboxMode; onChange: (mode: SandboxMode) => void }) {
   const isSandbox = mode === SandboxMode.SANDBOX;
 
@@ -125,24 +130,18 @@ function ModeToggle({ mode, onChange }: { mode: SandboxMode; onChange: (mode: Sa
             isSandbox ? "translate-x-[calc(100%+4px)]" : "translate-x-0",
           )}
         />
-        <span
-          className={cn(
-            "relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium",
-            isSandbox ? "text-gray-500" : "text-wa-header",
-          )}
-        >
-          <WhatsAppGlyph className="h-3.5 w-3.5" />
-          Chat real
-        </span>
-        <span
-          className={cn(
-            "relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium",
-            isSandbox ? "text-sb-accent" : "text-gray-500",
-          )}
-        >
-          <SandboxGlyph className="h-3.5 w-3.5" />
-          Sandbox
-        </span>
+        {MODE_OPTIONS.map(({ value, label, Icon, activeClassName }) => (
+          <span
+            key={value}
+            className={cn(
+              "relative z-10 flex w-1/2 items-center justify-center gap-1.5 text-xs font-medium",
+              mode === value ? activeClassName : "text-gray-500",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </span>
+        ))}
       </Button>
     </div>
   );
