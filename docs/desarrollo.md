@@ -35,7 +35,7 @@ Los dos canales usan la misma máquina de estados (`lib/fsm/`); cambia cómo lle
 
 4. (Opcional) Carga datos de arranque. Solo corren contra una base cuyo nombre termine en `_desechable`, `_dev` o `_local`, y necesitan `psql` y `DATABASE_URL`:
 
-   - `npm run db:seed:eess` carga el padrón de establecimientos (`--base-real=<base>` lo permite en otra base).
+   - `npm run db:seed:eess` carga el padrón de establecimientos (`--base-real=<base>` lo permite en otra base). Con `--archivo=<ruta.csv>` carga el padrón completo desde un CSV y desactiva los que no vienen en él; el formato está en [`prisma/README.md`](../prisma/README.md#padrón-de-establecimientos).
    - `npm run db:seed:dev` carga incidencias de ejemplo; si ya existen, `--reiniciar` las borra y las vuelve a crear.
 
    En el servidor de MINSA no corre ninguna semilla: los 4 hospitales de la primera etapa los carga un DBA con `SELECT catalogo.cargar_hospitales_fase_1();` (función que crea el arranque, no un dato). Ver la [sección 7 de despliegue-minsa.md](despliegue-minsa.md#7-carga-inicial-hospitales-y-administrador).

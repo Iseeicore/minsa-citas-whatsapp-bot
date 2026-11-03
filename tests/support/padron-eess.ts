@@ -6,7 +6,7 @@ export interface FilaPadronEess {
   nombre: string;
   nivel: string;
   categoria: string | null;
-  diris: string;
+  autoridad_sanitaria: string;
   departamento: string | null;
   provincia: string | null;
   distrito: string | null;
@@ -26,15 +26,15 @@ export function leerPadronEess(): FilaPadronEess[] {
     .slice(1)
     .map((linea) => {
       const contenido = FILA.exec(linea)?.[1] ?? "";
-      const [codigo_renipress, nombre, nivel, categoria, diris, departamento, provincia, distrito] = [...contenido.matchAll(VALOR)].map(
-        (m) => (m[0] === "NULL" ? null : m[1].replaceAll("''", "'")),
-      );
+      const [codigo_renipress, nombre, nivel, categoria, autoridad_sanitaria, departamento, provincia, distrito] = [
+        ...contenido.matchAll(VALOR),
+      ].map((m) => (m[0] === "NULL" ? null : m[1].replaceAll("''", "'")));
       return {
         codigo_renipress: codigo_renipress ?? "",
         nombre: nombre ?? "",
         nivel: nivel ?? "",
         categoria,
-        diris: diris ?? "",
+        autoridad_sanitaria: autoridad_sanitaria ?? "",
         departamento,
         provincia,
         distrito,
