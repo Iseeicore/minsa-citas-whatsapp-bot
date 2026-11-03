@@ -6,15 +6,14 @@ const db = vi.hoisted(() => ({
   incidenciaFindUnique: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({ codigo: "MINSA-2026-A-000001" })),
   evidenciaCreate: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
   executeRaw: vi.fn<(...args: unknown[]) => Promise<number>>(async () => 1),
-  queryRaw: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => [{ total: BigInt(0) }]),
+  incidenciaCount: vi.fn<(args: unknown) => Promise<number>>(async () => 0),
   enabled: true,
 }));
 
 vi.mock("@/lib/db/persistence", () => ({ isDatabaseEnabled: () => db.enabled }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
-    $queryRaw: db.queryRaw,
-    incidenciaPaciente: { findUnique: db.incidenciaFindUnique },
+    incidenciaPaciente: { findUnique: db.incidenciaFindUnique, count: db.incidenciaCount },
     $transaction: async (run: (tx: unknown) => Promise<unknown>) =>
       run({
         $executeRaw: db.executeRaw,
@@ -28,6 +27,7 @@ vi.mock("@/lib/observability/context", () => ({ currentTraceId: () => "trace-abc
 
 import { getEvidenceImageMaxBytes } from "@/lib/config/evidence";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
+import { startOfTodayInLima } from "@/lib/time/lima-clock";
 import { logger } from "@/lib/observability/logger";
 import type { AlmacenEvidencias, ImagenValidada } from "@/lib/types/almacen-evidencias.types";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
@@ -92,7 +92,7 @@ describe("registering an incident directly in the database", () => {
   );
 
   it("a phone that already sent the daily maximum is refused before anything is saved, and the turn is logged", async () => {
-    db.queryRaw.mockResolvedValueOnce([{ total: BigInt(5) }]);
+    db.incidenciaCount.mockResolvedValueOnce(5);
 
     await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "rejected", reason: "daily_limit" });
 
@@ -101,7 +101,7 @@ describe("registering an incident directly in the database", () => {
   });
 
   it("one below the maximum still goes through", async () => {
-    db.queryRaw.mockResolvedValueOnce([{ total: BigInt(4) }]);
+    db.incidenciaCount.mockResolvedValueOnce(4);
 
     await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual(ACEPTADA);
   });
@@ -109,15 +109,13 @@ describe("registering an incident directly in the database", () => {
   it("the count leaves out the incident of this same turn, so a repeated delivery of the last allowed one is not refused", async () => {
     await registrarIncidencia(base, crearAlmacenEvidencias());
 
-    const [strings, ...values] = db.queryRaw.mock.calls[0] as [readonly string[], ...unknown[]];
-    const sql = strings.join("?");
-    expect(values).toEqual(["wa-1", "trace-abc"]);
-    expect(sql).toContain("trace_id <>");
-    expect(sql).toContain("America/Lima");
+    expect(db.incidenciaCount).toHaveBeenCalledWith({
+      where: { waId: "wa-1", traceId: { not: "trace-abc" }, fechaCreacion: { gte: startOfTodayInLima() } },
+    });
   });
 
   it("a database that cannot count is an error, never a silent pass", async () => {
-    db.queryRaw.mockRejectedValueOnce(new Error("connection refused"));
+    db.incidenciaCount.mockRejectedValueOnce(new Error("connection refused"));
 
     await expect(registrarIncidencia(base, crearAlmacenEvidencias())).resolves.toEqual({ status: "error" });
     expect(db.incidenciaCreate).not.toHaveBeenCalled();

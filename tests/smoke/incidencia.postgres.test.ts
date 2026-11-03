@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
 import { runWithTrace } from "@/lib/observability/context";
 import { registrarIncidencia } from "@/lib/recepcion/servicio";
+import { contarDelDia } from "@/lib/recepcion/repositorio";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 import { createPrismaAceptacionTerminosStore, findAceptacionTerminos, saveAceptacionTerminos } from "@/lib/terminos/aceptacion-terminos";
 import { DOCUMENTOS_DENUNCIA } from "@/lib/constants/documentos-aceptacion";
@@ -103,6 +104,19 @@ describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a re
     expect(second).toEqual(first);
 
     expect(await prisma.incidenciaPaciente.count({ where: { traceId } })).toBe(1);
+  });
+
+  it("the daily count takes the incidents of the phone since the start of the Lima day and leaves out the one of this turn", async () => {
+    const waId = `smoke-${randomUUID()}`;
+    const trazas = [`trace-${randomUUID()}`, `trace-${randomUUID()}`];
+    for (const traceId of trazas) {
+      await runWithTrace(traceId, {}, () =>
+        registrarIncidencia({ waId, canal: "whatsapp", descripcion: "Texto del reclamo" }, crearAlmacenEvidencias()),
+      );
+    }
+
+    await expect(contarDelDia(waId, trazas[0])).resolves.toBe(1);
+    await expect(contarDelDia(waId, `trace-${randomUUID()}`)).resolves.toBe(2);
   });
 
   it("stores the establecimiento the citizen confirmed and answers with the code, the same one on a repeated turn", async () => {

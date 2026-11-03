@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/observability/logger";
 import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { CupoDiarioStatus } from "@/lib/enums/cupo-diario-status";
-import { LIMA_TIME_ZONE } from "@/lib/time/lima-clock";
+import { startOfTodayInLima } from "@/lib/time/lima-clock";
 import type { CountIntentosDelDiaResult, CupoDiarioStore, IntentoConsulta, SaveIntentoConsultaResult } from "@/lib/types/cupo-diario.types";
 
 type ConteoDelDia = { fecha: string; total: number };
@@ -12,14 +12,8 @@ export function createPrismaCupoDiarioStore(): CupoDiarioStore {
     save: async ({ identificador, canal, resultado }) => {
       await prisma.consultaIncidenciaIntento.create({ data: { identificador, canalOrigenId: CANAL_ORIGEN_POR_CANAL[canal], resultado } });
     },
-    countDelDia: async (identificador) => {
-      const filas = await prisma.$queryRaw<{ total: bigint }[]>`
-        SELECT count(*) AS total
-          FROM chatbot.consulta_incidencia_intento
-         WHERE identificador = ${identificador}
-           AND fecha_creacion >= date_trunc('day', now() AT TIME ZONE ${LIMA_TIME_ZONE}::text) AT TIME ZONE ${LIMA_TIME_ZONE}::text`;
-      return Number(filas[0]?.total ?? 0);
-    },
+    countDelDia: (identificador) =>
+      prisma.consultaIncidenciaIntento.count({ where: { identificador, fechaCreacion: { gte: startOfTodayInLima() } } }),
   };
 }
 

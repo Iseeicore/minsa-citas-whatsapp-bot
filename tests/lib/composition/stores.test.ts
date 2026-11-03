@@ -5,15 +5,14 @@ const db = vi.hoisted(() => ({
   createMany: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({ count: 2 })),
   findMany: vi.fn<(args: unknown) => Promise<unknown>>(async () => []),
   createIntento: vi.fn<(args: unknown) => Promise<unknown>>(async () => ({})),
-  queryRaw: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => [{ total: BigInt(0) }]),
+  countIntentos: vi.fn<(args: unknown) => Promise<number>>(async () => 0),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     usuario: { upsert: db.upsert },
     aceptacionTerminos: { createMany: db.createMany, findMany: db.findMany },
-    consultaIncidenciaIntento: { create: db.createIntento },
-    $queryRaw: db.queryRaw,
+    consultaIncidenciaIntento: { create: db.createIntento, count: db.countIntentos },
   },
 }));
 
@@ -52,7 +51,7 @@ describe("composition of the stores", () => {
     expect(db.upsert).not.toHaveBeenCalled();
     expect(db.createMany).not.toHaveBeenCalled();
     expect(db.createIntento).not.toHaveBeenCalled();
-    expect(db.queryRaw).not.toHaveBeenCalled();
+    expect(db.countIntentos).not.toHaveBeenCalled();
   });
 
   it("with the database on uses the Prisma stores", async () => {
@@ -66,6 +65,6 @@ describe("composition of the stores", () => {
     expect(db.upsert).toHaveBeenCalledOnce();
     expect(db.createMany).toHaveBeenCalledOnce();
     expect(db.createIntento).toHaveBeenCalledOnce();
-    expect(db.queryRaw).toHaveBeenCalledOnce();
+    expect(db.countIntentos).toHaveBeenCalledOnce();
   });
 });
