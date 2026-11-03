@@ -33,7 +33,7 @@ rg -n "<(div|p|h[1-6]|dl)\b" app | rg -i "button|<a "
 npx vitest run tests/integration/ui-design-rules.test.ts tests/integration/regex-location.test.ts
 ```
 
-Las dos búsquedas de `const` dan candidatos: cada uno se cuenta en el repo (`rg -c NOMBRE app lib`). Con un solo uso y sin motivo de G03 ni contrato de G04, o si solo renombra otro valor (R44), es FALLA.
+Las dos búsquedas de `const` dan candidatos: cada uno se cuenta en el repo (`rg -c NOMBRE app lib`). Con un solo uso y sin motivo de G03 ni contrato de G04, o si solo renombra otro valor (R44), es FALLA, salvo constantes de clases de F11 y F13: un `*_CLASS_NAME` del propio componente es local y con un solo uso no es hallazgo (F01).
 
 ## Veredicto
 
