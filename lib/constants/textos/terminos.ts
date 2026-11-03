@@ -25,4 +25,4 @@ export const TERMINOS_CHECKS: readonly ConsentCheck[] = [
 export const TERMINOS_ACCEPT_LABEL = "Continuar";
 export const TERMINOS_REOPEN_LABEL = "Revisar términos y datos personales";
 export const TERMINOS_RECHAZADOS_TEXT =
-  "Lo sentimos. Muchas gracias por usar nuestros servicios.\n\nPara agendar una cita es necesario aceptar los términos y condiciones y autorizar el tratamiento de tus datos personales. Si más adelante deseas agendar, escríbenos de nuevo. ¡Hasta pronto!";
+  "Le informamos que no es posible registrar su cita sin la aceptación previa de los términos y condiciones del servicio. Si decide continuar con su solicitud en otro momento, no dude en contactarse nuevamente.";
