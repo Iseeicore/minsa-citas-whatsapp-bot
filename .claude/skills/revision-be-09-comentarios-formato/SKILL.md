@@ -3,15 +3,15 @@ name: revision-be-09-comentarios-formato
 description: Filtro 9 de 10 de revision-backend. Cero comentarios o docstrings en todo archivo, código muerto fuera, formato Prettier, finales de línea. Úsalo solo dentro de revision-backend.
 ---
 
-# Filtro BE-09 · Comentarios y formato (reglas 43-51, 64, 102-110)
+# Filtro BE-09 · Comentarios y formato (R101-R104, R143-R144, R198; R63-R65, R106, R113-R114, R137)
 
 ## Verifica
 
-- Ningún comentario ni docstring en código, pruebas, migraciones SQL, semillas ni `schema.prisma`; solo directivas de herramienta (`eslint-disable`) (43-47, 64).
-- Sin código muerto (51); imports con alias `@/` (49); bloques repetidos como mapa/helper (50).
-- Código sin cobertura que se toca tiene antes su prueba de caracterización (53).
-- Formato por Prettier, sin reordenar clases ni tocar contenido de textos; solo se formatea lo del cambio (102-105).
-- Sin cambio espurio de finales de línea (106).
+- Ningún comentario ni docstring en código, pruebas, migraciones SQL, semillas ni `schema.prisma`; solo directivas de herramienta (`eslint-disable`) (R101, R143). El inventario se confirma con el analizador del lenguaje (R144). Una migración ya aplicada no se toca, ni para quitarle comentarios (R77).
+- Sin código muerto (R64); imports con alias `@/` (R65); bloques repetidos como mapa o helper (R63).
+- Código sin cobertura que se toca tiene antes su prueba de caracterización (R106).
+- Formato por Prettier, sin reordenar clases ni tocar contenido de textos; solo se formatea lo del cambio (R113).
+- Sin cambio espurio de finales de línea (R137).
 
 ## Comandos
 

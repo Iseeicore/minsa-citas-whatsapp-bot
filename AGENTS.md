@@ -17,14 +17,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 | Último hito | Bandera `REFERENCIAS_ENABLED` para **Cita con referencia**, apagada por defecto, en los dos canales. Antes, PR #82: bandera `INCIDENCIAS_ENABLED` |
 | Sincronía con GitLab | `develop` d67f443 (PR #81) |
 
-**Qué gestiona la fase:** las variables de entorno `INCIDENCIAS_ENABLED` y `REFERENCIAS_ENABLED`, leídas en `lib/config/features.ts`. Las dos se encienden con `true` (sin distinguir mayúsculas ni espacios); sin definir, vacías o con cualquier otro valor quedan apagadas.
+**Qué gestiona la fase:** las variables de entorno `INCIDENCIAS_ENABLED` y `REFERENCIAS_ENABLED`, leídas en `lib/config/features.ts`. Las dos se encienden con `true` (sin distinguir mayúsculas ni espacios); sin definir, vacías o con cualquier otro valor quedan apagadas. Un valor inválido no corta el arranque, aunque R117 lo pide: es una excepción registrada en las reglas (generales, sección 7b) y pendiente de corregir.
 
 - Las dos apagadas (la fase actual): el menú ofrece solo **Agendar una cita médica**. Las sesiones que quedaron a medias, el número escrito, las palabras clave («referencia», «incidencia», el código `MINSA-AAAA-NNNNNN`), la intención de la IA y la pregunta sobre una referencia (OOS-03) no llegan a esos flujos: el bot responde «Por ahora solo puedo ayudarte a agendar una cita médica.» y muestra el menú.
 - `REFERENCIAS_ENABLED` encendida: ofrece también **Cita con referencia**, en los dos canales.
 - `INCIDENCIAS_ENABLED` encendida: ofrece también **Denuncia anticorrupción** y **Consultar mi denuncia**.
 - Los textos que enumeran lo que ofrece el bot (aviso, fuera de alcance, rechazo del primer mensaje, descripción de la portada y prompt de intención de la IA) tienen una versión por combinación de banderas (`ServiceOffer` en `lib/services/service-offer.ts`).
 - Se leen en cada mensaje: cambiarlas exige reiniciar el proceso, no recompilar. Vitest las fuerza a `true` para probar los flujos.
-- Cambiar de fase = cambiar estas variables (con aviso a infraestructura, regla 100 de las reglas de backend) y actualizar esta tabla en el mismo PR.
+- Cambiar de fase = cambiar estas variables (con aviso a infraestructura, R93 y R131 de las reglas del backend) y actualizar esta tabla en el mismo PR.
 
 ## Cómo se carga este archivo
 
@@ -39,7 +39,7 @@ Si una sesión no carga este archivo (versión de Claude Code anterior, subagent
 
 # Revisión secuencial por filtros
 
-Las reglas de desarrollo viven en `Obsidian Vault/Documentacion-Chatbot/Reglas/`: `Reglas del Backend — Calidad de Código.md` (R01-R203), `Reglas del Frontend — Calidad de Código.md` (F01-F88) y `Generales/Reglas Generales — Calidad y Entrega.md` (G01-G76). Las versiones anteriores, con la numeración vieja, están en `Reglas/Retirados/`. Cada filtro es una skill de `.claude/skills/`.
+Las reglas de desarrollo viven en `Obsidian Vault/Documentacion-Chatbot/Reglas/`: `Reglas del Backend — Calidad de Código.md` (R01-R204), `Reglas del Frontend — Calidad de Código.md` (F01-F90) y `Generales/Reglas Generales — Calidad y Entrega.md` (G01-G76). Las versiones anteriores, con la numeración vieja, están en `Reglas/Retirados/`. Cada filtro es una skill de `.claude/skills/`.
 
 - Código en `app/api`, `app/webhook`, `lib/` o `prisma/` → skill `revision-backend` (filtros `revision-be-01` a `revision-be-10`).
 - Código en `app/` (UI) → skill `revision-frontend` (filtros `revision-fe-01` a `revision-fe-05`). La sección 10 de las reglas del frontend (Angular) no aplica a este repo.
@@ -50,7 +50,7 @@ Las reglas de desarrollo viven en `Obsidian Vault/Documentacion-Chatbot/Reglas/`
 
 # Idioma de la documentación
 
-- Los archivos `.md` de este repo están en español, con nombre en kebab-case, minúsculas y sin acentos (regla 134 de las reglas de backend). El título y el nombre del archivo dicen lo mismo.
+- Los archivos `.md` de este repo están en español, con nombre en kebab-case, minúsculas y sin acentos (convención de este repo; las reglas vigentes no tienen un identificador para ella). El título y el nombre del archivo dicen lo mismo.
 - **Antes de crear un `.md` nuevo, preguntar al usuario si se redacta en español o en inglés.** Aplica a todo `.md` salvo `README.md`, `AGENTS.md` y siglas de herramienta como `ci.md`. Se hace una sola pregunta y se espera la respuesta; no se asume el idioma.
 - El ambiente solo sugiere el valor por defecto: en este repo, español. Otro proyecto u otro ambiente puede pedir inglés, y lo decide el usuario.
 - Al renombrar un `.md`, buscar también quién lo lee por ruta en `tests/` y `scripts/`, no solo los enlaces.
@@ -106,6 +106,9 @@ npm audit --omit=dev --audit-level=critical && npx next typegen && npx tsc --noE
 - Sin comentarios ni docstrings en código, migraciones ni SQL de pruebas (solo directivas de herramienta como `eslint-disable`); la intención va en los nombres y en `docs/`.
 - Mensajes del bot (`lib/fsm`, whatsapp-bot y Chat-bot) y textos legales → `lib/constants/textos/` (un archivo por flujo); los textos de la UI en `app/` siguen G03: en línea si son de un solo uso. Prompts de IA → `lib/constants/prompts/`; regex → `lib/constants/regex/` como constantes con nombre; palabras clave → `lib/constants/palabras-clave.ts`. Sin archivos índice. Las pruebas `*-location` fallan si no se cumple.
 - Lógica pura sin hooks de React → `lib/utils/` con su prueba espejo, solo si tiene dos o más consumidores o lógica propia que valga probar aparte; un ternario o una línea con un solo consumidor se queda donde se usa.
+- HTTP del frontend: toda petición pasa por `lib/http/api-client.ts`, con un solo enum de estado (`ApiRequestStatus`); los hooks viven en `app/hooks/`. Única excepción: el aviso `keepalive` de `app/components/sandbox-chat/browser.ts`, que no espera respuesta. `app/components/hooks/`, `fetch-json.ts` y el `fetch` de `Sandbox.tsx` están pendientes de migrar.
+- Datos: lecturas y escrituras simples con Prisma Client; `$queryRaw`/`$executeRaw` solo para candados consultivos, `FOR UPDATE`, `UPDATE … LIMIT … RETURNING`, funciones de la base, `set_config` o `pg_trgm`, con el motivo en el nombre del método del repositorio.
+- Enums: van en `lib/enums/<dominio>/` (`catalogo`, `botones`, `ui`, `whatsapp`, `seguridad`, `integraciones`, `conversacion`, `cita`, `referencia`, `incidencia`); `lib/enums/http-status.ts` se queda en la raíz. Hoy todos siguen en la raíz: la mudanza es un PR aparte. Un conjunto cerrado que usa un solo archivo puede ser una unión local.
 - UI (`app/components`): sin valores arbitrarios de Tailwind (`bg-[#hex]`, `text-[10px]`), tokens en `@theme` de `app/globals.css`; sin emojis en las vistas (íconos de `app/components/icons/`); bloques de clases repetidos pasan a `app/components/ui/`. Lo hace cumplir `ui-design-rules.test.ts`.
 - Prettier: 140 columnas, comillas dobles, punto y coma, coma final. Cubre `lib/`, `tests/`, `scripts/` y la configuración de la raíz; `app/` aún no se formatea (`.prettierignore`).
 - `.env.example` es solo la lista de variables; `tests/integration/env-example.test.ts` falla si se desvía de lo que lee el código. Al agregar una variable se actualizan `.env.example`, el bloque de variables del `README.md` y la referencia de `docs/despliegue-minsa.md` (sección 3.6).

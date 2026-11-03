@@ -3,17 +3,17 @@ name: revision-be-06-seguridad-fiabilidad
 description: Filtro 6 de 10 de revision-backend. Rutas públicas exactas, webhooks con HMAC, secretos sin prefijo público, logs sin datos sensibles, timeouts y rate limit. Úsalo solo dentro de revision-backend.
 ---
 
-# Filtro BE-06 · Seguridad y fiabilidad (reglas 29-42, 100)
+# Filtro BE-06 · Seguridad y fiabilidad (R84-R100, R140-R142, R158-R161, R190, R199-R200)
 
 ## Verifica
 
-- Listas blancas de rutas públicas con coincidencia exacta, nunca por prefijo (29).
-- Webhooks verifican firma HMAC con `timingSafeEqual` (34). La bandeja y el sandbox respetan sus banderas (`SANDBOX_PAGE_ENABLED`, `SANDBOX_ENABLED`) y no abren superficie sin autenticación sin decirlo (100).
-- Ningún secreto con prefijo `NEXT_PUBLIC_` (35); sin credenciales ni cadenas de conexión en código, README o logs (24).
-- Logs no registran tokens, contraseñas ni datos sensibles (36); logs estructurados con nivel y contexto, el error real solo ahí (40).
-- Rate limit en endpoints públicos (37). Llamadas externas con timeout y reintentos acotados (39). Toda excepción llega al manejador global (38).
-- Conexiones de larga duración con heartbeat y tope (41, [G]) y entorno de despliegue compatible (42, [G]).
-- Rol/estado validados en el servidor en cada petición protegida; el cliente nunca decide permisos (32, 33).
+- Listas blancas de rutas públicas con coincidencia exacta, nunca por prefijo (R84).
+- Webhooks verifican firma HMAC con `timingSafeEqual` (R89). La bandeja y el sandbox respetan sus banderas (`SANDBOX_PAGE_ENABLED`, `SANDBOX_ENABLED`); una variable que abre una superficie sin autenticación se pide a infraestructura con su riesgo dicho (R93).
+- Ningún secreto con prefijo `NEXT_PUBLIC_` (R90); sin credenciales ni cadenas de conexión en código, README o logs (R91).
+- Logs estructurados con nivel y contexto, sin tokens ni datos sensibles; el nivel lo decide el significado y el nombre del evento sale del catálogo (R98, R199, R200).
+- Rate limit en endpoints públicos (R92). Llamadas externas con timeout y reintentos acotados, solo para fallos transitorios (R95, R96). Toda excepción llega al manejador global (R94).
+- Conexiones de larga duración con heartbeat y tope (R99, [G]) y entorno de despliegue compatible (R100, [G]).
+- Rol y estado validados en el servidor en cada petición protegida; el cliente nunca decide permisos (R88, R159).
 
 ## Comandos
 
