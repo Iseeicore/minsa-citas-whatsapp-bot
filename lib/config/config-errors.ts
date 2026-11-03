@@ -6,6 +6,7 @@ import { isFlagEnabled } from "@/lib/utils/env-flags";
 import { findInvalidEvidenceImageMaxMb } from "@/lib/config/evidence";
 import { EVIDENCE_IMAGE_MAX_MB_DEFAULT, EVIDENCE_IMAGE_MAX_MB_MIN, META_IMAGE_MAX_MB } from "@/lib/constants/limits/incidencia";
 import {
+  findGoogleAiModel,
   findGoogleClientApi,
   findMetaAccessToken,
   findMetaAppSecret,
@@ -66,6 +67,11 @@ export const CONFIG_ERRORS = {
     message:
       "GOOGLE_CLIENT_API no está configurada con la IA real activa (SANDBOX_USE_REAL_AI=true): Gemini rechaza cada consulta y el bot usa los respaldos fijos.",
   },
+  [ConfigErrorCode.GOOGLE_AI_MODEL_MISSING]: {
+    severity: "error",
+    message:
+      "GOOGLE_AI_MODEL no está configurada con la IA real activa (SANDBOX_USE_REAL_AI=true): el bot no consulta a Gemini y usa los respaldos fijos.",
+  },
 } as const satisfies Record<ConfigErrorCode, ConfigErrorEntry>;
 
 export type { ConfigErrorCode };
@@ -94,7 +100,10 @@ const REQUIRED_WITH_REAL_MINSA: RequiredVariable[] = [
   { code: ConfigErrorCode.MINSA_INTEGRATION_SECRET_MISSING, find: findMinsaIntegrationSecret },
 ];
 
-const REQUIRED_WITH_REAL_AI: RequiredVariable[] = [{ code: ConfigErrorCode.GOOGLE_CLIENT_API_MISSING, find: findGoogleClientApi }];
+const REQUIRED_WITH_REAL_AI: RequiredVariable[] = [
+  { code: ConfigErrorCode.GOOGLE_CLIENT_API_MISSING, find: findGoogleClientApi },
+  { code: ConfigErrorCode.GOOGLE_AI_MODEL_MISSING, find: findGoogleAiModel },
+];
 
 function findMissingVariables(env: Env): ConfigIssue[] {
   const required = [

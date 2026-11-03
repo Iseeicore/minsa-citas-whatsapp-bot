@@ -24,7 +24,8 @@ export type LlmJsonOutcome =
   | { ok: false; failure: LlmFailure.REQUEST_FAILED; errorName: string }
   | { ok: false; failure: LlmFailure.HTTP_ERROR; status: number; model: string }
   | { ok: false; failure: LlmFailure.NO_TEXT }
-  | { ok: false; failure: LlmFailure.INVALID_JSON };
+  | { ok: false; failure: LlmFailure.INVALID_JSON }
+  | { ok: false; failure: LlmFailure.MODEL_NOT_CONFIGURED };
 
 export interface LlmClient {
   readonly provider: LlmClientName;

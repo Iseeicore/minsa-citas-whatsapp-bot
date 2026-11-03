@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findGoogleAiModel,
   findGoogleClientApi,
   findMetaAccessToken,
   findMetaAppSecret,
@@ -17,6 +18,7 @@ const READERS = [
   ["MINSA_API_HOST", findMinsaApiHost],
   ["MINSA_INTEGRATION_SECRET", findMinsaIntegrationSecret],
   ["GOOGLE_CLIENT_API", findGoogleClientApi],
+  ["GOOGLE_AI_MODEL", findGoogleAiModel],
 ] as const;
 
 describe("integration variables", () => {

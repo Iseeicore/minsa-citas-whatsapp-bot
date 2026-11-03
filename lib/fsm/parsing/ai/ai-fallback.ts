@@ -18,6 +18,8 @@ export function describeLlmFailure(outcome: FailedLlmOutcome): string {
       return "no text in the response";
     case LlmFailure.INVALID_JSON:
       return "response was not valid JSON";
+    case LlmFailure.MODEL_NOT_CONFIGURED:
+      return "no model configured";
   }
 }
 

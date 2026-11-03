@@ -77,6 +77,8 @@ Llena los valores vacíos según el ambiente donde se despliegue; una variable v
 
 Para usar la base de datos se necesitan `DATABASE_ENABLED=true` y `DATABASE_URL`. Con `DATABASE_ENABLED=false` el servicio arranca sin base de datos y sin aplicar migraciones: la conversación vive en memoria y las incidencias no se guardan. En producción deja `SANDBOX_PAGE_ENABLED` sin definir (abre la bandeja web sin autenticación) y define `SANDBOX_SHARED_SECRET` para que solo el servidor del portal pueda llamar al Chat-bot.
 
+Con `SANDBOX_USE_REAL_AI=true` son obligatorias `GOOGLE_CLIENT_API` y `GOOGLE_AI_MODEL`. El código no trae un modelo por defecto porque Google los cambia y los retira: `gemini-3.6-flash` es solo el valor de referencia. Sin `GOOGLE_AI_MODEL`, el bot no consulta a Gemini y usa los respaldos fijos.
+
 ## Despliegue con pocos pasos
 
 1. Definir las variables de entorno de la sección anterior. Si falta una de las 4 credenciales de Meta o `MINSA_DIGITAL_APP_URL`, Docker Compose se detiene y la nombra.
