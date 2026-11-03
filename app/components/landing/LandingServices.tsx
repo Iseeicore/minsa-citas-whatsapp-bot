@@ -40,7 +40,7 @@ export function LandingServices({ loginUrl, chatEnabled }: { loginUrl: string | 
           <li key={title} className="min-h-0">
             <ChatLink
               opensChat={Boolean(chat) && chatEnabled}
-              loginUrl={loginUrl}
+              href={loginUrl}
               className={cn(
                 "flex h-full items-center gap-3 rounded-2xl bg-cover bg-right py-2 pl-4 max-md:pr-landing-card-art md:gap-4 md:pr-landing-card-art-md md:pl-10",
                 bg,

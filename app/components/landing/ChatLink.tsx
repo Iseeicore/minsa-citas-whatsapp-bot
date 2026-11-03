@@ -4,8 +4,8 @@ import { OPEN_CHAT_ATTRIBUTE } from "@/lib/constants/chat-launcher";
 
 export function ChatLink({
   opensChat,
-  loginUrl,
+  href,
   ...linkProps
-}: Omit<ComponentProps<typeof AnchorLink>, "href"> & { opensChat: boolean; loginUrl: string | undefined }) {
-  return <AnchorLink {...linkProps} {...(opensChat ? { href: "#chat", [OPEN_CHAT_ATTRIBUTE]: true } : { href: loginUrl })} />;
+}: Omit<ComponentProps<typeof AnchorLink>, "href"> & { opensChat: boolean; href: string | undefined }) {
+  return <AnchorLink {...linkProps} {...(opensChat ? { href: "#chat", [OPEN_CHAT_ATTRIBUTE]: true } : { href })} />;
 }

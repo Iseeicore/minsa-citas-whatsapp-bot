@@ -8,14 +8,14 @@ const LOGIN_URL = "https://minsa.test/login";
 
 describe("ChatLink", () => {
   it("abre el chat cuando el enlace lleva a él", () => {
-    const markup = renderToStaticMarkup(createElement(ChatLink, { opensChat: true, loginUrl: LOGIN_URL }, "Citas"));
+    const markup = renderToStaticMarkup(createElement(ChatLink, { opensChat: true, href: LOGIN_URL }, "Citas"));
 
     expect(markup).toContain('href="#chat"');
     expect(markup).toContain(OPEN_CHAT_ATTRIBUTE);
   });
 
   it("lleva al ingreso, sin el atributo del chat, cuando el chat no está disponible", () => {
-    const markup = renderToStaticMarkup(createElement(ChatLink, { opensChat: false, loginUrl: LOGIN_URL }, "Citas"));
+    const markup = renderToStaticMarkup(createElement(ChatLink, { opensChat: false, href: LOGIN_URL }, "Citas"));
 
     expect(markup).toBe(`<a href="${LOGIN_URL}">Citas</a>`);
   });
