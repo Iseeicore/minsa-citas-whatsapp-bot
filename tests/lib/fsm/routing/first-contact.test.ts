@@ -39,7 +39,7 @@ describe("first contact: a greeting", () => {
   it("«Continuar mi cita» starts the cita and «Cita con referencia» the referencia flow", () => {
     const waiting = handleFirstContact("Hola", "whatsapp").session;
 
-    expect(handle(waiting, tap("agendar_cita")).session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(handle(waiting, tap("agendar_cita")).session.state).toBe("cita_awaiting_dni");
     expect(handle(waiting, tap("consultar_referencia")).session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
   });
 
@@ -61,7 +61,7 @@ describe("first contact: a greeting", () => {
 
     const step = handle(waiting, text("quiero una cita de odontología en Miraflores"));
 
-    expect(step.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(step.session.state).toBe("cita_awaiting_dni");
     expect(step.effects.some(isQueryEffect)).toBe(false);
   });
 
@@ -116,7 +116,7 @@ describe("first contact: a clear request for a cita", () => {
   it("recognizes plain cita intent even without a specialty or district (no AI needed)", () => {
     for (const message of ["quiero una cita", "Si claro deseo una cita"]) {
       const result = handleFirstContact(message, "whatsapp");
-      expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+      expect(result.session.state).toBe("cita_awaiting_dni");
     }
   });
 
@@ -173,7 +173,7 @@ describe("first contact: answering the [1] / [2] / [3] the rejection text offers
   it("works the same for a citizen returning after a finished flow", () => {
     const finished: Session = { state: "cita_booked", slots: {}, counters: {} };
 
-    expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_dni");
     expect(handle(finished, text("2")).session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
     expect(handle(finished, text("3")).session.state).toBe("incidencia_consent_check_pending");
   });
@@ -241,7 +241,7 @@ describe("returning after a finished cita or reclamo", () => {
   it("does not lose a clear request typed on the way back", () => {
     const result = handle(finished("cita_booking_rejected"), text(CITA_FIRST_MESSAGE));
 
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBeUndefined();
     expect(normalizeText(String(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]))).toBe("MEDICINA GENERAL");
   });

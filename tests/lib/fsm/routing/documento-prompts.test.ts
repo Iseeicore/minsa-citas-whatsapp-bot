@@ -12,7 +12,6 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
-import { confirmCuentaMinsa } from "@/tests/support/cuenta-minsa";
 
 const FROM = "sandbox-documento-prompts";
 const text = (value: string): InboundEvent => ({ channel: "whatsapp", from: FROM, type: "text", text: value });
@@ -20,7 +19,7 @@ const tap = (id: string): InboundEvent => ({ channel: "whatsapp", from: FROM, ty
 
 const sent = (result: HandlerResult): SendEffect[] => result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
 const firstText = (result: HandlerResult): string => {
-  const [effect] = sent(result.session.state === SessionState.CITA_AWAITING_CUENTA_MINSA ? confirmCuentaMinsa(result) : result);
+  const [effect] = sent(result);
   return effect.kind === "send_text" ? effect.text : "";
 };
 
@@ -49,7 +48,7 @@ describe("toda petición del documento dice solo «número de documento»", () =
     };
     const reply = firstText(handleAwaitingFlowStart(session, SessionChannel.WHATSAPP));
 
-    expect(reply).toBe("Ingresa tu número de documento.");
+    expect(reply).toBe("Ingrese su número de documento.");
     expect(reply).not.toMatch(AMOUNT_OR_TYPE);
   });
 

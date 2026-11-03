@@ -99,7 +99,7 @@ fila Agendar / "1" / "cita" / pedido con especialidad o distrito / IA cita / cit
 | Canal | Qué ve la persona |
 |---|---|
 | Chat-bot | Una ventana «Términos y protección de datos personales» con el contenido de los dos documentos con desplazamiento, las casillas «Acepto los términos y condiciones» y «Autorizo el tratamiento de mis datos personales», **Continuar** (deshabilitado hasta marcar las dos) y **No acepto**. Escape la cierra sin responder; el botón «Revisar términos y datos personales» del mensaje la abre otra vez |
-| whatsapp-bot | 🔗 «Términos y protección de datos personales» con **Ver documentos** hacia `TERMINOS_URL`, y después 🔘 la pregunta que nombra los dos documentos, con la frase de privacidad de WhatsApp y **Acepto ambos** / **No acepto**. Sin `TERMINOS_URL`, solo los botones y el aviso `terminos.url_missing` en el log |
+| whatsapp-bot | Sin ventana ni botones, y sin el aviso de cuenta de Minsa Digital: 💬 «Te invitamos a conocer los términos y condiciones de nuestro servicio en este link `TERMINOS_URL`» y, en el mismo mensaje, «Ingrese su número de documento.» (o el texto de entrada del pedido). No guarda aceptación. Sin `TERMINOS_URL`, solo el pedido de documento |
 
 - La aceptación guarda dos filas en `chatbot.aceptacion_terminos`, una por documento (`TERMINOS` con `TERMINOS_VERSION` y `DATOS_PERSONALES` con `DATOS_PERSONALES_VERSION`), con el chat, el canal, el servicio `CITA` y la fecha, en una sola consulta; deja el dato de sesión `terminosAceptados`. Si el guardado falla, queda `terminos.persist_failed` en el log y la cita sigue. Sin base de datos, la aceptación queda en la memoria del proceso.
 - Se pregunta una sola vez por versión: antes de mostrar los documentos se busca, para el mismo chat (número de WhatsApp o conversación del Chat-bot) y el servicio `CITA`, una aceptación de cada documento en su versión vigente. Si están las dos, no se muestran. Al publicar una versión nueva de cualquiera de los dos se vuelve a preguntar por ambos. Si la búsqueda falla, se muestran los documentos y queda `terminos.lookup_failed` en el log. Cuando WhatsApp cambia el identificador de la persona, sus aceptaciones pasan al identificador nuevo.
@@ -133,7 +133,7 @@ La referencia aporta destino y especialidad; la API de reserva sigue necesitando
 
 | Paso | El bot envía | Texto libre que entiende | Varias coincidencias | IA |
 |---|---|---|---|---|
-| Términos y datos personales (con `TERMINOS_ENABLED=true`) | Chat-bot: ventana con dos casillas, **Continuar** y **No acepto**. whatsapp-bot: 🔗 **Ver documentos** (con `TERMINOS_URL`) + 🔘 [Acepto ambos] [No acepto] | «acepto», «acepto ambos», «sí, acepto» / «no acepto» | — | no |
+| Términos y datos personales (con `TERMINOS_ENABLED=true`) | Chat-bot: ventana con dos casillas, **Continuar** y **No acepto**. whatsapp-bot: 💬 el enlace a `TERMINOS_URL` dentro del pedido de documento, sin botones | «acepto», «acepto ambos», «sí, acepto» / «no acepto» | — | no |
 | Bienvenida | 🔘 "Continuar mi cita" (agendar cita) y "Cita con referencia" (solo con `REFERENCIAS_ENABLED`); el enlace al portal va en el texto | saludo, "1"/"2", "cita", pedido con especialidad o distrito | — | no |
 | Menú principal | 📋 filas de los servicios (Agendar una cita médica; Cita con referencia; incidencias con la bandera) | número de fila, "cita", "referencia", "reclamo", "incidencia", frases de cita | — | 🤖 intención |
 | Documento | 💬 | 8 dígitos (DNI) o 9 dígitos (carnet de extranjería); el largo decide el tipo | — | no |

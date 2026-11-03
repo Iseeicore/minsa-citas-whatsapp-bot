@@ -61,7 +61,7 @@ export function routeLexicalAction(session: Session, action: Exclude<LexicalActi
       ]);
 
     case "CITA_WITH_WARNING":
-      return beginCita(slots, message ? extractCitaHints(message) : {}, CITA_WITH_WARNING_TEXT);
+      return beginCita(slots, message ? extractCitaHints(message) : {}, CITA_WITH_WARNING_TEXT, channelOf(session));
 
     case "FORCE_INCIDENCIA": {
       const incidencia = serviceCatalog.byId(MenuChoice.REGISTRAR_INCIDENCIA);

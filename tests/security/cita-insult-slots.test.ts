@@ -24,7 +24,7 @@ describe("B.3 an insulting request for a cita keeps the flow AND what was asked 
   it("the guard routes to the Cita flow with a respect reminder and no AI call", () => {
     const routed = handle(menu(), text(MESSAGE));
 
-    expect(routed.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(routed.session.state).toBe("cita_awaiting_dni");
     expect(queries(routed)).toHaveLength(0);
   });
 

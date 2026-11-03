@@ -16,8 +16,7 @@ ${portalUrl}
 export const WEB_WELCOME_MESSAGE_TEXT =
   "¡Hola! Soy tu asistente virtual. En caso de emergencia médica, llama al *106* (SAMU).\n¿En qué puedo ayudarte?";
 
-export const WELCOME_CITA_BUTTON_TEXT = "Continuar mi cita";
-export const WELCOME_CITA_BUTTON = { id: MenuChoice.AGENDAR_CITA, title: WELCOME_CITA_BUTTON_TEXT };
+export const WELCOME_CITA_BUTTON = { id: MenuChoice.AGENDAR_CITA, title: "Continuar mi cita" };
 export const MENU_PROMPT_TEXT = "¿En qué podemos ayudarte hoy?";
 
 export const MENU_ROW_CITA_TITLE = "Agendar una cita médica";

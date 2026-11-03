@@ -131,7 +131,7 @@ describe("main_menu — deterministic greeting shortcut", () => {
   it("a clear cita word skips the AI entirely, even mixed with a greeting", () => {
     const result = handle(sessionAt("main_menu"), text("Buenas tarde, quiero agendar"));
 
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(hasQuery(result)).toBe(false);
   });
 

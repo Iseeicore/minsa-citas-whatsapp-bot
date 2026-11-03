@@ -83,14 +83,14 @@ export function handleFirstContact(text: string | undefined, channel: SessionCha
 
   const numbered = serviceCatalog.byMenuNumber(message, channel)?.id;
   if (numbered === MenuChoice.AGENDAR_CITA || isCitaKeyword(message)) {
-    return routed("cita", beginCita({}, {}, FIRST_CONTACT_CITA_TEXT));
+    return routed("cita", beginCita({}, {}, FIRST_CONTACT_CITA_TEXT, channel));
   }
   if (numbered === MenuChoice.REGISTRAR_INCIDENCIA) return routed("incidencia", beginIncidencia({}, FIRST_CONTACT_LEAD_TEXT));
   if (numbered === MenuChoice.CONSULTAR_INCIDENCIA) return routed("consulta", beginConsulta(channel));
   if (numbered === MenuChoice.CONSULTAR_REFERENCIA) return routed("referencia", beginReferencias({}));
 
   const cita = detectCitaRequest(message);
-  if (cita) return routed("cita", beginCita({ [SlotKey.INITIAL_MESSAGE_TEXT]: message }, cita, describeCitaRequest(cita)));
+  if (cita) return routed("cita", beginCita({ [SlotKey.INITIAL_MESSAGE_TEXT]: message }, cita, describeCitaRequest(cita), channel));
 
   if (isIncidenciaKeyword(message)) {
     if (!incidenciaService.isEnabled()) return routed("menu", disabledServiceReply(incidenciaService, channel));

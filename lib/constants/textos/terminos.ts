@@ -9,6 +9,8 @@ export const TERMINOS_TITULO_TEXT = "Términos y condiciones";
 export const DOCUMENTOS_TITULO_TEXT = "Términos y protección de datos personales";
 export const TERMINOS_PROMPT_TEXT =
   "Antes de agendar tu cita, revisa y acepta los términos y condiciones y la protección de datos personales.";
+export const terminosWhatsappAvisoText = (url: string, pedidoDocumento: string): string =>
+  `Te invitamos a conocer los términos y condiciones de nuestro servicio en este link ${url}\n\n${pedidoDocumento}`;
 export const TERMINOS_PRIVACIDAD_WHATSAPP_TEXT =
   "Por WhatsApp solo recibimos tu número y los mensajes que nos envías para atenderte. Meta no comparte con el Minsa tu dirección IP.";
 export const terminosWhatsappBodyText = (prompt: string): string => `${prompt}\n\n${TERMINOS_PRIVACIDAD_WHATSAPP_TEXT}`;

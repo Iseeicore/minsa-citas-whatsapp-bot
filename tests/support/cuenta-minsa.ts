@@ -11,6 +11,10 @@ import { sent, tap } from "@/tests/support/fsm-events";
 export const cuentaMinsaAviso = () => sendButtons(CUENTA_MINSA_AVISO_TEXT, CUENTA_MINSA_AVISO_BUTTONS);
 
 export function confirmCuentaMinsa(result: HandlerResult, channel: SessionChannel = SessionChannel.WHATSAPP): HandlerResult {
+  if (channel === SessionChannel.WHATSAPP) {
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+    return result;
+  }
   expect(result.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
   expect(sent(result).at(-1)).toEqual(cuentaMinsaAviso());
   return handle(result.session, tap(CuentaMinsaButtonId.TIENE, channel));
