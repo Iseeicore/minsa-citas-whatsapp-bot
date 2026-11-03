@@ -9,4 +9,10 @@ describe("Dialog", () => {
 
     expect(markup).toBe('<dialog aria-labelledby="titulo" class="open:flex">contenido</dialog>');
   });
+
+  it("se anuncia como alerta cuando pide una confirmación", () => {
+    const markup = renderToStaticMarkup(createElement(Dialog, { onClose: () => {}, labelledBy: "titulo", alert: true }, "contenido"));
+
+    expect(markup).toBe('<dialog role="alertdialog" aria-labelledby="titulo">contenido</dialog>');
+  });
 });

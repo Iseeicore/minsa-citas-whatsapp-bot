@@ -17,8 +17,9 @@ Antes de dictaminar G03, G04, F01, F02 y F46, leer la regla vigente en el vault.
 - Imports con alias `@/`, nunca relativos (F03, G02).
 - Un solo `<button` nativo: `app/components/ui/Button`; `IconButton`, `ListPicker` y los demás se componen sobre él (F10). Estructuras repetidas (campo, aviso, tarjeta, avatar, estado vacío, título) son componentes de `app/components/ui/` (F04, F05).
 - Un diálogo modal compone `Dialog` (el único `<dialog>`, abierto con `showModal()`), directamente o con `Modal`: fondo inerte, Tab encerrado, Escape por `onCancel` y el foco vuelve al control que lo abrió. Un `div` con `role="dialog"`, `role="alertdialog"` o `aria-modal` es FALLA (F88).
+- Los títulos usan `Heading` (`app/components/ui/Heading.tsx`) con `level` semántico y `variant` visual; el nivel lo da la estructura, nunca el tamaño. Un `<h1>` a `<h6>` fuera de `Heading` es FALLA (F89), salvo las excepciones declaradas: el héroe de la landing (`app/components/landing/LandingHero.tsx`) y `app/global-error.tsx`, que arma su propio `html`. Lo comprueba `tests/integration/ui-design-rules.test.ts`.
 - Regex como constantes con nombre en `lib/constants/regex/`; ninguna escrita donde se usa (F47, F48, F49).
-- **Sin herramienta, revisado a mano:** tres o más elementos con la misma forma salen de un arreglo con `map`, salvo componentes o props distintos (F06); los títulos de diálogos y páginas usan `Heading` con `level` y `variant`, salvo el héroe de la landing (F89; mientras `Heading` no exista, un `<h*>` nuevo se anota como pendiente); los pares de etiqueta y valor fuera de un botón o un enlace van en `<dl>`, y dentro de `<button>` o `<a>` solo `<span>` (F90). Cada una se informa como `no verificable con herramienta — revisado a mano: sí/no`.
+- **Sin herramienta, revisado a mano:** tres o más elementos con la misma forma salen de un arreglo con `map`, salvo componentes o props distintos (F06); los pares de etiqueta y valor fuera de un botón o un enlace van en `<dl>`, y dentro de `<button>` o `<a>` solo `<span>` (F90). Cada una se informa como `no verificable con herramienta — revisado a mano: sí/no`.
 
 ## Comandos
 
@@ -37,5 +38,5 @@ Las dos búsquedas de `const` dan candidatos: cada uno se cuenta en el repo (`rg
 
 ## Veredicto
 
-PASA / FALLA con `archivo:línea` + regla, más el estado de F06, F89 y F90. Con FALLA no pasar al filtro 2.
+PASA / FALLA con `archivo:línea` + regla, más el estado de F06 y F90. Con FALLA no pasar al filtro 2.
 Siguiente: `revision-fe-02-estilos`.

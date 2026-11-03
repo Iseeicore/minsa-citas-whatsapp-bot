@@ -1,7 +1,10 @@
-import { useEffect } from "react";
+import { useId } from "react";
 import { Button } from "@/app/components/ui/Button";
+import { Dialog } from "@/app/components/ui/Dialog";
+import { Heading } from "@/app/components/ui/Heading";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
+import { HeadingVariant } from "@/lib/enums/ui/heading-variant";
 
 export function ConfirmDialog({
   title,
@@ -18,35 +21,27 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onCancel]);
+  const titleId = useId();
 
   return (
-    <div
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
-      className="fixed inset-0 z-40 flex items-center justify-center bg-sb-navy/60 p-4"
+    <Dialog
+      onClose={onCancel}
+      labelledBy={titleId}
+      alert
+      className="m-auto w-11/12 max-w-xs space-y-3 rounded-2xl bg-white p-5 text-center shadow-2xl outline-none backdrop:bg-sb-navy/60"
     >
-      <div className="w-full max-w-xs space-y-3 rounded-2xl bg-white p-5 text-center shadow-2xl">
-        <h2 id="confirm-dialog-title" className="text-base font-bold text-sb-navy">
-          {title}
-        </h2>
-        <p className="text-sm text-slate-600">{message}</p>
-        <div className="flex gap-2 pt-1">
-          <Button variant={ButtonVariant.OUTLINE} width={ButtonWidth.GROW} autoFocus onClick={onCancel}>
-            {cancelLabel}
-          </Button>
-          <Button variant={ButtonVariant.PRIMARY} width={ButtonWidth.GROW} onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </div>
+      <Heading level={2} variant={HeadingVariant.DIALOG} id={titleId}>
+        {title}
+      </Heading>
+      <p className="text-sm text-slate-600">{message}</p>
+      <div className="flex gap-2 pt-1">
+        <Button variant={ButtonVariant.OUTLINE} width={ButtonWidth.GROW} autoFocus onClick={onCancel}>
+          {cancelLabel}
+        </Button>
+        <Button variant={ButtonVariant.PRIMARY} width={ButtonWidth.GROW} onClick={onConfirm}>
+          {confirmLabel}
+        </Button>
       </div>
-    </div>
+    </Dialog>
   );
 }

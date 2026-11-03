@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { ChatLink } from "@/app/components/landing/ChatLink";
+import { Heading } from "@/app/components/ui/Heading";
+import { HeadingVariant } from "@/lib/enums/ui/heading-variant";
 import { cn } from "@/lib/utils/cn";
 
 const SERVICES = [
@@ -28,7 +30,9 @@ const SERVICES = [
 export function LandingServices({ loginUrl, chatEnabled }: { loginUrl: string | undefined; chatEnabled: boolean }) {
   return (
     <>
-      <h2 className="mt-4 font-gotham text-xl font-bold md:mt-5 md:text-4xl">¿Qué deseas hacer hoy?</h2>
+      <Heading level={2} variant={HeadingVariant.LANDING_SECTION} className="mt-4 md:mt-5">
+        ¿Qué deseas hacer hoy?
+      </Heading>
       <p className="text-xs md:text-xl">Accede rápidamente a los principales servicios de salud.</p>
 
       <ul className="mt-3 grid min-h-0 flex-1 grid-rows-3 gap-2 md:max-h-36 md:grid-cols-3 md:grid-rows-1 md:gap-7">
