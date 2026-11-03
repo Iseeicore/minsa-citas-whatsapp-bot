@@ -1,9 +1,13 @@
+import { Heading } from "@/app/components/ui/Heading";
+import { HeadingVariant } from "@/lib/enums/ui/heading-variant";
 import type { SandboxSessionView } from "@/lib/types/sandbox-reply.types";
 
 export function DebugPanel({ from, session }: { from: string | null; session: SandboxSessionView | null }) {
   return (
     <div className="hidden overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 text-xs lg:block">
-      <h3 className="mb-2 font-semibold text-gray-700">Debug</h3>
+      <Heading level={3} variant={HeadingVariant.PANEL} className="mb-2">
+        Debug
+      </Heading>
       <div className="mb-2">
         <span className="font-medium text-gray-800">from:</span>{" "}
         <span className="text-gray-600">{from ?? "…"}</span>

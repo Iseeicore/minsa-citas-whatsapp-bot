@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useId } from "react";
 import { Button } from "@/app/components/ui/Button";
+import { Dialog } from "@/app/components/ui/Dialog";
+import { Heading } from "@/app/components/ui/Heading";
 import { LinkButton } from "@/app/components/ui/LinkButton";
 import { ButtonVariant } from "@/lib/enums/button-variant";
+import { HeadingVariant } from "@/lib/enums/ui/heading-variant";
 import type { EessItem } from "@/lib/integrations/minsa/types";
 import { buildDirectionsUrl, type Coordinates } from "@/lib/utils/maps-directions";
 
@@ -18,6 +21,7 @@ export default function EessDetailModal({
   origin?: Coordinates;
   onClose: () => void;
 }) {
+  const titleId = useId();
   const { latitud, longitud } = eess;
   const destination: Coordinates | null = latitud !== null && longitud !== null ? { latitud, longitud } : null;
   const details = [
@@ -28,26 +32,17 @@ export default function EessDetailModal({
     ["Código", eess.codigo],
   ].filter(([, value]) => value);
 
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="eess-modal-title"
-      onClick={(event) => event.target === event.currentTarget && onClose()}
-      className="fixed inset-0 z-40 flex items-center justify-center bg-brand-navy/60 p-4"
+    <Dialog
+      onClose={onClose}
+      labelledBy={titleId}
+      closeOnBackdrop
+      className="m-auto w-11/12 max-w-lg rounded-3xl bg-white text-brand-navy shadow-2xl outline-none backdrop:bg-brand-navy/60"
     >
-      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 text-brand-navy shadow-2xl md:p-8">
-        <h2 id="eess-modal-title" className="font-gotham text-xl leading-tight font-bold md:text-3xl">
+      <div className="p-6 md:p-8">
+        <Heading level={2} variant={HeadingVariant.LANDING_DIALOG} id={titleId}>
           {eess.nombre}
-        </h2>
+        </Heading>
         <dl className="mt-4 space-y-3">
           {details.map(([label, value]) => (
             <div key={label}>
@@ -78,6 +73,6 @@ export default function EessDetailModal({
           </Button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -4,6 +4,7 @@ import type { Conversation } from "@/app/components/types";
 import { Avatar } from "@/app/components/ui/Avatar";
 import { Badge } from "@/app/components/ui/Badge";
 import { Button } from "@/app/components/ui/Button";
+import { Heading } from "@/app/components/ui/Heading";
 import { avatarColor, initials } from "@/lib/utils/avatar";
 import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
@@ -16,6 +17,7 @@ import { Banner } from "@/app/components/ui/Banner";
 import { useConversationPolling } from "@/app/hooks/use-conversation-polling";
 import { readRequestData } from "@/lib/utils/read-request-data";
 import { ApiRequestStatus } from "@/lib/enums/api-request-status";
+import { HeadingVariant } from "@/lib/enums/ui/heading-variant";
 
 const CONVERSATIONS_URL = "/api/conversations";
 
@@ -35,9 +37,9 @@ export default function ConversationList({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <h2 className="border-b border-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+      <Heading level={2} variant={HeadingVariant.LIST_HEADER} className="border-b border-gray-100 px-4 py-3">
         Conversaciones
-      </h2>
+      </Heading>
       {state.status === ApiRequestStatus.ERROR && <Banner tone={BannerTone.ERROR}>{state.message}</Banner>}
       {placeholder && <p className="px-4 py-6 text-center text-sm text-gray-400">{placeholder}</p>}
       <ul>

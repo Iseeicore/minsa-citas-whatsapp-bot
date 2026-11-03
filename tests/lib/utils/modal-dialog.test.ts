@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { openModalDialog } from "@/lib/utils/modal-dialog";
+import { isBackdropClick, openModalDialog } from "@/lib/utils/modal-dialog";
 
 function fakeDialog(open = false) {
   const dialog = {
@@ -39,5 +39,14 @@ describe("openModalDialog", () => {
 
     expect(dialog.close).toHaveBeenCalledTimes(1);
     expect(opener.focus).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isBackdropClick", () => {
+  it("is true only when the click lands on the dialog itself, outside its content", () => {
+    const dialog = {};
+
+    expect(isBackdropClick({ target: dialog, currentTarget: dialog })).toBe(true);
+    expect(isBackdropClick({ target: {}, currentTarget: dialog })).toBe(false);
   });
 });

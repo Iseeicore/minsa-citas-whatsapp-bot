@@ -8,3 +8,7 @@ export function openModalDialog(dialog: ModalDialog, opener: Focusable | null): 
     opener?.focus();
   };
 }
+
+export function isBackdropClick({ target, currentTarget }: { target: unknown; currentTarget: unknown }): boolean {
+  return target === currentTarget;
+}
