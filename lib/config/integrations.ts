@@ -31,3 +31,7 @@ export function findMinsaIntegrationSecret(env: Env = process.env): string | und
 export function findGoogleClientApi(env: Env = process.env): string | undefined {
   return findPresent(env.GOOGLE_CLIENT_API);
 }
+
+export function findGoogleAiModel(env: Env = process.env): string | undefined {
+  return findPresent(env.GOOGLE_AI_MODEL);
+}

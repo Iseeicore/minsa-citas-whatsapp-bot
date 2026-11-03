@@ -32,6 +32,7 @@ describe("AI tasks in real-model mode", () => {
   beforeEach(() => {
     vi.stubEnv("SANDBOX_USE_REAL_AI", "true");
     vi.stubEnv("GOOGLE_CLIENT_API", "test-key");
+    vi.stubEnv("GOOGLE_AI_MODEL", "test-model");
     fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
   });
@@ -312,6 +313,7 @@ describe("resolveDistritoAiDetailed: tells a failure apart from 'no district fou
     ["an HTTP error", { ok: false, failure: LlmFailure.HTTP_ERROR, status: 500, model: "m" }],
     ["no text", { ok: false, failure: LlmFailure.NO_TEXT }],
     ["invalid JSON", { ok: false, failure: LlmFailure.INVALID_JSON }],
+    ["no model configured", { ok: false, failure: LlmFailure.MODEL_NOT_CONFIGURED }],
     ["a JSON null answer", { ok: true, json: null }],
     ["candidates that are not a list", { ok: true, json: { candidates: "Comas" } }],
   ])("reports failed on %s", async (_label, outcome) => {
@@ -323,6 +325,7 @@ describe("resolveDistritoAiDetailed: tells a failure apart from 'no district fou
 
   it.each<[string, LlmJsonOutcome, string]>([
     ["an HTTP error", { ok: false, failure: LlmFailure.HTTP_ERROR, status: 500, model: "m" }, "HTTP 500 from model m"],
+    ["no model configured", { ok: false, failure: LlmFailure.MODEL_NOT_CONFIGURED }, "no model configured"],
     ["a JSON null answer", { ok: true, json: null }, "response was not a JSON object"],
     ["candidates that are not a list", { ok: true, json: { candidates: "Comas" } }, "candidates was not a list"],
   ])("logs ai.fallback with the reason on %s", async (_label, outcome, reason) => {

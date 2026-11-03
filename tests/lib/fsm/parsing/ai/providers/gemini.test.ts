@@ -52,23 +52,11 @@ describe("requestGeminiJson", () => {
     expect(new URL(url).search).toBe("");
   });
 
-  it("falls back to the default model when none is configured", async () => {
-    vi.stubEnv("GOOGLE_AI_MODEL", undefined as unknown as string);
-    delete process.env.GOOGLE_AI_MODEL;
+  it.each(["", "   "])("makes no request and reports model_not_configured when GOOGLE_AI_MODEL is %j", async (model) => {
+    vi.stubEnv("GOOGLE_AI_MODEL", model);
 
-    await requestGeminiJson(REQUEST);
-
-    const [url] = fetchSpy.mock.calls[0] as [string];
-    expect(url).toContain("/models/gemini-3.6-flash:generateContent");
-  });
-
-  it("falls back to the default model when GOOGLE_AI_MODEL is set but empty", async () => {
-    vi.stubEnv("GOOGLE_AI_MODEL", "");
-
-    await requestGeminiJson(REQUEST);
-
-    const [url] = fetchSpy.mock.calls[0] as [string];
-    expect(url).toContain("/models/gemini-3.6-flash:generateContent");
+    await expect(requestGeminiJson(REQUEST)).resolves.toEqual({ ok: false, failure: "model_not_configured" });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("returns the parsed JSON the model wrote in its first text part", async () => {

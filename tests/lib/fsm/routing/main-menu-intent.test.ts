@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { analyzeMainMenuIntent } from "@/lib/fsm/parsing/ai/main-menu-intent";
 import { extractCitaHints } from "@/lib/fsm/flows/cita/parsing/cita-hints";
 import { configureLogger } from "@/lib/observability/logger";
@@ -126,6 +126,10 @@ describe("analyzeMainMenuIntent against a real model", () => {
     restoreLogger = configureLogger({ sink: (_level, line) => lines.push(line), level: "info" });
     return lines;
   };
+
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_AI_MODEL", "test-model");
+  });
 
   afterEach(() => {
     restoreLogger?.();
