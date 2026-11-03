@@ -4,7 +4,7 @@ import { truncateForRow } from "@/lib/fsm/core/handlers-shared";
 import { renderWithinLength } from "@/lib/utils/fit-text";
 import { bodyWithOptionLinesText, linkLineText, numberedOptionLineText } from "@/lib/constants/textos/comunes";
 import { WHATSAPP_TEXT_BODY_MAX } from "@/lib/constants/limits/whatsapp";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
 
 const numberedLines = (titles: string[]): string[] => titles.map((title, index) => numberedOptionLineText(index + 1, title));
 

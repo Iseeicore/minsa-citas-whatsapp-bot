@@ -9,7 +9,7 @@ import { REFERENCIA_SIN_FECHAS_TEXT } from "@/lib/constants/textos/cita-reserva"
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { OtherReferenciaButtonId } from "@/lib/enums/botones/other-referencia-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 
 const BUTTON_ANSWERS = new Map<string, Confirmation>(

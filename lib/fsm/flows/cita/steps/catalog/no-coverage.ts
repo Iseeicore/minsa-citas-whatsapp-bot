@@ -15,7 +15,7 @@ import {
 } from "@/lib/fsm/core/handlers-shared";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import type { TurnNote } from "@/lib/observability/types";
-import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
+import { OtherDistritoButtonId } from "@/lib/enums/botones/other-distrito-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { QueryKind } from "@/lib/enums/query-kind";

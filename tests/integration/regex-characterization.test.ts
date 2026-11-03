@@ -27,7 +27,7 @@ import { PLACE_NAME_WORDS } from "@/lib/security/place-names";
 import { initials } from "@/lib/utils/avatar";
 import { splitParagraphs, tokenizeChatText } from "@/lib/utils/format-chat-text";
 import { splitPagerRows } from "@/lib/utils/list-rows";
-import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
+import { EstablecimientoPageRowId } from "@/lib/enums/botones/establecimiento-page-row-id";
 
 function twice<T>(run: () => T): T {
   const first = run();

@@ -1,5 +1,5 @@
-import type { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
-import type { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import type { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
+import type { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import type { SessionChannel } from "@/lib/enums/session-channel";
 
 export type DocumentoVigente = {

@@ -1,4 +1,4 @@
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 
 export const CITA_FAREWELL_TEXT =
   "Gracias por comunicarte con el *Ministerio de Salud del Perú*. Si más adelante deseas volver a intentarlo, escríbenos de nuevo. ¡Que tengas un buen día! 👋";

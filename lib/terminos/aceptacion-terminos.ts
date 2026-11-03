@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/observability/logger";
 import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
-import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
+import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-terminos-lookup";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
-import type { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
+import type { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
 import type {
   AceptacionTerminos,
   AceptacionTerminosStore,

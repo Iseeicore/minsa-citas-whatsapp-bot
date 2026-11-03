@@ -9,8 +9,8 @@ import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
-import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
+import { ListPageButtonId } from "@/lib/enums/botones/list-page-button-id";
 
 const session: Session = {
   state: SessionState.CITA_AWAITING_FECHA_SELECT,

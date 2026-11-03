@@ -6,7 +6,7 @@ import { ReferenciaService } from "@/lib/services/referencia-service";
 import { UnknownServiceError } from "@/lib/errors/unknown-service-error";
 import { POSITIVE_INTEGER } from "@/lib/constants/regex/text";
 import { SERVICIO_POR_FLUJO_ACEPTACION } from "@/lib/constants/documentos-aceptacion";
-import type { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import type { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import type { ListRow, QueryEffectKind, Session, SessionChannel } from "@/lib/fsm/core/types";
 import type { MenuChoice } from "@/lib/enums/menu-choice";
 

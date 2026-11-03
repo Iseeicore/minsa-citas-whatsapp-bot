@@ -23,7 +23,7 @@ import { processValue } from "@/lib/whatsapp/webhook/process";
 import type { WhatsAppMessage } from "@/lib/whatsapp/webhook/payload";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 import { NO_UBICADA_TEXT } from "@/lib/constants/textos/consulta";
-import { ConsultaEstablecimientoButtonId } from "@/lib/enums/consulta-establecimiento-button-id";
+import { ConsultaEstablecimientoButtonId } from "@/lib/enums/botones/consulta-establecimiento-button-id";
 import { SessionChannel } from "@/lib/enums/session-channel";
 
 const IPRESS = "6206";

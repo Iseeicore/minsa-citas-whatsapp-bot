@@ -1,6 +1,6 @@
 import { readConfirmation } from "@/lib/fsm/flows/incidencia/confirmation";
 import { buildResult, cloneSession, query, sendButtons, sendText, withRejectionNotice } from "@/lib/fsm/core/handlers-shared";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { QueryKind } from "@/lib/enums/query-kind";

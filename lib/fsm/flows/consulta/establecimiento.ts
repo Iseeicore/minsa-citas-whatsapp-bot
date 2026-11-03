@@ -30,7 +30,7 @@ import {
 } from "@/lib/constants/textos/consulta";
 import { MAX_INTENTOS_ESTABLECIMIENTO } from "@/lib/constants/limits/consulta";
 import { Confirmation } from "@/lib/enums/confirmation";
-import { ConsultaEstablecimientoButtonId } from "@/lib/enums/consulta-establecimiento-button-id";
+import { ConsultaEstablecimientoButtonId } from "@/lib/enums/botones/consulta-establecimiento-button-id";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { EstablecimientoResolucion } from "@/lib/enums/establecimiento-resolucion";
 import { QueryKind } from "@/lib/enums/query-kind";

@@ -4,7 +4,7 @@ import { buildResult, cloneSession, sendButtons, sendText, withNote, readTappedI
 import { bookingQuery } from "@/lib/fsm/flows/cita/steps/hora/ask-or-book";
 import { abandonCita } from "@/lib/fsm/flows/cita/steps/exit/exit-core";
 import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types";
-import { BookingRetryButtonId } from "@/lib/enums/booking-retry-button-id";
+import { BookingRetryButtonId } from "@/lib/enums/botones/booking-retry-button-id";
 import { BookingStatus } from "@/lib/enums/booking-status";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { CounterKey } from "@/lib/enums/counter-key";

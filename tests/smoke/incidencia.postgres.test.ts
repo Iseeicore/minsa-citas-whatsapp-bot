@@ -8,8 +8,8 @@ import { contarDelDia } from "@/lib/recepcion/repositorio";
 import { crearAlmacenEvidencias } from "@/lib/recepcion/imagenes/almacen";
 import { createPrismaAceptacionTerminosStore, findAceptacionTerminos, saveAceptacionTerminos } from "@/lib/terminos/aceptacion-terminos";
 import { DOCUMENTOS_DENUNCIA } from "@/lib/constants/documentos-aceptacion";
-import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-terminos-lookup";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { SessionChannel } from "@/lib/enums/session-channel";
 
 describe.skipIf(!process.env.DATABASE_URL)("registering an incident against a real PostgreSQL", () => {

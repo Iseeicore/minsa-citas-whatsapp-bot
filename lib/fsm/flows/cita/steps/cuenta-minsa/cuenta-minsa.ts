@@ -25,7 +25,7 @@ import {
   CUENTA_MINSA_CREAR_TEXT,
 } from "@/lib/constants/textos/cita-identidad";
 import { Confirmation } from "@/lib/enums/confirmation";
-import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
+import { CuentaMinsaButtonId } from "@/lib/enums/botones/cuenta-minsa-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 

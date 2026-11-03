@@ -13,7 +13,7 @@ import type { HandlerResult, InboundEvent, Session } from "@/lib/fsm/core/types"
 import { resolveConfirmation } from "@/lib/fsm/parsing/selection/confirmation-parser";
 import { looksLikeNoise } from "@/lib/security/text-noise";
 import { Confirmation } from "@/lib/enums/confirmation";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import {

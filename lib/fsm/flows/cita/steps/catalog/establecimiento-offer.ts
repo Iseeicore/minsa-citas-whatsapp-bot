@@ -4,7 +4,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { buildResult, offerPagedList, query, sendButtons, sendText } from "@/lib/fsm/core/handlers-shared";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { EstablecimientoPageRowId } from "@/lib/enums/establecimiento-page-row-id";
+import { EstablecimientoPageRowId } from "@/lib/enums/botones/establecimiento-page-row-id";
 import { catalogRowDescription, formatEstablecimientoName } from "@/lib/fsm/flows/cita/data/catalog-names";
 import { matchAllTokens } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type { HandlerResult, ListRow, Session } from "@/lib/fsm/core/types";

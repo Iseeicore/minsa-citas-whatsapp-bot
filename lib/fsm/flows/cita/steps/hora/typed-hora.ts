@@ -4,7 +4,7 @@ import type { OfferedRow } from "@/lib/fsm/parsing/selection/selection-matchers"
 import type { Session } from "@/lib/fsm/core/types";
 import type { CustomMatch } from "@/lib/fsm/flows/cita/parsing/selection";
 import { formatHora12, slotToRow, rowToSlot, formatHourGroup } from "@/lib/fsm/flows/cita/steps/hora/format";
-import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
+import { HoraChoiceButtonId } from "@/lib/enums/botones/hora-choice-button-id";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { BARE_SMALL_NUMBER } from "@/lib/constants/regex/selection";

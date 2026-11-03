@@ -13,7 +13,7 @@ import {
 } from "@/lib/constants/textos/terminos";
 import { DOCUMENTOS_CITA, DOCUMENTOS_SECCIONES } from "@/lib/constants/documentos-aceptacion";
 import { documentSectionsText } from "@/lib/utils/document-sections-text";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";

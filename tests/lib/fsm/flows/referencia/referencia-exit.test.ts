@@ -14,9 +14,9 @@ import {
 import { REFERENCIA_CONFIRM_BUTTONS, REFERENCIA_CONFIRM_QUESTION_TEXT } from "@/lib/constants/textos/cita-reserva";
 import { REFERENCIA_CITA_OFFER_BUTTONS, REFERENCIA_CITA_OFFER_QUESTION_TEXT } from "@/lib/constants/textos/referencia";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
-import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
+import { ReferenciaConfirmButtonId } from "@/lib/enums/botones/referencia-confirm-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CITA_REFERENCIA_CHANGE_BUTTON, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";

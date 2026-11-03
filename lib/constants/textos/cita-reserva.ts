@@ -1,9 +1,9 @@
-import { DuplicateButtonId } from "@/lib/enums/duplicate-button-id";
-import { AlreadyBookedButtonId } from "@/lib/enums/already-booked-button-id";
-import { BookingRetryButtonId } from "@/lib/enums/booking-retry-button-id";
+import { DuplicateButtonId } from "@/lib/enums/botones/duplicate-button-id";
+import { AlreadyBookedButtonId } from "@/lib/enums/botones/already-booked-button-id";
+import { BookingRetryButtonId } from "@/lib/enums/botones/booking-retry-button-id";
 import { SALIR_BUTTON_TEXT } from "@/lib/constants/textos/cita-referencia";
 import { NO_SALIR_BUTTON_TEXT, SI_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
-import { ReferenciaConfirmButtonId } from "@/lib/enums/referencia-confirm-button-id";
+import { ReferenciaConfirmButtonId } from "@/lib/enums/botones/referencia-confirm-button-id";
 import { ReferenciaEstadoCodigo } from "@/lib/enums/referencia-estado-codigo";
 
 export const APPOINTMENT_BUTTON_TEXT = "Ver mi cita";

@@ -11,7 +11,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { REAUTH_ASK_DOCUMENTO_TEXT, REAUTH_SENDING_CODIGO_TEXT } from "@/lib/constants/textos/cita-identidad";
-import { ReauthButtonId } from "@/lib/enums/reauth-button-id";
+import { ReauthButtonId } from "@/lib/enums/botones/reauth-button-id";
 import { isString } from "@/lib/utils/type-guards";
 
 const TRANSIENT_BOOKING_SLOTS = [

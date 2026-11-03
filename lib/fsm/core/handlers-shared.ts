@@ -1,7 +1,7 @@
 import type { TurnNote } from "@/lib/observability/types";
 import { SendType } from "@/lib/enums/send-type";
 import { HandlerOutcome } from "@/lib/enums/handler-outcome";
-import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { ListPageButtonId } from "@/lib/enums/botones/list-page-button-id";
 import { serializeOffered } from "@/lib/fsm/parsing/selection/selection-matchers";
 import type {
   ButtonOption,

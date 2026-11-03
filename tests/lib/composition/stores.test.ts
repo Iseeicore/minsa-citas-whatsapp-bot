@@ -17,8 +17,8 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import { getAceptacionTerminosStore, getCupoDiarioStore, getDniVerificadoStore } from "@/lib/composition/stores";
-import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
 import { SessionChannel } from "@/lib/enums/session-channel";
 

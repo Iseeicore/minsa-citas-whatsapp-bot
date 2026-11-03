@@ -8,8 +8,8 @@ import { SessionChannel } from "@/lib/enums/session-channel";
 import { TerminosResume } from "@/lib/enums/terminos-resume";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { DOCUMENTOS_CITA } from "@/lib/constants/documentos-aceptacion";
-import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 
 const fakes = vi.hoisted(() => ({
   verifyCode: vi.fn(),

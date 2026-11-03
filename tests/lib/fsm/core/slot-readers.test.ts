@@ -8,7 +8,7 @@ import {
   requireSlotText,
   slotText,
 } from "@/lib/fsm/core/slot-readers";
-import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
+import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
 import { SlotJsonStatus } from "@/lib/enums/slot-json-status";
 import { logger } from "@/lib/observability/logger";
 import { MissingSlotError } from "@/lib/errors/missing-slot-error";

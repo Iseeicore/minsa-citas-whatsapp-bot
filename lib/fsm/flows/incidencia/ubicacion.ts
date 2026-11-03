@@ -19,7 +19,7 @@ import type { HandlerResult, InboundEvent, QueryResultEvent, Session } from "@/l
 import { quiereOmitirUbicacion } from "@/lib/fsm/parsing/text/omitir-ubicacion";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { CounterKey } from "@/lib/enums/counter-key";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";

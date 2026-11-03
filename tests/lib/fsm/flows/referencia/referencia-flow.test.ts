@@ -5,8 +5,8 @@ import { handleReferencia } from "@/lib/fsm/flows/referencia/handlers-referencia
 import { UnknownStateError } from "@/lib/errors/unknown-state-error";
 import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { CONSULTA_REFERENCIAS_ACTIONS, consultaReferenciasListText } from "@/lib/constants/textos/cita-referencia";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
-import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
+import { ListPageButtonId } from "@/lib/enums/botones/list-page-button-id";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import {
   REFERENCIA_CITA_OFFER_BUTTONS,
@@ -27,7 +27,7 @@ import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { ReferenceStatus } from "@/lib/enums/reference-status";
-import { ReferenciaCitaOfferButtonId } from "@/lib/enums/referencia-cita-offer-button-id";
+import { ReferenciaCitaOfferButtonId } from "@/lib/enums/botones/referencia-cita-offer-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 

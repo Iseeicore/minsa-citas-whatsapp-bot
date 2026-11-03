@@ -23,7 +23,7 @@ import {
   ASK_DISTRITO_MANUAL_TEXT,
 } from "@/lib/constants/textos/cita-ubicacion";
 import { LEAVE_ANSWERS, STAY_ANSWERS } from "@/lib/constants/palabras-clave";
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export { askToLeave };

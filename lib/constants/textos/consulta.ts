@@ -1,6 +1,6 @@
 import { noPudimosLeerText } from "@/lib/constants/textos/comunes";
-import { ConsultaEstablecimientoButtonId } from "@/lib/enums/consulta-establecimiento-button-id";
-import { ConsultaTipoButtonId } from "@/lib/enums/consulta-tipo-button-id";
+import { ConsultaEstablecimientoButtonId } from "@/lib/enums/botones/consulta-establecimiento-button-id";
+import { ConsultaTipoButtonId } from "@/lib/enums/botones/consulta-tipo-button-id";
 import { MAX_CONSULTAS_POR_DIA } from "@/lib/constants/limits/consulta";
 
 export const ASK_TIPO_TEXT = "¿Tu denuncia fue anónima?";

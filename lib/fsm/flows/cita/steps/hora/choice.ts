@@ -13,7 +13,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import { SLOT_STARTING_WITH_CLOCK_TIME } from "@/lib/constants/regex/date-time";
 import { NARROWED_LIST_TEXT } from "@/lib/constants/textos/comunes";
 import { HORA_CHOICE_PROMPT_TEXT, horaOptionText, SEE_HORAS_BUTTON_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
-import { HoraChoiceButtonId } from "@/lib/enums/hora-choice-button-id";
+import { HoraChoiceButtonId } from "@/lib/enums/botones/hora-choice-button-id";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { WHATSAPP_LIST_MAX_ROWS, BUTTON_TITLE_MAX } from "@/lib/constants/limits/whatsapp";
 

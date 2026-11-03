@@ -8,7 +8,7 @@ import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { OtherReferenciaButtonId } from "@/lib/enums/other-referencia-button-id";
+import { OtherReferenciaButtonId } from "@/lib/enums/botones/other-referencia-button-id";
 import { SendType } from "@/lib/enums/send-type";
 import { REFERENCIA_GOODBYE_TEXT } from "@/lib/constants/textos/referencia";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";

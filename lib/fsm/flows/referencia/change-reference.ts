@@ -8,7 +8,7 @@ import type { ButtonOption, HandleEvent, HandlerResult, Session } from "@/lib/fs
 import { CHANGE_REFERENCE_ANSWERS } from "@/lib/constants/palabras-clave";
 import { CITA_REFERENCIA_CHANGE_BUTTON, CITA_REFERENCIA_CHANGE_PROMPT_TEXT } from "@/lib/constants/textos/cita-referencia";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
-import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
+import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
 

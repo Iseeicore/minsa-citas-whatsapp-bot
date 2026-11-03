@@ -3,7 +3,7 @@ import { handle } from "@/lib/fsm/core/handlers";
 import { findButtonReprompt } from "@/lib/fsm/flows/shared/button-reprompts";
 import type { Session } from "@/lib/fsm/core/types";
 import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
-import { ExitButtonId } from "@/lib/enums/exit-button-id";
+import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { sent, tap, text, texts } from "@/tests/support/fsm-events";

@@ -20,7 +20,7 @@ import {
 } from "@/lib/fsm/flows/cita/steps/demo/demo-referencia";
 import { formatHoraRange, slotToRow } from "@/lib/fsm/flows/cita/steps/hora/format";
 import type { HandlerResult, InboundEvent, ListRow, Session } from "@/lib/fsm/core/types";
-import { DemoConfirmButtonId } from "@/lib/enums/demo-confirm-button-id";
+import { DemoConfirmButtonId } from "@/lib/enums/botones/demo-confirm-button-id";
 import { Confirmation } from "@/lib/enums/confirmation";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { SlotKey } from "@/lib/enums/slot-key";

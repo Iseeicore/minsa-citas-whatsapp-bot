@@ -1,5 +1,5 @@
-import { OtherEstablecimientoButtonId } from "@/lib/enums/other-establecimiento-button-id";
-import { EstablecimientoConfirmButtonId } from "@/lib/enums/establecimiento-confirm-button-id";
+import { OtherEstablecimientoButtonId } from "@/lib/enums/botones/other-establecimiento-button-id";
+import { EstablecimientoConfirmButtonId } from "@/lib/enums/botones/establecimiento-confirm-button-id";
 import { NO_SALIR_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 
 export const SEARCHING_ESTABLECIMIENTOS_TEXT = "Buscando establecimientos…";

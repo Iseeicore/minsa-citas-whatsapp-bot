@@ -20,15 +20,15 @@ vi.mock("@/lib/fsm/session/session-store", () => ({
 vi.mock("@/lib/recepcion/servicio", () => ({ registrarIncidencia: store.registrar }));
 
 import { POST } from "@/app/api/sandbox/route";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
-import { ReferenciaChoiceButtonId } from "@/lib/enums/referencia-choice-button-id";
+import { ReferenciaChoiceButtonId } from "@/lib/enums/botones/referencia-choice-button-id";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
 import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
-import { CuentaMinsaButtonId } from "@/lib/enums/cuenta-minsa-button-id";
+import { CuentaMinsaButtonId } from "@/lib/enums/botones/cuenta-minsa-button-id";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { cuentaMinsaAviso } from "@/tests/support/cuenta-minsa";
 

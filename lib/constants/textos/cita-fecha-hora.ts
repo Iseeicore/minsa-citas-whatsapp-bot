@@ -1,7 +1,7 @@
 import { SELECTION_REJECTION_TEXT, NO_SALIR_BUTTON_TEXT, SI_CONFIRMAR_BUTTON_TEXT } from "@/lib/constants/textos/comunes";
 import { CITA_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
-import { OtherFechaButtonId } from "@/lib/enums/other-fecha-button-id";
-import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
+import { OtherFechaButtonId } from "@/lib/enums/botones/other-fecha-button-id";
+import { HoraConfirmButtonId } from "@/lib/enums/botones/hora-confirm-button-id";
 
 export const SEARCHING_FECHAS_TEXT = "Buscando fechas disponibles…";
 export const SEARCHING_HORARIOS_TEXT = "Buscando horarios disponibles…";

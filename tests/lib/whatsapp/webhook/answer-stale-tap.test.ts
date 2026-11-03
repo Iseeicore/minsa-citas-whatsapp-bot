@@ -30,7 +30,7 @@ vi.mock("@/lib/whatsapp/whatsapp-send", () => ({
 }));
 
 import { answerMessage } from "@/lib/whatsapp/webhook/answer";
-import { IncidenciaButtonId } from "@/lib/enums/incidencia-button-id";
+import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { RegistrationStatus } from "@/lib/enums/registration-status";
 import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";

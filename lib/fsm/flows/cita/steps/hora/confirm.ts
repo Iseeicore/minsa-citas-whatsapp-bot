@@ -16,7 +16,7 @@ import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { NEGATION_WORD } from "@/lib/constants/regex/selection";
 import { CHOOSE_OTHER_HORA_TEXT } from "@/lib/constants/textos/cita-fecha-hora";
-import { HoraConfirmButtonId } from "@/lib/enums/hora-confirm-button-id";
+import { HoraConfirmButtonId } from "@/lib/enums/botones/hora-confirm-button-id";
 import { MatchKind } from "@/lib/enums/match-kind";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 

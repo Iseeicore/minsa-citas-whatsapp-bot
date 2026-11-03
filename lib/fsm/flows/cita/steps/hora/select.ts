@@ -9,7 +9,7 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
 import { SessionState } from "@/lib/enums/session-state";
 import { SELECTION_REJECTION_TEXT } from "@/lib/constants/textos/comunes";
-import { HoraPageButtonId } from "@/lib/enums/hora-page-button-id";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 
 export function handleAwaitingHoraSelect(session: Session, event: InboundEvent): HandlerResult {

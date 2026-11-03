@@ -12,9 +12,9 @@ import {
   findAceptacionTerminos,
   saveAceptacionTerminos,
 } from "@/lib/terminos/aceptacion-terminos";
-import { AceptacionTerminosLookup } from "@/lib/enums/aceptacion-terminos-lookup";
-import { DocumentoAceptacion } from "@/lib/enums/documento-aceptacion";
-import { FlujoAceptacion } from "@/lib/enums/flujo-aceptacion";
+import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-terminos-lookup";
+import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
+import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import type { AceptacionTerminos, AceptacionTerminosStore } from "@/lib/types/aceptacion-terminos.types";
 import { AceptacionTerminosStatus } from "@/lib/enums/aceptacion-terminos-status";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
