@@ -3,11 +3,13 @@ import type { ApiRequestStatus } from "@/lib/enums/api-request-status";
 
 export type ApiErrorBody = { error?: ApiErrorCode; message?: string };
 
+export type ApiErrorTexts = { failed: string; unreachable?: string };
+
 export type ApiState<T> =
   | { status: ApiRequestStatus.IDLE }
   | { status: ApiRequestStatus.LOADING }
   | { status: ApiRequestStatus.DATA; data: T }
-  | { status: ApiRequestStatus.ERROR; message: string };
+  | { status: ApiRequestStatus.ERROR; message: string; lastData?: T };
 
 export type ApiResult<T> = Extract<ApiState<T>, { status: ApiRequestStatus.DATA | ApiRequestStatus.ERROR }>;
 

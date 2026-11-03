@@ -1,7 +1,7 @@
 import { Modal } from "@/app/components/ui/Modal";
 import { Button } from "@/app/components/ui/Button";
 import { Checkbox } from "@/app/components/ui/Checkbox";
-import { useConsentChecks } from "@/app/components/hooks/use-consent-checks";
+import { useConsentChecks } from "@/app/hooks/use-consent-checks";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { ButtonWidth } from "@/lib/enums/button-width";
 import type { SendConsentEffect } from "@/lib/fsm/core/types";

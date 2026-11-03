@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConversationMessages } from "@/app/components/types";
-import { useConversationActions } from "@/app/components/hooks/use-conversation-actions";
+import { useConversationActions } from "@/app/hooks/use-conversation-actions";
 import { ConversationStatus } from "@/lib/enums/conversation-status";
 
 type Actions = ReturnType<typeof useConversationActions>;

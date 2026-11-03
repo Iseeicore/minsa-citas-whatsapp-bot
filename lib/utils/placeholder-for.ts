@@ -1,8 +1,8 @@
-import { RequestStatus } from "@/lib/enums/request-status";
-import type { RequestState } from "@/lib/types/request-state.types";
+import { ApiRequestStatus } from "@/lib/enums/api-request-status";
+import type { ApiState } from "@/lib/types/api-client.types";
 
-export function placeholderFor<T>(state: RequestState<T[]>, texts: { loading: string; empty: string }): string | undefined {
-  if (state.status === RequestStatus.LOADING) return texts.loading;
-  if (state.status === RequestStatus.DATA && state.data.length === 0) return texts.empty;
+export function placeholderFor<T>(state: ApiState<T[]>, texts: { loading: string; empty: string }): string | undefined {
+  if (state.status === ApiRequestStatus.LOADING) return texts.loading;
+  if (state.status === ApiRequestStatus.DATA && state.data.length === 0) return texts.empty;
   return undefined;
 }

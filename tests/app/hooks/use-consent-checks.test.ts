@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { useConsentChecks } from "@/app/components/hooks/use-consent-checks";
+import { useConsentChecks } from "@/app/hooks/use-consent-checks";
 import type { ConsentCheck } from "@/lib/fsm/core/types";
 
 type Checks = ReturnType<typeof useConsentChecks>;

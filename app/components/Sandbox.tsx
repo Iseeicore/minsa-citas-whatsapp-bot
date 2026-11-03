@@ -23,9 +23,12 @@ import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 import { textoMuyLargoText } from "@/lib/constants/textos/sandbox";
+import { postApi } from "@/lib/http/api-client";
+import { ApiRequestStatus } from "@/lib/enums/api-request-status";
 import { bytesToMegabytes } from "@/lib/utils/byte-size";
 
 const WELCOME_TRIGGER_TEXT = "Hola";
+const SANDBOX_UNREACHABLE_TEXT = "No se pudo conectar con el sandbox.";
 
 const INBOUND_TYPE_BY_OPTION_KIND: Readonly<Record<ChatOptionKind, InboundEventType>> = {
   [ChatOptionKind.LIST]: InboundEventType.LIST,
@@ -98,19 +101,18 @@ export default function Sandbox({
     setTyping(true);
 
     try {
-      const res = await fetch("/api/sandbox", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from, ...payload }),
-      });
+      const result = await postApi<SandboxReply>(
+        "/api/sandbox",
+        { from, ...payload },
+        { failed: "El sandbox no está disponible.", unreachable: SANDBOX_UNREACHABLE_TEXT },
+      );
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.message ?? "El sandbox no está disponible.");
+      if (result.status === ApiRequestStatus.ERROR) {
+        setError(result.message);
         return;
       }
 
-      const data = (await res.json()) as SandboxReply;
+      const { data } = result;
       const lastInteractive = data.sent.map(isInteractiveEffect).lastIndexOf(true);
       setCurrentInteractiveId(data.interactiveId);
 
@@ -126,7 +128,7 @@ export default function Sandbox({
 
       setSession(data.session);
     } catch {
-      setError("No se pudo conectar con el sandbox.");
+      setError(SANDBOX_UNREACHABLE_TEXT);
     } finally {
       setTyping(false);
       setLoading(false);

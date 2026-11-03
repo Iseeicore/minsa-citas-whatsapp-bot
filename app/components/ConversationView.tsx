@@ -20,9 +20,10 @@ import { TextInput } from "@/app/components/ui/TextInput";
 import { cn } from "@/lib/utils/cn";
 import { formatClockTime } from "@/lib/utils/format-clock-time";
 import { formatWindowCountdown } from "@/lib/utils/format-window-countdown";
-import { readRequestData, useConversationPolling } from "@/app/components/hooks/use-conversation-polling";
-import { useConversationActions } from "@/app/components/hooks/use-conversation-actions";
-import { RequestStatus } from "@/lib/enums/request-status";
+import { useConversationPolling } from "@/app/hooks/use-conversation-polling";
+import { readRequestData } from "@/lib/utils/read-request-data";
+import { useConversationActions } from "@/app/hooks/use-conversation-actions";
+import { ApiRequestStatus } from "@/lib/enums/api-request-status";
 import { BannerTone } from "@/lib/enums/banner-tone";
 import { ButtonSize } from "@/lib/enums/button-size";
 import { ButtonVariant } from "@/lib/enums/button-variant";
@@ -100,7 +101,7 @@ export default function ConversationView({
       </header>
 
       <div className="flex-1 overflow-y-auto bg-wa-panel px-4 py-3">
-        {state.status === RequestStatus.LOADING && <p className="py-6 text-center text-sm text-gray-500">Cargando mensajes…</p>}
+        {state.status === ApiRequestStatus.LOADING && <p className="py-6 text-center text-sm text-gray-500">Cargando mensajes…</p>}
         {messages.map((message) => (
           <div
             key={message.id}
@@ -147,7 +148,7 @@ export default function ConversationView({
         </Banner>
       )}
 
-      {state.status === RequestStatus.ERROR && <Banner tone={BannerTone.ERROR}>{state.message}</Banner>}
+      {state.status === ApiRequestStatus.ERROR && <Banner tone={BannerTone.ERROR}>{state.message}</Banner>}
       {sendError && <Banner tone={BannerTone.ERROR}>{sendError}</Banner>}
 
       {closeError && <Banner tone={BannerTone.ERROR}>{closeError}</Banner>}
