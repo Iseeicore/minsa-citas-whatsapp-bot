@@ -13,11 +13,9 @@ export const TERMINOS_PRIVACIDAD_WHATSAPP_TEXT =
   "Por WhatsApp solo recibimos tu número y los mensajes que nos envías para atenderte. Meta no comparte con el Minsa tu dirección IP.";
 export const terminosWhatsappBodyText = (prompt: string): string => `${prompt}\n\n${TERMINOS_PRIVACIDAD_WHATSAPP_TEXT}`;
 export const TERMINOS_VER_BUTTON_TEXT = "Ver documentos";
-export const TERMINOS_ACEPTO_BUTTON_TEXT = "Acepto ambos";
-export const TERMINOS_NO_ACEPTO_BUTTON_TEXT = "No acepto";
 export const TERMINOS_BUTTONS: ConsentButtons = [
-  { id: TerminosButtonId.ACCEPT, title: TERMINOS_ACEPTO_BUTTON_TEXT },
-  { id: TerminosButtonId.DECLINE, title: TERMINOS_NO_ACEPTO_BUTTON_TEXT },
+  { id: TerminosButtonId.ACCEPT, title: "Acepto ambos" },
+  { id: TerminosButtonId.DECLINE, title: "No acepto" },
 ];
 export const TERMINOS_CHECKBOX_LABEL = "Acepto los términos y condiciones";
 export const TERMINOS_CHECKS: readonly ConsentCheck[] = [

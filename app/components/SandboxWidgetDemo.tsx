@@ -8,7 +8,7 @@ import { Button } from "@/app/components/ui/Button";
 import { ConfirmDialog } from "@/app/components/ui/ConfirmDialog";
 import { ButtonVariant } from "@/lib/enums/button-variant";
 import { WidgetMode } from "@/lib/enums/widget-mode";
-import { OPEN_CHAT_SELECTOR } from "@/lib/constants/chat-launcher";
+import { OPEN_CHAT_ATTRIBUTE } from "@/lib/constants/chat-launcher";
 import { cn } from "@/lib/utils/cn";
 import {
   INITIAL_WIDGET_STATE,
@@ -20,8 +20,6 @@ import {
 } from "@/lib/utils/widget-state";
 
 type LayoutMode = Exclude<WidgetMode, WidgetMode.LAUNCHER>;
-
-const ABRIR_ASISTENTE_ARIA_LABEL = "Abrir el asistente virtual";
 
 const FRAME_CLASS_NAME: Record<LayoutMode, string> = {
   [WidgetMode.NORMAL]:
@@ -86,7 +84,7 @@ export default function SandboxWidgetDemo({ children, imageMaxBytes }: { childre
   }
 
   function openChatFromLink(event: MouseEvent<HTMLDivElement>) {
-    if (!(event.target instanceof Element) || !event.target.closest(OPEN_CHAT_SELECTOR)) return;
+    if (!(event.target instanceof Element) || !event.target.closest(`[${OPEN_CHAT_ATTRIBUTE}]`)) return;
     event.preventDefault();
     openChat();
   }
@@ -138,7 +136,7 @@ export default function SandboxWidgetDemo({ children, imageMaxBytes }: { childre
       <Button
         variant={ButtonVariant.UNSTYLED}
         onClick={openChat}
-        aria-label={ABRIR_ASISTENTE_ARIA_LABEL}
+        aria-label="Abrir el asistente virtual"
         className={cn(
           "fixed right-24 z-20 transition md:right-32 duration-200 hover:scale-105",
           showingLauncher ? "opacity-100" : "pointer-events-none opacity-0",

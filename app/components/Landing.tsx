@@ -5,8 +5,6 @@ import { LandingHero } from "@/app/components/landing/LandingHero";
 import { LandingServices } from "@/app/components/landing/LandingServices";
 import { mapsDirectionsUrl } from "@/lib/config/maps";
 
-const ACCESIBILIDAD_ALT_TEXT = "Accesibilidad";
-
 export default function Landing({ loginUrl, chatEnabled }: { loginUrl: string | undefined; chatEnabled: boolean }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-brand-sky bg-landing-fondo-mobile bg-cover font-poppins text-brand-navy md:bg-landing-fondo">
@@ -21,7 +19,7 @@ export default function Landing({ loginUrl, chatEnabled }: { loginUrl: string | 
 
       <Image
         src="/landing/accesibilidad.webp"
-        alt={ACCESIBILIDAD_ALT_TEXT}
+        alt="Accesibilidad"
         width={200}
         height={198}
         className="fixed right-4 bottom-4 z-10 size-16 md:size-24"

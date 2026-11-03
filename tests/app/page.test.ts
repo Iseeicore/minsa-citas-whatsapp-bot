@@ -11,7 +11,7 @@ vi.mock("@/app/components/SandboxWidgetDemo", async () => {
 });
 
 import Home from "@/app/page";
-import { OPEN_CHAT_ATTRIBUTE, OPEN_CHAT_HREF } from "@/lib/constants/chat-launcher";
+import { OPEN_CHAT_ATTRIBUTE } from "@/lib/constants/chat-launcher";
 import { getLoginUrl } from "@/lib/integrations/minsa/wire";
 
 const LANDING_SERVICE_TEXT = "Programa tu cita presencial";
@@ -43,7 +43,7 @@ describe("the home page", () => {
     expect(markup).toContain(LANDING_SERVICE_TEXT);
     expect(markup).not.toContain(widget.attribute);
     expect(markup).not.toContain(OPEN_CHAT_ATTRIBUTE);
-    expect(markup).not.toContain(`href="${OPEN_CHAT_HREF}"`);
+    expect(markup).not.toContain('href="#chat"');
     expect(markup).toContain(`href="${getLoginUrl()}"`);
   });
 });
