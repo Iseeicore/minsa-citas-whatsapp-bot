@@ -4,12 +4,15 @@ import { TipoMensajeId } from "@/lib/enums/tipo-mensaje-id";
 const db = vi.hoisted(() => ({
   queryRaw: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => []),
   executeRaw: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => 0),
+  updateMany: vi.fn<(args: unknown) => Promise<{ count: number }>>(async () => ({ count: 0 })),
+  findFirst: vi.fn<(args: unknown) => Promise<unknown>>(async () => null),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     $queryRaw: db.queryRaw,
     $executeRaw: db.executeRaw,
+    mensaje: { updateMany: db.updateMany, findFirst: db.findFirst },
     $transaction: async (operations: Array<Promise<unknown>>) => Promise.all(operations),
   },
 }));
@@ -112,14 +115,17 @@ describe("createPostgresInboundBuffer", () => {
     expect(values).toEqual(expect.arrayContaining([TipoMensajeId.TEXTO, TipoMensajeId.IMAGEN, "m9"]));
   });
 
-  it("marks a single message as processed on discard", async () => {
+  it("marks a single pending message as processed on discard", async () => {
     await createPostgresInboundBuffer().discard("m1");
 
-    expect(sqlOf(db.executeRaw.mock.calls.at(-1) ?? [])).toMatch(/procesado_en/);
+    expect(db.updateMany).toHaveBeenCalledWith({
+      where: { waMessageId: "m1", procesadoEn: null },
+      data: { procesadoEn: expect.any(Date) },
+    });
   });
 
   it("reports whether an identical text was already processed after a given moment", async () => {
-    db.queryRaw.mockResolvedValueOnce([{ existe: 1 }]).mockResolvedValueOnce([]);
+    db.findFirst.mockResolvedValueOnce({ id: "x" }).mockResolvedValueOnce(null);
     const buffer = createPostgresInboundBuffer();
 
     await expect(buffer.wasRepeated("u1", "m2", "123456", new Date())).resolves.toBe(true);
@@ -127,7 +133,7 @@ describe("createPostgresInboundBuffer", () => {
   });
 
   it("expires every pending inbound message older than a moment and returns how many", async () => {
-    db.queryRaw.mockResolvedValueOnce([{ count: 3 }]);
+    db.updateMany.mockResolvedValueOnce({ count: 3 });
 
     await expect(createPostgresInboundBuffer().expireStale(new Date())).resolves.toBe(3);
   });

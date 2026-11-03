@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { declararActorEn } from "@/lib/db/actor";
 import { CANAL_ORIGEN_POR_CANAL } from "@/lib/constants/canal-origen";
 import { TipoEvidenciaId } from "@/lib/enums/tipo-evidencia-id";
+import { startOfTodayInLima } from "@/lib/time/lima-clock";
 import type { SessionChannel } from "@/lib/enums/session-channel";
 import type { ConsultaIncidencia } from "@/lib/types/consulta-incidencia.types";
 
@@ -52,14 +53,10 @@ export function insertarIncidencia(datos: DatosIncidencia, evidencias: DatosEvid
   });
 }
 
-export async function contarDelDia(waId: string, excluirTraceId: string): Promise<number> {
-  const filas = await prisma.$queryRaw<{ total: bigint }[]>`
-    SELECT count(*) AS total
-      FROM chatbot.incidencia_paciente
-     WHERE wa_id = ${waId}
-       AND trace_id <> ${excluirTraceId}
-       AND (fecha_creacion AT TIME ZONE 'America/Lima')::date = (now() AT TIME ZONE 'America/Lima')::date`;
-  return Number(filas[0]?.total ?? 0);
+export function contarDelDia(waId: string, excluirTraceId: string): Promise<number> {
+  return prisma.incidenciaPaciente.count({
+    where: { waId, traceId: { not: excluirTraceId }, fechaCreacion: { gte: startOfTodayInLima() } },
+  });
 }
 
 export async function findCodigoPorTrace(traceId: string): Promise<string | undefined> {

@@ -14,8 +14,6 @@ type ClaimedRow = {
   fecha_creacion: Date;
 };
 
-const ENTRANTE = DireccionMensajeId.ENTRANTE;
-
 export function createPostgresInboundBuffer(): InboundBuffer {
   return {
     async summarize(usuarioId: string): Promise<PendingSummary> {
@@ -24,7 +22,7 @@ export function createPostgresInboundBuffer(): InboundBuffer {
                (array_agg(wa_message_id ORDER BY fecha_creacion DESC))[1] AS newest,
                min(fecha_creacion) AS oldest
         FROM chatbot.mensaje
-        WHERE usuario_id = ${usuarioId}::uuid AND direccion_mensaje_id = ${ENTRANTE} AND procesado_en IS NULL`;
+        WHERE usuario_id = ${usuarioId}::uuid AND direccion_mensaje_id = ${DireccionMensajeId.ENTRANTE} AND procesado_en IS NULL`;
 
       return { count: row?.count ?? 0, newestWaMessageId: row?.newest ?? undefined, oldestArrivedAt: row?.oldest ?? undefined };
     },
@@ -36,7 +34,7 @@ export function createPostgresInboundBuffer(): InboundBuffer {
           UPDATE chatbot.mensaje SET procesado_en = now()
           WHERE id IN (
             SELECT id FROM chatbot.mensaje
-            WHERE usuario_id = ${usuarioId}::uuid AND direccion_mensaje_id = ${ENTRANTE} AND procesado_en IS NULL
+            WHERE usuario_id = ${usuarioId}::uuid AND direccion_mensaje_id = ${DireccionMensajeId.ENTRANTE} AND procesado_en IS NULL
               AND (tipo_mensaje_id IN (${TipoMensajeId.TEXTO}, ${TipoMensajeId.IMAGEN}) OR wa_message_id = ${ownerWaMessageId})
             ORDER BY fecha_hora, fecha_creacion
             LIMIT ${limit}
@@ -61,34 +59,36 @@ export function createPostgresInboundBuffer(): InboundBuffer {
     async discard(waMessageId: string): Promise<void> {
       await prisma.$transaction([
         declararActor(ACTOR_SISTEMA_BOT),
-        prisma.$executeRaw`UPDATE chatbot.mensaje SET procesado_en = now() WHERE wa_message_id = ${waMessageId} AND procesado_en IS NULL`,
+        prisma.mensaje.updateMany({ where: { waMessageId, procesadoEn: null }, data: { procesadoEn: new Date() } }),
       ]);
     },
 
     async wasRepeated(usuarioId: string, waMessageId: string, contenido: string, since: Date): Promise<boolean> {
-      const rows = await prisma.$queryRaw<Array<{ existe: number }>>`
-        SELECT 1 AS existe FROM chatbot.mensaje
-        WHERE usuario_id = ${usuarioId}::uuid AND direccion_mensaje_id = ${ENTRANTE}
-          AND wa_message_id <> ${waMessageId} AND contenido = ${contenido}
-          AND procesado_en IS NOT NULL AND fecha_creacion >= ${since}
-        LIMIT 1`;
+      const repetido = await prisma.mensaje.findFirst({
+        where: {
+          usuarioId,
+          direccionMensajeId: DireccionMensajeId.ENTRANTE,
+          waMessageId: { not: waMessageId },
+          contenido,
+          procesadoEn: { not: null },
+          fechaCreacion: { gte: since },
+        },
+        select: { id: true },
+      });
 
-      return rows.length > 0;
+      return repetido !== null;
     },
 
     async expireStale(olderThan: Date): Promise<number> {
-      const [, rows] = await prisma.$transaction([
+      const [, vencidos] = await prisma.$transaction([
         declararActor(ACTOR_SISTEMA_BOT),
-        prisma.$queryRaw<Array<{ count: number }>>`
-          WITH vencidos AS (
-            UPDATE chatbot.mensaje SET procesado_en = now()
-            WHERE direccion_mensaje_id = ${ENTRANTE} AND procesado_en IS NULL AND fecha_hora < ${olderThan}
-            RETURNING 1
-          )
-          SELECT count(*)::int AS count FROM vencidos`,
+        prisma.mensaje.updateMany({
+          where: { direccionMensajeId: DireccionMensajeId.ENTRANTE, procesadoEn: null, fechaHora: { lt: olderThan } },
+          data: { procesadoEn: new Date() },
+        }),
       ]);
 
-      return rows[0]?.count ?? 0;
+      return vencidos.count;
     },
   };
 }

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const db = vi.hoisted(() => ({ create: vi.fn(), queryRaw: vi.fn() }));
+const db = vi.hoisted(() => ({ create: vi.fn(), count: vi.fn() }));
 
 vi.mock("@/lib/db/prisma", () => ({
-  prisma: { consultaIncidenciaIntento: { create: db.create }, $queryRaw: db.queryRaw },
+  prisma: { consultaIncidenciaIntento: { create: db.create, count: db.count } },
 }));
 
 import {
@@ -13,6 +13,7 @@ import {
   saveIntentoConsulta,
 } from "@/lib/consulta/cupo-diario";
 import type { CupoDiarioStore, IntentoConsulta } from "@/lib/types/cupo-diario.types";
+import { startOfTodayInLima } from "@/lib/time/lima-clock";
 import { CupoDiarioStatus } from "@/lib/enums/cupo-diario-status";
 import { ResultadoIntentoConsulta } from "@/lib/enums/resultado-intento-consulta";
 import { CanalOrigenId } from "@/lib/enums/canal-origen-id";
@@ -34,7 +35,7 @@ const brokenStore: CupoDiarioStore = {
 
 afterEach(() => {
   db.create.mockReset();
-  db.queryRaw.mockReset();
+  db.count.mockReset();
 });
 
 describe("createMemoryCupoDiarioStore", () => {
@@ -78,19 +79,18 @@ describe("createPrismaCupoDiarioStore", () => {
     });
   });
 
-  it("counts the attempts of the Lima day for the identifier and returns a number", async () => {
-    db.queryRaw.mockResolvedValue([{ total: BigInt(2) }]);
+  it("counts the attempts of the identifier since the start of the Lima day", async () => {
+    db.count.mockResolvedValue(2);
 
     await expect(createPrismaCupoDiarioStore().countDelDia(INTENTO.identificador)).resolves.toBe(2);
 
-    const [sql, ...values] = db.queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
-    expect(sql.join("?")).toContain("chatbot.consulta_incidencia_intento");
-    expect(values).toContain(INTENTO.identificador);
-    expect(values).toContain("America/Lima");
+    expect(db.count).toHaveBeenCalledWith({
+      where: { identificador: INTENTO.identificador, fechaCreacion: { gte: startOfTodayInLima() } },
+    });
   });
 
   it("lets a database failure through instead of answering zero attempts", async () => {
-    db.queryRaw.mockRejectedValue(new Error("conexion caida"));
+    db.count.mockRejectedValue(new Error("conexion caida"));
 
     await expect(createPrismaCupoDiarioStore().countDelDia(INTENTO.identificador)).rejects.toThrow("conexion caida");
   });
