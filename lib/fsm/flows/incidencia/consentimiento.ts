@@ -11,6 +11,7 @@ import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-
 import type { FindAceptacionTerminosResult } from "@/lib/terminos/aceptacion-terminos";
 import type { HandlerResult, InboundEvent, QueryResultEvent, SendConsentEffect, Session } from "@/lib/fsm/core/types";
 import { Confirmation } from "@/lib/enums/confirmation";
+import { DocumentoBloqueTipo } from "@/lib/enums/consentimiento/documento-bloque-tipo";
 import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { IncidenciaButtonId } from "@/lib/enums/botones/incidencia-button-id";
 import { QueryKind } from "@/lib/enums/query-kind";
@@ -34,7 +35,7 @@ export function buildConsentimientoEffect(lead: string): SendConsentEffect {
     kind: SendType.CONSENT,
     title: CONSENT_TITULO_TEXT,
     text: consentimientoBubbleText(lead),
-    content: AVISO_PRIVACIDAD_TEXT,
+    content: [{ bloques: [{ tipo: DocumentoBloqueTipo.PARRAFO, texto: AVISO_PRIVACIDAD_TEXT }] }],
     buttons: CONSENT_BUTTONS,
     acceptLabel: CONSENT_ACCEPT_LABEL,
     checks: AUTORIZACION_DENUNCIA_CHECKS,

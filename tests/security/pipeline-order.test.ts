@@ -56,10 +56,11 @@ describe("2. the lexical guard comes second, and without AI", () => {
 
   it("an insulting first message gets the same guard answer, not the welcome", () => {
     const neutral = handleFirstContact("Hola", "whatsapp");
-    expect(neutral.effects[0]).toMatchObject({ kind: "send_cta_url" });
+    expect(neutral.effects[0]).toMatchObject({ kind: "send_buttons", text: expect.stringContaining("Te damos la bienvenida") });
 
     const abusive = handle(menu(), text("eres un idiota"));
     expect(abusive.effects[0]).toMatchObject({ kind: "send_buttons" });
+    expect(abusive.effects[0]).not.toMatchObject({ text: expect.stringContaining("Te damos la bienvenida") });
   });
 });
 

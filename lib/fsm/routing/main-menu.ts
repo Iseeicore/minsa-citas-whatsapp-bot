@@ -36,7 +36,6 @@ import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { SessionState } from "@/lib/enums/session-state";
-import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import { OUT_OF_SCOPE_REQUEST_TEXTS, CITA_INTENT_DETECTED_TEXT, CONTINUE_BUTTON_ID } from "@/lib/constants/textos/menu";
 import { currentServiceOffer } from "@/lib/services/service-offer";
 import { IncidenciaOrigen } from "@/lib/enums/incidencia-origen";
@@ -50,6 +49,7 @@ export function handleAwaitingFlowStart(session: Session, channel: SessionChanne
     state: session.state,
     slots: { ...session.slots },
     counters: { ...session.counters },
+    channel,
   };
 
   if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.REGISTRAR_INCIDENCIA) {
@@ -57,7 +57,7 @@ export function handleAwaitingFlowStart(session: Session, channel: SessionChanne
     return beginIncidencia(next.slots, "");
   }
 
-  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) return startCitaIdentity(next, ASK_DOCUMENTO_TEXT);
+  if (next.slots[SlotKey.MENU_CHOICE] === MenuChoice.AGENDAR_CITA) return startCitaIdentity(next);
 
   return enterMainMenu(channel);
 }
@@ -189,7 +189,7 @@ export function handleMainMenu(pending: Session, event: InboundEvent): HandlerRe
       !session.slots[SlotKey.INITIAL_MESSAGE_TEXT] && event.text ? { [SlotKey.INITIAL_MESSAGE_TEXT]: event.text } : session.slots;
 
     const cita = event.text ? detectCitaRequest(event.text) : undefined;
-    if (cita) return withNote(beginCitaFromIntent(preservedSlots, cita), { kind: "shortcut", detail: { name: "cita_request" } });
+    if (cita) return withNote(beginCitaFromIntent(preservedSlots, cita, channel), { kind: "shortcut", detail: { name: "cita_request" } });
 
     if (event.text && looksLikeNoise(event.text)) {
       return withNote(buildResult({ state: SessionState.MAIN_MENU, slots: preservedSlots, counters: {} }, []), {
@@ -236,7 +236,7 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
     return withNote(enterReferencias(slots, channel, beginReferencias), { kind: "shortcut", detail: { name: "referencia_ai" } });
   }
 
-  if (result.intent === MainMenuIntent.CITA) return beginCitaFromIntent(slots, result);
+  if (result.intent === MainMenuIntent.CITA) return beginCitaFromIntent(slots, result, channel);
 
   if (result.intent === MainMenuIntent.FUERA_DE_ALCANCE) {
     return withNote(
@@ -255,6 +255,10 @@ export function handleMainMenuIntentPending(session: Session, event: QueryResult
   });
 }
 
-function beginCitaFromIntent(slots: Session["slots"], hints: { especialidad?: string; distrito?: string }): HandlerResult {
-  return beginCita(slots, hints, CITA_INTENT_DETECTED_TEXT);
+function beginCitaFromIntent(
+  slots: Session["slots"],
+  hints: { especialidad?: string; distrito?: string },
+  channel: SessionChannel,
+): HandlerResult {
+  return beginCita(slots, hints, CITA_INTENT_DETECTED_TEXT, channel);
 }

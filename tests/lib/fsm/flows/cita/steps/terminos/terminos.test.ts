@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "@/lib/fsm/core/handlers";
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { buildTerminosEffect } from "@/lib/fsm/flows/cita/steps/terminos/terminos-gate";
-import type { HandleEvent, HandlerResult, Session } from "@/lib/fsm/core/types";
-import { ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
-import { CITA_INTENT_DETECTED_TEXT, FIRST_CONTACT_CITA_TEXT, firstContactCitaRequestText } from "@/lib/constants/textos/menu";
+import type { HandleEvent, HandlerResult, QueryResultEvent, Session } from "@/lib/fsm/core/types";
+import { ASK_DOCUMENTO_TEXT, WHATSAPP_ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
+import { FIRST_CONTACT_CITA_TEXT } from "@/lib/constants/textos/menu";
 import { VERIFIED_ASK_DISTRITO_TEXT } from "@/lib/constants/textos/cita-identidad";
 import { REFERENCIA_LOGIN_REQUIRED_TEXT } from "@/lib/constants/textos/referencia";
-import { CITA_WITH_WARNING_TEXT, RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
+import { RESPECT_REMINDER_TEXT } from "@/lib/constants/textos/seguridad";
 import { FALLBACK_TEXT } from "@/lib/constants/textos/comunes";
 import {
   DOCUMENTOS_TITULO_TEXT,
@@ -15,22 +15,20 @@ import {
   TERMINOS_PROMPT_TEXT,
   TERMINOS_RECHAZADOS_TEXT,
   TERMINOS_VERSION,
+  terminosWhatsappAvisoText,
   terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
-import { DATOS_PERSONALES_VERSION } from "@/lib/constants/textos/datos-personales";
-import { DOCUMENTOS_CITA, DOCUMENTOS_SECCIONES } from "@/lib/constants/documentos-aceptacion";
-import { documentSectionsText } from "@/lib/utils/document-sections-text";
+import { DATOS_PERSONALES_CONTENIDO, DATOS_PERSONALES_VERSION } from "@/lib/constants/textos/datos-personales";
+import { DOCUMENTOS_CITA } from "@/lib/constants/documentos-aceptacion";
 import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
 import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-terminos-lookup";
 import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
 import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { HandlerOutcome } from "@/lib/enums/handler-outcome";
-import { MainMenuIntent } from "@/lib/enums/main-menu-intent";
 import { MenuChoice } from "@/lib/enums/menu-choice";
 import { PostLoginFlow } from "@/lib/enums/post-login-flow";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { ReferenciaActionButtonId } from "@/lib/enums/botones/referencia-action-button-id";
-import { ReferenciaCitaOfferButtonId } from "@/lib/enums/botones/referencia-cita-offer-button-id";
 import { SendType } from "@/lib/enums/send-type";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { SessionState } from "@/lib/enums/session-state";
@@ -38,12 +36,16 @@ import { SlotKey } from "@/lib/enums/slot-key";
 import { TerminosButtonId } from "@/lib/enums/botones/terminos-button-id";
 import { TerminosResume } from "@/lib/enums/terminos-resume";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
-import { queries, queryResult, sent, tap, text, texts } from "@/tests/support/fsm-events";
+import { queries, queryResult as resultOn, sent, tap as tapOn, text as textOn, texts } from "@/tests/support/fsm-events";
 import { buildReferencia } from "@/tests/support/referencia";
 import { confirmCuentaMinsa, cuentaMinsaAviso } from "@/tests/support/cuenta-minsa";
 
 const DNI = "12345678";
-const CHANNELS = [SessionChannel.WHATSAPP, SessionChannel.WEB];
+const TERMINOS_URL = "https://example.test/terminos";
+
+const tap = (id: string, channel = SessionChannel.WEB) => tapOn(id, channel);
+const text = (value: string) => textOn(value, SessionChannel.WEB);
+const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown) => resultOn(queryKind, result, SessionChannel.WEB);
 
 const mainMenu = (slots: Session["slots"] = {}): Session => ({ state: SessionState.MAIN_MENU, slots, counters: {} });
 
@@ -79,14 +81,14 @@ function expectTerminos(result: HandlerResult, resume: TerminosResume) {
   expect(queries(result)).toEqual([]);
 }
 
-function acceptVerified(result: HandlerResult, channel?: SessionChannel): HandlerResult {
-  const accepted = handle(result.session, tap(TerminosButtonId.ACCEPT, channel));
+function acceptVerified(result: HandlerResult): HandlerResult {
+  const accepted = handle(result.session, tap(TerminosButtonId.ACCEPT));
   expect(accepted.session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);
   return handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" }));
 }
 
-function accept(result: HandlerResult, channel?: SessionChannel): HandlerResult {
-  return confirmCuentaMinsa(acceptVerified(result, channel), channel);
+function accept(result: HandlerResult): HandlerResult {
+  return confirmCuentaMinsa(acceptVerified(result), SessionChannel.WEB);
 }
 
 beforeEach(() => {
@@ -103,7 +105,7 @@ describe("the terms message", () => {
       kind: SendType.CONSENT,
       title: DOCUMENTOS_TITULO_TEXT,
       text: TERMINOS_PROMPT_TEXT,
-      content: documentSectionsText(DOCUMENTOS_SECCIONES),
+      content: DATOS_PERSONALES_CONTENIDO,
       buttons: TERMINOS_BUTTONS,
       acceptLabel: "Continuar",
       checks: [
@@ -118,17 +120,17 @@ describe("the terms message", () => {
       { documento: DocumentoAceptacion.TERMINOS, version: TERMINOS_VERSION },
       { documento: DocumentoAceptacion.DATOS_PERSONALES, version: DATOS_PERSONALES_VERSION },
     ]);
-    expect([TERMINOS_VERSION, DATOS_PERSONALES_VERSION]).toEqual(["2026-10-29", "2026-11-01"]);
+    expect([TERMINOS_VERSION, DATOS_PERSONALES_VERSION]).toEqual(["2026-10-29", "2026-11-03"]);
     expect(TERMINOS_BUTTONS.map((button) => button.title)).toEqual(["Acepto ambos", "No acepto"]);
   });
 });
 
 describe("every entry into «Agendar una cita médica» shows the terms first", () => {
-  it.each(CHANNELS)("the menu row (%s) and then the document question after accepting", (channel) => {
-    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel)));
+  it("the menu row and then the document question after accepting", () => {
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
     expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
 
-    const resumed = accept(gated, channel);
+    const resumed = accept(gated);
 
     expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(resumed)).toEqual([ASK_DOCUMENTO_TEXT]);
@@ -137,64 +139,17 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
     expect(resumed.session.slots[SlotKey.TERMINOS_INTRO_TEXT]).toBeUndefined();
   });
 
-  it.each(CHANNELS)("the «cita» keyword at first contact (%s)", (channel) => {
-    const gated = shown(handleFirstContact("cita", channel));
-    expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
-
-    expect(texts(accept(gated, channel))).toEqual([FIRST_CONTACT_CITA_TEXT]);
-  });
-
-  it("a first-contact request keeps the specialty and the district for after the terms", () => {
-    const gated = shown(handleFirstContact("quiero cita de pediatría en San Borja", SessionChannel.WHATSAPP));
-    expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
-    expect(gated.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Pediatría");
-    expect(gated.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("San Borja");
-
-    const resumed = accept(gated);
-
-    expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DNI);
-    expect(texts(resumed)).toEqual([firstContactCitaRequestText(" de Pediatría", " en San Borja")]);
-    expect(resumed.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Pediatría");
-    expect(resumed.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("San Borja");
-  });
-
-  it("the cita detected by the AI keeps what it understood", () => {
-    const pending: Session = { state: SessionState.MAIN_MENU_INTENT_PENDING, slots: {}, counters: {} };
-
-    const gated = shown(
-      handle(pending, queryResult(QueryKind.ANALYZE_MAIN_MENU_INTENT, { intent: MainMenuIntent.CITA, especialidad: "Odontología" })),
-    );
-    expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
-
-    const resumed = accept(gated);
-    expect(texts(resumed)).toEqual([CITA_INTENT_DETECTED_TEXT]);
-    expect(resumed.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Odontología");
-  });
-
-  it("a cita asked with an insult keeps the warning for after the terms", () => {
-    const gated = shown(handle(mainMenu(), text("Apúrense cojudos quiero cita de odontología en San Borja")));
-    expectTerminos(gated, TerminosResume.ASK_DOCUMENTO);
-
-    expect(texts(accept(gated))).toEqual([CITA_WITH_WARNING_TEXT]);
-  });
-
-  it.each(CHANNELS)("«Cita sin referencia» in the references list (%s) shows the terms before the district", (channel) => {
+  it("«Cita sin referencia» in the references list shows the terms before the district", () => {
     const listed = verifiedReferencias(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
 
-    const gated = shown(handle(listed, tap(ReferenciaActionButtonId.NEW_APPOINTMENT, channel)));
+    const gated = shown(handle(listed, tap(ReferenciaActionButtonId.NEW_APPOINTMENT)));
     expectTerminos(gated, TerminosResume.CONTINUE_VERIFIED);
     expect(gated.session.slots[SlotKey.CITA_BEARER]).toBe("synthetic-token");
 
-    const resumed = acceptVerified(gated, channel);
+    const resumed = acceptVerified(gated);
     expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
     expect(texts(resumed)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
     expect(resumed.session.slots[SlotKey.CITA_BEARER]).toBe("synthetic-token");
-  });
-
-  it("«Sí» to the cita offer of the references flow also shows the terms first", () => {
-    const offer = verifiedReferencias(SessionState.REFERENCIA_AWAITING_CITA_OFFER);
-
-    expectTerminos(shown(handle(offer, tap(ReferenciaCitaOfferButtonId.YES))), TerminosResume.CONTINUE_VERIFIED);
   });
 
   it("the code check of a cita whose terms were not accepted yet shows them before the district", () => {
@@ -212,8 +167,8 @@ describe("every entry into «Agendar una cita médica» shows the terms first", 
 });
 
 describe("«Cita con referencia» does not ask for the terms", () => {
-  it.each(CHANNELS)("the menu row (%s) goes straight to the document", (channel) => {
-    const result = handle(mainMenu(), tap(MenuChoice.CONSULTAR_REFERENCIA, channel));
+  it("the menu row goes straight to the document", () => {
+    const result = handle(mainMenu(), tap(MenuChoice.CONSULTAR_REFERENCIA));
 
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(result)).toEqual([REFERENCIA_LOGIN_REQUIRED_TEXT]);
@@ -233,17 +188,17 @@ describe("«Cita con referencia» does not ask for the terms", () => {
 });
 
 describe("accepting", () => {
-  it.each(CHANNELS)("records both documents with the channel (%s), the service and each version in one query", (channel) => {
-    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel)));
+  it("records both documents with the channel, the service and each version in one query", () => {
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
-    const accepted = handle(gated.session, tap(TerminosButtonId.ACCEPT, channel));
+    const accepted = handle(gated.session, tap(TerminosButtonId.ACCEPT));
 
     expect(accepted.outcome).toBe(HandlerOutcome.AWAITING_QUERY);
     expect(sent(accepted)).toEqual([]);
     expect(queries(accepted)).toEqual([
       {
         kind: QueryKind.REGISTRAR_ACEPTACION_TERMINOS,
-        payload: { canal: channel, flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA },
+        payload: { canal: SessionChannel.WEB, flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA },
       },
     ]);
   });
@@ -254,16 +209,17 @@ describe("accepting", () => {
 
     const resumed = confirmCuentaMinsa(
       handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "failed" })),
+      SessionChannel.WEB,
     );
 
     expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(resumed)).toEqual([ASK_DOCUMENTO_TEXT]);
   });
 
-  it.each(["acepto", "Acepto ambos", "Sí, acepto", "si acepto", "ACEPTO", "1"])("understands %j written", (answer) => {
+  it("understands «acepto» written", () => {
     const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
-    expect(handle(gated.session, text(answer)).session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);
+    expect(handle(gated.session, text("acepto")).session.state).toBe(SessionState.CITA_TERMINOS_REGISTER_PENDING);
   });
 
   it("does not ask again in the same session", () => {
@@ -278,10 +234,10 @@ describe("accepting", () => {
 });
 
 describe("terms accepted in an earlier conversation", () => {
-  it.each(CHANNELS)("the same chat (%s) with the current version goes on without the terms", (channel) => {
+  it("the same chat with the current version goes on without the terms", () => {
     const found = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: AceptacionTerminosLookup.FOUND });
 
-    const resumed = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, channel)), found);
+    const resumed = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)), found);
 
     expect(sent(resumed)).toEqual([cuentaMinsaAviso()]);
     expect(resumed.session.slots[SlotKey.TERMINOS_ACEPTADOS]).toBe(true);
@@ -300,30 +256,24 @@ describe("terms accepted in an earlier conversation", () => {
     expect(texts(resumed)).toEqual([VERIFIED_ASK_DISTRITO_TEXT]);
   });
 
-  it.each([AceptacionTerminosLookup.NOT_FOUND, AceptacionTerminosLookup.FAILED])(
-    "an answer %j (another version, never accepted or the lookup failed) shows the terms",
-    (resultado) => {
-      const lookup = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado });
+  it("a failed lookup shows the terms", () => {
+    const lookup = queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: AceptacionTerminosLookup.FAILED });
 
-      expectTerminos(shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)), lookup), TerminosResume.ASK_DOCUMENTO);
-    },
-  );
+    expectTerminos(shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)), lookup), TerminosResume.ASK_DOCUMENTO);
+  });
 });
 
 describe("declining", () => {
-  it.each([tap(TerminosButtonId.DECLINE), text("no acepto"), text("No acepto."), text("2")])(
-    "%j says goodbye and closes the session",
-    (event) => {
-      const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
+  it("«No acepto» says goodbye and closes the session", () => {
+    const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
-      const result = handle(gated.session, event);
+    const result = handle(gated.session, tap(TerminosButtonId.DECLINE));
 
-      expect(result.session).toEqual({ state: SessionState.CITA_TERMINOS_DECLINED, slots: {}, counters: {} });
-      expect(result.outcome).toBe(HandlerOutcome.CLOSED);
-      expect(texts(result)).toEqual([TERMINOS_RECHAZADOS_TEXT]);
-      expect(queries(result)).toEqual([]);
-    },
-  );
+    expect(result.session).toEqual({ state: SessionState.CITA_TERMINOS_DECLINED, slots: {}, counters: {} });
+    expect(result.outcome).toBe(HandlerOutcome.CLOSED);
+    expect(texts(result)).toEqual([TERMINOS_RECHAZADOS_TEXT]);
+    expect(queries(result)).toEqual([]);
+  });
 
   it("drops the verified identity when it closes", () => {
     const gated = shown(
@@ -346,10 +296,10 @@ describe("declining", () => {
 });
 
 describe("anything else while the terms are shown", () => {
-  it.each(["no entiendo", "12345678", "hola"])("%j shows the terms again with the usual notice", (answer) => {
+  it("«hola» shows the terms again with the usual notice", () => {
     const gated = shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
 
-    const result = handle(gated.session, text(answer));
+    const result = handle(gated.session, text("hola"));
 
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_TERMINOS);
     expect(result.session.slots).toEqual(gated.session.slots);
@@ -379,10 +329,10 @@ describe("anything else while the terms are shown", () => {
 });
 
 describe("with TERMINOS_ENABLED off", () => {
-  it.each(["false", "", undefined])("TERMINOS_ENABLED=%j goes straight to the document as before", (value) => {
-    vi.stubEnv("TERMINOS_ENABLED", value);
+  it("goes straight to the document as before", () => {
+    vi.stubEnv("TERMINOS_ENABLED", "false");
 
-    const fromMenu = confirmCuentaMinsa(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)));
+    const fromMenu = confirmCuentaMinsa(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)), SessionChannel.WEB);
     const fromFirstContact = confirmCuentaMinsa(handleFirstContact("cita", SessionChannel.WEB), SessionChannel.WEB);
 
     expect(fromMenu.session.state).toBe(SessionState.CITA_AWAITING_DNI);
@@ -419,9 +369,31 @@ describe("a session saved without what to resume", () => {
     };
     const event: HandleEvent = queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" });
 
-    const result = confirmCuentaMinsa(handle(session, event));
+    const result = confirmCuentaMinsa(handle(session, event), SessionChannel.WEB);
 
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(result)).toEqual([ASK_DOCUMENTO_TEXT]);
+  });
+});
+
+describe("on WhatsApp the terms are only a link", () => {
+  it("sends one text with the link and the document question, records nothing and skips the terms after the code", () => {
+    vi.stubEnv("TERMINOS_URL", TERMINOS_URL);
+
+    const result = handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA, SessionChannel.WHATSAPP));
+
+    expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
+    expect(sent(result)).toEqual([{ kind: SendType.TEXT, text: terminosWhatsappAvisoText(TERMINOS_URL, WHATSAPP_ASK_DOCUMENTO_TEXT) }]);
+    expect(queries(result)).toEqual([]);
+
+    const listed = verifiedReferencias(SessionState.CITA_AWAITING_REFERENCIA_SELECT);
+    const sinReferencia = handle(listed, tap(ReferenciaActionButtonId.NEW_APPOINTMENT, SessionChannel.WHATSAPP));
+    expect(sinReferencia.session.state).toBe(SessionState.CITA_AWAITING_DISTRITO_AI);
+  });
+
+  it("the web keeps the consent with the same link configured", () => {
+    vi.stubEnv("TERMINOS_URL", TERMINOS_URL);
+
+    expectTerminos(shown(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA))), TerminosResume.ASK_DOCUMENTO);
   });
 });

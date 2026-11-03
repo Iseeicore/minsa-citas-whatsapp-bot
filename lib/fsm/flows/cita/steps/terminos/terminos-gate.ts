@@ -1,5 +1,7 @@
 import { isTerminosEnabled } from "@/lib/config/features";
-import { buildResult, cloneSession, query } from "@/lib/fsm/core/handlers-shared";
+import { findTerminosUrl } from "@/lib/config/terminos";
+import { buildResult, cloneSession, query, sendText } from "@/lib/fsm/core/handlers-shared";
+import { channelOf } from "@/lib/fsm/core/channel";
 import { askCuentaMinsa } from "@/lib/fsm/flows/cita/steps/cuenta-minsa/cuenta-minsa";
 import type { HandlerResult, SendConsentEffect, Session } from "@/lib/fsm/core/types";
 import {
@@ -9,10 +11,12 @@ import {
   TERMINOS_CHECKS,
   TERMINOS_PROMPT_TEXT,
   TERMINOS_REOPEN_LABEL,
+  terminosWhatsappAvisoText,
   terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
+import { ASK_DOCUMENTO_TEXT, WHATSAPP_ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
+import { SessionChannel } from "@/lib/enums/session-channel";
 import { DOCUMENTOS_CITA, DOCUMENTOS_SECCIONES } from "@/lib/constants/documentos-aceptacion";
-import { documentSectionsText } from "@/lib/utils/document-sections-text";
 import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SendType } from "@/lib/enums/send-type";
@@ -25,7 +29,7 @@ export function buildTerminosEffect(): SendConsentEffect {
     kind: SendType.CONSENT,
     title: DOCUMENTOS_TITULO_TEXT,
     text: TERMINOS_PROMPT_TEXT,
-    content: documentSectionsText(DOCUMENTOS_SECCIONES),
+    content: DOCUMENTOS_SECCIONES.flatMap((seccion) => seccion.apartados),
     buttons: TERMINOS_BUTTONS,
     acceptLabel: TERMINOS_ACCEPT_LABEL,
     checks: TERMINOS_CHECKS,
@@ -36,7 +40,13 @@ export function buildTerminosEffect(): SendConsentEffect {
 }
 
 export function isTerminosRequired(session: Session): boolean {
-  return isTerminosEnabled() && session.slots[SlotKey.TERMINOS_ACEPTADOS] !== true;
+  return isTerminosEnabled() && session.channel !== SessionChannel.WHATSAPP && session.slots[SlotKey.TERMINOS_ACEPTADOS] !== true;
+}
+
+function askWhatsappDocumento(session: Session, intro = WHATSAPP_ASK_DOCUMENTO_TEXT): HandlerResult {
+  const url = isTerminosEnabled() ? findTerminosUrl() : undefined;
+  const text = url ? terminosWhatsappAvisoText(url, intro) : intro;
+  return buildResult({ ...session, state: SessionState.CITA_AWAITING_DNI }, [sendText(text)]);
 }
 
 export function askTerminos(session: Session, resume: TerminosResume): HandlerResult {
@@ -56,7 +66,9 @@ export function reshowTerminos(session: Session): HandlerResult {
   return buildResult(session, [buildTerminosEffect()]);
 }
 
-export function startCitaIdentity(session: Session, intro: string): HandlerResult {
-  if (!isTerminosRequired(session)) return askCuentaMinsa(session, intro);
-  return askTerminos({ ...session, slots: { ...session.slots, [SlotKey.TERMINOS_INTRO_TEXT]: intro } }, TerminosResume.ASK_DOCUMENTO);
+export function startCitaIdentity(session: Session, intro?: string): HandlerResult {
+  if (channelOf(session) === SessionChannel.WHATSAPP) return askWhatsappDocumento(session, intro);
+  const webIntro = intro ?? ASK_DOCUMENTO_TEXT;
+  if (!isTerminosRequired(session)) return askCuentaMinsa(session, webIntro);
+  return askTerminos({ ...session, slots: { ...session.slots, [SlotKey.TERMINOS_INTRO_TEXT]: webIntro } }, TerminosResume.ASK_DOCUMENTO);
 }

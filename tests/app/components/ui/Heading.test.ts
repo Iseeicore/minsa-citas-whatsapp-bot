@@ -8,7 +8,6 @@ import { DebugPanel } from "@/app/components/sandbox-chat/DebugPanel";
 import { ConfirmDialog } from "@/app/components/ui/ConfirmDialog";
 import { Heading } from "@/app/components/ui/Heading";
 import { Modal } from "@/app/components/ui/Modal";
-import TerminosPage from "@/app/terminos/page";
 import { HeadingVariant } from "@/lib/enums/ui/heading-variant";
 
 const HEADING_TAG = /<(h[1-6])\b[^>]*class="([^"]*)"/g;
@@ -68,15 +67,6 @@ describe("Heading", () => {
       [expected("h2", "border-b border-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400")],
     ],
     ["DebugPanel", createElement(DebugPanel, { from: null, session: null }), [expected("h3", "mb-2 font-semibold text-gray-700")]],
-    [
-      "TerminosPage",
-      createElement(TerminosPage),
-      [
-        expected("h1", "text-2xl font-bold text-sb-navy"),
-        expected("h2", "text-lg font-bold text-sb-navy"),
-        expected("h2", "text-lg font-bold text-sb-navy"),
-      ],
-    ],
     [
       "LandingServices",
       createElement(LandingServices, { loginUrl: undefined, chatEnabled: false }),

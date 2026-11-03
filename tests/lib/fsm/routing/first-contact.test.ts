@@ -21,17 +21,26 @@ const firstListTitle = (result: HandlerResult): string =>
 const CITA_FIRST_MESSAGE = "Sabes quiero una cita para san Juan de Lurigancho para medicina general";
 
 describe("first contact: a greeting", () => {
-  it.each(["Hola", "Buenos días", "Buenas tardes"])("%j gets ONE welcome message with the link button, and nothing else", (message) => {
+  it.each(["Hola", "Buenos días", "Buenas tardes"])("%j gets ONE welcome message with the cita buttons, and nothing else", (message) => {
     const result = handleFirstContact(message, "whatsapp");
 
     expect(sent(result)).toHaveLength(1);
     const [welcome] = sent(result);
-    expect(welcome.kind).toBe("send_cta_url");
-    expect(welcome.kind === "send_cta_url" && welcome.text).toContain("Ministerio de Salud del Perú");
-    expect(welcome.kind === "send_cta_url" && welcome.buttonText).toBe("Continuar mi cita");
-    expect(welcome.kind === "send_cta_url" && welcome.text).toContain("Prefieres seguir por aquí mismo");
+    expect(welcome.kind).toBe("send_buttons");
+    expect(welcome.kind === "send_buttons" && welcome.text).toContain("Ministerio de Salud del Perú");
+    expect(welcome.kind === "send_buttons" && welcome.buttons.map((button) => button.title)).toEqual([
+      "Continuar mi cita",
+      "Cita con referencia",
+    ]);
+    expect(welcome.kind === "send_buttons" && welcome.text).toContain("Prefieres seguir por aquí mismo");
     expect(JSON.stringify(result.effects)).not.toContain("¿En qué podemos ayudarte hoy?");
-    expect(JSON.stringify(result.effects)).not.toContain("send_buttons");
+  });
+
+  it("«Continuar mi cita» starts the cita and «Cita con referencia» the referencia flow", () => {
+    const waiting = handleFirstContact("Hola", "whatsapp").session;
+
+    expect(handle(waiting, tap("agendar_cita")).session.state).toBe("cita_awaiting_dni");
+    expect(handle(waiting, tap("consultar_referencia")).session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
   });
 
   it("waits in main_menu, keeping only a real message as the opening message", () => {
@@ -52,7 +61,7 @@ describe("first contact: a greeting", () => {
 
     const step = handle(waiting, text("quiero una cita de odontología en Miraflores"));
 
-    expect(step.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(step.session.state).toBe("cita_awaiting_dni");
     expect(step.effects.some(isQueryEffect)).toBe(false);
   });
 
@@ -107,7 +116,7 @@ describe("first contact: a clear request for a cita", () => {
   it("recognizes plain cita intent even without a specialty or district (no AI needed)", () => {
     for (const message of ["quiero una cita", "Si claro deseo una cita"]) {
       const result = handleFirstContact(message, "whatsapp");
-      expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+      expect(result.session.state).toBe("cita_awaiting_dni");
     }
   });
 
@@ -125,8 +134,8 @@ describe("first contact: the welcome names the emergency line", () => {
   it("tells the citizen to call 106 in a medical emergency, in the same single message", () => {
     const welcome = sent(handleFirstContact("Hola", "whatsapp"))[0];
 
-    expect(welcome.kind === "send_cta_url" && welcome.text).toContain("106");
-    expect(welcome.kind === "send_cta_url" && welcome.text).toMatch(/emergencia/i);
+    expect(welcome.kind === "send_buttons" && welcome.text).toContain("106");
+    expect(welcome.kind === "send_buttons" && welcome.text).toMatch(/emergencia/i);
   });
 });
 
@@ -164,7 +173,7 @@ describe("first contact: answering the [1] / [2] / [3] the rejection text offers
   it("works the same for a citizen returning after a finished flow", () => {
     const finished: Session = { state: "cita_booked", slots: {}, counters: {} };
 
-    expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(handle(finished, text("1")).session.state).toBe("cita_awaiting_dni");
     expect(handle(finished, text("2")).session.slots[SlotKey.POST_LOGIN_FLOW]).toBe("referencias");
     expect(handle(finished, text("3")).session.state).toBe("incidencia_consent_check_pending");
   });
@@ -225,14 +234,14 @@ describe("returning after a finished cita or reclamo", () => {
   it.each(["cita_booking_rejected", "cita_booked", "incidencia_confirmed"])("%s + «hola»: the welcome alone, no menu chained", (state) => {
     const result = handle(finished(state as Session["state"]), text("hola"));
 
-    expect(sent(result).map((effect) => effect.kind)).toEqual(["send_cta_url"]);
+    expect(sent(result).map((effect) => effect.kind)).toEqual(["send_buttons"]);
     expect(result.session).toEqual({ state: "main_menu", slots: {}, counters: {} });
   });
 
   it("does not lose a clear request typed on the way back", () => {
     const result = handle(finished("cita_booking_rejected"), text(CITA_FIRST_MESSAGE));
 
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots[SlotKey.CITA_DNI]).toBeUndefined();
     expect(normalizeText(String(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]))).toBe("MEDICINA GENERAL");
   });

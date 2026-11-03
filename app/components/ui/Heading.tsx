@@ -10,6 +10,7 @@ const VARIANT_CLASS_NAME: Record<HeadingVariant, string> = {
   [HeadingVariant.LANDING_DIALOG]: "font-gotham text-xl leading-tight font-bold md:text-3xl",
   [HeadingVariant.LIST_HEADER]: "text-xs font-semibold uppercase tracking-wide text-gray-400",
   [HeadingVariant.PANEL]: "font-semibold text-gray-700",
+  [HeadingVariant.DOCUMENT]: "text-sm font-bold text-sb-navy",
 };
 
 export function Heading({

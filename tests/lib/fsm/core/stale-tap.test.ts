@@ -370,7 +370,7 @@ describe("a tap on the buttons of the referencia choice", () => {
     const choiceId = await showChoice();
     await runTurnUnlocked(FROM, tap(ReferenciaChoiceButtonId.AGENDAR_CITA, choiceId), recordingHooks().hooks);
     const afterFirst = structuredClone(store.sessions.get(FROM));
-    expect(afterFirst?.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
+    expect(afterFirst?.state).toBe(SessionState.CITA_AWAITING_DNI);
 
     const result = await runTurnUnlocked(FROM, tap(ReferenciaChoiceButtonId.CONSULTAR_REFERENCIA, choiceId), recordingHooks().hooks);
 

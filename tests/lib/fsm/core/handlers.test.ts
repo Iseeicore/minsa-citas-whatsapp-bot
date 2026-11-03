@@ -131,7 +131,7 @@ describe("main_menu — deterministic greeting shortcut", () => {
   it("a clear cita word skips the AI entirely, even mixed with a greeting", () => {
     const result = handle(sessionAt("main_menu"), text("Buenas tarde, quiero agendar"));
 
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(hasQuery(result)).toBe(false);
   });
 
@@ -149,7 +149,7 @@ describe("terminal re-entry", () => {
     const result = handle(sessionAt("cita_booked"), text("Hola"));
 
     expect(result.session.state).toBe("main_menu");
-    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_cta_url"]);
+    expect(sentEffects(result).map((effect) => effect.kind)).toEqual(["send_buttons"]);
   });
 
   it("any other clean message after a finished cita gets the menu, not the welcome", () => {

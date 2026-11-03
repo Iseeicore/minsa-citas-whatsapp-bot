@@ -33,8 +33,11 @@ const REGISTRO_URL = "https://fake-minsa-digital.test/login";
 const MAIN_MENU: Session = { state: SessionState.MAIN_MENU, slots: {}, counters: {} };
 const CREADA = sendButtons(CUENTA_MINSA_CREADA_TEXT, CUENTA_MINSA_CREADA_BUTTONS);
 
-const warned = (channel = SessionChannel.WHATSAPP) => handle(MAIN_MENU, tap(MenuChoice.AGENDAR_CITA, channel)).session;
-const invited = () => handle(warned(), tap(CuentaMinsaButtonId.NO_TIENE)).session;
+const WEB = SessionChannel.WEB;
+const webTap = (id: string) => tap(id, WEB);
+const webText = (value: string) => text(value, WEB);
+const warned = () => handle(MAIN_MENU, webTap(MenuChoice.AGENDAR_CITA)).session;
+const invited = () => handle(warned(), webTap(CuentaMinsaButtonId.NO_TIENE)).session;
 
 function expectDocumento(result: HandlerResult, intro = ASK_DOCUMENTO_TEXT) {
   expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
@@ -48,60 +51,61 @@ afterEach(() => {
 
 describe("the MINSA Digital account warning", () => {
   it("comes before the document, with the terms off or after «Acepto», and «Ya cuento con una» asks for the document", () => {
-    for (const channel of [SessionChannel.WHATSAPP, SessionChannel.WEB]) {
-      const fromMenu = handle(MAIN_MENU, tap(MenuChoice.AGENDAR_CITA, channel));
-      expect(fromMenu.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
-      expect(sent(fromMenu)).toEqual([cuentaMinsaAviso()]);
-      expectDocumento(handle(fromMenu.session, tap(CuentaMinsaButtonId.TIENE, channel)));
-    }
+    const fromMenu = handle(MAIN_MENU, webTap(MenuChoice.AGENDAR_CITA));
+    expect(fromMenu.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA);
+    expect(sent(fromMenu)).toEqual([cuentaMinsaAviso()]);
+    expectDocumento(handle(fromMenu.session, webTap(CuentaMinsaButtonId.TIENE)));
 
     vi.stubEnv("TERMINOS_ENABLED", "true");
-    const lookup = handle(MAIN_MENU, tap(MenuChoice.AGENDAR_CITA));
-    const shown = handle(lookup.session, queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: "not_found" }));
-    const accepted = handle(shown.session, tap(TerminosButtonId.ACCEPT));
-    const afterTerms = handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" }));
+    const lookup = handle(MAIN_MENU, webTap(MenuChoice.AGENDAR_CITA));
+    const shown = handle(lookup.session, queryResult(QueryKind.CONSULTAR_ACEPTACION_TERMINOS, { resultado: "not_found" }, WEB));
+    const accepted = handle(shown.session, webTap(TerminosButtonId.ACCEPT));
+    const afterTerms = handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" }, WEB));
     expect(sent(afterTerms)).toEqual([cuentaMinsaAviso()]);
-    expectDocumento(handle(afterTerms.session, tap(CuentaMinsaButtonId.TIENE)));
+    expectDocumento(handle(afterTerms.session, webTap(CuentaMinsaButtonId.TIENE)));
   });
 
   it("keeps the intro of the request for the document, and asks the plain one when the session lost it", () => {
-    const request = handleFirstContact("quiero cita de pediatría en San Borja", SessionChannel.WHATSAPP);
-    expectDocumento(handle(request.session, tap(CuentaMinsaButtonId.TIENE)), firstContactCitaRequestText(" de Pediatría", " en San Borja"));
+    const request = handleFirstContact("quiero cita de pediatría en San Borja", WEB);
+    expectDocumento(
+      handle(request.session, webTap(CuentaMinsaButtonId.TIENE)),
+      firstContactCitaRequestText(" de Pediatría", " en San Borja"),
+    );
 
     const lost: Session = { state: SessionState.CITA_AWAITING_CUENTA_MINSA, slots: {}, counters: {} };
-    expectDocumento(handle(lost, tap(CuentaMinsaButtonId.TIENE)));
+    expectDocumento(handle(lost, webTap(CuentaMinsaButtonId.TIENE)));
   });
 
   it("«No cuento con una» sends the link and the buttons; then «Ya cuento con una» or «No deseo continuar»", () => {
-    const invitation = handle(warned(), tap(CuentaMinsaButtonId.NO_TIENE));
+    const invitation = handle(warned(), webTap(CuentaMinsaButtonId.NO_TIENE));
     expect(invitation.session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA);
     expect(sent(invitation)).toEqual([sendCtaUrl(CUENTA_MINSA_CREAR_TEXT, CUENTA_MINSA_CREAR_BUTTON_TEXT, REGISTRO_URL), CREADA]);
 
-    expectDocumento(handle(invitation.session, tap(CuentaMinsaButtonId.TIENE)));
+    expectDocumento(handle(invitation.session, webTap(CuentaMinsaButtonId.TIENE)));
 
-    const closed = handle(invitation.session, tap(CuentaMinsaButtonId.NO_CONTINUAR));
+    const closed = handle(invitation.session, webTap(CuentaMinsaButtonId.NO_CONTINUAR));
     expect(closed.session).toEqual({ state: SessionState.CITA_ABANDONED, slots: {}, counters: {} });
     expect(texts(closed)).toEqual([CITA_ABANDONED_TEXT]);
     expect(closed.outcome).toBe(HandlerOutcome.CLOSED);
 
     vi.stubEnv("MINSA_DIGITAL_APP_URL", "");
-    expect(sent(handle(warned(), tap(CuentaMinsaButtonId.NO_TIENE)))).toEqual([sendText(CUENTA_MINSA_CREAR_TEXT), CREADA]);
+    expect(sent(handle(warned(), webTap(CuentaMinsaButtonId.NO_TIENE)))).toEqual([sendText(CUENTA_MINSA_CREAR_TEXT), CREADA]);
   });
 
   it("understands typed answers and asks again with the same buttons otherwise", () => {
-    expectDocumento(handle(warned(), text("sí")));
-    expectDocumento(handle(warned(), text(CUENTA_MINSA_TIENE_BUTTON_TEXT)));
-    expect(handle(warned(), text(CUENTA_MINSA_NO_TIENE_BUTTON_TEXT)).session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA);
-    expectDocumento(handle(invited(), text("listo")));
-    expect(sent(handle(invited(), text("no")))).toEqual([sendText(FALLBACK_TEXT), CREADA]);
-    expect(handle(invited(), text(CUENTA_MINSA_NO_CONTINUAR_BUTTON_TEXT)).session.state).toBe(SessionState.CITA_ABANDONED);
+    expectDocumento(handle(warned(), webText("sí")));
+    expectDocumento(handle(warned(), webText(CUENTA_MINSA_TIENE_BUTTON_TEXT)));
+    expect(handle(warned(), webText(CUENTA_MINSA_NO_TIENE_BUTTON_TEXT)).session.state).toBe(SessionState.CITA_AWAITING_CUENTA_MINSA_CREADA);
+    expectDocumento(handle(invited(), webText("listo")));
+    expect(sent(handle(invited(), webText("no")))).toEqual([sendText(FALLBACK_TEXT), CREADA]);
+    expect(handle(invited(), webText(CUENTA_MINSA_NO_CONTINUAR_BUTTON_TEXT)).session.state).toBe(SessionState.CITA_ABANDONED);
 
-    expect(sent(handle(warned(), text("tengo una pregunta")))).toEqual([sendText(FALLBACK_TEXT), cuentaMinsaAviso()]);
-    expect(sent(handle(invited(), tap(CuentaMinsaButtonId.NO_TIENE)))).toEqual([sendText(FALLBACK_TEXT), CREADA]);
-    expect(texts(handle(warned(), text("cojudos")))).toContain(RESPECT_REMINDER_TEXT);
+    expect(sent(handle(warned(), webText("tengo una pregunta")))).toEqual([sendText(FALLBACK_TEXT), cuentaMinsaAviso()]);
+    expect(sent(handle(invited(), webTap(CuentaMinsaButtonId.NO_TIENE)))).toEqual([sendText(FALLBACK_TEXT), CREADA]);
+    expect(texts(handle(warned(), webText("cojudos")))).toContain(RESPECT_REMINDER_TEXT);
 
-    const leaving = handle(invited(), text("salir"));
+    const leaving = handle(invited(), webText("salir"));
     expect(leaving.session.state).toBe(SessionState.CITA_AWAITING_EXIT_CONFIRM);
-    expect(sent(handle(leaving.session, tap(ExitButtonId.NO)))).toEqual([CREADA]);
+    expect(sent(handle(leaving.session, webTap(ExitButtonId.NO)))).toEqual([CREADA]);
   });
 });

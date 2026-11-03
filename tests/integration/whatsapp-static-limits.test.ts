@@ -85,8 +85,8 @@ import {
   MENU_ROW_CONSULTAR_REFERENCIA_TITLE,
   MENU_ROW_REGISTRAR_INCIDENCIA_TITLE,
   FIRST_CONTACT_LEAD_TEXT,
-  WELCOME_CTA_BUTTON_TEXT,
-  WELCOME_MESSAGE_TEXT,
+  WELCOME_CITA_BUTTON,
+  welcomeMessageText,
 } from "@/lib/constants/textos/menu";
 import { INVALID_DOCUMENT_TEXT } from "@/lib/constants/textos/fallas";
 import {
@@ -203,7 +203,13 @@ const PAIRED_DEFINITIONS: StaticDefinition[] = [
     DEMO_ANALYZING_TEXT,
     DEMO_HORAS_LIST_TEXT,
   ].map((text) => ({ origin: `cuerpo de lista «${text}»`, effect: sendList(text, [RUNTIME_ROW]) })),
-  { origin: "WELCOME_MESSAGE_TEXT + WELCOME_CTA_BUTTON_TEXT", effect: sendCtaUrl(WELCOME_MESSAGE_TEXT, WELCOME_CTA_BUTTON_TEXT, URL) },
+  {
+    origin: "welcomeMessageText + botones de bienvenida",
+    effect: sendButtons(welcomeMessageText(URL), [
+      WELCOME_CITA_BUTTON,
+      { id: MenuChoice.CONSULTAR_REFERENCIA, title: MENU_ROW_CONSULTAR_REFERENCIA_TITLE },
+    ]),
+  },
   {
     origin: "APPOINTMENT_CTA_TEXT + APPOINTMENT_BUTTON_TEXT",
     effect: sendCtaUrl(APPOINTMENT_CTA_TEXT, APPOINTMENT_BUTTON_TEXT, URL),

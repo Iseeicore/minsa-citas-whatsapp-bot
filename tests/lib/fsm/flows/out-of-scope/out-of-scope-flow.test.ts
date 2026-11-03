@@ -70,7 +70,7 @@ describe("the order: emergency, then the lexical guard, then the rest", () => {
   it("a request for a cita with what the flow needs is not taken for a consultation", () => {
     const result = handle(menu(), text("quiero una cita de odontología en Miraflores"));
 
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
   });
 
   it("a real complaint request still opens the complaint flow", () => {
@@ -148,14 +148,14 @@ describe("the words the messages ask the citizen to type", () => {
     const second = handle(first.session, text("CITAS"));
 
     expect(sent(first)[0]).toMatchObject({ text: expect.stringContaining("escriba CITAS") });
-    expect(second.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(second.session.state).toBe("cita_awaiting_dni");
   });
 
   it("a bare cita request now resolves deterministically, no AI needed", () => {
     const result = handle(menu(), text("quiero una cita"));
 
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
   });
 });
 
@@ -169,11 +169,11 @@ describe("first contact", () => {
   });
 
   it("«CITAS» as the first message opens the Cita flow", () => {
-    expect(handleFirstContact("CITAS", "whatsapp").session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(handleFirstContact("CITAS", "whatsapp").session.state).toBe("cita_awaiting_dni");
   });
 
   it("a greeting still gets the welcome, and a plain request its flow", () => {
-    expect(sent(handleFirstContact("Hola", "whatsapp"))[0]).toMatchObject({ kind: "send_cta_url" });
-    expect(handleFirstContact("quiero una cita de odontología en Miraflores", "whatsapp").session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(sent(handleFirstContact("Hola", "whatsapp"))[0]).toMatchObject({ kind: "send_buttons" });
+    expect(handleFirstContact("quiero una cita de odontología en Miraflores", "whatsapp").session.state).toBe("cita_awaiting_dni");
   });
 });

@@ -1,19 +1,22 @@
 import { ServiceOffer } from "@/lib/enums/service-offer";
+import { MenuChoice } from "@/lib/enums/menu-choice";
 
-export const WELCOME_MESSAGE_TEXT = `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (Minsa)* 🇵🇪.
+export const welcomeMessageText = (
+  portalUrl: string,
+): string => `¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (Minsa)* 🇵🇪.
 
-Para agendar tu cita médica de manera rápida en menos de 2 minutos, elegir tu establecimiento de salud y obtener tu ticket de atención sin colas, abre *Minsa Responde*.
+⚠️ Si tienes una emergencia médica, llama al *106* (SAMU).
 
-Encuentra citas para Medicina General, Odontología, Pediatría y más especialidades a nivel nacional.
+Si quieres agendar tu cita médica en menos de 2 minutos y sin colas entra a
 
-⚠️ En caso de emergencia médica, llama al *106* (SAMU).
+${portalUrl}
 
-¿Prefieres seguir por aquí mismo? Escríbeme lo que necesitas y te ayudo.`;
+¿Prefieres seguir por aquí mismo y ya tienes tu usuario de Minsa Digital?`;
 
 export const WEB_WELCOME_MESSAGE_TEXT =
   "¡Hola! Soy tu asistente virtual. En caso de emergencia médica, llama al *106* (SAMU).\n¿En qué puedo ayudarte?";
 
-export const WELCOME_CTA_BUTTON_TEXT = "Continuar mi cita";
+export const WELCOME_CITA_BUTTON = { id: MenuChoice.AGENDAR_CITA, title: "Continuar mi cita" };
 export const MENU_PROMPT_TEXT = "¿En qué podemos ayudarte hoy?";
 
 export const MENU_ROW_CITA_TITLE = "Agendar una cita médica";

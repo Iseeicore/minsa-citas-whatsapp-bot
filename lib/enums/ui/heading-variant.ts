@@ -6,4 +6,5 @@ export enum HeadingVariant {
   LANDING_DIALOG = "landing_dialog",
   LIST_HEADER = "list_header",
   PANEL = "panel",
+  DOCUMENT = "document",
 }

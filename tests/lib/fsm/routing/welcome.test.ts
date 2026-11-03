@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildWelcomeEffect, buildWelcomeEffects } from "@/lib/fsm/routing/welcome";
-import { WELCOME_MESSAGE_TEXT } from "@/lib/constants/textos/menu";
+import { welcomeMessageText } from "@/lib/constants/textos/menu";
 
 const ORIGINAL_URL = process.env.MINSA_DIGITAL_APP_URL;
 
@@ -10,27 +10,38 @@ describe("buildWelcomeEffect", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     if (ORIGINAL_URL === undefined) delete process.env.MINSA_DIGITAL_APP_URL;
     else process.env.MINSA_DIGITAL_APP_URL = ORIGINAL_URL;
   });
 
-  it("whatsapp: keeps the CTA button, sourced from MINSA_DIGITAL_APP_URL", () => {
+  it("whatsapp: la URL del portal va en el texto y los botones llevan a la cita y a la referencia", () => {
     const effect = buildWelcomeEffect("whatsapp");
 
     expect(effect).toEqual({
-      kind: "send_cta_url",
-      text: WELCOME_MESSAGE_TEXT,
-      buttonText: "Continuar mi cita",
-      url: "https://digital.minsa.gob.pe",
+      kind: "send_buttons",
+      text: welcomeMessageText("https://digital.minsa.gob.pe"),
+      buttons: [
+        { id: "agendar_cita", title: "Continuar mi cita" },
+        { id: "consultar_referencia", title: "Cita con referencia" },
+      ],
     });
   });
 
-  it("whatsapp: el botón sigue a la variable aunque cambie el dominio y no deja barra final", () => {
+  it("whatsapp: con REFERENCIAS_ENABLED=false solo queda el botón de la cita", () => {
+    vi.stubEnv("REFERENCIAS_ENABLED", "false");
+
+    const effect = buildWelcomeEffect("whatsapp");
+
+    expect(effect).toMatchObject({ kind: "send_buttons", buttons: [{ id: "agendar_cita", title: "Continuar mi cita" }] });
+  });
+
+  it("whatsapp: el texto sigue a la variable aunque cambie el dominio y no deja barra final", () => {
     process.env.MINSA_DIGITAL_APP_URL = " https://portal-prueba.example.test/ ";
 
     const effect = buildWelcomeEffect("whatsapp");
 
-    expect(effect).toMatchObject({ kind: "send_cta_url", url: "https://portal-prueba.example.test" });
+    expect(effect).toMatchObject({ kind: "send_buttons", text: welcomeMessageText("https://portal-prueba.example.test") });
   });
 
   it("whatsapp: si MINSA_DIGITAL_APP_URL falta (config rota en el deploy), muestra el menú en vez de romper el botón", () => {

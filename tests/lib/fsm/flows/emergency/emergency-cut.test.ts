@@ -150,14 +150,14 @@ describe("the conversation can start again after the cut", () => {
 
     const next = handle(closed, text("Hola"));
 
-    expect(sent(next)[0]).toMatchObject({ kind: "send_cta_url" });
+    expect(sent(next)[0]).toMatchObject({ kind: "send_buttons" });
     expect(next.session.state).toBe("main_menu");
   });
 
   it("a request for a cita afterwards goes straight into the Cita flow", () => {
     const closed = handle(at("cita_awaiting_dni"), text(EMERGENCY)).session;
 
-    expect(handle(closed, text("quiero una cita de odontología en Miraflores")).session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(handle(closed, text("quiero una cita de odontología en Miraflores")).session.state).toBe("cita_awaiting_dni");
   });
 
   it("a second emergency is cut again", () => {

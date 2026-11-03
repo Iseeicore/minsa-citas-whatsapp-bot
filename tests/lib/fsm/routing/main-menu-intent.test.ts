@@ -45,7 +45,7 @@ describe("an explicit cita request typed in the main menu", () => {
     const result = handle(menu(), text(message));
 
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
   });
 
   it.each([
@@ -79,7 +79,7 @@ describe("when the AI is used and answers cita", () => {
     const pending: Session = { state: "main_menu_intent_pending", slots: { [SlotKey.INITIAL_MESSAGE_TEXT]: "x" }, counters: {} };
     const result = handle(pending, aiAnswer({ intent: "cita", especialidad: "Medicina General", distrito: "San Juan de Lurigancho" }));
 
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
     expect(result.session.slots[SlotKey.CITA_ESPECIALIDAD_HINT_TEXT]).toBe("Medicina General");
     expect(result.session.slots[SlotKey.CITA_DISTRITO_HINT_TEXT]).toBe("San Juan de Lurigancho");
   });
@@ -213,7 +213,7 @@ describe("«Continuar» after the institutional warning", () => {
   it("does not swallow a real request typed after the warning", () => {
     const result = handle(warned(), text("quiero una cita en Miraflores de odontología"));
 
-    expect(result.session.state).toBe("cita_awaiting_cuenta_minsa");
+    expect(result.session.state).toBe("cita_awaiting_dni");
   });
 
   it("only applies right after a warning: a plain «ya dale» in the menu still goes to the AI", () => {

@@ -28,7 +28,7 @@ export function enterReferencias(
   return referenciaService.isEnabled() ? begin(slots) : disabledServiceReply(referenciaService, channel, slots);
 }
 
-export function beginCita(slots: Session["slots"], hints: CitaHints, intro: string): HandlerResult {
+export function beginCita(slots: Session["slots"], hints: CitaHints, intro: string, channel: SessionChannel): HandlerResult {
   const next: Session = {
     state: SessionState.CITA_AWAITING_DNI,
     slots: {
@@ -37,6 +37,7 @@ export function beginCita(slots: Session["slots"], hints: CitaHints, intro: stri
       ...(hints.distrito ? { [SlotKey.CITA_DISTRITO_HINT_TEXT]: hints.distrito } : {}),
     },
     counters: {},
+    channel,
   };
   return startCitaIdentity(next, intro);
 }

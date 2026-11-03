@@ -2,13 +2,16 @@ import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-acepta
 import { TerminosButtonId } from "@/lib/enums/botones/terminos-button-id";
 import { DATOS_PERSONALES_CHECKBOX_LABEL } from "@/lib/constants/textos/datos-personales";
 import type { ConsentButtons, ConsentCheck } from "@/lib/fsm/core/types";
+import type { DocumentoApartado } from "@/lib/types/aceptacion-terminos.types";
 
 export const TERMINOS_VERSION = "2026-10-29";
-export const TERMINOS_CONTENIDO = "";
+export const TERMINOS_CONTENIDO: readonly DocumentoApartado[] = [];
 export const TERMINOS_TITULO_TEXT = "Términos y condiciones";
 export const DOCUMENTOS_TITULO_TEXT = "Términos y protección de datos personales";
 export const TERMINOS_PROMPT_TEXT =
   "Antes de agendar tu cita, revisa y acepta los términos y condiciones y la protección de datos personales.";
+export const terminosWhatsappAvisoText = (url: string, pedidoDocumento: string): string =>
+  `Te invitamos a conocer los términos y condiciones de nuestro servicio en este link ${url}\n\n${pedidoDocumento}`;
 export const TERMINOS_PRIVACIDAD_WHATSAPP_TEXT =
   "Por WhatsApp solo recibimos tu número y los mensajes que nos envías para atenderte. Meta no comparte con el Minsa tu dirección IP.";
 export const terminosWhatsappBodyText = (prompt: string): string => `${prompt}\n\n${TERMINOS_PRIVACIDAD_WHATSAPP_TEXT}`;
