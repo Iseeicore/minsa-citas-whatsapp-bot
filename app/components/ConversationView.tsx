@@ -30,9 +30,6 @@ import { ConversationStatus } from "@/lib/enums/conversation-status";
 import { MessageDirection } from "@/lib/enums/message-direction";
 import { TextInputVariant } from "@/lib/enums/text-input-variant";
 
-const LOAD_ERROR_TEXT = "No se pudo actualizar la conversación. Los mensajes pueden no estar al día.";
-const LOADING_TEXT = "Cargando mensajes…";
-
 export default function ConversationView({
   conversationId,
   profileName,
@@ -44,7 +41,10 @@ export default function ConversationView({
   waId?: string;
   onBack?: () => void;
 }) {
-  const { state, update } = useConversationPolling<ConversationMessages>(`/api/conversations/${conversationId}/messages`, LOAD_ERROR_TEXT);
+  const { state, update } = useConversationPolling<ConversationMessages>(
+    `/api/conversations/${conversationId}/messages`,
+    "No se pudo actualizar la conversación. Los mensajes pueden no estar al día.",
+  );
   const {
     messages = [],
     windowOpen = true,
@@ -100,7 +100,7 @@ export default function ConversationView({
       </header>
 
       <div className="flex-1 overflow-y-auto bg-wa-panel px-4 py-3">
-        {state.status === RequestStatus.LOADING && <p className="py-6 text-center text-sm text-gray-500">{LOADING_TEXT}</p>}
+        {state.status === RequestStatus.LOADING && <p className="py-6 text-center text-sm text-gray-500">Cargando mensajes…</p>}
         {messages.map((message) => (
           <div
             key={message.id}

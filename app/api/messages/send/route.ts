@@ -17,8 +17,6 @@ const sendMessageSchema = z.object({
   text: z.string().min(1),
 });
 
-const WINDOW_MS = DAY_MS;
-
 export async function POST(request: NextRequest) {
   const closed = consoleDisabledResponse();
   if (closed) return closed;
@@ -44,7 +42,7 @@ export async function POST(request: NextRequest) {
   const lastInbound = await findLastInbound(conversationId);
 
   const windowExpired =
-    !lastInbound || Date.now() - lastInbound.fechaHora.getTime() > WINDOW_MS;
+    !lastInbound || Date.now() - lastInbound.fechaHora.getTime() > DAY_MS;
 
   if (windowExpired) {
     return apiError(ApiErrorCode.WINDOW_EXPIRED);

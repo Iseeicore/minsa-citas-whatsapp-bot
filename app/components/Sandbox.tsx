@@ -22,16 +22,10 @@ import { ButtonVariant } from "@/lib/enums/button-variant";
 import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
-import { imagenMuyPesadaText, textoMuyLargoText } from "@/lib/constants/textos/sandbox";
+import { textoMuyLargoText } from "@/lib/constants/textos/sandbox";
 import { bytesToMegabytes } from "@/lib/utils/byte-size";
 
-const DNI_AWAITING_STATE = SessionState.CITA_AWAITING_DNI;
-
 const WELCOME_TRIGGER_TEXT = "Hola";
-
-const RESET_CONFIRM_TEXT = "Esto reiniciará esta conversación de prueba. ¿Continuar?";
-
-const RESET_BUTTON_TEXT = "Reiniciar esta prueba";
 
 const INBOUND_TYPE_BY_OPTION_KIND: Readonly<Record<ChatOptionKind, InboundEventType>> = {
   [ChatOptionKind.LIST]: InboundEventType.LIST,
@@ -151,7 +145,7 @@ export default function Sandbox({
   }
 
   function handleReset() {
-    if (!window.confirm(RESET_CONFIRM_TEXT)) {
+    if (!window.confirm("Esto reiniciará esta conversación de prueba. ¿Continuar?")) {
       return;
     }
     setEntries([]);
@@ -166,7 +160,7 @@ export default function Sandbox({
     if (!file) return;
 
     if (file.size > imageMaxBytes) {
-      setError(imagenMuyPesadaText(bytesToMegabytes(imageMaxBytes)));
+      setError(`La imagen supera el tamaño máximo permitido (${bytesToMegabytes(imageMaxBytes)} MB). Envía una imagen más liviana.`);
       return;
     }
 
@@ -182,7 +176,7 @@ export default function Sandbox({
     sendTurn({ type: InboundEventType.TEXT, text: value }, value);
   }
 
-  const showDniCard = session?.state === DNI_AWAITING_STATE;
+  const showDniCard = session?.state === SessionState.CITA_AWAITING_DNI;
 
   return (
     <div className="grid h-full grid-rows-[1fr_auto] bg-sb-panel">
@@ -205,7 +199,7 @@ export default function Sandbox({
           {showDebugPanel && (
             <div className="flex items-center justify-end px-4 pt-2">
               <Button variant={ButtonVariant.PILL_NEUTRAL} onClick={handleReset}>
-                {RESET_BUTTON_TEXT}
+                Reiniciar esta prueba
               </Button>
             </div>
           )}

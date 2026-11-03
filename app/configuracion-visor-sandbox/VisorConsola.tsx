@@ -15,10 +15,6 @@ import { cn } from "@/lib/utils/cn";
 import { initialModeFromQuery } from "@/lib/utils/sandbox-mode";
 import { SandboxMode } from "@/lib/enums/sandbox-mode";
 
-const SANDBOX_AVATAR_TEXT = "MD";
-const SANDBOX_ROW_TITLE_TEXT = "Asistente Minsa Responde";
-const SANDBOX_ROW_HINT_TEXT = "Toca para iniciar una conversación de prueba";
-
 export default function Home({ imageMaxBytes }: { imageMaxBytes: number }) {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [mode, setMode] = useState<SandboxMode>(initialModeFromQuery);
@@ -98,10 +94,10 @@ function SandboxListRow({ onSelect }: { onSelect: () => void }) {
       <ul>
         <li>
           <Button variant={ButtonVariant.ROW} width={ButtonWidth.FULL} onClick={onSelect}>
-            <Avatar className="bg-linear-to-r from-sb-header-from to-sb-header-to font-bold">{SANDBOX_AVATAR_TEXT}</Avatar>
+            <Avatar className="bg-linear-to-r from-sb-header-from to-sb-header-to font-bold">MD</Avatar>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-gray-900">{SANDBOX_ROW_TITLE_TEXT}</span>
-              <span className="block truncate text-xs text-gray-500">{SANDBOX_ROW_HINT_TEXT}</span>
+              <span className="block truncate text-sm font-medium text-gray-900">Asistente Minsa Responde</span>
+              <span className="block truncate text-xs text-gray-500">Toca para iniciar una conversación de prueba</span>
             </span>
           </Button>
         </li>

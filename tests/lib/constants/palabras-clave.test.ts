@@ -6,14 +6,13 @@ import {
   REFERENCE_PAGE_ANSWERS,
   TERMINOS_ANSWERS,
 } from "@/lib/constants/palabras-clave";
-import { TERMINOS_ACEPTO_BUTTON_TEXT, TERMINOS_NO_ACEPTO_BUTTON_TEXT } from "@/lib/constants/textos/terminos";
+import { TERMINOS_BUTTONS } from "@/lib/constants/textos/terminos";
 import { OTRA_SEDE_BUTTON_TEXT } from "@/lib/constants/textos/cita-catalogo";
 import { OTRA_ESPECIALIDAD_BUTTON_TEXT } from "@/lib/constants/textos/cita-ubicacion";
 import { normalizeText } from "@/lib/fsm/parsing/text/text";
 import { ListPageButtonId } from "@/lib/enums/list-page-button-id";
 import { OtherDistritoButtonId } from "@/lib/enums/other-distrito-button-id";
 import { ReferenciaActionButtonId } from "@/lib/enums/referencia-action-button-id";
-import { TerminosButtonId } from "@/lib/enums/terminos-button-id";
 
 describe("mapas de palabras clave", () => {
   it("son mapas con claves de texto y responden igual que antes", () => {
@@ -31,8 +30,7 @@ describe("mapas de palabras clave", () => {
 
 describe("palabras clave que repiten la etiqueta de un botón", () => {
   it("escribir la etiqueta de cada botón de términos elige lo mismo que tocarlo", () => {
-    expect(TERMINOS_ANSWERS.get(normalizeText(TERMINOS_ACEPTO_BUTTON_TEXT))).toBe(TerminosButtonId.ACCEPT);
-    expect(TERMINOS_ANSWERS.get(normalizeText(TERMINOS_NO_ACEPTO_BUTTON_TEXT))).toBe(TerminosButtonId.DECLINE);
+    for (const button of TERMINOS_BUTTONS) expect(TERMINOS_ANSWERS.get(normalizeText(button.title))).toBe(button.id);
   });
 
   it("escribir la etiqueta Otra sede pide otra sede", () => {

@@ -17,9 +17,6 @@ import { readRequestData, useConversationPolling } from "@/app/components/hooks/
 import { RequestStatus } from "@/lib/enums/request-status";
 
 const CONVERSATIONS_URL = "/api/conversations";
-const LOAD_ERROR_TEXT = "No se pudieron cargar las conversaciones. La lista puede no estar al día.";
-const LOADING_TEXT = "Cargando conversaciones…";
-const EMPTY_TEXT = "Aún no hay conversaciones.";
 
 export default function ConversationList({
   selectedId,
@@ -28,9 +25,12 @@ export default function ConversationList({
   selectedId: string | null;
   onSelect: (conversation: Conversation) => void;
 }) {
-  const { state } = useConversationPolling<Conversation[]>(CONVERSATIONS_URL, LOAD_ERROR_TEXT);
+  const { state } = useConversationPolling<Conversation[]>(
+    CONVERSATIONS_URL,
+    "No se pudieron cargar las conversaciones. La lista puede no estar al día.",
+  );
   const conversations = readRequestData(state) ?? [];
-  const placeholder = placeholderFor(state, { loading: LOADING_TEXT, empty: EMPTY_TEXT });
+  const placeholder = placeholderFor(state, { loading: "Cargando conversaciones…", empty: "Aún no hay conversaciones." });
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
