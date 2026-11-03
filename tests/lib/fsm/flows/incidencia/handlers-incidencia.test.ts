@@ -7,6 +7,7 @@ import type { HandlerResult, InboundEvent, InboundMedia, QueryResultEvent, SendE
 import { SlotKey } from "@/lib/enums/slot-key";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 import { AiTaskStatus } from "@/lib/enums/ai-task-status";
+import { DocumentoBloqueTipo } from "@/lib/enums/consentimiento/documento-bloque-tipo";
 import {
   ASK_DESCRIPCION_ANONIMO_TEXT,
   ASK_UBICACION_DENUNCIA_TEXT,
@@ -650,7 +651,7 @@ describe("incidencia_consent_*: autorización del tratamiento de datos", () => {
         kind: "send_consent",
         title: "Autorización de datos",
         text: "Para registrar tu denuncia necesitamos tu autorización.",
-        content: AVISO_PRIVACIDAD_TEXT,
+        content: [{ bloques: [{ tipo: DocumentoBloqueTipo.PARRAFO, texto: AVISO_PRIVACIDAD_TEXT }] }],
         buttons: [
           { id: "incidencia_consent_si", title: "Sí, autorizo" },
           { id: "incidencia_consent_no", title: "No autorizo" },

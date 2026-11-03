@@ -1,5 +1,6 @@
 import type { TurnNote } from "@/lib/observability/types";
 import type { ReferenciaListaDetalle } from "@/lib/types/referencia-lista-detalle";
+import type { DocumentoApartado } from "@/lib/types/aceptacion-terminos.types";
 import { SendType } from "@/lib/enums/send-type";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { CounterKey } from "@/lib/enums/counter-key";
@@ -179,7 +180,7 @@ export type SendConsentEffect = {
   kind: SendType.CONSENT;
   title: string;
   text: string;
-  content: string;
+  content: readonly DocumentoApartado[];
   buttons: ConsentButtons;
   acceptLabel: string;
   checks: readonly ConsentCheck[];

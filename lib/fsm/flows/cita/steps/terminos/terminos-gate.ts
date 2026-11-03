@@ -17,7 +17,6 @@ import {
 import { ASK_DOCUMENTO_TEXT, WHATSAPP_ASK_DOCUMENTO_TEXT } from "@/lib/constants/textos/identidad";
 import { SessionChannel } from "@/lib/enums/session-channel";
 import { DOCUMENTOS_CITA, DOCUMENTOS_SECCIONES } from "@/lib/constants/documentos-aceptacion";
-import { documentSectionsText } from "@/lib/utils/document-sections-text";
 import { FlujoAceptacion } from "@/lib/enums/consentimiento/flujo-aceptacion";
 import { QueryKind } from "@/lib/enums/query-kind";
 import { SendType } from "@/lib/enums/send-type";
@@ -30,7 +29,7 @@ export function buildTerminosEffect(): SendConsentEffect {
     kind: SendType.CONSENT,
     title: DOCUMENTOS_TITULO_TEXT,
     text: TERMINOS_PROMPT_TEXT,
-    content: documentSectionsText(DOCUMENTOS_SECCIONES),
+    content: DOCUMENTOS_SECCIONES.flatMap((seccion) => seccion.apartados),
     buttons: TERMINOS_BUTTONS,
     acceptLabel: TERMINOS_ACCEPT_LABEL,
     checks: TERMINOS_CHECKS,

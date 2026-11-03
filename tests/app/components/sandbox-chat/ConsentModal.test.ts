@@ -7,23 +7,30 @@ import { buildConsentimientoEffect } from "@/lib/fsm/flows/incidencia/consentimi
 import type { SendConsentEffect } from "@/lib/fsm/core/types";
 
 const BUTTON_TAG = /<button\b[^>]*>[^<]*<\/button>/g;
+const CHECKBOX_TAG = /<input type="checkbox"[^>]*>/g;
 
 const render = (effect: SendConsentEffect = buildTerminosEffect()) =>
   renderToStaticMarkup(createElement(ConsentModal, { effect, onSelect: () => {}, onClose: () => {} }));
 
 describe("ConsentModal", () => {
-  it("is a modal dialog with the title of both documents", () => {
+  it("is a modal dialog with the title of both documents, the logo and the policy with its headings and lists", () => {
     const markup = render();
 
     expect(markup).toContain("<dialog");
     expect(markup).toContain("Términos y protección de datos personales");
+    expect(markup).toContain('alt="Ministerio de Salud del Perú"');
+    expect(markup).toContain("BANCO DE DATOS</h3>");
+    expect(markup).toContain("INFORMACIÓN QUE SE RECOGERÁN</h4>");
+    expect(markup).toContain("<li>Reserva de citas médicas; y</li>");
   });
 
-  it("shows one box per document and keeps «Continuar» disabled until both are ticked", () => {
+  it("shows one box per document, locked until the content is scrolled to the end, and keeps «Continuar» disabled until both are ticked", () => {
     const markup = render();
     const continuar = markup.match(BUTTON_TAG)?.find((tag) => tag.includes("Continuar"));
+    const boxes = markup.match(CHECKBOX_TAG) ?? [];
 
-    expect(markup.match(/type="checkbox"/g)).toHaveLength(2);
+    expect(boxes).toHaveLength(2);
+    expect(boxes.every((box) => box.includes('disabled=""'))).toBe(true);
     expect(markup).toContain("Acepto los términos y condiciones");
     expect(markup).toContain("Autorizo el tratamiento de mis datos personales");
     expect(continuar).toContain('disabled=""');

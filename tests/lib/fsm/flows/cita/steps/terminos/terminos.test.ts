@@ -18,9 +18,8 @@ import {
   terminosWhatsappAvisoText,
   terminosWhatsappBodyText,
 } from "@/lib/constants/textos/terminos";
-import { DATOS_PERSONALES_VERSION } from "@/lib/constants/textos/datos-personales";
-import { DOCUMENTOS_CITA, DOCUMENTOS_SECCIONES } from "@/lib/constants/documentos-aceptacion";
-import { documentSectionsText } from "@/lib/utils/document-sections-text";
+import { DATOS_PERSONALES_CONTENIDO, DATOS_PERSONALES_VERSION } from "@/lib/constants/textos/datos-personales";
+import { DOCUMENTOS_CITA } from "@/lib/constants/documentos-aceptacion";
 import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-aceptacion";
 import { AceptacionTerminosLookup } from "@/lib/enums/consentimiento/aceptacion-terminos-lookup";
 import { ExitButtonId } from "@/lib/enums/botones/exit-button-id";
@@ -42,12 +41,11 @@ import { buildReferencia } from "@/tests/support/referencia";
 import { confirmCuentaMinsa, cuentaMinsaAviso } from "@/tests/support/cuenta-minsa";
 
 const DNI = "12345678";
-const WEB = SessionChannel.WEB;
 const TERMINOS_URL = "https://example.test/terminos";
 
-const tap = (id: string, channel = WEB) => tapOn(id, channel);
-const text = (value: string) => textOn(value, WEB);
-const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown) => resultOn(queryKind, result, WEB);
+const tap = (id: string, channel = SessionChannel.WEB) => tapOn(id, channel);
+const text = (value: string) => textOn(value, SessionChannel.WEB);
+const queryResult = (queryKind: QueryResultEvent["queryKind"], result: unknown) => resultOn(queryKind, result, SessionChannel.WEB);
 
 const mainMenu = (slots: Session["slots"] = {}): Session => ({ state: SessionState.MAIN_MENU, slots, counters: {} });
 
@@ -90,7 +88,7 @@ function acceptVerified(result: HandlerResult): HandlerResult {
 }
 
 function accept(result: HandlerResult): HandlerResult {
-  return confirmCuentaMinsa(acceptVerified(result), WEB);
+  return confirmCuentaMinsa(acceptVerified(result), SessionChannel.WEB);
 }
 
 beforeEach(() => {
@@ -107,7 +105,7 @@ describe("the terms message", () => {
       kind: SendType.CONSENT,
       title: DOCUMENTOS_TITULO_TEXT,
       text: TERMINOS_PROMPT_TEXT,
-      content: documentSectionsText(DOCUMENTOS_SECCIONES),
+      content: DATOS_PERSONALES_CONTENIDO,
       buttons: TERMINOS_BUTTONS,
       acceptLabel: "Continuar",
       checks: [
@@ -122,7 +120,7 @@ describe("the terms message", () => {
       { documento: DocumentoAceptacion.TERMINOS, version: TERMINOS_VERSION },
       { documento: DocumentoAceptacion.DATOS_PERSONALES, version: DATOS_PERSONALES_VERSION },
     ]);
-    expect([TERMINOS_VERSION, DATOS_PERSONALES_VERSION]).toEqual(["2026-10-29", "2026-11-01"]);
+    expect([TERMINOS_VERSION, DATOS_PERSONALES_VERSION]).toEqual(["2026-10-29", "2026-11-03"]);
     expect(TERMINOS_BUTTONS.map((button) => button.title)).toEqual(["Acepto ambos", "No acepto"]);
   });
 });
@@ -200,7 +198,7 @@ describe("accepting", () => {
     expect(queries(accepted)).toEqual([
       {
         kind: QueryKind.REGISTRAR_ACEPTACION_TERMINOS,
-        payload: { canal: WEB, flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA },
+        payload: { canal: SessionChannel.WEB, flujo: FlujoAceptacion.CITA, documentos: DOCUMENTOS_CITA },
       },
     ]);
   });
@@ -211,7 +209,7 @@ describe("accepting", () => {
 
     const resumed = confirmCuentaMinsa(
       handle(accepted.session, queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "failed" })),
-      WEB,
+      SessionChannel.WEB,
     );
 
     expect(resumed.session.state).toBe(SessionState.CITA_AWAITING_DNI);
@@ -334,8 +332,8 @@ describe("with TERMINOS_ENABLED off", () => {
   it("goes straight to the document as before", () => {
     vi.stubEnv("TERMINOS_ENABLED", "false");
 
-    const fromMenu = confirmCuentaMinsa(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)), WEB);
-    const fromFirstContact = confirmCuentaMinsa(handleFirstContact("cita", WEB), WEB);
+    const fromMenu = confirmCuentaMinsa(handle(mainMenu(), tap(MenuChoice.AGENDAR_CITA)), SessionChannel.WEB);
+    const fromFirstContact = confirmCuentaMinsa(handleFirstContact("cita", SessionChannel.WEB), SessionChannel.WEB);
 
     expect(fromMenu.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(fromMenu)).toEqual([ASK_DOCUMENTO_TEXT]);
@@ -371,7 +369,7 @@ describe("a session saved without what to resume", () => {
     };
     const event: HandleEvent = queryResult(QueryKind.REGISTRAR_ACEPTACION_TERMINOS, { resultado: "saved" });
 
-    const result = confirmCuentaMinsa(handle(session, event), WEB);
+    const result = confirmCuentaMinsa(handle(session, event), SessionChannel.WEB);
 
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_DNI);
     expect(texts(result)).toEqual([ASK_DOCUMENTO_TEXT]);

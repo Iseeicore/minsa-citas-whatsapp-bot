@@ -2,9 +2,10 @@ import { DocumentoAceptacion } from "@/lib/enums/consentimiento/documento-acepta
 import { TerminosButtonId } from "@/lib/enums/botones/terminos-button-id";
 import { DATOS_PERSONALES_CHECKBOX_LABEL } from "@/lib/constants/textos/datos-personales";
 import type { ConsentButtons, ConsentCheck } from "@/lib/fsm/core/types";
+import type { DocumentoApartado } from "@/lib/types/aceptacion-terminos.types";
 
 export const TERMINOS_VERSION = "2026-10-29";
-export const TERMINOS_CONTENIDO = "";
+export const TERMINOS_CONTENIDO: readonly DocumentoApartado[] = [];
 export const TERMINOS_TITULO_TEXT = "Términos y condiciones";
 export const DOCUMENTOS_TITULO_TEXT = "Términos y protección de datos personales";
 export const TERMINOS_PROMPT_TEXT =

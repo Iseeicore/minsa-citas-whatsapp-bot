@@ -25,6 +25,6 @@ export const SERVICIO_POR_FLUJO_ACEPTACION: Readonly<Record<FlujoAceptacion, Men
 };
 
 export const DOCUMENTOS_SECCIONES: readonly DocumentoSeccion[] = [
-  { ancla: "terminos", titulo: TERMINOS_TITULO_TEXT, contenido: TERMINOS_CONTENIDO },
-  { ancla: "datos-personales", titulo: DATOS_PERSONALES_TITULO_TEXT, contenido: DATOS_PERSONALES_CONTENIDO },
+  { ancla: "terminos", titulo: TERMINOS_TITULO_TEXT, apartados: TERMINOS_CONTENIDO },
+  { ancla: "datos-personales", titulo: DATOS_PERSONALES_TITULO_TEXT, apartados: DATOS_PERSONALES_CONTENIDO },
 ];
