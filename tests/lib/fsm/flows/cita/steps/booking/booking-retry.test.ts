@@ -76,7 +76,7 @@ describe("a genuine booking outage offers to retry the same slot", () => {
     expect(result.notes?.[0]).toMatchObject({ kind: "booking_rejected", detail: { reason: "retries_exhausted", retries: 3 } });
   });
 
-  it("Salir closes, anything else asks again, and a retry answered with 9000 offers another date", () => {
+  it("Salir closes, anything else asks again, and a retry answered with «tiene una cita por atender» offers another date", () => {
     const asking = outage().session;
 
     for (const answer of [tap(BookingRetryButtonId.EXIT), text("salir"), text("no")]) {
@@ -88,7 +88,10 @@ describe("a genuine booking outage offers to retry the same slot", () => {
     expect(findButtonReprompt(asking.state)?.(asking)).toMatchObject({ effects: [OUTAGE_PROMPT] });
 
     const retried = handle(asking, tap(BookingRetryButtonId.RETRY)).session;
-    const alreadyBooked = handle(retried, queryResult("book_appointment", { status: "already_has_appointment", message: "9000 | ..." }));
+    const alreadyBooked = handle(
+      retried,
+      queryResult("book_appointment", { status: "already_has_appointment", message: "tiene una cita por atender" }),
+    );
     expect(alreadyBooked.session.state).toBe(SessionState.CITA_AWAITING_ALREADY_BOOKED_CHOICE);
   });
 });

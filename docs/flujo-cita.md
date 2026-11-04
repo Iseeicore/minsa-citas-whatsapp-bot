@@ -248,9 +248,9 @@ También aplica si la respuesta no es un objeto JSON, si falta `GOOGLE_AI_MODEL`
 **Sin base de datos:** la sesión se borra de memoria tras 1 h sin actividad, y el siguiente mensaje cuenta como primer contacto.
 
 ### Cita en el mismo día
-- **Se permite:** la fecha de hoy puede aparecer en la lista.
+- **Se permite:** la fecha de hoy puede aparecer en la lista, solo si todavía le queda un horario. Al recibir las fechas, el bot consulta una vez los horarios de hoy y quita el día si ninguno empieza después de la hora actual de Lima; si era la única fecha, se trata como una lista sin fechas. Si esa consulta falla, hoy se mantiene en la lista. Vale para ambos canales.
 - **Horarios de hoy:** solo se ofrecen los que empiezan **después de la hora actual de Lima**, sin margen mínimo.
-- **Si ya no queda ninguno hoy:** 🔘 *"No hay horarios disponibles para esa fecha. ¿Deseas cambiar de fecha?"*.
+- **Si ya no queda ninguno hoy** (por ejemplo, porque pasó la hora entre la lista de fechas y la elección): 🔘 *"No hay horarios disponibles para esa fecha. ¿Deseas cambiar de fecha?"*.
 - **Mensaje propio:** el bot no tiene un texto para el "mismo día". Si el MINSA rechaza la reserva por una regla de mismo día, el ciudadano ve **el mensaje del MINSA tal cual** y el flujo termina ⛔.
 
 ### Error al registrar la cita
@@ -259,6 +259,8 @@ La tabla describe el recorrido general. En una referencia real de ambos canales,
 
 | Qué respondió el MINSA | Respuesta | Sigue en |
 |---|---|---|
+| Código `9000`: alcanzó el máximo de citas por semana | 💬 *"Alcanzaste el máximo de citas permitidas por semana. Podrás agendar una nueva cita la próxima semana."* y la despedida del Ministerio de Salud, en un solo mensaje | ⛔ (`cita_booking_rejected`, sesión limpia) |
+| «tiene una cita por atender» sin el código `9000` | 🔘 *"Ese día ya cuentas con una cita agendada. ¿Deseas seleccionar otra fecha o terminar?"* [Otra fecha] [Terminar]; si se repite en el mismo intento, ofrece otra especialidad | Fecha |
 | Ya tiene una cita activa (una por especialidad) | 🔘 *"Ya tienes una cita activa para {especialidad}. El MINSA permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?"* [Otra especialidad] [No, salir] | Especialidad (sin la ya reservada; si no queda ninguna, ¿otro distrito?) |
 | Error técnico (HTTP) | *"Tuvimos un problema técnico al intentar reservar tu cita. Vamos a intentarlo de nuevo — estos son los horarios disponibles de la misma fecha:"* | Hora (misma fecha) |
 | Horario tomado ("cupo", "agotado", "ocupado"…) | *"No pudimos reservar ese horario, puede que otra persona lo haya tomado justo antes. Te muestro los horarios disponibles de la misma fecha:"* | Hora (misma fecha) |

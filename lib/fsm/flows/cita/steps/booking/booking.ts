@@ -17,11 +17,23 @@ import {
   BOOKING_TECHNICAL_RETRY_TEXT,
   BOOKING_SLOT_TAKEN_RETRY_TEXT,
   BOOKING_REJECTED_TEXT,
+  BOOKING_WEEKLY_LIMIT_TEXT,
 } from "@/lib/constants/textos/cita-reserva";
 import { CITA_BOOKED_FAREWELL_TEXT } from "@/lib/constants/textos/cita-salida";
 import { BookingStatus } from "@/lib/enums/booking-status";
 import { slotText } from "@/lib/fsm/core/slot-readers";
 import { MAX_BOOKING_FAILURES } from "@/lib/constants/limits/cita";
+
+function closeAtWeeklyLimit(): HandlerResult {
+  return withNote(
+    buildResult({ state: SessionState.CITA_BOOKING_REJECTED, slots: {}, counters: {} }, [sendText(BOOKING_WEEKLY_LIMIT_TEXT)]),
+    {
+      kind: "booking_rejected",
+      level: "warn",
+      detail: { status: BookingStatus.WEEKLY_LIMIT, reason: "weekly_limit" },
+    },
+  );
+}
 
 export function handleBookingPending(session: Session, event: QueryResultEvent): HandlerResult {
   const result = event.result as { status: string; url?: string; message?: string };
@@ -42,6 +54,10 @@ export function handleBookingPending(session: Session, event: QueryResultEvent):
 
   if (result.status === BookingStatus.DUPLICATE) {
     return offerOtherEspecialidad(next);
+  }
+
+  if (result.status === BookingStatus.WEEKLY_LIMIT) {
+    return closeAtWeeklyLimit();
   }
 
   if (result.status === BookingStatus.ALREADY_HAS_APPOINTMENT) {

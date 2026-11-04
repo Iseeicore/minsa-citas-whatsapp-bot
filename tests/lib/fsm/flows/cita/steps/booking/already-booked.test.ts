@@ -9,7 +9,7 @@ import { SessionState } from "@/lib/enums/session-state";
 import { SlotKey } from "@/lib/enums/slot-key";
 import { queries, queryResult, sent, tap, text } from "@/tests/support/fsm-events";
 
-const MINSA_9000 = "Error al generar la cita en el servicio externo: 9000 | El paciente tiene una cita por atender en este servicio";
+const CITA_POR_ATENDER = "El paciente tiene una cita por atender en este servicio";
 
 function booking(counters: Session["counters"] = {}): Session {
   return {
@@ -28,9 +28,9 @@ function booking(counters: Session["counters"] = {}): Session {
 }
 
 const rejected = (session: Session = booking()) =>
-  handle(session, queryResult("book_appointment", { status: "already_has_appointment", message: MINSA_9000 }));
+  handle(session, queryResult("book_appointment", { status: "already_has_appointment", message: CITA_POR_ATENDER }));
 
-describe("MINSA 9000: the citizen already has a cita that day", () => {
+describe("MINSA «tiene una cita por atender»: the citizen already has a cita that day", () => {
   it("offers another date or ending, and «Otra fecha» lists the dates of the same establecimiento and especialidad", () => {
     const result = rejected();
 
@@ -75,7 +75,7 @@ describe("MINSA 9000: the citizen already has a cita that day", () => {
     expect(sent(unknown)).toEqual(sent(rejected()));
   });
 
-  it("a second 9000 in the same attempt offers another especialidad instead of looping over dates", () => {
+  it("a second rejection in the same attempt offers another especialidad instead of looping over dates", () => {
     const result = rejected(booking({ [CounterKey.CITA_ALREADY_BOOKED_REJECTIONS]: 1 }));
 
     expect(result.session.state).toBe(SessionState.CITA_AWAITING_DUPLICATE_CHOICE);
