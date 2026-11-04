@@ -25,6 +25,7 @@ import {
   REGISTRATION_RETRY_PROMPT_TEXT,
   OTP_LOCKED_TEXT,
   REGISTRATION_BUTTONS,
+  NO_INSURANCE_TEXT,
 } from "@/lib/constants/textos/cita-identidad";
 import { ASK_OTP_TEXT, codigoIncorrectoText } from "@/lib/constants/textos/identidad";
 import { INVALID_DOCUMENT_TEXT, TURN_FAILURE_TEXT } from "@/lib/constants/textos/fallas";
@@ -60,6 +61,10 @@ export function handleValidatePending(session: Session, event: QueryResultEvent)
     next.slots[SlotKey.CITA_TWOFA_ID] = result.twofaId;
     next.state = SessionState.CITA_AWAITING_OTP;
     return buildResult(next, [sendText(ASK_OTP_TEXT)]);
+  }
+
+  if (result.status === ValidateUserStatus.NO_INSURANCE) {
+    return buildResult({ state: SessionState.CITA_NO_INSURANCE_CLOSED, slots: {}, counters: {} }, [sendText(NO_INSURANCE_TEXT)]);
   }
 
   if (result.status === ValidateUserStatus.ERROR) {

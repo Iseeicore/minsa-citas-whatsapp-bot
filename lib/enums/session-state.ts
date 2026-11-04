@@ -46,6 +46,7 @@ export enum SessionState {
   CITA_HORA_PENDING = "cita_hora_pending",
   CITA_NATIONAL_REDIRECT = "cita_national_redirect",
   CITA_NO_COVERAGE_CLOSED = "cita_no_coverage_closed",
+  CITA_NO_INSURANCE_CLOSED = "cita_no_insurance_closed",
   CITA_OTP_LOCKED = "cita_otp_locked",
   CITA_REGISTRATION_REJECTED = "cita_registration_rejected",
   CITA_REGISTRATION_WAIT = "cita_registration_wait",

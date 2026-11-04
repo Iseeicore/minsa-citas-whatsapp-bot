@@ -44,6 +44,7 @@ export const TERMINAL_STATES: ReadonlySet<string> = new Set<Session["state"]>([
   SessionState.CITA_BOOKING_REJECTED,
   SessionState.CITA_NATIONAL_REDIRECT,
   SessionState.CITA_NO_COVERAGE_CLOSED,
+  SessionState.CITA_NO_INSURANCE_CLOSED,
   SessionState.CITA_DECLINED_CLOSED,
   SessionState.CITA_ABANDONED,
   SessionState.CITA_TERMINOS_DECLINED,

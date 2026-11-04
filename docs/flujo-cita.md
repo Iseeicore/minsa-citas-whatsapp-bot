@@ -44,6 +44,7 @@ Documento 💬  (8 dígitos: DNI "01" · 9 dígitos: carnet de extranjería "03"
    │                └─ correcto ─► pide el distrito (la cita médica ya no consulta referencias)
    ├─ no registrado ─► 💬 "No encontramos tu documento en MINSADIGITAL. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse."
    │                   + 🔗 MINSADIGITAL + 🔘 [Ya me registré]  (máx. 3 intentos ⛔)
+   ├─ sin seguro (403 con code USUARIO_SIN_SEGURO) ─► 💬 "No es posible continuar con tu solicitud porque no cuentas con un seguro SIS activo." + despedida ⛔
    └─ el MINSA falló ─► 💬 "Ocurrió un inconveniente temporal al procesar tu solicitud. Por favor, intenta escribir nuevamente en unos instantes."
                         vuelve a pedir el documento; no cuenta como intento ni ofrece registrarse
 
