@@ -1,6 +1,6 @@
 export function formatHoraCita(horaInicio: string): string {
   const [hh, mm] = horaInicio.split(":");
-  return `${parseInt(hh, 10)}${mm}`;
+  return `${hh.padStart(2, "0")}${mm}`;
 }
 
 export function formatFechaForApi(fechaCupo: string): string {

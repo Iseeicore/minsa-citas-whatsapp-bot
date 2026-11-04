@@ -277,7 +277,7 @@ describe("referencias: contrato HTTP real a traves del chat, la FSM y los adapta
       codigo_renipress: selected.ipress_destino.codigo,
       codigo_ups: selected.ups_destino.codigo,
       fecha_cita: "20990101",
-      hora_cita: "900",
+      hora_cita: "0900",
       numero_documento_paciente: DOCUMENTO,
       referencia_id: selected.id_referencia,
     });
