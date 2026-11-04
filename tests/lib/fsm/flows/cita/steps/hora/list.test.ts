@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { handleHoraPending } from "@/lib/fsm/flows/cita/steps/hora/list";
+import { handleHoraPagePending, handleHoraPending } from "@/lib/fsm/flows/cita/steps/hora/list";
 import { isQueryEffect } from "@/lib/fsm/core/handlers-shared";
 import { findLimitViolations } from "@/lib/whatsapp/message-limits";
 import type { HandlerResult, QueryResultEvent, SendEffect, Session } from "@/lib/fsm/core/types";
 import type { HoraResultItem } from "@/lib/fsm/flows/cita/steps/hora/format";
 import { SlotKey } from "@/lib/enums/slot-key";
+import { CounterKey } from "@/lib/enums/counter-key";
+import { HoraPageButtonId } from "@/lib/enums/botones/hora-page-button-id";
 import { InternalEventType } from "@/lib/enums/internal-event-type";
 
 const pending: Session = {
@@ -52,5 +54,31 @@ describe("handleHoraPending: la lista de horarios respeta los límites de Meta",
 
     expect(sent(result).flatMap(findLimitViolations)).toEqual([]);
     expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list", "send_buttons"]);
+  });
+});
+
+describe("handleHoraPagePending: todas las páginas de horarios se pueden elegir", () => {
+  const clock = (minutes: number): string =>
+    `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const veintiuno = Array.from({ length: 21 }, (_, index) => item(clock(420 + index * 30), clock(450 + index * 30)));
+  const enPagina = (page: number): Session => ({
+    ...pending,
+    state: "cita_hora_page_pending",
+    counters: { [CounterKey.CITA_HORA_PAGE]: page },
+  });
+
+  it("la última página con un solo horario se lista con el botón de horarios anteriores", () => {
+    const result = handleHoraPagePending(enPagina(2), horas(veintiuno));
+
+    expect(result.session.state).toBe("cita_awaiting_hora_select");
+    expect(sent(result).map((effect) => effect.kind)).toEqual(["send_interactive_list", "send_buttons"]);
+    expect(sent(result)[1]).toMatchObject({ buttons: [{ id: HoraPageButtonId.PREV }] });
+  });
+
+  it("si pasaron horas y la página pedida ya no existe, muestra la última", () => {
+    const result = handleHoraPagePending(enPagina(5), horas(veintiuno));
+
+    expect(result.session.counters[CounterKey.CITA_HORA_PAGE]).toBe(2);
+    expect(sent(result)[0]).toMatchObject({ rows: [{ id: "17:00|17:30" }] });
   });
 });

@@ -42,7 +42,7 @@ describe("a single horario is never booked without asking", () => {
     expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("13:00|13:30");
   });
 
-  it("a last page with ONE leftover horario asks too, when the citizen only asked for 'Ver más horarios'", () => {
+  it("a last page with ONE leftover horario is listed to pick from, without booking, when the citizen asked for 'Ver más horarios'", () => {
     const eleven = Array.from({ length: 11 }, (_, index) => {
       const start = `${String(7 + index).padStart(2, "0")}:00`;
       return { horaInicio: start, horaFin: `${start.slice(0, 2)}:30` };
@@ -51,6 +51,6 @@ describe("a single horario is never booked without asking", () => {
     const result = handle(horaPending("cita_hora_page_pending", { [CounterKey.CITA_HORA_PAGE]: 1 }), horasResult(eleven));
 
     expect(booksDirectly(result)).toBe(false);
-    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
+    expect(result.session.state).toBe("cita_awaiting_hora_select");
   });
 });
