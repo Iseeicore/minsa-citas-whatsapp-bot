@@ -28,6 +28,8 @@ export const BOOKING_SERVICE_UNAVAILABLE_TEXT = "En este momento el servicio tie
 export const BOOKING_REJECTED_TEXT = "No pudimos agendar tu cita. Intenta de nuevo más tarde.";
 export const BOOKING_RETRYING_TEXT = "Estamos procesando tu cita, un momento…";
 export const BOOKING_RETRIES_EXHAUSTED_TEXT = "No pudimos agendar tu cita en este momento. Inténtalo más tarde.";
+export const BOOKING_WEEKLY_LIMIT_TEXT =
+  "Alcanzaste el máximo de citas permitidas por semana. Podrás agendar una nueva cita la próxima semana.\n\nGracias por comunicarte con el *Ministerio de Salud del Perú*. ¡Que tengas un buen día! 👋";
 export const BOOKING_RETRY_BUTTON_TEXT = "Reintentar";
 export const DUPLICATE_QUESTION_TEXT = "El Minsa permite una sola cita activa por especialidad. ¿Deseas intentar con otra especialidad?";
 export const duplicateActiveText = (especialidad: string): string =>

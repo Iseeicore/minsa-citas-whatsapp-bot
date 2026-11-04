@@ -83,6 +83,7 @@ export type BookAppointmentResult =
   | { status: BookingStatus.BOOKED; url: string; message?: string }
   | { status: BookingStatus.DUPLICATE; message: string }
   | { status: BookingStatus.ALREADY_HAS_APPOINTMENT; message: string }
+  | { status: BookingStatus.WEEKLY_LIMIT; message: string }
   | { status: BookingStatus.REJECTED; message?: string }
   | { status: BookingStatus.ERROR }
   | { status: BookingStatus.UNAVAILABLE }

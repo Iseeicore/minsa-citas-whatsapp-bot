@@ -10,6 +10,7 @@ import { bookAppointment } from "@/lib/integrations/minsa/booking";
 import { waitBeforeBookingRetry } from "@/lib/integrations/minsa/booking-retry";
 import { listEspecialidades, listEstablecimientos, listFechas, listHoras, searchUbigeo } from "@/lib/integrations/minsa/catalog";
 import { formatFechaForApi, formatHoraCita } from "@/lib/integrations/minsa/format";
+import { withoutTodayIfNoHorasLeft } from "@/lib/fsm/flows/cita/steps/fecha/today-availability";
 import { validateUser, verifyCode } from "@/lib/integrations/minsa/identity";
 import type { TipoDocumento } from "@/lib/enums/tipo-documento";
 import { listReferences } from "@/lib/integrations/minsa/references";
@@ -306,8 +307,14 @@ async function resolveQuery(effect: QueryEffect, session: Session, from: string)
     case QueryKind.LIST_ESTABLECIMIENTOS:
       return listEstablecimientos(required("especialidadId"), required("ubigeo"), bearer(), Number(effect.payload.page ?? 1));
 
-    case QueryKind.LIST_FECHAS:
-      return listFechas(required("codEess"), required("especialidadId"), bearer());
+    case QueryKind.LIST_FECHAS: {
+      const codEess = required("codEess");
+      const especialidadId = required("especialidadId");
+      const token = bearer();
+      return withoutTodayIfNoHorasLeft(await listFechas(codEess, especialidadId, token), (fecha) =>
+        listHoras(codEess, especialidadId, fecha, token),
+      );
+    }
 
     case QueryKind.LIST_HORAS:
       return listHoras(required("codEess"), required("especialidadId"), formatFechaForApi(required("fecha")), bearer());
