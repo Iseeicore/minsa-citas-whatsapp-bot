@@ -19,7 +19,7 @@ import { BannerTone } from "@/lib/enums/banner-tone";
 import { ChatOptionKind } from "@/lib/enums/chat-option-kind";
 import { InboundEventType } from "@/lib/enums/inbound-event-type";
 import { ButtonVariant } from "@/lib/enums/button-variant";
-import { isInteractiveEffect } from "@/lib/utils/interactive-effect";
+import { turnInteractiveId } from "@/lib/utils/interactive-effect";
 import { ChatEntryAuthor } from "@/lib/enums/chat-entry-author";
 import { SANDBOX_TEXT_MAX_LENGTH } from "@/lib/constants/sandbox-text-limit";
 import { textoMuyLargoText } from "@/lib/constants/textos/sandbox";
@@ -113,16 +113,15 @@ export default function Sandbox({
       }
 
       const { data } = result;
-      const lastInteractive = data.sent.map(isInteractiveEffect).lastIndexOf(true);
       setCurrentInteractiveId(data.interactiveId);
 
-      for (const [index, effect] of data.sent.entries()) {
+      for (const effect of data.sent) {
         if (!esBienvenida) {
           setTyping(true);
           await sleep(500);
           setTyping(false);
         }
-        const interactiveId = index === lastInteractive ? data.interactiveId : undefined;
+        const interactiveId = turnInteractiveId(effect, data.interactiveId);
         setEntries((prev) => [...prev, { id: randomUuid(), from: ChatEntryAuthor.BOT, effect, interactiveId }]);
       }
 

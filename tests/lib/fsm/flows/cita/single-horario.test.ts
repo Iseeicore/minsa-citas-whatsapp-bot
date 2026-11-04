@@ -73,7 +73,7 @@ describe("a day with ONE horario asks before booking", () => {
     ]);
   });
 
-  it("a one-slot last page asks too, when the citizen only asked for 'Ver más horarios'", () => {
+  it("a one-slot last page is listed to pick from, without booking, when the citizen asked for 'Ver más horarios'", () => {
     const eleven = Array.from({ length: 11 }, (_, index) => {
       const start = `${String(7 + index).padStart(2, "0")}:00`;
       return { horaInicio: start, horaFin: `${start.slice(0, 2)}:30` };
@@ -89,8 +89,8 @@ describe("a day with ONE horario asks before booking", () => {
     );
 
     expect(queries(result)).toHaveLength(0);
-    expect(result.session.state).toBe("cita_awaiting_hora_confirm");
-    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ID]).toBe("17:00|17:30");
+    expect(result.session.state).toBe("cita_awaiting_hora_select");
+    expect(result.session.slots[SlotKey.CITA_HORA_CONFIRM_ONLY]).toBeUndefined();
   });
 
   it("more than one horario still shows the list, and no 'only one' flag is left behind", () => {

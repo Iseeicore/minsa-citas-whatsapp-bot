@@ -45,50 +45,47 @@ function availableHoras(session: Session, items: HoraResultItem[]): HoraResultIt
   return orderHorasFromNow(slotText(session.slots, SlotKey.CITA_FECHA), candidates);
 }
 
-function resolveHoraCandidates(session: Session, items: HoraResultItem[]): HandlerResult {
+function horaRow(item: HoraResultItem): ListRow {
+  return {
+    id: `${item.horaInicio}|${item.horaFin}`,
+    title: truncateForRow(formatHoraRange(item.horaInicio, item.horaFin), WHATSAPP_ROW_TITLE_MAX),
+    description: truncateForRow(cuposDisponiblesText(item.cantidadCupos), WHATSAPP_ROW_DESCRIPTION_MAX),
+  };
+}
+
+function resolveSingleOrNoHora(session: Session, items: HoraResultItem[]): HandlerResult {
   const next = cloneSession(session);
-
-  if (items.length === 1) {
-    const [item] = items;
-    return askHoraConfirmation(next, `${item.horaInicio}|${item.horaFin}`, { only: true });
-  }
-
-  if (items.length > 1) {
-    next.state = SessionState.CITA_AWAITING_HORA_SELECT;
-    const rows: ListRow[] = items.map((item) => ({
-      id: `${item.horaInicio}|${item.horaFin}`,
-      title: truncateForRow(formatHoraRange(item.horaInicio, item.horaFin), WHATSAPP_ROW_TITLE_MAX),
-      description: truncateForRow(cuposDisponiblesText(item.cantidadCupos), WHATSAPP_ROW_DESCRIPTION_MAX),
-    }));
-    return buildResult(next, [offerList(next, SELECT_HORA_TEXT, rows)]);
-  }
-
+  const [item] = items;
+  if (item) return askHoraConfirmation(next, `${item.horaInicio}|${item.horaFin}`, { only: true });
   return offerOtherFecha(next, OfferOtherFechaReason.NO_HORARIOS);
 }
 
 function buildHoraPage(session: Session, orderedItems: HoraResultItem[], page: number): HandlerResult {
+  if (orderedItems.length <= 1) return resolveSingleOrNoHora(session, orderedItems);
+
   const size = listPageSize(session);
-  const start = page * size;
-  const pageItems = orderedItems.slice(start, start + size);
+  const current = Math.min(page, Math.ceil(orderedItems.length / size) - 1);
+  const start = current * size;
 
-  const result = resolveHoraCandidates(session, pageItems);
-  if (pageItems.length <= 1) return result;
-
-  result.session.slots[SlotKey.CITA_HORAS_DIA] = packHoraSlots(
+  const next = cloneSession(session);
+  next.state = SessionState.CITA_AWAITING_HORA_SELECT;
+  next.slots[SlotKey.CITA_HORAS_DIA] = packHoraSlots(
     orderedItems.map((item) => ({ start: item.horaInicio, end: item.horaFin, cupos: item.cantidadCupos })),
   );
+  const effects = [offerList(next, SELECT_HORA_TEXT, orderedItems.slice(start, start + size).map(horaRow))];
 
   const hasNext = start + size < orderedItems.length;
-  const hasPrev = page > 0;
-  if (!hasNext && !hasPrev) return result;
-
-  result.session.counters[CounterKey.CITA_HORA_PAGE] = page;
-  const navButtons = [
-    ...(hasPrev ? [{ id: HoraPageButtonId.PREV, title: HORA_PAGE_PREV_BUTTON_TEXT }] : []),
-    ...(hasNext ? [{ id: HoraPageButtonId.NEXT, title: HORA_PAGE_NEXT_BUTTON_TEXT }] : []),
-  ];
-  result.effects.push(sendButtons(HORA_PAGE_QUESTION_TEXT, navButtons));
-  return result;
+  const hasPrev = current > 0;
+  if (hasNext || hasPrev) {
+    next.counters[CounterKey.CITA_HORA_PAGE] = current;
+    effects.push(
+      sendButtons(HORA_PAGE_QUESTION_TEXT, [
+        ...(hasPrev ? [{ id: HoraPageButtonId.PREV, title: HORA_PAGE_PREV_BUTTON_TEXT }] : []),
+        ...(hasNext ? [{ id: HoraPageButtonId.NEXT, title: HORA_PAGE_NEXT_BUTTON_TEXT }] : []),
+      ]),
+    );
+  }
+  return buildResult(next, effects);
 }
 
 export function handleHoraPending(session: Session, event: QueryResultEvent): HandlerResult {

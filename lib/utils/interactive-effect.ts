@@ -4,3 +4,7 @@ import type { SendButtonsEffect, SendEffect, SendInteractiveListEffect, SendCons
 export function isInteractiveEffect(effect: SendEffect): effect is SendButtonsEffect | SendInteractiveListEffect | SendConsentEffect {
   return effect.kind === SendType.BUTTONS || effect.kind === SendType.INTERACTIVE_LIST || effect.kind === SendType.CONSENT;
 }
+
+export function turnInteractiveId(effect: SendEffect, interactiveId: string | undefined): string | undefined {
+  return isInteractiveEffect(effect) ? interactiveId : undefined;
+}
