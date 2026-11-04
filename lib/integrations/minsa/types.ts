@@ -5,7 +5,10 @@ import type { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import type { CatalogStatus } from "@/lib/enums/catalog-status";
 
 export type ValidateUserResult =
-  { status: ValidateUserStatus.VALID; twofaId: string } | { status: ValidateUserStatus.NOT_VALID } | { status: ValidateUserStatus.ERROR };
+  | { status: ValidateUserStatus.VALID; twofaId: string }
+  | { status: ValidateUserStatus.NOT_VALID }
+  | { status: ValidateUserStatus.ERROR }
+  | { status: ValidateUserStatus.NO_INSURANCE };
 
 export type VerifyCodeResult =
   { status: VerifyCodeStatus.VERIFIED; token: string } | { status: VerifyCodeStatus.INVALID } | { status: VerifyCodeStatus.ERROR };

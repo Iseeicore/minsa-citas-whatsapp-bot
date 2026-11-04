@@ -62,6 +62,21 @@ describe("real MINSA: validateUser respeta el contrato de validar-usuario", () =
     });
   });
 
+  it("un 403 con USUARIO_SIN_SEGURO es no_insurance", async () => {
+    vi.stubGlobal(
+      "fetch",
+      minsaResponding({ success: false, message: "No es posible continuar con la solicitud", code: "USUARIO_SIN_SEGURO" }, 403),
+    );
+
+    await expect(validateUser("75969078", TipoDocumento.DNI)).resolves.toEqual({ status: "no_insurance" });
+  });
+
+  it("un 403 con otro motivo sigue siendo error", async () => {
+    vi.stubGlobal("fetch", minsaResponding({ success: false, code: "OTRO" }, 403));
+
+    await expect(validateUser("75969078", TipoDocumento.DNI)).resolves.toEqual({ status: "error" });
+  });
+
   it("un 404 sigue siendo not_valid", async () => {
     vi.stubGlobal("fetch", minsaResponding({}, 404));
 

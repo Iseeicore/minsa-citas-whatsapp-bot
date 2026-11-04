@@ -9,6 +9,9 @@ import { ValidateUserStatus } from "@/lib/enums/validate-user-status";
 import { VerifyCodeStatus } from "@/lib/enums/verify-code-status";
 import { isString, isRecord } from "@/lib/utils/type-guards";
 import { logger } from "@/lib/observability/logger";
+import { MINSA_NO_INSURANCE_CODE } from "@/lib/constants/minsa-error-codes";
+import { parseJsonOr } from "@/lib/utils/safe-json";
+import { readString } from "@/lib/utils/record-readers";
 
 const FAKE_DOCUMENTS: readonly string[] = [FAKE_DNI, FAKE_CARNET_EXTRANJERIA];
 
@@ -29,6 +32,11 @@ function rootAndData(endpoint: MinsaEndpoint, body: unknown): { root: RawRow; da
     return undefined;
   }
   return { root: body, data: isRecord(body.data) ? body.data : {} };
+}
+
+async function minsaCodeOf(response: Response): Promise<string | undefined> {
+  const body = parseJsonOr(await response.text(), null);
+  return isRecord(body) ? readString(body, "code") : undefined;
 }
 
 function validityFlags(root: RawRow, data: RawRow): unknown[] {
@@ -75,6 +83,9 @@ export async function validateUser(numeroDocumento: string, tipoDocumento: TipoD
 
     if (DOCUMENT_NOT_VALID_STATUSES.has(response.status)) {
       return { status: ValidateUserStatus.NOT_VALID };
+    }
+    if (response.status === HttpStatus.FORBIDDEN && (await minsaCodeOf(response)) === MINSA_NO_INSURANCE_CODE) {
+      return { status: ValidateUserStatus.NO_INSURANCE };
     }
     if (!response.ok) {
       return { status: ValidateUserStatus.ERROR };

@@ -8,6 +8,8 @@ export const REGISTRATION_RETRY_BUTTON_TEXT = "Ya me registré";
 export const REGISTRATION_CANCEL_BUTTON_TEXT = "No quiero continuar";
 export const REGISTRATION_REJECTED_TEXT =
   "No pudimos encontrar tu registro después de varios intentos. Intenta de nuevo más tarde en Minsa Responde.\n\nSi el problema continúa, puedes revisar el portal de Minsa para encontrar el correo o número de contacto que te pueda ayudar a resolverlo.";
+export const NO_INSURANCE_TEXT =
+  "No es posible continuar con tu solicitud porque no cuentas con un seguro SIS activo.\n\nGracias por comunicarte con el *Ministerio de Salud del Perú*. ¡Que tengas un buen día! 👋";
 export const REGISTRATION_FIRST_MISS_TEXT =
   "No encontramos tu documento en Minsa Responde. Si aún no tienes cuenta, regístrate en la plataforma; el registro puede tardar unos minutos en reflejarse.";
 export const REGISTRATION_SECOND_MISS_TEXT =
