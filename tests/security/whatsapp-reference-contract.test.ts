@@ -251,7 +251,7 @@ describe("WhatsApp: referencia hasta la reserva mediante webhook firmado y servi
       codigo_renipress: "005987",
       codigo_ups: "0222800",
       fecha_cita: "20990101",
-      hora_cita: "900",
+      hora_cita: "0900",
       numero_documento_paciente: WHATSAPP_REFERENCE_DOCUMENT,
       referencia_id: selected.id_referencia,
     });
