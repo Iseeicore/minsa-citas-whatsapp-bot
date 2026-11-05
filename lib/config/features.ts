@@ -13,3 +13,7 @@ export function isReferenciasEnabled(): boolean {
 export function isTerminosEnabled(): boolean {
   return isFlagOn(process.env.TERMINOS_ENABLED);
 }
+
+export function isWhatsappFlowsEnabled(): boolean {
+  return isFlagOn(process.env.WHATSAPP_FLOWS_ENABLED);
+}

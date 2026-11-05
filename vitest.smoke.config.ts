@@ -14,6 +14,7 @@ export default defineConfig({
     env: {
       INCIDENCIAS_ENABLED: "true",
       REFERENCIAS_ENABLED: "true",
+      WHATSAPP_FLOWS_ENABLED: "true",
     },
     testTimeout: 60_000,
     hookTimeout: 60_000,

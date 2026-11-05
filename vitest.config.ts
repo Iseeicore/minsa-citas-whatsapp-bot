@@ -33,6 +33,7 @@ export default defineConfig({
       MINSA_DIGITAL_APP_URL: "https://fake-minsa-digital.test",
       INCIDENCIAS_ENABLED: "true",
       REFERENCIAS_ENABLED: "true",
+      WHATSAPP_FLOWS_ENABLED: "true",
     },
     coverage: {
       provider: "v8",
