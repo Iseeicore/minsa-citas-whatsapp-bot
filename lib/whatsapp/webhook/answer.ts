@@ -4,7 +4,10 @@ import { TurnLockTimeoutError } from "@/lib/errors/turn-lock-timeout-error";
 import { logger } from "@/lib/observability/logger";
 import { tail } from "@/lib/observability/mask";
 import { routeLexicalAction } from "@/lib/fsm/routing/lexical-guard-routing";
-import { isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
+import { buildResult, isQueryEffect, withNote } from "@/lib/fsm/core/handlers-shared";
+import { isWhatsappFlowsEnabled } from "@/lib/config/features";
+import { emergencyCut } from "@/lib/fsm/flows/emergency/emergency";
+import { buildWhatsappOnlyWelcome } from "@/lib/fsm/routing/welcome";
 import { SendType } from "@/lib/enums/send-type";
 import { GraphPostStatus } from "@/lib/enums/graph-post-status";
 import { WhatsAppSendOperation } from "@/lib/enums/whatsapp-send-operation";
@@ -15,7 +18,7 @@ import { logSendFailure, sendAndRecordEffect, sendTypingIndicator, sendWhatsAppE
 import { handleFirstContact } from "@/lib/fsm/routing/first-contact";
 import { textoDeLaPersona } from "@/lib/fsm/parsing/text/inicio-incidencia";
 import { isEmergency } from "@/lib/fsm/flows/out-of-scope/out-of-scope";
-import type { InteractiveTracking, SendEffect, SendOutcome } from "@/lib/fsm/core/types";
+import type { HandlerResult, InteractiveTracking, SendEffect, SendOutcome, Session } from "@/lib/fsm/core/types";
 import { type WhatsAppMessage, toInboundEvent } from "@/lib/whatsapp/webhook/payload";
 import { SessionState } from "@/lib/enums/session-state";
 import type { LatencyMarks } from "@/lib/observability/inbound-latency";
@@ -53,6 +56,31 @@ function deliverTo(message: WhatsAppMessage, conversationId: string | undefined,
   };
 }
 
+async function deliverResult(
+  message: WhatsAppMessage,
+  conversationId: string | undefined,
+  marks: LatencyMarks | undefined,
+  before: Session,
+  result: HandlerResult,
+): Promise<void> {
+  const waId = message.from_user_id;
+  const text = message.type === "text" ? message.text?.body : undefined;
+  await traceTurn(waId, { type: message.type, text, messageId: message.id }, before, async (trace) => {
+    for (const note of result.notes ?? []) trace.note(note);
+
+    const toSend = result.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
+    const deliver = deliverTo(message, conversationId, marks);
+    let tracking: InteractiveTracking = { consumed: false };
+    for (const effect of toSend) {
+      tracking = trackDelivery(trace, tracking, effect, await deliver(effect));
+    }
+
+    const session = withInteractiveTracking(result.session, tracking);
+    await saveSession(waId, session);
+    trace.complete({ session, sentCount: toSend.length });
+  });
+}
+
 async function answerFirstContact(message: WhatsAppMessage, conversationId: string | undefined, marks?: LatencyMarks): Promise<void> {
   const waId = message.from_user_id;
   const firstContactText = message.type === "text" ? message.text?.body : undefined;
@@ -88,20 +116,14 @@ async function answerFirstContact(message: WhatsAppMessage, conversationId: stri
     return;
   }
 
-  await traceTurn(waId, { type: message.type, text: firstContactText, messageId: message.id }, fresh, async (trace) => {
-    for (const note of first.notes ?? []) trace.note(note);
+  await deliverResult(message, conversationId, marks, fresh, first);
+}
 
-    const toSend = first.effects.filter((effect): effect is SendEffect => !isQueryEffect(effect));
-    const deliver = deliverTo(message, conversationId, marks);
-    let tracking: InteractiveTracking = { consumed: false };
-    for (const effect of toSend) {
-      tracking = trackDelivery(trace, tracking, effect, await deliver(effect));
-    }
-
-    const session = withInteractiveTracking(first.session, tracking);
-    await saveSession(waId, session);
-    trace.complete({ session, sentCount: toSend.length });
-  });
+async function answerWithWelcomeOnly(message: WhatsAppMessage, conversationId: string | undefined, marks?: LatencyMarks): Promise<void> {
+  const fresh = { state: SessionState.MAIN_MENU, slots: {}, counters: {}, channel: "whatsapp" as const };
+  const written = message.type === "text" && message.text?.body ? textoDeLaPersona(message.text.body) : undefined;
+  const reply = written && isEmergency(written) ? emergencyCut("whatsapp_welcome_only") : buildResult(fresh, [buildWhatsappOnlyWelcome()]);
+  await deliverResult(message, conversationId, marks, fresh, reply);
 }
 
 export async function answerMessage(
@@ -110,6 +132,11 @@ export async function answerMessage(
   marks?: LatencyMarks,
   mediaIds?: string[],
 ): Promise<void> {
+  if (!isWhatsappFlowsEnabled()) {
+    await answerWithWelcomeOnly(message, conversationId, marks);
+    return;
+  }
+
   const waId = message.from_user_id;
   const existingSession = await findSession(waId);
 

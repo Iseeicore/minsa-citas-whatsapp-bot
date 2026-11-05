@@ -13,6 +13,10 @@ Mapa de cada paso del flujo de cita: qué envía el bot (lista, botones o texto)
 | 🤖 **IA** | El paso puede consultar a la IA (ver [Dónde interviene la IA](#dónde-interviene-la-ia)) |
 | ⛔ | Estado terminal: el siguiente mensaje vuelve al primer contacto |
 
+## WhatsApp sin flujos
+
+Con `WHATSAPP_FLOWS_ENABLED` apagada (por defecto), WhatsApp no entra a este árbol: todo mensaje, incluso a mitad de una conversación anterior, recibe la bienvenida sin botones, con el enlace al portal y «Si tienes alguna duda, llámanos al `CONTACT_PHONE_NUMBER`.», y la sesión vuelve al inicio. Una emergencia recibe el aviso del 106. El árbol de abajo aplica al Chat-bot, y a WhatsApp solo con `WHATSAPP_FLOWS_ENABLED=true`.
+
 ## Árbol del flujo correcto
 
 ```

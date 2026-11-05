@@ -13,6 +13,14 @@ ${portalUrl}
 
 ¿Prefieres seguir por aquí mismo y ya tienes tu usuario de Minsa Digital?`;
 
+export const whatsappOnlyWelcomeText = (portalUrl: string | null, contactPhone: string | undefined): string =>
+  [
+    "¡Hola! Te damos la bienvenida al canal oficial del *Ministerio de Salud del Perú (Minsa)* 🇵🇪.",
+    "⚠️ Si tienes una emergencia médica, llama al *106* (SAMU).",
+    ...(portalUrl ? [`Si quieres agendar tu cita médica en menos de 2 minutos y sin colas entra a\n\n${portalUrl}`] : []),
+    ...(contactPhone ? [`Si tienes alguna duda, llámanos al ${contactPhone}.`] : []),
+  ].join("\n\n");
+
 export const WEB_WELCOME_MESSAGE_TEXT =
   "¡Hola! Soy tu asistente virtual. En caso de emergencia médica, llama al *106* (SAMU).\n¿En qué puedo ayudarte?";
 

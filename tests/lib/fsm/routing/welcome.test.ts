@@ -1,8 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildWelcomeEffect, buildWelcomeEffects } from "@/lib/fsm/routing/welcome";
+import { buildWelcomeEffect, buildWelcomeEffects, buildWhatsappOnlyWelcome } from "@/lib/fsm/routing/welcome";
 import { welcomeMessageText } from "@/lib/constants/textos/menu";
 
 const ORIGINAL_URL = process.env.MINSA_DIGITAL_APP_URL;
+
+describe("buildWhatsappOnlyWelcome", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("es un texto sin botones, con el portal y el teléfono, sin la pregunta de seguir por aquí", () => {
+    vi.stubEnv("MINSA_DIGITAL_APP_URL", "https://digital.minsa.gob.pe");
+    vi.stubEnv("CONTACT_PHONE_NUMBER", "989 655 177");
+
+    const effect = buildWhatsappOnlyWelcome();
+
+    expect(effect.kind).toBe("send_text");
+    expect(effect.text).toContain("https://digital.minsa.gob.pe");
+    expect(effect.text).toContain("*106*");
+    expect(effect.text.endsWith("Si tienes alguna duda, llámanos al 989 655 177.")).toBe(true);
+    expect(effect.text).not.toContain("Prefieres seguir");
+  });
+
+  it("sin teléfono ni portal configurados, queda la bienvenida con el aviso del 106", () => {
+    vi.stubEnv("MINSA_DIGITAL_APP_URL", "");
+    vi.stubEnv("CONTACT_PHONE_NUMBER", "");
+
+    const { text } = buildWhatsappOnlyWelcome();
+
+    expect(text).toContain("*106*");
+    expect(text).not.toContain("llámanos");
+    expect(text).not.toContain("entra a");
+  });
+});
 
 describe("buildWelcomeEffect", () => {
   beforeEach(() => {
