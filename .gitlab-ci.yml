@@ -1,7 +1,8 @@
 stages:          # List of stages for jobs, and their order of execution
 #  - build
 #  - test
-  - deploy
+- deploy
+- revisionCVE
 
 image: reposdocker.minsa.gob.pe/python-lint:3.12
 variables:
@@ -25,3 +26,13 @@ deploy calidad:
     - ansible-playbook qminsadigital-bot.yml -vv
   only:
     - /^release/*/
+
+Revision CVEs:
+  stage: revisionCVE
+  image: registry.minsa.gob.pe/oidt/images/ansible:2.15
+  script:
+    - cd /playbooks/k8s
+    - ansible-playbook dminsadigital-bot-cve.yml -vv
+  only:
+    - develop
+

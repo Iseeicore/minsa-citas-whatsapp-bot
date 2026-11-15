@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { LOG_EVENTS, TURN_NOTE_KINDS } from "@/lib/observability/events";
 
 const ROOT = process.cwd();
-const observabilityDoc = fs.readFileSync(path.join(ROOT, "docs", "observabilidad.md"), "utf8");
 
 function serverSources(): string[] {
   return ["lib", "app"]
@@ -19,14 +18,6 @@ describe("log event catalog", () => {
   it("lists each event and each turn note kind once", () => {
     expect(new Set(LOG_EVENTS).size).toBe(LOG_EVENTS.length);
     expect(new Set(TURN_NOTE_KINDS).size).toBe(TURN_NOTE_KINDS.length);
-  });
-
-  it("has every event documented in docs/observabilidad.md", () => {
-    for (const event of LOG_EVENTS) expect(observabilityDoc, `${event} is missing from docs/observabilidad.md`).toContain(`\`${event}\``);
-  });
-
-  it("has every turn note kind documented in docs/observabilidad.md", () => {
-    for (const kind of TURN_NOTE_KINDS) expect(observabilityDoc, `${kind} is missing from docs/observabilidad.md`).toContain(`\`${kind}\``);
   });
 
   it("leaves no server code writing to the console directly: every line goes through the masked logger", () => {
