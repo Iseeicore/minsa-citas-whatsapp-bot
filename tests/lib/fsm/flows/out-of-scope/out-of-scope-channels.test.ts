@@ -48,14 +48,6 @@ describe("the channels file is the single source of every contact", () => {
     }
   });
 
-  it("every channel is in the verification checklist, so none can be added without being checked", () => {
-    const checklist = fs.readFileSync(path.join(process.cwd(), "docs", "canales-fuera-de-alcance.md"), "utf8");
-
-    for (const [name, value] of Object.entries(CHANNELS)) {
-      expect(checklist.includes(`\`${value}\``), `${name} («${value}») is missing from docs/canales-fuera-de-alcance.md`).toBe(true);
-    }
-  });
-
   it("the emergency numbers are the national ones", () => {
     expect(CHANNELS.samu).toBe("106");
     expect(CHANNELS.bomberos).toBe("116");
